@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/noobaa/noobaa-core/issues"
   },
-  "homepage": "https://github.com/noobaa/noobaa-core"
+  "homepage": "https://github.com/noobaa/noobaa-core",
+  "dependencies": {
+    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git"
+  }
 }

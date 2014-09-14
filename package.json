@@ -24,9 +24,7 @@
     "request": "~2.42.0",
     "mongoose": "~3.8.16",
     "bcrypt": "~0.8.0",
-    "express": "~4.9.0"
-  },
-  "devDependencies": {
+    "express": "~4.9.0",
     "jshint-stylish": "~0.4.0",
     "gulp-plumber": "~0.6.5",
     "gulp-cached": "~1.0.1",

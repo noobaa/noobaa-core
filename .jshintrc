@@ -1,0 +1,19 @@
+{
+    "indent": 4,
+    "latedef": "nofunc",
+    "curly": false,
+    "unused": false,
+    "eqeqeq": false,
+    "onevar": false,
+    "eqnull": true,
+    "expr": true,
+    "noarg": true,
+    "newcap": true,
+    "nonew": true,
+    "strict": true,
+    "trailing": true,
+    "immed": true,
+    "undef": true,
+
+    "node":true
+}

@@ -1,22 +1,41 @@
 {
   "name": "noobaa-core",
   "version": "0.0.0",
+  "private": true,
   "description": "noobaa-core ===========",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "postinstall": "./node_modules/.bin/gulp install",
+    "test": "./node_modules/.bin/gulp test",
+    "start": "./node_modules/.bin/gulp start"
   },
   "repository": {
     "type": "git",
     "url": "https://github.com/noobaa/noobaa-core.git"
   },
-  "author": "",
-  "license": "None",
   "bugs": {
     "url": "https://github.com/noobaa/noobaa-core/issues"
   },
   "homepage": "https://github.com/noobaa/noobaa-core",
   "dependencies": {
-    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git"
+    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git",
+    "underscore": "~1.7.0",
+    "q": "~1.0.1",
+    "request": "~2.42.0",
+    "mongoose": "~3.8.16",
+    "bcrypt": "~0.8.0",
+    "express": "~4.9.0"
+  },
+  "devDependencies": {
+    "jshint-stylish": "~0.4.0",
+    "gulp-plumber": "~0.6.5",
+    "gulp-cached": "~1.0.1",
+    "gulp-util": "~3.0.1",
+    "gulp-mocha": "~1.1.0",
+    "gulp": "~3.8.8",
+    "gulp-jshint": "~1.8.4",
+    "gulp-notify": "~1.6.0",
+    "gulp-coverage": "~0.3.27",
+    "mocha": "~1.21.4"
   }
 }

@@ -5,7 +5,7 @@
   "description": "noobaa-core ===========",
   "main": "index.js",
   "scripts": {
-    "postinstall": "./node_modules/.bin/gulp install",
+    "prepublish": "./node_modules/.bin/gulp install",
     "test": "./node_modules/.bin/gulp test",
     "start": "./node_modules/.bin/gulp start"
   },

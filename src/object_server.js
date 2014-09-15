@@ -81,7 +81,7 @@ function delete_bucket(req) {
             account: req.account.id,
             name: bucket_name,
         };
-        return Bucket.findOneAndDelete(info).exec();
+        return Bucket.findOneAndRemove(info).exec();
     }).then(function() {
         return undefined;
     });
@@ -167,7 +167,7 @@ function delete_object(req) {
             bucket: bucket.id,
             key: key,
         };
-        return Bucket.findOneAndDelete(info).exec();
+        return Bucket.findOneAndRemove(info).exec();
     }).then(function() {
         return undefined;
     });

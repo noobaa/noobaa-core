@@ -16,9 +16,12 @@ module.exports = restful_api.define_api({
             method: 'POST',
             path: '/',
             params: {
-                bucket: {
-                    type: String,
-                    require: true,
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    }
                 }
             }
         },
@@ -27,14 +30,21 @@ module.exports = restful_api.define_api({
             method: 'GET',
             path: '/:bucket',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
             },
             reply: {
-                name: {
-                    type: String
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
                 }
             }
         },
@@ -43,10 +53,13 @@ module.exports = restful_api.define_api({
             method: 'PUT',
             path: '/:bucket',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
             },
         },
 
@@ -54,10 +67,13 @@ module.exports = restful_api.define_api({
             method: 'DELETE',
             path: '/:bucket',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
             },
         },
 
@@ -65,11 +81,39 @@ module.exports = restful_api.define_api({
             method: 'GET',
             path: '/:bucket/list',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
             },
+            reply: {
+                type: 'object',
+                required: ['objects'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['key', 'size', 'create_time'],
+                            properties: {
+                                key: {
+                                    type: 'string',
+                                },
+                                size: {
+                                    type: 'number',
+                                },
+                                create_time: {
+                                    type: 'string',
+                                    format: 'date',
+                                },
+                            }
+                        }
+                    }
+                }
+            }
         },
 
         // object functions
@@ -78,18 +122,19 @@ module.exports = restful_api.define_api({
             method: 'POST',
             path: '/:bucket',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
-                key: {
-                    type: String,
-                    required: true,
-                },
-                size: {
-                    type: Number,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket', 'key', 'size'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    size: {
+                        type: 'number',
+                    },
+                }
             },
         },
 
@@ -97,14 +142,16 @@ module.exports = restful_api.define_api({
             method: 'GET',
             path: '/:bucket/:key',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
-                key: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
             },
         },
 
@@ -112,14 +159,16 @@ module.exports = restful_api.define_api({
             method: 'PUT',
             path: '/:bucket/:key',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
-                key: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
             },
         },
 
@@ -127,14 +176,16 @@ module.exports = restful_api.define_api({
             method: 'DELETE',
             path: '/:bucket/:key',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
-                key: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
             },
         },
 
@@ -142,28 +193,35 @@ module.exports = restful_api.define_api({
             method: 'GET',
             path: '/:bucket/:key/map',
             params: {
-                bucket: {
-                    type: String,
-                    required: true,
-                },
-                key: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
             },
             reply: {
-                key: {
-                    type: String
-                },
-                size: {
-                    type: Number
-                },
-                create_time: {
-                    type: Date
-                },
-                map: {
-                    type: Object
-                },
+                type: 'object',
+                required: ['key', 'size', 'create_time', 'map'],
+                properties: {
+                    key: {
+                        type: 'string'
+                    },
+                    size: {
+                        type: 'number'
+                    },
+                    create_time: {
+                        type: 'string',
+                        format: 'date',
+                    },
+                    map: {
+                        type: 'object'
+                    },
+                }
             }
         },
 

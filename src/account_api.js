@@ -14,13 +14,15 @@ module.exports = restful_api.define_api({
             method: 'POST',
             path: '/login',
             params: {
-                email: {
-                    type: String,
-                    required: true,
-                },
-                password: {
-                    type: String,
-                    required: true,
+                type: 'object',
+                required: ['email', 'password'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    password: {
+                        type: 'string',
+                    },
                 },
             },
             doc: 'login into account',
@@ -36,18 +38,20 @@ module.exports = restful_api.define_api({
             method: 'POST',
             path: '/',
             params: {
-                email: {
-                    type: String,
-                    required: true,
-                    doc: [
-                        'email is used to identify the account. ',
-                        'an email can be used for one account only.',
-                    ].join(''),
-                },
-                password: {
-                    type: String,
-                    required: true,
-                    doc: 'password for account authentication',
+                type: 'object',
+                required: ['email', 'password'],
+                properties: {
+                    email: {
+                        type: 'string',
+                        doc: [
+                            'email is used to identify the account. ',
+                            'an email can be used for one account only.',
+                        ].join(''),
+                    },
+                    password: {
+                        type: 'string',
+                        doc: 'password for account authentication',
+                    },
                 },
             },
             doc: 'create a new account',
@@ -57,9 +61,12 @@ module.exports = restful_api.define_api({
             method: 'GET',
             path: '/',
             reply: {
-                email: {
-                    type: String,
-                    required: true,
+                type: 'object',
+                required: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
                 },
             },
             doc: 'return the current logged in account info',
@@ -69,10 +76,15 @@ module.exports = restful_api.define_api({
             method: 'PUT',
             path: '/',
             params: {
-                email: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    password: {
+                        type: 'string',
+                    },
+                }
             },
             doc: 'update the current logged in account info',
         },

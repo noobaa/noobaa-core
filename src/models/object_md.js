@@ -12,30 +12,51 @@ var objmd_schema = new Schema({
     // the service account
     account: {
         type: types.ObjectId,
-        ref: 'Account'
+        ref: 'Account',
+        required: true,
     },
 
     // every object belongs to a single bucket
     bucket: {
         type: types.ObjectId,
-        ref: 'Bucket'
+        ref: 'Bucket',
+        required: true,
     },
-    
-    // the object key is sort of a path in the bucket namespace
-    key: String,
 
-    // the object storage mapping can be shared between multiple objects in the system
-    map: {
-        type: types.ObjectId,
-        ref: 'ObjectMap'
+    // the object key is sort of a path in the bucket namespace
+    key: {
+        type: String,
+        required: true,
     },
+
+    ranges: [{
+        // the range starting byte offset, and byte size
+        offset: {
+            type: Number,
+            required: true,
+        },
+        size: {
+            type: Number,
+            required: true,
+        },
+        // the object storage mapping can be shared between multiple objects in the system
+        map: {
+            type: types.ObjectId,
+            ref: 'ObjectMap',
+            required: true,
+        },
+    }],
 
     // size in bytes
-    size: Number,
+    size: {
+        type: Number,
+        required: true,
+    },
 
     create_time: {
         type: Date,
-        default: Date.now
+        default: Date.now,
+        required: true,
     },
 
 });

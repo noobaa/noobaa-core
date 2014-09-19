@@ -10,6 +10,7 @@ var assert = require('assert');
 var URL = require('url');
 var PATH = require('path');
 var request = require('request');
+var tv4 = require('tv4');
 
 
 module.exports = {
@@ -76,12 +77,12 @@ function define_api(api) {
             if (!func && allow_missing_methods) {
                 func = function(params) {
                     return Q.reject({
-                        data: 'Missing server impl of ' + func_name
+                        data: 'Missing method implementation in server of ' + func_name
                     });
                 };
             }
             assert.strictEqual(typeof(func), 'function',
-                'Missing server function ' + func_name);
+                'Server method is not a function ' + func_name);
             me._impl[func_name] = func;
             me._handlers[func_name] = create_server_handler(me, func, func_info);
         });
@@ -159,7 +160,7 @@ function define_api(api) {
             }
             // if a param item (starts with colon) find the param info
             p = p.slice(1);
-            var param = func_info.params[p];
+            var param = func_info.params.properties[p];
             assert(param, 'missing param info: ' + p + ' of ' + func_info);
             return {
                 name: p,
@@ -198,10 +199,10 @@ function do_client_request(client_params, func_info, params) {
         // now send it over http
         return send_http_request(options);
     }).then(function(res) {
-        // get the reply and return
-        var reply = res.data;
-        check_undefined_params(func_info.name, func_info.reply, reply);
-        check_params_by_info(func_info.name, func_info.reply, reply, 'decode');
+        if (res.data) {
+            // check the reply
+            validate_schema(res.data, func_info.reply, func_info);
+        }
         return res;
     }).then(null, function(err) {
         console.error('RESTFUL REQUEST FAILED', err);
@@ -214,17 +215,18 @@ function do_client_request(client_params, func_info, params) {
 function create_client_request(client_params, func_info, params) {
     var method = func_info.method;
     var path = client_params.path || '/';
-    var data = _.clone(params);
-    check_undefined_params(func_info.name, func_info.params, data);
-    check_params_by_info(func_info.name, func_info.params, data, 'encode');
+    var data = _.clone(params) || {};
+    validate_schema(data, func_info.params, func_info);
+    // construct the request path for the relevant params
     _.each(func_info.path_items, function(p) {
         if (!p) {
             return;
         } else if (typeof(p) === 'string') {
+            // for plain path strings which are non params
             path = PATH.join(path, p);
         } else {
             assert(p.name in params, 'missing required path param: ' + p + ' of ' + func_info.name);
-            path = PATH.join(path, data[p.name].toString());
+            path = PATH.join(path, param_to_component(data[p.name], p.param.type));
             delete data[p.name];
         }
     });
@@ -234,6 +236,9 @@ function create_client_request(client_params, func_info, params) {
         body = data;
     } else {
         query = data;
+        _.each(query, function(v, k) {
+            query[k] = param_to_component(query[k], func_info.params.properties[k].type);
+        });
     }
     var url = URL.format({
         // TODO what to do to support https?
@@ -290,16 +295,27 @@ function create_server_handler(server, func, func_info) {
         }
         var log_func = server._log || function() {};
         Q.fcall(function() {
-            check_req_params_by_info(func_info.name, func_info.params, req, 'decode');
+            req.restful_params = {};
+            _.each(req.query, function(v, k) {
+                req.restful_params[k] =
+                    component_to_param(v, func_info.params.properties[k].type);
+            });
+            _.each(req.body, function(v, k) {
+                req.restful_params[k] = v;
+            });
+            _.each(req.params, function(v, k) {
+                req.restful_params[k] =
+                    component_to_param(v, func_info.params.properties[k].type);
+            });
+            validate_schema(req.restful_params, func_info.params, func_info);
             // server functions are expected to return a promise
             return func(req, res, next);
         }).then(function(reply) {
             log_func('SERVER COMPLETED', func_info.name);
             if (reply) {
-                check_undefined_params(func_info.name, func_info.reply, reply);
-                check_params_by_info(func_info.name, func_info.reply, reply, 'encode');
+                validate_schema(reply, func_info.reply, func_info);
             }
-            return res.json(200, reply);
+            return res.status(200).json(reply);
         }).then(null, function(err) {
             log_func('SERVER ERROR', func_info.name, ':', err, err.stack);
             var status = err.status || err.statusCode;
@@ -308,9 +324,9 @@ function create_server_handler(server, func, func_info) {
                 status >= 100 &&
                 status < 600
             ) {
-                return res.json(status, data);
+                return res.status(status).json(data);
             } else {
-                return res.json(500, data);
+                return res.status(500).json(data);
             }
         }).done(null, function(err) {
             log_func('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
@@ -330,111 +346,42 @@ function install_route(router, method, path, handler) {
 }
 
 
-function check_undefined_params(func_name, params_info, params) {
-    _.each(params, function(value, name) {
-        if (!(name in params_info)) {
-            throw new Error('undefined api param: ' + name + ' of ' + func_name);
+tv4.addFormat('date', function(data) {
+    var d = new Date(data);
+    return isNaN(d.getTime()) ? 'bad date' : null;
+});
+
+
+function validate_schema(obj, schema, info) {
+    var result = tv4.validateResult(obj, schema);
+    if (!result.valid) {
+        result.info = info;
+        throw result;
+    }
+}
+
+function param_to_component(param, type) {
+    if (type === 'array' || type === 'object') {
+        return encodeURIComponent(JSON.stringify(param));
+    } else {
+        return param.toString();
+    }
+}
+
+function component_to_param(component, type) {
+    if (type === 'array' || type === 'object') {
+        if (typeof(component) === type) {
+            return component; // already parsed
+        } else {
+            return JSON.parse(decodeURIComponent(component));
         }
-    });
-}
-
-var TYPES = [{
-    type: String,
-    check: _.isString,
-    encode: function(arg) {
-        return String(arg);
-    },
-    decode: function(arg) {
-        return String(arg);
-    },
-}, {
-    type: Number,
-    check: _.isNumber,
-    encode: function(arg) {
-        return Number(arg);
-    },
-    decode: function(arg) {
-        return Number(arg);
-    },
-}, {
-    type: Boolean,
-    check: _.isBoolean,
-    encode: function(arg) {
-        return Boolean(arg);
-    },
-    decode: function(arg) {
-        return Boolean(arg);
-    },
-}, {
-    type: Date,
-    check: _.isDate,
-    encode: function(arg) {
-        return arg.valueOf();
-    },
-    decode: function(arg) {
-        return new Date(Number(arg));
-    },
-}, {
-    type: RegExp,
-    check: _.isRegExp,
-    cast: function(arg) {
-        return new RegExp(arg);
-    },
-    encode: function(arg) {
-        return arg.toString();
-    },
-    decode: function(arg) {
-        return new RegExp(arg);
-    },
-}, {
-    type: Array,
-    check: _.isArray,
-    encode: function(arg) {
-        return arg;
-    },
-    decode: function(arg) {
-        return arg;
-    },
-}, {
-    type: Object,
-    check: _.isObject,
-    encode: function(arg) {
-        return arg;
-    },
-    decode: function(arg) {
-        return Object(arg);
-    },
-}];
-
-function check_params_by_info(func_name, params_info, params, coder_type) {
-    _.each(params_info, function(param_info, name) {
-        params[name] = check_param_by_info(func_name, name, param_info, params[name], coder_type);
-    });
-}
-
-function check_req_params_by_info(func_name, params_info, req, coder_type) {
-    req.restful_params = {};
-    req.restful_param = function(name) {
-        return req.restful_params[name];
-    };
-    _.each(params_info, function(param_info, name) {
-        req.restful_params[name] = check_param_by_info(
-            func_name, name, param_info,
-            req.param(name), coder_type
-        );
-    });
-}
-
-function check_param_by_info(func_name, name, info, value, coder_type) {
-    assert(!_.isUndefined(value) || !info.required,
-        'missing required param: ' + name + ' of ' + func_name);
-    var type = info.type || info;
-    var t = _.findWhere(TYPES, {
-        type: type
-    });
-    assert(t, 'unknown param type: ' + name + ' of ' + func_name);
-    var result = t[coder_type].call(null, value);
-    // console.log('TYPE RESULT', coder_type, func_name, name, t.type.name,
-    // result.valueOf(), typeof(result), '(value=', value.valueOf(), ')');
-    return result;
+    } else if (type === 'number') {
+        return Number(component);
+    } else if (type === 'boolean') {
+        return Boolean(component);
+    } else if (type === 'string') {
+        return String(component);
+    } else {
+        return component;
+    }
 }

@@ -14,18 +14,19 @@ module.exports = restful_api.define_api({
             method: 'POST',
             path: '/',
             params: {
-                name: {
-                    type: String,
-                    required: true,
-                },
-                ip: {
-                    type: String,
-                    required: true,
-                },
-                port: {
-                    type: Number,
-                    required: true,
-                },
+                type: 'object',
+                required: ['name', 'ip', 'port'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    ip: {
+                        type: 'string',
+                    },
+                    port: {
+                        type: 'number',
+                    },
+                }
             },
         },
 
@@ -33,12 +34,23 @@ module.exports = restful_api.define_api({
             method: 'DELETE',
             path: '/',
             params: {
-                name: {
-                    type: String,
-                    required: true,
-                },
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
             },
         },
+
+        /*
+        add_block: {
+            method: 'POST',
+            path: '/block',
+            reply: {},
+        }
+        */
     }
 
 });

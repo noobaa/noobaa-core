@@ -12,11 +12,15 @@ var bucket_schema = new Schema({
     // the service account
     account: {
         type: types.ObjectId,
-        ref: 'Account'
+        ref: 'Account',
+        required: true,
     },
 
     // bucket name - unique in the system
-    name: String,
+    name: {
+        type: String,
+        required: true,
+    },
 
 });
 

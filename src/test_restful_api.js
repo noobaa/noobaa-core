@@ -15,38 +15,41 @@ describe('restful_api', function() {
     var restful_api = require('./restful_api');
 
     var test_params_info = {
-        param1: {
-            type: String,
-            required: true,
-        },
-        param2: {
-            type: Number,
-            required: true,
-        },
-        param3: {
-            type: Boolean,
-            required: true,
-        },
-        param4: {
-            type: Date,
-            required: true,
-        },
-        param5: {
-            type: Array,
-            required: false,
-        },
+        type: 'object',
+        required: ['param1', 'param2', 'param3', 'param4'],
+        properties: {
+            param1: {
+                type: 'string',
+            },
+            param2: {
+                type: 'number',
+            },
+            param3: {
+                type: 'boolean',
+            },
+            param4: {
+                type: 'string',
+                format: 'date',
+            },
+            param5: {
+                type: 'array',
+            },
+        }
     };
     var test_reply_info = {
-        rest: {
-            type: Array,
-            required: true,
+        type: 'object',
+        required: ['rest'],
+        properties: {
+            rest: {
+                type: 'array',
+            }
         }
     };
     var PARAMS = {
         param1: '1',
         param2: 2,
         param3: true,
-        param4: new Date(),
+        param4: (new Date()).toISOString(),
         param5: [1, 2, 3],
     };
     var REPLY = {
@@ -181,7 +184,7 @@ describe('restful_api', function() {
                     };
                     server = new test_api.Server(methods, [], 'allow_missing_methods');
                     server.install_routes(utilitest.router, '/test_restful_api');
-                    // server.set_logging();
+                    server.set_logging();
 
                     client = new test_api.Client({
                         port: utilitest.http_port(),

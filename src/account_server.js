@@ -23,9 +23,7 @@ account_server.account_session = account_session;
 module.exports = account_server;
 
 function login_account(req) {
-    var info = {
-        email: req.restful_params.email,
-    };
+    var info = _.pick(req.restful_params, 'email');
     var password = req.restful_params.password;
     var account;
     // find account by email, and verify password

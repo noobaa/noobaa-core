@@ -12,26 +12,40 @@ var edge_node_schema = new Schema({
     // the service account
     account: {
         type: types.ObjectId,
-        ref: 'Account'
+        ref: 'Account',
+        required: true,
     },
 
     // node name
-    name: String,
+    name: {
+        type: String,
+        required: true,
+    },
 
     // the latest public ip of the node
-    ip: String,
+    ip: {
+        type: String,
+    },
 
     // the listening port of the agent running on the node
-    port: Number,
+    port: {
+        type: Number,
+    },
 
     // the last time the node sent heartbeat    
-    hearbeat: Date,
+    hearbeat: {
+        type: Date,
+    },
 
     // the total allocation size in bytes
-    allocated_storage: Number,
+    allocated_storage: {
+        type: Number,
+    },
 
     // the used size in bytes - computed from the EdgeBlocks
-    used_storage: Number,
+    used_storage: {
+        type: Number,
+    },
 });
 
 

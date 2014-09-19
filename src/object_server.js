@@ -36,7 +36,7 @@ module.exports = new object_api.Server({
 
 
 function create_bucket(req) {
-    var bucket_name = req.restful_param('bucket');
+    var bucket_name = req.restful_params.bucket;
     return Q.fcall(function() {
         var info = {
             account: req.account.id,
@@ -50,7 +50,7 @@ function create_bucket(req) {
 
 
 function read_bucket(req) {
-    var bucket_name = req.restful_param('bucket');
+    var bucket_name = req.restful_params.bucket;
     return find_bucket(req.account.id, bucket_name, 'force').then(function(bucket) {
         return _.pick(bucket, 'name');
     });
@@ -58,7 +58,7 @@ function read_bucket(req) {
 
 
 function update_bucket(req) {
-    var bucket_name = req.restful_param('bucket');
+    var bucket_name = req.restful_params.bucket;
     return Q.fcall(function() {
         // TODO no fields can be updated for now
         var updates = _.pick(req.restful_params);
@@ -74,7 +74,7 @@ function update_bucket(req) {
 
 
 function delete_bucket(req) {
-    var bucket_name = req.restful_param('bucket');
+    var bucket_name = req.restful_params.bucket;
     // TODO mark deleted on objects
     return Q.fcall(function() {
         var info = {
@@ -89,8 +89,8 @@ function delete_bucket(req) {
 
 
 function list_bucket_objects(req) {
-    var bucket_name = req.restful_param('bucket');
-    var key = req.restful_param('key');
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
@@ -99,17 +99,19 @@ function list_bucket_objects(req) {
         };
         return ObjectMD.find(info).exec();
     }).then(function(objects) {
-        return _.map(objects, function(o) {
-            return _.pick(0, 'key', 'size', 'create_time');
-        });
+        return {
+            objects: _.map(objects, function(o) {
+                return _.pick(0, 'key', 'size', 'create_time');
+            })
+        };
     });
 }
 
 
 function create_object(req) {
-    var bucket_name = req.restful_param('bucket');
-    var key = req.restful_param('key');
-    var size = req.restful_param('size');
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+    var size = req.restful_params.size;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
@@ -125,8 +127,8 @@ function create_object(req) {
 
 
 function read_object_md(req) {
-    var bucket_name = req.restful_param('bucket');
-    var key = req.restful_param('key');
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
@@ -141,8 +143,8 @@ function read_object_md(req) {
 
 
 function update_object_md(req) {
-    var bucket_name = req.restful_param('bucket');
-    var key = req.restful_param('key');
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
@@ -159,8 +161,8 @@ function update_object_md(req) {
 
 
 function delete_object(req) {
-    var bucket_name = req.restful_param('bucket');
-    var key = req.restful_param('key');
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
@@ -175,8 +177,8 @@ function delete_object(req) {
 
 
 function map_object(req) {
-    var bucket_name = req.restful_param('bucket');
-    var key = req.restful_param('key');
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
@@ -185,7 +187,10 @@ function map_object(req) {
         };
         return ObjectMD.findOne(info).populate('map').exec();
     }).then(function(object) {
-        return _.pick(object, 'key', 'size', 'create_time', 'map');
+        var reply = _.pick(object, 'key', 'size', 'create_time', 'map');
+        reply.create_time = reply.create_time.toString();
+        reply.map = {};
+        return reply;
     });
 }
 

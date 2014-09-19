@@ -11,10 +11,16 @@ var bcrypt = require('bcrypt');
 var account_schema = new Schema({
 
     // account main contact email
-    email: String,
+    email: {
+        type: String,
+        required: true,
+    },
 
     // the account secret password
-    password: String,
+    password: {
+        type: String,
+        required: true,
+    },
 
 });
 

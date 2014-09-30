@@ -185,11 +185,12 @@ function map_object(req) {
             bucket: bucket.id,
             key: key,
         };
-        return ObjectMD.findOne(info).populate('map').exec();
+        return ObjectMD.findOne(info).populate('maps.map').exec();
     }).then(function(object) {
-        var reply = _.pick(object, 'key', 'size', 'create_time', 'map');
+        var reply = _.pick(object, 'key', 'size', 'create_time', 'maps');
         reply.create_time = reply.create_time.toString();
-        reply.map = {};
+        reply.maps = [];
+        // TODO populate maps from edge blocks
         return reply;
     });
 }

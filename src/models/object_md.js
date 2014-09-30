@@ -29,7 +29,7 @@ var objmd_schema = new Schema({
         required: true,
     },
 
-    ranges: [{
+    maps: [{
         // the range starting byte offset, and byte size
         offset: {
             type: Number,

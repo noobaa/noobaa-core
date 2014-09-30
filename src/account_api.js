@@ -16,6 +16,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['email', 'password'],
+                additionalProperties: false,
                 properties: {
                     email: {
                         type: 'string',
@@ -40,6 +41,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['email', 'password'],
+                additionalProperties: false,
                 properties: {
                     email: {
                         type: 'string',
@@ -63,6 +65,7 @@ module.exports = restful_api.define_api({
             reply: {
                 type: 'object',
                 required: ['email'],
+                additionalProperties: false,
                 properties: {
                     email: {
                         type: 'string',
@@ -77,6 +80,7 @@ module.exports = restful_api.define_api({
             path: '/',
             params: {
                 type: 'object',
+                additionalProperties: false,
                 properties: {
                     email: {
                         type: 'string',

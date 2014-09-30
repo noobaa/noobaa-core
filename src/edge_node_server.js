@@ -15,6 +15,7 @@ var EdgeBlock = require('./models/edge_block');
 module.exports = new edge_node_api.Server({
     connect_edge_node: connect_edge_node,
     delete_edge_node: delete_edge_node,
+    heartbeat: heartbeat,
 }, [
     // middleware to verify the account session before any of this server calls
     account_server.account_session
@@ -56,4 +57,13 @@ function delete_edge_node(req) {
         delete req.session.edge_node_id;
         return undefined;
     });
+}
+
+function heartbeat(req) {
+    // TODO
+    return {
+        space_total: 100,
+        space_used: 1,
+        num_blocks: 1,
+    };
 }

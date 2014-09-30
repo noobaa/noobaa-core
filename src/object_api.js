@@ -18,6 +18,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -32,6 +33,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -41,6 +43,7 @@ module.exports = restful_api.define_api({
             reply: {
                 type: 'object',
                 required: ['name'],
+                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string'
@@ -55,6 +58,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -69,6 +73,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -83,6 +88,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -92,12 +98,14 @@ module.exports = restful_api.define_api({
             reply: {
                 type: 'object',
                 required: ['objects'],
+                additionalProperties: false,
                 properties: {
                     objects: {
                         type: 'array',
                         items: {
                             type: 'object',
                             required: ['key', 'size', 'create_time'],
+                            additionalProperties: false,
                             properties: {
                                 key: {
                                     type: 'string',
@@ -124,6 +132,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'size'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -144,6 +153,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -161,6 +171,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -178,6 +189,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -195,6 +207,7 @@ module.exports = restful_api.define_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
+                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -202,11 +215,18 @@ module.exports = restful_api.define_api({
                     key: {
                         type: 'string',
                     },
-                }
+                    offset: {
+                        type: 'number',
+                    },
+                    size: {
+                        type: 'number',
+                    },
+                },
             },
             reply: {
                 type: 'object',
-                required: ['key', 'size', 'create_time', 'map'],
+                required: ['key', 'size', 'create_time', 'maps'],
+                additionalProperties: false,
                 properties: {
                     key: {
                         type: 'string'
@@ -218,8 +238,27 @@ module.exports = restful_api.define_api({
                         type: 'string',
                         format: 'date',
                     },
-                    map: {
-                        type: 'object'
+                    maps: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            additionalProperties: false,
+                            properties: {
+                                offset: {
+                                    type: 'number',
+                                },
+                                size: {
+                                    type: 'number',
+                                },
+                                kwords: {
+                                    type: 'number',
+                                },
+                                word_size: {
+                                    type: 'number',
+                                },
+                                // blocks
+                            }
+                        },
                     },
                 }
             }

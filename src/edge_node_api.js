@@ -12,10 +12,11 @@ module.exports = restful_api.define_api({
 
         connect_edge_node: {
             method: 'POST',
-            path: '/',
+            path: '/node',
             params: {
                 type: 'object',
                 required: ['name', 'ip', 'port'],
+                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string',
@@ -32,10 +33,11 @@ module.exports = restful_api.define_api({
 
         delete_edge_node: {
             method: 'DELETE',
-            path: '/',
+            path: '/node',
             params: {
                 type: 'object',
                 required: ['name'],
+                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string',
@@ -44,13 +46,43 @@ module.exports = restful_api.define_api({
             },
         },
 
-        /*
-        add_block: {
+        heartbeat: {
             method: 'POST',
-            path: '/block',
-            reply: {},
-        }
-        */
+            path: '/hb',
+            params: {
+                type: 'object',
+                required: ['space_total', 'space_used', 'num_blocks'],
+                additionalProperties: false,
+                properties: {
+                    space_total: {
+                        type: 'number',
+                    },
+                    space_used: {
+                        type: 'number',
+                    },
+                    num_blocks: {
+                        type: 'number',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['space_total', 'space_used', 'num_blocks'],
+                additionalProperties: false,
+                properties: {
+                    space_total: {
+                        type: 'number',
+                    },
+                    space_used: {
+                        type: 'number',
+                    },
+                    num_blocks: {
+                        type: 'number',
+                    },
+                }
+            },
+        },
+
     }
 
 });

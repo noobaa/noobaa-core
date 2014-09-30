@@ -37,12 +37,15 @@ util.inherits(ObjectClient, object_api.Client);
 //
 // params (Object):
 //   - maps (Object) - mapping info to use for reading
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
 //
 // return (promise)
 //
 ObjectClient.prototype.read_maps = function(params) {
     var maps = params.maps;
-    var buffer = new Buffer('');
+    var buffer = new Buffer(params.size);
+    buffer.fill(0);
     // TODO
     return Q.when(buffer);
 };
@@ -50,8 +53,10 @@ ObjectClient.prototype.read_maps = function(params) {
 // write_maps (API)
 //
 // params (Object):
-//   - maps (Object) - mapping info to use for writing
 //   - buffer (Buffer) - data to write
+//   - maps (Object) - mapping info to use for writing
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
 //
 // return (promise)
 //
@@ -67,8 +72,8 @@ ObjectClient.prototype.write_maps = function(params) {
 // params (Object):
 //   - bucket (String)
 //   - key (String)
-//   - start (Number) - offset to start reading from
-//   - count (Number) - number of bytes to read
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
 //
 // return (Promise for Object):
 //   - buffer (Buffer) - data
@@ -86,15 +91,15 @@ ObjectClient.prototype.read_object_data = function(params) {
 // params (Object): 
 //   - bucket (String)
 //   - key (String)
-//   - start (Number) - offset to start reading from
-//   - count (Number) - number of bytes to read
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
 //   - buffer (Buffer) - data to write
 //
 // return (Promise).
 //
 ObjectClient.prototype.write_object_data = function(params) {
     var me = this;
-    return me.map_object(params).then(function(res) {
+    return me.map_object(_.omit(params, 'buffer')).then(function(res) {
         params.maps = res.data;
         return me.write_maps(params);
     });
@@ -106,8 +111,8 @@ ObjectClient.prototype.write_object_data = function(params) {
 // params (Object): 
 //   - bucket (String)
 //   - key (String)
-//   - start (Number) - offset to start reading from
-//   - count (Number) - number of bytes to read
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
 //
 // return Reader (inherits from stream.Readable).
 //
@@ -120,8 +125,8 @@ ObjectClient.prototype.open_read_stream = function(params) {
 // params (Object): 
 //   - bucket (String)
 //   - key (String)
-//   - start (Number) - offset to start reading from
-//   - count (Number) - number of bytes to read
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
 //
 // return Writer (inherits from stream.Writable).
 //
@@ -153,8 +158,8 @@ function Reader(client, params) {
     });
     this._reader_client = client;
     var p = _.clone(params);
-    p.start = fix_offset_param(p.start, 0);
-    p.count = fix_offset_param(p.count, Infinity);
+    p.offset = fix_offset_param(p.offset, 0);
+    p.size = fix_offset_param(p.size, Infinity);
     this._reader_params = p;
 }
 
@@ -167,15 +172,15 @@ Reader.prototype._read = function(size) {
     var params = this._reader_params;
     // make copy of params, trim if size exceeds the map range
     var p = _.clone(params);
-    p.count = Math.min(Number(size) || READ_SIZE_MARK, params.count);
+    p.size = Math.min(Number(size) || READ_SIZE_MARK, params.size);
     // finish the read if reached the end of the reader range
-    if (p.count <= 0) {
+    if (p.size <= 0) {
         me.push(null);
         return;
     }
     client.read_object_data(p).done(function(buffer) {
-        params.start += p.count;
-        params.count -= p.count;
+        params.offset += p.size;
+        params.size -= p.size;
         me.push(buffer);
     }, function(err) {
         me.emit('error', err || 'unknown error');
@@ -196,10 +201,11 @@ function Writer(client, params) {
         // If set you can write arbitrary data instead of only Buffer / String data. Default=false
         objectMode: false,
     });
+    this._writer_client = client;
     var p = _.clone(params);
-    p.start = fix_offset_param(p.start, 0);
-    p.count = fix_offset_param(p.count, Infinity);
-    this._reader_params = p;
+    p.offset = fix_offset_param(p.offset, 0);
+    p.size = fix_offset_param(p.size, Infinity);
+    this._writer_params = p;
 }
 
 util.inherits(Writer, stream.Writable);
@@ -207,15 +213,15 @@ util.inherits(Writer, stream.Writable);
 // implement the stream's Readable._read() function.
 Writer.prototype._write = function(chunk, encoding, callback) {
     var me = this;
-    var client = this._reader_client;
-    var params = this._reader_params;
+    var client = this._writer_client;
+    var params = this._writer_params;
     // make copy of params, trim if buffer exceeds the map range
     var p = _.clone(params);
-    p.count = Math.min(chunk.length, params.count);
-    p.buffer = slice_buffer(chunk, 0, p.count);
+    p.size = Math.min(chunk.length, params.size);
+    p.buffer = slice_buffer(chunk, 0, p.size);
     client.write_object_data(p).done(function() {
-        params.start += p.count;
-        params.count -= p.count;
+        params.offset += p.size;
+        params.size -= p.size;
         callback();
     }, function(err) {
         callback(err || 'unknown error');
@@ -235,12 +241,12 @@ function fix_offset_param(offset, default_value) {
     return x <= 0 ? 0 : x;
 }
 
-function slice_buffer(buffer, start, count) {
-    if (start === 0 && buffer.length === count) {
+function slice_buffer(buffer, offset, size) {
+    if (offset === 0 && buffer.length === size) {
         return;
     }
     if (typeof(buffer.slice) === 'function') {
-        return buffer.slice(start, start + count);
+        return buffer.slice(offset, offset + size);
     }
     throw new Error('Cannot slice buffer');
 }

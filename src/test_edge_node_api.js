@@ -27,6 +27,12 @@ describe('edge_node_api', function() {
                 port: 9999,
             });
         }).then(function() {
+            return coretest.edge_node_client.heartbeat({
+                space_total: 100,
+                space_used: 1,
+                num_blocks: 1,
+            });
+        }).then(function() {
             return coretest.edge_node_client.delete_edge_node({
                 name: 'haha',
             });

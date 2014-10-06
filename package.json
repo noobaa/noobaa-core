@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/noobaa/noobaa-core",
   "dependencies": {
-    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git",
+    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#f60f201b564d4ffd26f85d64a99bbd9f6cd5b209",
     "underscore": "~1.7.0",
     "q": "~1.0.1",
     "request": "~2.42.0",
@@ -33,7 +33,7 @@
     "gulp": "~3.8.8",
     "gulp-jshint": "~1.8.4",
     "gulp-notify": "~1.6.0",
-    "gulp-coverage": "~0.3.27",
+    "gulp-istanbul": "~0.3.1",
     "mocha": "~1.21.4",
     "tv4": "~1.1.0",
     "chance": "~0.6.1",

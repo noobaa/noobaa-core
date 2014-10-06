@@ -1,6 +1,4 @@
 node_modules/
 
-## gulp-coverage outputs
-.coverdata/
-.coverrun
-coverage-report.html
+## istanbul coverage
+coverage/

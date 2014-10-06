@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('underscore');
+var assert = require('assert');
 var Q = require('q');
 var restful_api = require('./restful_api');
 var account_api = require('./account_api');
@@ -88,7 +89,12 @@ function delete_account(req) {
 
 
 // 10 minutes expiry
-var accounts_lru = new LRU(200, 600000, 'accounts_lru');
+var accounts_lru = new LRU({
+    max_length: 200,
+    expiry_ms: 600000,
+    name: 'accounts_lru'
+});
+assert(accounts_lru.params.max_length === 200);
 
 // verify that the session has a valid account using a cache
 // to be used by other servers

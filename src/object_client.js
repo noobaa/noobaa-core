@@ -79,10 +79,10 @@ ObjectClient.prototype.write_maps = function(params) {
 //   - buffer (Buffer) - data
 //
 ObjectClient.prototype.read_object_data = function(params) {
-    var me = this;
-    return me.map_object(params).then(function(res) {
+    var self = this;
+    return self.map_object(params).then(function(res) {
         params.maps = res.data;
-        return me.read_maps(params);
+        return self.read_maps(params);
     });
 };
 
@@ -98,10 +98,10 @@ ObjectClient.prototype.read_object_data = function(params) {
 // return (Promise).
 //
 ObjectClient.prototype.write_object_data = function(params) {
-    var me = this;
-    return me.map_object(_.omit(params, 'buffer')).then(function(res) {
+    var self = this;
+    return self.map_object(_.omit(params, 'buffer')).then(function(res) {
         params.maps = res.data;
-        return me.write_maps(params);
+        return self.write_maps(params);
     });
 };
 
@@ -167,7 +167,7 @@ util.inherits(Reader, stream.Readable);
 
 // implement the stream's Readable._read() function.
 Reader.prototype._read = function(size) {
-    var me = this;
+    var self = this;
     var client = this._reader_client;
     var params = this._reader_params;
     // make copy of params, trim if size exceeds the map range
@@ -175,15 +175,15 @@ Reader.prototype._read = function(size) {
     p.size = Math.min(Number(size) || READ_SIZE_MARK, params.size);
     // finish the read if reached the end of the reader range
     if (p.size <= 0) {
-        me.push(null);
+        self.push(null);
         return;
     }
     client.read_object_data(p).done(function(buffer) {
         params.offset += p.size;
         params.size -= p.size;
-        me.push(buffer);
+        self.push(buffer);
     }, function(err) {
-        me.emit('error', err || 'unknown error');
+        self.emit('error', err || 'unknown error');
     });
 };
 
@@ -212,7 +212,6 @@ util.inherits(Writer, stream.Writable);
 
 // implement the stream's Readable._read() function.
 Writer.prototype._write = function(chunk, encoding, callback) {
-    var me = this;
     var client = this._writer_client;
     var params = this._writer_params;
     // make copy of params, trim if buffer exceeds the map range

@@ -196,7 +196,11 @@ function map_object(req) {
 }
 
 // 10 minutes expiry
-var buckets_lru = new LRU(200, 600000, 'buckets_lru');
+var buckets_lru = new LRU({
+    max_length: 200,
+    expiry_ms: 600000,
+    name: 'buckets_lru'
+});
 
 function find_bucket(account_id, bucket_name, force) {
     return Q.fcall(function() {

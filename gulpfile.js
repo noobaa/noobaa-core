@@ -6,7 +6,7 @@ var gulp_cached = require('gulp-cached');
 var gulp_plumber = require('gulp-plumber');
 var gulp_notify = require('gulp-notify');
 var gulp_jshint = require('gulp-jshint');
-var gulp_coverage = require('gulp-coverage');
+var gulp_istanbul = require('gulp-istanbul');
 var jshint_stylish = require('jshint-stylish');
 var gulp_mocha = require('gulp-mocha');
 
@@ -35,15 +35,13 @@ gulp.task('mocha', function() {
     var mocha_options = {
         reporter: 'spec'
     };
-    return gulp.src(PATHS.test_scripts, SRC_DONT_READ)
-        .pipe(gulp_coverage.instrument({
-            pattern: PATHS.scripts,
-            // debugDirectory: '.coverdata'
-        }))
-        .pipe(gulp_mocha(mocha_options))
-        .pipe(gulp_coverage.report({
-            outFile: 'coverage-report.html'
-        }));
+    return gulp.src(PATHS.scripts)
+        .pipe(gulp_istanbul())
+        .on('finish', function() {
+            return gulp.src(PATHS.test_scripts, SRC_DONT_READ)
+                .pipe(gulp_mocha(mocha_options))
+                .pipe(gulp_istanbul.writeReports());
+        });
 });
 
 gulp.task('install', []);

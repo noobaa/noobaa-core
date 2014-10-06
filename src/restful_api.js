@@ -65,13 +65,13 @@ function define_api(api) {
     //    useful for test servers.
     //
     function Server(methods, middlewares, allow_missing_methods) {
-        var me = this;
+        var self = this;
         if (allow_missing_methods) {
             assert.strictEqual(allow_missing_methods, 'allow_missing_methods');
         }
-        me._middlewares = middlewares || [];
-        me._impl = {};
-        me._handlers = {};
+        self._middlewares = middlewares || [];
+        self._impl = {};
+        self._handlers = {};
         _.each(api.methods, function(func_info, func_name) {
             var func = methods[func_name];
             if (!func && allow_missing_methods) {
@@ -83,8 +83,8 @@ function define_api(api) {
             }
             assert.strictEqual(typeof(func), 'function',
                 'Server method is not a function ' + func_name);
-            me._impl[func_name] = func;
-            me._handlers[func_name] = create_server_handler(me, func, func_info);
+            self._impl[func_name] = func;
+            self._handlers[func_name] = create_server_handler(self, func, func_info);
         });
     }
 
@@ -96,10 +96,10 @@ function define_api(api) {
     // base_path (String) - optional base path for the routes.
     //
     Server.prototype.install_routes = function(router, base_path) {
-        var me = this;
+        var self = this;
         base_path = base_path || '';
         var doc_base = PATH.join(base_path, 'doc', api.name);
-        _.each(me._middlewares, function(fn) {
+        _.each(self._middlewares, function(fn) {
             assert(fn, 'undefined middleware function');
             router.use(base_path, function(req, res, next) {
                 Q.fcall(fn, req).done(function() {
@@ -112,7 +112,7 @@ function define_api(api) {
         _.each(api.methods, function(func_info, func_name) {
             // install the path handler
             var path = PATH.join(base_path, func_info.path);
-            var handler = me._handlers[func_name];
+            var handler = self._handlers[func_name];
             install_route(router, func_info.method, path, handler);
 
             // install also a documentation route

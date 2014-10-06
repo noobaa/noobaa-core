@@ -109,6 +109,7 @@ describe('object_api', function() {
                 size = OBJ_PART_SIZE * chance.integer(CHANCE_PART_NUM) +
                     chance.integer(CHANCE_PART_OFFSET);
                 // randomize a buffer
+                // console.log('random object size', size);
                 data = new Buffer(size);
                 for (var i = 0; i < size; i++) {
                     data[i] = 0; // TODO chance.integer(CHANCE_BYTE);

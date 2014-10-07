@@ -30,6 +30,9 @@ function login_account(req) {
     // find account by email, and verify password
     return Account.findOne(info).exec().then(function(account_arg) {
         account = account_arg;
+        if (!account) {
+            throw new Error('NO ACCOUNT ' + info);
+        }
         return Q.npost(account, 'verify_password', [password]);
     }).then(function(matching) {
         if (!matching) {

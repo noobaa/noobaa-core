@@ -26,8 +26,10 @@ var object_client = new object_client_module.ObjectClient({
     path: '/object_api/',
 });
 
-var DEFAULT_EMAIL = 'coretest@core.test';
-var DEFAULT_PASSWORD = 'coretest';
+var account_credentials = {
+    email: 'coretest@core.test',
+    password: 'coretest',
+};
 
 before(function(done) {
     Q.fcall(function() {
@@ -43,10 +45,7 @@ before(function(done) {
         object_server.install_routes(utilitest.router, '/object_api/');
         object_client.set_param('port', utilitest.http_port());
 
-        return account_client.create_account({
-            email: DEFAULT_EMAIL,
-            password: DEFAULT_PASSWORD,
-        });
+        return account_client.create_account(account_credentials);
     }).nodeify(done);
 });
 
@@ -56,13 +55,11 @@ after(function() {
 });
 
 function login_default_account() {
-    return account_client.login_account({
-        email: DEFAULT_EMAIL,
-        password: DEFAULT_PASSWORD,
-    });
+    return account_client.login_account(account_credentials);
 }
 
 module.exports = {
+    account_credentials: account_credentials,
     login_default_account: login_default_account,
     account_client: account_client,
     edge_node_client: edge_node_client,

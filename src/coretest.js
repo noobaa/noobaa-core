@@ -7,6 +7,10 @@ var Q = require('q');
 var assert = require('assert');
 var utilitest = require('noobaa-util/utilitest');
 
+// better stack traces for promises
+// used for testing only to avoid its big mem & cpu overheads
+Q.longStackSupport = true;
+
 var account_api = require('./account_api');
 var account_server = require('./account_server');
 var account_client = new account_api.Client({

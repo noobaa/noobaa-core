@@ -26,8 +26,8 @@ GF.PRIMITIVE_POLYNOMS = {
     2: 0x7,
     4: 0x13,
     8: 0x11d,
-    // 16: 0x1100b,
-    16: 0x138cb,
+    16: 0x1100b,
+    // 16: 0x138cb,
     20: 0x100009,
     24: 0x1000087,
     28: 0x10000009,
@@ -229,68 +229,120 @@ function poly_degree(a) {
 
 
 function gf_test_all() {
+    var run_async;
+    if (typeof(setImmediate) === 'function') {
+        run_async = setImmediate;
+    } else {
+        run_async = function(fn) {
+            setTimeout(fn, 0);
+        };
+    }
+
     var widths = Object.keys(GF.PRIMITIVE_POLYNOMS);
-    for (var i = 0; i < widths.length; i++) {
-        var w = widths[i];
-        var p = GF.PRIMITIVE_POLYNOMS[w];
-        gf_test_one(w, p);
-    }
-}
+    var i = 0;
 
-function gf_test_one(w, p) {
-    console.log(' ');
-    console.log('******', w, '******');
+    next_test();
 
-    var gf = new GF(p);
-
-    console.log(' ');
-    console.log(' -- MODULO --');
-    gf_test_mult_func(gf);
-
-    if (gf.init_log_table()) {
-        console.log(' ');
-        console.log(' -- LOG --');
-        gf_test_mult_func(gf);
-    }
-}
-
-// test the given mult function for correctness of the field.
-function gf_test_mult_func(gf) {
-    var a, b;
-    var result, result2;
-    var inverses = [];
-    var a_inverse;
-    var count = 0;
-    var start_time = Date.now();
-    var report_seconds = 0;
-    var stopped = false;
-
-    var report = function(fin) {
-        var seconds = (Date.now() - start_time) / 1000;
-        if (!fin && seconds < report_seconds + 2) {
+    function next_test() {
+        if (i >= widths.length) {
+            console.log(' ');
+            console.log('FIN.');
+            console.log(' ');
             return;
         }
-        report_seconds = seconds;
-        var speed = count / seconds;
-        var completed = a * 100 / gf.size;
-        console.log(' ... completed', completed.toFixed(2), '%',
-            'speed', speed.toFixed(0), 'mult/sec');
-        // don't run too long for big fields
-        if (gf.w >= 16 && seconds >= 10) {
-            stopped = true;
-            return true;
+        var w = widths[i];
+        var p = GF.PRIMITIVE_POLYNOMS[w];
+        i += 1;
+
+        console.log(' ');
+        console.log('******', w, '******');
+
+        var gf = new GF(p);
+
+        console.log(' ');
+        console.log(' -- MODULO --');
+        test_gf(gf, function() {
+
+            if (!gf.init_log_table()) {
+                return next_test();
+            }
+            console.log(' ');
+            console.log(' -- LOG --');
+            test_gf(gf, next_test);
+        });
+    }
+
+    function test_gf(gf, callback) {
+        var state = {
+            a: 0,
+            b: 0,
+            a_inverse: 0,
+            count: 0,
+            start_time: Date.now(),
+            report_seconds: 0,
+        };
+
+        test_gf_next_step();
+
+        function test_gf_next_step() {
+            var done;
+            try {
+                done = test_gf_step(gf, state, 10000000);
+
+                // report progress
+                var seconds = (Date.now() - state.start_time) / 1000;
+                if (done || seconds >= state.report_seconds + 1) {
+                    state.report_seconds = seconds;
+                    var speed = state.count / seconds;
+                    var completed = state.a * 100 / gf.size;
+                    console.log(' ... completed', completed.toFixed(2), '%',
+                        'speed', speed.toFixed(0), 'mult/sec');
+                    // don't run too long for big fields
+                    if (gf.w > 16 && seconds >= 2) {
+                        done = true;
+                    } else if (gf.w === 16 && seconds >= 2) {
+                        done = true;
+                    }
+                }
+            } catch (err) {
+                console.error(err, err.stack);
+                return; // don't run more callbacks
+            }
+
+            if (!done) {
+                run_async(test_gf_next_step);
+            } else {
+                callback();
+            }
         }
-    };
+    }
 
-    for (a = 0; a < gf.size; a++) {
-        // inverse can be set by previous loop
-        a_inverse = inverses[a];
+    function test_gf_step(gf, state, cycles) {
+        var done = false;
+        // make vars local for performance
+        var a = state.a;
+        var b = state.b;
+        var a_inverse = state.a_inverse;
+        var count = 0;
 
-        for (b = 0; b < gf.size; b++) {
-            result = gf.mult(a, b);
-            count++;
+        for (var i = 0; i < cycles; i++, b++) {
 
-            // check validity of
+            if (b > gf.max) {
+                if (a && !a_inverse) {
+                    throw new Error('inverse not found for ' + a.toString(2));
+                }
+                a += 1;
+                b = 0;
+                a_inverse = 0;
+                if (a > gf.max) {
+                    done = true;
+                    break;
+                }
+            }
+
+            // check validity of result
+            var result = gf.mult(a, b);
+            count += 1;
             if (typeof(result) !== 'number' || result >= gf.size || result < 0) {
                 throw new Error('bad result not in range ' +
                     a.toString(2) + ' * ' + b.toString(2) +
@@ -300,7 +352,7 @@ function gf_test_mult_func(gf) {
             // checking inverse
             if (result === 1) {
                 if (!a_inverse) {
-                    a_inverse = inverses[a] = b;
+                    a_inverse = b;
                 } else if (a_inverse !== b) {
                     throw new Error('inverse already found for ' +
                         a.toString(2) + ' ' + a_inverse.toString(2));
@@ -308,46 +360,23 @@ function gf_test_mult_func(gf) {
             }
 
             // checking field commutativity - a*b = b*a
-            result2 = gf.mult(b, a);
-            count++;
+            var result2 = gf.mult(b, a);
+            count += 1;
             if (result !== result2) {
                 throw new Error('not commutative ' +
                     a.toString(2) + ' * ' + b.toString(2) +
                     ' = ' + result.toString(2) + ' or ' + result2.toString(2));
             }
+        }
 
-            /*
-			// checking field distributivity for (+,*)
-            for (var c = 0; c < gf.size; c++) {
-            	assert.strictEqual(m(a, b ^ c), m(a, b) ^ m(a, c));
-            	assert.strictEqual(m(a, m(b, c)), m(m(a, b), c));
-            }
-			*/
-            if (count % 5000000 === 0) {
-                if (report()) {
-                    break;
-                }
-            }
-        }
-        if (stopped) {
-            break;
-        }
-        if (a) {
-            if (!a_inverse) {
-                throw new Error('inverse not found for ' + a.toString(2));
-            }
-            if (!inverses[a_inverse]) {
-                inverses[a_inverse] = a;
-            } else if (inverses[a_inverse] !== a) {
-                throw new Error('inverse disagree for ' +
-                    a.toString(2) + ' ' + a_inverse.toString(2));
-            }
-        }
+        state.a = a;
+        state.b = b;
+        state.a_inverse = a_inverse;
+        state.count += count;
+
+        return done;
     }
-    report(true);
 }
-
-
 
 if (typeof(require) === 'function' && require.main === module) {
     gf_test_all();

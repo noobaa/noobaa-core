@@ -39,14 +39,16 @@ GF.PRIMITIVE_POLYNOMS = {
 GF.prototype.init_log_table = function() {
     var i = 0;
     var a = 1;
-    var log_table = new Uint32Array(this.size);
-    var exp_table = new Uint32Array(this.size);
-    log_table[0] = undefined;
-    exp_table[0] = 0;
+    var log_table, exp_table;
 
     if (this.w > 24) {
         return false;
     }
+
+    log_table = new Uint32Array(this.size);
+    exp_table = new Uint32Array(this.size);
+    log_table[0] = undefined;
+    exp_table[0] = 0;
 
     // the process starts from the polynom a=1 and on each step it
     // multiplies a by the polynom x, which effectively means: a<<1 mod p.

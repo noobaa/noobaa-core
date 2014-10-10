@@ -7,6 +7,7 @@ var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
 var Agent = require('./agent');
+var agent_api = require('./agent_api');
 
 describe('agent', function() {
 
@@ -20,6 +21,8 @@ describe('agent', function() {
                 node_name: 'a',
             });
             return agent.start();
+        }).then(function() {
+            return agent.send_heartbeat();
         }).then(function() {
             return agent.stop();
         });
@@ -38,12 +41,19 @@ describe('agent', function() {
             });
         }).then(function() {
             return Q.all(_.map(agents, function(agent) {
-                console.log('start agent', agent.node_name);
+                console.log('agent start', agent.node_name);
                 return agent.start();
             }));
         }).then(function() {
+            /*
+            var agent_client = new agent_api.Client({
+                path: '/agent_api/',
+                port: 0,
+            });
+            */
+        }).then(function() {
             return Q.all(_.map(agents, function(agent) {
-                console.log('stop agent', agent.node_name);
+                console.log('agent stop', agent.node_name);
                 return agent.stop();
             }));
         });

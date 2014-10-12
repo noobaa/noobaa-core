@@ -1,18 +1,18 @@
 /* jshint node:true */
 'use strict';
 
+var _ = require('underscore');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
-var _ = require('underscore');
 
 
 var edge_block_schema = new Schema({
 
-    // the object map this block belongs to
-    map: {
+    // the object part this block belongs to
+    part: {
         type: types.ObjectId,
-        ref: 'ObjectMap',
+        ref: 'ObjectPart',
         required: true,
     },
 

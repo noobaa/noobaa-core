@@ -5,7 +5,7 @@ var util = require('util');
 var stream = require('stream');
 var _ = require('underscore');
 var Q = require('q');
-var object_api = require('./object_api');
+var object_api = require('../api/object_api');
 
 
 // exporting the ObjectClient module as a class
@@ -88,7 +88,7 @@ ObjectClient.prototype.read_object_data = function(params) {
 
 // write_object_data (API)
 //
-// params (Object): 
+// params (Object):
 //   - bucket (String)
 //   - key (String)
 //   - offset (Number) - offset to start reading from
@@ -108,7 +108,7 @@ ObjectClient.prototype.write_object_data = function(params) {
 
 // open_read_stream (API)
 //
-// params (Object): 
+// params (Object):
 //   - bucket (String)
 //   - key (String)
 //   - offset (Number) - offset to start reading from
@@ -122,7 +122,7 @@ ObjectClient.prototype.open_read_stream = function(params) {
 
 // open_write_stream (API)
 //
-// params (Object): 
+// params (Object):
 //   - bucket (String)
 //   - key (String)
 //   - offset (Number) - offset to start reading from
@@ -144,15 +144,15 @@ var WRITE_SIZE_MARK = 128 * 1024;
 
 function Reader(client, params) {
     stream.Readable.call(this, {
-        // highWaterMark Number - The maximum number of bytes to store 
-        // in the internal buffer before ceasing to read 
+        // highWaterMark Number - The maximum number of bytes to store
+        // in the internal buffer before ceasing to read
         // from the underlying resource. Default=16kb
         highWaterMark: READ_SIZE_MARK,
-        // encoding String - If specified, then buffers will be decoded to strings 
+        // encoding String - If specified, then buffers will be decoded to strings
         // using the specified encoding. Default=null
         encoding: null,
-        // objectMode Boolean - Whether this stream should behave as a stream of objects. 
-        // Meaning that stream.read(n) returns a single value 
+        // objectMode Boolean - Whether this stream should behave as a stream of objects.
+        // Meaning that stream.read(n) returns a single value
         // instead of a Buffer of size n. Default=false
         objectMode: false,
     });
@@ -194,10 +194,10 @@ function Writer(client, params) {
     stream.Writable.call(this, {
         // highWaterMark Number - Buffer level when write() starts returning false. Default=16kb
         highWaterMark: WRITE_SIZE_MARK,
-        // decodeStrings Boolean - Whether or not to decode strings into Buffers 
+        // decodeStrings Boolean - Whether or not to decode strings into Buffers
         // before passing them to _write(). Default=true
         decodeStrings: true,
-        // objectMode Boolean - Whether or not the write(anyObj) is a valid operation. 
+        // objectMode Boolean - Whether or not the write(anyObj) is a valid operation.
         // If set you can write arbitrary data instead of only Buffer / String data. Default=false
         objectMode: false,
     });

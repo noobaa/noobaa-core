@@ -4,8 +4,8 @@
 var _ = require('underscore');
 var assert = require('assert');
 var Q = require('q');
-var restful_api = require('./restful_api');
-var account_api = require('./account_api');
+var restful_api = require('../util/restful_api');
+var account_api = require('../api/account_api');
 var Account = require('./models/account');
 var LRU = require('noobaa-util/lru');
 
@@ -38,7 +38,7 @@ function login_account(req) {
         if (!matching) {
             throw new Error('bad password');
         }
-        // insert the account id into the session 
+        // insert the account id into the session
         // (expected to use secure cookie session)
         req.session.account_id = account.id;
     });

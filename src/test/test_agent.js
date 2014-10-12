@@ -6,8 +6,8 @@ var _ = require('underscore');
 var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
-var Agent = require('./agent');
-var agent_api = require('./agent_api');
+var Agent = require('../agent/agent');
+var agent_api = require('../api/agent_api');
 
 describe('agent', function() {
 

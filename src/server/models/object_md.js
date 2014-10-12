@@ -1,10 +1,10 @@
 /* jshint node:true */
 'use strict';
 
+var _ = require('underscore');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
-var _ = require('underscore');
 
 
 var objmd_schema = new Schema({
@@ -40,9 +40,9 @@ var objmd_schema = new Schema({
             required: true,
         },
         // the object storage mapping can be shared between multiple objects in the system
-        map: {
+        part: {
             type: types.ObjectId,
-            ref: 'ObjectMap',
+            ref: 'ObjectPart',
             required: true,
         },
     }],

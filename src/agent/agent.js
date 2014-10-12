@@ -6,9 +6,9 @@ var assert = require('assert');
 var http = require('http');
 var express = require('express');
 var Q = require('q');
-var account_api = require('./account_api');
-var edge_node_api = require('./edge_node_api');
-var agent_api = require('./agent_api');
+var account_api = require('../api/account_api');
+var edge_node_api = require('../api/edge_node_api');
+var agent_api = require('../api/agent_api');
 
 module.exports = Agent;
 
@@ -41,7 +41,7 @@ function Agent(params) {
     this.http_port = 0;
 
     this.blocks_in_memory = {};
-    this.space_total = 10 * 1024 * 1024;
+    this.space_total = 10 * 1024 * 1024; // TODO maintain space_total
     this.space_used = 0;
     this.num_blocks = 0;
 }

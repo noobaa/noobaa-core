@@ -3,8 +3,8 @@
 
 var _ = require('underscore');
 var Q = require('q');
-var restful_api = require('./restful_api');
-var edge_node_api = require('./edge_node_api');
+var restful_api = require('../util/restful_api');
+var edge_node_api = require('../api/edge_node_api');
 var account_server = require('./account_server');
 // db models
 var Account = require('./models/account');

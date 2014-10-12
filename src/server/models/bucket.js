@@ -1,10 +1,10 @@
 /* jshint node:true */
 'use strict';
 
+var _ = require('underscore');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
-var _ = require('underscore');
 
 
 var bucket_schema = new Schema({

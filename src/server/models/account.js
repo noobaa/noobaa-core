@@ -1,11 +1,11 @@
 /* jshint node:true */
 'use strict';
 
+var _ = require('underscore');
+var bcrypt = require('bcrypt');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
-var _ = require('underscore');
-var bcrypt = require('bcrypt');
 
 
 var account_schema = new Schema({

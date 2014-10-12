@@ -12,7 +12,7 @@ var utilitest = require('noobaa-util/utilitest');
 
 describe('restful_api', function() {
 
-    var restful_api = require('./restful_api');
+    var restful_api = require('../util/restful_api');
 
     var test_params_info = {
         type: 'object',
@@ -168,7 +168,7 @@ describe('restful_api', function() {
 
                 before(function() {
                     // init a server for the currently tested func.
-                    // we use a dedicated server per func so that all the other funcs 
+                    // we use a dedicated server per func so that all the other funcs
                     // of the server return error in order to detect calling confusions.
                     var methods = {};
                     methods[func_name] = function(req) {

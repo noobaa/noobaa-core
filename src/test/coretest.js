@@ -11,21 +11,21 @@ var utilitest = require('noobaa-util/utilitest');
 // used for testing only to avoid its big mem & cpu overheads
 Q.longStackSupport = true;
 
-var account_api = require('./account_api');
-var account_server = require('./account_server');
+var account_api = require('../api/account_api');
+var account_server = require('../server/account_server');
 var account_client = new account_api.Client({
     path: '/account_api/',
 });
 
-var edge_node_api = require('./edge_node_api');
-var edge_node_server = require('./edge_node_server');
+var edge_node_api = require('../api/edge_node_api');
+var edge_node_server = require('../server/edge_node_server');
 var edge_node_client = new edge_node_api.Client({
     path: '/edge_node_api/',
 });
 
-var object_api = require('./object_api');
-var object_server = require('./object_server');
-var object_client_module = require('./object_client');
+var object_api = require('../api/object_api');
+var object_server = require('../server/object_server');
+var object_client_module = require('../client/object_client');
 var object_client = new object_client_module.ObjectClient({
     path: '/object_api/',
 });

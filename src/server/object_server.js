@@ -1,17 +1,17 @@
-// this module is written for both nodejs.
+/* jshint node:true */
 'use strict';
 
 var _ = require('underscore');
 var Q = require('q');
-var restful_api = require('./restful_api');
-var object_api = require('./object_api');
+var restful_api = require('../util/restful_api');
+var object_api = require('../api/object_api');
 var account_server = require('./account_server');
 var LRU = require('noobaa-util/lru');
 // db models
 var Account = require('./models/account');
 var Bucket = require('./models/bucket');
 var ObjectMD = require('./models/object_md');
-var ObjectMap = require('./models/object_map');
+var ObjectPart = require('./models/object_part');
 var EdgeNode = require('./models/edge_node');
 var EdgeBlock = require('./models/edge_block');
 

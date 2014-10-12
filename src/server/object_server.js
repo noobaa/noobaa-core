@@ -11,7 +11,7 @@ var LRU = require('noobaa-util/lru');
 var Account = require('./models/account');
 var Bucket = require('./models/bucket');
 var ObjectMD = require('./models/object_md');
-var ObjectPart = require('./models/object_part');
+var DataChunk = require('./models/data_chunk');
 var EdgeNode = require('./models/edge_node');
 var EdgeBlock = require('./models/edge_block');
 

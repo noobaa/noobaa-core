@@ -40,10 +40,14 @@ var objmd_schema = new Schema({
             required: true,
         },
         // the object storage mapping can be shared between multiple objects in the system
-        part: {
+        chunk: {
             type: types.ObjectId,
-            ref: 'ObjectPart',
+            ref: 'DataChunk',
             required: true,
+        },
+        // optional offset inside the chunk, used for small files sharing the chunk
+        chunk_offset: {
+            type: Number,
         },
     }],
 

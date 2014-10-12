@@ -9,14 +9,14 @@ var types = mongoose.Schema.Types;
 
 var edge_block_schema = new Schema({
 
-    // the object part this block belongs to
-    part: {
+    // the chunk this block belongs to
+    chunk: {
         type: types.ObjectId,
-        ref: 'ObjectPart',
+        ref: 'DataChunk',
         required: true,
     },
 
-    // the word index in the map
+    // the block index in the map
     index: {
         type: Number,
         required: true,

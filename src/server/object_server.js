@@ -11,6 +11,7 @@ var LRU = require('noobaa-util/lru');
 var Account = require('./models/account');
 var Bucket = require('./models/bucket');
 var ObjectMD = require('./models/object_md');
+var ObjectPart = require('./models/object_part');
 var DataChunk = require('./models/data_chunk');
 var EdgeNode = require('./models/edge_node');
 var EdgeBlock = require('./models/edge_block');
@@ -100,9 +101,7 @@ function list_bucket_objects(req) {
         return ObjectMD.find(info).exec();
     }).then(function(objects) {
         return {
-            objects: _.map(objects, function(o) {
-                return _.pick(0, 'key', 'size', 'create_time');
-            })
+            objects: _.map(objects, object_for_client),
         };
     });
 }
@@ -136,8 +135,8 @@ function read_object_md(req) {
             key: key,
         };
         return ObjectMD.findOne(info).exec();
-    }).then(function() {
-        return undefined;
+    }).then(function(obj) {
+        return object_for_client(obj);
     });
 }
 
@@ -179,18 +178,42 @@ function delete_object(req) {
 function map_object(req) {
     var bucket_name = req.restful_params.bucket;
     var key = req.restful_params.key;
+    var offset = req.restful_params.offset || 0;
+    var size = typeof(req.restful_params.size) !== 'undefined' ?
+        req.restful_params.size : Infinity;
+    var obj, parts;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
             bucket: bucket.id,
             key: key,
         };
-        return ObjectMD.findOne(info).populate('maps.map').exec();
-    }).then(function(object) {
-        var reply = _.pick(object, 'key', 'size', 'create_time', 'maps');
+        return ObjectMD.findOne(info).exec();
+    }).then(function(obj_arg) {
+        obj = obj_arg;
+        return ObjectPart.find({
+            obj: obj.id,
+            // offset: { $lt: offset+size },
+            // size: { $lt: offset+size },
+        }).populate('chunk').exec();
+    }).then(function(parts_arg) {
+        parts = parts_arg;
+        return EdgeBlock.find({
+            chunk: {
+                $in: _.pluck(parts, '_id')
+            }
+        }).exec();
+    }).then(function(blocks) {
+        var reply = object_for_client(obj);
         reply.create_time = reply.create_time.toString();
-        reply.maps = [];
-        // TODO populate maps from edge blocks
+        reply.parts = parts;
+        var blocks_by_chunk = _.groupBy(blocks, 'chunk');
+        _.each(parts, function(part) {
+            if (part.chunk) {
+                part.blocks = blocks_by_chunk[part.chunk.id];
+            }
+        });
+        // TODO check and create missing parts/chunks/blocks
         return reply;
     });
 }
@@ -225,4 +248,8 @@ function find_bucket(account_id, bucket_name, force) {
             return bucket;
         });
     });
+}
+
+function object_for_client(md) {
+    return _.pick(md, 'key', 'size', 'create_time');
 }

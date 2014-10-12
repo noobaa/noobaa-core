@@ -29,28 +29,6 @@ var objmd_schema = new Schema({
         required: true,
     },
 
-    maps: [{
-        // the range starting byte offset, and byte size
-        offset: {
-            type: Number,
-            required: true,
-        },
-        size: {
-            type: Number,
-            required: true,
-        },
-        // the object storage mapping can be shared between multiple objects in the system
-        chunk: {
-            type: types.ObjectId,
-            ref: 'DataChunk',
-            required: true,
-        },
-        // optional offset inside the chunk, used for small files sharing the chunk
-        chunk_offset: {
-            type: Number,
-        },
-    }],
-
     // size in bytes
     size: {
         type: Number,

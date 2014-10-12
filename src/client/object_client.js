@@ -7,6 +7,9 @@ var _ = require('underscore');
 var Q = require('q');
 var object_api = require('../api/object_api');
 
+var READ_SIZE_MARK = 128 * 1024;
+var WRITE_SIZE_MARK = 128 * 1024;
+
 
 // exporting the ObjectClient module as a class
 
@@ -33,6 +36,46 @@ util.inherits(ObjectClient, object_api.Client);
 // for read/write of objects according to the object mapping.
 
 
+// read_object_data (API)
+//
+// params (Object):
+//   - bucket (String)
+//   - key (String)
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
+//
+// return (Promise for Object):
+//   - buffer (Buffer) - data, can be shorter than requested
+//
+ObjectClient.prototype.read_object_data = function(params) {
+    var self = this;
+    return self.map_object(params).then(function(res) {
+        params.maps = res.data;
+        return self.read_maps(params);
+    });
+};
+
+// write_object_data (API)
+//
+// params (Object):
+//   - bucket (String)
+//   - key (String)
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
+//   - buffer (Buffer) - data to write
+//
+// return (Promise)
+//
+ObjectClient.prototype.write_object_data = function(params) {
+    var self = this;
+    return self.map_object(_.omit(params, 'buffer')).then(function(res) {
+        params.maps = res.data;
+        return self.write_maps(params);
+    });
+};
+
+
+
 // read_maps (API)
 //
 // params (Object):
@@ -46,6 +89,9 @@ ObjectClient.prototype.read_maps = function(params) {
     var maps = params.maps;
     var buffer = new Buffer(params.size);
     buffer.fill(0);
+    _.each(maps, function(m) {
+
+    });
     // TODO
     return Q.when(buffer);
 };
@@ -67,44 +113,6 @@ ObjectClient.prototype.write_maps = function(params) {
 };
 
 
-// read_object_data (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
-//
-// return (Promise for Object):
-//   - buffer (Buffer) - data
-//
-ObjectClient.prototype.read_object_data = function(params) {
-    var self = this;
-    return self.map_object(params).then(function(res) {
-        params.maps = res.data;
-        return self.read_maps(params);
-    });
-};
-
-// write_object_data (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
-//   - buffer (Buffer) - data to write
-//
-// return (Promise).
-//
-ObjectClient.prototype.write_object_data = function(params) {
-    var self = this;
-    return self.map_object(_.omit(params, 'buffer')).then(function(res) {
-        params.maps = res.data;
-        return self.write_maps(params);
-    });
-};
-
 
 // open_read_stream (API)
 //
@@ -119,26 +127,6 @@ ObjectClient.prototype.write_object_data = function(params) {
 ObjectClient.prototype.open_read_stream = function(params) {
     return new Reader(this, params);
 };
-
-// open_write_stream (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
-//
-// return Writer (inherits from stream.Writable).
-//
-ObjectClient.prototype.open_write_stream = function(params) {
-    return new Writer(this, params);
-};
-
-
-
-var READ_SIZE_MARK = 128 * 1024;
-var WRITE_SIZE_MARK = 128 * 1024;
-
 
 // Reader is a Readable stream for the specified object and range.
 
@@ -185,6 +173,22 @@ Reader.prototype._read = function(size) {
     }, function(err) {
         self.emit('error', err || 'unknown error');
     });
+};
+
+
+
+// open_write_stream (API)
+//
+// params (Object):
+//   - bucket (String)
+//   - key (String)
+//   - offset (Number) - offset to start reading from
+//   - size (Number) - number of bytes to read
+//
+// return Writer (inherits from stream.Writable).
+//
+ObjectClient.prototype.open_write_stream = function(params) {
+    return new Writer(this, params);
 };
 
 

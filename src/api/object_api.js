@@ -225,7 +225,7 @@ module.exports = restful_api.define_api({
             },
             reply: {
                 type: 'object',
-                required: ['key', 'size', 'create_time', 'maps'],
+                required: ['key', 'size', 'create_time', 'parts'],
                 additionalProperties: false,
                 properties: {
                     key: {
@@ -238,7 +238,7 @@ module.exports = restful_api.define_api({
                         type: 'string',
                         format: 'date',
                     },
-                    maps: {
+                    parts: {
                         type: 'array',
                         items: {
                             type: 'object',
@@ -250,7 +250,7 @@ module.exports = restful_api.define_api({
                                 size: {
                                     type: 'number',
                                 },
-                                kwords: {
+                                kblocks: {
                                     type: 'number',
                                 },
                                 word_size: {

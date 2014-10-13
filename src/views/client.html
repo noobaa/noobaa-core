@@ -1,10 +1,27 @@
-<html ng-app>
+<html ng-app="ng_client">
 
 <head>
+    <?# def.include( 'common_head.html') ?>
+
+        <link href="//maxcdn.bootstrapcdn.com/bootswatch/3.2.0/flatly/bootstrap.min.css" rel="stylesheet">
+        <base href="/client/">
 </head>
 
-<body>
-    <h1>CLIENT</h1>
+<body ng-controller="ClientCtrl">
+
+    <div class="container">
+        <h3>
+            NOOBAA CLIENT
+            <span class="pull-right"><b><i>{{account_email}}</i></b></span>
+        </h3>
+        <hr/>
+        <div ng-view></div>
+    </div>
+
+    <div>
+        <?# def.include( 'common_scripts.html') ?>
+    </div>
+
 </body>
 
 </html>

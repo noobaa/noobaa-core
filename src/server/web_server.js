@@ -45,13 +45,50 @@ var web_port = process.env.PORT || 5001;
 app.set('port', web_port);
 
 // setup view template engine with doT
-var dot_emc_app = dot_emc.init({
-    app: app
-});
-app.set('views', path.join(rootdir, 'src', 'views'));
-app.engine('dot', dot_emc_app.__express);
-app.engine('html', dot_emc_app.__express);
-
+function template_engine(views_path, no_cache) {
+    // cache for the templates
+    var cache = {};
+    // defs is the object used by doT for resolving compile time names
+    // such as used with <?# def.lalala ?> so we extend it by defining
+    // the include() function to load a file into the template.
+    var defs = {
+        include: function(filename, vars) {
+            try {
+                filename = path.resolve(views_path, filename);
+                var template_func = cache[filename];
+                if (!template_func) {
+                    // read the file
+                    var file_data = fs.readFileSync(filename);
+                    // compile the template
+                    template_func = dot.template(file_data, null, defs);
+                    if (!no_cache) {
+                        cache[filename] = template_func;
+                    }
+                }
+                return template_func({
+                    it: vars
+                });
+            } catch (err) {
+                console.error('template failed', filename);
+                console.error(err, err.stack);
+                throw err;
+            }
+        }
+    };
+    // return an express engine function
+    return function(filename, options, callback) {
+        var result;
+        try {
+            result = defs.include(filename, options);
+        } catch (err) {
+            return callback(err);
+        }
+        return callback(null, result);
+    };
+}
+var views_path = path.join(rootdir, 'src', 'views');
+app.set('views', views_path);
+app.engine('html', template_engine(views_path));
 
 
 ////////////////
@@ -60,7 +97,7 @@ app.engine('html', dot_emc_app.__express);
 
 // configure app middleware handlers in the order to use them
 
-app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon16.ico')));
+app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon_bgblack.ico')));
 app.use(express_morgan_logger('combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:
@@ -127,15 +164,20 @@ object_server.install_routes(api_router, '/object_api/');
 // setup pages
 
 app.all('/agent/*', function(req, res) {
-    var ctx = {}; // common_api.common_server_data(req);
+    var ctx = { //common_api.common_server_data(req);
+        data: {}
+    };
     return res.render('agent.html', ctx);
 });
+
 app.all('/agent', function(req, res) {
     return res.redirect('/agent/');
 });
 
 app.all('/client/*', function(req, res) {
-    var ctx = {}; // common_api.common_server_data(req);
+    var ctx = { //common_api.common_server_data(req);
+        data: {}
+    };
     return res.render('client.html', ctx);
 });
 
@@ -190,7 +232,9 @@ app.use(function(err, req, res, next) {
     res.status(e.status);
 
     if (can_accept_html(req)) {
-        var ctx = {}; //common_api.common_server_data(req);
+        var ctx = { //common_api.common_server_data(req);
+            data: {}
+        };
         if (dev_mode) {
             e.data = _.extend(ctx.data, e.data);
         } else {

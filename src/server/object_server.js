@@ -13,8 +13,8 @@ var Bucket = require('./models/bucket');
 var ObjectMD = require('./models/object_md');
 var ObjectPart = require('./models/object_part');
 var DataChunk = require('./models/data_chunk');
+var DataBlock = require('./models/data_block');
 var EdgeNode = require('./models/edge_node');
-var EdgeBlock = require('./models/edge_block');
 
 
 module.exports = new object_api.Server({
@@ -198,7 +198,7 @@ function map_object(req) {
         }).populate('chunk').exec();
     }).then(function(parts_arg) {
         parts = parts_arg;
-        return EdgeBlock.find({
+        return DataBlock.find({
             chunk: {
                 $in: _.pluck(parts, '_id')
             }

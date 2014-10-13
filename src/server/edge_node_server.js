@@ -9,7 +9,6 @@ var account_server = require('./account_server');
 // db models
 var Account = require('./models/account');
 var EdgeNode = require('./models/edge_node');
-var EdgeBlock = require('./models/edge_block');
 
 
 module.exports = new edge_node_api.Server({

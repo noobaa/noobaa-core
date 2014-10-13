@@ -42,7 +42,8 @@ var edge_node_schema = new Schema({
         type: Number,
     },
 
-    // the used size in bytes - computed from the EdgeBlocks
+    // the used size in bytes
+    // computed from the data blocks owned by this node
     used_storage: {
         type: Number,
     },

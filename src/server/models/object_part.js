@@ -6,6 +6,8 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
+// object parts connect between an object and it's data chunks
+// and allow to share data chunks between objects.
 
 var object_part_schema = new Schema({
 

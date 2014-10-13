@@ -6,13 +6,17 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
-// DataChunk represents a part of an object, and exists to:
-// - dedup - sharing chunks between objects
-// - QOS - adjust quality of service for parts of the object
-//          (video first and last are more available)
-// - represent multiple small objects
+// data chunk is a logical chunk of data stored persistently.
+// chunks are refered by object parts.
+// chunks are mapped by partitioning to k data blocks.
+// may also define an external storage service keeping the data.
 
 var data_chunk_schema = new Schema({
+
+    size: {
+        type: Number,
+        required: true,
+    },
 
     // for mapping to storage nodes, the logical range is divided
     // into k blocks of equal size.
@@ -27,9 +31,10 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
-    size: {
-        type: Number,
-        required: true,
+    // optional store service that stores this chunk data
+    service: {
+        type: types.ObjectId,
+        ref: 'StoreService',
     },
 
 });

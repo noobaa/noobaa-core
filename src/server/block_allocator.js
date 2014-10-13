@@ -5,8 +5,8 @@ var _ = require('underscore');
 var Q = require('q');
 
 // db models
+var DataBlock = require('./models/data_block');
 var EdgeNode = require('./models/edge_node');
-var EdgeBlock = require('./models/edge_block');
 
 
 module.exports = {
@@ -18,9 +18,9 @@ module.exports = {
 //
 // TODO take into consideration the state of the nodes.
 //
-// - existing_blocks - list of blocks aready existing for the 
+// - existing_blocks - list of blocks aready existing for the
 //
-// returns (promise) list of EdgeBlock.
+// returns (promise) list of DataBlock.
 //
 function allocate_blocks(num, size, existing_blocks) {
     return Q.fcall(function() {
@@ -30,7 +30,7 @@ function allocate_blocks(num, size, existing_blocks) {
             throw new Error('not enough nodes');
         }
         var blocks = _.map(nodes, function(node) {
-            return new EdgeBlock({
+            return new DataBlock({
                 node_id: node.id,
                 size: size,
             });

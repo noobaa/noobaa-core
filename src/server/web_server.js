@@ -6,14 +6,13 @@ process.on('uncaughtException', function(err) {
 
 // important - dot settings should run before any require() that might use dot
 // or else the it will get mess up (like the email.js code)
-var dot = require('noobaa-util/dot');
+var dot_engine = require('noobaa-util/dot_engine');
 var _ = require('underscore');
 var fs = require('fs');
 var path = require('path');
 var URL = require('url');
 var http = require('http');
 var mongoose = require('mongoose');
-var dot_emc = require('dot-emc');
 var dotenv = require('dotenv');
 var express = require('express');
 var express_favicon = require('static-favicon');
@@ -45,50 +44,9 @@ var web_port = process.env.PORT || 5001;
 app.set('port', web_port);
 
 // setup view template engine with doT
-function template_engine(views_path, no_cache) {
-    // cache for the templates
-    var cache = {};
-    // defs is the object used by doT for resolving compile time names
-    // such as used with <?# def.lalala ?> so we extend it by defining
-    // the include() function to load a file into the template.
-    var defs = {
-        include: function(filename, vars) {
-            try {
-                filename = path.resolve(views_path, filename);
-                var template_func = cache[filename];
-                if (!template_func) {
-                    // read the file
-                    var file_data = fs.readFileSync(filename);
-                    // compile the template
-                    template_func = dot.template(file_data, null, defs);
-                    if (!no_cache) {
-                        cache[filename] = template_func;
-                    }
-                }
-                return template_func({
-                    it: vars
-                });
-            } catch (err) {
-                console.error('template failed', filename);
-                console.error(err, err.stack);
-                throw err;
-            }
-        }
-    };
-    // return an express engine function
-    return function(filename, options, callback) {
-        var result;
-        try {
-            result = defs.include(filename, options);
-        } catch (err) {
-            return callback(err);
-        }
-        return callback(null, result);
-    };
-}
 var views_path = path.join(rootdir, 'src', 'views');
 app.set('views', views_path);
-app.engine('html', template_engine(views_path));
+app.engine('html', dot_engine(views_path));
 
 
 ////////////////

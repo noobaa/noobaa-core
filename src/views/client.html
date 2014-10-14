@@ -1,13 +1,13 @@
 <html ng-app="ng_client">
 
 <head>
-    <?# def.include( 'common_head.html') ?>
+    {{{# def.include( 'common_head.html') }}}
 
-        <link href="//maxcdn.bootstrapcdn.com/bootswatch/3.2.0/flatly/bootstrap.min.css" rel="stylesheet">
-        <base href="/client/">
+    <link href="//maxcdn.bootstrapcdn.com/bootswatch/3.2.0/flatly/bootstrap.min.css" rel="stylesheet">
+    <base href="/client/">
 </head>
 
-<body ng-controller="ClientCtrl">
+<body ng-controller="ClientCtrl" ng-cloak>
 
     <div class="container">
         <h3>
@@ -19,7 +19,7 @@
     </div>
 
     <div>
-        <?# def.include( 'common_scripts.html') ?>
+        {{{# def.include( 'common_scripts.html') }}}
     </div>
 
 </body>

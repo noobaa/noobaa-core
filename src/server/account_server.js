@@ -1,7 +1,7 @@
 // this module is written for both nodejs.
 'use strict';
 
-var _ = require('underscore');
+var _ = require('lodash');
 var assert = require('assert');
 var Q = require('q');
 var restful_api = require('../util/restful_api');

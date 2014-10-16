@@ -1,7 +1,7 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('underscore');
+var _ = require('lodash');
 var Q = require('q');
 var restful_api = require('../util/restful_api');
 var object_api = require('../api/object_api');

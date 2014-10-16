@@ -31,7 +31,7 @@ var dotenv = require('dotenv');
 var through2 = require('through2');
 var bower = require('bower');
 var Q = require('q');
-var _ = require('underscore');
+var _ = require('lodash');
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');

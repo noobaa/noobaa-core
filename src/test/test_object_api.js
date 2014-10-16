@@ -2,7 +2,7 @@
 /* global describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
-var _ = require('underscore');
+var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var optimist = require('optimist');

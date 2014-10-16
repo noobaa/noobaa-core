@@ -7,7 +7,7 @@ process.on('uncaughtException', function(err) {
 // important - dot settings should run before any require() that might use dot
 // or else the it will get mess up (like the email.js code)
 var dot_engine = require('noobaa-util/dot_engine');
-var _ = require('underscore');
+var _ = require('lodash');
 var fs = require('fs');
 var path = require('path');
 var URL = require('url');

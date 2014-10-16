@@ -3,7 +3,7 @@
 
 var util = require('util');
 var stream = require('stream');
-var _ = require('underscore');
+var _ = require('lodash');
 var Q = require('q');
 var object_api = require('../api/object_api');
 

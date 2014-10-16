@@ -11,26 +11,32 @@ var types = mongoose.Schema.Types;
 
 var object_part_schema = new Schema({
 
+    // the object that this part belong to.
     obj: {
         type: types.ObjectId,
         ref: 'ObjectMD',
         required: true,
     },
 
-    chunk: {
-        type: types.ObjectId,
-        ref: 'DataChunk',
-        required: true,
-    },
-
-    // the range (offset,size) in the object
+    // the range [offset,end) in the object
     offset: {
         type: Number,
         required: true,
     },
 
-    size: {
+    // we keep the end offset instead of size to allow querying the
+    // object for specific offsets and get the relevant parts.
+    // end must equal to (offset + chunk.size)
+    end: {
         type: Number,
+        required: true,
+    },
+
+    // link to the data chunk, which might be shared by
+    // several parts by different objects for dedup.
+    chunk: {
+        type: types.ObjectId,
+        ref: 'DataChunk',
         required: true,
     },
 
@@ -43,8 +49,14 @@ var object_part_schema = new Schema({
 
 object_part_schema.index({
     obj: 1,
-    chunk: 1,
     offset: 1,
+    end: 1,
+}, {
+    unique: false
+});
+
+object_part_schema.index({
+    chunk: 1,
 }, {
     unique: false
 });

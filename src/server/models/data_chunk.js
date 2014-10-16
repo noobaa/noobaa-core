@@ -13,6 +13,7 @@ var types = mongoose.Schema.Types;
 
 var data_chunk_schema = new Schema({
 
+    // chunk size in bytes
     size: {
         type: Number,
         required: true,

@@ -43,6 +43,7 @@ var objmd_schema = new Schema({
 
 });
 
+// (bucket+key) are unique in the system
 objmd_schema.index({
     bucket: 1,
     key: 1,

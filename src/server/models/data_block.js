@@ -16,14 +16,9 @@ var data_block_schema = new Schema({
         ref: 'DataChunk',
         required: true,
     },
+
     // the index in the chunk - see kblocks in DataChunk
     index: {
-        type: Number,
-        required: true,
-    },
-
-    // the size of this block in bytes
-    size: {
         type: Number,
         required: true,
     },

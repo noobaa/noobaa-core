@@ -61,7 +61,7 @@ describe('restful_api', function() {
         data: 'testing error',
         status: 404,
     };
-    var test_api = restful_api.define_api({
+    var test_api = restful_api({
         name: 'Test',
         methods: {
             get: {
@@ -100,7 +100,7 @@ describe('restful_api', function() {
 
         it('should detect api with collision paths', function() {
             assert.throws(function() {
-                restful_api.define_api({
+                restful_api({
                     methods: {
                         a: {
                             method: 'GET',

@@ -13,9 +13,7 @@ var request = require('request');
 var tv4 = require('tv4');
 
 
-module.exports = {
-    define_api: define_api,
-};
+module.exports = restful_api;
 
 
 var VALID_METHODS = {
@@ -29,19 +27,19 @@ var PATH_ITEM_RE = /^\S*$/;
 
 // Check and initialize the api structure.
 //
-// api (Object): 
+// api (Object):
 // - each key is func_name (String)
 // - each value is func_info (Object):
 //   - method (String) - http method GET/POST/...
 //   - path (Function) - function(params) that returns the path (String) for the call
 //   - data (Function) - function(params) that returns the data (String|Buffer) for the call
 //
-function define_api(api) {
+function restful_api(api) {
 
     // client class for the api.
     // creating a client instance takes client_params,
     // which is needed for when doing the actual calls.
-    // 
+    //
     // client_params (Object):
     // - hostname (String)
     // - port (Number)
@@ -56,11 +54,11 @@ function define_api(api) {
     };
 
     // server class for the api.
-    // 
+    //
     // methods (Object): map of function names to function(params).
     //
-    // allow_missing_methods (String): 
-    //    call with allow_missing_methods==='allow_missing_methods' to make the server 
+    // allow_missing_methods (String):
+    //    call with allow_missing_methods==='allow_missing_methods' to make the server
     //    accept missing functions, the handler for missing functions will fail on runtime.
     //    useful for test servers.
     //

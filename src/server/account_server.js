@@ -54,6 +54,13 @@ function create_account(req) {
     var info = _.pick(req.restful_params, 'email', 'password');
     return Account.create(info).then(function(account) {
         return undefined;
+    }).then(null, function(err) {
+        if (err.code === 11000) {
+            throw new Error('ACCOUNT EXISTS');
+        } else {
+            console.error('FAILED create_account', err);
+            throw new Error('failed create account');
+        }
     });
 }
 

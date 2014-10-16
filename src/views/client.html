@@ -12,7 +12,12 @@
     <div class="container">
         <h3>
             NOOBAA CLIENT
-            <span class="pull-right"><b><i>{{account_email}}</i></b></span>
+            <span ng-show="logged_in" class="pull-right">
+                <b><i>{{account_email}}</i></b>
+            </span>
+            <span ng-hide="logged_in" class="pull-right">
+                logging in <i class="fa fa-spinner fa-spin fa-lg"></i>
+            </span>
         </h3>
         <hr/>
         <div ng-view></div>

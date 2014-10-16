@@ -9,12 +9,14 @@ var Q = require('q');
 var assert = require('assert');
 var URL = require('url');
 var PATH = require('path');
-var request = require('request');
+var Cookie = require('cookie-jar');
 var tv4 = require('tv4');
 
 
 module.exports = restful_api;
 
+// TODO better keep cookie jars in a client object, but now the client objects are per api
+var cookie_jars_per_host = {};
 
 var VALID_METHODS = {
     GET: 1,
@@ -197,6 +199,14 @@ function do_client_request(client_params, func_info, params) {
         // now send it over http
         return send_http_request(options);
     }).then(function(res) {
+        var cookies = res.response.headers['set-cookie'];
+        if (cookies) {
+            var host = client_params.host || (client_params.hostname + ':' + client_params.post);
+            var jar = cookie_jars_per_host[host] = cookie_jars_per_host[host] || new Cookie.Jar();
+            _.each(cookies, function(cookie_str) {
+                jar.add(new Cookie(cookie_str));
+            });
+        }
         if (res.data) {
             // check the reply
             validate_schema(res.data, func_info.reply, func_info);
@@ -214,6 +224,8 @@ function create_client_request(client_params, func_info, params) {
     var method = func_info.method;
     var path = client_params.path || '/';
     var data = _.clone(params) || {};
+    var headers = _.clone(client_params.headers) || {};
+    var body;
     validate_schema(data, func_info.params, func_info);
     // construct the request path for the relevant params
     _.each(func_info.path_items, function(p) {
@@ -228,29 +240,35 @@ function create_client_request(client_params, func_info, params) {
             delete data[p.name];
         }
     });
-    var query;
-    var body;
-    if (method === 'POST' || method === 'PUT') {
-        body = data;
-    } else {
-        query = data;
-        _.each(query, function(v, k) {
-            query[k] = param_to_component(query[k], func_info.params.properties[k].type);
+    headers.accept = '*/*';
+    var host = client_params.host || (client_params.hostname + ':' + client_params.post);
+    var jar = cookie_jars_per_host[host];
+    if (jar) {
+        headers.cookie = jar.cookieString({
+            url: path
         });
     }
-    var url = URL.format({
-        // TODO what to do to support https?
-        protocol: 'http',
-        hostname: client_params.hostname || 'localhost',
-        port: client_params.port,
-        pathname: path,
-    });
+    if (method === 'POST' || method === 'PUT') {
+        body = JSON.stringify(data);
+        headers['content-type'] = 'application/json';
+        headers['content-length'] = body.length;
+    } else {
+        // for GET, HEAD, DELETE there is no body, so encode the data into the path query
+        _.each(data, function(v, k) {
+            data[k] = param_to_component(data[k], func_info.params.properties[k].type);
+        });
+        var query = querystring.stringify(data);
+        if (query) {
+            path += '?' + query;
+        }
+    }
     var options = {
-        jar: true,
-        json: true,
+        protocol: client_params.protocol,
+        hostname: client_params.hostname,
+        port: client_params.port,
         method: method,
-        url: url,
-        qs: query,
+        path: path,
+        headers: headers,
         body: body,
     };
     return options;
@@ -260,24 +278,63 @@ function create_client_request(client_params, func_info, params) {
 // send http request and return a promise for the response
 function send_http_request(options) {
     var defer = Q.defer();
-    request(options, function(err, res, body) {
-        if (err) {
-            return defer.reject({
-                data: err,
-            });
+    // console.log('HTTP request', options);
+    var protocol = options.protocol;
+    var body = options.body;
+    options = _.omit(options, 'body', 'protocol');
+    var req = protocol === 'https' ?
+        https.request(options) :
+        http.request(options);
+    req.on('response', function(res) {
+        // console.log('HTTP response headers', res.statusCode, res.headers);
+        if (res.setEncoding) {
+            res.setEncoding('utf8');
         }
-        if (res.statusCode !== 200) {
-            return defer.reject({
-                status: res.statusCode,
-                data: body,
-            });
-        } else {
-            return defer.resolve({
-                response: res,
-                data: body,
-            });
-        }
+        var data = '';
+        var response_err;
+        res.on('data', function(chunk) {
+            // console.log('HTTP response data', chunk);
+            data += chunk;
+        });
+        res.on('error', function(err) {
+            // console.log('HTTP response error', err);
+            response_err = err;
+        });
+        res.on('end', function() {
+            // console.log('HTTP response end', res.statusCode, response_err, data);
+            if (data) {
+                var content_type = res.headers['content-type'];
+                if (content_type && content_type.split(';')[0] === 'application/json') {
+                    try {
+                        data = JSON.parse(data);
+                    } catch (err) {
+                        response_err = err;
+                    }
+                }
+            }
+            if (res.statusCode !== 200 || response_err) {
+                return defer.reject({
+                    status: res.statusCode,
+                    data: response_err || data,
+                });
+            } else {
+                return defer.resolve({
+                    response: res,
+                    data: data,
+                });
+            }
+        });
     });
+    req.on('error', function(err) {
+        // console.log('HTTP request error', err);
+        return defer.reject({
+            data: err,
+        });
+    });
+    if (body) {
+        req.write(body, 'utf8');
+    }
+    req.end();
     return defer.promise;
 }
 

@@ -4,8 +4,8 @@
 var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
-// var account_api = require('../api/account_api');
-// var object_client_module = require('./object_client');
+var account_api = require('../api/account_api');
+var object_client_module = require('./object_client');
 
 var ng_templates = angular.module('templates', []);
 var ng_client = angular.module('ng_client', [
@@ -33,36 +33,53 @@ ng_client.config(['$routeProvider', '$locationProvider',
 ]);
 
 ng_client.controller('ClientCtrl', [
-    '$scope', '$http',
-    function($scope, $http) {
+    '$scope', '$http', '$q',
+    function($scope, $http, $q) {
 
         $scope.account_email = 'stam@bla.yuck';
+        $scope.account_password = 'stamyuck';
+        $scope.logged_in = false;
 
-        /*
         var account_client = new account_api.Client({
-            path: '/account_api/',
+            path: '/api/account_api/',
         });
 
-        var object_client = new object_client_module.ObjectClient({
-            path: '/object_api/',
-        });
-
-        $scope.login = function(email, password) {
-            account_client.login({
+        function create_account(email, password) {
+            return account_client.create_account({
                 email: email,
                 password: password,
             }).then(function() {
-                $scope.email = email;
-                $scope.apply();
+                $scope.$apply();
             });
-        };
-        */
+        }
+
+        function login_account(email, password) {
+            return account_client.login_account({
+                email: email,
+                password: password,
+            }).then(function() {
+                $scope.logged_in = true;
+                $scope.$apply();
+            });
+        }
+
+        $q.when().then(function() {
+            return create_account($scope.account_email, $scope.account_password);
+        }).then(function() {
+            return login_account($scope.account_email, $scope.account_password);
+        }).then(null, function() {
+            return login_account($scope.account_email, $scope.account_password);
+        });
     }
 ]);
 
 ng_client.controller('AccountCtrl', [
     '$scope', '$http',
     function($scope, $http) {
+
+        var object_client = new object_client_module.ObjectClient({
+            path: '/api/object_api/',
+        });
 
     }
 ]);

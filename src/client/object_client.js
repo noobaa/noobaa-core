@@ -6,16 +6,14 @@ var stream = require('stream');
 var _ = require('lodash');
 var Q = require('q');
 var object_api = require('../api/object_api');
+var Mapper = require('./mapper');
 
 var READ_SIZE_MARK = 128 * 1024;
 var WRITE_SIZE_MARK = 128 * 1024;
 
 
-// exporting the ObjectClient module as a class
-
-module.exports = {
-    ObjectClient: ObjectClient
-};
+// exporting the ObjectClient class
+module.exports = ObjectClient;
 
 
 
@@ -29,11 +27,9 @@ function ObjectClient(client_params) {
     object_api.Client.call(this, client_params);
 }
 
-util.inherits(ObjectClient, object_api.Client);
-
-
 // in addition to the api functions, the client implements more advanced functions
 // for read/write of objects according to the object mapping.
+util.inherits(ObjectClient, object_api.Client);
 
 
 // read_object_data (API)
@@ -41,93 +37,91 @@ util.inherits(ObjectClient, object_api.Client);
 // params (Object):
 //   - bucket (String)
 //   - key (String)
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
+//   - start (Number) - object start offset
+//   - end (Number) - object end offset
 //
-// return (Promise for Object):
-//   - buffer (Buffer) - data, can be shorter than requested
+// return: buffer (promise) - the data. can be shorter than requested if EOF.
 //
 ObjectClient.prototype.read_object_data = function(params) {
     var self = this;
-    return self.map_object(params).then(function(res) {
-        params.maps = res.data;
-        return self.read_maps(params);
+
+    return self.get_object_mappings(params).then(function(res) {
+        var mapper = new Mapper(res.data);
+        return mapper.iterate(params.start, params.end, read_block_set);
+    }).then(function(buffers) {
+        // once all parts finish we can construct the complete buffer.
+        buffers = _.compact(_.flatten(buffers));
+        return Buffer.concat(buffers, params.end - params.start);
     });
 };
+
+function read_block_set(bs) {
+    bs.read_promise = bs.read_promise || Q.fcall(read_block_set_next, bs);
+    return bs.read_promise;
+}
+
+function read_block_set_next(bs) {
+    if (!bs.blocks || !bs.blocks.length) {
+        console.log('no blocks to read', bs);
+        throw new Error('no blocks to read');
+    }
+    // pop the next block
+    var block = bs.blocks.pop();
+    // go read the block
+    return read_block(block).then(null, function(err) {
+        console.log('block read failed, drop it like its hot', block, err);
+        // on failure to read, recurse to next block in set
+        return read_block_set_next(bs);
+    });
+}
+
+function read_block(block) {
+    // TODO read block from node
+    var buffer = new Buffer(block.size);
+    buffer.fill(0);
+    return buffer;
+}
+
+
 
 // write_object_data (API)
 //
 // params (Object):
 //   - bucket (String)
 //   - key (String)
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
+//   - start (Number) - object start offset
+//   - end (Number) - object end offset
 //   - buffer (Buffer) - data to write
 //
-// return (Promise)
+// return (promise)
 //
 ObjectClient.prototype.write_object_data = function(params) {
     var self = this;
-    return self.map_object(_.omit(params, 'buffer')).then(function(res) {
-        params.maps = res.data;
-        return self.write_maps(params);
+    return self.get_object_mappings(_.omit(params, 'buffer')).then(function(res) {
+        var mapper = new Mapper(res.data);
+        return mapper.iterate(params.start, params.end, write_block_set);
     });
 };
 
-
-
-// read_maps (API)
-//
-// params (Object):
-//   - maps (Object) - mapping info to use for reading
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
-//
-// return (promise)
-//
-ObjectClient.prototype.read_maps = function(params) {
-    var maps = params.maps;
-    var buffer = new Buffer(params.size);
-    buffer.fill(0);
-    _.each(maps, function(m) {
-
-    });
+function write_block_set() {
     // TODO
-    return Q.when(buffer);
-};
-
-// write_maps (API)
-//
-// params (Object):
-//   - buffer (Buffer) - data to write
-//   - maps (Object) - mapping info to use for writing
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
-//
-// return (promise)
-//
-ObjectClient.prototype.write_maps = function(params) {
-    var maps = params.maps;
-    // TODO
-    return Q.when();
-};
+}
 
 
 
-// open_read_stream (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
-//
-// return Reader (inherits from stream.Readable).
-//
+
 ObjectClient.prototype.open_read_stream = function(params) {
     return new Reader(this, params);
 };
+ObjectClient.prototype.open_write_stream = function(params) {
+    return new Writer(this, params);
+};
 
+
+
+///////////////
+/////////
+/////
 // Reader is a Readable stream for the specified object and range.
 
 function Reader(client, params) {
@@ -177,22 +171,11 @@ Reader.prototype._read = function(size) {
 
 
 
-// open_write_stream (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - offset (Number) - offset to start reading from
-//   - size (Number) - number of bytes to read
-//
-// return Writer (inherits from stream.Writable).
-//
-ObjectClient.prototype.open_write_stream = function(params) {
-    return new Writer(this, params);
-};
-
-
+///////////////
+/////////
+/////
 // Writer is a Writable stream for the specified object and range.
+
 
 function Writer(client, params) {
     stream.Writable.call(this, {
@@ -232,6 +215,7 @@ Writer.prototype._write = function(chunk, encoding, callback) {
 };
 
 
+
 // return a fixed positive
 function fix_offset_param(offset, default_value) {
     // if undefined assume the default value
@@ -246,7 +230,7 @@ function fix_offset_param(offset, default_value) {
 
 function slice_buffer(buffer, offset, size) {
     if (offset === 0 && buffer.length === size) {
-        return;
+        return buffer;
     }
     if (typeof(buffer.slice) === 'function') {
         return buffer.slice(offset, offset + size);

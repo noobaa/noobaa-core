@@ -25,8 +25,8 @@ var edge_node_client = new edge_node_api.Client({
 
 var object_api = require('../api/object_api');
 var object_server = require('../server/object_server');
-var object_client_module = require('../client/object_client');
-var object_client = new object_client_module.ObjectClient({
+var ObjectClient = require('../client/object_client');
+var object_client = new ObjectClient({
     path: '/object_api/',
 });
 

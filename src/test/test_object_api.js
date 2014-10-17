@@ -50,7 +50,7 @@ describe('object_api', function() {
                 key: KEY,
             });
         }).then(function() {
-            return coretest.object_client.map_object({
+            return coretest.object_client.get_object_mappings({
                 bucket: BKT,
                 key: KEY,
                 offset: 0,

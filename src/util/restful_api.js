@@ -298,7 +298,7 @@ function send_http_request(options) {
         });
         res.on('error', function(err) {
             // console.log('HTTP response error', err);
-            response_err = err;
+            response_err = response_err || err;
         });
         res.on('end', function() {
             // console.log('HTTP response end', res.statusCode, response_err, data);
@@ -308,7 +308,7 @@ function send_http_request(options) {
                     try {
                         data = JSON.parse(data);
                     } catch (err) {
-                        response_err = err;
+                        response_err = response_err || err;
                     }
                 }
             }

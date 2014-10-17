@@ -5,7 +5,7 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var account_api = require('../api/account_api');
-var object_client_module = require('./object_client');
+var ObjectClient = require('./object_client');
 
 var ng_templates = angular.module('templates', []);
 var ng_client = angular.module('ng_client', [
@@ -77,7 +77,7 @@ ng_client.controller('AccountCtrl', [
     '$scope', '$http',
     function($scope, $http) {
 
-        var object_client = new object_client_module.ObjectClient({
+        var object_client = new ObjectClient({
             path: '/api/object_api/',
         });
 

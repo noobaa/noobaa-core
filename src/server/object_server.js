@@ -29,7 +29,7 @@ module.exports = new object_api.Server({
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
-    map_object: map_object,
+    get_object_mappings: get_object_mappings,
 }, [
     // middleware to verify the account session
     account_server.account_session
@@ -175,7 +175,7 @@ function delete_object(req) {
 }
 
 
-function map_object(req) {
+function get_object_mappings(req) {
     var bucket_name = req.restful_params.bucket;
     var key = req.restful_params.key;
     var offset = req.restful_params.offset || 0;

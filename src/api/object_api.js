@@ -201,7 +201,7 @@ module.exports = restful_api({
             },
         },
 
-        map_object: {
+        get_object_mappings: {
             method: 'GET',
             path: '/:bucket/:key/map',
             params: {
@@ -225,38 +225,60 @@ module.exports = restful_api({
             },
             reply: {
                 type: 'object',
-                required: ['key', 'size', 'create_time', 'parts'],
+                required: ['parts'],
                 additionalProperties: false,
                 properties: {
-                    key: {
-                        type: 'string'
-                    },
-                    size: {
-                        type: 'number'
-                    },
-                    create_time: {
-                        type: 'string',
-                        format: 'date',
-                    },
                     parts: {
                         type: 'array',
                         items: {
                             type: 'object',
+                            required: ['offset', 'size', 'kblocks', 'blocks'],
                             additionalProperties: false,
                             properties: {
-                                offset: {
+                                start: {
                                     type: 'number',
                                 },
-                                size: {
+                                end: {
                                     type: 'number',
                                 },
                                 kblocks: {
                                     type: 'number',
                                 },
-                                word_size: {
+                                chunk_offset: {
                                     type: 'number',
                                 },
-                                // blocks
+                                blocks: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        required: ['id', 'index', 'node'],
+                                        additionalProperties: false,
+                                        properties: {
+                                            id: {
+                                                type: 'string',
+                                            },
+                                            index: {
+                                                type: 'number',
+                                            },
+                                            node: {
+                                                type: 'object',
+                                                required: ['id', 'ip', 'port'],
+                                                additionalProperties: false,
+                                                properties: {
+                                                    id: {
+                                                        type: 'string',
+                                                    },
+                                                    ip: {
+                                                        type: 'string',
+                                                    },
+                                                    port: {
+                                                        type: 'number',
+                                                    },
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         },
                     },

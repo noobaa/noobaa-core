@@ -18,15 +18,15 @@ var object_part_schema = new Schema({
         required: true,
     },
 
-    // the range [offset,end) in the object
-    offset: {
+    // the range [start,end) in the object
+    start: {
         type: Number,
         required: true,
     },
 
-    // we keep the end offset instead of size to allow querying the
+    // we prefer to keep the end offset instead of size to allow querying the
     // object for specific offsets and get the relevant parts.
-    // end must equal to (offset + chunk.size)
+    // end must equal to (start + chunk.size)
     end: {
         type: Number,
         required: true,

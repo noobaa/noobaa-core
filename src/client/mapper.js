@@ -63,6 +63,7 @@ Mapper.prototype.iterate_part = function(part, start, end, handler) {
         var block_iter_range = range_intersection(
             chunk_start, chunk_end,
             block_start, block_start + block_size);
+            /*
         bs = block_sets[block.index] = {
             block_range: block_range,
             blocks: [],
@@ -72,6 +73,7 @@ Mapper.prototype.iterate_part = function(part, start, end, handler) {
         if (rng) {
             return params.handler(bs);
         }
+        */
     }));
 };
 

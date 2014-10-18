@@ -215,10 +215,10 @@ module.exports = restful_api({
                     key: {
                         type: 'string',
                     },
-                    offset: {
+                    start: {
                         type: 'number',
                     },
-                    size: {
+                    end: {
                         type: 'number',
                     },
                 },
@@ -232,7 +232,7 @@ module.exports = restful_api({
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['offset', 'size', 'kblocks', 'blocks'],
+                            required: ['start', 'end', 'kblocks', 'chunk_offset', 'blocks'],
                             additionalProperties: false,
                             properties: {
                                 start: {

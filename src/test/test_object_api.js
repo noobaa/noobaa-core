@@ -53,8 +53,8 @@ describe('object_api', function() {
             return coretest.object_client.get_object_mappings({
                 bucket: BKT,
                 key: KEY,
-                offset: 0,
-                size: 1,
+                start: 0,
+                end: 1,
             });
         }).then(function() {
             return coretest.object_client.list_bucket_objects({
@@ -124,8 +124,8 @@ describe('object_api', function() {
                 coretest.object_client.open_write_stream({
                     bucket: BKT,
                     key: KEY,
-                    offset: 0,
-                    size: size,
+                    start: 0,
+                    end: size,
                 }).on('error', function(err) {
                     defer.reject(err);
                 }).on('finish', function(err) {
@@ -138,8 +138,8 @@ describe('object_api', function() {
                 coretest.object_client.open_read_stream({
                     bucket: BKT,
                     key: KEY,
-                    offset: 0,
-                    size: size,
+                    start: 0,
+                    end: size,
                 }).on('data', function(chunk) {
                     buffers.push(chunk);
                 }).on('end', function() {

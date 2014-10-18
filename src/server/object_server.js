@@ -178,9 +178,9 @@ function delete_object(req) {
 function get_object_mappings(req) {
     var bucket_name = req.restful_params.bucket;
     var key = req.restful_params.key;
-    var offset = req.restful_params.offset || 0;
-    var size = typeof(req.restful_params.size) !== 'undefined' ?
-        req.restful_params.size : Infinity;
+    var start = req.restful_params.start || 0;
+    var end = typeof(req.restful_params.end) !== 'undefined' ?
+        req.restful_params.end : Infinity;
     var obj, parts;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
@@ -193,8 +193,13 @@ function get_object_mappings(req) {
         obj = obj_arg;
         return ObjectPart.find({
             obj: obj.id,
-            // offset: { $lt: offset+size },
-            // size: { $lt: offset+size },
+            // find parts intersecting the [start,end) range
+            start: {
+                $lt: end
+            },
+            end: {
+                $gt: start
+            },
         }).populate('chunk').exec();
     }).then(function(parts_arg) {
         parts = parts_arg;
@@ -202,18 +207,47 @@ function get_object_mappings(req) {
             chunk: {
                 $in: _.pluck(parts, '_id')
             }
-        }).exec();
+        }).populate('node').exec();
     }).then(function(blocks) {
-        var reply = object_for_client(obj);
-        reply.create_time = reply.create_time.toString();
-        reply.parts = parts;
-        var blocks_by_chunk = _.groupBy(blocks, 'chunk');
-        _.each(parts, function(part) {
-            if (part.chunk) {
-                part.blocks = blocks_by_chunk[part.chunk.id];
-            }
-        });
         // TODO check and create missing parts/chunks/blocks
+        // TODO TEST CODE
+        blocks = _.times(10, function(i) {
+            return {
+                chunk: '0',
+                id: '' + i,
+                index: i,
+                node: {
+                    id: '' + i,
+                    ip: '0.0.0.0',
+                    port: 0
+                }
+            };
+        });
+        parts = [{
+            start: start,
+            end: end,
+            chunk_offset: 0,
+            chunk: {
+                id: '0',
+                kblocks: 10,
+            }
+        }];
+        var blocks_by_chunk = _.groupBy(blocks, 'chunk');
+        var reply = {
+            parts: _.map(parts, function(part) {
+                var p = _.pick(part, 'start', 'end', 'chunk_offset');
+                p.kblocks = part.chunk.kblocks;
+                p.blocks = _.map(blocks_by_chunk[part.chunk.id], function(block) {
+                    return {
+                        id: block.id,
+                        index: block.index,
+                        node: _.pick(block.node, 'id', 'ip', 'port')
+                    };
+                });
+                return p;
+            })
+        };
+        console.log(reply);
         return reply;
     });
 }

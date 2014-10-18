@@ -49,7 +49,7 @@ var object_part_schema = new Schema({
 
 object_part_schema.index({
     obj: 1,
-    offset: 1,
+    start: 1,
     end: 1,
 }, {
     unique: false

@@ -7,6 +7,7 @@ var _ = require('lodash');
 var Q = require('q');
 var object_api = require('../api/object_api');
 var Mapper = require('./mapper');
+var Semaphore = require('noobaa-util/semaphore');
 
 var READ_SIZE_MARK = 128 * 1024;
 var WRITE_SIZE_MARK = 128 * 1024;
@@ -25,6 +26,8 @@ module.exports = ObjectClient;
 //
 function ObjectClient(client_params) {
     object_api.Client.call(this, client_params);
+    this.read_sem = new Semaphore(20);
+    this.write_sem = new Semaphore(20);
 }
 
 // in addition to the api functions, the client implements more advanced functions
@@ -44,10 +47,17 @@ util.inherits(ObjectClient, object_api.Client);
 //
 ObjectClient.prototype.read_object_data = function(params) {
     var self = this;
+    console.log('read_object_data', params);
 
     return self.get_object_mappings(params).then(function(res) {
-        var mapper = new Mapper(res.data);
-        return mapper.iterate(params.start, params.end, read_block_set);
+        var mappings = res.data;
+        console.log('mappings', mappings);
+        // sort parts by start offset - just in case the server didn't
+        // the sorting will allow streaming reads to work well.
+        _.sortBy(mappings.parts, 'start');
+        return Q.all(_.map(mappings.parts, function(part) {
+            return self.read_object_part(part);
+        }));
     }).then(function(buffers) {
         // once all parts finish we can construct the complete buffer.
         buffers = _.compact(_.flatten(buffers));
@@ -55,29 +65,65 @@ ObjectClient.prototype.read_object_data = function(params) {
     });
 };
 
-function read_block_set(bs) {
-    bs.read_promise = bs.read_promise || Q.fcall(read_block_set_next, bs);
-    return bs.read_promise;
-}
 
-function read_block_set_next(bs) {
-    if (!bs.blocks || !bs.blocks.length) {
-        console.log('no blocks to read', bs);
-        throw new Error('no blocks to read');
+ObjectClient.prototype.read_object_part = function(part) {
+    var self = this;
+    console.log('read_object_part', part);
+
+    var num_buffers = 0;
+    var buffers_by_index = {};
+    var blocks_by_index = _.groupBy(part.blocks, 'index');
+    var indexes_arr = _.keys(blocks_by_index).sort();
+    var next_index_pos = part.kblocks;
+    var start_initial_indexes = _.map(_.first(indexes_arr, part.kblocks), process_index);
+    var block_size = ((part.end - part.start) / part.kblocks) | 0;
+
+    function process_index(index) {
+        console.log('process_index', index);
+
+        var blocks = blocks_by_index[index];
+        // chain the blocks of the index with array reduce
+        return _.reduce(blocks, function(promise, block) {
+            // chain the next block of the index on the rejection handler
+            // so it will be read instead if the previous failed.
+            return promise.then(null, function() {
+                // use read semaphore to surround the IO
+                return self.read_sem.surround(function() {
+                    return read_block(block, block_size);
+                });
+            });
+        }, Q.reject('NOT-AN-ERROR')).then(function(buffer) {
+            buffers_by_index[index] = buffer;
+            num_buffers += 1;
+            // when done, just finish the promise chain
+        }).then(null, function(err) {
+            // failed to read index, try another if remains
+            console.error('READ FAILED INDEX', index, err);
+            if (next_index_pos >= indexes_arr.length) {
+                throw new Error('READ EXHAUSTED', part);
+            }
+            var next_index = indexes_arr[next_index_pos];
+            next_index_pos += 1;
+            return process_index(next_index);
+        });
     }
-    // pop the next block
-    var block = bs.blocks.pop();
-    // go read the block
-    return read_block(block).then(null, function(err) {
-        console.log('block read failed, drop it like its hot', block, err);
-        // on failure to read, recurse to next block in set
-        return read_block_set_next(bs);
-    });
-}
 
-function read_block(block) {
+    return Q.all(start_initial_indexes).then(function() {
+        var buffers = [];
+        for (var i = 0; i < part.kblocks; i++) {
+            buffers[i] = buffers_by_index[i];
+            if (!buffers_by_index[i]) {
+                throw new Error('MISSING BLOCK ' + i);
+            }
+        }
+        return Buffer.concat(buffers, part.end - part.start);
+    });
+};
+
+function read_block(block, block_size) {
+    console.log('read_block', block, block_size);
     // TODO read block from node
-    var buffer = new Buffer(block.size);
+    var buffer = new Buffer(block_size);
     buffer.fill(0);
     return buffer;
 }
@@ -97,15 +143,18 @@ function read_block(block) {
 //
 ObjectClient.prototype.write_object_data = function(params) {
     var self = this;
+    console.log('write_object_data', params);
     return self.get_object_mappings(_.omit(params, 'buffer')).then(function(res) {
-        var mapper = new Mapper(res.data);
-        return mapper.iterate(params.start, params.end, write_block_set);
+        var mappings = res.data;
+        // sort parts by start offset - just in case the server didn't
+        // the sorting will allow streaming reads to work well.
+        _.sortBy(mappings.parts, 'start');
+        return Q.all(_.map(mappings.parts, function(part) {
+            // return self.read_object_part(part);
+        }));
     });
 };
 
-function write_block_set() {
-    // TODO
-}
 
 
 
@@ -138,32 +187,36 @@ function Reader(client, params) {
         // instead of a Buffer of size n. Default=false
         objectMode: false,
     });
-    this._reader_client = client;
+    this._client = client;
     var p = _.clone(params);
-    p.offset = fix_offset_param(p.offset, 0);
-    p.size = fix_offset_param(p.size, Infinity);
+    p.start = fix_offset_param(p.start, 0);
+    p.end = fix_offset_param(p.end, Infinity);
     this._reader_params = p;
 }
 
 util.inherits(Reader, stream.Readable);
 
 // implement the stream's Readable._read() function.
-Reader.prototype._read = function(size) {
+Reader.prototype._read = function(requested_size) {
     var self = this;
-    var client = this._reader_client;
+    // make copy of params for this request range
     var params = this._reader_params;
-    // make copy of params, trim if size exceeds the map range
     var p = _.clone(params);
-    p.size = Math.min(Number(size) || READ_SIZE_MARK, params.size);
+    // trim if size exceeds the map range
+    var size = Math.min(Number(requested_size) || READ_SIZE_MARK, params.end - params.start);
+    p.end = p.start + size;
     // finish the read if reached the end of the reader range
-    if (p.size <= 0) {
+    if (size <= 0) {
         self.push(null);
         return;
     }
-    client.read_object_data(p).done(function(buffer) {
-        params.offset += p.size;
-        params.size -= p.size;
+    this._client.read_object_data(p).done(function(buffer) {
+        params.start += buffer.length;
         self.push(buffer);
+        // when read returns a truncated buffer it means we reached EOF
+        if (buffer.length < size) {
+            self.push(null);
+        }
     }, function(err) {
         self.emit('error', err || 'unknown error');
     });
@@ -188,10 +241,10 @@ function Writer(client, params) {
         // If set you can write arbitrary data instead of only Buffer / String data. Default=false
         objectMode: false,
     });
-    this._writer_client = client;
+    this._client = client;
     var p = _.clone(params);
-    p.offset = fix_offset_param(p.offset, 0);
-    p.size = fix_offset_param(p.size, Infinity);
+    p.start = fix_offset_param(p.start, 0);
+    p.end = fix_offset_param(p.end, Infinity);
     this._writer_params = p;
 }
 
@@ -199,15 +252,15 @@ util.inherits(Writer, stream.Writable);
 
 // implement the stream's Readable._read() function.
 Writer.prototype._write = function(chunk, encoding, callback) {
-    var client = this._writer_client;
+    // make copy of params for this request range
     var params = this._writer_params;
-    // make copy of params, trim if buffer exceeds the map range
     var p = _.clone(params);
-    p.size = Math.min(chunk.length, params.size);
-    p.buffer = slice_buffer(chunk, 0, p.size);
-    client.write_object_data(p).done(function() {
-        params.offset += p.size;
-        params.size -= p.size;
+    // trim if buffer exceeds the map range
+    var size = Math.min(chunk.length, params.end - params.start);
+    p.end = p.start + size;
+    p.buffer = slice_buffer(chunk, 0, size);
+    this._client.write_object_data(p).done(function() {
+        params.start += size;
         callback();
     }, function(err) {
         callback(err || 'unknown error');

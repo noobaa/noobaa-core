@@ -9,8 +9,6 @@ var object_api = require('../api/object_api');
 var Mapper = require('./mapper');
 var Semaphore = require('noobaa-util/semaphore');
 
-var READ_SIZE_MARK = 128 * 1024;
-var WRITE_SIZE_MARK = 128 * 1024;
 
 
 // exporting the ObjectClient class
@@ -58,10 +56,9 @@ ObjectClient.prototype.read_object_data = function(params) {
         return Q.all(_.map(mappings.parts, function(part) {
             return self.read_object_part(part);
         }));
-    }).then(function(buffers) {
+    }).then(function(parts_buffers) {
         // once all parts finish we can construct the complete buffer.
-        buffers = _.compact(_.flatten(buffers));
-        return Buffer.concat(buffers, params.end - params.start);
+        return Buffer.concat(parts_buffers, params.end - params.start);
     });
 };
 
@@ -146,6 +143,7 @@ ObjectClient.prototype.write_object_data = function(params) {
     console.log('write_object_data', params);
     return self.get_object_mappings(_.omit(params, 'buffer')).then(function(res) {
         var mappings = res.data;
+        var buffer = params.buffer;
         // sort parts by start offset - just in case the server didn't
         // the sorting will allow streaming reads to work well.
         _.sortBy(mappings.parts, 'start');
@@ -166,6 +164,10 @@ ObjectClient.prototype.open_write_stream = function(params) {
     return new Writer(this, params);
 };
 
+
+
+var READ_SIZE_MARK = 128 * 1024;
+var WRITE_SIZE_MARK = 128 * 1024;
 
 
 ///////////////

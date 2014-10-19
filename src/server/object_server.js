@@ -7,6 +7,7 @@ var restful_api = require('../util/restful_api');
 var object_api = require('../api/object_api');
 var account_server = require('./account_server');
 var LRU = require('noobaa-util/lru');
+var range = require('../util/range');
 // db models
 var Account = require('./models/account');
 var Bucket = require('./models/bucket');
@@ -181,7 +182,7 @@ function get_object_mappings(req) {
     var start = req.restful_params.start || 0;
     var end = typeof(req.restful_params.end) !== 'undefined' ?
         req.restful_params.end : Infinity;
-    var obj, parts;
+    var obj, parts, blocks;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
             account: req.account.id,
@@ -200,15 +201,30 @@ function get_object_mappings(req) {
             end: {
                 $gt: start
             },
-        }).populate('chunk').exec();
+        }).sort('start').populate('chunk').exec();
     }).then(function(parts_arg) {
         parts = parts_arg;
         return DataBlock.find({
             chunk: {
                 $in: _.pluck(parts, '_id')
             }
-        }).populate('node').exec();
-    }).then(function(blocks) {
+        }).sort('index').populate('node').exec();
+    }).then(function(blocks_arg) {
+        blocks = blocks_arg;
+        var pos = start;
+        parts = _.filter(parts, function(part) {
+            var r = range.intersection(part.start, part.end, pos, end);
+            if (!r) {
+                // this part is not good for us
+                return false;
+            }
+            // translate the part's offset to the relevant request
+            part.chunk_offset += r.start - part.start;
+            part.start = r.start;
+            part.end = r.end;
+            pos = r.end;
+            return part;
+        });
         // TODO check and create missing parts/chunks/blocks
         // TODO TEST CODE
         blocks = _.times(10, function(i) {

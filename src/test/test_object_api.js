@@ -112,7 +112,7 @@ describe('object_api', function() {
                 // console.log('random object size', size);
                 data = new Buffer(size);
                 for (var i = 0; i < size; i++) {
-                    data[i] = 0; // TODO chance.integer(CHANCE_BYTE);
+                    data[i] = 0; // chance.integer(CHANCE_BYTE);
                 }
                 return coretest.object_client.create_object({
                     bucket: BKT,

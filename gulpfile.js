@@ -234,13 +234,16 @@ gulp.task('client', ['bower'], function() {
     var NAME_MIN = 'bundle.min.js';
     var bundler = browserify({
         entries: [PATHS.client_main, PATHS.agent_main],
+        debug: (process.env.DEBUG_MODE === 'true'),
+
+        // TODO this browserify config will not work in node-webkit....
+
         // bare is alias for both --no-builtins, --no-commondir,
         // and sets --insert-global-vars to just "__filename,__dirname".
         // This is handy if you want to run bundles in node.
-        bare: true,
-        detectGlobals: false,
-        list: true,
-        debug: true
+        // bare: true,
+        // detectGlobals: false,
+        // list: true,
     });
     // using gulp_replace to fix collision of requires
     var client_bundle_stream = bundler.bundle()

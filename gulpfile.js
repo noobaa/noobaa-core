@@ -201,19 +201,15 @@ gulp.task('css', ['bower'], function() {
 });
 
 gulp.task('ng', function() {
-    var DEST = 'build/public/js';
+    var DEST = 'build/';
     var NAME = 'templates.js';
-    var NAME_MIN = 'templates.min.js';
     return gulp.src(PATHS.ngview)
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_newer(path.join(DEST, NAME)))
-        .pipe(gulp_ng_template())
+        .pipe(gulp_ng_template({
+            standalone: true
+        }))
         .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(DEST))
-        .pipe(gulp_cached(NAME))
-        .pipe(gulp_uglify())
-        .pipe(gulp_rename(NAME_MIN))
-        .pipe(gulp_size_log(NAME_MIN))
         .pipe(gulp.dest(DEST));
 });
 
@@ -228,7 +224,7 @@ gulp.task('jshint', function() {
     // .pipe(gulp_jshint.reporter('fail'));
 });
 
-gulp.task('client', ['bower'], function() {
+gulp.task('client', ['bower', 'ng'], function() {
     var DEST = 'build/public/js';
     var NAME = 'bundle.js';
     var NAME_MIN = 'bundle.min.js';
@@ -329,15 +325,13 @@ function serve() {
 gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client']);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_ng_and_serve', ['ng'], serve);
 gulp.task('install_client_and_serve', ['jshint', 'client'], serve);
 gulp.task('install_server_and_serve', ['jshint'], serve);
 
 gulp.task('start_dev', ['install_and_serve'], function() {
     gulp.watch('src/css/**/*', ['install_css_and_serve']);
-    gulp.watch('src/ngview/**/*', ['install_ng_and_serve']);
-    gulp.watch('src/client/**/*', ['install_client_and_serve']);
-    gulp.watch(['src/server/**/*', 'src/views/**/*', 'src/utils/**/*'], ['install_server_and_serve']);
+    gulp.watch(['src/client/**/*', 'src/ngview/**/*', 'src/utils/**/*'], ['install_client_and_serve']);
+    gulp.watch(['src/server/**/*', 'src/views/**/*'], ['install_server_and_serve']);
 });
 
 gulp.task('start_prod', function() {

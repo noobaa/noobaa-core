@@ -5,7 +5,9 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 
-var ng_templates = angular.module('templates', []);
+// include the generated templates from ngview
+require('../../build/templates');
+
 var ng_agent = angular.module('ng_agent', [
     'templates',
     'ngRoute',

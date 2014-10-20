@@ -7,7 +7,9 @@ var moment = require('moment');
 var account_api = require('../api/account_api');
 var ObjectClient = require('./object_client');
 
-var ng_templates = angular.module('templates', []);
+// include the generated templates from ngview
+require('../../build/templates');
+
 var ng_client = angular.module('ng_client', [
     'templates',
     'ngRoute',

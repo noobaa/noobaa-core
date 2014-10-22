@@ -32,12 +32,6 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
-    // optional store service that stores this chunk data
-    service: {
-        type: types.ObjectId,
-        ref: 'StoreService',
-    },
-
 });
 
 var DataChunk = mongoose.model('DataChunk', data_chunk_schema);

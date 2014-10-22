@@ -3,7 +3,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var range = require('../util/range');
+var range_utils = require('../util/range_utils');
 
 
 module.exports = Mapper;
@@ -36,7 +36,7 @@ Mapper.prototype.iterate_part = function(part, start, end, handler) {
     var self = this;
 
     // get intersection of the part range with the iterated range.
-    var iter_range = range.intersection(part.start, part.end, start, end);
+    var iter_range = range_utils.intersection(part.start, part.end, start, end);
     if (!iter_range) {
         return;
     }
@@ -61,7 +61,7 @@ Mapper.prototype.iterate_part = function(part, start, end, handler) {
         }
         var block_start = block.index * block_size;
         // block_range is the
-        var block_iter_range = range.intersection(
+        var block_iter_range = range_utils.intersection(
             chunk_start, chunk_end,
             block_start, block_start + block_size);
         /*

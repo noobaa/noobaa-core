@@ -47,82 +47,112 @@ ObjectClient.prototype.read_object_data = function(params) {
     var self = this;
     console.log('read_object_data', params);
 
-    return self.get_object_mappings(params).then(function(res) {
-        var mappings = res.data;
-        console.log('mappings', mappings);
-        // sort parts by start offset - just in case the server didn't
-        // the sorting will allow streaming reads to work well.
-        _.sortBy(mappings.parts, 'start');
-        return Q.all(_.map(mappings.parts, function(part) {
-            return self.read_object_part(part);
-        }));
-    }).then(function(parts_buffers) {
-        // once all parts finish we can construct the complete buffer.
-        return Buffer.concat(parts_buffers, params.end - params.start);
-    });
+    return self.get_object_mappings(params)
+        .then(function(res) {
+            var mappings = res.data;
+            return Q.all(_.map(mappings.parts, self.read_object_part, self));
+        })
+        .then(function(parts_buffers) {
+            // once all parts finish we can construct the complete buffer.
+            return Buffer.concat(parts_buffers, params.end - params.start);
+        });
 };
 
 
 ObjectClient.prototype.read_object_part = function(part) {
     var self = this;
+    var block_size = ((part.end - part.start) / part.kblocks) | 0;
+    var buffer_per_index = {};
+    var next_index = 0;
+
     console.log('read_object_part', part);
 
-    var num_buffers = 0;
-    var buffers_by_index = {};
-    var blocks_by_index = _.groupBy(part.blocks, 'index');
-    var indexes_arr = _.keys(blocks_by_index).sort();
-    var next_index_pos = part.kblocks;
-    var start_initial_indexes = _.map(_.first(indexes_arr, part.kblocks), process_index);
-    var block_size = ((part.end - part.start) / part.kblocks) | 0;
-
-    function process_index(index) {
-        console.log('process_index', index);
-
-        var blocks = blocks_by_index[index];
-        // chain the blocks of the index with array reduce
-        return _.reduce(blocks, function(promise, block) {
-            // chain the next block of the index on the rejection handler
-            // so it will be read instead if the previous failed.
-            return promise.then(null, function() {
-                // use read semaphore to surround the IO
-                return self.read_sem.surround(function() {
-                    return read_block(block, block_size);
-                });
-            });
-        }, Q.reject('NOT-AN-ERROR')).then(function(buffer) {
-            buffers_by_index[index] = buffer;
-            num_buffers += 1;
-            // when done, just finish the promise chain
-        }).then(null, function(err) {
-            // failed to read index, try another if remains
-            console.error('READ FAILED INDEX', index, err);
-            if (next_index_pos >= indexes_arr.length) {
-                throw new Error('READ EXHAUSTED', part);
-            }
-            var next_index = indexes_arr[next_index_pos];
-            next_index_pos += 1;
-            return process_index(next_index);
-        });
+    // TODO support part.chunk_offset
+    if (part.chunk_offset) {
+        throw new Error('CHUNK_OFFSET SUPPORT NOT IMPLEMENTED YET');
     }
 
-    return Q.all(start_initial_indexes).then(function() {
-        var buffers = [];
-        for (var i = 0; i < part.kblocks; i++) {
-            buffers[i] = buffers_by_index[i];
-            if (!buffers_by_index[i]) {
-                throw new Error('MISSING BLOCK ' + i);
+    // advancing the read by taking the next index and return promise to read it.
+    // will fail if no more indexes remain, which means the part cannot be served.
+    function read_the_next_index() {
+        while (next_index < part.indexes.length) {
+            var curr_index = next_index;
+            var blocks = part.indexes[curr_index];
+            next_index += 1;
+            if (blocks) {
+                return read_index_blocks_chain(blocks, curr_index);
             }
         }
-        return Buffer.concat(buffers, part.end - part.start);
-    });
+        throw new Error('READ PART EXHAUSTED', part);
+    }
+
+    function read_index_blocks_chain(blocks, index) {
+        console.log('read_index_blocks_chain', index);
+        // chain the blocks of the index with array reduce
+        // to handle read failures we create a promise chain such that each block of
+        // this index will read and if fails it's promise rejection handler will go
+        // to read the next block of the index.
+        var add_block_promise_to_chain = function(promise, block) {
+            return promise.then(null, function(err) {
+                console.error('READ FAILED BLOCK', err);
+                return read_block(block, block_size, self.read_sem);
+            });
+        };
+        // chain_initiator is used to fire the first rejection handler for the head of the chain.
+        var chain_initiator = Q.reject(index);
+        // reduce the blocks array to create the chain and feed it with the initial promise
+        return _.reduce(blocks, add_block_promise_to_chain, chain_initiator)
+            .then(function(buffer) {
+                // when done, just keep the buffer and finish this promise chain
+                buffer_per_index[index] = buffer;
+            })
+            .then(null, function(err) {
+                // failed to read this index, try another.
+                console.error('READ FAILED INDEX', index, err);
+                return read_the_next_index();
+            });
+    }
+
+    // start reading by queueing the first kblocks
+    return Q.all(_.times(part.kblocks, read_the_next_index))
+        .then(function() {
+            return decode_part(part, buffer_per_index);
+        });
 };
 
-function read_block(block, block_size) {
-    console.log('read_block', block, block_size);
-    // TODO read block from node
-    var buffer = new Buffer(block_size);
-    buffer.fill(0);
-    return buffer;
+
+// for now just decode without erasure coding
+function decode_part(part, buffer_per_index) {
+    var buffers = [];
+
+    for (var i = 0; i < part.kblocks; i++) {
+        buffers[i] = buffer_per_index[i];
+        if (!buffer_per_index[i]) {
+            throw new Error('DECODE FAILED MISSING BLOCK ' + i);
+        }
+    }
+
+    // TODO what about part.chunk_offset, and adjustments of part.start and part.end ???
+    return Buffer.concat(buffers, part.end - part.start);
+}
+
+
+function read_block(block, block_size, sem) {
+    // use read semaphore to surround the IO
+    return sem.surround(
+        function() {
+            console.log('read_block', block, block_size);
+
+            // TODO read block from node
+            var buffer = new Buffer(block_size);
+            buffer.fill(0);
+
+            // verify the received buffer length must be full size
+            if (buffer.length !== block_size) {
+                throw new Error('BLOCK SHORT READ', block, block_size, buffer);
+            }
+            return buffer;
+        });
 }
 
 
@@ -140,17 +170,15 @@ function read_block(block, block_size) {
 //
 ObjectClient.prototype.write_object_data = function(params) {
     var self = this;
+    var buffer = params.buffer;
     console.log('write_object_data', params);
-    return self.get_object_mappings(_.omit(params, 'buffer')).then(function(res) {
-        var mappings = res.data;
-        var buffer = params.buffer;
-        // sort parts by start offset - just in case the server didn't
-        // the sorting will allow streaming reads to work well.
-        _.sortBy(mappings.parts, 'start');
-        return Q.all(_.map(mappings.parts, function(part) {
-            // return self.read_object_part(part);
-        }));
-    });
+    return self.get_object_mappings(_.omit(params, 'buffer'))
+        .then(function(res) {
+            var mappings = res.data;
+            return Q.all(_.map(mappings.parts, function(part) {
+                // return self.read_object_part(part);
+            }));
+        });
 };
 
 

@@ -10,7 +10,7 @@ var EdgeNode = require('./models/edge_node');
 
 
 module.exports = {
-    allocate_blocks: allocate_blocks,
+    allocate_blocks_for_new_chunk: allocate_blocks_for_new_chunk,
 };
 
 
@@ -18,23 +18,28 @@ module.exports = {
 //
 // TODO take into consideration the state of the nodes.
 //
-// - existing_blocks - list of blocks aready existing for the
+// returns array of new DataBlock.
 //
-// returns (promise) list of DataBlock.
-//
-function allocate_blocks(num, size, existing_blocks) {
+function allocate_blocks_for_new_chunk(chunk) {
+    var num = chunk.nblocks * 3;
     return Q.fcall(function() {
-        return EdgeNode.find().limit(num).exec();
-    }).then(function(nodes) {
-        if (!nodes || nodes.length !== size) {
-            throw new Error('not enough nodes');
-        }
-        var blocks = _.map(nodes, function(node) {
-            return new DataBlock({
-                node_id: node.id,
-                size: size,
+            return EdgeNode.find().limit(num).exec();
+        })
+        .then(function(nodes) {
+            if (!nodes || nodes.length !== num) {
+                throw new Error('not enough nodes');
+            }
+            var index = 0;
+            var blocks = _.map(nodes, function(node) {
+                var block = new DataBlock({
+                    chunk: chunk,
+                    index: index,
+                    node: node.id,
+                });
+                index = (index + 1) % chunk.nblocks;
+                return block;
             });
+            console.log('allocate_blocks_for_new_chunk', blocks);
+            return blocks;
         });
-        return blocks;
-    });
 }

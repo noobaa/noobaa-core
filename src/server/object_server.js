@@ -7,14 +7,11 @@ var restful_api = require('../util/restful_api');
 var object_api = require('../api/object_api');
 var account_server = require('./account_server');
 var LRU = require('noobaa-util/lru');
-var range = require('../util/range');
+var object_mapper = require('./object_mapper');
 // db models
 var Account = require('./models/account');
 var Bucket = require('./models/bucket');
 var ObjectMD = require('./models/object_md');
-var ObjectPart = require('./models/object_part');
-var DataChunk = require('./models/data_chunk');
-var DataBlock = require('./models/data_block');
 var EdgeNode = require('./models/edge_node');
 
 
@@ -179,9 +176,8 @@ function delete_object(req) {
 function get_object_mappings(req) {
     var bucket_name = req.restful_params.bucket;
     var key = req.restful_params.key;
-    var start = req.restful_params.start || 0;
-    var end = typeof(req.restful_params.end) !== 'undefined' ?
-        req.restful_params.end : Infinity;
+    var start = Number(req.restful_params.start);
+    var end = Number(req.restful_params.end);
     var obj, parts, blocks;
     return find_bucket(req.account.id, bucket_name).then(function(bucket) {
         var info = {
@@ -192,79 +188,7 @@ function get_object_mappings(req) {
         return ObjectMD.findOne(info).exec();
     }).then(function(obj_arg) {
         obj = obj_arg;
-        return ObjectPart.find({
-            obj: obj.id,
-            // find parts intersecting the [start,end) range
-            start: {
-                $lt: end
-            },
-            end: {
-                $gt: start
-            },
-        }).sort('start').populate('chunk').exec();
-    }).then(function(parts_arg) {
-        parts = parts_arg;
-        return DataBlock.find({
-            chunk: {
-                $in: _.pluck(parts, '_id')
-            }
-        }).sort('index').populate('node').exec();
-    }).then(function(blocks_arg) {
-        blocks = blocks_arg;
-        var pos = start;
-        parts = _.filter(parts, function(part) {
-            var r = range.intersection(part.start, part.end, pos, end);
-            if (!r) {
-                // this part is not good for us
-                return false;
-            }
-            // translate the part's offset to the relevant request
-            part.chunk_offset += r.start - part.start;
-            part.start = r.start;
-            part.end = r.end;
-            pos = r.end;
-            return part;
-        });
-        // TODO check and create missing parts/chunks/blocks
-        // TODO TEST CODE
-        blocks = _.times(10, function(i) {
-            return {
-                chunk: '0',
-                id: '' + i,
-                index: i,
-                node: {
-                    id: '' + i,
-                    ip: '0.0.0.0',
-                    port: 0
-                }
-            };
-        });
-        parts = [{
-            start: start,
-            end: end,
-            chunk_offset: 0,
-            chunk: {
-                id: '0',
-                kblocks: 10,
-            }
-        }];
-        var blocks_by_chunk = _.groupBy(blocks, 'chunk');
-        var reply = {
-            parts: _.map(parts, function(part) {
-                var p = _.pick(part, 'start', 'end', 'chunk_offset');
-                p.kblocks = part.chunk.kblocks;
-                p.blocks = _.map(blocks_by_chunk[part.chunk.id], function(block) {
-                    return {
-                        id: block.id,
-                        index: block.index,
-                        node: _.pick(block.node, 'id', 'ip', 'port')
-                    };
-                });
-                return p;
-            })
-        };
-        console.log(reply);
-        return reply;
+        return object_mapper.get_object_mappings(obj, start, end);
     });
 }
 

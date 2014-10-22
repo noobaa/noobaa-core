@@ -206,7 +206,7 @@ module.exports = restful_api({
             path: '/:bucket/:key/map',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
+                required: ['bucket', 'key', 'start', 'end'],
                 additionalProperties: false,
                 properties: {
                     bucket: {
@@ -247,33 +247,35 @@ module.exports = restful_api({
                                 chunk_offset: {
                                     type: 'number',
                                 },
-                                blocks: {
+                                indexes: {
+                                    // the indexes composing the data chunk
                                     type: 'array',
                                     items: {
-                                        type: 'object',
-                                        required: ['id', 'index', 'node'],
-                                        additionalProperties: false,
-                                        properties: {
-                                            id: {
-                                                type: 'string',
-                                            },
-                                            index: {
-                                                type: 'number',
-                                            },
-                                            node: {
-                                                type: 'object',
-                                                required: ['id', 'ip', 'port'],
-                                                additionalProperties: false,
-                                                properties: {
-                                                    id: {
-                                                        type: 'string',
-                                                    },
-                                                    ip: {
-                                                        type: 'string',
-                                                    },
-                                                    port: {
-                                                        type: 'number',
-                                                    },
+                                        // each index contains an array of blocks
+                                        type: 'array',
+                                        items: {
+                                            type: 'object',
+                                            required: ['id', 'node'],
+                                            additionalProperties: false,
+                                            properties: {
+                                                id: {
+                                                    type: 'string',
+                                                },
+                                                node: {
+                                                    type: 'object',
+                                                    required: ['id', 'ip', 'port'],
+                                                    additionalProperties: false,
+                                                    properties: {
+                                                        id: {
+                                                            type: 'string',
+                                                        },
+                                                        ip: {
+                                                            type: 'string',
+                                                        },
+                                                        port: {
+                                                            type: 'number',
+                                                        },
+                                                    }
                                                 }
                                             }
                                         }

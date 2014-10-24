@@ -47,15 +47,18 @@ ObjectClient.prototype.read_object_data = function(params) {
     var self = this;
     console.log('read_object_data', params);
 
-    return self.get_object_mappings(params)
-        .then(function(res) {
+    return self.get_object_mappings(params).
+    then(
+        function(res) {
             var mappings = res.data;
             return Q.all(_.map(mappings.parts, self.read_object_part, self));
-        })
-        .then(function(parts_buffers) {
+        }
+    ).then(
+        function(parts_buffers) {
             // once all parts finish we can construct the complete buffer.
             return Buffer.concat(parts_buffers, params.end - params.start);
-        });
+        }
+    );
 };
 
 
@@ -114,10 +117,13 @@ ObjectClient.prototype.read_object_part = function(part) {
     }
 
     // start reading by queueing the first kblocks
-    return Q.all(_.times(part.kblocks, read_the_next_index))
-        .then(function() {
+    return Q.all(
+        _.times(part.kblocks, read_the_next_index)
+    ).then(
+        function() {
             return decode_part(part, buffer_per_index);
-        });
+        }
+    );
 };
 
 
@@ -172,13 +178,15 @@ ObjectClient.prototype.write_object_data = function(params) {
     var self = this;
     var buffer = params.buffer;
     console.log('write_object_data', params);
-    return self.get_object_mappings(_.omit(params, 'buffer'))
-        .then(function(res) {
+
+    return self.get_object_mappings(_.omit(params, 'buffer')).then(
+        function(res) {
             var mappings = res.data;
             return Q.all(_.map(mappings.parts, function(part) {
                 // return self.read_object_part(part);
             }));
-        });
+        }
+    );
 };
 
 

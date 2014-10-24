@@ -36,21 +36,23 @@ var account_credentials = {
 };
 
 before(function(done) {
-    Q.fcall(function() {
-        account_server.set_logging();
-        account_server.install_routes(utilitest.router, '/account_api/');
-        account_client.set_param('port', utilitest.http_port());
+    Q.fcall(
+        function() {
+            account_server.set_logging();
+            account_server.install_routes(utilitest.router, '/account_api/');
+            account_client.set_param('port', utilitest.http_port());
 
-        edge_node_server.set_logging();
-        edge_node_server.install_routes(utilitest.router, '/edge_node_api/');
-        edge_node_client.set_param('port', utilitest.http_port());
+            edge_node_server.set_logging();
+            edge_node_server.install_routes(utilitest.router, '/edge_node_api/');
+            edge_node_client.set_param('port', utilitest.http_port());
 
-        object_server.set_logging();
-        object_server.install_routes(utilitest.router, '/object_api/');
-        object_client.set_param('port', utilitest.http_port());
+            object_server.set_logging();
+            object_server.install_routes(utilitest.router, '/object_api/');
+            object_client.set_param('port', utilitest.http_port());
 
-        return account_client.create_account(account_credentials);
-    }).nodeify(done);
+            return account_client.create_account(account_credentials);
+        }
+    ).nodeify(done);
 });
 
 after(function() {

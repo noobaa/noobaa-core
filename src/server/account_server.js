@@ -28,20 +28,28 @@ function login_account(req) {
     var password = req.restful_params.password;
     var account;
     // find account by email, and verify password
-    return Account.findOne(info).exec().then(function(account_arg) {
-        account = account_arg;
-        if (!account) {
-            throw new Error('NO ACCOUNT ' + info);
+    return Q.fcall(
+        function() {
+            return Account.findOne(info).exec();
         }
-        return Q.npost(account, 'verify_password', [password]);
-    }).then(function(matching) {
-        if (!matching) {
-            throw new Error('bad password');
+    ).then(
+        function(account_arg) {
+            account = account_arg;
+            if (!account) {
+                throw new Error('NO ACCOUNT ' + info);
+            }
+            return Q.npost(account, 'verify_password', [password]);
         }
-        // insert the account id into the session
-        // (expected to use secure cookie session)
-        req.session.account_id = account.id;
-    });
+    ).then(
+        function(matching) {
+            if (!matching) {
+                throw new Error('bad password');
+            }
+            // insert the account id into the session
+            // (expected to use secure cookie session)
+            req.session.account_id = account.id;
+        }
+    );
 }
 
 
@@ -52,49 +60,58 @@ function logout_account(req) {
 
 function create_account(req) {
     var info = _.pick(req.restful_params, 'email', 'password');
-    return Account.create(info).then(function(account) {
-        return undefined;
-    }).then(null, function(err) {
-        if (err.code === 11000) {
-            throw new Error('ACCOUNT EXISTS');
-        } else {
-            console.error('FAILED create_account', err);
-            throw new Error('failed create account');
+    return Q.fcall(
+        function() {
+            return Account.create(info);
         }
-    });
+    ).then(
+        reply_undefined,
+        function(err) {
+            if (err.code === 11000) {
+                throw new Error('ACCOUNT EXISTS');
+            } else {
+                console.error('FAILED create_account', err);
+                throw new Error('failed create account');
+            }
+        }
+    );
 }
 
 
 function read_account(req) {
-    return account_session(req, 'force').then(function() {
-        return Account.findById(req.session.account_id).exec();
-    }).then(function(account) {
-        if (!account) {
-            throw new Error('NO ACCOUNT ' + req.session.account_id);
+    return account_session(req, 'force').then(
+        function() {
+            return Account.findById(req.session.account_id).exec();
         }
-        return {
-            email: account.email,
-        };
-    });
+    ).then(
+        function(account) {
+            if (!account) {
+                throw new Error('NO ACCOUNT ' + req.session.account_id);
+            }
+            return {
+                email: account.email,
+            };
+        }
+    );
 }
 
 
 function update_account(req) {
-    return account_session(req, 'force').then(function() {
-        var info = _.pick(req.restful_params, 'email', 'password');
-        return Account.findByIdAndUpdate(req.session.account_id, info).exec();
-    }).then(function() {
-        return undefined;
-    });
+    return account_session(req, 'force').then(
+        function() {
+            var info = _.pick(req.restful_params, 'email', 'password');
+            return Account.findByIdAndUpdate(req.session.account_id, info).exec();
+        }
+    ).then(reply_undefined);
 }
 
 
 function delete_account(req) {
-    return account_session(req, 'force').then(function() {
-        return Account.findByIdAndRemove(req.session.account_id).exec();
-    }).then(function() {
-        return undefined;
-    });
+    return account_session(req, 'force').then(
+        function() {
+            return Account.findByIdAndRemove(req.session.account_id).exec();
+        }
+    ).then(reply_undefined);
 }
 
 
@@ -109,30 +126,36 @@ assert(accounts_lru.params.max_length === 200);
 // verify that the session has a valid account using a cache
 // to be used by other servers
 function account_session(req, force) {
-    return Q.fcall(function() {
-        var account_id = req.session.account_id;
-        if (!account_id) {
-            throw new Error('NO ACCOUNT ' + account_id);
-        }
-
-        var item = accounts_lru.find_or_add_item(account_id);
-
-        // use cached account if not expired
-        if (item.account && force !== 'force') {
-            req.account = item.account;
-            return req.account;
-        }
-
-        // fetch account from the database
-        console.log('ACCOUNT MISS', account_id);
-        return Account.findById(account_id).exec().then(function(account) {
-            if (!account) {
-                throw new Error('MISSING ACCOUNT ' + account_id);
+    return Q.fcall(
+        function() {
+            var account_id = req.session.account_id;
+            if (!account_id) {
+                throw new Error('NO ACCOUNT ' + account_id);
             }
-            // update the cache item
-            item.account = account;
-            req.account = account;
-            return req.account;
-        });
-    });
+
+            var item = accounts_lru.find_or_add_item(account_id);
+
+            // use cached account if not expired
+            if (item.account && force !== 'force') {
+                req.account = item.account;
+                return req.account;
+            }
+
+            // fetch account from the database
+            console.log('ACCOUNT MISS', account_id);
+            return Account.findById(account_id).exec().then(
+                function(account) {
+                    if (!account) {
+                        throw new Error('MISSING ACCOUNT ' + account_id);
+                    }
+                    // update the cache item
+                    item.account = account;
+                    req.account = account;
+                    return req.account;
+                }
+            );
+        }
+    );
 }
+
+function reply_undefined() {}

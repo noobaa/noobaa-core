@@ -9,56 +9,29 @@ var optimist = require('optimist');
 var chance_seed = optimist.argv.seed || Date.now();
 console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
+var Semaphore = require('noobaa-util/semaphore');
 
 describe('object_api', function() {
 
     var coretest = require('./coretest');
     var object_client = coretest.object_client;
 
-    function q_loop(num, func) {
-        var index = 0;
-        var next = function() {
-            if (index >= num) {
-                return;
-            }
-            var current = index;
-            index += 1;
-            return Q.fcall(func, current).then(next);
-        };
-        return Q.fcall(next);
-    }
-
-    function q_all_limit(limit, array) {
-        var index = 0;
-        var results = [];
-
-        var next = function() {
-            if (index >= array.length) {
-                return;
-            }
-            var current = index;
-            index += 1;
-            return Q.when(array[current]).then(function(res) {
-                console.log('q_all_limit result', current, res);
-                results[current] = res;
-                return next();
-            });
-        };
-        return Q.all(_.times(limit, next)).then(function() {
-            return results;
-        });
-    }
 
     before(function(done) {
         this.timeout(20000);
         Q.fcall(function() {
             return coretest.login_default_account();
         }).then(function() {
-            return q_all_limit(10, _.times(64, function(i) {
-                return coretest.edge_node_client.connect_edge_node({
-                    name: 'node' + i,
-                    ip: '0.0.0.0',
-                    port: 0,
+            // create some nodes
+            // use semaphore to avoid high concurrency
+            var sem = new Semaphore(5);
+            return Q.all(_.times(64, function(i) {
+                return sem.surround(function() {
+                    return coretest.edge_node_client.connect_edge_node({
+                        name: 'node' + i,
+                        ip: '0.0.0.0',
+                        port: 0,
+                    });
                 });
             }));
         }).nodeify(done);

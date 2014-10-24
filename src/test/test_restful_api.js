@@ -202,7 +202,7 @@ describe('restful_api', function() {
                 it('should call and get reply', function(done) {
                     reply_error = false;
                     client[func_name](PARAMS).then(function(res) {
-                        assert.deepEqual(res.data, REPLY);
+                        assert.deepEqual(res, REPLY);
                     }, function(err) {
                         console.log('UNEXPECTED ERROR', err, err.stack);
                         throw 'UNEXPECTED ERROR';
@@ -215,7 +215,7 @@ describe('restful_api', function() {
                         console.log('UNEXPECTED REPLY', res);
                         throw 'UNEXPECTED REPLY';
                     }, function(err) {
-                        assert.deepEqual(err.data, ERROR_REPLY.data);
+                        assert.deepEqual(err, ERROR_REPLY);
                     }).nodeify(done);
                 });
 

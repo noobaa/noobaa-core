@@ -51,27 +51,33 @@ Agent.prototype.start = function() {
 
     self.is_started = true;
 
-    return Q.fcall(function() {
-        return self.account_client.login_account(self.account_credentials);
-
-    }).then(function() {
-        self.start_stop_http_server();
-
-    }).then(function() {
-        return self.edge_node_client.connect_edge_node({
-            name: self.node_name,
-            ip: '0.0.0.0',
-            port: self.http_port,
-        });
-
-    }).then(function() {
-        self.start_stop_heartbeats();
-
-    }).then(null, function(err) {
-        console.error('AGENT server failed to start', err);
-        self.stop();
-        throw err;
-    });
+    return Q.fcall(
+        function() {
+            return self.account_client.login_account(self.account_credentials);
+        }
+    ).then(
+        function() {
+            self.start_stop_http_server();
+        }
+    ).then(
+        function() {
+            return self.edge_node_client.connect_edge_node({
+                name: self.node_name,
+                ip: '0.0.0.0',
+                port: self.http_port,
+            });
+        }
+    ).then(
+        function() {
+            self.start_stop_heartbeats();
+        }
+    ).then(null,
+        function(err) {
+            console.error('AGENT server failed to start', err);
+            self.stop();
+            throw err;
+        }
+    );
 };
 
 Agent.prototype.stop = function() {

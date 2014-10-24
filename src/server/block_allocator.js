@@ -22,10 +22,13 @@ module.exports = {
 //
 function allocate_blocks_for_new_chunk(chunk) {
     var num = chunk.kblocks * 3;
-    return Q.fcall(function() {
+
+    return Q.fcall(
+        function() {
             return EdgeNode.find().limit(num).exec();
-        })
-        .then(function(nodes) {
+        }
+    ).then(
+        function(nodes) {
             if (!nodes) {
                 throw new Error('cannot find nodes');
             }
@@ -42,7 +45,7 @@ function allocate_blocks_for_new_chunk(chunk) {
                 index = (index + 1) % chunk.kblocks;
                 return block;
             });
-            console.log('allocate_blocks_for_new_chunk', blocks);
             return blocks;
-        });
+        }
+    );
 }

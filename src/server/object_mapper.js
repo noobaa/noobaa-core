@@ -14,11 +14,13 @@ module.exports = {
     get_object_mappings: get_object_mappings,
 };
 
-// default split of object to parts of 16 MB
+// default split of object to parts of 2^14 = 16 MB
 var PART_SIZE_ALLOCATION_BITWISE = 14;
+
 // default split of chunks with kblocks = 2^7 = 128
 var CHUNK_KBLOCKS_BITWISE = 4; // TODO: make 7
 var CHUNK_KBLOCKS = 1 << CHUNK_KBLOCKS_BITWISE;
+
 
 // the main function of this module - get mappings, allocate if needed.
 function get_object_mappings(obj, start, end) {
@@ -50,18 +52,23 @@ function get_object_mappings(obj, start, end) {
 
     // zis is ze flow:
     // we query to get existing parts, then create missing ones, then adjust the parts for reply.
-    return Q.fcall(get_existing_parts, obj, start_boundry, end_boundry)
-        .then(function(parts) {
+    return Q.fcall(
+        get_existing_parts, obj, start_boundry, end_boundry
+    ).then(
+        function(parts) {
             return allocate_missing_parts(obj, start_boundry, end_boundry, parts);
-        })
-        .then(function(parts) {
+        }
+    ).then(
+        function(parts) {
             var reply_parts = adjust_parts_to_range(obj, start, end, parts);
             console.log('get_object_mappings', reply_parts);
             return {
                 parts: reply_parts
             };
-        });
+        }
+    );
 }
+
 
 // query the db for existing parts and blocks which intersect the requested range,
 // return the blocks inside each part (part.indexes) like the api format
@@ -69,7 +76,8 @@ function get_object_mappings(obj, start, end) {
 function get_existing_parts(obj, start, end) {
     var parts, blocks;
 
-    return Q.fcall(function() {
+    return Q.fcall(
+        function() {
             // find parts intersecting the [start,end) range
             return ObjectPart.find({
                 obj: obj.id,
@@ -80,8 +88,9 @@ function get_existing_parts(obj, start, end) {
                     $gt: start
                 },
             }).sort('start').populate('chunk').lean().exec();
-        })
-        .then(function(parts_arg) {
+        }
+    ).then(
+        function(parts_arg) {
             parts = parts_arg;
             // find all blocks of the resulting parts
             return DataBlock.find({
@@ -89,8 +98,9 @@ function get_existing_parts(obj, start, end) {
                     $in: _.pluck(parts, '_id')
                 }
             }).sort('index').populate('node').lean().exec();
-        })
-        .then(function(blocks) {
+        }
+    ).then(
+        function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             _.each(parts, function(part) {
                 var blocks = blocks_by_chunk[part.chunk.id];
@@ -100,7 +110,8 @@ function get_existing_parts(obj, start, end) {
             });
             console.log('get_existing_parts', parts);
             return parts;
-        });
+        }
+    );
 }
 
 // going over the parts (expected them to be sorted by start offset)
@@ -143,26 +154,31 @@ function allocate_missing_parts(obj, start, end, parts) {
         _.each(ret_parts, parts_and_new_parts.push, parts_and_new_parts);
         console.log('allocate_missing_parts tail', ret_parts);
     }
-    return Q.all(allocs.promises)
-        .then(function() {
+    return Q.all(allocs.promises).
+    then(
+        function() {
             // first create the chunks
-            console.log('chunks_to_create', allocs.chunks);
+            console.log('create chunks', allocs.chunks);
             return DataChunk.create(allocs.chunks);
-        })
-        .then(function() {
+        }
+    ).then(
+        function() {
             // create the blocks pointing to the chunks
-            console.log('blocks_to_create', allocs.blocks);
+            console.log('create blocks', allocs.blocks);
             return DataBlock.create(allocs.blocks);
-        })
-        .then(function() {
+        }
+    ).then(
+        function() {
             // create the parts pointing to the chunks
-            console.log('new_parts_to_create', allocs.parts);
+            console.log('create parts', allocs.parts);
             return ObjectPart.create(allocs.parts);
-        })
-        .then(function() {
+        }
+    ).then(
+        function() {
             console.log('allocate_missing_parts', parts_and_new_parts);
             return parts_and_new_parts;
-        });
+        }
+    );
 }
 
 function allocate_parts_for_range(obj, start, end, allocs) {

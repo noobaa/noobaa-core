@@ -35,6 +35,12 @@ var objmd_schema = new Schema({
         required: true,
     },
 
+    // upload_mode=true for objects that were created but not written yet,
+    // and this means they cannot be read yet.
+    upload_mode: {
+        type: Boolean,
+    },
+
     create_time: {
         type: Date,
         default: Date.now,

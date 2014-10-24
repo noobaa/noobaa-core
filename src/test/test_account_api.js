@@ -44,7 +44,7 @@ describe('account_api', function() {
                 });
             }).then(function() {
                 return account_client.read_account().then(function(res) {
-                    assert.strictEqual(res.data.email, EMAIL + '123');
+                    assert.strictEqual(res.email, EMAIL + '123');
                 });
             }).then(function() {
                 return account_client.delete_account();

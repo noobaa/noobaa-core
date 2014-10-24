@@ -18,13 +18,13 @@ describe('edge_node_api', function() {
             return coretest.edge_node_client.connect_edge_node({
                 name: 'haha',
                 ip: '0.0.0.0',
-                port: 9999,
+                port: 0,
             });
         }).then(function() {
             return coretest.edge_node_client.connect_edge_node({
                 name: 'haha',
                 ip: '0.0.0.0',
-                port: 9999,
+                port: 0,
             });
         }).then(function() {
             return coretest.edge_node_client.heartbeat({
@@ -40,7 +40,7 @@ describe('edge_node_api', function() {
             return coretest.edge_node_client.connect_edge_node({
                 name: 'haha',
                 ip: '0.0.0.0',
-                port: 9999,
+                port: 0,
             });
         }).nodeify(done);
     });

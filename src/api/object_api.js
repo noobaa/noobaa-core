@@ -117,6 +117,9 @@ module.exports = restful_api({
                                     type: 'string',
                                     format: 'date',
                                 },
+                                upload_mode: {
+                                    type: 'boolean',
+                                }
                             }
                         }
                     }
@@ -163,6 +166,26 @@ module.exports = restful_api({
                     },
                 }
             },
+            reply: {
+                type: 'object',
+                required: ['key', 'size', 'create_time'],
+                additionalProperties: false,
+                properties: {
+                    key: {
+                        type: 'string',
+                    },
+                    size: {
+                        type: 'number',
+                    },
+                    create_time: {
+                        type: 'string',
+                        format: 'date',
+                    },
+                    upload_mode: {
+                        type: 'boolean',
+                    }
+                }
+            }
         },
 
         update_object_md: {
@@ -286,6 +309,42 @@ module.exports = restful_api({
                     },
                 }
             }
+        },
+
+        complete_upload: {
+            method: 'POST',
+            path: '/:bucket/:key/complete_upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                additionalProperties: false,
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        abort_upload: {
+            method: 'POST',
+            path: '/:bucket/:key/abort_upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                additionalProperties: false,
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
         },
 
     }

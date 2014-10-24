@@ -28,6 +28,8 @@ module.exports = new object_api.Server({
     update_object_md: update_object_md,
     delete_object: delete_object,
     get_object_mappings: get_object_mappings,
+    complete_upload: complete_upload,
+    abort_upload: abort_upload,
 }, [
     // middleware to verify the account session
     account_server.account_session
@@ -115,6 +117,7 @@ function create_object(req) {
             bucket: bucket.id,
             key: key,
             size: size,
+            upload_mode: true,
         };
         return ObjectMD.create(info);
     }).then(function() {
@@ -150,7 +153,7 @@ function update_object_md(req) {
         };
         // TODO no fields can be updated for now
         var updates = _.pick(req.restful_params);
-        return Bucket.findOneAndUpdate(info, updates).exec();
+        return ObjectMD.findOneAndUpdate(info, updates).exec();
     }).then(function() {
         return undefined;
     });
@@ -166,7 +169,7 @@ function delete_object(req) {
             bucket: bucket.id,
             key: key,
         };
-        return Bucket.findOneAndRemove(info).exec();
+        return ObjectMD.findOneAndRemove(info).exec();
     }).then(function() {
         return undefined;
     });
@@ -191,6 +194,45 @@ function get_object_mappings(req) {
         return object_mapper.get_object_mappings(obj, start, end);
     });
 }
+
+function complete_upload(req) {
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+    return find_bucket(req.account.id, bucket_name).then(function(bucket) {
+        var info = {
+            account: req.account.id,
+            bucket: bucket.id,
+            key: key,
+        };
+        var updates = {
+            $unset: {
+                upload_mode: 1
+            }
+        };
+        return ObjectMD.findOneAndUpdate(info, updates).exec();
+    }).then(function() {
+        return undefined;
+    });
+}
+
+function abort_upload(req) {
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+    return find_bucket(req.account.id, bucket_name).then(function(bucket) {
+        var info = {
+            account: req.account.id,
+            bucket: bucket.id,
+            key: key,
+        };
+        var updates = {
+            upload_mode: true
+        };
+        return ObjectMD.findOneAndUpdate(info, updates).exec();
+    }).then(function() {
+        return undefined;
+    });
+}
+
 
 // 10 minutes expiry
 var buckets_lru = new LRU({
@@ -225,5 +267,9 @@ function find_bucket(account_id, bucket_name, force) {
 }
 
 function object_for_client(md) {
-    return _.pick(md, 'key', 'size', 'create_time');
+    var o = _.pick(md, 'key', 'size', 'create_time', 'upload_mode');
+    if (o.create_time) {
+        o.create_time = o.create_time.toString();
+    }
+    return o;
 }

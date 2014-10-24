@@ -211,7 +211,7 @@ function do_client_request(client_params, func_info, params) {
             // check the reply
             validate_schema(res.data, func_info.reply, func_info);
         }
-        return res;
+        return res.data;
     }).then(null, function(err) {
         console.error('RESTFUL REQUEST FAILED', err);
         throw err;

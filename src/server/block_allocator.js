@@ -21,13 +21,16 @@ module.exports = {
 // returns array of new DataBlock.
 //
 function allocate_blocks_for_new_chunk(chunk) {
-    var num = chunk.nblocks * 3;
+    var num = chunk.kblocks * 3;
     return Q.fcall(function() {
             return EdgeNode.find().limit(num).exec();
         })
         .then(function(nodes) {
-            if (!nodes || nodes.length !== num) {
-                throw new Error('not enough nodes');
+            if (!nodes) {
+                throw new Error('cannot find nodes');
+            }
+            if (nodes.length !== num) {
+                throw new Error('cannot find enough nodes: ' + nodes.length + '/' + num);
             }
             var index = 0;
             var blocks = _.map(nodes, function(node) {
@@ -36,7 +39,7 @@ function allocate_blocks_for_new_chunk(chunk) {
                     index: index,
                     node: node.id,
                 });
-                index = (index + 1) % chunk.nblocks;
+                index = (index + 1) % chunk.kblocks;
                 return block;
             });
             console.log('allocate_blocks_for_new_chunk', blocks);

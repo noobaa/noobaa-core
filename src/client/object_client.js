@@ -47,8 +47,7 @@ ObjectClient.prototype.read_object_data = function(params) {
     var self = this;
     console.log('read_object_data', params);
 
-    return self.get_object_mappings(params).
-    then(
+    return self.get_object_mappings(params).then(
         function(res) {
             var mappings = res.data;
             return Q.all(_.map(mappings.parts, self.read_object_part, self));
@@ -96,24 +95,32 @@ ObjectClient.prototype.read_object_part = function(part) {
         // this index will read and if fails it's promise rejection handler will go
         // to read the next block of the index.
         var add_block_promise_to_chain = function(promise, block) {
-            return promise.then(null, function(err) {
-                console.error('READ FAILED BLOCK', err);
-                return read_block(block, block_size, self.read_sem);
-            });
+            return promise.then(null,
+                function(err) {
+                    console.error('READ FAILED BLOCK', err);
+                    return read_block(block, block_size, self.read_sem);
+                }
+            );
         };
         // chain_initiator is used to fire the first rejection handler for the head of the chain.
         var chain_initiator = Q.reject(index);
         // reduce the blocks array to create the chain and feed it with the initial promise
-        return _.reduce(blocks, add_block_promise_to_chain, chain_initiator)
-            .then(function(buffer) {
+        return _.reduce(
+            blocks,
+            add_block_promise_to_chain,
+            chain_initiator
+        ).then(
+            function(buffer) {
                 // when done, just keep the buffer and finish this promise chain
                 buffer_per_index[index] = buffer;
-            })
-            .then(null, function(err) {
+            }
+        ).then(null,
+            function(err) {
                 // failed to read this index, try another.
                 console.error('READ FAILED INDEX', index, err);
                 return read_the_next_index();
-            });
+            }
+        );
     }
 
     // start reading by queueing the first kblocks
@@ -158,7 +165,8 @@ function read_block(block, block_size, sem) {
                 throw new Error('BLOCK SHORT READ', block, block_size, buffer);
             }
             return buffer;
-        });
+        }
+    );
 }
 
 
@@ -179,12 +187,17 @@ ObjectClient.prototype.write_object_data = function(params) {
     var buffer = params.buffer;
     console.log('write_object_data', params);
 
-    return self.get_object_mappings(_.omit(params, 'buffer')).then(
+    return self.get_object_mappings(
+        _.omit(params, 'buffer')
+    ).then(
         function(res) {
             var mappings = res.data;
-            return Q.all(_.map(mappings.parts, function(part) {
-                // return self.read_object_part(part);
-            }));
+            return Q.all(_.map(
+                mappings.parts,
+                function(part) {
+                    // return self.read_object_part(part);
+                }
+            ));
         }
     );
 };
@@ -241,23 +254,29 @@ Reader.prototype._read = function(requested_size) {
     var params = this._reader_params;
     var p = _.clone(params);
     // trim if size exceeds the map range
-    var size = Math.min(Number(requested_size) || READ_SIZE_MARK, params.end - params.start);
+    var size = Math.min(
+        Number(requested_size) || READ_SIZE_MARK,
+        params.end - params.start
+    );
     p.end = p.start + size;
     // finish the read if reached the end of the reader range
     if (size <= 0) {
         self.push(null);
         return;
     }
-    this._client.read_object_data(p).done(function(buffer) {
-        params.start += buffer.length;
-        self.push(buffer);
-        // when read returns a truncated buffer it means we reached EOF
-        if (buffer.length < size) {
-            self.push(null);
+    this._client.read_object_data(p).done(
+        function(buffer) {
+            params.start += buffer.length;
+            self.push(buffer);
+            // when read returns a truncated buffer it means we reached EOF
+            if (buffer.length < size) {
+                self.push(null);
+            }
+        },
+        function(err) {
+            self.emit('error', err || 'unknown error');
         }
-    }, function(err) {
-        self.emit('error', err || 'unknown error');
-    });
+    );
 };
 
 
@@ -294,15 +313,21 @@ Writer.prototype._write = function(chunk, encoding, callback) {
     var params = this._writer_params;
     var p = _.clone(params);
     // trim if buffer exceeds the map range
-    var size = Math.min(chunk.length, params.end - params.start);
+    var size = Math.min(
+        chunk.length,
+        params.end - params.start
+    );
     p.end = p.start + size;
     p.buffer = slice_buffer(chunk, 0, size);
-    this._client.write_object_data(p).done(function() {
-        params.start += size;
-        callback();
-    }, function(err) {
-        callback(err || 'unknown error');
-    });
+    this._client.write_object_data(p).done(
+        function() {
+            params.start += size;
+            callback();
+        },
+        function(err) {
+            callback(err || 'unknown error');
+        }
+    );
 };
 
 

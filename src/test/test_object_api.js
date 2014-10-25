@@ -143,11 +143,9 @@ describe('object_api', function() {
                 coretest.object_client.open_write_stream({
                     bucket: BKT,
                     key: KEY,
-                    start: 0,
-                    end: size,
                 }).on('error', function(err) {
                     defer.reject(err);
-                }).on('finish', function(err) {
+                }).on('close', function(err) {
                     defer.resolve();
                 }).end(data);
                 return defer.promise;

@@ -40,7 +40,7 @@ function allocate_object_part(obj, start, end) {
         chunk: new_chunk,
         // chunk_offset: 0, // not required
     });
-    var part_reply;
+    var part_info;
 
     return Q.fcall(
         function() {
@@ -55,7 +55,7 @@ function allocate_object_part(obj, start, end) {
     ).then(
         function(new_blocks) {
             console.log('create blocks', new_blocks);
-            part_reply = part_for_client(new_part, new_chunk, new_blocks);
+            part_info = get_part_info(new_part, new_chunk, new_blocks);
             return DataBlock.create(new_blocks);
         }
     ).then(
@@ -65,8 +65,8 @@ function allocate_object_part(obj, start, end) {
         }
     ).then(
         function() {
-            console.log('part reply', part_reply);
-            return part_reply;
+            console.log('part info', part_info);
+            return part_info;
         }
     );
 
@@ -119,7 +119,7 @@ function get_existing_parts(obj, start, end) {
             // find all blocks of the resulting parts
             return DataBlock.find({
                 chunk: {
-                    $in: _.pluck(parts, '_id')
+                    $in: _.pluck(parts, 'chunk')
                 }
             }).sort('index').populate('node').exec();
         }
@@ -128,7 +128,7 @@ function get_existing_parts(obj, start, end) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             var parts_reply = _.map(parts, function(part) {
                 var blocks = blocks_by_chunk[part.chunk.id];
-                return part_for_client(part, part.chunk, blocks);
+                return get_part_info(part, part.chunk, blocks);
             });
             console.log('get_existing_parts', parts_reply);
             return parts_reply;
@@ -268,7 +268,7 @@ function adjust_parts_to_range(obj, start, end, parts) {
 }
 
 // chunk is optional
-function part_for_client(part, chunk, blocks) {
+function get_part_info(part, chunk, blocks) {
     var indexes = [];
     _.each(_.groupBy(blocks, 'index'), function(index_blocks, index) {
         indexes[index] = _.map(index_blocks, function(block) {

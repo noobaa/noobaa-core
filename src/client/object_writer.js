@@ -30,30 +30,17 @@ function ObjectWriter(client, params) {
     self._key = params.key;
     self._pos = 0;
 
-    // on finish send complete_multipart_upload for the server to finalize the object meta-data
-    self.once('finish', function(callback) {
-        Q.fcall(
+    self.once('finish', function() {
+        self.complete_upload().then(
             function() {
-                return self._client.complete_multipart_upload({
-                    bucket: self._bucket,
-                    key: self._key,
-                    size: self._pos,
-                    // md5sum: '', // TODO
-                });
+                // on successful completion we emit the 'close' event
+                // that is optional for streams with a backing resource
+                self.emit('close');
+            },
+            function(err) {
+                self.emit('error', err);
             }
-        ).nodeify(callback);
-    });
-
-    // on error send abort_multipart_upload for the server to discard the current upload
-    self.once('error', function(callback) {
-        Q.fcall(
-            function() {
-                return self._client.abort_multipart_upload({
-                    bucket: self._bucket,
-                    key: self._key,
-                });
-            }
-        ).nodeify(callback);
+        );
     });
 }
 
@@ -77,4 +64,20 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
             self._pos += chunk.length;
         }
     ).nodeify(callback);
+};
+
+ObjectWriter.prototype.complete_upload = function() {
+    return this._client.complete_multipart_upload({
+        bucket: this._bucket,
+        key: this._key,
+        size: this._pos,
+        // md5sum: '', // TODO
+    });
+};
+
+ObjectWriter.prototype.abort_upload = function() {
+    return this._client.abort_multipart_upload({
+        bucket: this._bucket,
+        key: this._key,
+    });
 };

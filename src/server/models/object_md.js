@@ -32,7 +32,6 @@ var objmd_schema = new Schema({
     // size in bytes
     size: {
         type: Number,
-        required: true,
     },
 
     // upload_mode=true for objects that were created but not written yet,

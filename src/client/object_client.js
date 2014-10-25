@@ -6,9 +6,9 @@ var stream = require('stream');
 var _ = require('lodash');
 var Q = require('q');
 var object_api = require('../api/object_api');
-var Mapper = require('./mapper');
 var Semaphore = require('noobaa-util/semaphore');
-
+var ObjectReader = require('./object_reader');
+var ObjectWriter = require('./object_writer');
 
 
 // exporting the ObjectClient class
@@ -33,6 +33,14 @@ function ObjectClient(client_params) {
 util.inherits(ObjectClient, object_api.Client);
 
 
+ObjectClient.prototype.open_read_stream = function(params) {
+    return new ObjectReader(this, params);
+};
+ObjectClient.prototype.open_write_stream = function(params) {
+    return new ObjectWriter(this, params);
+};
+
+
 
 // write_object_part (API)
 //
@@ -50,7 +58,7 @@ ObjectClient.prototype.write_object_part = function(params) {
     var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
     console.log('write_object_part', params);
 
-    return self.upload_object_part(upload_params).then(
+    return self.allocate_object_part(upload_params).then(
         function(part) {
             var buffer_per_index = encode_chunk(part, params.buffer);
             var block_size = (part.chunk_size / part.kblocks) | 0;
@@ -174,6 +182,7 @@ function write_block(block, buffer, sem) {
     );
 }
 
+
 function read_block(block, block_size, sem) {
     // use read semaphore to surround the IO
     return sem.surround(
@@ -204,6 +213,7 @@ function encode_chunk(part, buffer) {
     return buffer_per_index;
 }
 
+
 // for now just decode without erasure coding
 function decode_chunk(part, buffer_per_index) {
     var buffers = [];
@@ -214,156 +224,4 @@ function decode_chunk(part, buffer_per_index) {
         }
     }
     return Buffer.concat(buffers, part.chunk_size);
-}
-
-
-
-
-
-ObjectClient.prototype.open_read_stream = function(params) {
-    return new Reader(this, params);
-};
-ObjectClient.prototype.open_write_stream = function(params) {
-    return new Writer(this, params);
-};
-
-
-
-var READ_SIZE_MARK = 128 * 1024;
-var WRITE_SIZE_MARK = 128 * 1024;
-
-
-///////////////
-/////////
-/////
-// Reader is a Readable stream for the specified object and range.
-
-function Reader(client, params) {
-    stream.Readable.call(this, {
-        // highWaterMark Number - The maximum number of bytes to store
-        // in the internal buffer before ceasing to read
-        // from the underlying resource. Default=16kb
-        highWaterMark: READ_SIZE_MARK,
-        // encoding String - If specified, then buffers will be decoded to strings
-        // using the specified encoding. Default=null
-        encoding: null,
-        // objectMode Boolean - Whether this stream should behave as a stream of objects.
-        // Meaning that stream.read(n) returns a single value
-        // instead of a Buffer of size n. Default=false
-        objectMode: false,
-    });
-    this._client = client;
-    var p = _.clone(params);
-    p.start = fix_offset_param(p.start, 0);
-    p.end = fix_offset_param(p.end, Infinity);
-    this._reader_params = p;
-}
-
-util.inherits(Reader, stream.Readable);
-
-// implement the stream's Readable._read() function.
-Reader.prototype._read = function(requested_size) {
-    var self = this;
-    // make copy of params for this request range
-    var params = this._reader_params;
-    var p = _.clone(params);
-    // trim if size exceeds the map range
-    var size = Math.min(
-        Number(requested_size) || READ_SIZE_MARK,
-        params.end - params.start
-    );
-    p.end = p.start + size;
-    // finish the read if reached the end of the reader range
-    if (size <= 0) {
-        self.push(null);
-        return;
-    }
-    this._client.read_object_range(p).done(
-        function(buffer) {
-            params.start += buffer.length;
-            self.push(buffer);
-            // when read returns a truncated buffer it means we reached EOF
-            if (buffer.length < size) {
-                self.push(null);
-            }
-        },
-        function(err) {
-            self.emit('error', err || 'unknown error');
-        }
-    );
-};
-
-
-
-///////////////
-/////////
-/////
-// Writer is a Writable stream for the specified object and range.
-
-
-function Writer(client, params) {
-    stream.Writable.call(this, {
-        // highWaterMark Number - Buffer level when write() starts returning false. Default=16kb
-        highWaterMark: WRITE_SIZE_MARK,
-        // decodeStrings Boolean - Whether or not to decode strings into Buffers
-        // before passing them to _write(). Default=true
-        decodeStrings: true,
-        // objectMode Boolean - Whether or not the write(anyObj) is a valid operation.
-        // If set you can write arbitrary data instead of only Buffer / String data. Default=false
-        objectMode: false,
-    });
-    this._client = client;
-    var p = _.clone(params);
-    p.start = fix_offset_param(p.start, 0);
-    p.end = fix_offset_param(p.end, Infinity);
-    this._writer_params = p;
-}
-
-util.inherits(Writer, stream.Writable);
-
-// implement the stream's Readable._read() function.
-Writer.prototype._write = function(chunk, encoding, callback) {
-    // make copy of params for this request range
-    var params = this._writer_params;
-    var p = _.clone(params);
-    // trim if buffer exceeds the map range
-    var size = Math.min(
-        chunk.length,
-        params.end - params.start
-    );
-    p.end = p.start + size;
-    p.buffer = slice_buffer(chunk, 0, size);
-    this._client.write_object_part(p).done(
-        function() {
-            params.start += size;
-            callback();
-        },
-        function(err) {
-            callback(err || 'unknown error');
-        }
-    );
-};
-
-
-
-// return a fixed positive
-function fix_offset_param(offset, default_value) {
-    // if undefined assume the default value
-    if (typeof(offset) === 'undefined') {
-        return default_value;
-    }
-    // cast to number (numbers->numbers, Infinity->Infinity, null->0, objects->NaN)
-    var x = Number(offset);
-    // return positive number, negatives are truncated to 0.
-    return x <= 0 ? 0 : x;
-}
-
-function slice_buffer(buffer, offset, size) {
-    if (offset === 0 && buffer.length === size) {
-        return buffer;
-    }
-    if (typeof(buffer.slice) === 'function') {
-        return buffer.slice(offset, offset + size);
-    }
-    throw new Error('Cannot slice buffer');
 }

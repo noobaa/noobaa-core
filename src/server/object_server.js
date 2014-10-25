@@ -22,17 +22,17 @@ module.exports = new object_api.Server({
     update_bucket: update_bucket,
     delete_bucket: delete_bucket,
     list_bucket_objects: list_bucket_objects,
-    // object actions
-    create_object: create_object,
+    // object upload
+    create_multipart_upload: create_multipart_upload,
+    complete_multipart_upload: complete_multipart_upload,
+    abort_multipart_upload: abort_multipart_upload,
+    allocate_object_part: allocate_object_part,
+    // read
+    read_object_mappings: read_object_mappings,
+    // object meta-data
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
-    // upload
-    upload_object_part: upload_object_part,
-    complete_upload: complete_upload,
-    abort_upload: abort_upload,
-    // read
-    read_object_mappings: read_object_mappings,
 }, [
     // middleware to verify the account session
     account_server.account_session
@@ -114,14 +114,19 @@ function list_bucket_objects(req) {
     ).then(
         function(objects) {
             return {
-                objects: _.map(objects, object_for_client),
+                objects: _.map(objects, function(obj) {
+                    return {
+                        key: obj.key,
+                        info: get_object_info(obj),
+                    };
+                })
             };
         }
     );
 }
 
 
-function create_object(req) {
+function create_multipart_upload(req) {
     var bucket_name = req.restful_params.bucket;
     var key = req.restful_params.key;
     var size = req.restful_params.size;
@@ -132,7 +137,6 @@ function create_object(req) {
                 account: req.account.id,
                 bucket: bucket.id,
                 key: key,
-                size: size,
                 upload_mode: true,
             };
             return ObjectMD.create(info);
@@ -140,6 +144,101 @@ function create_object(req) {
     ).then(reply_undefined);
 }
 
+function complete_multipart_upload(req) {
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+    var size = req.restful_params.size;
+
+    return find_bucket(req.account.id, bucket_name).then(
+        function(bucket) {
+            var info = {
+                account: req.account.id,
+                bucket: bucket.id,
+                key: key,
+            };
+            var updates = {
+                size: size,
+                $unset: {
+                    upload_mode: 1
+                }
+            };
+            return ObjectMD.findOneAndUpdate(info, updates).exec();
+        }
+    ).then(reply_undefined);
+}
+
+function abort_multipart_upload(req) {
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+
+    return find_bucket(req.account.id, bucket_name).then(
+        function(bucket) {
+            var info = {
+                account: req.account.id,
+                bucket: bucket.id,
+                key: key,
+            };
+            var updates = {
+                upload_mode: true
+            };
+            return ObjectMD.findOneAndUpdate(info, updates).exec();
+        }
+    ).then(reply_undefined);
+}
+
+function allocate_object_part(req) {
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+    var start = Number(req.restful_params.start);
+    var end = Number(req.restful_params.end);
+
+    return find_bucket(req.account.id, bucket_name).then(
+        function(bucket) {
+            var info = {
+                account: req.account.id,
+                bucket: bucket.id,
+                key: key,
+            };
+            return ObjectMD.findOne(info).exec();
+        }
+    ).then(
+        function(obj) {
+            if (!obj.upload_mode) {
+                // TODO handle the upload_mode state
+                // throw new Error('object not in upload mode');
+            }
+            return object_mapper.allocate_object_part(obj, start, end);
+        }
+    );
+}
+
+
+function read_object_mappings(req) {
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+    var start = Number(req.restful_params.start);
+    var end = Number(req.restful_params.end);
+
+    return find_bucket(req.account.id, bucket_name).then(
+        function(bucket) {
+            var info = {
+                account: req.account.id,
+                bucket: bucket.id,
+                key: key,
+            };
+            return ObjectMD.findOne(info).exec();
+        }
+    ).then(
+        function(obj) {
+            return object_mapper.read_object_mappings(obj, start, end);
+        }
+    );
+}
+
+
+//////////////////////
+// object meta-data //
+//////////////////////
 
 function read_object_md(req) {
     var bucket_name = req.restful_params.bucket;
@@ -156,7 +255,7 @@ function read_object_md(req) {
         }
     ).then(
         function(obj) {
-            return object_for_client(obj);
+            return get_object_info(obj);
         }
     );
 }
@@ -198,96 +297,6 @@ function delete_object(req) {
 }
 
 
-function upload_object_part(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var start = Number(req.restful_params.start);
-    var end = Number(req.restful_params.end);
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            return ObjectMD.findOne(info).exec();
-        }
-    ).then(
-        function(obj) {
-
-            if (!obj.upload_mode) {
-                // TODO handle the upload_mode state
-                // throw new Error('object not in upload mode');
-            }
-            return object_mapper.allocate_part_mappings(obj, start, end);
-        }
-    );
-}
-
-function complete_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            var updates = {
-                $unset: {
-                    upload_mode: 1
-                }
-            };
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
-        }
-    ).then(reply_undefined);
-}
-
-function abort_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            var updates = {
-                upload_mode: true
-            };
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
-        }
-    ).then(reply_undefined);
-}
-
-
-function read_object_mappings(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var start = Number(req.restful_params.start);
-    var end = Number(req.restful_params.end);
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            return ObjectMD.findOne(info).exec();
-        }
-    ).then(
-        function(obj) {
-            return object_mapper.read_object_mappings(obj, start, end);
-        }
-    );
-}
-
 
 // 10 minutes expiry
 var buckets_lru = new LRU({
@@ -327,12 +336,15 @@ function find_bucket(account_id, bucket_name, force) {
     );
 }
 
-function object_for_client(md) {
-    var o = _.pick(md, 'key', 'size', 'create_time', 'upload_mode');
-    if (o.create_time) {
-        o.create_time = o.create_time.toString();
+function get_object_info(md) {
+    var info = {
+        size: md.size,
+        create_time: md.create_time.toString(),
+    };
+    if (md.upload_mode) {
+        info.upload_mode = md.upload_mode;
     }
-    return o;
+    return info;
 }
 
 function reply_undefined() {}

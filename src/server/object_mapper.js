@@ -11,7 +11,7 @@ var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
 
 module.exports = {
-    allocate_part_mappings: allocate_part_mappings,
+    allocate_object_part: allocate_object_part,
     read_object_mappings: read_object_mappings,
 };
 
@@ -23,7 +23,7 @@ var CHUNK_KBLOCKS_BITWISE = 1; // TODO: make 7
 var CHUNK_KBLOCKS = 1 << CHUNK_KBLOCKS_BITWISE;
 
 
-function allocate_part_mappings(obj, start, end) {
+function allocate_object_part(obj, start, end) {
     // chunk size is aligned up to be an integer multiple of kblocks*block_size
     var chunk_size = range_utils.align_up_bitwise(
         end - start,

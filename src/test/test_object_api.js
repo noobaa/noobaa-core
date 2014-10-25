@@ -56,10 +56,15 @@ describe('object_api', function() {
                 bucket: BKT,
             });
         }).then(function() {
-            return coretest.object_client.create_object({
+            return coretest.object_client.create_multipart_upload({
                 bucket: BKT,
                 key: KEY,
-                size: 1,
+            });
+        }).then(function() {
+            return coretest.object_client.complete_multipart_upload({
+                bucket: BKT,
+                key: KEY,
+                size: 0,
             });
         }).then(function() {
             return coretest.object_client.read_object_md({
@@ -70,13 +75,6 @@ describe('object_api', function() {
             return coretest.object_client.update_object_md({
                 bucket: BKT,
                 key: KEY,
-            });
-        }).then(function() {
-            return coretest.object_client.upload_object_part({
-                bucket: BKT,
-                key: KEY,
-                start: 0,
-                end: 1,
             });
         }).then(function() {
             return coretest.object_client.list_bucket_objects({
@@ -136,10 +134,9 @@ describe('object_api', function() {
                 for (var i = 0; i < size; i++) {
                     data[i] = 0; // chance.integer(CHANCE_BYTE);
                 }
-                return coretest.object_client.create_object({
+                return coretest.object_client.create_multipart_upload({
                     bucket: BKT,
                     key: KEY,
-                    size: size,
                 });
             }).then(function() {
                 var defer = Q.defer();

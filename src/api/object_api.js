@@ -103,39 +103,31 @@ module.exports = restful_api({
                     objects: {
                         type: 'array',
                         items: {
-                            $ref: '/object_api/definitions/object_info'
+                            type: 'object',
+                            required: ['key', 'info'],
+                            additionalProperties: false,
+                            properties: {
+                                key: {
+                                    type: 'string',
+                                },
+                                info: {
+                                    $ref: '/object_api/definitions/object_info'
+                                }
+                            }
                         }
                     }
                 }
             }
         },
 
-        // object functions
 
-        create_object: {
+        ///////////////////
+        // object upload //
+        ///////////////////
+
+        create_multipart_upload: {
             method: 'POST',
-            path: '/:bucket',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key', 'size'],
-                additionalProperties: false,
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    size: {
-                        type: 'number',
-                    },
-                }
-            },
-        },
-
-        read_object_md: {
-            method: 'GET',
-            path: '/:bucket/:key',
+            path: '/:bucket/:key/upload',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -149,25 +141,87 @@ module.exports = restful_api({
                     },
                 }
             },
-            reply: {
+        },
+
+        complete_multipart_upload: {
+            method: 'PUT',
+            path: '/:bucket/:key/upload',
+            params: {
                 type: 'object',
-                required: ['key', 'size', 'create_time'],
+                required: ['bucket', 'key', 'size'],
                 additionalProperties: false,
                 properties: {
+                    bucket: {
+                        type: 'string',
+                    },
                     key: {
                         type: 'string',
                     },
                     size: {
                         type: 'number',
-                    },
-                    create_time: {
-                        type: 'string',
-                        format: 'date',
-                    },
-                    upload_mode: {
-                        type: 'boolean',
                     }
                 }
+            },
+        },
+
+        abort_multipart_upload: {
+            method: 'DELETE',
+            path: '/:bucket/:key/upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                additionalProperties: false,
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        allocate_object_part: {
+            method: 'POST',
+            path: '/:bucket/:key/part',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key', 'start', 'end'],
+                additionalProperties: false,
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    start: {
+                        type: 'number',
+                    },
+                    end: {
+                        type: 'number',
+                    },
+                },
+            },
+            reply: {
+                $ref: '/object_api/definitions/object_part_info'
+            }
+        },
+
+
+        //////////////////////
+        // object meta-data //
+        //////////////////////
+
+        read_object_md: {
+            method: 'GET',
+            path: '/:bucket/:key',
+            params: {
+                $ref: '/object_api/definitions/object_path'
+            },
+            reply: {
+                $ref: '/object_api/definitions/object_info'
             }
         },
 
@@ -193,82 +247,10 @@ module.exports = restful_api({
             method: 'DELETE',
             path: '/:bucket/:key',
             params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                additionalProperties: false,
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
+                $ref: '/object_api/definitions/object_path'
             },
         },
 
-        upload_object_part: {
-            method: 'POST',
-            path: '/:bucket/:key/upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key', 'start', 'end'],
-                additionalProperties: false,
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    start: {
-                        type: 'number',
-                    },
-                    end: {
-                        type: 'number',
-                    },
-                },
-            },
-            reply: {
-                $ref: '/object_api/definitions/object_part_info'
-            }
-        },
-
-        complete_upload: {
-            method: 'PUT',
-            path: '/:bucket/:key/upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                additionalProperties: false,
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        abort_upload: {
-            method: 'DELETE',
-            path: '/:bucket/:key/upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                additionalProperties: false,
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
 
         read_object_mappings: {
             method: 'GET',
@@ -310,7 +292,44 @@ module.exports = restful_api({
     },
 
 
+
+    ////////////////////////////////
+    // general schema definitions //
+    ////////////////////////////////
+
     definitions: {
+
+        object_path: {
+            type: 'object',
+            required: ['bucket', 'key'],
+            additionalProperties: false,
+            properties: {
+                bucket: {
+                    type: 'string',
+                },
+                key: {
+                    type: 'string',
+                },
+            }
+        },
+
+        object_info: {
+            type: 'object',
+            required: ['size', 'create_time'],
+            additionalProperties: false,
+            properties: {
+                size: {
+                    type: 'number',
+                },
+                create_time: {
+                    type: 'string',
+                    format: 'date',
+                },
+                upload_mode: {
+                    type: 'boolean',
+                }
+            }
+        },
 
         object_part_info: {
             type: 'object',
@@ -369,26 +388,6 @@ module.exports = restful_api({
             }
         },
 
-        object_info: {
-            type: 'object',
-            required: ['key', 'size', 'create_time'],
-            additionalProperties: false,
-            properties: {
-                key: {
-                    type: 'string',
-                },
-                size: {
-                    type: 'number',
-                },
-                create_time: {
-                    type: 'string',
-                    format: 'date',
-                },
-                upload_mode: {
-                    type: 'boolean',
-                }
-            }
-        }
     },
 
 });

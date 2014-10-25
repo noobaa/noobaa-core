@@ -118,7 +118,7 @@ function restful_api(api) {
             // install also a documentation route
             router.get(PATH.join(doc_base, func_name), function(req, res) {
                 res.send(func_info.doc);
-                // TODO should return also params/reply/other-info doc
+                // TODO docs should return also params/reply/other-info doc
             });
         });
     };
@@ -217,10 +217,8 @@ function do_client_request(client_params, func_info, params) {
                 jar.add(new Cookie(cookie_str));
             });
         }
-        if (res.data) {
-            // check the reply
-            validate_schema(res.data, func_info.reply, func_info);
-        }
+        // check the reply
+        validate_schema(res.data, func_info.reply, func_info);
         return res.data;
     }).then(null, function(err) {
         console.error('RESTFUL REQUEST FAILED', err);
@@ -295,6 +293,7 @@ function send_http_request(options) {
     var req = protocol === 'https' ?
         https.request(options) :
         http.request(options);
+
     req.on('response', function(res) {
         // console.log('HTTP response headers', res.statusCode, res.headers);
         if (res.setEncoding) {
@@ -302,45 +301,59 @@ function send_http_request(options) {
         }
         var data = '';
         var response_err;
-        res.on('data', function(chunk) {
-            // console.log('HTTP response data', chunk);
-            data += chunk;
-        });
-        res.on('error', function(err) {
-            // console.log('HTTP response error', err);
-            response_err = response_err || err;
-        });
-        res.on('end', function() {
-            // console.log('HTTP response end', res.statusCode, response_err, data);
-            if (data) {
-                var content_type = res.headers['content-type'];
-                if (content_type && content_type.split(';')[0] === 'application/json') {
-                    try {
-                        data = JSON.parse(data);
-                    } catch (err) {
-                        response_err = response_err || err;
+
+        res.on('data',
+            function(chunk) {
+                // console.log('HTTP response data', chunk);
+                data += chunk;
+            }
+        );
+
+        res.on('error',
+            function(err) {
+                // console.log('HTTP response error', err);
+                response_err = response_err || err;
+            }
+        );
+
+        res.on('end',
+            function() {
+                // console.log('HTTP response end', res.statusCode, response_err, data);
+                if (data) {
+                    var content_type = res.headers['content-type'];
+                    if (content_type &&
+                        content_type.split(';')[0] === 'application/json') {
+                        try {
+                            data = JSON.parse(data);
+                        } catch (err) {
+                            response_err = response_err || err;
+                        }
                     }
                 }
+                if (res.statusCode !== 200 || response_err) {
+                    return defer.reject({
+                        status: res.statusCode,
+                        data: response_err || data,
+                    });
+                } else {
+                    return defer.resolve({
+                        response: res,
+                        data: data,
+                    });
+                }
             }
-            if (res.statusCode !== 200 || response_err) {
-                return defer.reject({
-                    status: res.statusCode,
-                    data: response_err || data,
-                });
-            } else {
-                return defer.resolve({
-                    response: res,
-                    data: data,
-                });
-            }
-        });
+        );
     });
-    req.on('error', function(err) {
-        // console.log('HTTP request error', err);
-        return defer.reject({
-            data: err,
-        });
-    });
+
+    req.on('error',
+        function(err) {
+            // console.log('HTTP request error', err);
+            return defer.reject({
+                data: err,
+            });
+        }
+    );
+
     if (body) {
         req.write(body, 'utf8');
     }
@@ -359,44 +372,52 @@ function create_server_handler(server, func, func_info) {
             return next();
         }
         var log_func = server._log || function() {};
-        Q.fcall(function() {
-            req.restful_params = {};
-            _.each(req.query, function(v, k) {
-                req.restful_params[k] =
-                    component_to_param(v, func_info.params.properties[k].type);
-            });
-            _.each(req.body, function(v, k) {
-                req.restful_params[k] = v;
-            });
-            _.each(req.params, function(v, k) {
-                req.restful_params[k] =
-                    component_to_param(v, func_info.params.properties[k].type);
-            });
-            validate_schema(req.restful_params, func_info.params, func_info);
-            // server functions are expected to return a promise
-            return func(req, res, next);
-        }).then(function(reply) {
-            log_func('SERVER COMPLETED', func_info.name);
-            if (reply) {
-                validate_schema(reply, func_info.reply, func_info);
+        Q.fcall(
+            function() {
+                req.restful_params = {};
+                _.each(req.query, function(v, k) {
+                    req.restful_params[k] =
+                        component_to_param(v, func_info.params.properties[k].type);
+                });
+                _.each(req.body, function(v, k) {
+                    req.restful_params[k] = v;
+                });
+                _.each(req.params, function(v, k) {
+                    req.restful_params[k] =
+                        component_to_param(v, func_info.params.properties[k].type);
+                });
+                validate_schema(req.restful_params, func_info.params, func_info);
+                // server functions are expected to return a promise
+                return func(req, res, next);
             }
-            return res.status(200).json(reply);
-        }).then(null, function(err) {
-            log_func('SERVER ERROR', func_info.name, ':', err, err.stack);
-            var status = err.status || err.statusCode;
-            var data = err.data || err.message || err.toString();
-            if (typeof status === 'number' &&
-                status >= 100 &&
-                status < 600
-            ) {
-                return res.status(status).json(data);
-            } else {
-                return res.status(500).json(data);
+        ).then(
+            function(reply) {
+                log_func('SERVER COMPLETED', func_info.name);
+                if (reply) {
+                    validate_schema(reply, func_info.reply, func_info);
+                }
+                return res.status(200).json(reply);
             }
-        }).done(null, function(err) {
-            log_func('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
-            return next(err);
-        });
+        ).then(null,
+            function(err) {
+                log_func('SERVER ERROR', func_info.name, ':', err, err.stack);
+                var status = err.status || err.statusCode;
+                var data = err.data || err.message || err.toString();
+                if (typeof status === 'number' &&
+                    status >= 100 &&
+                    status < 600
+                ) {
+                    return res.status(status).json(data);
+                } else {
+                    return res.status(500).json(data);
+                }
+            }
+        ).done(null,
+            function(err) {
+                log_func('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
+                return next(err);
+            }
+        );
     };
 }
 

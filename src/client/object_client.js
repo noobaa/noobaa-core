@@ -33,7 +33,40 @@ function ObjectClient(client_params) {
 util.inherits(ObjectClient, object_api.Client);
 
 
-// read_object_data (API)
+
+// write_object_part (API)
+//
+// params (Object):
+//   - bucket (String)
+//   - key (String)
+//   - start (Number) - object start offset
+//   - end (Number) - object end offset
+//   - buffer (Buffer) - data to write
+//
+// return (promise)
+//
+ObjectClient.prototype.write_object_part = function(params) {
+    var self = this;
+    var buffer = params.buffer;
+    console.log('write_object_part', params);
+
+    return self.get_object_mappings(
+        _.omit(params, 'buffer')
+    ).then(
+        function(res) {
+            var mappings = res.data;
+            return Q.all(_.map(
+                mappings.parts,
+                function(part) {
+                    // return self.read_object_part(part);
+                }
+            ));
+        }
+    );
+};
+
+
+// read_object_range (API)
 //
 // params (Object):
 //   - bucket (String)
@@ -43,9 +76,9 @@ util.inherits(ObjectClient, object_api.Client);
 //
 // return: buffer (promise) - the data. can be shorter than requested if EOF.
 //
-ObjectClient.prototype.read_object_data = function(params) {
+ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
-    console.log('read_object_data', params);
+    console.log('read_object_range', params);
 
     return self.get_object_mappings(params).then(
         function(res) {
@@ -171,38 +204,6 @@ function read_block(block, block_size, sem) {
 
 
 
-// write_object_data (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - start (Number) - object start offset
-//   - end (Number) - object end offset
-//   - buffer (Buffer) - data to write
-//
-// return (promise)
-//
-ObjectClient.prototype.write_object_data = function(params) {
-    var self = this;
-    var buffer = params.buffer;
-    console.log('write_object_data', params);
-
-    return self.get_object_mappings(
-        _.omit(params, 'buffer')
-    ).then(
-        function(res) {
-            var mappings = res.data;
-            return Q.all(_.map(
-                mappings.parts,
-                function(part) {
-                    // return self.read_object_part(part);
-                }
-            ));
-        }
-    );
-};
-
-
 
 
 
@@ -264,7 +265,7 @@ Reader.prototype._read = function(requested_size) {
         self.push(null);
         return;
     }
-    this._client.read_object_data(p).done(
+    this._client.read_object_range(p).done(
         function(buffer) {
             params.start += buffer.length;
             self.push(buffer);
@@ -319,7 +320,7 @@ Writer.prototype._write = function(chunk, encoding, callback) {
     );
     p.end = p.start + size;
     p.buffer = slice_buffer(chunk, 0, size);
-    this._client.write_object_data(p).done(
+    this._client.write_object_part(p).done(
         function() {
             params.start += size;
             callback();

@@ -6,7 +6,7 @@ var restful_api = require('../util/restful_api');
 
 module.exports = restful_api({
 
-    name: 'Account',
+    name: 'agent_api',
 
     methods: {
 

@@ -29,7 +29,7 @@ describe('account_api', function() {
                 });
             }).then(function() {
                 return account_client.read_account().then(function(res) {
-                    assert.strictEqual(res.data.email, EMAIL);
+                    assert.strictEqual(res.email, EMAIL);
                 });
             }).then(function() {
                 return account_client.logout_account();

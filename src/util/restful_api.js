@@ -10,7 +10,7 @@ var assert = require('assert');
 var URL = require('url');
 var PATH = require('path');
 var Cookie = require('cookie-jar');
-var tv4 = require('tv4');
+var tv4 = require('tv4').freshApi();
 
 
 module.exports = restful_api;
@@ -134,14 +134,24 @@ function restful_api(api) {
     };
 
 
-    var method_and_path_collide = {};
+    // add all definitions
+    _.each(api.definitions, function(schema, name) {
+        tv4.addSchema('/' + api.name + '/definitions/' + name, schema);
+    });
 
     // go over the api and check its validity
+    var method_and_path_collide = {};
     _.each(api.methods, function(func_info, func_name) {
         // add the name to the info
         func_info.name = func_name;
-        func_info.params = func_info.params || {};
-        func_info.reply = func_info.reply || {};
+
+        var params_schema_path = '/' + api.name + '/methods/' + func_name + '/params';
+        tv4.addSchema(params_schema_path, func_info.params || {});
+        func_info.params = tv4.getSchema(params_schema_path);
+
+        var reply_schema_path = '/' + api.name + '/methods/' + func_name + '/reply';
+        tv4.addSchema(reply_schema_path, func_info.reply || {});
+        func_info.reply = tv4.getSchema(reply_schema_path);
 
         assert(func_info.method in VALID_METHODS,
             'unexpected method: ' + func_info);

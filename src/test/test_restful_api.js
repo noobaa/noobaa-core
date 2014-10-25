@@ -14,37 +14,91 @@ describe('restful_api', function() {
 
     var restful_api = require('../util/restful_api');
 
-    var test_params_info = {
-        type: 'object',
-        required: ['param1', 'param2', 'param3', 'param4'],
-        properties: {
-            param1: {
-                type: 'string',
+    // init the test api
+    var test_api = restful_api({
+        name: 'test_api',
+        definitions: {
+            params_schema: {
+                type: 'object',
+                required: ['param1', 'param2', 'param3', 'param4'],
+                properties: {
+                    param1: {
+                        type: 'string',
+                    },
+                    param2: {
+                        type: 'number',
+                    },
+                    param3: {
+                        type: 'boolean',
+                    },
+                    param4: {
+                        type: 'string',
+                        format: 'date',
+                    },
+                    param5: {
+                        type: 'array',
+                    },
+                }
             },
-            param2: {
-                type: 'number',
+            reply_schema: {
+                type: 'object',
+                required: ['rest'],
+                properties: {
+                    rest: {
+                        type: 'array',
+                    }
+                }
             },
-            param3: {
-                type: 'boolean',
+        },
+        methods: {
+            get: {
+                method: 'GET',
+                path: '/:param1/and/also/:param2',
+                params: {
+                    $ref: '/test_api/definitions/params_schema'
+                },
+                reply: {
+                    $ref: '/test_api/definitions/reply_schema'
+                },
+                doc: 'get doc',
             },
-            param4: {
-                type: 'string',
-                format: 'date',
+            post: {
+                method: 'POST',
+                path: '/:param1/and/also/:param2',
+                params: {
+                    $ref: '/test_api/definitions/params_schema'
+                },
+                reply: {
+                    $ref: '/test_api/definitions/reply_schema'
+                },
+                doc: 'post doc',
             },
-            param5: {
-                type: 'array',
+            put: {
+                method: 'PUT',
+                path: '/:param1/and/also/:param3',
+                params: {
+                    $ref: '/test_api/definitions/params_schema'
+                },
+                reply: {
+                    $ref: '/test_api/definitions/reply_schema'
+                },
+                doc: 'put doc',
+            },
+            delete: {
+                method: 'DELETE',
+                path: '/all/:param2',
+                params: {
+                    $ref: '/test_api/definitions/params_schema'
+                },
+                reply: {
+                    $ref: '/test_api/definitions/reply_schema'
+                },
+                doc: 'del doc',
             },
         }
-    };
-    var test_reply_info = {
-        type: 'object',
-        required: ['rest'],
-        properties: {
-            rest: {
-                type: 'array',
-            }
-        }
-    };
+    });
+
+    // test data
     var PARAMS = {
         param1: '1',
         param2: 2,
@@ -61,39 +115,6 @@ describe('restful_api', function() {
         data: 'testing error',
         status: 404,
     };
-    var test_api = restful_api({
-        name: 'Test',
-        methods: {
-            get: {
-                method: 'GET',
-                path: '/:param1/and/also/:param2',
-                params: test_params_info,
-                reply: test_reply_info,
-                doc: 'get doc',
-            },
-            post: {
-                method: 'POST',
-                path: '/:param1/and/also/:param2',
-                params: test_params_info,
-                reply: test_reply_info,
-                doc: 'post doc',
-            },
-            put: {
-                method: 'PUT',
-                path: '/:param1/and/also/:param3',
-                params: test_params_info,
-                reply: test_reply_info,
-                doc: 'put doc',
-            },
-            delete: {
-                method: 'DELETE',
-                path: '/all/:param2',
-                params: test_params_info,
-                reply: test_reply_info,
-                doc: 'del doc',
-            },
-        }
-    });
 
 
     describe('define_api', function() {
@@ -221,7 +242,7 @@ describe('restful_api', function() {
 
                 it('should return doc', function(done) {
                     var doc_url = 'http://localhost:' + utilitest.http_port() +
-                        '/test_restful_api/doc/Test/' + func_name;
+                        '/test_restful_api/doc/test_api/' + func_name;
                     request(doc_url, function(error, response, body) {
                         assert(!error);
                         assert.strictEqual(response.statusCode, 200);

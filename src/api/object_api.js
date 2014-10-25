@@ -6,7 +6,7 @@ var restful_api = require('../util/restful_api');
 
 module.exports = restful_api({
 
-    name: 'Object',
+    name: 'object_api',
 
     methods: {
 
@@ -103,24 +103,7 @@ module.exports = restful_api({
                     objects: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['key', 'size', 'create_time'],
-                            additionalProperties: false,
-                            properties: {
-                                key: {
-                                    type: 'string',
-                                },
-                                size: {
-                                    type: 'number',
-                                },
-                                create_time: {
-                                    type: 'string',
-                                    format: 'date',
-                                },
-                                upload_mode: {
-                                    type: 'boolean',
-                                }
-                            }
+                            $ref: '/object_api/definitions/object_info'
                         }
                     }
                 }
@@ -254,57 +237,7 @@ module.exports = restful_api({
                     parts: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['start', 'end', 'kblocks', 'chunk_offset', 'blocks'],
-                            additionalProperties: false,
-                            properties: {
-                                start: {
-                                    type: 'number',
-                                },
-                                end: {
-                                    type: 'number',
-                                },
-                                kblocks: {
-                                    type: 'number',
-                                },
-                                chunk_offset: {
-                                    type: 'number',
-                                },
-                                indexes: {
-                                    // the indexes composing the data chunk
-                                    type: 'array',
-                                    items: {
-                                        // each index contains an array of blocks
-                                        type: 'array',
-                                        items: {
-                                            type: 'object',
-                                            required: ['id', 'node'],
-                                            additionalProperties: false,
-                                            properties: {
-                                                id: {
-                                                    type: 'string',
-                                                },
-                                                node: {
-                                                    type: 'object',
-                                                    required: ['id', 'ip', 'port'],
-                                                    additionalProperties: false,
-                                                    properties: {
-                                                        id: {
-                                                            type: 'string',
-                                                        },
-                                                        ip: {
-                                                            type: 'string',
-                                                        },
-                                                        port: {
-                                                            type: 'number',
-                                                        },
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                            $ref: '/object_api/definitions/object_part_info'
                         },
                     },
                 }
@@ -347,6 +280,85 @@ module.exports = restful_api({
             },
         },
 
-    }
+    },
+
+
+    definitions: {
+
+        object_part_info: {
+            type: 'object',
+            required: ['start', 'end', 'kblocks', 'chunk_offset', 'blocks'],
+            additionalProperties: false,
+            properties: {
+                start: {
+                    type: 'number',
+                },
+                end: {
+                    type: 'number',
+                },
+                kblocks: {
+                    type: 'number',
+                },
+                chunk_offset: {
+                    type: 'number',
+                },
+                indexes: {
+                    // the indexes composing the data chunk
+                    type: 'array',
+                    items: {
+                        // each index contains an array of blocks
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['id', 'node'],
+                            additionalProperties: false,
+                            properties: {
+                                id: {
+                                    type: 'string',
+                                },
+                                node: {
+                                    type: 'object',
+                                    required: ['id', 'ip', 'port'],
+                                    additionalProperties: false,
+                                    properties: {
+                                        id: {
+                                            type: 'string',
+                                        },
+                                        ip: {
+                                            type: 'string',
+                                        },
+                                        port: {
+                                            type: 'number',
+                                        },
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        object_info: {
+            type: 'object',
+            required: ['key', 'size', 'create_time'],
+            additionalProperties: false,
+            properties: {
+                key: {
+                    type: 'string',
+                },
+                size: {
+                    type: 'number',
+                },
+                create_time: {
+                    type: 'string',
+                    format: 'date',
+                },
+                upload_mode: {
+                    type: 'boolean',
+                }
+            }
+        }
+    },
 
 });

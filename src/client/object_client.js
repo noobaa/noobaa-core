@@ -56,7 +56,7 @@ ObjectClient.prototype.open_write_stream = function(params) {
 ObjectClient.prototype.write_object_part = function(params) {
     var self = this;
     var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
-    console.log('write_object_part', params);
+    // console.log('write_object_part', params);
 
     return self.allocate_object_part(upload_params).then(
         function(part) {
@@ -84,7 +84,7 @@ ObjectClient.prototype.write_object_part = function(params) {
 //
 ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
-    console.log('read_object_range', params);
+    // console.log('read_object_range', params);
 
     return self.read_object_mappings(params).then(
         function(mappings) {
@@ -92,6 +92,9 @@ ObjectClient.prototype.read_object_range = function(params) {
         }
     ).then(
         function(parts_buffers) {
+            if (!parts_buffers.length) {
+                return null;
+            }
             // once all parts finish we can construct the complete buffer.
             return Buffer.concat(parts_buffers, params.end - params.start);
         }
@@ -105,7 +108,7 @@ ObjectClient.prototype.read_object_part = function(part) {
     var buffer_per_index = {};
     var next_index = 0;
 
-    console.log('read_object_part', part);
+    // console.log('read_object_part', part);
 
     // advancing the read by taking the next index and return promise to read it.
     // will fail if no more indexes remain, which means the part cannot be served.
@@ -122,7 +125,8 @@ ObjectClient.prototype.read_object_part = function(part) {
     }
 
     function read_index_blocks_chain(blocks, index) {
-        console.log('read_index_blocks_chain', index);
+        // console.log('read_index_blocks_chain', index);
+
         // chain the blocks of the index with array reduce
         // to handle read failures we create a promise chain such that each block of
         // this index will read and if fails it's promise rejection handler will go
@@ -130,13 +134,16 @@ ObjectClient.prototype.read_object_part = function(part) {
         var add_block_promise_to_chain = function(promise, block) {
             return promise.then(null,
                 function(err) {
-                    console.error('READ FAILED BLOCK', err);
+                    if (err !== chain_init_err) {
+                        console.error('READ FAILED BLOCK', err);
+                    }
                     return read_block(block, block_size, self.read_sem);
                 }
             );
         };
         // chain_initiator is used to fire the first rejection handler for the head of the chain.
-        var chain_initiator = Q.reject(index);
+        var chain_init_err = {};
+        var chain_initiator = Q.reject(chain_init_err);
         // reduce the blocks array to create the chain and feed it with the initial promise
         return _.reduce(
             blocks,
@@ -162,8 +169,9 @@ ObjectClient.prototype.read_object_part = function(part) {
     ).then(
         function() {
             var buffer = decode_chunk(part, buffer_per_index);
+            // TODO cache decoded chunks with lru client
             // cut only the part's relevant range from the chunk
-            buffer = buffer.slice(part.chunk_offset, part.end - part.start);
+            buffer = buffer.slice(part.chunk_offset, part.chunk_offset + part.end - part.start);
             return buffer;
         }
     );
@@ -175,7 +183,7 @@ function write_block(block, buffer, sem) {
     // use read semaphore to surround the IO
     return sem.surround(
         function() {
-            console.log('write_block', block, buffer);
+            // console.log('write_block', block, buffer);
 
             // TODO
         }

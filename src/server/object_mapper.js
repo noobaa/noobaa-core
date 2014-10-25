@@ -44,28 +44,28 @@ function allocate_object_part(obj, start, end) {
 
     return Q.fcall(
         function() {
-            console.log('create chunk', new_chunk);
+            // console.log('create chunk', new_chunk);
             return DataChunk.create(new_chunk);
         }
     ).then(
         function() {
-            console.log('allocate_blocks_for_new_chunk');
+            // console.log('allocate_blocks_for_new_chunk');
             return block_allocator.allocate_blocks_for_new_chunk(new_chunk);
         }
     ).then(
         function(new_blocks) {
-            console.log('create blocks', new_blocks);
+            // console.log('create blocks', new_blocks);
             part_info = get_part_info(new_part, new_chunk, new_blocks);
             return DataBlock.create(new_blocks);
         }
     ).then(
         function() {
-            console.log('create part', new_part);
+            // console.log('create part', new_part);
             return ObjectPart.create(new_part);
         }
     ).then(
         function() {
-            console.log('part info', part_info);
+            // console.log('part info', part_info);
             return part_info;
         }
     );
@@ -85,7 +85,7 @@ function read_object_mappings(obj, start, end) {
         function(parts) {
             var reply_parts = adjust_parts_to_range(
                 obj, rng.start, rng.end, parts);
-            console.log('read_object_mappings', reply_parts);
+            // console.log('read_object_mappings', reply_parts);
             return {
                 parts: reply_parts
             };
@@ -130,126 +130,12 @@ function get_existing_parts(obj, start, end) {
                 var blocks = blocks_by_chunk[part.chunk.id];
                 return get_part_info(part, part.chunk, blocks);
             });
-            console.log('get_existing_parts', parts_reply);
+            // console.log('get_existing_parts', parts_reply);
             return parts_reply;
         }
     );
 }
 
-/*
-// going over the parts (expected them to be sorted by start offset)
-// and creating new parts where missing.
-function allocate_missing_parts(obj, start, end, parts) {
-    var pos = start;
-    var allocs = {
-        chunks: [],
-        blocks: [],
-        parts: [],
-        promises: [],
-    };
-
-    var parts_and_new_parts = _.flatten(_.map(parts, function(part) {
-        var part_range = range_utils.intersection(part.start, part.end, pos, end);
-        // intersection may be empty if this part overlaps the previous parts
-        // or if not relevant at all to the requested range
-        if (!part_range) {
-            // return empty array so that _.flatten will ignore
-            console.log('PART DOESNT INTERSECT', part, pos, end);
-            return [];
-        }
-        // use current part, but adjust the range to the intersection with current position
-        part.chunk_offset += part_range.start - part.start;
-        part.start = part_range.start;
-        part.end = part_range.end;
-        // create new parts if missing from pos to where current part starts
-        var ret_parts = allocate_parts_for_range(obj, pos, part_range.start, allocs);
-        // we want this _.map function to return both the allocated parts and the current part
-        // se we add the current part and return a single array including all, and _.flatten
-        // will reduce these to a single array.
-        ret_parts.push(part);
-        console.log('allocate_missing_parts', ret_parts);
-        // advance pos to end of this range for next _.map loop
-        pos = part_range.end;
-        return ret_parts;
-    }));
-    if (pos < end) {
-        var ret_parts = allocate_parts_for_range(obj, pos, end, allocs);
-        _.each(ret_parts, parts_and_new_parts.push, parts_and_new_parts);
-        console.log('allocate_missing_parts tail', ret_parts);
-    }
-    return Q.all(allocs.promises).
-    then(
-        function() {
-            // first create the chunks
-            console.log('create chunks', allocs.chunks);
-            return DataChunk.create(allocs.chunks);
-        }
-    ).then(
-        function() {
-            // create the blocks pointing to the chunks
-            console.log('create blocks', allocs.blocks);
-            return DataBlock.create(allocs.blocks);
-        }
-    ).then(
-        function() {
-            // create the parts pointing to the chunks
-            console.log('create parts', allocs.parts);
-            return ObjectPart.create(allocs.parts);
-        }
-    ).then(
-        function() {
-            console.log('allocate_missing_parts', parts_and_new_parts);
-            return parts_and_new_parts;
-        }
-    );
-}
-
-function allocate_parts_for_range(obj, start, end, allocs) {
-    var new_parts = [];
-
-    function add_allocs(new_part, new_chunk, new_blocks) {
-        var new_part_lean = new_part.toObject();
-        new_part_lean.indexes = _.groupBy(new_blocks, 'index');
-        new_part_lean.kblocks = new_chunk.kblocks;
-        delete new_part_lean.chunk;
-        console.log('allocate_parts_for_range', new_part_lean);
-        new_parts.push(new_part_lean);
-        allocs.parts.push(new_part);
-        allocs.chunks.push(new_chunk);
-        _.each(new_blocks, allocs.blocks.push, allocs.blocks);
-    }
-
-    while (start < end) {
-        var new_end = range_utils.truncate_range_end_to_boundary_bitwise(
-            start, end, PART_SIZE_ALLOCATION_BITWISE);
-        console.log('new_end', start, end, new_end);
-        if (new_end <= start) {
-            assert(new_end <= start, 'new_end <= start');
-        }
-        // chunk size is aligned up to be an integer multiple of kblocks*block_size
-        var chunk_size = range_utils.align_up_bitwise(
-            new_end - start, CHUNK_KBLOCKS_BITWISE);
-        var new_chunk = new DataChunk({
-            size: chunk_size,
-            kblocks: CHUNK_KBLOCKS,
-        });
-        var new_part = new ObjectPart({
-            obj: obj.id,
-            start: start,
-            end: new_end,
-            chunk: new_chunk,
-            // chunk_offset: 0, // not required
-        });
-        // allocate blocks for the chunk, returns a promise that we should
-        // wait for it to complete, so add it to a list of promises for this allocation.
-        var promise = block_allocator.allocate_blocks_for_new_chunk(new_chunk)
-            .then(add_allocs.bind(null, new_part, new_chunk));
-        allocs.promises.push(promise);
-        start = new_end;
-    }
-    return new_parts;
-}
-*/
 
 
 function adjust_parts_to_range(obj, start, end, parts) {

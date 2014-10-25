@@ -123,6 +123,7 @@ describe('object_api', function() {
         };
 
         it('should write and read object data', function(done) {
+            this.timeout(10000);
             var size, data;
             return Q.fcall(function() {
                 // randomize size with equal chance on KB sizes
@@ -158,11 +159,14 @@ describe('object_api', function() {
                     start: 0,
                     end: size,
                 }).on('data', function(chunk) {
+                    console.log('read data', chunk.length);
                     buffers.push(chunk);
                 }).on('end', function() {
                     var read_buf = Buffer.concat(buffers);
+                    console.log('read end', read_buf.length);
                     defer.resolve(read_buf);
                 }).on('error', function(err) {
+                    console.log('read error', err);
                     defer.reject(err);
                 });
                 return defer.promise;

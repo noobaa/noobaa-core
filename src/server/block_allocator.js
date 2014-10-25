@@ -38,10 +38,14 @@ function allocate_blocks_for_new_chunk(chunk) {
             var index = 0;
             var blocks = _.map(nodes, function(node) {
                 var block = new DataBlock({
-                    chunk: chunk,
                     index: index,
-                    node: node.id,
                 });
+                // using setValue as a small hack to make these fields seem populated
+                // so that we can use them after returning from here.
+                // this is due to a weird mongoose behavior as described by this issue:
+                // https://github.com/LearnBoost/mongoose/issues/570
+                block.setValue('chunk', chunk);
+                block.setValue('node', node);
                 index = (index + 1) % chunk.kblocks;
                 return block;
             });

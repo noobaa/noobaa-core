@@ -25,7 +25,7 @@ describe('object_api', function() {
             // create some nodes
             // use semaphore to avoid high concurrency
             var sem = new Semaphore(5);
-            return Q.all(_.times(64, function(i) {
+            return Q.all(_.times(10, function(i) {
                 return sem.surround(function() {
                     return coretest.edge_node_client.connect_edge_node({
                         name: 'node' + i,
@@ -72,7 +72,7 @@ describe('object_api', function() {
                 key: KEY,
             });
         }).then(function() {
-            return coretest.object_client.get_object_mappings({
+            return coretest.object_client.upload_object_part({
                 bucket: BKT,
                 key: KEY,
                 start: 0,

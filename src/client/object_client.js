@@ -47,20 +47,18 @@ util.inherits(ObjectClient, object_api.Client);
 //
 ObjectClient.prototype.write_object_part = function(params) {
     var self = this;
-    var buffer = params.buffer;
+    var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
     console.log('write_object_part', params);
 
-    return self.get_object_mappings(
-        _.omit(params, 'buffer')
-    ).then(
-        function(res) {
-            var mappings = res.data;
-            return Q.all(_.map(
-                mappings.parts,
-                function(part) {
-                    // return self.read_object_part(part);
-                }
-            ));
+    return self.upload_object_part(upload_params).then(
+        function(part) {
+            var buffer_per_index = encode_chunk(part, params.buffer);
+            var block_size = (part.chunk_size / part.kblocks) | 0;
+            return Q.all(_.map(part.indexes, function(blocks, index) {
+                return Q.all(_.map(blocks, function(block) {
+                    return write_block(block, buffer_per_index[index], self.write_sem);
+                }));
+            }));
         }
     );
 };
@@ -80,9 +78,8 @@ ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
     console.log('read_object_range', params);
 
-    return self.get_object_mappings(params).then(
-        function(res) {
-            var mappings = res.data;
+    return self.read_object_mappings(params).then(
+        function(mappings) {
             return Q.all(_.map(mappings.parts, self.read_object_part, self));
         }
     ).then(
@@ -96,16 +93,11 @@ ObjectClient.prototype.read_object_range = function(params) {
 
 ObjectClient.prototype.read_object_part = function(part) {
     var self = this;
-    var block_size = ((part.end - part.start) / part.kblocks) | 0;
+    var block_size = (part.chunk_size / part.kblocks) | 0;
     var buffer_per_index = {};
     var next_index = 0;
 
     console.log('read_object_part', part);
-
-    // TODO support part.chunk_offset
-    if (part.chunk_offset) {
-        throw new Error('CHUNK_OFFSET SUPPORT NOT IMPLEMENTED YET');
-    }
 
     // advancing the read by taking the next index and return promise to read it.
     // will fail if no more indexes remain, which means the part cannot be served.
@@ -161,27 +153,26 @@ ObjectClient.prototype.read_object_part = function(part) {
         _.times(part.kblocks, read_the_next_index)
     ).then(
         function() {
-            return decode_part(part, buffer_per_index);
+            var buffer = decode_chunk(part, buffer_per_index);
+            // cut only the part's relevant range from the chunk
+            buffer = buffer.slice(part.chunk_offset, part.end - part.start);
+            return buffer;
         }
     );
 };
 
 
-// for now just decode without erasure coding
-function decode_part(part, buffer_per_index) {
-    var buffers = [];
 
-    for (var i = 0; i < part.kblocks; i++) {
-        buffers[i] = buffer_per_index[i];
-        if (!buffer_per_index[i]) {
-            throw new Error('DECODE FAILED MISSING BLOCK ' + i);
+function write_block(block, buffer, sem) {
+    // use read semaphore to surround the IO
+    return sem.surround(
+        function() {
+            console.log('write_block', block, buffer);
+
+            // TODO
         }
-    }
-
-    // TODO what about part.chunk_offset, and adjustments of part.start and part.end ???
-    return Buffer.concat(buffers, part.end - part.start);
+    );
 }
-
 
 function read_block(block, block_size, sem) {
     // use read semaphore to surround the IO
@@ -202,6 +193,28 @@ function read_block(block, block_size, sem) {
     );
 }
 
+
+// for now just encode without erasure coding
+function encode_chunk(part, buffer) {
+    var buffer_per_index = [];
+    var block_size = (part.chunk_size / part.kblocks) | 0;
+    for (var i = 0, pos = 0; i < part.kblocks; i++, pos += block_size) {
+        buffer_per_index[i] = buffer.slice(pos, pos + block_size);
+    }
+    return buffer_per_index;
+}
+
+// for now just decode without erasure coding
+function decode_chunk(part, buffer_per_index) {
+    var buffers = [];
+    for (var i = 0; i < part.kblocks; i++) {
+        buffers[i] = buffer_per_index[i];
+        if (!buffer_per_index[i]) {
+            throw new Error('DECODE FAILED MISSING BLOCK ' + i);
+        }
+    }
+    return Buffer.concat(buffers, part.chunk_size);
+}
 
 
 

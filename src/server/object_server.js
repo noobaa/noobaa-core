@@ -27,9 +27,12 @@ module.exports = new object_api.Server({
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
-    get_object_mappings: get_object_mappings,
+    // upload
+    upload_object_part: upload_object_part,
     complete_upload: complete_upload,
     abort_upload: abort_upload,
+    // read
+    read_object_mappings: read_object_mappings,
 }, [
     // middleware to verify the account session
     account_server.account_session
@@ -195,12 +198,11 @@ function delete_object(req) {
 }
 
 
-function get_object_mappings(req) {
+function upload_object_part(req) {
     var bucket_name = req.restful_params.bucket;
     var key = req.restful_params.key;
     var start = Number(req.restful_params.start);
     var end = Number(req.restful_params.end);
-    var obj, parts, blocks;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -212,9 +214,13 @@ function get_object_mappings(req) {
             return ObjectMD.findOne(info).exec();
         }
     ).then(
-        function(obj_arg) {
-            obj = obj_arg;
-            return object_mapper.get_object_mappings(obj, start, end);
+        function(obj) {
+
+            if (!obj.upload_mode) {
+                // TODO handle the upload_mode state
+                // throw new Error('object not in upload mode');
+            }
+            return object_mapper.allocate_part_mappings(obj, start, end);
         }
     );
 }
@@ -257,6 +263,29 @@ function abort_upload(req) {
             return ObjectMD.findOneAndUpdate(info, updates).exec();
         }
     ).then(reply_undefined);
+}
+
+
+function read_object_mappings(req) {
+    var bucket_name = req.restful_params.bucket;
+    var key = req.restful_params.key;
+    var start = Number(req.restful_params.start);
+    var end = Number(req.restful_params.end);
+
+    return find_bucket(req.account.id, bucket_name).then(
+        function(bucket) {
+            var info = {
+                account: req.account.id,
+                bucket: bucket.id,
+                key: key,
+            };
+            return ObjectMD.findOne(info).exec();
+        }
+    ).then(
+        function(obj) {
+            return object_mapper.read_object_mappings(obj, start, end);
+        }
+    );
 }
 
 

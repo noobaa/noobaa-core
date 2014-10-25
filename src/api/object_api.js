@@ -207,7 +207,70 @@ module.exports = restful_api({
             },
         },
 
-        get_object_mappings: {
+        upload_object_part: {
+            method: 'POST',
+            path: '/:bucket/:key/upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key', 'start', 'end'],
+                additionalProperties: false,
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    start: {
+                        type: 'number',
+                    },
+                    end: {
+                        type: 'number',
+                    },
+                },
+            },
+            reply: {
+                $ref: '/object_api/definitions/object_part_info'
+            }
+        },
+
+        complete_upload: {
+            method: 'PUT',
+            path: '/:bucket/:key/upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                additionalProperties: false,
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        abort_upload: {
+            method: 'DELETE',
+            path: '/:bucket/:key/upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                additionalProperties: false,
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        read_object_mappings: {
             method: 'GET',
             path: '/:bucket/:key/map',
             params: {
@@ -244,42 +307,6 @@ module.exports = restful_api({
             }
         },
 
-        complete_upload: {
-            method: 'POST',
-            path: '/:bucket/:key/complete_upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                additionalProperties: false,
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        abort_upload: {
-            method: 'POST',
-            path: '/:bucket/:key/abort_upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                additionalProperties: false,
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
     },
 
 
@@ -287,7 +314,7 @@ module.exports = restful_api({
 
         object_part_info: {
             type: 'object',
-            required: ['start', 'end', 'kblocks', 'chunk_offset', 'blocks'],
+            required: ['start', 'end', 'kblocks', 'chunk_size', 'chunk_offset', 'indexes'],
             additionalProperties: false,
             properties: {
                 start: {
@@ -297,6 +324,9 @@ module.exports = restful_api({
                     type: 'number',
                 },
                 kblocks: {
+                    type: 'number',
+                },
+                chunk_size: {
                     type: 'number',
                 },
                 chunk_offset: {

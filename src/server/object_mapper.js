@@ -11,57 +11,81 @@ var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
 
 module.exports = {
-    get_object_mappings: get_object_mappings,
+    allocate_part_mappings: allocate_part_mappings,
+    read_object_mappings: read_object_mappings,
 };
 
 // default split of object to parts of 2^14 = 16 MB
 var PART_SIZE_ALLOCATION_BITWISE = 14;
 
 // default split of chunks with kblocks = 2^7 = 128
-var CHUNK_KBLOCKS_BITWISE = 4; // TODO: make 7
+var CHUNK_KBLOCKS_BITWISE = 1; // TODO: make 7
 var CHUNK_KBLOCKS = 1 << CHUNK_KBLOCKS_BITWISE;
 
 
-// the main function of this module - get mappings, allocate if needed.
-function get_object_mappings(obj, start, end) {
-    // sanitizing start & end: we want them to be valid integers for the rest of the flow
-    // truncate end to the actual object size
-    if (obj.size < end) {
-        end = obj.size;
-    }
-    // force integers
-    start = start | 0;
-    end = end | 0;
-    // force positive
-    if (start < 0) {
-        start = 0;
-    }
-    // quick check for empty range
-    if (end <= start) {
+function allocate_part_mappings(obj, start, end) {
+    // chunk size is aligned up to be an integer multiple of kblocks*block_size
+    var chunk_size = range_utils.align_up_bitwise(
+        end - start,
+        CHUNK_KBLOCKS_BITWISE
+    );
+    var new_chunk = new DataChunk({
+        size: chunk_size,
+        kblocks: CHUNK_KBLOCKS,
+    });
+    var new_part = new ObjectPart({
+        obj: obj.id,
+        start: start,
+        end: end,
+        chunk: new_chunk,
+        // chunk_offset: 0, // not required
+    });
+    var part_reply;
+
+    return Q.fcall(
+        function() {
+            console.log('create chunk', new_chunk);
+            return DataChunk.create(new_chunk);
+        }
+    ).then(
+        function() {
+            console.log('allocate_blocks_for_new_chunk');
+            return block_allocator.allocate_blocks_for_new_chunk(new_chunk);
+        }
+    ).then(
+        function(new_blocks) {
+            console.log('create blocks', new_blocks);
+            part_reply = part_for_client(new_part, new_chunk, new_blocks);
+            return DataBlock.create(new_blocks);
+        }
+    ).then(
+        function() {
+            console.log('create part', new_part);
+            return ObjectPart.create(new_part);
+        }
+    ).then(
+        function() {
+            console.log('part reply', part_reply);
+            return part_reply;
+        }
+    );
+
+}
+
+
+function read_object_mappings(obj, start, end) {
+    var rng = sanitize_object_range(obj, start, end);
+    if (!rng) { // empty range
         return {
             parts: []
         };
     }
-    // use default part boundaries for proper allocation size for parts,
-    // the reply will be adjusted using adjust_parts_to_range()
-    var start_boundry = range_utils.align_down_bitwise(start, PART_SIZE_ALLOCATION_BITWISE);
-    var end_boundry = range_utils.align_up_bitwise(end, PART_SIZE_ALLOCATION_BITWISE);
-    if (obj.size < end_boundry) {
-        end_boundry = obj.size;
-    }
 
-    // zis is ze flow:
-    // we query to get existing parts, then create missing ones, then adjust the parts for reply.
-    return Q.fcall(
-        get_existing_parts, obj, start_boundry, end_boundry
-    ).then(
+    return Q.fcall(get_existing_parts, obj, rng.start, rng.end).then(
         function(parts) {
-            return allocate_missing_parts(obj, start_boundry, end_boundry, parts);
-        }
-    ).then(
-        function(parts) {
-            var reply_parts = adjust_parts_to_range(obj, start, end, parts);
-            console.log('get_object_mappings', reply_parts);
+            var reply_parts = adjust_parts_to_range(
+                obj, rng.start, rng.end, parts);
+            console.log('read_object_mappings', reply_parts);
             return {
                 parts: reply_parts
             };
@@ -74,7 +98,7 @@ function get_object_mappings(obj, start, end) {
 // return the blocks inside each part (part.indexes) like the api format
 // to make it ready for replying and simpler to iterate
 function get_existing_parts(obj, start, end) {
-    var parts, blocks;
+    var parts;
 
     return Q.fcall(
         function() {
@@ -87,7 +111,7 @@ function get_existing_parts(obj, start, end) {
                 end: {
                     $gt: start
                 },
-            }).sort('start').populate('chunk').lean().exec();
+            }).sort('start').populate('chunk').exec();
         }
     ).then(
         function(parts_arg) {
@@ -97,23 +121,22 @@ function get_existing_parts(obj, start, end) {
                 chunk: {
                     $in: _.pluck(parts, '_id')
                 }
-            }).sort('index').populate('node').lean().exec();
+            }).sort('index').populate('node').exec();
         }
     ).then(
         function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
-            _.each(parts, function(part) {
+            var parts_reply = _.map(parts, function(part) {
                 var blocks = blocks_by_chunk[part.chunk.id];
-                part.indexes = _.groupBy(blocks, 'index');
-                part.kblocks = part.chunk.kblocks;
-                delete part.chunk;
+                return part_for_client(part, part.chunk, blocks);
             });
-            console.log('get_existing_parts', parts);
-            return parts;
+            console.log('get_existing_parts', parts_reply);
+            return parts_reply;
         }
     );
 }
 
+/*
 // going over the parts (expected them to be sorted by start offset)
 // and creating new parts where missing.
 function allocate_missing_parts(obj, start, end, parts) {
@@ -226,6 +249,8 @@ function allocate_parts_for_range(obj, start, end, allocs) {
     }
     return new_parts;
 }
+*/
+
 
 function adjust_parts_to_range(obj, start, end, parts) {
     var pos = start;
@@ -240,4 +265,45 @@ function adjust_parts_to_range(obj, start, end, parts) {
         pos = part_range.end;
         return part;
     }));
+}
+
+// chunk is optional
+function part_for_client(part, chunk, blocks) {
+    var indexes = [];
+    _.each(_.groupBy(blocks, 'index'), function(index_blocks, index) {
+        indexes[index] = _.map(index_blocks, function(block) {
+            var b = _.pick(block, 'id');
+            b.node = _.pick(block.node, 'id', 'ip', 'port');
+            return b;
+        });
+    });
+    var p = _.pick(part, 'start', 'end', 'chunk_offset');
+    p.indexes = indexes;
+    p.kblocks = chunk.kblocks;
+    p.chunk_size = chunk.size;
+    p.chunk_offset = p.chunk_offset || 0;
+    return p;
+}
+
+// sanitizing start & end: we want them to be integers, positive, up to obj.size.
+function sanitize_object_range(obj, start, end) {
+    // truncate end to the actual object size
+    if (obj.size < end) {
+        end = obj.size;
+    }
+    // force integers
+    start = start | 0;
+    end = end | 0;
+    // force positive
+    if (start < 0) {
+        start = 0;
+    }
+    // quick check for empty range
+    if (end <= start) {
+        return;
+    }
+    return {
+        start: start,
+        end: end,
+    };
 }

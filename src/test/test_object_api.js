@@ -10,6 +10,7 @@ var chance_seed = optimist.argv.seed || Date.now();
 console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
 var Semaphore = require('noobaa-util/semaphore');
+var EdgeNode = require('../server/models/edge_node');
 
 describe('object_api', function() {
 
@@ -24,6 +25,10 @@ describe('object_api', function() {
         Q.fcall(
             function() {
                 return coretest.login_default_account();
+            }
+        ).then(
+            function() {
+                return EdgeNode.collection.drop();
             }
         ).then(
             function() {

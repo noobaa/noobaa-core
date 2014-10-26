@@ -1,4 +1,10 @@
 node_modules/
+bower_components/
+build/
+.env
+
+*.sublime-workspace
+*.sublime-project
 
 ## istanbul coverage
 coverage/

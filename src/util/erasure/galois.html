@@ -1,0 +1,49 @@
+<html>
+
+<body>
+
+    <div id="console"></div>
+
+    <style>
+        #console .log {
+            color: blue;
+        }
+        #console .error {
+            color: red;
+        }
+    </style>
+
+    <script type="text/javascript">
+        (function() {
+            // jshint browser:true
+            'use strict';
+
+            var console_log = console.log;
+            var console_element = document.getElementById('console');
+
+            function doclog(clazz) {
+                return function() {
+                    console_log.apply(console, arguments);
+                    var pre = document.createElement('pre');
+                    pre.className = clazz;
+                    for (var i = 0; i < arguments.length; i++) {
+                        pre.textContent += String(arguments[i]) + ' ';
+                    }
+                    console_element.appendChild(pre);
+                    window.scrollTo(0, document.body.scrollHeight);
+                };
+            }
+            console.log = doclog('log');
+            console.error = doclog('error');
+        })();
+    </script>
+
+    <script src="./galois.js"></script>
+
+    <script type="text/javascript">
+        gf_test_all();
+    </script>
+
+</body>
+
+</html>

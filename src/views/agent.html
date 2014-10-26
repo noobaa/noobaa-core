@@ -1,0 +1,27 @@
+<html ng-app="ng_agent">
+
+<head>
+    {{{# def.include( 'common_head.html') }}}
+
+    <link href="//maxcdn.bootstrapcdn.com/bootswatch/3.2.0/darkly/bootstrap.min.css" rel="stylesheet">
+    <base href="/agent/">
+</head>
+
+<body ng-controller="AgentCtrl" ng-cloak>
+
+    <div class="container">
+        <h3>
+            NOOBAA AGENT
+            <span class="pull-right"><b><i>{{account_email}}</i></b></span>
+        </h3>
+        <hr/>
+        <div ng-view></div>
+    </div>
+
+    <div>
+        {{{# def.include( 'common_scripts.html') }}}
+    </div>
+
+</body>
+
+</html>

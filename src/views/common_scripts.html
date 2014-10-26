@@ -1,0 +1,45 @@
+<!-- SCRIPTS -->
+
+<!-- jquery -->
+<script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
+
+<!-- bootstrap -->
+<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+
+<!-- angular -->
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-animate.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-touch.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-route.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-sanitize.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-cookies.min.js"></script>
+
+
+<script src="/public/js/bundle.js" type="text/javascript"></script>
+
+<!-- server data is safely embedded in a JSON type script -->
+<script id="server_data" type="application/json">
+    {{{= JSON.stringify(it.data) }}}
+</script>
+
+<script type="text/javascript">
+    (function(window) {
+        'use strict';
+        if (typeof(videojs) !== 'undefined') {
+            console.log('init video.js');
+            window.videojs.options.flash.swf = "/public/video-js.swf";
+        }
+        /*
+        if (typeof(flowplayer) !== 'undefined') {
+            console.log('init flowplayer');
+            flowplayer.conf = {
+                swf: '/public/flowplayer.swf',
+                embed: false,
+                // ratio: 5/12,
+                // analytics: 'UA-27182341-1'
+            };
+        }
+        */
+    })(this);
+</script>

@@ -6,6 +6,7 @@ var stream = require('stream');
 var _ = require('lodash');
 var Q = require('q');
 var object_api = require('../api/object_api');
+var agent_api = require('../api/agent_api');
 var Semaphore = require('noobaa-util/semaphore');
 var ObjectReader = require('./object_reader');
 var ObjectWriter = require('./object_writer');
@@ -183,9 +184,16 @@ function write_block(block, buffer, sem) {
     // use read semaphore to surround the IO
     return sem.surround(
         function() {
-            // console.log('write_block', block, buffer);
-
-            // TODO
+            var agent = new agent_api.Client({
+                hostname: block.node.ip,
+                port: block.node.port,
+                path: '/agent_api/',
+            });
+            // console.log('write_block', buffer.length, block, agent);
+            return agent.write_block({
+                block_id: block.id,
+                data: buffer,
+            });
         }
     );
 }
@@ -195,17 +203,26 @@ function read_block(block, block_size, sem) {
     // use read semaphore to surround the IO
     return sem.surround(
         function() {
-            console.log('read_block', block, block_size);
-
-            // TODO read block from node
-            var buffer = new Buffer(block_size);
-            buffer.fill(0);
-
-            // verify the received buffer length must be full size
-            if (buffer.length !== block_size) {
-                throw new Error('BLOCK SHORT READ', block, block_size, buffer);
-            }
-            return buffer;
+            var agent = new agent_api.Client({
+                hostname: block.node.ip,
+                port: block.node.port,
+                path: '/agent_api/',
+            });
+            // console.log('read_block', block_size, block, agent);
+            return agent.read_block({
+                block_id: block.id
+            }).then(
+                function(buffer) {
+                    // verify the received buffer length must be full size
+                    if (!Buffer.isBuffer(buffer)) {
+                        throw new Error('NOT A BUFFER ' + typeof(buffer));
+                    }
+                    if (buffer.length !== block_size) {
+                        throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
+                    }
+                    return buffer;
+                }
+            );
         }
     );
 }
@@ -216,7 +233,16 @@ function encode_chunk(part, buffer) {
     var buffer_per_index = [];
     var block_size = (part.chunk_size / part.kblocks) | 0;
     for (var i = 0, pos = 0; i < part.kblocks; i++, pos += block_size) {
-        buffer_per_index[i] = buffer.slice(pos, pos + block_size);
+        var b = buffer.slice(pos, pos + block_size);
+        if (b.length < block_size) {
+            var pad = new Buffer(block_size-b.length);
+            pad.fill(0);
+            b = Buffer.concat([b, pad]);
+        }
+        if (b.length !== block_size) {
+            throw new Error('incorrect padding');
+        }
+        buffer_per_index[i] = b;
     }
     return buffer_per_index;
 }
@@ -227,7 +253,7 @@ function decode_chunk(part, buffer_per_index) {
     var buffers = [];
     for (var i = 0; i < part.kblocks; i++) {
         buffers[i] = buffer_per_index[i];
-        if (!buffer_per_index[i]) {
+        if (!buffers[i]) {
             throw new Error('DECODE FAILED MISSING BLOCK ' + i);
         }
     }

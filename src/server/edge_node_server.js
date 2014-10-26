@@ -23,6 +23,9 @@ module.exports = new edge_node_api.Server({
 
 function connect_edge_node(req) {
     var info = _.pick(req.restful_params, 'name', 'ip', 'port');
+    info.ip = (info.ip && info.ip !== '0.0.0.0' && info.ip) || 
+        req.headers['x-forwarded-for'] ||
+        req.connection.remoteAddress;
     info.account = req.account.id; // see account_server.account_session
     info.heartbeat = new Date();
     return Q.fcall(

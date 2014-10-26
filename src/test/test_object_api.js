@@ -15,26 +15,46 @@ describe('object_api', function() {
 
     var coretest = require('./coretest');
     var object_client = coretest.object_client;
+    var Agent = require('../agent/agent');
+    var agents;
 
 
     before(function(done) {
         this.timeout(20000);
-        Q.fcall(function() {
-            return coretest.login_default_account();
-        }).then(function() {
-            // create some nodes
-            // use semaphore to avoid high concurrency
-            var sem = new Semaphore(5);
-            return Q.all(_.times(10, function(i) {
-                return sem.surround(function() {
-                    return coretest.edge_node_client.connect_edge_node({
-                        name: 'node' + i,
-                        ip: '0.0.0.0',
-                        port: 0,
+        Q.fcall(
+            function() {
+                return coretest.login_default_account();
+            }
+        ).then(
+            function() {
+                agents = _.times(10, function(i) {
+                    return new Agent({
+                        account_client: coretest.account_client,
+                        edge_node_client: coretest.edge_node_client,
+                        account_credentials: coretest.account_credentials,
+                        node_name: 'node' + i,
                     });
                 });
-            }));
-        }).nodeify(done);
+            }
+        ).then(
+            function() {
+                return Q.all(_.map(agents, function(agent) {
+                    console.log('agent start', agent.node_name);
+                    return agent.start();
+                }));
+            }
+        ).nodeify(done);
+    });
+
+    after(function(done) {
+        Q.fcall(
+            function() {
+                return Q.all(_.map(agents, function(agent) {
+                    console.log('agent stop', agent.node_name);
+                    return agent.stop();
+                }));
+            }
+        ).nodeify(done);
     });
 
 
@@ -133,7 +153,7 @@ describe('object_api', function() {
                 // console.log('random object size', size);
                 data = new Buffer(size);
                 for (var i = 0; i < size; i++) {
-                    data[i] = 0; // chance.integer(CHANCE_BYTE);
+                    data[i] = chance.integer(CHANCE_BYTE);
                 }
                 return coretest.object_client.create_multipart_upload({
                     bucket: BKT,

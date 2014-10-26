@@ -217,8 +217,10 @@ function do_client_request(client_params, func_info, params) {
                 jar.add(new Cookie(cookie_str));
             });
         }
-        // check the reply
-        validate_schema(res.data, func_info.reply, func_info);
+        if (!func_info.reply_raw) {
+            // check the json reply
+            validate_schema(res.data, func_info.reply, func_info);
+        }
         return res.data;
     }).then(null, function(err) {
         console.error('RESTFUL REQUEST FAILED', err);
@@ -234,6 +236,12 @@ function create_client_request(client_params, func_info, params) {
     var data = _.clone(params) || {};
     var headers = _.clone(client_params.headers) || {};
     var body;
+    if (func_info.param_raw) {
+        body = data[func_info.param_raw];
+        headers['content-type'] = 'application/octet-stream';
+        headers['content-length'] = body.length;
+        delete data[func_info.param_raw];
+    }
     validate_schema(data, func_info.params, func_info);
     // construct the request path for the relevant params
     _.each(func_info.path_items, function(p) {
@@ -256,12 +264,13 @@ function create_client_request(client_params, func_info, params) {
             url: path
         });
     }
-    if (method === 'POST' || method === 'PUT') {
+    if (!func_info.param_raw && (method === 'POST' || method === 'PUT')) {
         body = JSON.stringify(data);
         headers['content-type'] = 'application/json';
         headers['content-length'] = body.length;
     } else {
-        // for GET, HEAD, DELETE there is no body, so encode the data into the path query
+        // when func_info.param_raw or GET, HEAD, DELETE we can't use the body,
+        // so encode the data into the path query
         _.each(data, function(v, k) {
             data[k] = param_to_component(data[k], func_info.params.properties[k].type);
         });
@@ -296,16 +305,15 @@ function send_http_request(options) {
 
     req.on('response', function(res) {
         // console.log('HTTP response headers', res.statusCode, res.headers);
-        if (res.setEncoding) {
-            res.setEncoding('utf8');
-        }
-        var data = '';
+        var chunks = [];
+        var chunks_length = 0;
         var response_err;
 
         res.on('data',
             function(chunk) {
                 // console.log('HTTP response data', chunk);
-                data += chunk;
+                chunks.push(chunk);
+                chunks_length += chunk.length;
             }
         );
 
@@ -318,13 +326,14 @@ function send_http_request(options) {
 
         res.on('end',
             function() {
+                var data = Buffer.concat(chunks, chunks_length);
                 // console.log('HTTP response end', res.statusCode, response_err, data);
-                if (data) {
+                if (data.length) {
                     var content_type = res.headers['content-type'];
                     if (content_type &&
                         content_type.split(';')[0] === 'application/json') {
                         try {
-                            data = JSON.parse(data);
+                            data = JSON.parse(data.toString('utf8'));
                         } catch (err) {
                             response_err = response_err || err;
                         }
@@ -355,7 +364,7 @@ function send_http_request(options) {
     );
 
     if (body) {
-        req.write(body, 'utf8');
+        req.write(body);
     }
     req.end();
     return defer.promise;
@@ -379,24 +388,33 @@ function create_server_handler(server, func, func_info) {
                     req.restful_params[k] =
                         component_to_param(v, func_info.params.properties[k].type);
                 });
-                _.each(req.body, function(v, k) {
-                    req.restful_params[k] = v;
-                });
+                if (!func_info.param_raw) {
+                    _.each(req.body, function(v, k) {
+                        req.restful_params[k] = v;
+                    });
+                }
                 _.each(req.params, function(v, k) {
                     req.restful_params[k] =
                         component_to_param(v, func_info.params.properties[k].type);
                 });
                 validate_schema(req.restful_params, func_info.params, func_info);
+                if (func_info.param_raw) {
+                    req.restful_params[func_info.param_raw] = req.body;
+                }
                 // server functions are expected to return a promise
                 return func(req, res, next);
             }
         ).then(
             function(reply) {
                 log_func('SERVER COMPLETED', func_info.name);
-                if (reply) {
+                if (func_info.reply_raw) {
+                    res.set('content-type', 'application/octet-stream');
+                    res.set('content-length', reply.length);
+                    return res.status(200).send(reply);
+                } else {
                     validate_schema(reply, func_info.reply, func_info);
+                    return res.status(200).json(reply);
                 }
-                return res.status(200).json(reply);
             }
         ).then(null,
             function(err) {

@@ -23,35 +23,23 @@ module.exports = restful_api({
                     },
                 },
             },
-            reply: {
-                type: 'object',
-                required: ['data'],
-                additionalProperties: false,
-                properties: {
-                    data: {
-                        type: 'string',
-                    },
-                },
-            },
+            reply_raw: true,
         },
 
         write_block: {
             method: 'POST',
             path: '/block',
+            param_raw: 'data',
             params: {
                 type: 'object',
-                required: ['block_id', 'data'],
+                required: ['block_id'],
                 additionalProperties: false,
                 properties: {
                     block_id: {
                         type: 'string',
                     },
-                    data: {
-                        type: 'string',
-                    }
                 },
             },
-            doc: 'create a new account',
         },
 
     }

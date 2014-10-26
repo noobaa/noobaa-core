@@ -13,6 +13,7 @@ module.exports = {
     allocate_blocks_for_new_chunk: allocate_blocks_for_new_chunk,
 };
 
+var COPIES = 3;
 
 // selects distinct edge node for allocating new blocks.
 //
@@ -21,7 +22,7 @@ module.exports = {
 // returns array of new DataBlock.
 //
 function allocate_blocks_for_new_chunk(chunk) {
-    var num = chunk.kblocks * 3;
+    var num = chunk.kblocks * COPIES;
 
     return Q.fcall(
         function() {

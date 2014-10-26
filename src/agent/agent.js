@@ -9,6 +9,9 @@ var Q = require('q');
 var account_api = require('../api/account_api');
 var edge_node_api = require('../api/edge_node_api');
 var agent_api = require('../api/agent_api');
+var express_body_parser = require('body-parser');
+var express_method_override = require('method-override');
+var express_compress = require('compression');
 
 module.exports = Agent;
 
@@ -23,6 +26,17 @@ function Agent(params) {
     this.node_name = params.node_name;
 
     var app = express();
+    app.use(express_body_parser.json());
+    app.use(express_body_parser.raw({
+        limit: 16 * 1024 * 1024 // size limit on raw requests - 16 MB.
+    }));
+    app.use(express_body_parser.text());
+    app.use(express_body_parser.urlencoded({
+        extended: false
+    }));
+    app.use(express_method_override());
+    app.use(express_compress());
+
     var agent_server = new agent_api.Server({
         read_block: this.read_block.bind(this),
         write_block: this.write_block.bind(this),
@@ -57,13 +71,13 @@ Agent.prototype.start = function() {
         }
     ).then(
         function() {
-            self.start_stop_http_server();
+            return self.start_stop_http_server();
         }
     ).then(
         function() {
             return self.edge_node_client.connect_edge_node({
                 name: self.node_name,
-                ip: '0.0.0.0',
+                ip: '',
                 port: self.http_port,
             });
         }
@@ -95,7 +109,12 @@ Agent.prototype.start_stop_http_server = function() {
     if (this.is_started) {
         // using port to determine if the server is already listening
         if (!this.http_port) {
+            var defer = Q.defer();
+            this.http_server.once('listening', function() {
+                defer.resolve();
+            });
             this.http_server.listen();
+            return defer.promise;
         }
     } else {
         if (this.http_port) {
@@ -153,17 +172,15 @@ Agent.prototype.send_heartbeat = function() {
 // AGENT API //
 ///////////////
 
+// TODO reading from memory for now
 Agent.prototype.read_block = function(req) {
-    // TODO reading from memory for now
     var block_id = req.restful_params.block_id;
     var block = this.blocks_in_memory[block_id];
-    return {
-        data: block ? block.data : ''
-    };
+    return block ? block.data : new Buffer();
 };
 
+// TODO writing to memory for now
 Agent.prototype.write_block = function(req) {
-    // TODO writing to memory for now
     var block_id = req.restful_params.block_id;
     var data = req.restful_params.data;
     var block = this.blocks_in_memory[block_id];

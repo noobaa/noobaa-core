@@ -200,7 +200,7 @@ describe('restful_api', function() {
                         if (reply_error) {
                             return Q.reject(ERROR_REPLY);
                         } else {
-                            return Q.when(REPLY);
+                            return Q.resolve(REPLY);
                         }
                     };
                     server = new test_api.Server(methods, [], 'allow_missing_methods');

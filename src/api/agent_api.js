@@ -10,9 +10,25 @@ module.exports = restful_api({
 
     methods: {
 
+        write_block: {
+            method: 'POST',
+            path: '/block/:block_id',
+            param_raw: 'data',
+            params: {
+                type: 'object',
+                required: ['block_id'],
+                additionalProperties: false,
+                properties: {
+                    block_id: {
+                        type: 'string',
+                    },
+                },
+            },
+        },
+
         read_block: {
             method: 'GET',
-            path: '/block',
+            path: '/block/:block_id',
             params: {
                 type: 'object',
                 required: ['block_id'],
@@ -26,10 +42,50 @@ module.exports = restful_api({
             reply_raw: true,
         },
 
-        write_block: {
+        check_block: {
             method: 'POST',
-            path: '/block',
-            param_raw: 'data',
+            path: '/block/:block_id/check',
+            params: {
+                type: 'object',
+                required: ['block_id', 'slices'],
+                additionalProperties: false,
+                properties: {
+                    block_id: {
+                        type: 'string',
+                    },
+                    slices: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['start', 'end'],
+                            additionalProperties: false,
+                            properties: {
+                                start: {
+                                    type: 'number'
+                                },
+                                end: {
+                                    type: 'number'
+                                },
+                            }
+                        }
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['checksum'],
+                additionalProperties: false,
+                properties: {
+                    checksum: {
+                        type: 'string',
+                    },
+                },
+            },
+        },
+
+        remove_block: {
+            method: 'DELETE',
+            path: '/block/:block_id',
             params: {
                 type: 'object',
                 required: ['block_id'],

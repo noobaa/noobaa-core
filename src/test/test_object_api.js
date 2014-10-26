@@ -6,6 +6,8 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var optimist = require('optimist');
+var rimraf = require('rimraf');
+var path = require('path');
 var chance_seed = optimist.argv.seed || Date.now();
 console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
@@ -19,6 +21,7 @@ describe('object_api', function() {
     var Agent = require('../agent/agent');
     var agents;
 
+    var agent_storage_dir = path.resolve(__dirname, '../../test_storage_for_agents');
 
     before(function(done) {
         this.timeout(20000);
@@ -32,12 +35,18 @@ describe('object_api', function() {
             }
         ).then(
             function() {
+                console.log('RIMRAF', agent_storage_dir);
+                return Q.nfcall(rimraf, agent_storage_dir);
+            }
+        ).then(
+            function() {
                 agents = _.times(10, function(i) {
                     return new Agent({
                         account_client: coretest.account_client,
                         edge_node_client: coretest.edge_node_client,
                         account_credentials: coretest.account_credentials,
                         node_name: 'node' + i,
+                        storage_path: agent_storage_dir,
                     });
                 });
             }

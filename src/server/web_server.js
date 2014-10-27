@@ -110,6 +110,10 @@ var account_server = require('./account_server');
 account_server.set_logging();
 account_server.install_routes(api_router, '/account_api/');
 
+var mgmt_server = require('./mgmt_server');
+mgmt_server.set_logging();
+mgmt_server.install_routes(api_router, '/mgmt_api/');
+
 var edge_node_server = require('./edge_node_server');
 edge_node_server.set_logging();
 edge_node_server.install_routes(api_router, '/edge_node_api/');

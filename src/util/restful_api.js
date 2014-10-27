@@ -483,6 +483,8 @@ function component_to_param(component, type) {
         } else {
             return JSON.parse(decodeURIComponent(component));
         }
+    } else if (type === 'integer') {
+        return Number(component) | 0;
     } else if (type === 'number') {
         return Number(component);
     } else if (type === 'boolean') {

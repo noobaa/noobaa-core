@@ -24,7 +24,7 @@ module.exports = restful_api({
                         type: 'string',
                     },
                     port: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 }
             },
@@ -52,13 +52,13 @@ module.exports = restful_api({
                 required: ['space_total', 'space_used', 'num_blocks'],
                 properties: {
                     space_total: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     space_used: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     num_blocks: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 }
             },
@@ -67,13 +67,13 @@ module.exports = restful_api({
                 required: ['space_total', 'space_used', 'num_blocks'],
                 properties: {
                     space_total: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     space_used: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     num_blocks: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 }
             },

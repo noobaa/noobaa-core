@@ -57,10 +57,10 @@ module.exports = restful_api({
                             required: ['start', 'end'],
                             properties: {
                                 start: {
-                                    type: 'number'
+                                    type: 'integer'
                                 },
                                 end: {
-                                    type: 'number'
+                                    type: 'integer'
                                 },
                             }
                         }

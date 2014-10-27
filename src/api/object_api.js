@@ -148,7 +148,7 @@ module.exports = restful_api({
                         type: 'string',
                     },
                     size: {
-                        type: 'number',
+                        type: 'integer',
                     }
                 }
             },
@@ -185,10 +185,10 @@ module.exports = restful_api({
                         type: 'string',
                     },
                     start: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     end: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 },
             },
@@ -253,10 +253,10 @@ module.exports = restful_api({
                         type: 'string',
                     },
                     start: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     end: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 },
             },
@@ -302,7 +302,7 @@ module.exports = restful_api({
             required: ['size', 'create_time'],
             properties: {
                 size: {
-                    type: 'number',
+                    type: 'integer',
                 },
                 create_time: {
                     type: 'string',
@@ -319,19 +319,19 @@ module.exports = restful_api({
             required: ['start', 'end', 'kblocks', 'chunk_size', 'chunk_offset', 'indexes'],
             properties: {
                 start: {
-                    type: 'number',
+                    type: 'integer',
                 },
                 end: {
-                    type: 'number',
+                    type: 'integer',
                 },
                 kblocks: {
-                    type: 'number',
+                    type: 'integer',
                 },
                 chunk_size: {
-                    type: 'number',
+                    type: 'integer',
                 },
                 chunk_offset: {
-                    type: 'number',
+                    type: 'integer',
                 },
                 indexes: {
                     // the indexes composing the data chunk
@@ -357,7 +357,7 @@ module.exports = restful_api({
                                             type: 'string',
                                         },
                                         port: {
-                                            type: 'number',
+                                            type: 'integer',
                                         },
                                     }
                                 }

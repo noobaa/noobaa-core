@@ -77,12 +77,12 @@ function restful_api(api) {
             if (!func && allow_missing_methods) {
                 func = function(params) {
                     return Q.reject({
-                        data: 'missing method implementation - ' + func_name
+                        data: 'RESTFUL_API: missing method implementation - ' + func_info.fullname
                     });
                 };
             }
             assert.strictEqual(typeof(func), 'function',
-                'server method should be a function - ' + func_name);
+                'RESTFUL_API: server method should be a function - ' + func_info.fullname);
             self._impl[func_name] = func;
             self._handlers[func_name] = create_server_handler(self, func, func_info);
         });
@@ -100,7 +100,7 @@ function restful_api(api) {
         base_path = base_path || '';
         var doc_base = PATH.join(base_path, 'doc', api.name);
         _.each(self._middlewares, function(fn) {
-            assert(fn, 'undefined middleware function');
+            assert(fn, 'RESTFUL_API: undefined middleware function');
             router.use(base_path, function(req, res, next) {
                 Q.fcall(fn, req).done(function() {
                     return next();
@@ -144,24 +144,26 @@ function restful_api(api) {
     _.each(api.methods, function(func_info, func_name) {
         // add the name to the info
         func_info.name = func_name;
+        func_info.fullname = '/' + api.name + '/methods/' + func_name;
+        func_info.params_schema = func_info.fullname + '/params';
+        func_info.reply_schema = func_info.fullname + '/reply';
 
-        func_info.params_schema = '/' + api.name + '/methods/' + func_name + '/params';
         tv4.addSchema(func_info.params_schema, func_info.params || {});
+        tv4.addSchema(func_info.reply_schema, func_info.reply || {});
         func_info.params_properties = tv4.getSchema(func_info.params_schema).properties;
 
-        func_info.reply_schema = '/' + api.name + '/methods/' + func_name + '/reply';
-        tv4.addSchema(func_info.reply_schema, func_info.reply || {});
-
         assert(func_info.method in VALID_METHODS,
-            'unexpected method: ' + func_info);
+            'RESTFUL_API: unexpected http method: ' +
+            func_info.method + ' for ' + func_info.fullname);
 
         assert.strictEqual(typeof(func_info.path), 'string',
-            'unexpected path type: ' + func_info);
+            'RESTFUL_API: unexpected path type: ' +
+            func_info.path + ' for ' + func_info.fullname);
 
         // split the path to its items
         func_info.path_items = _.map(func_info.path.split('/'), function(p) {
             assert(PATH_ITEM_RE.test(p),
-                'invalid path item: ' + p + ' of ' + func_info);
+                'RESTFUL_API: invalid path item: ' + p + ' for ' + func_info.fullname);
 
             // if a normal path item, just return the string
             if (p[0] !== ':') {
@@ -170,7 +172,7 @@ function restful_api(api) {
             // if a param item (starts with colon) find the param info
             p = p.slice(1);
             var param = func_info.params_properties[p];
-            assert(param, 'missing param info: ' + p + ' of ' + func_info);
+            assert(param, 'RESTFUL_API: missing param info: ' + p + ' for ' + func_info.fullname);
             return {
                 name: p,
                 param: param,
@@ -180,7 +182,8 @@ function restful_api(api) {
         // test for colliding method+path
         var method_and_path = func_info.method + func_info.path;
         var collision = method_and_path_collide[method_and_path];
-        assert(!collision, 'collision of method+path: ' + func_info.name + ' ~ ' + collision);
+        assert(!collision, 'RESTFUL_API: collision of method+path: ' +
+            func_info.name + ' ~ ' + collision);
         method_and_path_collide[method_and_path] = func_info.name;
 
         // set the client class prototype functions
@@ -250,7 +253,9 @@ function create_client_request(client_params, func_info, params) {
             // for plain path strings which are non params
             path = PATH.join(path, p);
         } else {
-            assert(p.name in params, 'missing required path param: ' + p + ' of ' + func_info.name);
+            assert(p.name in params,
+                'RESTFUL_API: missing required path param: ' +
+                p + ' for ' + func_info.fullname);
             path = PATH.join(path, param_to_component(data[p.name], p.param.type));
             delete data[p.name];
         }

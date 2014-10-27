@@ -7,6 +7,7 @@ var Q = require('q');
 var restful_api = require('../util/restful_api');
 var mgmt_api = require('../api/mgmt_api');
 var account_server = require('./account_server');
+var Agent = require('../agent/agent');
 var LRU = require('noobaa-util/lru');
 // db models
 var Account = require('./models/account');
@@ -20,6 +21,10 @@ var DataBlock = require('./models/data_block');
 var mgmt_server = new mgmt_api.Server({
     system_stats: system_stats,
     list_nodes: list_nodes,
+    setup_nodes: setup_nodes,
+    start_node_agents: start_node_agents,
+    stop_node_agents: stop_node_agents,
+    list_node_blocks: list_node_blocks,
 }, [
     // middleware to verify the account session before any of this server calls
     account_server.account_session
@@ -102,4 +107,49 @@ function list_nodes(req) {
             };
         }
     );
+}
+
+
+function list_node_blocks(req) {
+
+}
+
+
+
+// TODO the next code is for testing only - manage node agents in the current process TODO
+
+var node_agents = {};
+var next_node_num = 0;
+
+
+function setup_nodes(req) {
+    var num = req.restful_params.num;
+    var reset = req.restful_params.reset;
+    if (reset) {
+        node_agents = {};
+        next_node_num = 0;
+    }
+    var new_agents = _.times(num, function() {
+        var node_name = 'node' + next_node_num;
+        next_node_num += 1;
+        var agent = new Agent({
+            // TODO
+            // account_client: coretest.account_client,
+            // edge_node_client: coretest.edge_node_client,
+            // account_credentials: coretest.account_credentials,
+            node_name: node_name,
+        });
+        node_agents.push(agent);
+        return node_name;
+    });
+}
+
+
+function start_node_agents(req) {
+
+}
+
+
+function stop_node_agents(req) {
+
 }

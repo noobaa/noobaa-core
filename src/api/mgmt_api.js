@@ -58,6 +58,7 @@ module.exports = restful_api({
             },
         },
 
+
         list_nodes: {
             method: 'GET',
             path: '/nodes',
@@ -100,28 +101,58 @@ module.exports = restful_api({
             }
         },
 
-        /*
+
         list_node_blocks: {
-
+            method: 'GET',
+            path: '/node/:node_id/blocks',
+            params: {
+                type: 'object',
+                required: ['node_id'],
+                properties: {
+                    node_id: {
+                        type: 'string'
+                    }
+                }
+            }
         },
 
-        add_nodes: {
 
+        setup_nodes: {
+            method: 'POST',
+            path: '/nodes',
+            params: {
+                type: 'object',
+                required: ['num', 'reset'],
+                properties: {
+                    num: {
+                        type: 'integer'
+                    },
+                    reset: {
+                        type: 'boolean'
+                    },
+                }
+            }
         },
 
-        remove_nodes: {
-
+        start_node_agents: {
+            method: 'POST',
+            path: '/nodes/start',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {}
+            }
         },
 
-        start_nodes: {
-
+        stop_node_agents: {
+            method: 'POST',
+            path: '/nodes/stop',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {}
+            }
         },
-
-        stop_nodes: {
-
-        },
-        */
-
 
     }
 

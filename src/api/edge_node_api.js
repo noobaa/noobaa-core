@@ -16,7 +16,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['name', 'ip', 'port'],
-                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string',
@@ -37,7 +36,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['name'],
-                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string',
@@ -52,7 +50,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['space_total', 'space_used', 'num_blocks'],
-                additionalProperties: false,
                 properties: {
                     space_total: {
                         type: 'number',
@@ -68,7 +65,6 @@ module.exports = restful_api({
             reply: {
                 type: 'object',
                 required: ['space_total', 'space_used', 'num_blocks'],
-                additionalProperties: false,
                 properties: {
                     space_total: {
                         type: 'number',

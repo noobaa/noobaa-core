@@ -17,7 +17,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['block_id'],
-                additionalProperties: false,
                 properties: {
                     block_id: {
                         type: 'string',
@@ -32,7 +31,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['block_id'],
-                additionalProperties: false,
                 properties: {
                     block_id: {
                         type: 'string',
@@ -48,7 +46,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['block_id', 'slices'],
-                additionalProperties: false,
                 properties: {
                     block_id: {
                         type: 'string',
@@ -58,7 +55,6 @@ module.exports = restful_api({
                         items: {
                             type: 'object',
                             required: ['start', 'end'],
-                            additionalProperties: false,
                             properties: {
                                 start: {
                                     type: 'number'
@@ -74,7 +70,6 @@ module.exports = restful_api({
             reply: {
                 type: 'object',
                 required: ['checksum'],
-                additionalProperties: false,
                 properties: {
                     checksum: {
                         type: 'string',
@@ -89,7 +84,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['block_id'],
-                additionalProperties: false,
                 properties: {
                     block_id: {
                         type: 'string',

@@ -77,12 +77,12 @@ function restful_api(api) {
             if (!func && allow_missing_methods) {
                 func = function(params) {
                     return Q.reject({
-                        data: 'Missing method implementation in server of ' + func_name
+                        data: 'missing method implementation - ' + func_name
                     });
                 };
             }
             assert.strictEqual(typeof(func), 'function',
-                'Server method is not a function ' + func_name);
+                'server method should be a function - ' + func_name);
             self._impl[func_name] = func;
             self._handlers[func_name] = create_server_handler(self, func, func_info);
         });
@@ -219,7 +219,7 @@ function do_client_request(client_params, func_info, params) {
         }
         if (!func_info.reply_raw) {
             // check the json reply
-            validate_schema(res.data, func_info.reply, func_info);
+            validate_schema(res.data, func_info.reply, func_info, 'client reply');
         }
         return res.data;
     }).then(null, function(err) {
@@ -242,7 +242,7 @@ function create_client_request(client_params, func_info, params) {
         headers['content-length'] = body.length;
         delete data[func_info.param_raw];
     }
-    validate_schema(data, func_info.params, func_info);
+    validate_schema(data, func_info.params, func_info, 'client request');
     // construct the request path for the relevant params
     _.each(func_info.path_items, function(p) {
         if (!p) {
@@ -326,9 +326,9 @@ function send_http_request(options) {
 
         res.on('end',
             function() {
-                var data = Buffer.concat(chunks, chunks_length);
+                var data = chunks_length ? Buffer.concat(chunks, chunks_length) : null;
                 // console.log('HTTP response end', res.statusCode, response_err, data);
-                if (data.length) {
+                if (data && data.length) {
                     var content_type = res.headers['content-type'];
                     if (content_type &&
                         content_type.split(';')[0] === 'application/json') {
@@ -397,7 +397,7 @@ function create_server_handler(server, func, func_info) {
                     req.restful_params[k] =
                         component_to_param(v, func_info.params.properties[k].type);
                 });
-                validate_schema(req.restful_params, func_info.params, func_info);
+                validate_schema(req.restful_params, func_info.params, func_info, 'server request');
                 if (func_info.param_raw) {
                     req.restful_params[func_info.param_raw] = req.body;
                 }
@@ -412,7 +412,7 @@ function create_server_handler(server, func, func_info) {
                     res.set('content-length', reply.length);
                     return res.status(200).send(reply);
                 } else {
-                    validate_schema(reply, func_info.reply, func_info);
+                    validate_schema(reply, func_info.reply, func_info, 'server reply');
                     return res.status(200).json(reply);
                 }
             }
@@ -456,10 +456,15 @@ tv4.addFormat('date', function(data) {
 });
 
 
-function validate_schema(obj, schema, info) {
-    var result = tv4.validateResult(obj, schema);
+function validate_schema(obj, schema, info, desc) {
+    var result = tv4.validateResult(
+        obj, schema,
+        true /*checkRecursive*/ ,
+        true /*banUnknownProperties*/ );
     if (!result.valid) {
         result.info = info;
+        result.desc = desc;
+        console.error('INVALID SCHEMA', desc, obj, schema);
         throw result;
     }
 }

@@ -18,7 +18,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -33,7 +32,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -43,7 +41,6 @@ module.exports = restful_api({
             reply: {
                 type: 'object',
                 required: ['name'],
-                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string'
@@ -58,7 +55,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -73,7 +69,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -88,7 +83,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -98,14 +92,12 @@ module.exports = restful_api({
             reply: {
                 type: 'object',
                 required: ['objects'],
-                additionalProperties: false,
                 properties: {
                     objects: {
                         type: 'array',
                         items: {
                             type: 'object',
                             required: ['key', 'info'],
-                            additionalProperties: false,
                             properties: {
                                 key: {
                                     type: 'string',
@@ -131,7 +123,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -149,7 +140,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'size'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -170,7 +160,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -188,7 +177,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'start', 'end'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -231,7 +219,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -258,7 +245,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'start', 'end'],
-                additionalProperties: false,
                 properties: {
                     bucket: {
                         type: 'string',
@@ -277,7 +263,6 @@ module.exports = restful_api({
             reply: {
                 type: 'object',
                 required: ['parts'],
-                additionalProperties: false,
                 properties: {
                     parts: {
                         type: 'array',
@@ -302,7 +287,6 @@ module.exports = restful_api({
         object_path: {
             type: 'object',
             required: ['bucket', 'key'],
-            additionalProperties: false,
             properties: {
                 bucket: {
                     type: 'string',
@@ -316,7 +300,6 @@ module.exports = restful_api({
         object_info: {
             type: 'object',
             required: ['size', 'create_time'],
-            additionalProperties: false,
             properties: {
                 size: {
                     type: 'number',
@@ -334,7 +317,6 @@ module.exports = restful_api({
         object_part_info: {
             type: 'object',
             required: ['start', 'end', 'kblocks', 'chunk_size', 'chunk_offset', 'indexes'],
-            additionalProperties: false,
             properties: {
                 start: {
                     type: 'number',
@@ -360,7 +342,6 @@ module.exports = restful_api({
                         items: {
                             type: 'object',
                             required: ['id', 'node'],
-                            additionalProperties: false,
                             properties: {
                                 id: {
                                     type: 'string',
@@ -368,7 +349,6 @@ module.exports = restful_api({
                                 node: {
                                     type: 'object',
                                     required: ['id', 'ip', 'port'],
-                                    additionalProperties: false,
                                     properties: {
                                         id: {
                                             type: 'string',

@@ -1,4 +1,4 @@
-// this module is written for both nodejs, or for client with browserify.
+// module targets: nodejs & browserify
 'use strict';
 
 var http = require('http');
@@ -77,12 +77,12 @@ function restful_api(api) {
             if (!func && allow_missing_methods) {
                 func = function(params) {
                     return Q.reject({
-                        data: 'Missing method implementation in server of ' + func_name
+                        data: 'RESTFUL_API: missing method implementation - ' + func_info.fullname
                     });
                 };
             }
             assert.strictEqual(typeof(func), 'function',
-                'Server method is not a function ' + func_name);
+                'RESTFUL_API: server method should be a function - ' + func_info.fullname);
             self._impl[func_name] = func;
             self._handlers[func_name] = create_server_handler(self, func, func_info);
         });
@@ -100,7 +100,7 @@ function restful_api(api) {
         base_path = base_path || '';
         var doc_base = PATH.join(base_path, 'doc', api.name);
         _.each(self._middlewares, function(fn) {
-            assert(fn, 'undefined middleware function');
+            assert(fn, 'RESTFUL_API: undefined middleware function');
             router.use(base_path, function(req, res, next) {
                 Q.fcall(fn, req).done(function() {
                     return next();
@@ -144,25 +144,26 @@ function restful_api(api) {
     _.each(api.methods, function(func_info, func_name) {
         // add the name to the info
         func_info.name = func_name;
+        func_info.fullname = '/' + api.name + '/methods/' + func_name;
+        func_info.params_schema = func_info.fullname + '/params';
+        func_info.reply_schema = func_info.fullname + '/reply';
 
-        var params_schema_path = '/' + api.name + '/methods/' + func_name + '/params';
-        tv4.addSchema(params_schema_path, func_info.params || {});
-        func_info.params = tv4.getSchema(params_schema_path);
-
-        var reply_schema_path = '/' + api.name + '/methods/' + func_name + '/reply';
-        tv4.addSchema(reply_schema_path, func_info.reply || {});
-        func_info.reply = tv4.getSchema(reply_schema_path);
+        tv4.addSchema(func_info.params_schema, func_info.params || {});
+        tv4.addSchema(func_info.reply_schema, func_info.reply || {});
+        func_info.params_properties = tv4.getSchema(func_info.params_schema).properties;
 
         assert(func_info.method in VALID_METHODS,
-            'unexpected method: ' + func_info);
+            'RESTFUL_API: unexpected http method: ' +
+            func_info.method + ' for ' + func_info.fullname);
 
         assert.strictEqual(typeof(func_info.path), 'string',
-            'unexpected path type: ' + func_info);
+            'RESTFUL_API: unexpected path type: ' +
+            func_info.path + ' for ' + func_info.fullname);
 
         // split the path to its items
         func_info.path_items = _.map(func_info.path.split('/'), function(p) {
             assert(PATH_ITEM_RE.test(p),
-                'invalid path item: ' + p + ' of ' + func_info);
+                'RESTFUL_API: invalid path item: ' + p + ' for ' + func_info.fullname);
 
             // if a normal path item, just return the string
             if (p[0] !== ':') {
@@ -170,8 +171,8 @@ function restful_api(api) {
             }
             // if a param item (starts with colon) find the param info
             p = p.slice(1);
-            var param = func_info.params.properties[p];
-            assert(param, 'missing param info: ' + p + ' of ' + func_info);
+            var param = func_info.params_properties[p];
+            assert(param, 'RESTFUL_API: missing param info: ' + p + ' for ' + func_info.fullname);
             return {
                 name: p,
                 param: param,
@@ -181,7 +182,8 @@ function restful_api(api) {
         // test for colliding method+path
         var method_and_path = func_info.method + func_info.path;
         var collision = method_and_path_collide[method_and_path];
-        assert(!collision, 'collision of method+path: ' + func_info.name + ' ~ ' + collision);
+        assert(!collision, 'RESTFUL_API: collision of method+path: ' +
+            func_info.name + ' ~ ' + collision);
         method_and_path_collide[method_and_path] = func_info.name;
 
         // set the client class prototype functions
@@ -219,7 +221,7 @@ function do_client_request(client_params, func_info, params) {
         }
         if (!func_info.reply_raw) {
             // check the json reply
-            validate_schema(res.data, func_info.reply, func_info);
+            validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
         }
         return res.data;
     }).then(null, function(err) {
@@ -242,7 +244,7 @@ function create_client_request(client_params, func_info, params) {
         headers['content-length'] = body.length;
         delete data[func_info.param_raw];
     }
-    validate_schema(data, func_info.params, func_info);
+    validate_schema(data, func_info.params_schema, func_info, 'client request');
     // construct the request path for the relevant params
     _.each(func_info.path_items, function(p) {
         if (!p) {
@@ -251,7 +253,9 @@ function create_client_request(client_params, func_info, params) {
             // for plain path strings which are non params
             path = PATH.join(path, p);
         } else {
-            assert(p.name in params, 'missing required path param: ' + p + ' of ' + func_info.name);
+            assert(p.name in params,
+                'RESTFUL_API: missing required path param: ' +
+                p + ' for ' + func_info.fullname);
             path = PATH.join(path, param_to_component(data[p.name], p.param.type));
             delete data[p.name];
         }
@@ -272,7 +276,7 @@ function create_client_request(client_params, func_info, params) {
         // when func_info.param_raw or GET, HEAD, DELETE we can't use the body,
         // so encode the data into the path query
         _.each(data, function(v, k) {
-            data[k] = param_to_component(data[k], func_info.params.properties[k].type);
+            data[k] = param_to_component(data[k], func_info.params_properties[k].type);
         });
         var query = querystring.stringify(data);
         if (query) {
@@ -326,9 +330,9 @@ function send_http_request(options) {
 
         res.on('end',
             function() {
-                var data = Buffer.concat(chunks, chunks_length);
+                var data = chunks_length ? Buffer.concat(chunks, chunks_length) : null;
                 // console.log('HTTP response end', res.statusCode, response_err, data);
-                if (data.length) {
+                if (data && data.length) {
                     var content_type = res.headers['content-type'];
                     if (content_type &&
                         content_type.split(';')[0] === 'application/json') {
@@ -386,7 +390,7 @@ function create_server_handler(server, func, func_info) {
                 req.restful_params = {};
                 _.each(req.query, function(v, k) {
                     req.restful_params[k] =
-                        component_to_param(v, func_info.params.properties[k].type);
+                        component_to_param(v, func_info.params_properties[k].type);
                 });
                 if (!func_info.param_raw) {
                     _.each(req.body, function(v, k) {
@@ -395,9 +399,9 @@ function create_server_handler(server, func, func_info) {
                 }
                 _.each(req.params, function(v, k) {
                     req.restful_params[k] =
-                        component_to_param(v, func_info.params.properties[k].type);
+                        component_to_param(v, func_info.params_properties[k].type);
                 });
-                validate_schema(req.restful_params, func_info.params, func_info);
+                validate_schema(req.restful_params, func_info.params_schema, func_info, 'server request');
                 if (func_info.param_raw) {
                     req.restful_params[func_info.param_raw] = req.body;
                 }
@@ -412,7 +416,7 @@ function create_server_handler(server, func, func_info) {
                     res.set('content-length', reply.length);
                     return res.status(200).send(reply);
                 } else {
-                    validate_schema(reply, func_info.reply, func_info);
+                    validate_schema(reply, func_info.reply_schema, func_info, 'server reply');
                     return res.status(200).json(reply);
                 }
             }
@@ -456,10 +460,15 @@ tv4.addFormat('date', function(data) {
 });
 
 
-function validate_schema(obj, schema, info) {
-    var result = tv4.validateResult(obj, schema);
+function validate_schema(obj, schema, info, desc) {
+    var result = tv4.validateResult(
+        obj, schema,
+        true /*checkRecursive*/ ,
+        true /*banUnknownProperties*/ );
     if (!result.valid) {
+        console.error('INVALID SCHEMA', desc, schema, obj);
         result.info = info;
+        result.desc = desc;
         throw result;
     }
 }
@@ -479,6 +488,8 @@ function component_to_param(component, type) {
         } else {
             return JSON.parse(decodeURIComponent(component));
         }
+    } else if (type === 'integer') {
+        return Number(component) | 0;
     } else if (type === 'number') {
         return Number(component);
     } else if (type === 'boolean') {

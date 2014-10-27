@@ -11,12 +11,13 @@ module.exports = {
 };
 
 
-// encode
-//
-// params (object):
-//
-// returns (promise):
-//
+/**
+ * encode
+ *
+ * @param {Object} params:
+ *
+ * @return {Promise} buffer:
+ */
 function encode(params) {
     return Q.fcall(function() {
         return;
@@ -24,12 +25,13 @@ function encode(params) {
 }
 
 
-// decode
-//
-// params (object):
-//
-// returns (promise):
-//
+/**
+ * decode
+ *
+ * @param {Object} params:
+ *
+ * @return {Promise} buffer:
+ */
 function decode(params) {
     return Q.fcall(function() {
         return;

@@ -16,7 +16,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['name', 'ip', 'port'],
-                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string',
@@ -25,7 +24,7 @@ module.exports = restful_api({
                         type: 'string',
                     },
                     port: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 }
             },
@@ -37,7 +36,6 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['name'],
-                additionalProperties: false,
                 properties: {
                     name: {
                         type: 'string',
@@ -52,32 +50,30 @@ module.exports = restful_api({
             params: {
                 type: 'object',
                 required: ['space_total', 'space_used', 'num_blocks'],
-                additionalProperties: false,
                 properties: {
                     space_total: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     space_used: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     num_blocks: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 }
             },
             reply: {
                 type: 'object',
                 required: ['space_total', 'space_used', 'num_blocks'],
-                additionalProperties: false,
                 properties: {
                     space_total: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     space_used: {
-                        type: 'number',
+                        type: 'integer',
                     },
                     num_blocks: {
-                        type: 'number',
+                        type: 'integer',
                     },
                 }
             },

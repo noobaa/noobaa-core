@@ -1,4 +1,4 @@
-// this module is written for both nodejs, or for client with browserify.
+// module targets: nodejs & browserify
 'use strict';
 
 var util = require('util');
@@ -7,10 +7,12 @@ var _ = require('lodash');
 var Q = require('q');
 
 
-// ObjectReader is a Readable stream for the specified object and range.
-
 module.exports = ObjectReader;
 
+
+/**
+ * ObjectReader is a Readable stream for the specified object and range.
+ */
 function ObjectReader(client, params) {
     var self = this;
 
@@ -35,9 +37,13 @@ function ObjectReader(client, params) {
     self._end = typeof(params.end) === 'undefined' ? Infinity : Number(params.end);
 }
 
+// proper inheritance
 util.inherits(ObjectReader, stream.Readable);
 
-// implement the stream's Readable._read() function.
+
+/**
+ * implement the stream's Readable._read() function.
+ */
 ObjectReader.prototype._read = function(requested_size) {
     var self = this;
     Q.fcall(

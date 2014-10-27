@@ -1,4 +1,4 @@
-// this module is written for both nodejs, or for client with browserify.
+// module targets: nodejs & browserify
 'use strict';
 
 var util = require('util');
@@ -7,11 +7,12 @@ var _ = require('lodash');
 var Q = require('q');
 
 
-// ObjectWriter is a Writable stream for the specified object and range.
-
 module.exports = ObjectWriter;
 
 
+/**
+ * ObjectWriter is a Writable stream for the specified object and range.
+ */
 function ObjectWriter(client, params) {
     var self = this;
 
@@ -44,9 +45,12 @@ function ObjectWriter(client, params) {
     });
 }
 
+// proper inheritance
 util.inherits(ObjectWriter, stream.Writable);
 
-// implement the stream's inner Writable._write() function
+/**
+ * implement the stream's inner Writable._write() function
+ */
 ObjectWriter.prototype._write = function(chunk, encoding, callback) {
     var self = this;
     Q.fcall(
@@ -66,6 +70,11 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
     ).nodeify(callback);
 };
 
+
+/**
+ * notify the server that the upload is completed.
+ * triggered automatically on 'finish' event.
+ */
 ObjectWriter.prototype.complete_upload = function() {
     return this._client.complete_multipart_upload({
         bucket: this._bucket,
@@ -75,6 +84,11 @@ ObjectWriter.prototype.complete_upload = function() {
     });
 };
 
+
+/**
+ * notify the server that the upload is aborted
+ * and that the data uploaded so far should be discarded.
+ */
 ObjectWriter.prototype.abort_upload = function() {
     return this._client.abort_multipart_upload({
         bucket: this._bucket,

@@ -20,6 +20,9 @@ var express_compress = require('compression');
 
 module.exports = Agent;
 
+/**
+ * TODO
+ */
 function Agent(params) {
     var self = this;
     assert(params.account_client, 'missing params.account_client');

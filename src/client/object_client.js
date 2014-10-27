@@ -1,4 +1,4 @@
-// this module is written for both nodejs, or for client with browserify.
+// module targets: nodejs & browserify
 'use strict';
 
 var util = require('util');
@@ -12,26 +12,28 @@ var ObjectReader = require('./object_reader');
 var ObjectWriter = require('./object_writer');
 
 
-// exporting the ObjectClient class
 module.exports = ObjectClient;
 
 
-
-// ctor of the object client.
-// the client provides api access to remote object storage.
-// the client API functions have the signature function(params), and return a promise.
-//
-// client_params (Object): see restful_api.init_client()
-//
+/**
+ * ctor of the object client.
+ * the client provides api access to remote object storage.
+ * the client API functions have the signature function(params), and return a promise.
+ *
+ * @param {Object} client_params - see restful_api.init_client()
+ */
 function ObjectClient(client_params) {
     object_api.Client.call(this, client_params);
     this.read_sem = new Semaphore(20);
     this.write_sem = new Semaphore(20);
 }
 
+// proper inheritance
+util.inherits(ObjectClient, object_api.Client);
+
+
 // in addition to the api functions, the client implements more advanced functions
 // for read/write of objects according to the object mapping.
-util.inherits(ObjectClient, object_api.Client);
 
 
 ObjectClient.prototype.open_read_stream = function(params) {
@@ -43,17 +45,18 @@ ObjectClient.prototype.open_write_stream = function(params) {
 
 
 
-// write_object_part (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - start (Number) - object start offset
-//   - end (Number) - object end offset
-//   - buffer (Buffer) - data to write
-//
-// return (promise)
-//
+/**
+ * write_object_part (API)
+ *
+ * @param {Object} params:
+ *   - bucket (String)
+ *   - key (String)
+ *   - start (Number) - object start offset
+ *   - end (Number) - object end offset
+ *   - buffer (Buffer) - data to write
+ *
+ * @return promise
+ */
 ObjectClient.prototype.write_object_part = function(params) {
     var self = this;
     var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
@@ -73,16 +76,17 @@ ObjectClient.prototype.write_object_part = function(params) {
 };
 
 
-// read_object_range (API)
-//
-// params (Object):
-//   - bucket (String)
-//   - key (String)
-//   - start (Number) - object start offset
-//   - end (Number) - object end offset
-//
-// return: buffer (promise) - the data. can be shorter than requested if EOF.
-//
+/**
+ * read_object_range (API)
+ *
+ * @param {Object} params:
+ *   - bucket (String)
+ *   - key (String)
+ *   - start (Number) - object start offset
+ *   - end (Number) - object end offset
+ *
+ * @return {Promise} buffer - the data. can be shorter than requested if EOF.
+ */
 ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
     // console.log('read_object_range', params);
@@ -102,7 +106,9 @@ ObjectClient.prototype.read_object_range = function(params) {
     );
 };
 
-
+/**
+ * read one part of the object.
+ */
 ObjectClient.prototype.read_object_part = function(part) {
     var self = this;
     var block_size = (part.chunk_size / part.kblocks) | 0;
@@ -180,6 +186,9 @@ ObjectClient.prototype.read_object_part = function(part) {
 
 
 
+/**
+ * read a block to the storage node
+ */
 function write_block(block, buffer, sem) {
     // use read semaphore to surround the IO
     return sem.surround(
@@ -199,6 +208,9 @@ function write_block(block, buffer, sem) {
 }
 
 
+/**
+ * read a block from the storage node
+ */
 function read_block(block, block_size, sem) {
     // use read semaphore to surround the IO
     return sem.surround(
@@ -228,7 +240,9 @@ function read_block(block, block_size, sem) {
 }
 
 
-// for now just encode without erasure coding
+/**
+ * for now just encode without erasure coding
+ */
 function encode_chunk(part, buffer) {
     var buffer_per_index = [];
     var block_size = (part.chunk_size / part.kblocks) | 0;
@@ -248,7 +262,9 @@ function encode_chunk(part, buffer) {
 }
 
 
-// for now just decode without erasure coding
+/**
+ * for now just decode without erasure coding
+ */
 function decode_chunk(part, buffer_per_index) {
     var buffers = [];
     for (var i = 0; i < part.kblocks; i++) {

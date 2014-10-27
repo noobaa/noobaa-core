@@ -1,4 +1,4 @@
-// this module is written for both nodejs, or for client with browserify.
+// module targets: nodejs & browserify
 'use strict';
 
 var http = require('http');

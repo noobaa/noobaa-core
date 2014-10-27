@@ -145,13 +145,12 @@ function restful_api(api) {
         // add the name to the info
         func_info.name = func_name;
 
-        var params_schema_path = '/' + api.name + '/methods/' + func_name + '/params';
-        tv4.addSchema(params_schema_path, func_info.params || {});
-        func_info.params = tv4.getSchema(params_schema_path);
+        func_info.params_schema = '/' + api.name + '/methods/' + func_name + '/params';
+        tv4.addSchema(func_info.params_schema, func_info.params || {});
+        func_info.params_properties = tv4.getSchema(func_info.params_schema).properties;
 
-        var reply_schema_path = '/' + api.name + '/methods/' + func_name + '/reply';
-        tv4.addSchema(reply_schema_path, func_info.reply || {});
-        func_info.reply = tv4.getSchema(reply_schema_path);
+        func_info.reply_schema = '/' + api.name + '/methods/' + func_name + '/reply';
+        tv4.addSchema(func_info.reply_schema, func_info.reply || {});
 
         assert(func_info.method in VALID_METHODS,
             'unexpected method: ' + func_info);
@@ -170,7 +169,7 @@ function restful_api(api) {
             }
             // if a param item (starts with colon) find the param info
             p = p.slice(1);
-            var param = func_info.params.properties[p];
+            var param = func_info.params_properties[p];
             assert(param, 'missing param info: ' + p + ' of ' + func_info);
             return {
                 name: p,
@@ -219,7 +218,7 @@ function do_client_request(client_params, func_info, params) {
         }
         if (!func_info.reply_raw) {
             // check the json reply
-            validate_schema(res.data, func_info.reply, func_info, 'client reply');
+            validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
         }
         return res.data;
     }).then(null, function(err) {
@@ -242,7 +241,7 @@ function create_client_request(client_params, func_info, params) {
         headers['content-length'] = body.length;
         delete data[func_info.param_raw];
     }
-    validate_schema(data, func_info.params, func_info, 'client request');
+    validate_schema(data, func_info.params_schema, func_info, 'client request');
     // construct the request path for the relevant params
     _.each(func_info.path_items, function(p) {
         if (!p) {
@@ -272,7 +271,7 @@ function create_client_request(client_params, func_info, params) {
         // when func_info.param_raw or GET, HEAD, DELETE we can't use the body,
         // so encode the data into the path query
         _.each(data, function(v, k) {
-            data[k] = param_to_component(data[k], func_info.params.properties[k].type);
+            data[k] = param_to_component(data[k], func_info.params_properties[k].type);
         });
         var query = querystring.stringify(data);
         if (query) {
@@ -386,7 +385,7 @@ function create_server_handler(server, func, func_info) {
                 req.restful_params = {};
                 _.each(req.query, function(v, k) {
                     req.restful_params[k] =
-                        component_to_param(v, func_info.params.properties[k].type);
+                        component_to_param(v, func_info.params_properties[k].type);
                 });
                 if (!func_info.param_raw) {
                     _.each(req.body, function(v, k) {
@@ -395,9 +394,9 @@ function create_server_handler(server, func, func_info) {
                 }
                 _.each(req.params, function(v, k) {
                     req.restful_params[k] =
-                        component_to_param(v, func_info.params.properties[k].type);
+                        component_to_param(v, func_info.params_properties[k].type);
                 });
-                validate_schema(req.restful_params, func_info.params, func_info, 'server request');
+                validate_schema(req.restful_params, func_info.params_schema, func_info, 'server request');
                 if (func_info.param_raw) {
                     req.restful_params[func_info.param_raw] = req.body;
                 }
@@ -412,7 +411,7 @@ function create_server_handler(server, func, func_info) {
                     res.set('content-length', reply.length);
                     return res.status(200).send(reply);
                 } else {
-                    validate_schema(reply, func_info.reply, func_info, 'server reply');
+                    validate_schema(reply, func_info.reply_schema, func_info, 'server reply');
                     return res.status(200).json(reply);
                 }
             }
@@ -462,9 +461,9 @@ function validate_schema(obj, schema, info, desc) {
         true /*checkRecursive*/ ,
         true /*banUnknownProperties*/ );
     if (!result.valid) {
+        console.error('INVALID SCHEMA', desc, schema, obj);
         result.info = info;
         result.desc = desc;
-        console.error('INVALID SCHEMA', desc, obj, schema);
         throw result;
     }
 }

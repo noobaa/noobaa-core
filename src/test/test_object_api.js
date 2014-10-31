@@ -174,36 +174,36 @@ describe('object_api', function() {
                     key: KEY,
                 });
             }).then(function() {
-                var defer = Q.defer();
-                coretest.object_client.open_write_stream({
-                    bucket: BKT,
-                    key: KEY,
-                }).on('error', function(err) {
-                    defer.reject(err);
-                }).on('close', function(err) {
-                    defer.resolve();
-                }).end(data);
-                return defer.promise;
-            }).then(function() {
-                var defer = Q.defer();
-                var buffers = [];
-                coretest.object_client.open_read_stream({
-                    bucket: BKT,
-                    key: KEY,
-                    start: 0,
-                    end: size,
-                }).on('data', function(chunk) {
-                    console.log('read data', chunk.length);
-                    buffers.push(chunk);
-                }).on('end', function() {
-                    var read_buf = Buffer.concat(buffers);
-                    console.log('read end', read_buf.length);
-                    defer.resolve(read_buf);
-                }).on('error', function(err) {
-                    console.log('read error', err);
-                    defer.reject(err);
+                return Q.Promise(function(resolve, reject) {
+                    coretest.object_client.open_write_stream({
+                        bucket: BKT,
+                        key: KEY,
+                    }).on('error', function(err) {
+                        reject(err);
+                    }).on('close', function(err) {
+                        resolve();
+                    }).end(data);
                 });
-                return defer.promise;
+            }).then(function() {
+                return Q.Promise(function(resolve, reject) {
+                    var buffers = [];
+                    coretest.object_client.open_read_stream({
+                        bucket: BKT,
+                        key: KEY,
+                        start: 0,
+                        end: size,
+                    }).on('data', function(chunk) {
+                        console.log('read data', chunk.length);
+                        buffers.push(chunk);
+                    }).on('end', function() {
+                        var read_buf = Buffer.concat(buffers);
+                        console.log('read end', read_buf.length);
+                        resolve(read_buf);
+                    }).on('error', function(err) {
+                        console.log('read error', err);
+                        reject(err);
+                    });
+                });
             }).then(function(read_buf) {
                 // verify the read buffer equals the written buffer
                 for (var i = 0; i < size; i++) {

@@ -298,80 +298,80 @@ function create_client_request(client_params, func_info, params) {
 
 // send http request and return a promise for the response
 function send_http_request(options) {
-    var defer = Q.defer();
-    // console.log('HTTP request', options);
-    var protocol = options.protocol;
-    var body = options.body;
-    options = _.omit(options, 'body', 'protocol');
-    var req = protocol === 'https' ?
-        https.request(options) :
-        http.request(options);
+    return Q.Promise(function(resolve, reject) {
+        // console.log('HTTP request', options);
+        var protocol = options.protocol;
+        var body = options.body;
+        options = _.omit(options, 'body', 'protocol');
+        var req = protocol === 'https' ?
+            https.request(options) :
+            http.request(options);
 
-    req.on('response', function(res) {
-        // console.log('HTTP response headers', res.statusCode, res.headers);
-        var chunks = [];
-        var chunks_length = 0;
-        var response_err;
+        req.on('response', function(res) {
+            // console.log('HTTP response headers', res.statusCode, res.headers);
+            var chunks = [];
+            var chunks_length = 0;
+            var response_err;
 
-        res.on('data',
-            function(chunk) {
-                // console.log('HTTP response data', chunk);
-                chunks.push(chunk);
-                chunks_length += chunk.length;
-            }
-        );
+            res.on('data',
+                function(chunk) {
+                    // console.log('HTTP response data', chunk);
+                    chunks.push(chunk);
+                    chunks_length += chunk.length;
+                }
+            );
 
-        res.on('error',
-            function(err) {
-                // console.log('HTTP response error', err);
-                response_err = response_err || err;
-            }
-        );
+            res.on('error',
+                function(err) {
+                    // console.log('HTTP response error', err);
+                    response_err = response_err || err;
+                }
+            );
 
-        res.on('end',
-            function() {
-                var data = chunks_length ? Buffer.concat(chunks, chunks_length) : null;
-                // console.log('HTTP response end', res.statusCode, response_err, data);
-                if (data && data.length) {
-                    var content_type = res.headers['content-type'];
-                    if (content_type &&
-                        content_type.split(';')[0] === 'application/json') {
-                        try {
-                            data = JSON.parse(data.toString('utf8'));
-                        } catch (err) {
-                            response_err = response_err || err;
+            res.on('end',
+                function() {
+                    var data = chunks_length ? Buffer.concat(chunks, chunks_length) : null;
+                    // console.log('HTTP response end', res.statusCode, response_err, data);
+                    if (data && data.length) {
+                        var content_type = res.headers['content-type'];
+                        if (content_type &&
+                            content_type.split(';')[0] === 'application/json') {
+                            try {
+                                data = JSON.parse(data.toString('utf8'));
+                            } catch (err) {
+                                response_err = response_err || err;
+                            }
                         }
                     }
+                    if (res.statusCode !== 200 || response_err) {
+                        return reject({
+                            status: res.statusCode,
+                            data: response_err || data,
+                        });
+                    } else {
+                        return resolve({
+                            response: res,
+                            data: data,
+                        });
+                    }
                 }
-                if (res.statusCode !== 200 || response_err) {
-                    return defer.reject({
-                        status: res.statusCode,
-                        data: response_err || data,
-                    });
-                } else {
-                    return defer.resolve({
-                        response: res,
-                        data: data,
-                    });
-                }
+            );
+        });
+
+        req.on('error',
+            function(err) {
+                // console.log('HTTP request error', err);
+                return reject({
+                    data: err,
+                });
             }
         );
-    });
 
-    req.on('error',
-        function(err) {
-            // console.log('HTTP request error', err);
-            return defer.reject({
-                data: err,
-            });
+        if (body) {
+            req.write(body);
         }
-    );
-
-    if (body) {
-        req.write(body);
-    }
-    req.end();
-    return defer.promise;
+        req.end();
+    });
 }
 
 

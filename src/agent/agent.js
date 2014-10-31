@@ -131,13 +131,14 @@ Agent.prototype.mkdirs = function() {
     if (!self.storage_path) {
         return;
     }
-    return _.reduce([
-        self.storage_path_blocks
-    ], function(promise, dir_path) {
-        return promise.then(function() {
+    var dir_paths = [self.storage_path_blocks];
+    var mkdir_funcs = _.map(dir_paths, function(dir_path) {
+        return function() {
             return Q.nfcall(mkdirp, dir_path);
-        });
-    }, Q.resolve());
+        };
+    });
+    // run all funcs serially by chaining their promises
+    return _.reduce(mkdir_funcs, Q.when, Q.when());
 };
 
 /////////////////
@@ -149,12 +150,10 @@ Agent.prototype.start_stop_http_server = function() {
     if (self.is_started) {
         // using port to determine if the server is already listening
         if (!self.http_port) {
-            var defer = Q.defer();
-            self.http_server.once('listening', function() {
-                defer.resolve();
+            return Q.Promise(function(resolve, reject) {
+                self.http_server.once('listening', resolve);
+                self.http_server.listen();
             });
-            self.http_server.listen();
-            return defer.promise;
         }
     } else {
         if (self.http_port) {

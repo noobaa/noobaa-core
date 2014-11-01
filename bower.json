@@ -1,0 +1,9 @@
+{
+	"name": "NooBaa-Core",
+	"version": "0.0.1",
+	"dependencies": {
+		"alertify.js": "0.3.x",
+		"animate.css": "3.2.0",
+		"ladda": "0.9.4"
+	}
+}

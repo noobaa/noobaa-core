@@ -125,29 +125,47 @@ object_server.install_routes(api_router, '/object_api/');
 
 // setup pages
 
-app.all('/agent/*', function(req, res) {
+function redirect_no_account(req, res, next) {
+    if (req.account) {
+        return next();
+    }
+    return res.redirect('/login/');
+}
+
+app.all('/agent/*', redirect_no_account, function(req, res) {
     var ctx = { //common_api.common_server_data(req);
         data: {}
     };
     return res.render('agent.html', ctx);
 });
 
-app.all('/agent', function(req, res) {
+app.all('/agent', redirect_no_account, function(req, res) {
     return res.redirect('/agent/');
 });
 
-app.all('/client/*', function(req, res) {
+app.all('/client/*', redirect_no_account, function(req, res) {
     var ctx = { //common_api.common_server_data(req);
         data: {}
     };
     return res.render('client.html', ctx);
 });
 
-app.all('/client', function(req, res) {
+app.all('/client', redirect_no_account, function(req, res) {
     return res.redirect('/client/');
 });
 
-app.all('/', function(req, res) {
+app.all('/login/*', function(req, res) {
+    var ctx = { //common_api.common_server_data(req);
+        data: {}
+    };
+    return res.render('login.html', ctx);
+});
+
+app.all('/login', function(req, res) {
+    return res.redirect('/login/');
+});
+
+app.all('/', redirect_no_account, function(req, res) {
     return res.redirect('/client/');
 });
 

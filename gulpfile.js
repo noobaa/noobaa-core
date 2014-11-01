@@ -63,8 +63,8 @@ var PATHS = {
     css: './src/css/**/*',
     css_candidates: ['./src/css/styles.less'],
     fonts: [
-        './bower_components/bootstrap/dist/fonts/*',
-        './bower_components/font-awesome/fonts/*',
+        './node_modules/bootstrap/dist/fonts/*',
+        './node_modules/font-awesome/fonts/*',
     ],
     fonts2: [
         './node_modules/video.js/dist/video-js/font/*',
@@ -84,7 +84,9 @@ var PATHS = {
     client_main: './src/client/ng_client.js',
     agent_main: './src/agent/ng_agent.js',
     client_externals: [
-        './bower_components/bootstrap/dist/js/bootstrap.min.js',
+        './node_modules/bootstrap/dist/js/bootstrap.min.js',
+        './bower_components/ladda/dist/spin.min.js',
+        './bower_components/ladda/dist/ladda.min.js',
         './node_modules/masonry.js/dist/masonry.pkgd.min.js',
         './bower_components/alertify.js/lib/alertify.min.js',
         './node_modules/video.js/dist/video-js/video.dev.js',

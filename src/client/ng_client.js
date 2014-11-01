@@ -85,3 +85,85 @@ ng_client.controller('AccountCtrl', [
 
     }
 ]);
+
+ng_client.controller('LoginCtrl', [
+    '$scope', '$http', '$q', '$timeout', '$window',
+    function($scope, $http, $q, $timeout, $window) {
+        var account_client = new account_api.Client({
+            path: '/api/account_api/',
+        });
+
+        $scope.login = function() {
+            console.log('LOGIN');
+            if ($scope.running_login || $scope.running_create) {
+                return;
+            }
+            if (!$scope.email || !$scope.password) {
+                return;
+            }
+            $scope.running_login = true;
+            return $q.when(account_client.login_account({
+                email: $scope.email,
+                password: $scope.password,
+            })).then(function() {
+                return $timeout(function() {
+                    $window.location.reload();
+                }, 3000);
+            })['finally'](function() {
+                $scope.running_login = false;
+            });
+        };
+
+        $scope.create = function() {
+            console.log('CREATE');
+            if ($scope.running_login || $scope.running_create) {
+                return;
+            }
+            if (!$scope.email || !$scope.password) {
+                return;
+            }
+            $scope.running_create = true;
+            return $q.when(account_client.create_account({
+                email: $scope.email,
+                password: $scope.password,
+            })).then(function() {
+                return $timeout(function() {
+                    $window.location.reload();
+                }, 3000);
+            })['finally'](function() {
+                $scope.running_create = false;
+            });
+        };
+    }
+]);
+
+ng_client.directive('ngLadda', [
+    '$compile',
+    function($compile) {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                element.addClass('ladda-button');
+                if (angular.isUndefined(element.attr('data-style'))) {
+                    element.attr('data-style', 'slide-right');
+                }
+                /* global Ladda */
+                var ladda = Ladda.create(element[0]);
+                $compile(angular.element(element.children()[0]).contents())(scope);
+
+                scope.$watch(attrs.ngLadda, function(loading) {
+                    if (loading || angular.isNumber(loading)) {
+                        if (!ladda.isLoading()) {
+                            ladda.start();
+                        }
+                        if (angular.isNumber(loading)) {
+                            ladda.setProgress(loading);
+                        }
+                    } else {
+                        ladda.stop();
+                    }
+                });
+            }
+        };
+    }
+]);

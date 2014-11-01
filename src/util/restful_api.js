@@ -133,9 +133,11 @@ function restful_api(api) {
         this._log = console.log.bind(console);
     };
 
-    // call to start logging the server requests
     Server.prototype.impl = function(func_name) {
         return this._impl[func_name];
+    };
+    Server.prototype.handler = function(func_name) {
+        return this._handlers[func_name];
     };
 
 

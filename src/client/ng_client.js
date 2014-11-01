@@ -86,6 +86,7 @@ ng_client.controller('AccountCtrl', [
     }
 ]);
 
+
 ng_client.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window',
     function($scope, $http, $q, $timeout, $window) {
@@ -94,7 +95,6 @@ ng_client.controller('LoginCtrl', [
         });
 
         $scope.login = function() {
-            console.log('LOGIN');
             if ($scope.running_login || $scope.running_create) {
                 return;
             }
@@ -108,14 +108,13 @@ ng_client.controller('LoginCtrl', [
             })).then(function() {
                 return $timeout(function() {
                     $window.location.reload();
-                }, 3000);
+                }, 1000);
             })['finally'](function() {
                 $scope.running_login = false;
             });
         };
 
         $scope.create = function() {
-            console.log('CREATE');
             if ($scope.running_login || $scope.running_create) {
                 return;
             }
@@ -129,13 +128,14 @@ ng_client.controller('LoginCtrl', [
             })).then(function() {
                 return $timeout(function() {
                     $window.location.reload();
-                }, 3000);
+                }, 1000);
             })['finally'](function() {
                 $scope.running_create = false;
             });
         };
     }
 ]);
+
 
 ng_client.directive('ngLadda', [
     '$compile',

@@ -133,6 +133,11 @@ function restful_api(api) {
         this._log = console.log.bind(console);
     };
 
+    // call to start logging the server requests
+    Server.prototype.impl = function(func_name) {
+        return this._impl[func_name];
+    };
+
 
     // add all definitions
     _.each(api.definitions, function(schema, name) {

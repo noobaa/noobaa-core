@@ -132,47 +132,44 @@ function redirect_no_account(req, res, next) {
     }
     return res.redirect('/login/');
 }
+
 function redirect_with_account(req, res, next) {
     if (!req.session.account_id) {
         return next();
     }
-    return res.redirect('/client/');
+    return res.redirect('/app/');
+}
+
+function page_context(req) {
+    var data = {};
+    _.extend(data, _.pick(req.session, 'account_id', 'account_email'));
+    return {
+        data: data
+    };
 }
 
 app.all('/agent/*', redirect_no_account, function(req, res) {
-    var ctx = { //common_api.common_server_data(req);
-        data: {}
-    };
-    return res.render('agent.html', ctx);
+    return res.render('agent.html', page_context(req));
 });
-
 app.all('/agent', redirect_no_account, function(req, res) {
     return res.redirect('/agent/');
 });
 
-app.all('/client/*', redirect_no_account, function(req, res) {
-    var ctx = { //common_api.common_server_data(req);
-        data: {}
-    };
-    return res.render('client.html', ctx);
+app.all('/app/*', redirect_no_account, function(req, res) {
+    return res.render('app.html', page_context(req));
 });
-
-app.all('/client', redirect_no_account, function(req, res) {
-    return res.redirect('/client/');
+app.all('/app', redirect_no_account, function(req, res) {
+    return res.redirect('/app/');
 });
 
 app.all('/login/*', redirect_with_account, function(req, res) {
-    var ctx = { //common_api.common_server_data(req);
-        data: {}
-    };
-    return res.render('login.html', ctx);
+    return res.render('login.html', page_context(req));
 });
-
 app.all('/login', redirect_with_account, function(req, res) {
     return res.redirect('/login/');
 });
 
-app.all('/logout', function(req,res) {
+app.all('/logout', function(req, res) {
     var logout_func = account_server.impl('logout_account');
     Q.when(logout_func(req), function() {
         res.redirect('/login/');
@@ -180,7 +177,7 @@ app.all('/logout', function(req,res) {
 });
 
 app.all('/', redirect_no_account, function(req, res) {
-    return res.redirect('/client/');
+    return res.redirect('/app/');
 });
 
 

@@ -24,61 +24,27 @@ ng_client.config(['$routeProvider', '$locationProvider',
         $locationProvider.html5Mode(true);
         $routeProvider.when('/account', {
             templateUrl: 'account.html',
-            controller: 'AccountCtrl'
+            // controller: 'AccountCtrl'
         }).when('/object/:id*', {
             templateUrl: 'object.html',
-            controller: 'ObjectCtrl'
+            // controller: 'ObjectCtrl'
         }).otherwise({
             redirectTo: '/account'
         });
     }
 ]);
 
-ng_client.controller('ClientCtrl', [
-    '$scope', '$http', '$q',
-    function($scope, $http, $q) {
+ng_client.controller('AppCtrl', [
+    '$scope', '$http', '$q', '$window',
+    function($scope, $http, $q, $window) {
+        var server_data_element = $window.document.getElementById('server_data');
+        var server_data = JSON.parse(server_data_element.innerHTML);
 
-        $scope.account_email = 'stam@bla.yuck';
-        $scope.account_password = 'stamyuck';
-        $scope.logged_in = false;
+        $scope.account_email = server_data.account_email;
 
         var account_client = new account_api.Client({
             path: '/api/account_api/',
         });
-
-        function create_account(email, password) {
-            return account_client.create_account({
-                email: email,
-                password: password,
-            }).then(function() {
-                $scope.$apply();
-            });
-        }
-
-        function login_account(email, password) {
-            return account_client.login_account({
-                email: email,
-                password: password,
-            }).then(function() {
-                $scope.logged_in = true;
-                $scope.$apply();
-            });
-        }
-
-        $q.when().then(function() {
-            return create_account($scope.account_email, $scope.account_password);
-        }).then(function() {
-            return login_account($scope.account_email, $scope.account_password);
-        }).then(null, function() {
-            return login_account($scope.account_email, $scope.account_password);
-        });
-    }
-]);
-
-ng_client.controller('AccountCtrl', [
-    '$scope', '$http',
-    function($scope, $http) {
-
         var object_client = new ObjectClient({
             path: '/api/object_api/',
         });
@@ -108,7 +74,7 @@ ng_client.controller('LoginCtrl', [
             })).then(function() {
                 return $timeout(function() {
                     $window.location.reload();
-                }, 1000);
+                }, 500);
             })['finally'](function() {
                 $scope.running_login = false;
             });
@@ -128,7 +94,7 @@ ng_client.controller('LoginCtrl', [
             })).then(function() {
                 return $timeout(function() {
                     $window.location.reload();
-                }, 1000);
+                }, 500);
             })['finally'](function() {
                 $scope.running_create = false;
             });

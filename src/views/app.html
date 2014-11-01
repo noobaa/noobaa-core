@@ -3,19 +3,16 @@
 <head>
     {{{# def.include( 'common_head.html') }}}
 
-    <base href="/client/">
+    <base href="/app/">
 </head>
 
-<body ng-controller="ClientCtrl" ng-cloak>
+<body ng-controller="AppCtrl" ng-cloak>
 
     <div class="container">
         <h3>
-            NOOBAA CLIENT
-            <span ng-show="logged_in" class="pull-right">
+            NOOBAA APP
+            <span class="pull-right">
                 <b><i>{{account_email}}</i></b>
-            </span>
-            <span ng-hide="logged_in" class="pull-right">
-                logging in <i class="fa fa-spinner fa-spin fa-lg"></i>
             </span>
         </h3>
         <hr/>

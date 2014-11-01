@@ -48,6 +48,7 @@ function login_account(req) {
             // insert the account id into the session
             // (expected to use secure cookie session)
             req.session.account_id = account.id;
+            req.session.account_email = account.email;
         }
     );
 }
@@ -63,6 +64,13 @@ function create_account(req) {
     return Q.fcall(
         function() {
             return Account.create(info);
+        }
+    ).then(
+        function(account) {
+            // insert the account id into the session
+            // (expected to use secure cookie session)
+            req.session.account_id = account.id;
+            req.session.account_email = account.email;
         }
     ).then(
         reply_undefined,

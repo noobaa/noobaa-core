@@ -133,13 +133,6 @@ function redirect_no_account(req, res, next) {
     return res.redirect('/login/');
 }
 
-function redirect_with_account(req, res, next) {
-    if (!req.session.account_id) {
-        return next();
-    }
-    return res.redirect('/app/');
-}
-
 function page_context(req) {
     var data = {};
     _.extend(data, _.pick(req.session, 'account_id', 'account_email'));
@@ -162,10 +155,10 @@ app.all('/app', redirect_no_account, function(req, res) {
     return res.redirect('/app/');
 });
 
-app.all('/login/*', redirect_with_account, function(req, res) {
+app.all('/login/*', function(req, res) {
     return res.render('login.html', page_context(req));
 });
-app.all('/login', redirect_with_account, function(req, res) {
+app.all('/login', function(req, res) {
     return res.redirect('/login/');
 });
 

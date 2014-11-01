@@ -10,7 +10,7 @@ var ObjectClient = require('./object_client');
 // include the generated templates from ngview
 require('../../build/templates');
 
-var ng_client = angular.module('ng_client', [
+var nb_common = angular.module('nb_common', [
     'templates',
     'ngRoute',
     'ngCookies',
@@ -18,8 +18,10 @@ var ng_client = angular.module('ng_client', [
     'ngSanitize',
     'ngTouch',
 ]);
+var nb_client = angular.module('nb_client', ['nb_common']);
+var nb_login = angular.module('nb_login', ['nb_common']);
 
-ng_client.config(['$routeProvider', '$locationProvider',
+nb_client.config(['$routeProvider', '$locationProvider',
     function($routeProvider, $locationProvider) {
         $locationProvider.html5Mode(true);
         $routeProvider.when('/account', {
@@ -34,7 +36,9 @@ ng_client.config(['$routeProvider', '$locationProvider',
     }
 ]);
 
-ng_client.controller('AppCtrl', [
+
+
+nb_client.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
     function($scope, $http, $q, $window) {
         var server_data_element = $window.document.getElementById('server_data');
@@ -53,7 +57,7 @@ ng_client.controller('AppCtrl', [
 ]);
 
 
-ng_client.controller('LoginCtrl', [
+nb_login.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window',
     function($scope, $http, $q, $timeout, $window) {
         var account_client = new account_api.Client({
@@ -73,7 +77,7 @@ ng_client.controller('LoginCtrl', [
                 password: $scope.password,
             })).then(function() {
                 return $timeout(function() {
-                    $window.location.reload();
+                    $window.location.href = '/';
                 }, 500);
             })['finally'](function() {
                 $scope.running_login = false;
@@ -93,7 +97,7 @@ ng_client.controller('LoginCtrl', [
                 password: $scope.password,
             })).then(function() {
                 return $timeout(function() {
-                    $window.location.reload();
+                    $window.location.href = '/';
                 }, 500);
             })['finally'](function() {
                 $scope.running_create = false;
@@ -103,7 +107,7 @@ ng_client.controller('LoginCtrl', [
 ]);
 
 
-ng_client.directive('ngLadda', [
+nb_common.directive('ngLadda', [
     '$compile',
     function($compile) {
         return {

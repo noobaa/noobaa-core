@@ -21,6 +21,7 @@ var nb_common = angular.module('nb_common', [
 var nb_client = angular.module('nb_client', ['nb_common']);
 var nb_login = angular.module('nb_login', ['nb_common']);
 
+
 nb_client.config(['$routeProvider', '$locationProvider',
     function($routeProvider, $locationProvider) {
         $locationProvider.html5Mode(true);
@@ -35,7 +36,6 @@ nb_client.config(['$routeProvider', '$locationProvider',
         });
     }
 ]);
-
 
 
 nb_client.controller('AppCtrl', [
@@ -72,13 +72,17 @@ nb_login.controller('LoginCtrl', [
                 return;
             }
             $scope.running_login = true;
+            $scope.alert_text = '';
             return $q.when(account_client.login_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
+                $scope.alert_text = '';
                 return $timeout(function() {
                     $window.location.href = '/';
                 }, 500);
+            }, function(err) {
+                $scope.alert_text = err.data || 'failed. hard to say why.';
             })['finally'](function() {
                 $scope.running_login = false;
             });
@@ -92,13 +96,17 @@ nb_login.controller('LoginCtrl', [
                 return;
             }
             $scope.running_create = true;
+            $scope.alert_text = '';
             return $q.when(account_client.create_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
+                $scope.alert_text = '';
                 return $timeout(function() {
                     $window.location.href = '/';
                 }, 500);
+            }, function(err) {
+                $scope.alert_text = err.data || 'failed. hard to say why.';
             })['finally'](function() {
                 $scope.running_create = false;
             });

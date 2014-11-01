@@ -35,20 +35,23 @@ function login_account(req) {
     ).then(
         function(account_arg) {
             account = account_arg;
-            if (!account) {
-                throw new Error('NO ACCOUNT ' + info);
+            if (account) {
+                return Q.npost(account, 'verify_password', [password]);
             }
-            return Q.npost(account, 'verify_password', [password]);
         }
     ).then(
         function(matching) {
             if (!matching) {
-                throw new Error('bad password');
+                throw new Error('incorrect email and password');
             }
             // insert the account id into the session
             // (expected to use secure cookie session)
             req.session.account_id = account.id;
             req.session.account_email = account.email;
+        },
+        function(err) {
+            console.error('FAILED login_account', err);
+            throw new Error('login failed');
         }
     );
 }
@@ -76,7 +79,7 @@ function create_account(req) {
         reply_undefined,
         function(err) {
             if (err.code === 11000) {
-                throw new Error('ACCOUNT EXISTS');
+                throw new Error('account already exists for email');
             } else {
                 console.error('FAILED create_account', err);
                 throw new Error('failed create account');
@@ -94,11 +97,16 @@ function read_account(req) {
     ).then(
         function(account) {
             if (!account) {
-                throw new Error('NO ACCOUNT ' + req.session.account_id);
+                console.error('MISSING ACCOUNT', req.session.account_id);
+                throw new Error('account not found');
             }
             return {
                 email: account.email,
             };
+        },
+        function(err) {
+            console.error('FAILED read_account', err);
+            throw new Error('read account failed');
         }
     );
 }
@@ -110,7 +118,13 @@ function update_account(req) {
             var info = _.pick(req.restful_params, 'email', 'password');
             return Account.findByIdAndUpdate(req.session.account_id, info).exec();
         }
-    ).then(reply_undefined);
+    ).then(
+        reply_undefined,
+        function(err) {
+            console.error('FAILED update_account', err);
+            throw new Error('update account failed');
+        }
+    );
 }
 
 
@@ -119,7 +133,13 @@ function delete_account(req) {
         function() {
             return Account.findByIdAndRemove(req.session.account_id).exec();
         }
-    ).then(reply_undefined);
+    ).then(
+        reply_undefined,
+        function(err) {
+            console.error('FAILED delete_account', err);
+            throw new Error('delete account failed');
+        }
+    );
 }
 
 
@@ -138,7 +158,8 @@ function account_session(req, force) {
         function() {
             var account_id = req.session.account_id;
             if (!account_id) {
-                throw new Error('NO ACCOUNT ' + account_id);
+                console.error('NO ACCOUNT SESSION', account_id);
+                throw new Error('not logged in');
             }
 
             var item = accounts_lru.find_or_add_item(account_id);
@@ -154,7 +175,8 @@ function account_session(req, force) {
             return Account.findById(account_id).exec().then(
                 function(account) {
                     if (!account) {
-                        throw new Error('MISSING ACCOUNT ' + account_id);
+                        console.error('MISSING ACCOUNT SESSION', account_id);
+                        throw new Error('account removed');
                     }
                     // update the cache item
                     item.account = account;

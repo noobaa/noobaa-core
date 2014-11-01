@@ -15,16 +15,28 @@
         <hr/>
 
         <form role="form" class="form-horizontal col-sm-4">
+
             <div class="form-group form-group-lg">
                 <input class="form-control" type="email" id="input_email" placeholder="Enter email" required ng-model="email" />
             </div>
+
             <div class="form-group form-group-lg">
-                <input class="form-control" type="password" id="input_password" placeholder="Password" required ng-model="password"/>
+                <input class="form-control" type="password" id="input_password" placeholder="Password" required ng-model="password" />
             </div>
+
+            <div class="form-group alert alert-warning animated pulse" role="alert" ng-show="alert_text">
+                <button type="button" class="close" ng-click="alert_text=''">
+                    <span aria-hidden="true">&times;</span>
+                    <span class="sr-only">Close</span>
+                </button>
+                {{alert_text}}
+            </div>
+
             <div class="form-group form-group-lg">
                 <button type="submit" class="btn btn-primary btn-lg" ng-ladda="running_login" ng-click="login()">Login</button>
                 <button type="submit" class="btn btn-default btn-lg" ng-ladda="running_create" ng-click="create()">Create</button>
             </div>
+
         </form>
 
     </div>

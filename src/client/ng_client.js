@@ -5,6 +5,7 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var account_api = require('../api/account_api');
+var mgmt_api = require('../api/mgmt_api');
 var ObjectClient = require('./object_client');
 
 // include the generated templates from ngview
@@ -25,14 +26,14 @@ var nb_login = angular.module('nb_login', ['nb_common']);
 nb_client.config(['$routeProvider', '$locationProvider',
     function($routeProvider, $locationProvider) {
         $locationProvider.html5Mode(true);
-        $routeProvider.when('/account', {
-            templateUrl: 'account.html',
+        $routeProvider.when('/status', {
+            templateUrl: 'status.html',
             // controller: 'AccountCtrl'
         }).when('/object/:id*', {
             templateUrl: 'object.html',
             // controller: 'ObjectCtrl'
         }).otherwise({
-            redirectTo: '/account'
+            redirectTo: '/status'
         });
     }
 ]);
@@ -47,25 +48,11 @@ nb_common.factory('nbServerData', [
     }
 ]);
 
+
 nb_common.controller('NavCtrl', [
     '$scope', 'nbServerData',
     function($scope, nbServerData) {
         $scope.account_email = nbServerData.account_email;
-    }
-]);
-
-
-nb_client.controller('AppCtrl', [
-    '$scope', '$http', '$q', '$window',
-    function($scope, $http, $q, $window) {
-
-        var account_client = new account_api.Client({
-            path: '/api/account_api/',
-        });
-        var object_client = new ObjectClient({
-            path: '/api/object_api/',
-        });
-
     }
 ]);
 
@@ -126,6 +113,64 @@ nb_login.controller('LoginCtrl', [
         };
     }
 ]);
+
+
+
+nb_client.controller('AppCtrl', [
+    '$scope', '$http', '$q', '$window',
+    function($scope, $http, $q, $window) {
+        /*
+        var account_client = new account_api.Client({
+            path: '/api/account_api/',
+        });
+        var object_client = new ObjectClient({
+            path: '/api/object_api/',
+        });
+        */
+    }
+]);
+
+
+nb_client.controller('StatusCtrl', [
+    '$scope', '$http', '$q', '$window',
+    function($scope, $http, $q, $window) {
+
+        console.log('StatusCtrl');
+
+        var mgmt = new mgmt_api.Client({
+            path: '/api/mgmt_api/',
+        });
+
+        $q.when().then(
+            function() {
+                console.log('StatusCtrl when1');
+                return $q.when(mgmt.list_nodes(), function(res) {
+                    console.log('NODES', res);
+                    $scope.nodes = res.nodes;
+                });
+            }
+        ).then(
+            function() {
+                return $q.when(mgmt.system_stats(), function(res) {
+                    console.log('STATS', res);
+                    $scope.stats = res;
+                });
+            }
+        );
+
+    }
+]);
+
+
+
+
+
+
+
+
+/////////////////////////////////////////////////////////////////
+// UTILS ////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////
 
 
 nb_common.directive('nbShowAnimated', [

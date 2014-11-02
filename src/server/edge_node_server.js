@@ -23,11 +23,13 @@ module.exports = new edge_node_api.Server({
 
 function connect_edge_node(req) {
     var info = _.pick(req.restful_params, 'name', 'ip', 'port');
-    info.ip = (info.ip && info.ip !== '0.0.0.0' && info.ip) || 
+    info.ip = (info.ip && info.ip !== '0.0.0.0' && info.ip) ||
         req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress;
     info.account = req.account.id; // see account_server.account_session
     info.heartbeat = new Date();
+    info.allocated_storage = 0;
+    info.used_storage = 0;
     return Q.fcall(
         function() {
             // query to find the node by account and name

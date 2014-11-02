@@ -1,4 +1,4 @@
-/* global angular */
+/* global angular, alertify */
 'use strict';
 
 var _ = require('lodash');
@@ -132,31 +132,70 @@ nb_client.controller('AppCtrl', [
 
 
 nb_client.controller('StatusCtrl', [
-    '$scope', '$http', '$q', '$window',
-    function($scope, $http, $q, $window) {
-
-        console.log('StatusCtrl');
+    '$scope', '$http', '$q', '$window', '$timeout',
+    function($scope, $http, $q, $window, $timeout) {
 
         var mgmt = new mgmt_api.Client({
             path: '/api/mgmt_api/',
         });
 
-        $q.when().then(
-            function() {
-                console.log('StatusCtrl when1');
-                return $q.when(mgmt.list_nodes(), function(res) {
-                    console.log('NODES', res);
-                    $scope.nodes = res.nodes;
-                });
-            }
-        ).then(
-            function() {
-                return $q.when(mgmt.system_stats(), function(res) {
-                    console.log('STATS', res);
-                    $scope.stats = res;
-                });
-            }
-        );
+        $scope.refresh_status = refresh_status;
+        $scope.add_nodes = add_nodes;
+        $scope.reset_nodes = reset_nodes;
+
+        refresh_status();
+
+        function refresh_status() {
+            $scope.refreshing = true;
+            return $q.when().then(
+                function() {
+                    // TODO
+                    /*
+                    return $q.when(mgmt.system_stats(), function(res) {
+                        console.log('STATS', res);
+                        $scope.stats = res;
+                    });
+                    */
+                }
+            ).then(
+                function() {
+                    return $q.when(mgmt.list_nodes(), function(res) {
+                        console.log('NODES', res);
+                        $scope.nodes = res.nodes;
+                    });
+                }
+            )['finally'](
+                function() {
+                    return $timeout(function() {
+                        $scope.refreshing = false;
+                    }, 1000);
+                }
+            );
+        }
+
+        function add_nodes() {
+            alertify.prompt('Enter number of nodes', function(e, res) {
+                if (!e) {
+                    return;
+                }
+                var count = Number(res);
+                if (!count) {
+                    return;
+                }
+                mgmt.add_nodes({
+                    count: count
+                }).then(refresh_status);
+            }, '10');
+        }
+
+        function reset_nodes() {
+            alertify.confirm('Really reset nodes?', function(e) {
+                if (!e) {
+                    return;
+                }
+                mgmt.reset_nodes().then(refresh_status);
+            });
+        }
 
     }
 ]);

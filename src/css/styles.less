@@ -12,3 +12,68 @@
 @import (less)"../../bower_components/ladda/dist/ladda-themeless.min.css";
 @import (less)"../../node_modules/animate.css/animate.min.css";
 /* @import (less)"animations.css"; */
+
+@grid-float-breakpoint: 0;
+@border-color: @gray-lighter;
+
+*[ng-click],
+*[role=button],
+.dropdown-toggle {
+    cursor: pointer;
+
+}
+/* Allow angular.js to be loaded in body, hiding cloaked elements until
+ * templates compile.  The !important is important given that there may be
+ * other selectors that are more specific or come later and might alter display.
+ */
+[ng\:cloak],
+[ng-cloak],
+.ng-cloak {
+    display: none !important;
+
+}
+// style alertify from bootstrap theme
+.alertify-button {
+    text-shadow: none;
+    box-shadow: none;
+}
+.alertify-button.alertify-button-ok {
+    .btn;
+    .btn-primary;
+}
+.alertify-button.alertify-button-cancel {
+    .btn;
+    .btn-default;
+}
+.alertify-cover {
+    .modal-backdrop;
+    .modal-backdrop.in;
+    z-index: 1060;
+}
+.alertify {
+    border-radius: @border-radius-base;
+    border-width: 1px;
+    border-color: @modal-content-border-color;
+    background-color: @modal-content-bg;
+    color: @text-color;
+    font-family: @font-family-sans-serif;
+}
+.alertify-text {
+    .form-control;
+    .input-lg;
+}
+.alertify-log {
+    font-family: @font-family-sans-serif;
+    text-shadow: none;
+    color: @text-color;
+    background-color: @brand-info;
+    border: 1px solid @border-color;
+    &.alertify-log-success {
+        color: @text-color;
+        background-color: @brand-success;
+    }
+    &.alertify-log-error {
+        color: @text-color;
+        background-color: @brand-danger;
+    }
+}

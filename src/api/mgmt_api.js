@@ -71,7 +71,7 @@ module.exports = restful_api({
                         items: {
                             type: 'object',
                             required: [
-                                'name', 'ip', 'port', 'heatbeat',
+                                'name', 'ip', 'port', 'heartbeat',
                                 'allocated_storage', 'used_storage'
                             ],
                             properties: {
@@ -84,7 +84,7 @@ module.exports = restful_api({
                                 port: {
                                     type: 'integer'
                                 },
-                                heatbeat: {
+                                heartbeat: {
                                     type: 'string',
                                     format: 'date',
                                 },
@@ -101,57 +101,51 @@ module.exports = restful_api({
             }
         },
 
-
-        list_node_blocks: {
+        read_node: {
             method: 'GET',
-            path: '/node/:node_id/blocks',
+            path: '/node/:name',
             params: {
                 type: 'object',
-                required: ['node_id'],
+                required: ['name'],
                 properties: {
-                    node_id: {
+                    name: {
                         type: 'string'
                     }
                 }
             }
         },
 
-
-        setup_nodes: {
+        add_nodes: {
             method: 'POST',
             path: '/nodes',
             params: {
                 type: 'object',
-                required: ['num', 'reset'],
+                required: ['count'],
                 properties: {
-                    num: {
+                    count: {
                         type: 'integer'
-                    },
-                    reset: {
-                        type: 'boolean'
                     },
                 }
             }
         },
 
-        start_node_agents: {
-            method: 'POST',
-            path: '/nodes/start',
+        remove_node: {
+            method: 'DELETE',
+            path: '/nodes/:name',
             params: {
                 type: 'object',
-                required: [],
-                properties: {}
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
             }
         },
 
-        stop_node_agents: {
+        reset_nodes: {
             method: 'POST',
-            path: '/nodes/stop',
-            params: {
-                type: 'object',
-                required: [],
-                properties: {}
-            }
+            path: '/nodes/reset',
         },
 
     }

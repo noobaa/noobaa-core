@@ -5,6 +5,8 @@ var _ = require('lodash');
 var assert = require('assert');
 var Q = require('q');
 var restful_api = require('../util/restful_api');
+var account_api = require('../api/account_api');
+var edge_node_api = require('../api/edge_node_api');
 var mgmt_api = require('../api/mgmt_api');
 var account_server = require('./account_server');
 var Agent = require('../agent/agent');
@@ -21,10 +23,10 @@ var DataBlock = require('./models/data_block');
 var mgmt_server = new mgmt_api.Server({
     system_stats: system_stats,
     list_nodes: list_nodes,
-    setup_nodes: setup_nodes,
-    start_node_agents: start_node_agents,
-    stop_node_agents: stop_node_agents,
-    list_node_blocks: list_node_blocks,
+    read_node: read_node,
+    add_nodes: add_nodes,
+    remove_node: remove_node,
+    reset_nodes: reset_nodes,
 }, [
     // middleware to verify the account session before any of this server calls
     account_server.account_session
@@ -97,9 +99,11 @@ function list_nodes(req) {
         function(nodes) {
             var nodes_reply = _.map(nodes,
                 function(node) {
-                    return _.pick(node,
-                        'name', 'ip', 'port', 'heatbeat',
+                    var node_reply = _.pick(node,
+                        'name', 'ip', 'port', 'heartbeat',
                         'allocated_storage', 'used_storage');
+                    node_reply.heartbeat = node_reply.heartbeat.toString();
+                    return node_reply;
                 }
             );
             return {
@@ -109,9 +113,9 @@ function list_nodes(req) {
     );
 }
 
-
-function list_node_blocks(req) {
-
+function read_node(req) {
+    // TODO
+    throw new Error('TODO');
 }
 
 
@@ -120,36 +124,74 @@ function list_node_blocks(req) {
 
 var node_agents = {};
 var next_node_num = 0;
+var account_client = new account_api.Client({
+    path: '/api/account_api/',
+    port: 5001, // TODO
+});
+var edge_node_client = new edge_node_api.Client({
+    path: '/api/edge_node_api/',
+    port: 5001, // TODO
+});
 
-
-function setup_nodes(req) {
-    var num = req.restful_params.num;
-    var reset = req.restful_params.reset;
-    if (reset) {
-        node_agents = {};
-        next_node_num = 0;
-    }
-    var new_agents = _.times(num, function() {
+function add_nodes(req) {
+    var count = req.restful_params.count;
+    var promise = Q.resolve();
+    var new_agents = _.times(count, function() {
         var node_name = 'node' + next_node_num;
         next_node_num += 1;
         var agent = new Agent({
-            // TODO
-            // account_client: coretest.account_client,
-            // edge_node_client: coretest.edge_node_client,
-            // account_credentials: coretest.account_credentials,
+            account_client: account_client,
+            edge_node_client: edge_node_client,
+            account_credentials: {
+                email: req.account.email,
+                password: 'aaa', // TODO
+            },
             node_name: node_name,
         });
-        node_agents.push(agent);
-        return node_name;
+        promise = promise.then(
+            function() {
+                return agent.start();
+            }
+        );
+        return agent;
     });
+    return promise.then(
+        function() {
+            _.each(new_agents, function(agent) {
+                node_agents[agent.node_name] = agent;
+            });
+        }
+    );
 }
 
 
-function start_node_agents(req) {
-
+function remove_node(req) {
+    var name = req.restful_api.name;
+    var agent = node_agents[name];
+    if (!agent) {
+        console.log('node to remove not found', name);
+        return;
+    }
+    return Q.fcall(
+        function() {
+            agent.stop();
+        }
+    ).then(
+        function() {
+            delete node_agents[name];
+        }
+    );
 }
 
 
-function stop_node_agents(req) {
-
+function reset_nodes(req) {
+    node_agents = {};
+    next_node_num = 0;
+    return Q.fcall(
+        function() {
+            return EdgeNode.find().remove().exec();
+        }
+    ).then(
+        function() {}
+    );
 }

@@ -59,6 +59,7 @@ function login_account(req) {
 
 function logout_account(req) {
     delete req.session.account_id;
+    delete req.session.account_email;
 }
 
 

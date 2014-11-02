@@ -8,16 +8,8 @@
 
 <body ng-controller="AppCtrl" ng-cloak>
 
-    <div class="container">
-        <h3>
-            NOOBAA APP
-            <span class="pull-right">
-                <b><i>{{account_email}}</i></b>
-            </span>
-        </h3>
-        <hr/>
-        <div ng-view></div>
-    </div>
+    <div ng-include="'navbar.html'"></div>
+    <div ng-view></div>
 
     <div>
         {{{# def.include( 'common_scripts.html') }}}

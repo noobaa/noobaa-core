@@ -1,0 +1,26 @@
+<nav class="navbar navbar-default navbar-static-top" ng-controller="NavCtrl">
+    <div class="container">
+
+        <div class="navbar-header">
+            <span class="navbar-brand">NooBaa APP</span>
+        </div>
+
+        <ul class="nav navbar-nav navbar-right">
+            <li class="dropdown">
+                <a class="navbar-link dropdown-toggle" data-toggle="dropdown" href="#">
+                    <b>{{account_email}}</b>
+                    <i class="fa fa-caret-down fa-fw"></i>
+                </a>
+                <ul class="dropdown-menu" role="menu">
+                    <li ng-if="!account_email">
+                        <a href="/login">Login</a>
+                    </li>
+                    <li ng-if="account_email">
+                        <a href="/logout">Logout</a>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+
+    </div>
+</nav>

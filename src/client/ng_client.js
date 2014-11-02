@@ -38,13 +38,26 @@ nb_client.config(['$routeProvider', '$locationProvider',
 ]);
 
 
+nb_common.factory('nbServerData', [
+    '$window',
+    function($window) {
+        var server_data_element = $window.document.getElementById('server_data');
+        var server_data = JSON.parse(server_data_element.innerHTML);
+        return server_data;
+    }
+]);
+
+nb_common.controller('NavCtrl', [
+    '$scope', 'nbServerData',
+    function($scope, nbServerData) {
+        $scope.account_email = nbServerData.account_email;
+    }
+]);
+
+
 nb_client.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
     function($scope, $http, $q, $window) {
-        var server_data_element = $window.document.getElementById('server_data');
-        var server_data = JSON.parse(server_data_element.innerHTML);
-
-        $scope.account_email = server_data.account_email;
 
         var account_client = new account_api.Client({
             path: '/api/account_api/',
@@ -115,7 +128,56 @@ nb_login.controller('LoginCtrl', [
 ]);
 
 
-nb_common.directive('ngLadda', [
+nb_common.directive('nbShowAnimated', [
+    function() {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                var showing = false;
+                var opt = scope.$eval(attrs.nbShowAnimated);
+                scope.$watch(opt.show, function(show) {
+                    element.removeClass('animated');
+                    element.removeClass(opt.in);
+                    element.removeClass(opt.out);
+                    element.stop();
+                    var show_bool = !!show;
+                    var changed = show_bool !== showing;
+                    showing = !!show;
+                    if (!changed) {
+                        if (showing) {
+                            element.show();
+                        } else {
+                            element.hide();
+                        }
+                    } else {
+                        if (showing) {
+                            element.addClass('animated');
+                            element.addClass(opt.in);
+                            element.show();
+                        } else {
+                            element.addClass('animated');
+                            element.addClass(opt.out);
+                            element.one(
+                                'webkitAnimationEnd ' +
+                                'mozAnimationEnd ' +
+                                'MSAnimationEnd ' +
+                                'oanimationend ' +
+                                'animationend',
+                                function() {
+                                    if (!showing) {
+                                        element.hide();
+                                    }
+                                }
+                            );
+                        }
+                    }
+                }, true /*watch deep*/ );
+            }
+        };
+    }
+]);
+
+nb_common.directive('nbLadda', [
     '$compile',
     function($compile) {
         return {
@@ -129,7 +191,7 @@ nb_common.directive('ngLadda', [
                 var ladda = Ladda.create(element[0]);
                 $compile(angular.element(element.children()[0]).contents())(scope);
 
-                scope.$watch(attrs.ngLadda, function(loading) {
+                scope.$watch(attrs.nbLadda, function(loading) {
                     if (loading || angular.isNumber(loading)) {
                         if (!ladda.isLoading()) {
                             ladda.start();

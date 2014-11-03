@@ -1,16 +1,27 @@
 <div class="container" ng-controller="FilesCtrl">
 
-    <div class="clearfix">
-        <button class="btn btn-default">
-            Upload file
-        </button>
-    </div>
-
-    <hr/>
-
-    <div>
-        <div ng-repeat="file in files">
-            {{file.name}}
+    <div class="row">
+        <div class="col-sm-3 col-md-2">
+            <button ng-click="create_bucket()" class="btn btn-default btn-block">
+                Create bucket
+            </button>
+            <hr />
+            <ul class="nav nav-pills nav-stacked">
+                <li ng-repeat="bucket in buckets" ng-class="{active: curr_bucket==bucket}">
+                    <a ng-click="click_bucket(bucket)">
+                        {{bucket.name}}
+                    </a>
+                </li>
+            </ul>
+        </div>
+        <div class="col-sm-9 col-md-10" ng-show="curr_bucket">
+            <button ng-click="click_upload()" class="btn btn-default">
+                Upload file
+            </button>
+            <hr />
+            <div ng-repeat="object in curr_bucket.objects" class="well well-sm">
+                {{object.key}}
+            </div>
         </div>
     </div>
 

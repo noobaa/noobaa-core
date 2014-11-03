@@ -12,6 +12,29 @@ module.exports = restful_api({
 
         // bucket functions
 
+        list_buckets: {
+            method: 'GET',
+            path: '/',
+            reply: {
+                type: 'object',
+                required: ['buckets'],
+                properties: {
+                    buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['name'],
+                            properties: {
+                                name: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
         create_bucket: {
             method: 'POST',
             path: '/',
@@ -122,23 +145,6 @@ module.exports = restful_api({
             path: '/:bucket/:key/upload',
             params: {
                 type: 'object',
-                required: ['bucket', 'key'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        complete_multipart_upload: {
-            method: 'PUT',
-            path: '/:bucket/:key/upload',
-            params: {
-                type: 'object',
                 required: ['bucket', 'key', 'size'],
                 properties: {
                     bucket: {
@@ -149,6 +155,23 @@ module.exports = restful_api({
                     },
                     size: {
                         type: 'integer',
+                    }
+                }
+            },
+        },
+
+        complete_multipart_upload: {
+            method: 'PUT',
+            path: '/:bucket/:key/upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
                     }
                 }
             },

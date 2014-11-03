@@ -78,9 +78,13 @@ describe('object_api', function() {
         Q.fcall(function() {
             return coretest.login_default_account();
         }).then(function() {
+            return coretest.object_client.list_buckets();
+        }).then(function() {
             return coretest.object_client.create_bucket({
                 bucket: BKT,
             });
+        }).then(function() {
+            return coretest.object_client.list_buckets();
         }).then(function() {
             return coretest.object_client.read_bucket({
                 bucket: BKT,

@@ -17,6 +17,7 @@ var EdgeNode = require('./models/edge_node');
 
 module.exports = new object_api.Server({
     // bucket actions
+    list_buckets: list_buckets,
     create_bucket: create_bucket,
     read_bucket: read_bucket,
     update_bucket: update_bucket,
@@ -37,6 +38,25 @@ module.exports = new object_api.Server({
     // middleware to verify the account session
     account_server.account_session
 ]);
+
+
+function list_buckets(req) {
+    return Q.fcall(
+        function() {
+            return Bucket.find({
+                account: req.account.id
+            }).exec();
+        }
+    ).then(
+        function(buckets) {
+            return {
+                buckets: _.map(buckets, function(bucket) {
+                    return _.pick(bucket, 'name');
+                })
+            };
+        }
+    );
+}
 
 
 function create_bucket(req) {
@@ -107,8 +127,10 @@ function list_bucket_objects(req) {
             var info = {
                 account: req.account.id,
                 bucket: bucket.id,
-                key: key,
             };
+            if (key) {
+                info.key = new RegExp(key);
+            }
             return ObjectMD.find(info).exec();
         }
     ).then(
@@ -137,6 +159,7 @@ function create_multipart_upload(req) {
                 account: req.account.id,
                 bucket: bucket.id,
                 key: key,
+                size: size,
                 upload_mode: true,
             };
             return ObjectMD.create(info);
@@ -147,7 +170,6 @@ function create_multipart_upload(req) {
 function complete_multipart_upload(req) {
     var bucket_name = req.restful_params.bucket;
     var key = req.restful_params.key;
-    var size = req.restful_params.size;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -157,7 +179,6 @@ function complete_multipart_upload(req) {
                 key: key,
             };
             var updates = {
-                size: size,
                 $unset: {
                     upload_mode: 1
                 }
@@ -203,6 +224,9 @@ function allocate_object_part(req) {
         }
     ).then(
         function(obj) {
+            if (!obj) {
+                throw new Error('object not found');
+            }
             if (!obj.upload_mode) {
                 // TODO handle the upload_mode state
                 // throw new Error('object not in upload mode');
@@ -338,7 +362,7 @@ function find_bucket(account_id, bucket_name, force) {
 
 function get_object_info(md) {
     var info = {
-        size: md.size,
+        size: md.size || 0,
         create_time: md.create_time.toString(),
     };
     if (md.upload_mode) {

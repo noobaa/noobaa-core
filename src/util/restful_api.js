@@ -298,6 +298,9 @@ function create_client_request(client_params, func_info, params) {
         path: path,
         headers: headers,
         body: body,
+        // turn off withCredentials for browser xhr requests
+        // in order to use allow-origin=* (CORS)
+        withCredentials: false,
     };
     return options;
 }

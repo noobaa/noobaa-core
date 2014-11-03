@@ -57,7 +57,16 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-
+    // enable CORS for agent_api
+    app.use('/agent_api/', function(req, res, next) {
+        res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type');
+        res.header('Access-Control-Allow-Origin', '*');
+        // note that browsers will not allow origin=* with credentials
+        // but anyway we allow it by the agent server.
+        res.header('Access-Control-Allow-Credentials', true);
+        next();
+    });
     var agent_server = new agent_api.Server({
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),

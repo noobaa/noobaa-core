@@ -137,8 +137,8 @@ function add_nodes(req) {
     var count = req.restful_params.count;
     var promise = Q.resolve();
     var new_agents = _.times(count, function() {
-        var node_name = 'node' + next_node_num;
         next_node_num += 1;
+        var node_name = '' + next_node_num;
         var agent = new Agent({
             account_client: account_client,
             edge_node_client: edge_node_client,

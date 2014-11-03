@@ -1,0 +1,26 @@
+<div class="container" ng-controller="NodesCtrl">
+
+    <div class="clearfix">
+        <button class="btn btn-default" ng-click="refresh_status()" nb-ladda="refreshing">
+            &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
+        </button> &nbsp;
+        <button class="btn btn-default" ng-click="add_nodes()">
+            Add Nodes
+        </button> &nbsp;
+        <button class="btn btn-default text-danger" ng-click="reset_nodes()">
+            Reset All Nodes
+        </button>
+    </div>
+
+    <hr/>
+
+    <div>
+        <span ng-repeat="node in nodes">
+            <a ng-click="click_node(node)" class="btn btn-default btn-xs">
+                {{node.name}}
+            </a>
+            &nbsp;
+        </span>
+    </div>
+
+</div>

@@ -7,7 +7,12 @@
             </a>
         </div>
 
-        <ul class="nav navbar-nav navbar-right">
+        <ul class="nav navbar-nav" ng-if="account_email">
+            <li nb-active-location="nodes"><a href="nodes">Nodes</a></li>
+            <li nb-active-location="files"><a href="files">Files</a></li>
+        </ul>
+
+        <ul class="nav navbar-nav navbar-right" ng-if="account_email">
             <li class="dropdown">
                 <a class="navbar-link dropdown-toggle" data-toggle="dropdown">
                     <b>{{account_email}}</b>

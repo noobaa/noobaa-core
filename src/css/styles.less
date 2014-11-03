@@ -16,6 +16,15 @@
 @grid-float-breakpoint: 0;
 @border-color: @gray-lighter;
 
+.ladda-button[data-style=zoom-out] .ladda-spinner,
+.ladda-button[data-style=zoom-out][data-loading] .ladda-spinner {
+    margin: 0 !important;
+    transform: none;
+    -o-transform: none;
+    -moz-transform: none;
+    -webkit-transform: none;
+}
+// use pointer cursor for clickable elements
 *[ng-click],
 *[role=button],
 .dropdown-toggle {

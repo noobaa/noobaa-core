@@ -70,7 +70,8 @@
     "font-awesome": "~4.2.0",
     "bootstrap": "~3.3.0",
     "bootswatch": "~3.2.0",
-    "animate.css": "~3.1.1"
+    "animate.css": "~3.1.1",
+    "filereader-stream": "~0.1.1"
   },
   "devDependencies": {
     "node-inspector": "~0.7.4"

@@ -26,14 +26,12 @@ var nb_login = angular.module('nb_login', ['nb_common']);
 nb_client.config(['$routeProvider', '$locationProvider',
     function($routeProvider, $locationProvider) {
         $locationProvider.html5Mode(true);
-        $routeProvider.when('/status', {
-            templateUrl: 'status.html',
-            // controller: 'AccountCtrl'
-        }).when('/object/:id*', {
-            templateUrl: 'object.html',
-            // controller: 'ObjectCtrl'
+        $routeProvider.when('/nodes', {
+            templateUrl: 'nodes.html',
+        }).when('/files', {
+            templateUrl: 'files.html',
         }).otherwise({
-            redirectTo: '/status'
+            redirectTo: '/nodes'
         });
     }
 ]);
@@ -82,7 +80,7 @@ nb_client.controller('AppCtrl', [
 ]);
 
 
-nb_client.controller('StatusCtrl', [
+nb_client.controller('NodesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
@@ -152,6 +150,18 @@ nb_client.controller('StatusCtrl', [
 ]);
 
 
+nb_client.controller('FilesCtrl', [
+    '$scope', '$http', '$q', '$window', '$timeout',
+    function($scope, $http, $q, $window, $timeout) {
+
+        $scope.files = [{
+            name: 'HAHAHA'
+        }];
+
+    }
+]);
+
+
 nb_login.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window',
     function($scope, $http, $q, $timeout, $window) {
@@ -178,7 +188,6 @@ nb_login.controller('LoginCtrl', [
                 }, 500);
             }, function(err) {
                 $scope.alert_text = err.data || 'failed. hard to say why.';
-            })['finally'](function() {
                 $scope.running_login = false;
             });
         };
@@ -202,7 +211,6 @@ nb_login.controller('LoginCtrl', [
                 }, 500);
             }, function(err) {
                 $scope.alert_text = err.data || 'failed. hard to say why.';
-            })['finally'](function() {
                 $scope.running_create = false;
             });
         };
@@ -277,24 +285,50 @@ nb_common.directive('nbLadda', [
             link: function(scope, element, attrs) {
                 element.addClass('ladda-button');
                 if (angular.isUndefined(element.attr('data-style'))) {
-                    element.attr('data-style', 'slide-right');
+                    element.attr('data-style', 'zoom-out');
                 }
                 /* global Ladda */
                 var ladda = Ladda.create(element[0]);
-                $compile(angular.element(element.children()[0]).contents())(scope);
+                $compile(angular.element(element).contents())(scope);
 
                 scope.$watch(attrs.nbLadda, function(loading) {
-                    if (loading || angular.isNumber(loading)) {
+                    var is_number = angular.isNumber(loading);
+                    if (loading || is_number) {
                         if (!ladda.isLoading()) {
                             ladda.start();
                         }
-                        if (angular.isNumber(loading)) {
+                        if (is_number) {
                             ladda.setProgress(loading);
                         }
                     } else {
                         ladda.stop();
                     }
                 });
+            }
+        };
+    }
+]);
+
+nb_common.directive('nbActiveLocation', [
+    '$location',
+    function($location) {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                var location = attrs.nbActiveLocation || '/';
+                if (location[0] !== '/') {
+                    location = '/' + location;
+                }
+                var check_location = function() {
+                    if ($location.path() === location) {
+                        element.addClass('active');
+                    } else {
+                        element.removeClass('active');
+                    }
+                };
+                scope.$on('$routeChangeSuccess', check_location);
+                scope.$on('$locationChangeSuccess', check_location);
+                check_location();
             }
         };
     }

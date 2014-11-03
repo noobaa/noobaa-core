@@ -1,0 +1,17 @@
+<div class="container" ng-controller="FilesCtrl">
+
+    <div class="clearfix">
+        <button class="btn btn-default">
+            Upload file
+        </button>
+    </div>
+
+    <hr/>
+
+    <div>
+        <div ng-repeat="file in files">
+            {{file.name}}
+        </div>
+    </div>
+
+</div>

@@ -20,6 +20,11 @@ var ng_login = angular.module('ng_login', [
 ng_login.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window',
     function($scope, $http, $q, $timeout, $window) {
+
+        $scope.nav = {
+            root: '/'
+        };
+
         var account_client = new account_api.Client({
             path: '/api/account_api/',
         });

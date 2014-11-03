@@ -1,0 +1,11 @@
+<div class="container" ng-controller="StatusCtrl">
+
+    <button class="btn btn-default" ng-click="refresh_status()" nb-ladda="refreshing">
+        &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
+    </button>
+
+    <div ng-repeat="(name,num) in stats.counters">
+        <b>{{num}}</b> {{name}}
+    </div>
+
+</div>

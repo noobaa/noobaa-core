@@ -3,8 +3,9 @@
  ******************************************************************************/
 
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
-@import (less)"../../node_modules/bootswatch/darkly/bootswatch.less";
-@import (less)"../../node_modules/bootswatch/darkly/variables.less";
+/* @import (less)"../../node_modules/bootstrap/less/theme.less"; */
+@import (less)"../../node_modules/bootswatch/yeti/bootswatch.less";
+@import (less)"../../node_modules/bootswatch/yeti/variables.less";
 @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
 @import (less)"../../bower_components/alertify.js/themes/alertify.core.css";
 @import (less)"../../bower_components/alertify.js/themes/alertify.default.css";
@@ -15,6 +16,7 @@
 
 @grid-float-breakpoint: 0;
 @border-color: @gray-lighter;
+@font-family-sans-serif: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
 
 .navbar > ul.navbar-nav > li {
     @c: hsla(0,0%,100%, 0.1);
@@ -27,6 +29,9 @@
         padding-top: 10px;
         padding-bottom: 10px;
     }
+}
+.ladda-button[data-loading] {
+    background-color: @gray;
 }
 .ladda-button[data-style=zoom-out] > .ladda-spinner,
 .ladda-button[data-style=zoom-out][data-loading] > .ladda-spinner {

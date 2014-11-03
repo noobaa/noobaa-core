@@ -8,6 +8,15 @@ var mgmt_api = require('../api/mgmt_api');
 var ObjectClient = require('../api/object_client');
 var file_reader_stream = require('filereader-stream');
 
+var mgmt_client = new mgmt_api.Client({
+    path: '/api/mgmt_api/',
+});
+var object_client = new ObjectClient({
+    path: '/api/object_api/',
+});
+
+
+
 var ng_app = angular.module('ng_app', [
     'ng_util',
     'ngRoute',
@@ -20,12 +29,14 @@ var ng_app = angular.module('ng_app', [
 ng_app.config(['$routeProvider', '$locationProvider',
     function($routeProvider, $locationProvider) {
         $locationProvider.html5Mode(true);
-        $routeProvider.when('/nodes', {
+        $routeProvider.when('/', {
+            templateUrl: 'status.html',
+        }).when('/nodes', {
             templateUrl: 'nodes.html',
         }).when('/files', {
             templateUrl: 'files.html',
         }).otherwise({
-            redirectTo: '/nodes'
+            redirectTo: '/'
         });
     }
 ]);
@@ -34,27 +45,40 @@ ng_app.config(['$routeProvider', '$locationProvider',
 ng_app.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
     function($scope, $http, $q, $window) {
+        $scope.nav = {
+            root: '/app/'
+        };
+    }
+]);
 
-        $scope.breadcrumbs = [{
-            text: 'Files',
-            href: 'files',
-            dropdown: [{
-                text: 'Haha',
-                href: '',
-            }],
-        }, {
-            text: 'Buckets',
-            href: 'files'
-        }, {
-            text: 'Buckets',
-            href: 'files'
-        }, {
-            text: 'Buckets',
-            href: 'files'
-        }, {
-            text: 'Buckets',
-            href: 'files'
-        }];
+
+ng_app.controller('StatusCtrl', [
+    '$scope', '$http', '$q', '$window', '$timeout',
+    function($scope, $http, $q, $window, $timeout) {
+
+        $scope.nav.crumbs = [];
+
+        $scope.refresh_status = refresh_status;
+
+        refresh_status();
+
+        function refresh_status() {
+            $scope.refreshing = true;
+            return $q.when().then(
+                function() {
+                    return $q.when(mgmt_client.system_stats(), function(res) {
+                        console.log('STATS', res);
+                        $scope.stats = res;
+                    });
+                }
+            )['finally'](
+                function() {
+                    return $timeout(function() {
+                        $scope.refreshing = false;
+                    }, 500);
+                }
+            );
+        }
 
     }
 ]);
@@ -64,23 +88,19 @@ ng_app.controller('NodesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
-        var mgmt = new mgmt_api.Client({
-            path: '/api/mgmt_api/',
-        });
-
-        $scope.refresh_status = refresh_status;
+        $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
         $scope.reset_nodes = reset_nodes;
 
-        refresh_status();
+        refresh_nodes();
 
-        function refresh_status() {
+        function refresh_nodes() {
             $scope.refreshing = true;
             return $q.when().then(
                 function() {
                     // TODO
                     /*
-                    return $q.when(mgmt.system_stats(), function(res) {
+                    return $q.when(mgmt_client.system_stats(), function(res) {
                         console.log('STATS', res);
                         $scope.stats = res;
                     });
@@ -88,7 +108,7 @@ ng_app.controller('NodesCtrl', [
                 }
             ).then(
                 function() {
-                    return $q.when(mgmt.list_nodes(), function(res) {
+                    return $q.when(mgmt_client.list_nodes(), function(res) {
                         console.log('NODES', res);
                         $scope.nodes = res.nodes;
                     });
@@ -97,7 +117,7 @@ ng_app.controller('NodesCtrl', [
                 function() {
                     return $timeout(function() {
                         $scope.refreshing = false;
-                    }, 1000);
+                    }, 500);
                 }
             );
         }
@@ -111,9 +131,9 @@ ng_app.controller('NodesCtrl', [
                 if (!count) {
                     return;
                 }
-                mgmt.add_nodes({
+                mgmt_client.add_nodes({
                     count: count
-                }).then(refresh_status);
+                }).then(refresh_nodes);
             }, '10');
         }
 
@@ -122,7 +142,7 @@ ng_app.controller('NodesCtrl', [
                 if (!e) {
                     return;
                 }
-                mgmt.reset_nodes().then(refresh_status);
+                mgmt_client.reset_nodes().then(refresh_nodes);
             });
         }
 
@@ -133,10 +153,6 @@ ng_app.controller('NodesCtrl', [
 ng_app.controller('FilesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
-
-        var object_client = new ObjectClient({
-            path: '/api/object_api/',
-        });
 
         $scope.click_upload = click_upload;
         $scope.load_bucket_objects = load_bucket_objects;

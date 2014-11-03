@@ -1,15 +1,15 @@
 <nav class="navbar navbar-default navbar-static-top" ng-controller="NavCtrl">
     <div class="container-fluid">
 
-        <ul class="nav navbar-nav" ng-if="breadcrumbs">
+        <ul class="nav navbar-nav" ng-if="nav">
             <li style="border: none">
-                <a href="/" class="navbar-brand">
+                <a ng-href="{{nav.root || '/'}}" class="navbar-brand">
                     &nbsp;
                     <b><i>NooBaa</i></b>
                     &nbsp;
                 </a>
             </li>
-            <li ng-repeat="crumb in breadcrumbs" ng-class="{active: $last, dropdown: crumb.dropdown}">
+            <li ng-repeat="crumb in nav.crumbs" ng-class="{active: $last, dropdown: crumb.dropdown}">
                 <a ng-if="!crumb.dropdown" ng-href="{{crumb.href}}">
                     {{crumb.text}}
                 </a>

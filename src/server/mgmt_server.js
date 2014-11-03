@@ -37,13 +37,13 @@ module.exports = mgmt_server;
 
 function system_stats(req) {
     return Q.all([
-        Account.count(),
-        EdgeNode.count(),
-        Bucket.count(),
-        ObjectMD.count(),
-        ObjectPart.count(),
-        DataChunk.count(),
-        DataBlock.count(),
+        Account.count().exec(),
+        EdgeNode.count().exec(),
+        Bucket.count().exec(),
+        ObjectMD.count().exec(),
+        ObjectPart.count().exec(),
+        DataChunk.count().exec(),
+        DataBlock.count().exec(),
         Q.fcall(
             function() {
                 return EdgeNode.aggregate([{
@@ -53,7 +53,7 @@ function system_stats(req) {
                             $sum: '$allocated_storage'
                         }
                     }
-                }]);
+                }]).exec();
             }
         ),
         Q.fcall(
@@ -65,17 +65,17 @@ function system_stats(req) {
                             $sum: '$size'
                         }
                     }
-                }]);
+                }]).exec();
             }
         )
     ]).spread(
         function(
             accounts, nodes,
             buckets, objects, parts, chunks, blocks,
-            allocated_result, used_result) {
+            allocated_res, used_res) {
             return {
-                allocated_storage: allocated_result.allocated_storage,
-                used_storage: used_result.used_storage,
+                allocated_storage: allocated_res.allocated_storage || 0,
+                used_storage: used_res.used_storage || 0,
                 counters: {
                     accounts: accounts,
                     nodes: nodes,

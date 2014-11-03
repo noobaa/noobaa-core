@@ -16,19 +16,26 @@
 @grid-float-breakpoint: 0;
 @border-color: @gray-lighter;
 
-
-.navbar ul.navbar-nav li {
+.navbar > ul.navbar-nav > li {
     @c: hsla(0,0%,100%, 0.1);
     border-left: solid 1px @c;
 }
-
-.ladda-button[data-style=zoom-out] .ladda-spinner,
-.ladda-button[data-style=zoom-out][data-loading] .ladda-spinner {
+.dropdown-menu > li {
+    padding-top: 0;
+    padding-bottom: 0;
+    & > a {
+        padding-top: 10px;
+        padding-bottom: 10px;
+    }
+}
+.ladda-button[data-style=zoom-out] > .ladda-spinner,
+.ladda-button[data-style=zoom-out][data-loading] > .ladda-spinner {
     margin: 0 !important;
     transform: none;
     -o-transform: none;
     -moz-transform: none;
     -webkit-transform: none;
+
 }
 // use pointer cursor for clickable elements
 *[ng-click],

@@ -36,15 +36,21 @@ ng_app.controller('AppCtrl', [
     function($scope, $http, $q, $window) {
 
         $scope.breadcrumbs = [{
-            text: 'Home',
-            href: '/'
-        }, {
             text: 'Files',
             href: 'files',
             dropdown: [{
                 text: 'Haha',
                 href: '',
             }],
+        }, {
+            text: 'Buckets',
+            href: 'files'
+        }, {
+            text: 'Buckets',
+            href: 'files'
+        }, {
+            text: 'Buckets',
+            href: 'files'
         }, {
             text: 'Buckets',
             href: 'files'

@@ -57,65 +57,6 @@ nb_common.controller('NavCtrl', [
 ]);
 
 
-nb_login.controller('LoginCtrl', [
-    '$scope', '$http', '$q', '$timeout', '$window',
-    function($scope, $http, $q, $timeout, $window) {
-        var account_client = new account_api.Client({
-            path: '/api/account_api/',
-        });
-
-        $scope.login = function() {
-            if ($scope.running_login || $scope.running_create) {
-                return;
-            }
-            if (!$scope.email || !$scope.password) {
-                return;
-            }
-            $scope.running_login = true;
-            $scope.alert_text = '';
-            return $q.when(account_client.login_account({
-                email: $scope.email,
-                password: $scope.password,
-            })).then(function() {
-                $scope.alert_text = '';
-                return $timeout(function() {
-                    $window.location.href = '/';
-                }, 500);
-            }, function(err) {
-                $scope.alert_text = err.data || 'failed. hard to say why.';
-            })['finally'](function() {
-                $scope.running_login = false;
-            });
-        };
-
-        $scope.create = function() {
-            if ($scope.running_login || $scope.running_create) {
-                return;
-            }
-            if (!$scope.email || !$scope.password) {
-                return;
-            }
-            $scope.running_create = true;
-            $scope.alert_text = '';
-            return $q.when(account_client.create_account({
-                email: $scope.email,
-                password: $scope.password,
-            })).then(function() {
-                $scope.alert_text = '';
-                return $timeout(function() {
-                    $window.location.href = '/';
-                }, 500);
-            }, function(err) {
-                $scope.alert_text = err.data || 'failed. hard to say why.';
-            })['finally'](function() {
-                $scope.running_create = false;
-            });
-        };
-    }
-]);
-
-
-
 nb_client.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
     function($scope, $http, $q, $window) {
@@ -126,6 +67,16 @@ nb_client.controller('AppCtrl', [
         var object_client = new ObjectClient({
             path: '/api/object_api/',
         });
+        */
+
+        /*
+        var ms = new $window.MediaSource();
+        var video = $window.document.querySelector('video');
+        video.src = $window.URL.createObjectURL(ms);
+        ms.addEventListener('sourceopen', function(e) {
+            var sourceBuffer = ms.addSourceBuffer('video/webm; codecs="vorbis,vp8"');
+            // sourceBuffer.appendBuffer(oneVideoWebMChunk);
+        }, false);
         */
     }
 ]);
@@ -200,6 +151,63 @@ nb_client.controller('StatusCtrl', [
     }
 ]);
 
+
+nb_login.controller('LoginCtrl', [
+    '$scope', '$http', '$q', '$timeout', '$window',
+    function($scope, $http, $q, $timeout, $window) {
+        var account_client = new account_api.Client({
+            path: '/api/account_api/',
+        });
+
+        $scope.login = function() {
+            if ($scope.running_login || $scope.running_create) {
+                return;
+            }
+            if (!$scope.email || !$scope.password) {
+                return;
+            }
+            $scope.running_login = true;
+            $scope.alert_text = '';
+            return $q.when(account_client.login_account({
+                email: $scope.email,
+                password: $scope.password,
+            })).then(function() {
+                $scope.alert_text = '';
+                return $timeout(function() {
+                    $window.location.href = '/';
+                }, 500);
+            }, function(err) {
+                $scope.alert_text = err.data || 'failed. hard to say why.';
+            })['finally'](function() {
+                $scope.running_login = false;
+            });
+        };
+
+        $scope.create = function() {
+            if ($scope.running_login || $scope.running_create) {
+                return;
+            }
+            if (!$scope.email || !$scope.password) {
+                return;
+            }
+            $scope.running_create = true;
+            $scope.alert_text = '';
+            return $q.when(account_client.create_account({
+                email: $scope.email,
+                password: $scope.password,
+            })).then(function() {
+                $scope.alert_text = '';
+                return $timeout(function() {
+                    $window.location.href = '/';
+                }, 500);
+            }, function(err) {
+                $scope.alert_text = err.data || 'failed. hard to say why.';
+            })['finally'](function() {
+                $scope.running_create = false;
+            });
+        };
+    }
+]);
 
 
 

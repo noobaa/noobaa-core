@@ -81,8 +81,8 @@ var PATHS = {
     ],
 
     server_main: './src/server/web_server.js',
-    client_main: './src/client/ng_client.js',
-    agent_main: './src/agent/ng_agent.js',
+    client_bundle: './src/client/bundle.js',
+    agent_bundle: './src/agent/bundle.js',
     client_externals: [
         './node_modules/bootstrap/dist/js/bootstrap.min.js',
         './bower_components/ladda/dist/spin.min.js',
@@ -231,7 +231,7 @@ gulp.task('client', ['bower', 'ng'], function() {
     var NAME = 'bundle.js';
     var NAME_MIN = 'bundle.min.js';
     var bundler = browserify({
-        entries: [PATHS.client_main, PATHS.agent_main],
+        entries: [PATHS.client_bundle, PATHS.agent_bundle],
         debug: (process.env.DEBUG_MODE === 'true'),
 
         // TODO this browserify config will not work in node-webkit....
@@ -327,13 +327,22 @@ function serve() {
 gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client']);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_client_and_serve', ['jshint', 'client'], serve);
 gulp.task('install_server_and_serve', ['jshint'], serve);
+gulp.task('install_client_and_serve', ['jshint', 'client'], serve);
 
 gulp.task('start_dev', ['install_and_serve'], function() {
     gulp.watch('src/css/**/*', ['install_css_and_serve']);
-    gulp.watch(['src/client/**/*', 'src/ngview/**/*', 'src/utils/**/*'], ['install_client_and_serve']);
-    gulp.watch(['src/server/**/*', 'src/views/**/*'], ['install_server_and_serve']);
+    gulp.watch([
+        'src/server/**/*',
+        'src/views/**/*'
+    ], ['install_server_and_serve']);
+    gulp.watch([
+        'src/client/**/*',
+        'src/agent/**/*',
+        'src/api/**/*',
+        'src/utils/**/*',
+        'src/ngview/**/*',
+    ], ['install_client_and_serve']);
 });
 
 gulp.task('start_prod', function() {

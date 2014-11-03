@@ -1,14 +1,34 @@
 <html>
 
 <head>
+    {{{# def.include( 'common_head.html') }}}
 </head>
 
 <body>
+
+    <nav class="navbar navbar-default navbar-static-top" ng-controller="NavCtrl">
+        <div class="container-fluid">
+
+            <div class="navbar-header">
+                <a class="navbar-brand">
+                    <b><i>NooBaa</i></b>
+                </a>
+            </div>
+        </div>
+    </nav>
+
     <div class="container">
-        <hr/>
-        <h1>ERROR</h1>
-        <hr/>
+        <div class="jumbotron text-center">
+            <h1><small>Broken</small></h1>
+            <p>{{{! it.status }}}</p>
+            <p>{{{! it.message }}}</p>
+        </div>
     </div>
+
+    <div>
+        {{{# def.include( 'common_scripts.html') }}}
+    </div>
+
 </body>
 
 </html>

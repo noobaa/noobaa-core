@@ -16,6 +16,12 @@
 @grid-float-breakpoint: 0;
 @border-color: @gray-lighter;
 
+
+.navbar ul.navbar-nav li {
+    @c: hsla(0,0%,100%, 0.1);
+    border-left: solid 1px @c;
+}
+
 .ladda-button[data-style=zoom-out] .ladda-spinner,
 .ladda-button[data-style=zoom-out][data-loading] .ladda-spinner {
     margin: 0 !important;

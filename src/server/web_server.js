@@ -243,7 +243,7 @@ function error_403(req, res, next) {
     console.log('NO USER', req.originalMethod, req.originalUrl);
     if (can_accept_html(req)) {
         return res.redirect(URL.format({
-            pathname: '/auth/facebook/login/',
+            pathname: '/login/',
             query: {
                 state: req.originalUrl
             }
@@ -254,13 +254,6 @@ function error_403(req, res, next) {
         message: 'NO USER',
         reload: true
     };
-    if (req.originalUrl.indexOf('/api/device') === 0) {
-        // TEMP FIX:
-        // when device api fails on no user, we send the error as success status (200)
-        // because old planet code was not reloading on error.
-        console.log('FORCE RELOAD DEVICE', req.originalUrl);
-        return res.json(200, err);
-    }
     return next(err);
 }
 

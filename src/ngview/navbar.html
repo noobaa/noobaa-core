@@ -1,16 +1,13 @@
 <nav class="navbar navbar-default navbar-static-top" ng-controller="NavCtrl">
-    <div class="container">
+    <div class="container-fluid">
 
         <div class="navbar-header">
-            <a class="navbar-brand">
+            <a class="navbar-brand" href="/">
+                &nbsp;
                 <b><i>NooBaa</i></b>
+                &nbsp;
             </a>
         </div>
-
-        <ul class="nav navbar-nav" ng-if="account_email">
-            <li nb-active-location="nodes"><a href="nodes">Nodes</a></li>
-            <li nb-active-location="files"><a href="files">Files</a></li>
-        </ul>
 
         <ul class="nav navbar-nav navbar-right" ng-if="account_email">
             <li class="dropdown">
@@ -25,6 +22,21 @@
                     <li ng-if="account_email">
                         <a href="/logout">Logout</a>
                     </li>
+                </ul>
+            </li>
+        </ul>
+
+        <ul class="nav navbar-nav" ng-if="breadcrumbs">
+            <li ng-repeat="crumb in breadcrumbs" ng-class="{active: $last, dropdown: crumb.dropdown}">
+                <a ng-if="!crumb.dropdown" ng-href="{{crumb.href}}">
+                    {{crumb.text}}
+                </a>
+                <a ng-if="crumb.dropdown" class="dropdown-toggle" data-toggle="dropdown">
+                    <i class="fa fa-angle-right fa-fw text-muted" style="margin-left: -15px" ></i>
+                    {{crumb.text}}
+                </a>
+                <ul ng-if="crumb.dropdown" class="dropdown-menu" role="menu">
+                    <li ng-repeat="opt in crumb.dropdown"><a ng-href="{{opt.href}}">{{opt.text}}</a></li>
                 </ul>
             </li>
         </ul>

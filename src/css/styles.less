@@ -3,20 +3,19 @@
  ******************************************************************************/
 
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
-/* @import (less)"../../node_modules/bootstrap/less/theme.less"; */
 @import (less)"../../node_modules/bootswatch/yeti/bootswatch.less";
 @import (less)"../../node_modules/bootswatch/yeti/variables.less";
 @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
 @import (less)"../../bower_components/alertify.js/themes/alertify.core.css";
 @import (less)"../../bower_components/alertify.js/themes/alertify.default.css";
-/* @import (inline)"../../node_modules/video.js/dist/video-js/video-js.css"; */
+@import (inline)"../../node_modules/video.js/dist/video-js/video-js.css";
 @import (less)"../../bower_components/ladda/dist/ladda-themeless.min.css";
 @import (less)"../../node_modules/animate.css/animate.min.css";
 /* @import (less)"animations.css"; */
 
 @grid-float-breakpoint: 0;
 @border-color: @gray-lighter;
-@font-family-sans-serif: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+/* @font-family-sans-serif: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif; */
 
 .navbar > ul.navbar-nav > li {
     @c: hsla(0,0%,100%, 0.1);
@@ -29,12 +28,18 @@
         padding-top: 10px;
         padding-bottom: 10px;
     }
+
 }
 .close {
     outline: none;
 }
 .ladda-button[data-loading] {
-    background-color: @gray;
+    &,
+    &.disabled,
+    &:hover {
+        background-color: @gray-light;
+    }
+
 }
 .ladda-button[data-style=zoom-out] > .ladda-spinner,
 .ladda-button[data-style=zoom-out][data-loading] > .ladda-spinner {

@@ -88,6 +88,11 @@ ng_app.controller('NodesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
+        $scope.nav.crumbs = [{
+            text: 'Nodes',
+            href: 'nodes'
+        }];
+
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
         $scope.reset_nodes = reset_nodes;
@@ -153,6 +158,11 @@ ng_app.controller('NodesCtrl', [
 ng_app.controller('FilesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
+
+        $scope.nav.crumbs = [{
+            text: 'Files',
+            href: 'files'
+        }];
 
         $scope.click_upload = click_upload;
         $scope.load_bucket_objects = load_bucket_objects;

@@ -4,6 +4,20 @@
         &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
     </button>
 
+    <p>
+        <a class="btn btn-default btn-lg" href="files">
+            <i class="fa fa-cloud-upload fa-3x text-muted"></i>
+        </a>
+        &nbsp;Upload files
+    </p>
+
+    <div>
+        <a class="btn btn-default btn-lg" href="nodes">
+            <i class="fa fa-star fa-3x text-muted"></i>
+        </a>
+        &nbsp;Show nodes
+    </div>
+
     <div ng-repeat="(name,num) in stats.counters">
         <b>{{num}}</b> {{name}}
     </div>

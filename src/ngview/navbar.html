@@ -2,7 +2,7 @@
     <div class="container-fluid">
 
         <ul class="nav navbar-nav" ng-if="nav">
-            <li style="border: none">
+            <li style="border: none" ng-class="{active: !nav.crumbs.length}">
                 <a ng-href="{{nav.root || '/'}}" class="navbar-brand">
                     &nbsp;
                     <b><i>NooBaa</i></b>

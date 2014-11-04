@@ -22,16 +22,20 @@ var edge_node_schema = new Schema({
         required: true,
     },
 
-    // the latest public ip of the node
-    ip: {
+    // location - country / region
+    location: {
         type: String,
         required: true,
+    },
+
+    // the public ip of the node
+    ip: {
+        type: String,
     },
 
     // the listening port of the agent running on the node
     port: {
         type: Number,
-        required: true,
     },
 
     // the last time the node sent heartbeat
@@ -41,17 +45,17 @@ var edge_node_schema = new Schema({
         required: true,
     },
 
-    // the total allocation size in bytes
+    // the allocated storage space
     allocated_storage: {
-        type: Number,
-        required: true,
+        b: Number,
+        gb: Number,
     },
 
-    // the used size in bytes
+    // the used storage
     // computed from the data blocks owned by this node
     used_storage: {
-        type: Number,
-        required: true,
+        b: Number,
+        gb: Number,
     },
 });
 

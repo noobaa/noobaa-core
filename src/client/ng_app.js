@@ -90,7 +90,8 @@ ng_app.controller('NodesCtrl', [
 
         $scope.nav.crumbs = [{
             text: 'Nodes',
-            href: 'nodes'
+            href: 'nodes',
+            active: true,
         }];
 
         $scope.refresh_nodes = refresh_nodes;
@@ -161,7 +162,8 @@ ng_app.controller('FilesCtrl', [
 
         $scope.nav.crumbs = [{
             text: 'Files',
-            href: 'files'
+            href: 'files',
+            active: true,
         }];
 
         $scope.click_upload = click_upload;

@@ -1,8 +1,6 @@
-// this module is written for both nodejs, or for client with browserify.
 'use strict';
 
 var restful_api = require('../util/restful_api');
-
 
 module.exports = restful_api({
 
@@ -10,29 +8,29 @@ module.exports = restful_api({
 
     methods: {
 
-        connect_edge_node: {
+        create_node: {
             method: 'POST',
-            path: '/node',
+            path: '/',
             params: {
                 type: 'object',
-                required: ['name', 'ip', 'port'],
+                required: ['name', 'location', 'allocated_storage'],
                 properties: {
                     name: {
                         type: 'string',
                     },
-                    ip: {
+                    location: {
                         type: 'string',
                     },
-                    port: {
-                        type: 'integer',
+                    allocated_storage: {
+                        $ref: '/edge_node_api/definitions/storage_size'
                     },
                 }
             },
         },
 
-        delete_edge_node: {
+        delete_node: {
             method: 'DELETE',
-            path: '/node',
+            path: '/',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -44,40 +42,137 @@ module.exports = restful_api({
             },
         },
 
-        heartbeat: {
-            method: 'POST',
-            path: '/hb',
+        list_nodes: {
+            method: 'GET',
+            path: '/',
+            reply: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            $ref: '/edge_node_api/definitions/node_info'
+                        }
+                    }
+                }
+            }
+        },
+
+        read_node: {
+            method: 'GET',
+            path: '/:name',
             params: {
                 type: 'object',
-                required: ['space_total', 'space_used', 'num_blocks'],
+                required: ['name'],
                 properties: {
-                    space_total: {
-                        type: 'integer',
+                    name: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                $ref: '/edge_node_api/definitions/node_info'
+            }
+        },
+
+
+        heartbeat: {
+            method: 'PUT',
+            path: '/:name',
+            params: {
+                type: 'object',
+                required: [
+                    'name',
+                    'location',
+                    'ip',
+                    'port',
+                    'allocated_storage',
+                    'used_storage',
+                ],
+                properties: {
+                    name: {
+                        type: 'string'
                     },
-                    space_used: {
-                        type: 'integer',
+                    location: {
+                        type: 'string'
                     },
-                    num_blocks: {
-                        type: 'integer',
+                    ip: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'integer'
+                    },
+                    allocated_storage: {
+                        $ref: '/edge_node_api/definitions/storage_size'
+                    },
+                    used_storage: {
+                        $ref: '/edge_node_api/definitions/storage_size'
                     },
                 }
             },
             reply: {
-                type: 'object',
-                required: ['space_total', 'space_used', 'num_blocks'],
-                properties: {
-                    space_total: {
-                        type: 'integer',
-                    },
-                    space_used: {
-                        type: 'integer',
-                    },
-                    num_blocks: {
-                        type: 'integer',
-                    },
-                }
+                $ref: '/edge_node_api/definitions/node_info'
             },
         },
+
+    },
+
+
+    ////////////////////////////////
+    // general schema definitions //
+    ////////////////////////////////
+
+    definitions: {
+
+        storage_size: {
+            type: 'object',
+            properties: {
+                b: {
+                    type: 'integer',
+                },
+                gb: {
+                    type: 'integer',
+                },
+            }
+        },
+
+        node_info: {
+            type: 'object',
+            required: [
+                'name',
+                'location',
+                'ip',
+                'port',
+                'heartbeat',
+                'allocated_storage',
+                'used_storage',
+            ],
+            properties: {
+                name: {
+                    type: 'string'
+                },
+                location: {
+                    type: 'string'
+                },
+                ip: {
+                    type: 'string'
+                },
+                port: {
+                    type: 'integer'
+                },
+                heartbeat: {
+                    type: 'string',
+                    format: 'date',
+                },
+                allocated_storage: {
+                    $ref: '/edge_node_api/definitions/storage_size'
+                },
+                used_storage: {
+                    $ref: '/edge_node_api/definitions/storage_size'
+                },
+            }
+        }
 
     }
 

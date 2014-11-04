@@ -5,6 +5,7 @@ var _ = require('lodash');
 var assert = require('assert');
 var Q = require('q');
 var restful_api = require('../util/restful_api');
+var fssize_utils = require('../util/fssize_utils');
 var account_api = require('../api/account_api');
 var edge_node_api = require('../api/edge_node_api');
 var mgmt_api = require('../api/mgmt_api');
@@ -22,8 +23,6 @@ var DataBlock = require('./models/data_block');
 
 var mgmt_server = new mgmt_api.Server({
     system_stats: system_stats,
-    list_nodes: list_nodes,
-    read_node: read_node,
     add_nodes: add_nodes,
     remove_node: remove_node,
     reset_nodes: reset_nodes,
@@ -33,6 +32,7 @@ var mgmt_server = new mgmt_api.Server({
 ]);
 
 module.exports = mgmt_server;
+
 
 
 function system_stats(req) {
@@ -46,26 +46,25 @@ function system_stats(req) {
         DataBlock.count().exec(),
         Q.fcall(
             function() {
-                return EdgeNode.aggregate([{
-                    $group: {
-                        _id: '',
-                        allocated_storage: {
-                            $sum: '$allocated_storage'
-                        }
-                    }
-                }]).exec();
+                return EdgeNode.mapReduce({
+                    map: function() {
+                        /* global emit */
+                        emit('allocated', this.allocated_storage);
+                        emit('used', this.used_storage);
+                    },
+                    reduce: fssize_utils.reduce_sum
+                }).exec();
             }
         ),
         Q.fcall(
             function() {
-                return DataChunk.aggregate([{
-                    $group: {
-                        _id: '',
-                        used_storage: {
-                            $sum: '$size'
-                        }
-                    }
-                }]).exec();
+                return DataChunk.mapReduce({
+                    map: function() {
+                        /* global emit */
+                        emit('size', this.size);
+                    },
+                    reduce: fssize_utils.reduce_sum
+                }).exec();
             }
         )
     ]).spread(
@@ -74,8 +73,8 @@ function system_stats(req) {
             buckets, objects, parts, chunks, blocks,
             allocated_res, used_res) {
             return {
-                allocated_storage: allocated_res.allocated_storage || 0,
-                used_storage: used_res.used_storage || 0,
+                allocated_storage: allocated_res.allocated_storage,
+                used_storage: used_res.used_storage,
                 counters: {
                     accounts: accounts,
                     nodes: nodes,
@@ -90,33 +89,6 @@ function system_stats(req) {
     );
 }
 
-function list_nodes(req) {
-    return Q.fcall(
-        function() {
-            return EdgeNode.find().exec();
-        }
-    ).then(
-        function(nodes) {
-            var nodes_reply = _.map(nodes,
-                function(node) {
-                    var node_reply = _.pick(node,
-                        'name', 'ip', 'port', 'heartbeat',
-                        'allocated_storage', 'used_storage');
-                    node_reply.heartbeat = node_reply.heartbeat.toString();
-                    return node_reply;
-                }
-            );
-            return {
-                nodes: nodes_reply
-            };
-        }
-    );
-}
-
-function read_node(req) {
-    // TODO
-    throw new Error('TODO');
-}
 
 
 

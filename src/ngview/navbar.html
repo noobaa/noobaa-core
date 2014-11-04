@@ -9,7 +9,7 @@
                     &nbsp;
                 </a>
             </li>
-            <li ng-repeat="crumb in nav.crumbs" ng-class="{active: $last, dropdown: crumb.dropdown}">
+            <li ng-repeat-start="crumb in nav.crumbs" ng-class="{active: crumb.active, dropdown: crumb.dropdown}">
                 <a ng-if="!crumb.dropdown" ng-href="{{crumb.href}}">
                     {{crumb.text}}
                 </a>

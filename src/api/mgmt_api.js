@@ -18,10 +18,10 @@ module.exports = restful_api({
                 required: ['allocated_storage', 'used_storage', 'counters'],
                 properties: {
                     allocated_storage: {
-                        type: 'integer',
+                        $ref: '/edge_node_api/definitions/storage_size'
                     },
                     used_storage: {
-                        type: 'integer',
+                        $ref: '/edge_node_api/definitions/storage_size'
                     },
                     counters: {
                         type: 'object',
@@ -56,63 +56,6 @@ module.exports = restful_api({
                     },
                 }
             },
-        },
-
-
-        list_nodes: {
-            method: 'GET',
-            path: '/nodes',
-            reply: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: [
-                                'name', 'ip', 'port', 'heartbeat',
-                                'allocated_storage', 'used_storage'
-                            ],
-                            properties: {
-                                name: {
-                                    type: 'string'
-                                },
-                                ip: {
-                                    type: 'string'
-                                },
-                                port: {
-                                    type: 'integer'
-                                },
-                                heartbeat: {
-                                    type: 'string',
-                                    format: 'date',
-                                },
-                                allocated_storage: {
-                                    type: 'integer'
-                                },
-                                used_storage: {
-                                    type: 'integer'
-                                },
-                            }
-                        }
-                    }
-                }
-            }
-        },
-
-        read_node: {
-            method: 'GET',
-            path: '/node/:name',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    }
-                }
-            }
         },
 
         add_nodes: {

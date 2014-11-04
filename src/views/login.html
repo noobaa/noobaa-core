@@ -12,9 +12,9 @@
 
     <div class="container">
         <div class="panel panel-default center-block" style="max-width: 300px">
-            <div class="panel-heading">
+            <!-- <div class="panel-heading">
                 <h3 class="panel-title">Enter :</h3>
-            </div>
+            </div> -->
             <div class="panel-body" style="padding-bottom: 0">
                 <form role="form">
                     <div class="form-group Xform-group-lg">
@@ -25,10 +25,14 @@
                         <input class="form-control" type="password" id="input_password" placeholder="Password" required ng-model="password" />
                     </div>
 
-                    <div class="form-group Xtext-center Xform-group-lg">
-                        <button type="submit" class="btn btn-primary Xbtn-lg" nb-ladda="running_login" ng-click="login()">Login</button>
-                        &nbsp;
-                        <button type="submit" class="btn btn-link Xbtn-lg pull-right" nb-ladda="running_create" ng-click="create()">Create new account</button>
+                    <div class="form-group text-center">
+                        <button type="submit" class="btn btn-primary" nb-ladda="running_login" ng-click="login()">Login</button>
+                    </div>
+
+                    <div class="form-group text-center">
+                        <button type="submit" class="btn btn-link btn-sm" nb-ladda="running_create" ng-click="create()">
+                            First time? Create a new account
+                        </button>
                     </div>
 
                     <div class="form-group alert alert-warning" role="alert" nb-show-animated="{show:'alert_text',in:'pulse',out:'zoomOut'}">

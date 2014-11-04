@@ -6,7 +6,6 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var optimist = require('optimist');
-var rimraf = require('rimraf');
 var path = require('path');
 var chance_seed = optimist.argv.seed || Date.now();
 console.log('using seed', chance_seed);
@@ -21,7 +20,6 @@ describe('object_api', function() {
     var Agent = require('../agent/agent');
     var agents;
 
-    var agent_storage_dir = path.resolve(__dirname, '../../test_storage_for_agents');
 
     before(function(done) {
         this.timeout(20000);
@@ -31,31 +29,10 @@ describe('object_api', function() {
             }
         ).then(
             function() {
-                return EdgeNode.collection.drop();
-            }
-        ).then(
-            function() {
-                console.log('RIMRAF', agent_storage_dir);
-                return Q.nfcall(rimraf, agent_storage_dir);
-            }
-        ).then(
-            function() {
-                agents = _.times(10, function(i) {
-                    return new Agent({
-                        account_client: coretest.account_client,
-                        edge_node_client: coretest.edge_node_client,
-                        account_credentials: coretest.account_credentials,
-                        node_name: 'node' + i,
-                        storage_path: agent_storage_dir,
-                    });
-                });
-            }
-        ).then(
-            function() {
-                return Q.all(_.map(agents, function(agent) {
-                    console.log('agent start', agent.node_name);
-                    return agent.start();
-                }));
+                var allocated_size = {
+                    gb: 1
+                };
+                return coretest.init_test_nodes(10, allocated_size);
             }
         ).nodeify(done);
     });
@@ -63,10 +40,7 @@ describe('object_api', function() {
     after(function(done) {
         Q.fcall(
             function() {
-                return Q.all(_.map(agents, function(agent) {
-                    console.log('agent stop', agent.node_name);
-                    return agent.stop();
-                }));
+                return coretest.clear_test_nodes();
             }
         ).nodeify(done);
     });
@@ -97,12 +71,12 @@ describe('object_api', function() {
             return coretest.object_client.create_multipart_upload({
                 bucket: BKT,
                 key: KEY,
+                size: 0,
             });
         }).then(function() {
             return coretest.object_client.complete_multipart_upload({
                 bucket: BKT,
                 key: KEY,
-                size: 0,
             });
         }).then(function() {
             return coretest.object_client.read_object_md({
@@ -176,6 +150,7 @@ describe('object_api', function() {
                 return coretest.object_client.create_multipart_upload({
                     bucket: BKT,
                     key: KEY,
+                    size: size,
                 });
             }).then(function() {
                 return Q.Promise(function(resolve, reject) {

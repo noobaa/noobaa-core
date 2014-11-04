@@ -11,6 +11,7 @@ var mkdirp = require('mkdirp');
 var express = require('express');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
+var fssize_utils = require('../util/fssize_utils');
 var account_api = require('../api/account_api');
 var edge_node_api = require('../api/edge_node_api');
 var agent_api = require('../api/agent_api');
@@ -29,10 +30,12 @@ function Agent(params) {
     assert(params.edge_node_client, 'missing params.edge_node_client');
     assert(params.account_credentials, 'missing params.account_credentials');
     assert(params.node_name, 'missing params.node_name');
+    assert(params.node_location, 'missing params.node_location');
     self.account_client = params.account_client;
     self.edge_node_client = params.edge_node_client;
     self.account_credentials = params.account_credentials;
     self.node_name = params.node_name;
+    self.node_location = params.node_location;
 
     self.storage_path = params.storage_path;
     var lru_options = {};
@@ -86,8 +89,11 @@ function Agent(params) {
     self.http_server = http_server;
     self.http_port = 0;
 
-    self.space_total = 10 * 1024 * 1024; // TODO maintain space_total
-    self.space_used = 0;
+    // TODO maintain persistent allocated_storage
+    self.allocated_storage = {
+        gb: 1
+    };
+    self.used_storage = {};
     self.num_blocks = 0;
 }
 
@@ -110,11 +116,7 @@ Agent.prototype.start = function() {
         }
     ).then(
         function() {
-            return self.edge_node_client.connect_edge_node({
-                name: self.node_name,
-                ip: '',
-                port: self.http_port,
-            });
+            return self.send_heartbeat();
         }
     ).then(
         function() {
@@ -208,10 +210,14 @@ Agent.prototype.start_stop_heartbeats = function() {
 
 
 Agent.prototype.send_heartbeat = function() {
+    var self = this;
     return this.edge_node_client.heartbeat({
-        space_total: this.space_total,
-        space_used: this.space_used,
-        num_blocks: this.num_blocks,
+        name: self.node_name,
+        location: self.node_location,
+        ip: '',
+        port: self.http_port,
+        allocated_storage: self.allocated_storage,
+        used_storage: self.used_storage,
     });
 };
 
@@ -290,8 +296,8 @@ Agent.prototype.write_block = function(req) {
             var lru_block = self.blocks_lru.find_or_add_item(block_id);
             lru_block.data = data;
             self.num_blocks += 1;
-            self.space_used -= old_size;
-            self.space_used += data.length;
+            self.used_storage = fssize_utils.add_bytes(
+                self.used_storage, data.length - old_size);
         }
     );
 };

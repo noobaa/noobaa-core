@@ -79,7 +79,7 @@ ObjectWriter.prototype.complete_upload = function() {
     return this._client.complete_multipart_upload({
         bucket: this._bucket,
         key: this._key,
-        size: this._pos,
+        // size: this._pos,
         // md5sum: '', // TODO
     });
 };

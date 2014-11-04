@@ -119,6 +119,7 @@ function add_nodes(req) {
                 password: 'aaa', // TODO
             },
             node_name: node_name,
+            node_location: 'home', // TODO
         });
         promise = promise.then(
             function() {

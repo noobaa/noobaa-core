@@ -11,49 +11,65 @@ var _ = require('lodash');
 
 module.exports = {
     init: init,
-    is_equal: is_equal,
     clone: clone,
+    is_equal: is_equal,
+    add_bytes: add_bytes,
     reduce_sum: reduce_sum,
 };
 
+var GB = 1024 * 1024 * 1024;
+
 function init(b, gb) {
-    return {
-        b: b,
-        gb: gb,
-    };
-}
-
-function clone(x) {
-    var res = {};
-    if (x.b) {
-        res.b = x.b;
+    var fssize = {};
+    while (b >= GB) {
+        b -= GB;
+        gb += 1;
     }
-    if (x.gb) {
-        res.gb = x.gb;
+    while (b <= -GB) {
+        b += GB;
+        gb -= 1;
     }
-    return res;
+    if (gb) {
+        fssize.gb = gb;
+    }
+    if (b) {
+        fssize.b = b;
+    }
+    return fssize;
 }
 
-function is_equal(x, y) {
-    return (x.b === y.b && x.gb === y.gb);
+function clone(fssize) {
+    return init(fssize.b, fssize.gb);
 }
 
+function is_equal(fssize1, fssize2) {
+    return (fssize1.b === fssize2.b && fssize1.gb === fssize2.gb);
+}
+
+function add_bytes(fssize, bytes) {
+    return init({
+        b: (fssize.b || 0) + bytes,
+        gb: fssize.gb
+    });
+}
 
 // a map-reduce part for summing up
+// this function must be self contained to be able to send to mongo mapReduce()
+// so not using any functions or constants from above.
 function reduce_sum(key, values) {
     var GB = 1073741824;
     var b = 0;
     var gb = 0;
     values.forEach(function(v) {
         if (typeof(v) === 'number') {
-            while (v > GB) {
-                v -= GB;
-                gb += 1;
-            }
             b += v;
         } else {
             b += v.b;
             gb += v.gb;
+        }
+        while (b >= GB) {
+            b -= GB;
+            gb += 1;
         }
     });
     return {

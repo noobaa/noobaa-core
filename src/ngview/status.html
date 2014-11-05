@@ -18,6 +18,11 @@
         &nbsp;Show nodes
     </div>
 
+    <div class="well pull-left">
+        <p>Storage capacity <span class="badge">{{human_fssize(stats.allocated_storage)}}</span></p>
+        <p>Used storage <span class="badge">{{human_fssize(stats.used_storage)}}</span></p>
+    </div>
+
     <div ng-repeat="(name,num) in stats.counters">
         <b>{{num}}</b> {{name}}
     </div>

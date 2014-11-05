@@ -47,15 +47,15 @@ var edge_node_schema = new Schema({
 
     // the allocated storage space
     allocated_storage: {
-        b: Number,
-        gb: Number,
+        type: Number,
+        required: true,
     },
 
     // the used storage
     // computed from the data blocks owned by this node
     used_storage: {
-        b: Number,
-        gb: Number,
+        type: Number,
+        required: true,
     },
 
     // the vendor that operates this node.

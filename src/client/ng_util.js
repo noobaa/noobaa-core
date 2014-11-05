@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
+var size_utils = require('../util/size_utils');
 
 // include the generated templates from ngview
 require('../../build/templates');
@@ -11,6 +12,11 @@ require('../../build/templates');
 var ng_util = angular.module('ng_util', [
     'templates',
 ]);
+
+
+ng_util.run(['$rootScope', function($rootScope) {
+    $rootScope.human_size = size_utils.human_size;
+}]);
 
 
 
@@ -91,7 +97,6 @@ ng_util.directive('nbLadda', [
             restrict: 'A',
             link: function(scope, element, attrs) {
                 element.addClass('ladda-button');
-                console.log(element.attr('class'));
                 if (angular.isUndefined(element.attr('data-style'))) {
                     element.attr('data-style', 'zoom-out');
                 }

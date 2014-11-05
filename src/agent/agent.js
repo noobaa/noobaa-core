@@ -11,7 +11,7 @@ var mkdirp = require('mkdirp');
 var express = require('express');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
-var fssize_utils = require('../util/fssize_utils');
+var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
 var edge_node_api = require('../api/edge_node_api');
 var agent_api = require('../api/agent_api');
@@ -52,7 +52,7 @@ function Agent(params) {
     var app = express();
     app.use(express_body_parser.json());
     app.use(express_body_parser.raw({
-        limit: 16 * 1024 * 1024 // size limit on raw requests - 16 MB.
+        limit: 16 * size_utils.MEGABYTE // size limit on raw requests
     }));
     app.use(express_body_parser.text());
     app.use(express_body_parser.urlencoded({
@@ -90,10 +90,8 @@ function Agent(params) {
     self.http_port = 0;
 
     // TODO maintain persistent allocated_storage
-    self.allocated_storage = {
-        gb: 1
-    };
-    self.used_storage = {};
+    self.allocated_storage = size_utils.GIGABYTE;
+    self.used_storage = 0;
     self.num_blocks = 0;
 }
 
@@ -296,8 +294,7 @@ Agent.prototype.write_block = function(req) {
             var lru_block = self.blocks_lru.find_or_add_item(block_id);
             lru_block.data = data;
             self.num_blocks += 1;
-            self.used_storage = fssize_utils.add_bytes(
-                self.used_storage, data.length - old_size);
+            self.used_storage += data.length - old_size;
         }
     );
 };

@@ -5,6 +5,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
+var size_utils = require('../util/size_utils');
 
 describe('edge_node_api', function() {
 
@@ -18,9 +19,7 @@ describe('edge_node_api', function() {
             return coretest.edge_node_client.create_node({
                 name: 'haha',
                 geolocation: 'home',
-                allocated_storage: {
-                    gb: 10
-                },
+                allocated_storage: 10 * size_utils.GIGABYTE,
             });
         }).then(function() {
             return coretest.edge_node_client.heartbeat({
@@ -28,12 +27,8 @@ describe('edge_node_api', function() {
                 geolocation: 'home',
                 ip: '0.0.0.0',
                 port: 0,
-                allocated_storage: {
-                    gb: 10
-                },
-                used_storage: {
-                    gb: 1
-                },
+                allocated_storage: 10 * size_utils.GIGABYTE,
+                used_storage: size_utils.GIGABYTE,
             });
         }).then(function() {
             return coretest.edge_node_client.read_node({

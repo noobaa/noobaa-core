@@ -8,16 +8,14 @@ var assert = require('assert');
 var coretest = require('./coretest');
 var Agent = require('../agent/agent');
 var agent_api = require('../api/agent_api');
+var size_utils = require('../util/size_utils');
 
 describe('agent', function() {
 
     it('should run agents', function(done) {
         Q.fcall(
             function() {
-                var allocated_size = {
-                    gb: 1
-                };
-                return coretest.init_test_nodes(10, allocated_size);
+                return coretest.init_test_nodes(10, size_utils.GIGABYTE);
             }
         ).then(
             function() {

@@ -5,7 +5,6 @@ var _ = require('lodash');
 var Q = require('q');
 var mongoose = require('mongoose');
 var restful_api = require('../util/restful_api');
-var fssize_utils = require('../util/fssize_utils');
 var edge_node_api = require('../api/edge_node_api');
 var account_api = require('../api/account_api');
 var account_server = require('./account_server');
@@ -43,7 +42,7 @@ function create_node(req) {
     );
     info.account = req.account.id; // see account_server.account_session
     info.heartbeat = new Date();
-    info.used_storage = {};
+    info.used_storage = 0;
     return Q.fcall(
         function() {
             return EdgeNode.create(info);
@@ -157,13 +156,13 @@ function heartbeat(req) {
                     node.ip + ':' + node.port, 'to',
                     updates.ip + ':' + updates.port);
             }
-            if (!fssize_utils.is_equal(updates.allocated_storage, node.allocated_storage)) {
+            if (updates.allocated_storage !== node.allocated_storage) {
                 console.log('NODE change allocated storage from',
                     node.allocated_storage, 'to', updates.allocated_storage);
             }
 
             // used storage is verified but not updated
-            if (!fssize_utils.is_equal(used_storage, node.used_storage)) {
+            if (used_storage !== node.used_storage) {
                 console.log('NODE used storage mismatch',
                     node.used_storage, 'got', used_storage);
                 // TODO trigger a usage check
@@ -277,7 +276,7 @@ function get_node_vendors(req) {
                 return NodeVendor.create(noobaa_center_vendor_kind).then(
                     function(vendor) {
                         // no reason to read again from the db,
-                        // so just adding the new item and keep using the old list. 
+                        // so just adding the new item and keep using the old list.
                         vendors.push(vendor);
                         return vendors;
                     }
@@ -299,13 +298,13 @@ function get_node_vendors(req) {
 function get_node_info(node) {
     var info = _.pick(node,
         'name',
-        'geolocation'
+        'geolocation',
+        'allocated_storage',
+        'used_storage'
     );
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
-    info.allocated_storage = fssize_utils.clone(node.allocated_storage);
-    info.used_storage = fssize_utils.clone(node.used_storage);
     if (node.vendor) {
         info.vendor = mongoose.Types.ObjectId.isValid(node.vendor) ? node.vendor : node.vendor.id;
     }

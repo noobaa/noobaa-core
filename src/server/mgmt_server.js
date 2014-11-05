@@ -5,7 +5,7 @@ var _ = require('lodash');
 var assert = require('assert');
 var Q = require('q');
 var restful_api = require('../util/restful_api');
-var fssize_utils = require('../util/fssize_utils');
+var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
 var edge_node_api = require('../api/edge_node_api');
 var mgmt_api = require('../api/mgmt_api');
@@ -50,8 +50,8 @@ function system_stats(req) {
                         emit('allocated', this.allocated_storage);
                         emit('used', this.used_storage);
                     },
-                    reduce: fssize_utils.reduce_sum
-                }).exec();
+                    reduce: size_utils.reduce_sum
+                });
             }
         ),
         Q.fcall(
@@ -61,8 +61,8 @@ function system_stats(req) {
                         /* global emit */
                         emit('size', this.size);
                     },
-                    reduce: fssize_utils.reduce_sum
-                }).exec();
+                    reduce: size_utils.reduce_sum
+                });
             }
         )
     ]).spread(
@@ -70,9 +70,15 @@ function system_stats(req) {
             accounts, nodes,
             buckets, objects, parts, chunks, blocks,
             allocated_res, used_res) {
+            var allocated_info = _.mapValues(_.indexBy(allocated_res, '_id'), 'value');
+            var used_info = _.mapValues(_.indexBy(used_res, '_id'), 'value');
+            if (used_info.size !== allocated_info.used) {
+                // TODO not so good that we keep two used size counters...
+                console.log('mismatching count of used size', allocated_info, used_info);
+            }
             return {
-                allocated_storage: allocated_res.allocated_storage,
-                used_storage: used_res.used_storage,
+                allocated_storage: allocated_info.allocated,
+                used_storage: used_info.size,
                 counters: {
                     accounts: accounts,
                     nodes: nodes,

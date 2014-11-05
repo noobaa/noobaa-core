@@ -12,6 +12,7 @@ console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
 var Semaphore = require('noobaa-util/semaphore');
 var EdgeNode = require('../server/models/edge_node');
+var size_utils = require('../util/size_utils');
 
 describe('object_api', function() {
 
@@ -29,10 +30,7 @@ describe('object_api', function() {
             }
         ).then(
             function() {
-                var allocated_size = {
-                    gb: 1
-                };
-                return coretest.init_test_nodes(10, allocated_size);
+                return coretest.init_test_nodes(10, size_utils.GIGABYTE);
             }
         ).nodeify(done);
     });

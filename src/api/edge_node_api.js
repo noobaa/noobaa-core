@@ -22,7 +22,7 @@ module.exports = restful_api({
                         type: 'string',
                     },
                     allocated_storage: {
-                        $ref: '/edge_node_api/definitions/storage_size'
+                        type: 'integer'
                     },
                     vendor: {
                         type: 'string'
@@ -110,10 +110,10 @@ module.exports = restful_api({
                         type: 'integer'
                     },
                     allocated_storage: {
-                        $ref: '/edge_node_api/definitions/storage_size'
+                        type: 'integer'
                     },
                     used_storage: {
-                        $ref: '/edge_node_api/definitions/storage_size'
+                        type: 'integer'
                     },
                 }
             },
@@ -193,18 +193,6 @@ module.exports = restful_api({
 
     definitions: {
 
-        storage_size: {
-            type: 'object',
-            properties: {
-                b: {
-                    type: 'integer',
-                },
-                gb: {
-                    type: 'integer',
-                },
-            }
-        },
-
         node_info: {
             type: 'object',
             required: [
@@ -234,10 +222,10 @@ module.exports = restful_api({
                     format: 'date',
                 },
                 allocated_storage: {
-                    $ref: '/edge_node_api/definitions/storage_size'
+                    type: 'integer'
                 },
                 used_storage: {
-                    $ref: '/edge_node_api/definitions/storage_size'
+                    type: 'integer'
                 },
                 vendor: {
                     type: 'string'

@@ -18,10 +18,10 @@ module.exports = restful_api({
                 required: ['allocated_storage', 'used_storage', 'counters'],
                 properties: {
                     allocated_storage: {
-                        $ref: '/edge_node_api/definitions/storage_size'
+                        $ref: '/edge_node_api/definitions/bigint'
                     },
                     used_storage: {
-                        $ref: '/edge_node_api/definitions/storage_size'
+                        $ref: '/edge_node_api/definitions/bigint'
                     },
                     counters: {
                         type: 'object',
@@ -58,6 +58,31 @@ module.exports = restful_api({
             },
         },
 
+    },
+
+    ////////////////////////////////
+    // general schema definitions //
+    ////////////////////////////////
+
+    definitions: {
+
+        bigint: {
+            oneOf: [{
+                type: 'integer'
+            }, {
+                type: 'object',
+                properties: {
+                    n: {
+                        type: 'integer',
+                    },
+                    // to support bigger integers we can specify a peta field
+                    // which is considered to be based from 2^50
+                    peta: {
+                        type: 'integer',
+                    }
+                }
+            }]
+        },
 
     }
 

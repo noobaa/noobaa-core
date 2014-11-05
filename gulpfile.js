@@ -340,7 +340,7 @@ gulp.task('start_dev', ['install_and_serve'], function() {
         'src/client/**/*',
         'src/agent/**/*',
         'src/api/**/*',
-        'src/utils/**/*',
+        'src/util/**/*',
         'src/ngview/**/*',
     ], ['install_client_and_serve']);
 });

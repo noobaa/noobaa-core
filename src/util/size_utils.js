@@ -37,6 +37,7 @@ module.exports = {
 // this function must be self contained to be able to send to mongo mapReduce()
 // so not using any functions or constants from above.
 function reduce_sum(key, values) {
+    var PETABYTE = 1024 * 1024 * 1024 * 1024 * 1024;
     var n = 0;
     var peta = 0;
     values.forEach(function(v) {

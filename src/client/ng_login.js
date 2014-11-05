@@ -36,21 +36,22 @@ ng_login.controller('LoginCtrl', [
             if (!$scope.email || !$scope.password) {
                 return;
             }
-            $scope.login_running = true;
             $scope.alert_text = '';
+            $scope.login_running = true;
             return $q.when(account_client.login_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
                 $scope.alert_text = '';
-                $scope.login_done = true;
                 $scope.form_done = true;
                 return $timeout(function() {
                     $window.location.href = '/';
                 }, 500);
             }, function(err) {
-                $scope.alert_text = err.data || 'failed. hard to say why.';
-                $scope.login_running = false;
+                return $timeout(function() {
+                    $scope.alert_text = err.data || 'failed. hard to say why.';
+                    $scope.login_running = false;
+                }, 500);
             });
         };
 
@@ -61,21 +62,22 @@ ng_login.controller('LoginCtrl', [
             if (!$scope.email || !$scope.password) {
                 return;
             }
-            $scope.create_running = true;
             $scope.alert_text = '';
+            $scope.create_running = true;
             return $q.when(account_client.create_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
                 $scope.alert_text = '';
-                $scope.create_done = true;
                 $scope.form_done = true;
                 return $timeout(function() {
                     $window.location.href = '/';
                 }, 500);
             }, function(err) {
-                $scope.alert_text = err.data || 'failed. hard to say why.';
-                $scope.create_running = false;
+                return $timeout(function() {
+                    $scope.alert_text = err.data || 'failed. hard to say why.';
+                    $scope.create_running = false;
+                }, 500);
             });
         };
     }

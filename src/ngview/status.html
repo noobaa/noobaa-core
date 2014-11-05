@@ -1,36 +1,63 @@
 <div class="container" ng-controller="StatusCtrl">
 
-    <button class="btn btn-default" ng-click="refresh_status()" nb-ladda="refreshing">
-        &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
-    </button>
-
-    <p>
-        <a class="btn btn-default btn-lg" href="files">
-            <i class="fa fa-cloud-upload fa-3x text-muted"></i>
-        </a>
-        &nbsp;Upload files
-    </p>
-
-    <div>
-        <a class="btn btn-default btn-lg" href="nodes">
-            <i class="fa fa-star fa-3x text-muted"></i>
-        </a>
-        &nbsp;Show nodes
+    <div class="clearfix">
+        <button class="btn btn-default" ng-click="refresh_status()" nb-ladda="refreshing">
+            &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
+        </button>
     </div>
 
-    <div class="clearfix">
-        <div class="well pull-left">
-            <p>Storage capacity <span class="badge">{{human_size(stats.allocated_storage)}}</span>
-            </p>
-            <p>Used storage <span class="badge">{{human_size(stats.used_storage)}}</span>
-            </p>
-        </div>
+    <hr />
 
-        <div class="well pull-right">
-            <div ng-repeat="(name,num) in stats.counters">
-                <b>{{num}}</b> {{name}}
+    <div class="row">
+
+        <div class="col-sm-5 col-md-4 col-md-offset-1">
+            <div class="well">
+                <h4>Capacity</h4>
+                <table class="table">
+                    <tr>
+                        <td>Storage capacity</td>
+                        <td>{{human_size(stats.allocated_storage)}}</td>
+                    </tr>
+                    <tr>
+                        <td>Number of nodes</td>
+                        <td>{{stats.nodes}}</td>
+                    </tr>
+                    <tr></tr>
+                </table>
+                <div class="text-center">
+                    <a class="btn btn-primary btn-lg hover-scale" href="nodes">Open nodes map</a>
+                </div>
             </div>
         </div>
+
+        <div class="col-sm-5 col-sm-offset-2 col-md-4 col-md-offset-2">
+            <div class="well">
+                <h4>Usage</h4>
+                <table class="table">
+                    <tr>
+                        <td>Used storage</td>
+                        <td>{{human_size(stats.used_storage)}}</td>
+                    </tr>
+                    <tr>
+                        <td>Number of objects</td>
+                        <td>{{stats.objects}}</td>
+                    </tr>
+                    <tr></tr>
+                </table>
+                <div class="text-center">
+                    <a class="btn btn-primary btn-lg hover-scale" href="files">Open files</a>
+                </div>
+            </div>
+        </div>
+
     </div>
+
+
+    <!--
+    <hr />
+    <div ng-repeat="(name,num) in stats.counters">
+        <b>{{num}}</b> {{name}}
+    </div>
+    -->
 
 </div>

@@ -102,7 +102,7 @@ ng_util.directive('nbLadda', [
                 }
                 /* global Ladda */
                 var ladda = Ladda.create(element[0]);
-                $compile(element.contents())(scope);
+                $compile(angular.element(element.children()[0]).contents())(scope);
 
                 scope.$watch(attrs.nbLadda, function(loading) {
                     var is_number = angular.isNumber(loading);

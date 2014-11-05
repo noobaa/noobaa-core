@@ -17,34 +17,27 @@
             </div> -->
             <div class="panel-body" style="padding-bottom: 0">
                 <form role="form">
-                    <div class="form-group Xform-group-lg">
+                    <div class="form-group form-group-lg">
                         <input class="form-control" type="email" id="input_email" placeholder="Email" required ng-model="email" />
                     </div>
 
-                    <div class="form-group Xform-group-lg">
+                    <div class="form-group form-group-lg">
                         <input class="form-control" type="password" id="input_password" placeholder="Password" required ng-model="password" />
                     </div>
 
                     <div class="form-group text-center">
-                        <button type="submit" class="btn" ng-disabled="form_done" ng-class="{
-                                'btn-primary': !login_done, 
-                                'btn-success': login_done
-                            }" nb-ladda="login_running" ng-click="login()">
+                        <button type="submit" class="btn btn-lg btn-primary" ng-disabled="form_done" nb-ladda="login_running" ng-click="login()">
                             Login
                         </button>
                     </div>
 
                     <div class="form-group text-center">
-                        <button type="submit" class="btn btn-sm" ng-disabled="form_done" ng-class="{
-                                'btn-link': !create_done && !create_running,
-                                'btn-default': create_running && !create_done,
-                                'btn-success': create_done,
-                            }" nb-ladda="create_running" ng-click="create()">
-                            First time? Create a new account
+                        <button type="submit" class="btn btn-link" ng-disabled="form_done" nb-ladda="create_running" ng-click="create()">
+                            First time? Click to create account
                         </button>
                     </div>
 
-                    <div class="form-group alert alert-warning" role="alert" nb-show-animated="{show:'alert_text',in:'pulse',out:'zoomOut'}">
+                    <div class="form-group alert alert-warning" role="alert" ng-show="alert_text">
                         <button type="button" class="close" ng-click="alert_text=''">
                             <span aria-hidden="true">&times;</span>
                             <span class="sr-only">Close</span>

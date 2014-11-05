@@ -10,7 +10,7 @@ module.exports = restful_api({
 
         create_node: {
             method: 'POST',
-            path: '/',
+            path: '/node',
             params: {
                 type: 'object',
                 required: ['name', 'geolocation', 'allocated_storage'],
@@ -36,7 +36,7 @@ module.exports = restful_api({
 
         delete_node: {
             method: 'DELETE',
-            path: '/',
+            path: '/node/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -50,7 +50,7 @@ module.exports = restful_api({
 
         list_nodes: {
             method: 'GET',
-            path: '/',
+            path: '/node',
             reply: {
                 type: 'object',
                 required: ['nodes'],
@@ -67,7 +67,7 @@ module.exports = restful_api({
 
         read_node: {
             method: 'GET',
-            path: '/:name',
+            path: '/node/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -85,7 +85,7 @@ module.exports = restful_api({
 
         heartbeat: {
             method: 'PUT',
-            path: '/:name',
+            path: '/node/:name',
             params: {
                 type: 'object',
                 required: [
@@ -125,7 +125,7 @@ module.exports = restful_api({
 
         start_agents: {
             method: 'POST',
-            path: '/nodes',
+            path: '/agents',
             params: {
                 type: 'object',
                 required: ['nodes'],
@@ -142,7 +142,7 @@ module.exports = restful_api({
 
         stop_agents: {
             method: 'PUT',
-            path: '/nodes',
+            path: '/agents',
             params: {
                 type: 'object',
                 required: ['nodes'],

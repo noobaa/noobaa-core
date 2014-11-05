@@ -25,7 +25,6 @@ var node_vendor_schema = new Schema({
     // the vendor related info needed to work with it
     info: {
         type: Object,
-        required: true,
     },
 
 });

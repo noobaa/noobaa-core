@@ -10,9 +10,9 @@
 
     <div class="row">
 
-        <div class="col-sm-5 col-md-4 col-md-offset-1">
+        <div class="col-sm-5 col-md-4">
             <div class="well">
-                <h4>Capacity</h4>
+                <h3>Capacity</h3>
                 <table class="table">
                     <tr>
                         <td>Storage capacity</td>
@@ -20,7 +20,7 @@
                     </tr>
                     <tr>
                         <td>Number of nodes</td>
-                        <td>{{stats.nodes}}</td>
+                        <td>{{stats.counters.nodes}}</td>
                     </tr>
                     <tr></tr>
                 </table>
@@ -30,9 +30,9 @@
             </div>
         </div>
 
-        <div class="col-sm-5 col-sm-offset-2 col-md-4 col-md-offset-2">
+        <div class="col-sm-5 col-md-4">
             <div class="well">
-                <h4>Usage</h4>
+                <h3>Usage</h3>
                 <table class="table">
                     <tr>
                         <td>Used storage</td>
@@ -40,7 +40,7 @@
                     </tr>
                     <tr>
                         <td>Number of objects</td>
-                        <td>{{stats.objects}}</td>
+                        <td>{{stats.counters.objects}}</td>
                     </tr>
                     <tr></tr>
                 </table>

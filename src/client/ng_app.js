@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
+var size_utils = require('../util/size_utils');
 var mgmt_api = require('../api/mgmt_api');
 var edge_node_api = require('../api/edge_node_api');
 var ObjectClient = require('../api/object_client');
@@ -59,31 +60,22 @@ ng_app.controller('AppCtrl', [
 ng_app.controller('StatusCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
-
         $scope.nav.crumbs = [];
-
         $scope.refresh_status = refresh_status;
-
         refresh_status();
 
         function refresh_status() {
             $scope.refreshing = true;
-            return $q.when().then(
-                function() {
-                    return $q.when(mgmt_client.system_stats(), function(res) {
-                        console.log('STATS', res);
-                        $scope.stats = res;
-                    });
-                }
-            )['finally'](
-                function() {
+            return $q.when(mgmt_client.system_stats()).then(
+                function(res) {
+                    console.log('STATS', res);
+                    $scope.stats = res;
                     return $timeout(function() {
                         $scope.refreshing = false;
                     }, 500);
                 }
             );
         }
-
     }
 ]);
 
@@ -91,43 +83,35 @@ ng_app.controller('StatusCtrl', [
 ng_app.controller('NodesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
-
         $scope.nav.crumbs = [{
             text: 'Nodes',
             href: 'nodes',
             active: true,
         }];
-
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
         $scope.reset_nodes = reset_nodes;
-
         refresh_nodes();
+        get_node_vendors();
 
         function refresh_nodes() {
             $scope.refreshing = true;
-            return $q.when().then(
-                function() {
-                    // TODO
-                    /*
-                    return $q.when(mgmt_client.system_stats(), function(res) {
-                        console.log('STATS', res);
-                        $scope.stats = res;
-                    });
-                    */
-                }
-            ).then(
-                function() {
-                    return $q.when(edge_node_client.list_nodes(), function(res) {
-                        console.log('NODES', res);
-                        $scope.nodes = res.nodes;
-                    });
-                }
-            )['finally'](
-                function() {
+            return $q.when(edge_node_client.list_nodes()).then(
+                function(res) {
+                    console.log('NODES', res);
+                    $scope.nodes = res.nodes;
                     return $timeout(function() {
                         $scope.refreshing = false;
                     }, 500);
+                }
+            );
+        }
+
+        function get_node_vendors() {
+            return $q.when(edge_node_client.get_node_vendors()).then(
+                function(res) {
+                    $scope.node_vendors = _.groupBy(res.vendors, 'kind');
+                    $scope.noobaa_center_vendor_id = $scope.node_vendors['noobaa-center'][0].id;
                 }
             );
         }
@@ -141,9 +125,14 @@ ng_app.controller('NodesCtrl', [
                 if (!count) {
                     return;
                 }
-                mgmt_client.add_nodes({
-                    count: count
-                }).then(refresh_nodes);
+                $q.all(_.times(count, function(i) {
+                    return $q.when(edge_node_client.create_node({
+                        name: '' + i,
+                        geolocation: 'demo',
+                        allocated_storage: size_utils.GIGABYTE,
+                        vendor: $scope.noobaa_center_vendor_id,
+                    }));
+                })).then(refresh_nodes);
             }, '10');
         }
 
@@ -152,7 +141,7 @@ ng_app.controller('NodesCtrl', [
                 if (!e) {
                     return;
                 }
-                mgmt_client.reset_nodes().then(refresh_nodes);
+                $q.when(mgmt_client.reset_nodes()).then(refresh_nodes);
             });
         }
 
@@ -194,13 +183,11 @@ ng_app.controller('FilesCtrl', [
                 bucket: bucket.name,
                 key: file.name
             };
-            $q.when(
-                object_client.create_multipart_upload(
-                    _.defaults(object_path, {
-                        size: file.size
-                    })
-                )
-            ).then(
+            $q.when(object_client.create_multipart_upload(
+                _.defaults(object_path, {
+                    size: file.size
+                })
+            )).then(
                 function() {
                     var defer = $q.defer();
                     var write_stream = object_client.open_write_stream(object_path);

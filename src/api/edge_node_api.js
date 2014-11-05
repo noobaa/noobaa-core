@@ -25,7 +25,7 @@ module.exports = restful_api({
                         $ref: '/edge_node_api/definitions/storage_size'
                     },
                     vendor: {
-                        $ref: '/edge_node_api/definitions/vendor_enum'
+                        type: 'string'
                     },
                     vendor_node_id: {
                         type: 'string'
@@ -122,6 +122,68 @@ module.exports = restful_api({
             },
         },
 
+
+        start_agents: {
+            method: 'POST',
+            path: '/nodes',
+            params: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'string', // node name
+                        }
+                    }
+                }
+            }
+        },
+
+        stop_agents: {
+            method: 'PUT',
+            path: '/nodes',
+            params: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'string', // node name
+                        }
+                    }
+                }
+            }
+        },
+
+        get_node_vendors: {
+            method: 'GET',
+            path: '/node_vendors',
+            reply: {
+                type: 'object',
+                required: ['vendors'],
+                properties: {
+                    vendors: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['id', 'kind'],
+                            properties: {
+                                id: {
+                                    type: 'string',
+                                },
+                                kind: {
+                                    type: 'string',
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+
     },
 
 
@@ -141,11 +203,6 @@ module.exports = restful_api({
                     type: 'integer',
                 },
             }
-        },
-
-        vendor_enum: {
-            type: 'string',
-            enum: ['nb-center', 'aws-opworks'],
         },
 
         node_info: {
@@ -183,7 +240,7 @@ module.exports = restful_api({
                     $ref: '/edge_node_api/definitions/storage_size'
                 },
                 vendor: {
-                    $ref: '/edge_node_api/definitions/vendor_enum'
+                    type: 'string'
                 },
                 vendor_node_id: {
                     type: 'string'

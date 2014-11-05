@@ -16,8 +16,8 @@ var types = mongoose.Schema.Types;
  */
 var storage_vendor_schema = new Schema({
 
-    // enum of the available providers
-    vendor: {
+    // enum of the available vendors
+    kind: {
         type: String,
         enum: ['s3', 'google'],
         required: true,

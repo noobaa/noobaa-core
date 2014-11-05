@@ -16,9 +16,9 @@ var types = mongoose.Schema.Types;
 var node_vendor_schema = new Schema({
 
     // enum of the available vendors
-    vendor: {
+    kind: {
         type: String,
-        enum: ['nb-center', 'aws-opworks'],
+        enum: ['noobaa-center', 'aws-opworks'],
         required: true,
     },
 

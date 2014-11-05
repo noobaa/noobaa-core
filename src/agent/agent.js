@@ -22,7 +22,7 @@ var express_compress = require('compression');
 module.exports = Agent;
 
 /**
- * TODO
+ * The inglorious noobaa agent.
  */
 function Agent(params) {
     var self = this;

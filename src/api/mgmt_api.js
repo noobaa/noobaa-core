@@ -58,39 +58,6 @@ module.exports = restful_api({
             },
         },
 
-        start_agents: {
-            method: 'POST',
-            path: '/nodes',
-            params: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string', // node name
-                        }
-                    }
-                }
-            }
-        },
-
-        stop_agents: {
-            method: 'PUT',
-            path: '/nodes',
-            params: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string', // node name
-                        }
-                    }
-                }
-            }
-        },
 
     }
 

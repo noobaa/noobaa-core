@@ -21,18 +21,16 @@ var ObjectMD = require('./models/object_md');
 var ObjectPart = require('./models/object_part');
 var DataChunk = require('./models/data_chunk');
 var DataBlock = require('./models/data_block');
+var NodeVendor = require('./models/node_vendor');
 
 var mgmt_server = new mgmt_api.Server({
     system_stats: system_stats,
-    start_agents: start_agents,
-    stop_agents: stop_agents,
 }, [
     // middleware to verify the account session before any of this server calls
     account_server.account_session
 ]);
 
 module.exports = mgmt_server;
-
 
 
 function system_stats(req) {
@@ -85,86 +83,6 @@ function system_stats(req) {
                     blocks: blocks,
                 }
             };
-        }
-    );
-}
-
-
-
-
-// TODO the next code is for testing only - manage node agents in the current process TODO
-
-var node_agents = {};
-var next_node_num = 0;
-var account_client = new account_api.Client({
-    path: '/api/account_api/',
-    port: 5001, // TODO
-});
-var edge_node_client = new edge_node_api.Client({
-    path: '/api/edge_node_api/',
-    port: 5001, // TODO
-});
-
-function start_agents(req) {
-    var node_names = req.restful_params.nodes;
-    return Q.fcall(
-        function() {
-            return EdgeNode.find({
-                account: req.account.id,
-                name: {
-                    $in: node_names
-                }
-            }).exec();
-        }
-    ).then(
-        function(nodes) {
-            return start_node_agents(req.account, nodes);
-        }
-    );
-}
-
-function start_node_agents(account, nodes) {
-    var sem = new Semaphore(3);
-    return Q.all(_.map(nodes,
-        function(node) {
-            var agent = node_agents[node.name] || new Agent({
-                account_client: account_client,
-                edge_node_client: edge_node_client,
-                account_credentials: {
-                    email: account.email,
-                    password: 'aaa', // TODO
-                },
-                node_name: node.name,
-                node_geolocation: node.geolocation,
-            });
-            return sem.surround(function() {
-                return agent.start();
-            }).thenResolve(agent);
-        }
-    )).then(
-        function(new_agents) {
-            _.each(new_agents, function(agent) {
-                node_agents[agent.node_name] = agent;
-            });
-        }
-    );
-}
-
-
-function stop_agents(req) {
-    var name = req.restful_api.name;
-    var agent = node_agents[name];
-    if (!agent) {
-        console.log('node to remove not found', name);
-        return;
-    }
-    return Q.fcall(
-        function() {
-            agent.stop();
-        }
-    ).then(
-        function() {
-            delete node_agents[name];
         }
     );
 }

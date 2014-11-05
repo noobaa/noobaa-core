@@ -30,48 +30,52 @@ ng_login.controller('LoginCtrl', [
         });
 
         $scope.login = function() {
-            if ($scope.running_login || $scope.running_create) {
+            if ($scope.login_running || $scope.create_running) {
                 return;
             }
             if (!$scope.email || !$scope.password) {
                 return;
             }
-            $scope.running_login = true;
+            $scope.login_running = true;
             $scope.alert_text = '';
             return $q.when(account_client.login_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
                 $scope.alert_text = '';
+                $scope.login_done = true;
+                $scope.form_done = true;
                 return $timeout(function() {
                     $window.location.href = '/';
                 }, 500);
             }, function(err) {
                 $scope.alert_text = err.data || 'failed. hard to say why.';
-                $scope.running_login = false;
+                $scope.login_running = false;
             });
         };
 
         $scope.create = function() {
-            if ($scope.running_login || $scope.running_create) {
+            if ($scope.login_running || $scope.create_running) {
                 return;
             }
             if (!$scope.email || !$scope.password) {
                 return;
             }
-            $scope.running_create = true;
+            $scope.create_running = true;
             $scope.alert_text = '';
             return $q.when(account_client.create_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
                 $scope.alert_text = '';
+                $scope.create_done = true;
+                $scope.form_done = true;
                 return $timeout(function() {
                     $window.location.href = '/';
                 }, 500);
             }, function(err) {
                 $scope.alert_text = err.data || 'failed. hard to say why.';
-                $scope.running_create = false;
+                $scope.create_running = false;
             });
         };
     }

@@ -91,12 +91,13 @@ ng_util.directive('nbLadda', [
             restrict: 'A',
             link: function(scope, element, attrs) {
                 element.addClass('ladda-button');
+                console.log(element.attr('class'));
                 if (angular.isUndefined(element.attr('data-style'))) {
                     element.attr('data-style', 'zoom-out');
                 }
                 /* global Ladda */
                 var ladda = Ladda.create(element[0]);
-                $compile(angular.element(element).contents())(scope);
+                $compile(element.contents())(scope);
 
                 scope.$watch(attrs.nbLadda, function(loading) {
                     var is_number = angular.isNumber(loading);

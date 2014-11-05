@@ -9,7 +9,7 @@
                     &nbsp;
                 </a>
             </li>
-            <li ng-repeat-start="crumb in nav.crumbs" ng-class="{active: crumb.active, dropdown: crumb.dropdown}">
+            <li ng-repeat="crumb in nav.crumbs" ng-class="{active: crumb.active, dropdown: crumb.dropdown}">
                 <a ng-if="!crumb.dropdown" ng-href="{{crumb.href}}">
                     {{crumb.text}}
                 </a>
@@ -34,11 +34,12 @@
                 </a>
                 <ul class="dropdown-menu" role="menu">
                     <li>
-                        <div class="text-center text-muted">
-                            <i class="fa fa-angle-left fa-fw"></i>
-                            <b><i>{{account_email}}</i></b>
-                            <i class="fa fa-angle-right fa-fw"></i>
-                        </div>
+                        <a>
+                            <h4 class="text-muted" style="margin:0">
+                                <i class="fa fa-user fa-fw"></i>
+                                {{account_email}}
+                            </h4>
+                        </a>
                     </li>
                     <li class="divider"></li>
                     <li ng-if="!account_email">

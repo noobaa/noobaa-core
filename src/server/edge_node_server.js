@@ -34,7 +34,7 @@ function create_node(req) {
         function() {
             return EdgeNode.create(info);
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 
@@ -64,7 +64,7 @@ function delete_node(req) {
             }
             return node.remove();
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 
@@ -175,5 +175,3 @@ function get_node_info(node) {
     info.used_storage = fssize_utils.clone(node.used_storage);
     return info;
 }
-
-function reply_undefined() {}

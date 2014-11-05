@@ -70,7 +70,7 @@ function create_bucket(req) {
             };
             return Bucket.create(info);
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 
@@ -98,7 +98,7 @@ function update_bucket(req) {
             };
             return Bucket.findOneAndUpdate(info, updates).exec();
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 
@@ -114,7 +114,7 @@ function delete_bucket(req) {
             };
             return Bucket.findOneAndRemove(info).exec();
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 
@@ -164,7 +164,7 @@ function create_multipart_upload(req) {
             };
             return ObjectMD.create(info);
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 function complete_multipart_upload(req) {
@@ -185,7 +185,7 @@ function complete_multipart_upload(req) {
             };
             return ObjectMD.findOneAndUpdate(info, updates).exec();
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 function abort_multipart_upload(req) {
@@ -204,7 +204,7 @@ function abort_multipart_upload(req) {
             };
             return ObjectMD.findOneAndUpdate(info, updates).exec();
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 function allocate_object_part(req) {
@@ -300,7 +300,7 @@ function update_object_md(req) {
             var updates = _.pick(req.restful_params);
             return ObjectMD.findOneAndUpdate(info, updates).exec();
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 
@@ -317,7 +317,7 @@ function delete_object(req) {
             };
             return ObjectMD.findOneAndRemove(info).exec();
         }
-    ).then(reply_undefined);
+    ).thenResolve();
 }
 
 
@@ -370,5 +370,3 @@ function get_object_info(md) {
     }
     return info;
 }
-
-function reply_undefined() {}

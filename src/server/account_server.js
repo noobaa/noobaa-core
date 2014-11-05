@@ -76,8 +76,7 @@ function create_account(req) {
             req.session.account_id = account.id;
             req.session.account_email = account.email;
         }
-    ).then(
-        reply_undefined,
+    ).thenResolve().then(null,
         function(err) {
             if (err.code === 11000) {
                 throw new Error('account already exists for email');
@@ -119,8 +118,7 @@ function update_account(req) {
             var info = _.pick(req.restful_params, 'email', 'password');
             return Account.findByIdAndUpdate(req.session.account_id, info).exec();
         }
-    ).then(
-        reply_undefined,
+    ).thenResolve().then(null,
         function(err) {
             console.error('FAILED update_account', err);
             throw new Error('update account failed');
@@ -134,8 +132,7 @@ function delete_account(req) {
         function() {
             return Account.findByIdAndRemove(req.session.account_id).exec();
         }
-    ).then(
-        reply_undefined,
+    ).thenResolve().then(null,
         function(err) {
             console.error('FAILED delete_account', err);
             throw new Error('delete account failed');
@@ -188,5 +185,3 @@ function account_session(req, force) {
         }
     );
 }
-
-function reply_undefined() {}

@@ -5,11 +5,15 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var mgmt_api = require('../api/mgmt_api');
+var edge_node_api = require('../api/edge_node_api');
 var ObjectClient = require('../api/object_client');
 var file_reader_stream = require('filereader-stream');
 
 var mgmt_client = new mgmt_api.Client({
     path: '/api/mgmt_api/',
+});
+var edge_node_client = new edge_node_api.Client({
+    path: '/api/edge_node_api/',
 });
 var object_client = new ObjectClient({
     path: '/api/object_api/',
@@ -114,7 +118,7 @@ ng_app.controller('NodesCtrl', [
                 }
             ).then(
                 function() {
-                    return $q.when(mgmt_client.list_nodes(), function(res) {
+                    return $q.when(edge_node_client.list_nodes(), function(res) {
                         console.log('NODES', res);
                         $scope.nodes = res.nodes;
                     });

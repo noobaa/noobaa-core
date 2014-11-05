@@ -30,9 +30,9 @@ var data_block_schema = new Schema({
         type: types.ObjectId,
         ref: 'EdgeNode',
     },
-    service: {
+    vendor: {
         type: types.ObjectId,
-        ref: 'StoreService',
+        ref: 'StorageVendor',
     },
 
 });
@@ -53,14 +53,12 @@ data_block_schema.index({
 data_block_schema.pre('save', function(callback) {
     var self = this;
     var has_node = !!self.node;
-    var has_service = !!self.service;
-    if (has_node === has_service) {
-        return callback('DataBlock must have exactly one storage (node/service)');
+    var has_vendor = !!self.vendor;
+    if (has_node === has_vendor) {
+        return callback('DataBlock must have exactly one storage (node/vendor)');
     }
     callback();
 });
 
 
-var DataBlock = mongoose.model('DataBlock', data_block_schema);
-
-module.exports = DataBlock;
+var DataBlock = module.exports = mongoose.model('DataBlock', data_block_schema);

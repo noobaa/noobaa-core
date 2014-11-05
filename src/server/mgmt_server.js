@@ -12,6 +12,7 @@ var mgmt_api = require('../api/mgmt_api');
 var account_server = require('./account_server');
 var Agent = require('../agent/agent');
 var LRU = require('noobaa-util/lru');
+var Semaphore = require('noobaa-util/semaphore');
 // db models
 var Account = require('./models/account');
 var EdgeNode = require('./models/edge_node');
@@ -23,9 +24,8 @@ var DataBlock = require('./models/data_block');
 
 var mgmt_server = new mgmt_api.Server({
     system_stats: system_stats,
-    add_nodes: add_nodes,
-    remove_node: remove_node,
-    reset_nodes: reset_nodes,
+    start_agents: start_agents,
+    stop_agents: stop_agents,
 }, [
     // middleware to verify the account session before any of this server calls
     account_server.account_session
@@ -105,31 +105,44 @@ var edge_node_client = new edge_node_api.Client({
     port: 5001, // TODO
 });
 
-function add_nodes(req) {
-    var count = req.restful_params.count;
-    var promise = Q.resolve();
-    var new_agents = _.times(count, function() {
-        next_node_num += 1;
-        var node_name = '' + next_node_num;
-        var agent = new Agent({
-            account_client: account_client,
-            edge_node_client: edge_node_client,
-            account_credentials: {
-                email: req.account.email,
-                password: 'aaa', // TODO
-            },
-            node_name: node_name,
-            node_location: 'home', // TODO
-        });
-        promise = promise.then(
-            function() {
-                return agent.start();
-            }
-        );
-        return agent;
-    });
-    return promise.then(
+function start_agents(req) {
+    var node_names = req.restful_params.nodes;
+    return Q.fcall(
         function() {
+            return EdgeNode.find({
+                account: req.account.id,
+                name: {
+                    $in: node_names
+                }
+            }).exec();
+        }
+    ).then(
+        function(nodes) {
+            return start_node_agents(req.account, nodes);
+        }
+    );
+}
+
+function start_node_agents(account, nodes) {
+    var sem = new Semaphore(3);
+    return Q.all(_.map(nodes,
+        function(node) {
+            var agent = node_agents[node.name] || new Agent({
+                account_client: account_client,
+                edge_node_client: edge_node_client,
+                account_credentials: {
+                    email: account.email,
+                    password: 'aaa', // TODO
+                },
+                node_name: node.name,
+                node_geolocation: node.geolocation,
+            });
+            return sem.surround(function() {
+                return agent.start();
+            }).thenResolve(agent);
+        }
+    )).then(
+        function(new_agents) {
             _.each(new_agents, function(agent) {
                 node_agents[agent.node_name] = agent;
             });
@@ -138,7 +151,7 @@ function add_nodes(req) {
 }
 
 
-function remove_node(req) {
+function stop_agents(req) {
     var name = req.restful_api.name;
     var agent = node_agents[name];
     if (!agent) {
@@ -153,18 +166,5 @@ function remove_node(req) {
         function() {
             delete node_agents[name];
         }
-    );
-}
-
-
-function reset_nodes(req) {
-    node_agents = {};
-    next_node_num = 0;
-    return Q.fcall(
-        function() {
-            return EdgeNode.find().remove().exec();
-        }
-    ).then(
-        function() {}
     );
 }

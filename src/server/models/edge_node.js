@@ -9,7 +9,7 @@ var types = mongoose.Schema.Types;
 
 var edge_node_schema = new Schema({
 
-    // the service account
+    // owner account
     account: {
         type: types.ObjectId,
         ref: 'Account',
@@ -22,8 +22,8 @@ var edge_node_schema = new Schema({
         required: true,
     },
 
-    // location - country / region
-    location: {
+    // geolocation - country / region
+    geolocation: {
         type: String,
         required: true,
     },
@@ -57,6 +57,17 @@ var edge_node_schema = new Schema({
         b: Number,
         gb: Number,
     },
+
+    // the vendor that operates this node.
+    // if not specificed it means that this node is a noobaa distributed node.
+    vendor: {
+        type: types.ObjectId,
+        ref: 'NodeVendor',
+    },
+    vendor_node_id: {
+        type: String
+    }
+
 });
 
 
@@ -68,6 +79,4 @@ edge_node_schema.index({
 });
 
 
-var EdgeNode = mongoose.model('EdgeNode', edge_node_schema);
-
-module.exports = EdgeNode;
+var EdgeNode = module.exports = mongoose.model('EdgeNode', edge_node_schema);

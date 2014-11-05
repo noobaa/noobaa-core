@@ -58,37 +58,38 @@ module.exports = restful_api({
             },
         },
 
-        add_nodes: {
+        start_agents: {
             method: 'POST',
             path: '/nodes',
             params: {
                 type: 'object',
-                required: ['count'],
+                required: ['nodes'],
                 properties: {
-                    count: {
-                        type: 'integer'
-                    },
-                }
-            }
-        },
-
-        remove_node: {
-            method: 'DELETE',
-            path: '/nodes/:name',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string'
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'string', // node name
+                        }
                     }
                 }
             }
         },
 
-        reset_nodes: {
-            method: 'POST',
-            path: '/nodes/reset',
+        stop_agents: {
+            method: 'PUT',
+            path: '/nodes',
+            params: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'string', // node name
+                        }
+                    }
+                }
+            }
         },
 
     }

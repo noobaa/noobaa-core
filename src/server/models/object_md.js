@@ -9,7 +9,7 @@ var types = mongoose.Schema.Types;
 
 var objmd_schema = new Schema({
 
-    // the service account
+    // owner account
     account: {
         type: types.ObjectId,
         ref: 'Account',
@@ -57,6 +57,4 @@ objmd_schema.index({
 });
 
 
-var ObjectMD = mongoose.model('ObjectMD', objmd_schema);
-
-module.exports = ObjectMD;
+var ObjectMD = module.exports = mongoose.model('ObjectMD', objmd_schema);

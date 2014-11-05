@@ -26,7 +26,7 @@ module.exports = new edge_node_api.Server({
 
 
 function create_node(req) {
-    var info = _.pick(req.restful_params, 'name', 'location', 'allocated_storage');
+    var info = _.pick(req.restful_params, 'name', 'geolocation', 'allocated_storage');
     info.account = req.account.id; // see account_server.account_session
     info.heartbeat = new Date();
     info.used_storage = {};
@@ -108,7 +108,7 @@ function heartbeat(req) {
     info.account = req.account.id; // see account_server.account_session
 
     var updates = _.pick(req.restful_params,
-        'location',
+        'geolocation',
         'ip',
         'port',
         'allocated_storage');
@@ -132,9 +132,9 @@ function heartbeat(req) {
             // we log the updates,
             // probably need to detect nodes that change too rapidly
 
-            if (updates.location !== node.location) {
-                console.log('NODE change location from',
-                    node.location, 'to', updates.location);
+            if (updates.geolocation !== node.geolocation) {
+                console.log('NODE change geolocation from',
+                    node.geolocation, 'to', updates.geolocation);
             }
             if (updates.ip !== node.ip || updates.port !== node.port) {
                 console.log('NODE change ip:port from',
@@ -166,7 +166,7 @@ function heartbeat(req) {
 function get_node_info(node) {
     var info = _.pick(node,
         'name',
-        'location'
+        'geolocation'
     );
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;

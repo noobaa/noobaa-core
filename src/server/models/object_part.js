@@ -62,6 +62,4 @@ object_part_schema.index({
 });
 
 
-var ObjectPart = mongoose.model('ObjectPart', object_part_schema);
-
-module.exports = ObjectPart;
+var ObjectPart = module.exports = mongoose.model('ObjectPart', object_part_schema);

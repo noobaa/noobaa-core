@@ -13,17 +13,23 @@ module.exports = restful_api({
             path: '/',
             params: {
                 type: 'object',
-                required: ['name', 'location', 'allocated_storage'],
+                required: ['name', 'geolocation', 'allocated_storage'],
                 properties: {
                     name: {
                         type: 'string',
                     },
-                    location: {
+                    geolocation: {
                         type: 'string',
                     },
                     allocated_storage: {
                         $ref: '/edge_node_api/definitions/storage_size'
                     },
+                    vendor: {
+                        $ref: '/edge_node_api/definitions/vendor_enum'
+                    },
+                    vendor_node_id: {
+                        type: 'string'
+                    }
                 }
             },
         },
@@ -84,7 +90,7 @@ module.exports = restful_api({
                 type: 'object',
                 required: [
                     'name',
-                    'location',
+                    'geolocation',
                     'ip',
                     'port',
                     'allocated_storage',
@@ -94,7 +100,7 @@ module.exports = restful_api({
                     name: {
                         type: 'string'
                     },
-                    location: {
+                    geolocation: {
                         type: 'string'
                     },
                     ip: {
@@ -137,11 +143,16 @@ module.exports = restful_api({
             }
         },
 
+        vendor_enum: {
+            type: 'string',
+            enum: ['nb-center', 'aws-opworks'],
+        },
+
         node_info: {
             type: 'object',
             required: [
                 'name',
-                'location',
+                'geolocation',
                 'ip',
                 'port',
                 'heartbeat',
@@ -152,7 +163,7 @@ module.exports = restful_api({
                 name: {
                     type: 'string'
                 },
-                location: {
+                geolocation: {
                     type: 'string'
                 },
                 ip: {
@@ -171,6 +182,12 @@ module.exports = restful_api({
                 used_storage: {
                     $ref: '/edge_node_api/definitions/storage_size'
                 },
+                vendor: {
+                    $ref: '/edge_node_api/definitions/vendor_enum'
+                },
+                vendor_node_id: {
+                    type: 'string'
+                }
             }
         }
 

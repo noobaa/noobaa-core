@@ -97,7 +97,7 @@ function init_test_nodes(count, allocated_storage) {
             function() {
                 return edge_node_client.create_node({
                     name: '' + i,
-                    location: 'test',
+                    geolocation: 'test',
                     allocated_storage: allocated_storage,
                 });
             }
@@ -108,7 +108,7 @@ function init_test_nodes(count, allocated_storage) {
                     edge_node_client: edge_node_client,
                     account_credentials: account_credentials,
                     node_name: '' + i,
-                    node_location: 'test',
+                    node_geolocation: 'test',
                     storage_path: agent_storage_dir,
                 });
                 return agent.start().thenResolve(agent);

@@ -9,7 +9,6 @@ var types = mongoose.Schema.Types;
 // data chunk is a logical chunk of data stored persistently.
 // chunks are refered by object parts.
 // chunks are mapped by partitioning to k data blocks.
-// may also define an external storage service keeping the data.
 
 var data_chunk_schema = new Schema({
 
@@ -34,6 +33,4 @@ var data_chunk_schema = new Schema({
 
 });
 
-var DataChunk = mongoose.model('DataChunk', data_chunk_schema);
-
-module.exports = DataChunk;
+var DataChunk = module.exports = mongoose.model('DataChunk', data_chunk_schema);

@@ -54,6 +54,4 @@ account_schema.pre('save', function(callback) {
 });
 
 
-var Account = mongoose.model('Account', account_schema);
-
-module.exports = Account;
+var Account = module.exports = mongoose.model('Account', account_schema);

@@ -17,7 +17,7 @@ describe('edge_node_api', function() {
         }).then(function() {
             return coretest.edge_node_client.create_node({
                 name: 'haha',
-                location: 'home',
+                geolocation: 'home',
                 allocated_storage: {
                     gb: 10
                 },
@@ -25,7 +25,7 @@ describe('edge_node_api', function() {
         }).then(function() {
             return coretest.edge_node_client.heartbeat({
                 name: 'haha',
-                location: 'home',
+                geolocation: 'home',
                 ip: '0.0.0.0',
                 port: 0,
                 allocated_storage: {

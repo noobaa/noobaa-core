@@ -30,12 +30,12 @@ function Agent(params) {
     assert(params.edge_node_client, 'missing params.edge_node_client');
     assert(params.account_credentials, 'missing params.account_credentials');
     assert(params.node_name, 'missing params.node_name');
-    assert(params.node_location, 'missing params.node_location');
+    assert(params.node_geolocation, 'missing params.node_geolocation');
     self.account_client = params.account_client;
     self.edge_node_client = params.edge_node_client;
     self.account_credentials = params.account_credentials;
     self.node_name = params.node_name;
-    self.node_location = params.node_location;
+    self.node_geolocation = params.node_geolocation;
 
     self.storage_path = params.storage_path;
     var lru_options = {};
@@ -213,7 +213,7 @@ Agent.prototype.send_heartbeat = function() {
     var self = this;
     return this.edge_node_client.heartbeat({
         name: self.node_name,
-        location: self.node_location,
+        geolocation: self.node_geolocation,
         ip: '',
         port: self.http_port,
         allocated_storage: self.allocated_storage,

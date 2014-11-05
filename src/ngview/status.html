@@ -1,63 +1,67 @@
-<div class="container" ng-controller="StatusCtrl">
+<div>
+    <div ng-include="'navbar.html'"></div>
 
-    <div class="clearfix">
-        <button class="btn btn-default" ng-click="refresh_status()" nb-ladda="refreshing">
-            &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
-        </button>
-    </div>
+    <div class="container" ng-controller="StatusCtrl">
 
-    <hr />
-
-    <div class="row">
-
-        <div class="col-sm-5 col-md-4">
-            <div class="well">
-                <h3>Capacity</h3>
-                <table class="table">
-                    <tr>
-                        <td>Storage capacity</td>
-                        <td>{{human_size(stats.allocated_storage)}}</td>
-                    </tr>
-                    <tr>
-                        <td>Number of nodes</td>
-                        <td>{{stats.counters.nodes}}</td>
-                    </tr>
-                    <tr></tr>
-                </table>
-                <div class="text-center">
-                    <a class="btn btn-primary btn-lg hover-scale" href="nodes">Open nodes map</a>
-                </div>
-            </div>
+        <div class="clearfix">
+            <button class="btn btn-default" ng-click="refresh_status()" nb-ladda="refreshing">
+                &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
+            </button>
         </div>
 
-        <div class="col-sm-5 col-md-4">
-            <div class="well">
-                <h3>Usage</h3>
-                <table class="table">
-                    <tr>
-                        <td>Used storage</td>
-                        <td>{{human_size(stats.used_storage)}}</td>
-                    </tr>
-                    <tr>
-                        <td>Number of objects</td>
-                        <td>{{stats.counters.objects}}</td>
-                    </tr>
-                    <tr></tr>
-                </table>
-                <div class="text-center">
-                    <a class="btn btn-primary btn-lg hover-scale" href="files">Open files</a>
+        <hr />
+
+        <div class="row">
+
+            <div class="col-sm-5 col-md-4">
+                <div class="well">
+                    <h3>Capacity</h3>
+                    <table class="table">
+                        <tr>
+                            <td>Storage capacity</td>
+                            <td>{{human_size(stats.allocated_storage)}}</td>
+                        </tr>
+                        <tr>
+                            <td>Number of nodes</td>
+                            <td>{{stats.counters.nodes}}</td>
+                        </tr>
+                        <tr></tr>
+                    </table>
+                    <div class="text-center">
+                        <a class="btn btn-primary btn-lg hover-scale" href="nodes">Open nodes map</a>
+                    </div>
                 </div>
             </div>
+
+            <div class="col-sm-5 col-md-4">
+                <div class="well">
+                    <h3>Usage</h3>
+                    <table class="table">
+                        <tr>
+                            <td>Used storage</td>
+                            <td>{{human_size(stats.used_storage)}}</td>
+                        </tr>
+                        <tr>
+                            <td>Number of objects</td>
+                            <td>{{stats.counters.objects}}</td>
+                        </tr>
+                        <tr></tr>
+                    </table>
+                    <div class="text-center">
+                        <a class="btn btn-primary btn-lg hover-scale" href="files">Open files</a>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
-    </div>
 
-
-    <!--
+        <!--
     <hr />
     <div ng-repeat="(name,num) in stats.counters">
         <b>{{num}}</b> {{name}}
     </div>
     -->
 
+    </div>
 </div>

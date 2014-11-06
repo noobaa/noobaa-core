@@ -124,6 +124,8 @@ ng_app.factory('nbNodes', [
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
+        $scope.start_agent = start_agent;
+        $scope.stop_agent = stop_agent;
         $scope.reset_nodes = reset_nodes;
         $scope.detailed_nodes = {};
 
@@ -205,12 +207,26 @@ ng_app.factory('nbNodes', [
             );
         }
 
+        function start_agent(node) {
+            return $q.when(edge_node_client.start_agents({
+                nodes: [node.name]
+            })).then(refresh_nodes);
+        }
+
+        function stop_agent(node) {
+            return $q.when(edge_node_client.stop_agents({
+                nodes: [node.name]
+            })).then(refresh_nodes);
+        }
+
         function reset_nodes() {
             alertify.confirm('Really reset nodes?', function(e) {
                 if (!e) {
                     return;
                 }
-                $q.when(mgmt_client.reset_nodes()).then(refresh_nodes);
+                alertify.log('TODO');
+                // $q.when(mgmt_client.reset_nodes()).then(refresh_nodes);
+                return;
             });
         }
 

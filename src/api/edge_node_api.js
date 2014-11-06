@@ -197,7 +197,8 @@ module.exports = restful_api({
                         type: 'string',
                     },
                     info: {
-                        type: 'object'
+                        type: 'object',
+                        additionalProperties: true,
                     },
                 }
             },

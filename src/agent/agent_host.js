@@ -9,6 +9,7 @@ var crypto = require('crypto');
 var http = require('http');
 var mkdirp = require('mkdirp');
 var express = require('express');
+var mkdirp = require('mkdirp');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
 var agent_host_api = require('../api/agent_host_api');
@@ -37,9 +38,14 @@ function AgentHost(params) {
 
     // node_vendor_id is an optional id of NodeVendor (db model)
     // if supplied it should have a kind:'agent-host'.
+    self.agent_storage_dir = path.resolve(__dirname, '../../local_agent_storage/host');
     self.node_vendor_id = params.node_vendor_id;
     self.hostname = params.hostname;
     self.port = params.port || 5002;
+    // client_params to use as a client
+    self.client_params = params.client_params || {
+        port: 5001
+    };
 
     // create express app
     var app = self.app = express();
@@ -65,13 +71,12 @@ function AgentHost(params) {
     self.agent_host_server.install_routes(app, '/api/agent_host_api/');
 
     self.agents = {};
-    self.agent_storage_dir = path.resolve(__dirname, '../../local_agent_storage/host');
-    self.account_client = new account_api.Client({
-        path: '/account_api/',
-    });
-    self.edge_node_client = new edge_node_api.Client({
-        path: '/edge_node_api/',
-    });
+    self.account_client = new account_api.Client(_.merge({
+        path: '/api/account_api/',
+    }, self.client_params));
+    self.edge_node_client = new edge_node_api.Client(_.merge({
+        path: '/api/edge_node_api/',
+    }, self.client_params));
 
     // start http server
     self.server = http.createServer(app);
@@ -84,21 +89,52 @@ function AgentHost(params) {
 
 AgentHost.prototype.connect_node_vendor = function() {
     var self = this;
-    return Q.when(self.edge_node_client.connect_node_vendor({
-        id: self.node_vendor_id,
-        kind: 'agent-host',
-        info: {
-            hostname: self.hostname,
-            port: self.port,
-        }
-    })).then(
-        function(vendor) {
-            if (vendor.id !== self.node_vendor_id) {
-                self.node_vendor_id = vendor.id;
-                // TODO save id to file
+    var node_vendor_id_filename = path.join(self.agent_storage_dir, 'node_vendor_id');
+    return Q.nfcall(mkdirp, self.agent_storage_dir).then(
+        function() {
+            if (self.node_vendor_id) {
+                console.log('USING node_vendor_id', self.node_vendor_id);
+                return;
             }
+            return Q.nfcall(fs.readFile, node_vendor_id_filename).then(
+                function(node_vendor_id) {
+                    self.node_vendor_id = node_vendor_id;
+                    console.log('LOADED node_vendor_id', self.node_vendor_id);
+                },
+                function(err) {
+                    if (err.code !== 'ENOENT') {
+                        console.log('read file failed', node_vendor_id_filename, err);
+                        throw err;
+                    }
+                    // no file is fine, continue without node_vendor_id
+                }
+            );
         }
-    );
+    ).then(
+        function() {
+            var params = {
+                kind: 'agent-host',
+                info: {
+                    hostname: self.hostname,
+                    port: self.port,
+                }
+            };
+            if (self.node_vendor_id) {
+                params.id = self.node_vendor_id;
+            }
+            console.log('connect_node_vendor', params);
+            return self.edge_node_client.connect_node_vendor(params);
+        }
+    ).then(
+        function(vendor) {
+            if (vendor.id === self.node_vendor_id) {
+                return;
+            }
+            self.node_vendor_id = vendor.id;
+            console.log('SAVE node_vendor_id', self.node_vendor_id);
+            return Q.nfcall(fs.writeFile, self.node_vendor_id_filename, self.node_vendor_id);
+        }
+    ).thenResolve();
 };
 
 AgentHost.prototype.get_agent_status = function(req) {

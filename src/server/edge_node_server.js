@@ -271,7 +271,9 @@ function get_node_vendors(req) {
         }
     ).then(
         function(vendors) {
-            var noobaa_center_vendor_kind = {kind: 'noobaa-center'};
+            var noobaa_center_vendor_kind = {
+                kind: 'noobaa-center'
+            };
             if (_.any(vendors, noobaa_center_vendor_kind)) {
                 return vendors;
             }
@@ -307,8 +309,12 @@ function get_node_info(node) {
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
-    if (node.vendor) {
-        info.vendor = mongoose.Types.ObjectId.isValid(node.vendor) ? node.vendor : node.vendor.id;
+    var vendor_id = node.populated('vendor');
+    if (!vendor_id) {
+        vendor_id = node.vendor;
+    }
+    if (vendor_id) {
+        info.vendor = vendor_id.toString();
     }
     if (node.vendor_node_id) {
         info.vendor_node_id = node.vendor_node_id;

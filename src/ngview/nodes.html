@@ -31,15 +31,19 @@
                         <i class="fa fa-hand-o-left fa-4x text-muted animated shake"></i>
                     </h1>
                 </div>
+                <h1 ng-show="nbNodes.detailed_nodes.geo">
+                    {{nbNodes.detailed_nodes.geo}}
+                    <small class="pull-right">{{nbNodes.detailed_nodes.nodes.length}} Nodes</small>
+                </h1>
                 <div class="table-responsive" ng-if="nbNodes.detailed_nodes.nodes.length">
                     <table class="table table-hover">
                         <tr>
                             <th></th>
-                            <th>Location</th>
                             <th>Node</th>
                             <th>Allocated storage</th>
                             <th>Used storage</th>
                             <th>Heartbeat</th>
+                            <th>Vendor</th>
                             <th></th>
                         </tr>
                         <tr ng-repeat="node in nbNodes.detailed_nodes.nodes" ng-click="nbNodes.detailed_nodes.selected=$index" ng-class="{info: nbNodes.detailed_nodes.selected==$index}">
@@ -48,11 +52,11 @@
                                     <i class="fa {{node.is_online && 'fa-circle text-green' || 'fa-circle-o text-muted'}}"></i>
                                 </button>
                             </td>
-                            <td>{{node.geolocation}}</td>
                             <td>{{node.name}}</td>
                             <td>{{human_size(node.allocated_storage)}}</td>
                             <td>{{human_size(node.used_storage)}}</td>
                             <td>{{moment(node.heartbeat).fromNow()}}</td>
+                            <td>{{nbNodes.node_vendors_by_id[node.vendor].kind}}</td>
                             <td>
                                 <button class="btn btn-default" ng-click="nbNodes.remove_node(node)">
                                     <i class="fa fa-trash text-muted"></i>

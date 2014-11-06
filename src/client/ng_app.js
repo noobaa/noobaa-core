@@ -123,7 +123,9 @@ ng_app.factory('nbNodes', [
         var $scope = {};
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
+        $scope.remove_node = remove_node;
         $scope.reset_nodes = reset_nodes;
+        $scope.detailed_nodes = {};
 
         get_node_vendors();
         refresh_nodes();
@@ -137,6 +139,8 @@ ng_app.factory('nbNodes', [
                 function(res) {
                     console.log('NODES', res);
                     $scope.nodes = res.nodes;
+                    $scope.nodes_by_geo = _.groupBy($scope.nodes, 'geolocation');
+                    update_detailed_nodes();
                     nbGoogle.then(draw_nodes_map);
                     return $timeout(function() {
                         $scope.refreshing = false;
@@ -149,8 +153,9 @@ ng_app.factory('nbNodes', [
             return $q.when(edge_node_client.get_node_vendors()).then(
                 function(res) {
                     console.log('NODE VENDORS', res.vendors);
-                    $scope.node_vendors = _.groupBy(res.vendors, 'kind');
-                    var center = $scope.node_vendors['noobaa-center'];
+                    $scope.node_vendors_by_id = _.indexBy(res.vendors, 'id');
+                    $scope.node_vendors_by_kind = _.groupBy(res.vendors, 'kind');
+                    var center = $scope.node_vendors_by_kind['noobaa-center'];
                     if (center && center[0]) {
                         $scope.noobaa_center_vendor_id = center[0].id;
                     }
@@ -186,6 +191,20 @@ ng_app.factory('nbNodes', [
             }, '10');
         }
 
+        function remove_node(node) {
+            alertify.confirm('Really remove node ' +
+                node.name + ' @ ' + node.geolocation + ' ?',
+                function(e) {
+                    if (!e) {
+                        return;
+                    }
+                    $q.when(edge_node_client.delete_node({
+                        name: node.name
+                    })).then(refresh_nodes);
+                }
+            );
+        }
+
         function reset_nodes() {
             alertify.confirm('Really reset nodes?', function(e) {
                 if (!e) {
@@ -193,6 +212,11 @@ ng_app.factory('nbNodes', [
                 }
                 $q.when(mgmt_client.reset_nodes()).then(refresh_nodes);
             });
+        }
+
+
+        function update_detailed_nodes() {
+            $scope.detailed_nodes.nodes = $scope.nodes_by_geo[$scope.detailed_nodes.geo];
         }
 
         function draw_nodes_map(google) {
@@ -204,12 +228,11 @@ ng_app.factory('nbNodes', [
             var max_alloc = -Infinity;
             var min_num_nodes = Infinity;
             var max_num_nodes = -Infinity;
-            var nodes_by_geo = _.groupBy($scope.nodes, 'geolocation');
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Location');
             data.addColumn('number', 'Allocated');
             data.addColumn('number', 'Count');
-            _.each(nodes_by_geo, function(nodes, geo) {
+            _.each($scope.nodes_by_geo, function(nodes, geo) {
                 var geo_alloc = 0;
                 _.each(nodes, function(node) {
                     geo_alloc += node.allocated_storage;
@@ -262,18 +285,11 @@ ng_app.factory('nbNodes', [
             var chart = new google.visualization.GeoChart(element);
             google.visualization.events.addListener(chart, 'select', function() {
                 var selection = chart.getSelection();
-                console.log('CHART SELECTION', selection);
-                var nodes = _.flatten(_.map(selection, function(selected) {
-                    var geo = data.getValue(selected.row, 0);
-                    console.log('SELECTED GEO', geo);
-                    return nodes_by_geo[geo];
-                }));
+                $scope.detailed_nodes.geo = data.getValue(selection[0].row, 0);
+                update_detailed_nodes();
                 if (selection.length) {
                     $location.path('nodes');
                 }
-                $scope.detailed_nodes = {
-                    nodes: nodes
-                };
                 $rootScope.safe_apply();
             });
             chart.draw(data, options);

@@ -10,4 +10,4 @@ build/
 coverage/
 
 ## testing storage
-local_agent_storage/
+test_data/

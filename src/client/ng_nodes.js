@@ -7,8 +7,6 @@ var moment = require('moment');
 var size_utils = require('../util/size_utils');
 var mgmt_api = require('../api/mgmt_api');
 var edge_node_api = require('../api/edge_node_api');
-var ObjectClient = require('../api/object_client');
-var file_reader_stream = require('filereader-stream');
 
 var mgmt_client = new mgmt_api.Client({
     path: '/api/mgmt_api/',
@@ -16,59 +14,10 @@ var mgmt_client = new mgmt_api.Client({
 var edge_node_client = new edge_node_api.Client({
     path: '/api/edge_node_api/',
 });
-var object_client = new ObjectClient({
-    path: '/api/object_api/',
-});
 
 
 
-var ng_app = angular.module('ng_app', [
-    'ng_util',
-    'ngRoute',
-    'ngCookies',
-    'ngAnimate',
-    'ngSanitize',
-    'ngTouch',
-]);
-
-ng_app.config(['$routeProvider', '$locationProvider',
-    function($routeProvider, $locationProvider) {
-        $locationProvider.html5Mode(true);
-        $routeProvider.when('/', {
-            templateUrl: 'status.html',
-        }).when('/nodes', {
-            templateUrl: 'nodes.html',
-        }).when('/files', {
-            templateUrl: 'files.html',
-        }).otherwise({
-            redirectTo: '/'
-        });
-    }
-]);
-
-
-ng_app.controller('AppCtrl', [
-    '$scope', '$http', '$q', '$window', 'nbMgmt', 'nbNodes', 'nbFiles',
-    function($scope, $http, $q, $window, nbMgmt, nbNodes, nbFiles) {
-        $scope.nbMgmt = nbMgmt;
-        $scope.nbNodes = nbNodes;
-        $scope.nbFiles = nbFiles;
-
-        $scope.nav = {
-            root: '/app/'
-        };
-    }
-]);
-
-
-ng_app.controller('StatusCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout',
-    function($scope, $http, $q, $window, $timeout) {
-        $scope.nav.crumbs = [];
-        $scope.nbMgmt.refresh_status();
-        $scope.nbNodes.refresh_nodes();
-    }
-]);
+var ng_app = angular.module('ng_app');
 
 
 ng_app.controller('NodesCtrl', [
@@ -88,33 +37,6 @@ ng_app.controller('NodesCtrl', [
     }
 ]);
 
-
-ng_app.factory('nbMgmt', [
-    '$q', '$timeout',
-    function($q, $timeout) {
-        var $scope = {};
-        $scope.refresh_status = refresh_status;
-        refresh_status();
-
-        function refresh_status() {
-            if ($scope.refreshing) {
-                return;
-            }
-            $scope.refreshing = true;
-            return $q.when(mgmt_client.system_stats()).then(
-                function(res) {
-                    console.log('STATS', res);
-                    $scope.stats = res;
-                    return $timeout(function() {
-                        $scope.refreshing = false;
-                    }, 500);
-                }
-            );
-        }
-
-        return $scope;
-    }
-]);
 
 
 ng_app.factory('nbNodes', [
@@ -157,7 +79,7 @@ ng_app.factory('nbNodes', [
                     console.log('NODE VENDORS', res.vendors);
                     $scope.node_vendors_by_id = _.indexBy(res.vendors, 'id');
                     $scope.node_vendors_by_kind = _.groupBy(res.vendors, 'kind');
-                    var center = $scope.node_vendors_by_kind['agent-host'];
+                    var center = $scope.node_vendors_by_kind.agent_host;
                     if (center && center[0]) {
                         $scope.noobaa_center_vendor_id = center[0].id;
                     }
@@ -312,131 +234,5 @@ ng_app.factory('nbNodes', [
         }
 
         return $scope;
-    }
-]);
-
-
-ng_app.factory('nbFiles', [
-
-    function() {
-        var $scope = {};
-        return $scope;
-    }
-]);
-
-
-
-
-ng_app.controller('FilesCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout',
-    function($scope, $http, $q, $window, $timeout) {
-
-        $scope.nav.crumbs = [{
-            text: 'Files',
-            href: 'files',
-            active: true,
-        }];
-
-        $scope.click_upload = click_upload;
-        $scope.load_bucket_objects = load_bucket_objects;
-        $scope.click_bucket = click_bucket;
-        $scope.create_bucket = create_bucket;
-        $scope.load_buckets = load_buckets;
-
-        load_buckets();
-
-        function play_video_file() {
-            var ms = new $window.MediaSource();
-            var video = $window.document.querySelector('video');
-            video.src = $window.URL.createObjectURL(ms);
-            ms.addEventListener('sourceopen', function(e) {
-                var sourceBuffer = ms.addSourceBuffer('video/webm; codecs="vorbis,vp8"');
-                // sourceBuffer.appendBuffer(oneVideoWebMChunk);
-            }, false);
-        }
-
-        function upload_file(file, bucket) {
-            console.log('upload', file);
-            var object_path = {
-                bucket: bucket.name,
-                key: file.name
-            };
-            $q.when(object_client.create_multipart_upload(
-                _.defaults(object_path, {
-                    size: file.size
-                })
-            )).then(
-                function() {
-                    var defer = $q.defer();
-                    var write_stream = object_client.open_write_stream(object_path);
-                    var stream = file_reader_stream(file).pipe(write_stream);
-                    stream.once('finish', defer.resolve);
-                    stream.once('error', defer.reject);
-                    return defer.promise;
-                }
-            ).then(
-                function() {
-                    return object_client.complete_multipart_upload(object_path);
-                }
-            ).then(
-                function() {
-                    alertify.log('upload completed');
-                    return load_bucket_objects(bucket);
-                }
-            ).then(null,
-                function(err) {
-                    alertify.error('upload failed. ' + err.toString());
-                }
-            );
-        }
-
-        function click_upload() {
-            if (!$scope.curr_bucket) {
-                return;
-            }
-            var bucket = $scope.curr_bucket;
-            var chooser = angular.element('<input type="file">');
-            chooser.on('change', function(e) {
-                var file = e.target.files[0];
-                upload_file(file, bucket);
-            });
-            chooser.click();
-        }
-
-        function load_bucket_objects(bucket) {
-            return $q.when(object_client.list_bucket_objects({
-                bucket: bucket.name
-            })).then(
-                function(res) {
-                    console.log('load_bucket_objects', bucket.name, res);
-                    bucket.objects = res.objects;
-                }
-            );
-        }
-
-        function click_bucket(bucket) {
-            $scope.curr_bucket = bucket;
-            load_bucket_objects(bucket);
-        }
-
-        function create_bucket() {
-            alertify.prompt('Enter name for new bucket', function(e, str) {
-                if (!e) {
-                    return;
-                }
-                $q.when(object_client.create_bucket({
-                    bucket: str
-                })).then(load_buckets);
-            });
-        }
-
-        function load_buckets() {
-            return $q.when(object_client.list_buckets()).then(
-                function(res) {
-                    $scope.buckets = res.buckets;
-                }
-            );
-        }
-
     }
 ]);

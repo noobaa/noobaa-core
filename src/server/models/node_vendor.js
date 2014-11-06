@@ -15,10 +15,17 @@ var types = mongoose.Schema.Types;
  */
 var node_vendor_schema = new Schema({
 
+    // owner account
+    account: {
+        type: types.ObjectId,
+        ref: 'Account',
+        required: true,
+    },
+
     // enum of the available vendors
     kind: {
         type: String,
-        enum: ['agent-host', 'aws-opworks'],
+        enum: ['agent_host', 'aws_opworks'],
         required: true,
     },
 

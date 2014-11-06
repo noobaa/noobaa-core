@@ -64,6 +64,7 @@ var edge_node_schema = new Schema({
         type: types.ObjectId,
         ref: 'NodeVendor',
     },
+    // optional vendor specific resource identifier
     vendor_node_id: {
         type: String
     }

@@ -46,18 +46,6 @@ module.exports = restful_api({
                     geolocation: {
                         type: 'string',
                     },
-                    account_credentials: {
-                        type: 'object',
-                        required: ['email', 'password'],
-                        properties: {
-                            email: {
-                                type: 'string',
-                            },
-                            password: {
-                                type: 'string',
-                            },
-                        }
-                    }
                 },
             },
         },

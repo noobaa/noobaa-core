@@ -22,8 +22,12 @@ var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var EventEmitter = require('events').EventEmitter;
+var util = require('util');
 
 module.exports = AgentHost;
+
+util.inherits(AgentHost, EventEmitter);
 
 /**
  * AgentHost allows running multiple agents and provides api to start/stop/status each one.
@@ -35,17 +39,18 @@ function AgentHost(params) {
     var self = this;
 
     params = params || {};
-
-    // node_vendor_id is an optional id of NodeVendor (db model)
-    // if supplied it should have a kind:'agent-host'.
-    self.agent_storage_dir = path.resolve(__dirname, '../../local_agent_storage/host');
-    self.node_vendor_id = params.node_vendor_id;
+    assert(params.agent_storage_dir, 'missing agent_storage_dir');
+    assert(params.port, 'missing port');
+    self.agent_storage_dir = params.agent_storage_dir;
     self.hostname = params.hostname;
-    self.port = params.port || 5002;
-    // client_params to use as a client
-    self.client_params = params.client_params || {
-        port: 5001
-    };
+    self.port = params.port;
+    // node_vendor_id is an optional id of NodeVendor (db model)
+    // if supplied it should have a kind:'agent_host'.
+    self.node_vendor_id = params.node_vendor_id;
+    // client_params and account_credentials are used to access the apis
+    assert(params.account_credentials, 'missing account_credentials');
+    self.client_params = params.client_params;
+    self.account_credentials = params.account_credentials;
 
     // create express app
     var app = self.app = express();
@@ -89,31 +94,15 @@ function AgentHost(params) {
 
 AgentHost.prototype.connect_node_vendor = function() {
     var self = this;
-    var node_vendor_id_filename = path.join(self.agent_storage_dir, 'node_vendor_id');
-    return Q.nfcall(mkdirp, self.agent_storage_dir).then(
+    return Q.fcall(
         function() {
-            if (self.node_vendor_id) {
-                console.log('USING node_vendor_id', self.node_vendor_id);
-                return;
-            }
-            return Q.nfcall(fs.readFile, node_vendor_id_filename).then(
-                function(node_vendor_id) {
-                    self.node_vendor_id = node_vendor_id;
-                    console.log('LOADED node_vendor_id', self.node_vendor_id);
-                },
-                function(err) {
-                    if (err.code !== 'ENOENT') {
-                        console.log('read file failed', node_vendor_id_filename, err);
-                        throw err;
-                    }
-                    // no file is fine, continue without node_vendor_id
-                }
-            );
+            console.log('login_account', self.account_credentials.email);
+            return self.account_client.login_account(self.account_credentials);
         }
     ).then(
         function() {
             var params = {
-                kind: 'agent-host',
+                kind: 'agent_host',
                 info: {
                     hostname: self.hostname,
                     port: self.port,
@@ -127,14 +116,13 @@ AgentHost.prototype.connect_node_vendor = function() {
         }
     ).then(
         function(vendor) {
-            if (vendor.id === self.node_vendor_id) {
-                return;
+            if (vendor.id !== self.node_vendor_id) {
+                self.node_vendor_id = vendor.id;
+                self.emit('vendor', vendor);
             }
-            self.node_vendor_id = vendor.id;
-            console.log('SAVE node_vendor_id', self.node_vendor_id);
-            return Q.nfcall(fs.writeFile, self.node_vendor_id_filename, self.node_vendor_id);
+            console.log('connected node vendor', vendor);
         }
-    ).thenResolve();
+    );
 };
 
 AgentHost.prototype.get_agent_status = function(req) {
@@ -160,7 +148,7 @@ AgentHost.prototype.start_agent = function(req) {
             var agent = self.agents[node_name] = new Agent({
                 account_client: self.account_client,
                 edge_node_client: self.edge_node_client,
-                account_credentials: account_credentials,
+                account_credentials: self.account_credentials,
                 node_name: node_name,
                 node_geolocation: geolocation,
                 storage_path: self.agent_storage_dir,
@@ -191,7 +179,46 @@ AgentHost.prototype.stop_agent = function(req) {
 var main_host_instance;
 
 function host_main() {
-    main_host_instance = new AgentHost();
+    var host_dir = path.resolve(__dirname, '../../test_data/agent_host');
+    mkdirp.sync(host_dir);
+    var host_config_file = path.join(host_dir, 'config.json');
+    var load_config = function() {
+        try {
+            var config = JSON.parse(fs.readFileSync(host_config_file));
+            console.log('loaded config', config.node_vendor_id);
+            return config;
+        } catch (err) {
+            console.log('no config. new vendor will be created');
+        }
+    };
+    var save_config = function(config) {
+        try {
+            console.log('saving config', config.node_vendor_id);
+            return fs.writeFileSync(host_config_file, JSON.stringify(config));
+        } catch (err) {
+            console.error('FAILED SAVE CONFIG');
+        }
+    };
+    var host_config = load_config() || {};
+    // extend the config with defaults
+    var params = _.merge({}, {
+        agent_storage_dir: host_dir,
+        hostname: 'localhost',
+        port: 5002,
+        client_params: {
+            hostname: 'localhost',
+            port: 5001
+        },
+        account_credentials: {
+            email: 'a@a.a',
+            password: 'aaa',
+        },
+    }, host_config);
+    main_host_instance = new AgentHost(params);
+    main_host_instance.on('vendor', function(vendor) {
+        host_config.node_vendor_id = vendor.id;
+        save_config(host_config);
+    });
 }
 
 if (require.main === module) {

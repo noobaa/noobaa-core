@@ -6,7 +6,6 @@ var Q = require('q');
 var mongoose = require('mongoose');
 var restful_api = require('../util/restful_api');
 var edge_node_api = require('../api/edge_node_api');
-var account_api = require('../api/account_api');
 var agent_host_api = require('../api/agent_host_api');
 var account_server = require('./account_server');
 var Semaphore = require('noobaa-util/semaphore');
@@ -181,19 +180,6 @@ function heartbeat(req) {
 
 
 
-// TODO the next code is for testing only - manage node agents in the current process TODO
-
-var node_agents = {};
-var next_node_num = 0;
-var account_client = new account_api.Client({
-    path: '/api/account_api/',
-    port: 5001, // TODO
-});
-var edge_node_client = new edge_node_api.Client({
-    path: '/api/edge_node_api/',
-    port: 5001, // TODO
-});
-
 function toggle_agents(account, node_names, start_or_stop) {
     return Q.fcall(
         function() {
@@ -209,7 +195,7 @@ function toggle_agents(account, node_names, start_or_stop) {
             var sem = new Semaphore(3);
             return Q.all(_.map(nodes,
                 function(node) {
-                    if (node.vendor.kind !== 'agent-host') {
+                    if (node.vendor.kind !== 'agent_host') {
                         throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + node.vendor.kind);
                     }
                     return sem.surround(function() {
@@ -220,10 +206,6 @@ function toggle_agents(account, node_names, start_or_stop) {
                         return host_func({
                             name: node.name,
                             geolocation: node.geolocation,
-                            account_credentials: {
-                                email: account.email,
-                                password: 'aaa', // TODO
-                            },
                         });
                     });
                 }
@@ -246,25 +228,9 @@ function stop_agents(req) {
 function get_node_vendors(req) {
     return Q.fcall(
         function() {
-            return NodeVendor.find().exec();
-        }
-    ).then(
-        function(vendors) {
-            var noobaa_center_vendor_kind = {
-                kind: 'agent-host'
-            };
-            if (_.any(vendors, noobaa_center_vendor_kind)) {
-                return vendors;
-            }
-            // lazy create the agent-host vendor
-            return NodeVendor.create(noobaa_center_vendor_kind).then(
-                function(vendor) {
-                    // no reason to read again from the db,
-                    // so just adding the new item and keep using the old list.
-                    vendors.push(vendor);
-                    return vendors;
-                }
-            );
+            return NodeVendor.find({
+                account: req.account.id
+            }).exec();
         }
     ).then(
         function(vendors) {
@@ -280,11 +246,12 @@ function get_node_vendors(req) {
 
 function connect_node_vendor(req) {
     var vendor_info = _.pick(req.restful_params, 'id', 'kind', 'info');
+    vendor_info.account = req.account.id; // see account_server.account_session
     var vendor;
     return Q.fcall(
         function() {
             if (vendor_info.id) {
-                return NodeVendor.findById(vendor_info.id);
+                return NodeVendor.findById(vendor_info.id).exec();
             } else {
                 return NodeVendor.create(vendor_info);
             }
@@ -296,20 +263,19 @@ function connect_node_vendor(req) {
                 console.error('NODE VENDOR NOT FOUND', vendor_info);
                 throw new Error('node vendor not found');
             }
+            if (String(req.account.id) !== String(vendor.account)) {
+                console.error('NODE VENDOR ACCOUNT MISMATCH', vendor.account, req.account);
+                throw new Error('node vendor account mismatch');
+            }
             // find all nodes hosted by this vendor
             return EdgeNode.find({
                 vendor: vendor.id
-            }).select('name account').populate('account');
+            }).select('name').exec();
         }
     ).then(
         function(nodes) {
-            // now go ahead and start all the nodes hosted by this vendor
-            var nodes_by_account = _.groupBy(nodes, 'account');
-            return Q.all(_.map(nodes_by_account,
-                function(nodes, account) {
-                    return toggle_agents(account, nodes, 'start');
-                }
-            ));
+            var node_names = _.pluck(nodes, 'name');
+            return toggle_agents(req.account, node_names , 'start');
         }
     ).then(
         function() {

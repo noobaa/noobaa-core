@@ -1,29 +1,67 @@
 <div>
     <div ng-include="'navbar.html'"></div>
 
-    <div class="container" ng-controller="NodesCtrl">
+    <div class="container-fluid" ng-controller="NodesCtrl">
 
         <div class="clearfix">
-            <button class="btn btn-default" ng-click="refresh_nodes()" nb-ladda="refreshing">
+            <button class="btn btn-default" ng-click="nbNodes.refresh_nodes()" nb-ladda="nbNodes.refreshing">
                 &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
             </button> &nbsp;
-            <button class="btn btn-default" ng-click="add_nodes()">
+            <button class="btn btn-default" ng-click="nbNodes.add_nodes()">
                 Add Nodes
             </button> &nbsp;
-            <button class="btn btn-default text-danger" ng-click="reset_nodes()">
+            <button class="btn btn-default text-danger" ng-click="nbNodes.reset_nodes()">
                 Reset All Nodes
             </button>
         </div>
 
         <hr/>
 
-        <div>
-            <span ng-repeat="node in nodes">
-            <a ng-click="click_node(node)" class="btn btn-default btn-xs">
-                {{node.name}}
-            </a>
-            &nbsp;
-        </span>
+        <div class="row">
+            <div class="col-sm-4" style="overflow: hidden">
+                <div id="nodes_map" class="img-responsive"></div>
+            </div>
+            <div class="col-sm-8">
+                <div ng-hide="nbNodes.detailed_nodes.nodes.length">
+                    <h1 class="hidden-sm hidden-md hidden-lg pull-right">
+                        <i class="fa fa-hand-o-up fa-3x fa-fw text-muted animated bounce"></i>
+                    </h1>
+                    <h1>Click a map marker to show the nodes</h1>
+                    <h1 class="hidden-xs">
+                        <i class="fa fa-hand-o-left fa-4x text-muted animated shake"></i>
+                    </h1>
+                </div>
+                <div class="table-responsive" ng-if="nbNodes.detailed_nodes.nodes.length">
+                    <table class="table table-hover">
+                        <tr>
+                            <th></th>
+                            <th>Location</th>
+                            <th>Node</th>
+                            <th>Allocated storage</th>
+                            <th>Used storage</th>
+                            <th>Heartbeat</th>
+                            <th></th>
+                        </tr>
+                        <tr ng-repeat="node in nbNodes.detailed_nodes.nodes" ng-click="nbNodes.detailed_nodes.selected=$index" ng-class="{info: nbNodes.detailed_nodes.selected==$index}">
+                            <td>
+                                <button class="btn btn-default" ng-click="node.is_online=!node.is_online">
+                                    <i class="fa {{node.is_online && 'fa-circle text-green' || 'fa-circle-o text-muted'}}"></i>
+                                </button>
+                            </td>
+                            <td>{{node.geolocation}}</td>
+                            <td>{{node.name}}</td>
+                            <td>{{human_size(node.allocated_storage)}}</td>
+                            <td>{{human_size(node.used_storage)}}</td>
+                            <td>{{moment(node.heartbeat).fromNow()}}</td>
+                            <td>
+                                <button class="btn btn-default" ng-click="nbNodes.remove_node(node)">
+                                    <i class="fa fa-trash text-muted"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
         </div>
 
     </div>

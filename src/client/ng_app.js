@@ -48,8 +48,12 @@ ng_app.config(['$routeProvider', '$locationProvider',
 
 
 ng_app.controller('AppCtrl', [
-    '$scope', '$http', '$q', '$window',
-    function($scope, $http, $q, $window) {
+    '$scope', '$http', '$q', '$window', 'nbMgmt', 'nbNodes', 'nbFiles',
+    function($scope, $http, $q, $window, nbMgmt, nbNodes, nbFiles) {
+        $scope.nbMgmt = nbMgmt;
+        $scope.nbNodes = nbNodes;
+        $scope.nbFiles = nbFiles;
+
         $scope.nav = {
             root: '/app/'
         };
@@ -61,21 +65,8 @@ ng_app.controller('StatusCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
         $scope.nav.crumbs = [];
-        $scope.refresh_status = refresh_status;
-        refresh_status();
-
-        function refresh_status() {
-            $scope.refreshing = true;
-            return $q.when(mgmt_client.system_stats()).then(
-                function(res) {
-                    console.log('STATS', res);
-                    $scope.stats = res;
-                    return $timeout(function() {
-                        $scope.refreshing = false;
-                    }, 500);
-                }
-            );
-        }
+        $scope.nbMgmt.refresh_status();
+        $scope.nbNodes.refresh_nodes();
     }
 ]);
 
@@ -88,18 +79,65 @@ ng_app.controller('NodesCtrl', [
             href: 'nodes',
             active: true,
         }];
+
+        $scope.nbNodes.refresh_nodes();
+
+        $scope.click_node = function(node) {
+
+        };
+    }
+]);
+
+
+ng_app.factory('nbMgmt', [
+    '$q', '$timeout',
+    function($q, $timeout) {
+        var $scope = {};
+        $scope.refresh_status = refresh_status;
+        refresh_status();
+
+        function refresh_status() {
+            if ($scope.refreshing) {
+                return;
+            }
+            $scope.refreshing = true;
+            return $q.when(mgmt_client.system_stats()).then(
+                function(res) {
+                    console.log('STATS', res);
+                    $scope.stats = res;
+                    return $timeout(function() {
+                        $scope.refreshing = false;
+                    }, 500);
+                }
+            );
+        }
+
+        return $scope;
+    }
+]);
+
+
+ng_app.factory('nbNodes', [
+    '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location',
+    function($q, $timeout, nbGoogle, $window, $rootScope, $location) {
+        var $scope = {};
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
         $scope.reset_nodes = reset_nodes;
-        refresh_nodes();
+
         get_node_vendors();
+        refresh_nodes();
 
         function refresh_nodes() {
+            if ($scope.refreshing) {
+                return;
+            }
             $scope.refreshing = true;
             return $q.when(edge_node_client.list_nodes()).then(
                 function(res) {
                     console.log('NODES', res);
                     $scope.nodes = res.nodes;
+                    nbGoogle.then(draw_nodes_map);
                     return $timeout(function() {
                         $scope.refreshing = false;
                     }, 500);
@@ -110,8 +148,12 @@ ng_app.controller('NodesCtrl', [
         function get_node_vendors() {
             return $q.when(edge_node_client.get_node_vendors()).then(
                 function(res) {
+                    console.log('NODE VENDORS', res.vendors);
                     $scope.node_vendors = _.groupBy(res.vendors, 'kind');
-                    $scope.noobaa_center_vendor_id = $scope.node_vendors['noobaa-center'][0].id;
+                    var center = $scope.node_vendors['noobaa-center'];
+                    if (center && center[0]) {
+                        $scope.noobaa_center_vendor_id = center[0].id;
+                    }
                 }
             );
         }
@@ -125,10 +167,18 @@ ng_app.controller('NodesCtrl', [
                 if (!count) {
                     return;
                 }
+                var node_name_to_number = function(node) {
+                    return Number(node.name) || 0;
+                };
+                var max_node = _.max($scope.nodes, node_name_to_number);
+                var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
                 $q.all(_.times(count, function(i) {
                     return $q.when(edge_node_client.create_node({
-                        name: '' + i,
-                        geolocation: 'demo',
+                        name: '' + (next_node_name + i),
+                        geolocation: _.sample([
+                            'United States', 'Germany', 'China',
+                            'Israel', 'Brazil', 'Canada', 'Korea'
+                        ]),
                         allocated_storage: size_utils.GIGABYTE,
                         vendor: $scope.noobaa_center_vendor_id,
                     }));
@@ -145,8 +195,104 @@ ng_app.controller('NodesCtrl', [
             });
         }
 
+        function draw_nodes_map(google) {
+            var element = $window.document.getElementById('nodes_map');
+            if (!element) {
+                return;
+            }
+            var min_alloc = Infinity;
+            var max_alloc = -Infinity;
+            var min_num_nodes = Infinity;
+            var max_num_nodes = -Infinity;
+            var nodes_by_geo = _.groupBy($scope.nodes, 'geolocation');
+            var data = new google.visualization.DataTable();
+            data.addColumn('string', 'Location');
+            data.addColumn('number', 'Allocated');
+            data.addColumn('number', 'Count');
+            _.each(nodes_by_geo, function(nodes, geo) {
+                var geo_alloc = 0;
+                _.each(nodes, function(node) {
+                    geo_alloc += node.allocated_storage;
+                });
+                if (geo_alloc > max_alloc) {
+                    max_alloc = geo_alloc;
+                }
+                if (geo_alloc < min_alloc) {
+                    min_alloc = geo_alloc;
+                }
+                if (nodes.length > max_num_nodes) {
+                    max_num_nodes = nodes.length;
+                }
+                if (nodes.length < min_num_nodes) {
+                    min_num_nodes = nodes.length;
+                }
+                data.addRow([geo, {
+                    v: geo_alloc,
+                    f: $rootScope.human_size(geo_alloc)
+                }, nodes.length]);
+            });
+            var options = {
+                displayMode: 'markers',
+                enableRegionInteractivity: true,
+                keepAspectRatio: true,
+                backgroundColor: '#70c0ee',
+                datalessRegionColor: '#cccccc',
+                colorAxis: {
+                    colors: ['gray', 'lime'],
+                    minValue: Number(min_alloc),
+                    maxValue: Number(max_alloc),
+                },
+                sizeAxis: {
+                    minSize: 12,
+                    maxSize: 20,
+                    minValue: min_num_nodes,
+                    maxValue: max_num_nodes,
+                },
+                legend: {
+                    textStyle: {
+                        color: 'black',
+                        fontSize: 16
+                    }
+                },
+                magnifyingGlass: {
+                    enable: false,
+                    zoomFactor: 10
+                },
+            };
+            var chart = new google.visualization.GeoChart(element);
+            google.visualization.events.addListener(chart, 'select', function() {
+                var selection = chart.getSelection();
+                console.log('CHART SELECTION', selection);
+                var nodes = _.flatten(_.map(selection, function(selected) {
+                    var geo = data.getValue(selected.row, 0);
+                    console.log('SELECTED GEO', geo);
+                    return nodes_by_geo[geo];
+                }));
+                if (selection.length) {
+                    $location.path('nodes');
+                }
+                $scope.detailed_nodes = {
+                    nodes: nodes
+                };
+                $rootScope.safe_apply();
+            });
+            chart.draw(data, options);
+        }
+
+        return $scope;
     }
 ]);
+
+
+ng_app.factory('nbFiles', [
+
+    function() {
+        var $scope = {};
+        return $scope;
+    }
+]);
+
+
 
 
 ng_app.controller('FilesCtrl', [

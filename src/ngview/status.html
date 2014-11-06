@@ -1,10 +1,10 @@
 <div>
     <div ng-include="'navbar.html'"></div>
 
-    <div class="container" ng-controller="StatusCtrl">
+    <div class="container-fluid" ng-controller="StatusCtrl">
 
         <div class="clearfix">
-            <button class="btn btn-default" ng-click="refresh_status()" nb-ladda="refreshing">
+            <button class="btn btn-default" ng-click="nbMgmt.refresh_status()" nb-ladda="nbMgmt.refreshing">
                 &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
             </button>
         </div>
@@ -19,14 +19,15 @@
                     <table class="table">
                         <tr>
                             <td>Storage capacity</td>
-                            <td>{{human_size(stats.allocated_storage)}}</td>
+                            <td>{{human_size(nbMgmt.stats.allocated_storage)}}</td>
                         </tr>
                         <tr>
                             <td>Number of nodes</td>
-                            <td>{{stats.counters.nodes}}</td>
+                            <td>{{nbMgmt.stats.counters.nodes}}</td>
                         </tr>
                         <tr></tr>
                     </table>
+                    <div id="nodes_map" style="margin-bottom: 20px"></div>
                     <div class="text-center">
                         <a class="btn btn-primary btn-lg hover-scale" href="nodes">Open nodes map</a>
                     </div>
@@ -39,11 +40,11 @@
                     <table class="table">
                         <tr>
                             <td>Used storage</td>
-                            <td>{{human_size(stats.used_storage)}}</td>
+                            <td>{{human_size(nbMgmt.stats.used_storage)}}</td>
                         </tr>
                         <tr>
                             <td>Number of objects</td>
-                            <td>{{stats.counters.objects}}</td>
+                            <td>{{nbMgmt.stats.counters.objects}}</td>
                         </tr>
                         <tr></tr>
                     </table>
@@ -58,7 +59,7 @@
 
         <!--
     <hr />
-    <div ng-repeat="(name,num) in stats.counters">
+    <div ng-repeat="(name,num) in nbMgmt.stats.counters">
         <b>{{num}}</b> {{name}}
     </div>
     -->

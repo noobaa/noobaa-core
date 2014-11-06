@@ -1,4 +1,4 @@
-/* global angular, alertify */
+/* global angular, alertify, google */
 'use strict';
 
 var _ = require('lodash');
@@ -16,6 +16,9 @@ var ng_util = angular.module('ng_util', [
 
 ng_util.run(['$rootScope', function($rootScope) {
     $rootScope.human_size = size_utils.human_size;
+    $rootScope.safe_apply = safe_apply;
+    $rootScope.safe_callback = safe_callback;
+    $rootScope.moment = moment;
 }]);
 
 
@@ -28,6 +31,28 @@ ng_util.controller('NavCtrl', [
 ]);
 
 
+
+
+ng_util.factory('nbGoogle', [
+    '$q', '$window',
+    function($q, $window) {
+        var defer = $q.defer();
+        try {
+            $window.google.load("visualization", "1.1", {
+                packages: ["geochart"],
+                // must pass callback to make the loader use document.append
+                // instead of document.write which will delete all the document.
+                callback: function() {
+                    defer.resolve($window.google);
+                }
+            });
+        } catch (err) {
+            console.log('GOOGLE FAILED TO LOAD',err);
+            defer.reject(err);
+        }
+        return defer.promise;
+    }
+]);
 
 
 ng_util.factory('nbServerData', [
@@ -146,3 +171,37 @@ ng_util.directive('nbActiveLocation', [
         };
     }
 ]);
+
+
+// safe apply handles cases when apply may fail with:
+// "$apply already in progress" error
+
+function safe_apply(func) {
+    /* jshint validthis:true */
+    var phase = this.$root.$$phase;
+    if (phase === '$apply' || phase === '$digest') {
+        return this.$eval(func);
+    } else {
+        return this.$apply(func);
+    }
+}
+
+// safe_callback returns a function callback that performs the safe_apply
+// while propagating arguments to the given func.
+
+function safe_callback(func) {
+    /* jshint validthis:true */
+    var self = this;
+    return function() {
+        // build the args array to have null for 'this'
+        // and rest is taken from the callback arguments
+        var args = new Array(arguments.length + 1);
+        args[0] = null;
+        for (var i = 0; i < arguments.length; i++) {
+            args[i + 1] = arguments[i];
+        }
+        // the following is in fact calling func.bind(null, a1, a2, ...)
+        var fn = Function.prototype.bind.apply(func, args);
+        return self.safe_apply(fn);
+    };
+}

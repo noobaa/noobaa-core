@@ -272,16 +272,18 @@ function get_node_vendors(req) {
     ).then(
         function(vendors) {
             var noobaa_center_vendor_kind = {kind: 'noobaa-center'};
-            if (!_.any(vendors, noobaa_center_vendor_kind)) {
-                return NodeVendor.create(noobaa_center_vendor_kind).then(
-                    function(vendor) {
-                        // no reason to read again from the db,
-                        // so just adding the new item and keep using the old list.
-                        vendors.push(vendor);
-                        return vendors;
-                    }
-                );
+            if (_.any(vendors, noobaa_center_vendor_kind)) {
+                return vendors;
             }
+            // lazy create the noobaa-center pseudo vendor
+            return NodeVendor.create(noobaa_center_vendor_kind).then(
+                function(vendor) {
+                    // no reason to read again from the db,
+                    // so just adding the new item and keep using the old list.
+                    vendors.push(vendor);
+                    return vendors;
+                }
+            );
         }
     ).then(
         function(vendors) {

@@ -246,8 +246,8 @@ ng_app.factory('nbNodes', [
             var max_num_nodes = -Infinity;
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Location');
-            data.addColumn('number', 'Allocated');
-            data.addColumn('number', 'Count');
+            data.addColumn('number', 'Storage Capacity');
+            data.addColumn('number', 'Number of Nodes');
             _.each($scope.nodes_by_geo, function(nodes, geo) {
                 var geo_alloc = 0;
                 _.each(nodes, function(node) {
@@ -274,12 +274,12 @@ ng_app.factory('nbNodes', [
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
-                backgroundColor: '#70c0ee',
-                datalessRegionColor: '#cccccc',
+                backgroundColor: '#3a455f',
+                datalessRegionColor: '#272e3f',
                 colorAxis: {
-                    colors: ['gray', 'lime'],
-                    minValue: Number(min_alloc),
-                    maxValue: Number(max_alloc),
+                    colors: ['#F9FFF4', '76FF00'],
+                    minValue: min_alloc,
+                    maxValue: max_alloc,
                 },
                 sizeAxis: {
                     minSize: 12,

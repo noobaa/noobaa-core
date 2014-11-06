@@ -4,9 +4,7 @@
         <ul class="nav navbar-nav" ng-if="nav">
             <li style="border: none" ng-class="{active: !nav.crumbs.length}">
                 <a ng-href="{{nav.root || '/'}}" class="navbar-brand">
-                    &nbsp;
-                    <b><i>NooBaa</i></b>
-                    &nbsp;
+                    <span class="label label-primary" style="font-size:17px"><b><i>NooBaa</i></b></span>
                 </a>
             </li>
             <li ng-repeat="crumb in nav.crumbs" ng-class="{active: crumb.active, dropdown: crumb.dropdown}">

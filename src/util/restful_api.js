@@ -12,7 +12,6 @@ var PATH = require('path');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
 
-
 module.exports = restful_api;
 
 // TODO better keep cookie jars in a client object, but now the client objects are per api
@@ -325,7 +324,7 @@ function send_http_request(options) {
 
             res.on('data',
                 function(chunk) {
-                    // console.log('HTTP response data', chunk);
+                    // console.log('HTTP response data', chunk.length, typeof(chunk));
                     chunks.push(chunk);
                     chunks_length += chunk.length;
                 }
@@ -340,18 +339,28 @@ function send_http_request(options) {
 
             res.on('end',
                 function() {
-                    var data = chunks_length ? Buffer.concat(chunks, chunks_length) : null;
-                    // console.log('HTTP response end', res.statusCode, response_err, data);
-                    if (data && data.length) {
-                        var content_type = res.headers['content-type'];
-                        if (content_type &&
-                            content_type.split(';')[0] === 'application/json') {
-                            try {
-                                data = JSON.parse(data.toString('utf8'));
-                            } catch (err) {
-                                response_err = response_err || err;
+                    var data = null;
+                    var is_buffer = false;
+                    try {
+                        if (chunks_length) {
+                            if (typeof(chunks[0]) === 'string') {
+                                data = String.prototype.concat.apply('', chunks);
+                            } else {
+                                data = Buffer.concat(chunks, chunks_length);
+                                is_buffer = true;
+                            }
+                            // console.log('HTTP response end', res.statusCode, response_err, data);
+                            var content_type = res.headers['content-type'];
+                            if (content_type &&
+                                content_type.split(';')[0] === 'application/json') {
+                                if (is_buffer) {
+                                    data = data.toString('utf8');
+                                }
+                                data = JSON.parse(data);
                             }
                         }
+                    } catch (err) {
+                        response_err = response_err || err;
                     }
                     if (res.statusCode !== 200 || response_err) {
                         return reject({

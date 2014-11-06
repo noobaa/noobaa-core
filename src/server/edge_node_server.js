@@ -7,6 +7,7 @@ var mongoose = require('mongoose');
 var restful_api = require('../util/restful_api');
 var edge_node_api = require('../api/edge_node_api');
 var account_api = require('../api/account_api');
+var agent_host_api = require('../api/agent_host_api');
 var account_server = require('./account_server');
 var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
@@ -26,6 +27,7 @@ module.exports = new edge_node_api.Server({
     start_agents: start_agents,
     stop_agents: stop_agents,
     get_node_vendors: get_node_vendors,
+    connect_node_vendor: connect_node_vendor,
 }, [
     // middleware to verify the account session before any of this server calls
     account_server.account_session
@@ -192,12 +194,11 @@ var edge_node_client = new edge_node_api.Client({
     port: 5001, // TODO
 });
 
-function start_agents(req) {
-    var node_names = req.restful_params.nodes;
+function toggle_agents(account, node_names, start_or_stop) {
     return Q.fcall(
         function() {
             return EdgeNode.find({
-                account: req.account.id,
+                account: account.id,
                 name: {
                     $in: node_names
                 }
@@ -205,62 +206,40 @@ function start_agents(req) {
         }
     ).then(
         function(nodes) {
-            return start_node_agents(req.account, nodes);
-        }
-    );
-}
-
-function start_node_agents(account, nodes) {
-    var sem = new Semaphore(3);
-    return Q.all(_.map(nodes,
-        function(node) {
-            if (node.vendor.kind !== 'agent-host') {
-                throw new Error('unsupported node vendor for starting');
-            }
-            var agent = node_agents[node.name] || new Agent({
-                account_client: account_client,
-                edge_node_client: edge_node_client,
-                account_credentials: {
-                    email: account.email,
-                    password: 'aaa', // TODO
-                },
-                node_name: node.name,
-                node_geolocation: node.geolocation,
-            });
-            return sem.surround(function() {
-                return agent.start();
-            }).thenResolve(agent);
-        }
-    )).then(
-        function(new_agents) {
-            _.each(new_agents, function(agent) {
-                if (agent) {
-                    node_agents[agent.node_name] = agent;
+            var sem = new Semaphore(3);
+            return Q.all(_.map(nodes,
+                function(node) {
+                    if (node.vendor.kind !== 'agent-host') {
+                        throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + node.vendor.kind);
+                    }
+                    return sem.surround(function() {
+                        var agent_host_client = new agent_host_api.Client(node.vendor.info);
+                        var host_func = (start_or_stop === 'start') ?
+                            agent_host_client.start_agent :
+                            agent_host_client.stop_agent;
+                        return host_func({
+                            name: node.name,
+                            geolocation: node.geolocation,
+                            account_credentials: {
+                                email: account.email,
+                                password: 'aaa', // TODO
+                            },
+                        });
+                    });
                 }
-            });
+            ));
         }
-    );
+    ).thenResolve();
 }
 
+function start_agents(req) {
+    var node_names = req.restful_params.nodes;
+    return toggle_agents(req.account, node_names, true);
+}
 
 function stop_agents(req) {
     var node_names = req.restful_params.nodes;
-    var sem = new Semaphore(3);
-    return Q.all(_.map(node_names,
-        function(name) {
-            var agent = node_agents[name];
-            if (!agent) {
-                return;
-            }
-            return sem.surround(function() {
-                return agent.stop().then(
-                    function() {
-                        delete node_agents[name];
-                    }
-                );
-            });
-        }
-    ));
+    return toggle_agents(req.account, node_names, false);
 }
 
 
@@ -294,6 +273,47 @@ function get_node_vendors(req) {
                     return _.pick(v, 'id', 'kind');
                 })
             };
+        }
+    );
+}
+
+
+function connect_node_vendor(req) {
+    var vendor_info = _.pick(req.restful_params, 'id', 'kind', 'info');
+    var vendor;
+    return Q.fcall(
+        function() {
+            if (vendor_info.id) {
+                return NodeVendor.findById(vendor_info.id);
+            } else {
+                return NodeVendor.create(vendor_info);
+            }
+        }
+    ).then(
+        function(vendor_arg) {
+            vendor = vendor_arg;
+            if (!vendor) {
+                console.error('NODE VENDOR NOT FOUND', vendor_info);
+                throw new Error('node vendor not found');
+            }
+            // find all nodes hosted by this vendor
+            return EdgeNode.find({
+                vendor: vendor.id
+            }).select('name account').populate('account');
+        }
+    ).then(
+        function(nodes) {
+            // now go ahead and start all the nodes hosted by this vendor
+            var nodes_by_account = _.groupBy(nodes, 'account');
+            return Q.all(_.map(nodes_by_account,
+                function(nodes, account) {
+                    return toggle_agents(account, nodes, 'start');
+                }
+            ));
+        }
+    ).then(
+        function() {
+            return _.pick(vendor, 'id', 'kind');
         }
     );
 }

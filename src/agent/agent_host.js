@@ -30,13 +30,20 @@ module.exports = AgentHost;
  * used for local testing where it's easier to run all the agents inside the same process,
  * but might also be relevant for other environments that want to combine multiple agents.
  */
-function AgentHost() {
+function AgentHost(params) {
     var self = this;
+
+    params = params || {};
+
+    // node_vendor_id is an optional id of NodeVendor (db model)
+    // if supplied it should have a kind:'agent-host'.
+    self.node_vendor_id = params.node_vendor_id;
+    self.hostname = params.hostname;
+    self.port = params.port || 5002;
 
     // create express app
     var app = self.app = express();
-    self.web_port = process.env.PORT || 5002;
-    app.set('port', self.web_port);
+    app.set('port', self.port);
 
     app.use(express_morgan_logger('combined'));
     app.use(express_body_parser.json());
@@ -55,7 +62,7 @@ function AgentHost() {
         stop_agent: self.stop_agent.bind(self),
     });
     self.agent_host_server.set_logging();
-    self.agent_host_server.install_routes(app, '/agent_host_api/');
+    self.agent_host_server.install_routes(app, '/api/agent_host_api/');
 
     self.agents = {};
     self.agent_storage_dir = path.resolve(__dirname, '../../local_agent_storage/host');
@@ -68,11 +75,31 @@ function AgentHost() {
 
     // start http server
     self.server = http.createServer(app);
-    self.server.listen(self.web_port, function() {
-        console.log('Web server on port ' + self.web_port);
+    self.server.listen(self.port, function() {
+        console.log('Web server on port ' + self.port);
+        self.connect_node_vendor();
     });
 }
 
+
+AgentHost.prototype.connect_node_vendor = function() {
+    var self = this;
+    return Q.when(self.edge_node_client.connect_node_vendor({
+        id: self.node_vendor_id,
+        kind: 'agent-host',
+        info: {
+            hostname: self.hostname,
+            port: self.port,
+        }
+    })).then(
+        function(vendor) {
+            if (vendor.id !== self.node_vendor_id) {
+                self.node_vendor_id = vendor.id;
+                // TODO save id to file
+            }
+        }
+    );
+};
 
 AgentHost.prototype.get_agent_status = function(req) {
     var self = this;

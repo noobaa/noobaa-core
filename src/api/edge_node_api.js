@@ -159,7 +159,7 @@ module.exports = restful_api({
 
         get_node_vendors: {
             method: 'GET',
-            path: '/node_vendors',
+            path: '/node_vendor',
             reply: {
                 type: 'object',
                 required: ['vendors'],
@@ -182,6 +182,38 @@ module.exports = restful_api({
                 }
             }
         },
+
+        connect_node_vendor: {
+            method: 'POST',
+            path: '/node_vendor',
+            params: {
+                type: 'object',
+                required: ['kind'],
+                properties: {
+                    id: {
+                        type: 'string',
+                    },
+                    kind: {
+                        type: 'string',
+                    },
+                    info: {
+                        type: 'object'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['id', 'kind'],
+                properties: {
+                    id: {
+                        type: 'string',
+                    },
+                    kind: {
+                        type: 'string',
+                    },
+                }
+            }
+        }
 
 
     },

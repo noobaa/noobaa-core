@@ -1,22 +1,12 @@
-/* global angular, alertify */
+/* global angular */
 'use strict';
 
 var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
-var size_utils = require('../util/size_utils');
 var mgmt_api = require('../api/mgmt_api');
-var edge_node_api = require('../api/edge_node_api');
-var ObjectClient = require('../api/object_client');
-var file_reader_stream = require('filereader-stream');
 var mgmt_client = new mgmt_api.Client({
     path: '/api/mgmt_api/',
-});
-var edge_node_client = new edge_node_api.Client({
-    path: '/api/edge_node_api/',
-});
-var object_client = new ObjectClient({
-    path: '/api/object_api/',
 });
 
 var ng_app = angular.module('ng_app', [

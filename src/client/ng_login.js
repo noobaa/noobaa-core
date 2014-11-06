@@ -1,4 +1,4 @@
-/* global angular, alertify */
+/* global angular */
 'use strict';
 
 var _ = require('lodash');
@@ -18,8 +18,8 @@ var ng_login = angular.module('ng_login', [
 
 
 ng_login.controller('LoginCtrl', [
-    '$scope', '$http', '$q', '$timeout', '$window',
-    function($scope, $http, $q, $timeout, $window) {
+    '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify',
+    function($scope, $http, $q, $timeout, $window, nbAlertify) {
 
         $scope.nav = {
             root: '/'
@@ -64,21 +64,33 @@ ng_login.controller('LoginCtrl', [
             }
             $scope.alert_text = '';
             $scope.create_running = true;
-            return $q.when(account_client.create_account({
-                email: $scope.email,
-                password: $scope.password,
-            })).then(function() {
-                $scope.alert_text = '';
-                $scope.form_done = true;
-                return $timeout(function() {
-                    $window.location.href = '/';
-                }, 500);
-            }, function(err) {
-                return $timeout(function() {
-                    $scope.alert_text = err.data || 'failed. hard to say why.';
-                    $scope.create_running = false;
-                }, 500);
-            });
+            nbAlertify.prompt_password('Verify your password').then(
+                function(str) {
+                    if (str !== $scope.password) {
+                        throw 'the passwords don\'t match :O';
+                    }
+                    return $q.when(account_client.create_account({
+                        email: $scope.email,
+                        password: $scope.password,
+                    })).then(null, function(err) {
+                        throw err.data;
+                    });
+                }
+            ).then(
+                function() {
+                    $scope.alert_text = '';
+                    $scope.form_done = true;
+                    return $timeout(function() {
+                        $window.location.href = '/';
+                    }, 500);
+                },
+                function(err) {
+                    return $timeout(function() {
+                        $scope.alert_text = err || '';
+                        $scope.create_running = false;
+                    }, 500);
+                }
+            );
         };
     }
 ]);

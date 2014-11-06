@@ -1,4 +1,4 @@
-/* global angular, alertify */
+/* global angular */
 'use strict';
 
 var _ = require('lodash');
@@ -14,8 +14,6 @@ var mgmt_client = new mgmt_api.Client({
 var edge_node_client = new edge_node_api.Client({
     path: '/api/edge_node_api/',
 });
-
-
 
 var ng_app = angular.module('ng_app');
 
@@ -40,8 +38,8 @@ ng_app.controller('NodesCtrl', [
 
 
 ng_app.factory('nbNodes', [
-    '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location',
-    function($q, $timeout, nbGoogle, $window, $rootScope, $location) {
+    '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location', 'nbAlertify',
+    function($q, $timeout, nbGoogle, $window, $rootScope, $location, nbAlertify) {
         var $scope = {};
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
@@ -88,40 +86,36 @@ ng_app.factory('nbNodes', [
         }
 
         function add_nodes() {
-            alertify.prompt('Enter number of nodes', function(e, res) {
-                if (!e) {
-                    return;
+            nbAlertify.prompt('Enter number of nodes', '10').then(
+                function(str) {
+                    var count = Number(str);
+                    if (!count) {
+                        return;
+                    }
+                    var node_name_to_number = function(node) {
+                        return Number(node.name) || 0;
+                    };
+                    var max_node = _.max($scope.nodes, node_name_to_number);
+                    var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
+                    $q.all(_.times(count, function(i) {
+                        return $q.when(edge_node_client.create_node({
+                            name: '' + (next_node_name + i),
+                            geolocation: _.sample([
+                                'United States', 'Germany', 'China',
+                                'Israel', 'Brazil', 'Canada', 'Korea'
+                            ]),
+                            allocated_storage: size_utils.GIGABYTE,
+                            vendor: $scope.noobaa_center_vendor_id,
+                        }));
+                    })).then(refresh_nodes);
                 }
-                var count = Number(res);
-                if (!count) {
-                    return;
-                }
-                var node_name_to_number = function(node) {
-                    return Number(node.name) || 0;
-                };
-                var max_node = _.max($scope.nodes, node_name_to_number);
-                var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
-                $q.all(_.times(count, function(i) {
-                    return $q.when(edge_node_client.create_node({
-                        name: '' + (next_node_name + i),
-                        geolocation: _.sample([
-                            'United States', 'Germany', 'China',
-                            'Israel', 'Brazil', 'Canada', 'Korea'
-                        ]),
-                        allocated_storage: size_utils.GIGABYTE,
-                        vendor: $scope.noobaa_center_vendor_id,
-                    }));
-                })).then(refresh_nodes);
-            }, '10');
+            );
         }
 
         function remove_node(node) {
-            alertify.confirm('Really remove node ' +
-                node.name + ' @ ' + node.geolocation + ' ?',
-                function(e) {
-                    if (!e) {
-                        return;
-                    }
+            nbAlertify.confirm('Really remove node ' +
+                node.name + ' @ ' + node.geolocation + ' ?').then(
+                function() {
                     $q.when(edge_node_client.delete_node({
                         name: node.name
                     })).then(refresh_nodes);
@@ -142,14 +136,13 @@ ng_app.factory('nbNodes', [
         }
 
         function reset_nodes() {
-            alertify.confirm('Really reset nodes?', function(e) {
-                if (!e) {
+            nbAlertify.confirm('Really reset nodes?').then(
+                function() {
+                    nbAlertify.log('TODO');
+                    // $q.when(mgmt_client.reset_nodes()).then(refresh_nodes);
                     return;
                 }
-                alertify.log('TODO');
-                // $q.when(mgmt_client.reset_nodes()).then(refresh_nodes);
-                return;
-            });
+            );
         }
 
 

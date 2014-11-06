@@ -1,4 +1,4 @@
-/* global angular, alertify */
+/* global angular */
 'use strict';
 
 var _ = require('lodash');
@@ -31,8 +31,8 @@ ng_app.factory('nbFiles', [
 
 
 ng_app.controller('FilesCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout',
-    function($scope, $http, $q, $window, $timeout) {
+    '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify',
+    function($scope, $http, $q, $window, $timeout, nbAlertify) {
 
         $scope.nav.crumbs = [{
             text: 'Files',
@@ -83,12 +83,12 @@ ng_app.controller('FilesCtrl', [
                 }
             ).then(
                 function() {
-                    alertify.log('upload completed');
+                    nbAlertify.log('upload completed');
                     return load_bucket_objects(bucket);
                 }
             ).then(null,
                 function(err) {
-                    alertify.error('upload failed. ' + err.toString());
+                    nbAlertify.error('upload failed. ' + err.toString());
                 }
             );
         }
@@ -123,14 +123,13 @@ ng_app.controller('FilesCtrl', [
         }
 
         function create_bucket() {
-            alertify.prompt('Enter name for new bucket', function(e, str) {
-                if (!e) {
-                    return;
+            return nbAlertify.prompt('Enter name for new bucket').then(
+                function(str) {
+                    $q.when(object_client.create_bucket({
+                        bucket: str
+                    })).then(load_buckets);
                 }
-                $q.when(object_client.create_bucket({
-                    bucket: str
-                })).then(load_buckets);
-            });
+            );
         }
 
         function load_buckets() {

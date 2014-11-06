@@ -1,4 +1,4 @@
-/* global angular, alertify, google */
+/* global angular, google */
 'use strict';
 
 var _ = require('lodash');
@@ -47,7 +47,7 @@ ng_util.factory('nbGoogle', [
                 }
             });
         } catch (err) {
-            console.log('GOOGLE FAILED TO LOAD',err);
+            console.log('GOOGLE FAILED TO LOAD', err);
             defer.reject(err);
         }
         return defer.promise;
@@ -61,6 +61,56 @@ ng_util.factory('nbServerData', [
         var server_data_element = $window.document.getElementById('server_data');
         var server_data = JSON.parse(server_data_element.innerHTML);
         return server_data;
+    }
+]);
+
+
+ng_util.factory('nbAlertify', [
+    '$window', '$q',
+    function($window, $q) {
+
+        var alertify = $window.alertify;
+        var $scope = {};
+        $scope.log = wrap_alertify_promise('log', -1);
+        $scope.error = wrap_alertify_promise('error', -1);
+        $scope.success = wrap_alertify_promise('success', -1);
+        $scope.alert = wrap_alertify_promise('alert', -1);
+        $scope.confirm = wrap_alertify_promise('confirm', 1);
+        $scope.prompt = wrap_alertify_promise('prompt', 1);
+
+        $scope.prompt_password = function() {
+            var promise = $scope.prompt.apply(null, arguments);
+            $window.document.getElementById('alertify-text').setAttribute('type','password');
+            // setTimeout(function() {}, 1);
+            return promise;
+        };
+
+        function wrap_alertify_promise(func_name, callback_index) {
+            var func = alertify[func_name];
+            return function() {
+                var defer = $q.defer();
+                var args = _.toArray(arguments);
+                if (callback_index >= 0) {
+                    args.splice(callback_index, 0, function(e) {
+                        if (!e) {
+                            defer.reject();
+                            return;
+                        }
+                        if (arguments.length <= 1) {
+                            defer.resolve();
+                        } else if (arguments.length === 2) {
+                            defer.resolve(arguments[1]);
+                        } else {
+                            var res = _.toArray(arguments).slice(1);
+                            defer.resolve(res);
+                        }
+                    });
+                }
+                func.apply(alertify, args);
+                return defer.promise;
+            };
+        }
+        return $scope;
     }
 ]);
 

@@ -85,7 +85,7 @@ function login_default_account() {
 }
 
 var test_agents;
-var agent_storage_dir = path.resolve(__dirname, '../../test_storage_for_agents');
+var agent_storage_dir = path.resolve(__dirname, '../../local_agent_storage/coretest');
 
 
 // create some test nodes named 0, 1, 2, ..., count

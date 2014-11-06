@@ -214,7 +214,7 @@ function start_node_agents(account, nodes) {
     var sem = new Semaphore(3);
     return Q.all(_.map(nodes,
         function(node) {
-            if (node.vendor.kind !== 'noobaa-center') {
+            if (node.vendor.kind !== 'agent-host') {
                 throw new Error('unsupported node vendor for starting');
             }
             var agent = node_agents[node.name] || new Agent({
@@ -272,12 +272,12 @@ function get_node_vendors(req) {
     ).then(
         function(vendors) {
             var noobaa_center_vendor_kind = {
-                kind: 'noobaa-center'
+                kind: 'agent-host'
             };
             if (_.any(vendors, noobaa_center_vendor_kind)) {
                 return vendors;
             }
-            // lazy create the noobaa-center pseudo vendor
+            // lazy create the agent-host vendor
             return NodeVendor.create(noobaa_center_vendor_kind).then(
                 function(vendor) {
                     // no reason to read again from the db,

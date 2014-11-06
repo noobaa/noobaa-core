@@ -18,7 +18,7 @@ var node_vendor_schema = new Schema({
     // enum of the available vendors
     kind: {
         type: String,
-        enum: ['noobaa-center', 'aws-opworks'],
+        enum: ['agent-host', 'aws-opworks'],
         required: true,
     },
 

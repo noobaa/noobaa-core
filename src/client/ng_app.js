@@ -157,7 +157,7 @@ ng_app.factory('nbNodes', [
                     console.log('NODE VENDORS', res.vendors);
                     $scope.node_vendors_by_id = _.indexBy(res.vendors, 'id');
                     $scope.node_vendors_by_kind = _.groupBy(res.vendors, 'kind');
-                    var center = $scope.node_vendors_by_kind['noobaa-center'];
+                    var center = $scope.node_vendors_by_kind['agent-host'];
                     if (center && center[0]) {
                         $scope.noobaa_center_vendor_id = center[0].id;
                     }

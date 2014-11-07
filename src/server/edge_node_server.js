@@ -23,6 +23,7 @@ module.exports = new edge_node_api.Server({
     list_nodes: list_nodes,
     read_node: read_node,
     heartbeat: heartbeat,
+    get_agents_status: get_agents_status,
     start_agents: start_agents,
     stop_agents: stop_agents,
     get_node_vendors: get_node_vendors,
@@ -44,9 +45,33 @@ function create_node(req) {
     info.account = req.account.id; // see account_server.account_session
     info.heartbeat = new Date();
     info.used_storage = 0;
+
+    // TODO handle vendor_node_desired_state !!
+    info.vendor_node_desired_state = true;
+
+    var vendor;
     return Q.fcall(
         function() {
+            if (info.vendor) {
+                return NodeVendor.findById(info.vendor).exec();
+            }
+        }
+    ).then(
+        function(vendor_arg) {
+            vendor = vendor_arg;
+            if (info.vendor) {
+                verify_vendor_found(req.account.id, info.vendor, vendor);
+            }
             return EdgeNode.create(info);
+        }
+    ).then(
+        function(node) {
+            if (vendor) {
+                return agent_host_caller(vendor).start_agent({
+                    name: node.name,
+                    geolocation: node.geolocation,
+                });
+            }
         }
     ).thenResolve();
 }
@@ -180,7 +205,7 @@ function heartbeat(req) {
 
 
 
-function toggle_agents(account, node_names, start_or_stop) {
+function agent_host_action(account, node_names, func_name) {
     return Q.fcall(
         function() {
             return EdgeNode.find({
@@ -195,33 +220,40 @@ function toggle_agents(account, node_names, start_or_stop) {
             var sem = new Semaphore(3);
             return Q.all(_.map(nodes,
                 function(node) {
-                    if (node.vendor.kind !== 'agent_host') {
-                        throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + node.vendor.kind);
-                    }
                     return sem.surround(function() {
-                        var agent_host_client = new agent_host_api.Client(node.vendor.info);
-                        var host_func = (start_or_stop === 'start') ?
-                            agent_host_client.start_agent :
-                            agent_host_client.stop_agent;
-                        return host_func({
+                        var params = {
                             name: node.name,
-                            geolocation: node.geolocation,
-                        });
+                        };
+                        if (func_name === 'start_agent') {
+                            params.geolocation = node.geolocation;
+                        }
+                        return agent_host_caller(node.vendor)[func_name](params);
                     });
                 }
             ));
         }
-    ).thenResolve();
+    );
+}
+
+function get_agents_status(req) {
+    var node_names = req.restful_params.nodes;
+    return agent_host_action(req.account, node_names, 'get_agent_status').then(
+        function(nodes_status) {
+            return {
+                nodes: nodes_status
+            };
+        }
+    );
 }
 
 function start_agents(req) {
     var node_names = req.restful_params.nodes;
-    return toggle_agents(req.account, node_names, true);
+    return agent_host_action(req.account, node_names, 'start_agent').thenResolve();
 }
 
 function stop_agents(req) {
     var node_names = req.restful_params.nodes;
-    return toggle_agents(req.account, node_names, false);
+    return agent_host_action(req.account, node_names, 'stop_agent').thenResolve();
 }
 
 
@@ -259,14 +291,7 @@ function connect_node_vendor(req) {
     ).then(
         function(vendor_arg) {
             vendor = vendor_arg;
-            if (!vendor) {
-                console.error('NODE VENDOR NOT FOUND', vendor_info);
-                throw new Error('node vendor not found');
-            }
-            if (String(req.account.id) !== String(vendor.account)) {
-                console.error('NODE VENDOR ACCOUNT MISMATCH', vendor.account, req.account);
-                throw new Error('node vendor account mismatch');
-            }
+            verify_vendor_found(req.account.id, vendor_info.id, vendor);
             // find all nodes hosted by this vendor
             return EdgeNode.find({
                 account: req.account.id,
@@ -276,7 +301,7 @@ function connect_node_vendor(req) {
     ).then(
         function(nodes) {
             var node_names = _.pluck(nodes, 'name');
-            return toggle_agents(req.account, node_names , 'start');
+            return agent_host_action(req.account, node_names, 'start_agent');
         }
     ).then(
         function() {
@@ -285,6 +310,30 @@ function connect_node_vendor(req) {
     );
 }
 
+function verify_vendor_found(account_id, vendor_id, vendor) {
+    if (!vendor) {
+        console.error('NODE VENDOR NOT FOUND', vendor_id);
+        throw new Error('node vendor not found');
+    }
+    if (String(vendor_id) !== String(vendor.id)) {
+        console.error('NODE VENDOR ID MISMATCH', vendor_id, vendor.id);
+        throw new Error('node vendor id mismatch');
+    }
+    if (String(account_id) !== String(vendor.account)) {
+        console.error('NODE VENDOR ACCOUNT MISMATCH', account_id, vendor.account);
+        throw new Error('node vendor account mismatch');
+    }
+}
+
+function agent_host_caller(vendor) {
+    if (vendor.kind !== 'agent_host') {
+        throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + vendor.kind);
+    }
+    var params = _.merge({
+        path: '/api/agent_host_api/'
+    }, vendor.info);
+    return new agent_host_api.Client(params);
+}
 
 function get_node_info(node) {
     var info = _.pick(node,

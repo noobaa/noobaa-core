@@ -67,6 +67,10 @@ var edge_node_schema = new Schema({
     // optional vendor specific resource identifier
     vendor_node_id: {
         type: String
+    },
+    // desired state - true=started, false=stopped
+    vendor_node_desired_state: {
+        type: Boolean
     }
 
 });

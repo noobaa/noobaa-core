@@ -34,7 +34,7 @@
                 <div ng-if="nbNodes.detailed_nodes.geo" ng-repeat="geo in [nbNodes.detailed_nodes.geo]">
                     <h1 class="animated fadeInUp clearfix">
                         {{geo}}
-                        <small class="badge">{{nbNodes.detailed_nodes.nodes.length}} nodes</small>
+                        <span class="badge">{{nbNodes.detailed_nodes.nodes.length}} nodes</span>
                     </h1>
                 </div>
                 <div class="table-responsive" ng-if="nbNodes.detailed_nodes.nodes.length">
@@ -47,10 +47,10 @@
                             <th>Storage</th>
                             <th></th>
                         </tr>
-                        <tr ng-repeat="node in nbNodes.detailed_nodes.nodes" ng-click="nbNodes.detailed_nodes.selected=$index" ng-class="{info: nbNodes.detailed_nodes.selected==$index}">
+                        <tr ng-repeat="node in nbNodes.detailed_nodes.nodes" ng-click="nbNodes.detailed_nodes.selected=$index" ng-class="{Xactive: nbNodes.detailed_nodes.selected==$index}">
                             <td>
-                                <button class="btn btn-default" ng-click="node.is_online=!node.is_online">
-                                    <i class="fa {{node.is_online && 'fa-circle text-green' || 'fa-circle-o text-muted'}}"></i>
+                                <button class="btn btn-default btn-sm border-hover-only" ng-click="nbNodes.click_node_status(node)">
+                                    <i class="fa {{node.is_online && 'fa-circle text-green' || 'fa-circle text-muted'}}"></i>
                                 </button>
                             </td>
                             <td>{{node.name}}</td>
@@ -65,7 +65,7 @@
                                 </div>
                             </td>
                             <td>
-                                <button class="btn btn-default" ng-click="nbNodes.remove_node(node)">
+                                <button class="btn btn-default btn-sm border-hover-only" ng-click="nbNodes.remove_node(node)">
                                     <i class="fa fa-trash text-muted"></i>
                                 </button>
                             </td>

@@ -363,6 +363,9 @@ function send_http_request(options) {
                         response_err = response_err || err;
                     }
                     if (res.statusCode !== 200 || response_err) {
+                        if (is_buffer) {
+                            data = data.toString('utf8');
+                        }
                         return reject({
                             status: res.statusCode,
                             data: response_err || data,

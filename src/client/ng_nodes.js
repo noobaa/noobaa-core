@@ -44,6 +44,7 @@ ng_app.factory('nbNodes', [
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
+        $scope.click_node_status = click_node_status;
         $scope.start_agent = start_agent;
         $scope.stop_agent = stop_agent;
         $scope.reset_nodes = reset_nodes;
@@ -98,7 +99,6 @@ ng_app.factory('nbNodes', [
                     scope.count = 1;
                     scope.node_vendors = $scope.node_vendors;
                     scope.selected_vendor = $scope.node_vendors[0];
-                    scope.vendor_id = $scope.node_vendors[0].id;
                     scope.allocate_gb = 1;
                     // in order to allow input[type=range] and input[type=number]
                     // to work together, we need to convert the value from string to number
@@ -115,7 +115,7 @@ ng_app.factory('nbNodes', [
                     scope.num_created = 0;
                     scope.add_nodes = function() {
                         console.log('ADD NODES');
-                        if (!scope.count || !scope.vendor_id || !scope.allocate_gb) {
+                        if (!scope.count || !scope.selected_vendor.id || !scope.allocate_gb) {
                             return;
                         }
                         var node_name_to_number = function(node) {
@@ -132,7 +132,7 @@ ng_app.factory('nbNodes', [
                                     'Israel', 'Brazil', 'Canada', 'Korea'
                                 ]),
                                 allocated_storage: scope.allocate_gb * size_utils.GIGABYTE,
-                                vendor: scope.vendor_id,
+                                vendor: scope.selected_vendor.id,
                             })).then(function() {
                                 scope.num_created += 1;
                             });
@@ -165,6 +165,13 @@ ng_app.factory('nbNodes', [
                     })).then(refresh_nodes);
                 }
             );
+        }
+
+        function click_node_status(node) {
+            // TODO
+            // return $q.when(edge_node_client.start_agents({
+            //     nodes: [node.name]
+            // })).then(refresh_nodes);
         }
 
         function start_agent(node) {

@@ -38,7 +38,7 @@ module.exports = restful_api({
             path: '/start/:name',
             params: {
                 type: 'object',
-                required: ['name', 'geolocation', 'account_credentials'],
+                required: ['name', 'geolocation'],
                 properties: {
                     name: {
                         type: 'string',

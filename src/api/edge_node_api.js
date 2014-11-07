@@ -123,6 +123,41 @@ module.exports = restful_api({
         },
 
 
+        get_agents_status: {
+            method: 'GET',
+            path: '/agents/',
+            params: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'string', // node name
+                        }
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['status'],
+                            properties: {
+                                status: {
+                                    type: 'boolean',
+                                },
+                            },
+                        }
+                    }
+                }
+            },
+        },
+
         start_agents: {
             method: 'POST',
             path: '/agents',

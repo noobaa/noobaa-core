@@ -31,6 +31,11 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
+    md5sum: {
+        type: String,
+        required: true,
+    }
+
 });
 
 data_chunk_schema.index({

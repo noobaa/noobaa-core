@@ -10,6 +10,7 @@ var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
 var ObjectReader = require('./object_reader');
 var ObjectWriter = require('./object_writer');
+var crypto = require('crypto');
 
 
 module.exports = ObjectClient;
@@ -61,6 +62,10 @@ ObjectClient.prototype.write_object_part = function(params) {
     var self = this;
     var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
     // console.log('write_object_part', params);
+
+    var md5 = crypto.createHash('md5');
+    md5.update(params.buffer);
+    upload_params.md5sum = md5.digest('hex');
 
     return self.allocate_object_part(upload_params).then(
         function(part) {
@@ -176,6 +181,15 @@ ObjectClient.prototype.read_object_part = function(part) {
     ).then(
         function() {
             var buffer = decode_chunk(part, buffer_per_index);
+
+            var md5 = crypto.createHash('md5');
+            md5.update(buffer);
+            var md5sum = md5.digest('hex');
+            if (md5sum !== part.md5sum) {
+                console.error('MD5 CHECKSUM FAILED', md5sum, part);
+                throw new Error('md5 checksum failed');
+            }
+
             // TODO cache decoded chunks with lru client
             // cut only the part's relevant range from the chunk
             buffer = buffer.slice(part.chunk_offset, part.chunk_offset + part.end - part.start);

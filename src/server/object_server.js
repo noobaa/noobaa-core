@@ -212,6 +212,7 @@ function allocate_object_part(req) {
     var key = req.restful_params.key;
     var start = Number(req.restful_params.start);
     var end = Number(req.restful_params.end);
+    var md5sum = req.restful_params.md5sum;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -231,7 +232,7 @@ function allocate_object_part(req) {
                 // TODO handle the upload_mode state
                 // throw new Error('object not in upload mode');
             }
-            return object_mapper.allocate_object_part(obj, start, end);
+            return object_mapper.allocate_object_part(obj, start, end, md5sum);
         }
     );
 }

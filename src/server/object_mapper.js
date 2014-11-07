@@ -23,7 +23,7 @@ var CHUNK_KBLOCKS_BITWISE = 1; // TODO: make 7
 var CHUNK_KBLOCKS = 1 << CHUNK_KBLOCKS_BITWISE;
 
 
-function allocate_object_part(obj, start, end) {
+function allocate_object_part(obj, start, end, md5sum) {
     // chunk size is aligned up to be an integer multiple of kblocks*block_size
     var chunk_size = range_utils.align_up_bitwise(
         end - start,
@@ -32,6 +32,7 @@ function allocate_object_part(obj, start, end) {
     var new_chunk = new DataChunk({
         size: chunk_size,
         kblocks: CHUNK_KBLOCKS,
+        md5sum: md5sum,
     });
     var new_part = new ObjectPart({
         obj: obj.id,
@@ -166,6 +167,7 @@ function get_part_info(part, chunk, blocks) {
     var p = _.pick(part, 'start', 'end', 'chunk_offset');
     p.indexes = indexes;
     p.kblocks = chunk.kblocks;
+    p.md5sum = chunk.md5sum;
     p.chunk_size = chunk.size;
     p.chunk_offset = p.chunk_offset || 0;
     return p;

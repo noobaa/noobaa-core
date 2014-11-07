@@ -9,6 +9,7 @@ var mgmt_api = require('../api/mgmt_api');
 var edge_node_api = require('../api/edge_node_api');
 var ObjectClient = require('../api/object_client');
 var file_reader_stream = require('filereader-stream');
+var concat_stream = require('concat-stream');
 var mgmt_client = new mgmt_api.Client({
     path: '/api/mgmt_api/',
 });
@@ -77,12 +78,35 @@ ng_app.controller('FilesCtrl', [
         }
 
         function click_object(object) {
+            return $q.when(read_entire_object(object)).then(
+                function(data) {
+                    var blob = new $window.Blob(data);
+                    var url = $window.URL.createObjectURL(blob);
+                    $scope.object_src = $sce.trustAsResourceUrl(url);
+                }
+            );
+        }
+
+        function read_entire_object(object) {
             var object_path = {
-                bucket: $scope.bucket.name,
+                bucket: object.bucket.name,
+                key: object.key,
+            };
+            var defer = $q.defer();
+            var stream = concat_stream(defer.resolve);
+            stream.once('error', defer.reject);
+            object_client.open_read_stream(object_path).pipe(stream);
+            return defer.promise;
+        }
+
+        function read_as_media_stream(object) {
+            var object_path = {
+                bucket: object.bucket.name,
                 key: object.key,
             };
             var ms = new $window.MediaSource();
             ms.addEventListener('sourceopen', function(e) {
+                // TODO need to have content type, and check support for types
                 var sourceBuffer = ms.addSourceBuffer('video/webm; codecs="vorbis,vp8"');
                 var stream = object_client.open_read_stream(object_path);
                 stream.on('data', function(data) {
@@ -98,9 +122,8 @@ ng_app.controller('FilesCtrl', [
                     ms.endOfStream(err);
                 });
             }, false);
-            $scope.object_src = $sce.trustAsResourceUrl($window.URL.createObjectURL(ms));
+            return $window.URL.createObjectURL(ms);
         }
-
 
         function upload_file(file, bucket) {
             console.log('upload', file);
@@ -155,6 +178,9 @@ ng_app.controller('FilesCtrl', [
                 function(res) {
                     console.log('load_bucket_objects', bucket.name, res);
                     bucket.objects = res.objects;
+                    _.each(bucket.objects, function(object) {
+                        object.bucket = bucket;
+                    });
                 }
             );
         }

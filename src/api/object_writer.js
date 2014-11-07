@@ -76,11 +76,11 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
  * triggered automatically on 'finish' event.
  */
 ObjectWriter.prototype.complete_upload = function() {
-    return this._client.complete_multipart_upload({
-        bucket: this._bucket,
-        key: this._key,
+    var self = this;
+    return self._client.complete_multipart_upload({
+        bucket: self._bucket,
+        key: self._key,
         // size: this._pos,
-        // md5sum: '', // TODO
     });
 };
 
@@ -90,8 +90,9 @@ ObjectWriter.prototype.complete_upload = function() {
  * and that the data uploaded so far should be discarded.
  */
 ObjectWriter.prototype.abort_upload = function() {
-    return this._client.abort_multipart_upload({
-        bucket: this._bucket,
-        key: this._key,
+    var self = this;
+    return self._client.abort_multipart_upload({
+        bucket: self._bucket,
+        key: self._key,
     });
 };

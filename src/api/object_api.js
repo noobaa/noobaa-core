@@ -172,7 +172,7 @@ module.exports = restful_api({
                     },
                     key: {
                         type: 'string',
-                    }
+                    },
                 }
             },
         },
@@ -199,7 +199,7 @@ module.exports = restful_api({
             path: '/:bucket/:key/part',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'start', 'end'],
+                required: ['bucket', 'key', 'start', 'end', 'md5sum'],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -212,6 +212,9 @@ module.exports = restful_api({
                     },
                     end: {
                         type: 'integer',
+                    },
+                    md5sum: {
+                        type: 'string',
                     },
                 },
             },
@@ -339,7 +342,12 @@ module.exports = restful_api({
 
         object_part_info: {
             type: 'object',
-            required: ['start', 'end', 'kblocks', 'chunk_size', 'chunk_offset', 'indexes'],
+            required: [
+                'start', 'end',
+                'kblocks', 'md5sum',
+                'chunk_size', 'chunk_offset', 
+                'indexes'
+            ],
             properties: {
                 start: {
                     type: 'integer',
@@ -349,6 +357,9 @@ module.exports = restful_api({
                 },
                 kblocks: {
                     type: 'integer',
+                },
+                md5sum: {
+                    type: 'string',
                 },
                 chunk_size: {
                     type: 'integer',

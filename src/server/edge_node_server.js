@@ -236,7 +236,7 @@ function get_node_vendors(req) {
         function(vendors) {
             return {
                 vendors: _.map(vendors, function(v) {
-                    return _.pick(v, 'id', 'kind');
+                    return _.pick(v, 'id', 'name', 'kind');
                 })
             };
         }
@@ -245,7 +245,7 @@ function get_node_vendors(req) {
 
 
 function connect_node_vendor(req) {
-    var vendor_info = _.pick(req.restful_params, 'id', 'kind', 'info');
+    var vendor_info = _.pick(req.restful_params, 'id', 'name', 'kind', 'info');
     vendor_info.account = req.account.id; // see account_server.account_session
     var vendor;
     return Q.fcall(
@@ -269,7 +269,8 @@ function connect_node_vendor(req) {
             }
             // find all nodes hosted by this vendor
             return EdgeNode.find({
-                vendor: vendor.id
+                account: req.account.id,
+                vendor: vendor.id,
             }).select('name').exec();
         }
     ).then(
@@ -279,7 +280,7 @@ function connect_node_vendor(req) {
         }
     ).then(
         function() {
-            return _.pick(vendor, 'id', 'kind');
+            return _.pick(vendor, 'id', 'name', 'kind');
         }
     );
 }

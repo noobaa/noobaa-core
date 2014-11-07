@@ -22,6 +22,11 @@ var node_vendor_schema = new Schema({
         required: true,
     },
 
+    name: {
+        type: String,
+        required: true,
+    },
+
     // enum of the available vendors
     kind: {
         type: String,
@@ -35,5 +40,14 @@ var node_vendor_schema = new Schema({
     },
 
 });
+
+
+node_vendor_schema.index({
+    account: 1,
+    name: 1,
+}, {
+    unique: true
+});
+
 
 var NodeVendor = module.exports = mongoose.model('NodeVendor', node_vendor_schema);

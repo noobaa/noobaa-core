@@ -17,6 +17,17 @@
     "url": "https://github.com/noobaa/noobaa-core/issues"
   },
   "homepage": "https://github.com/noobaa/noobaa-core",
+  "browser": {
+    "jquery": false
+  },
+  "browserify-shim": {
+    "jquery": "global:$"
+  },
+  "browserify": {
+    "transform": [
+      "browserify-shim"
+    ]
+  },
   "dependencies": {
     "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git",
     "q": "~1.0.1",
@@ -72,7 +83,8 @@
     "bootswatch": "~3.2.0",
     "animate.css": "~3.1.1",
     "filereader-stream": "~0.1.1",
-    "video.js": "~4.10.2"
+    "video.js": "~4.10.2",
+    "browserify-shim": "~3.8.0"
   },
   "devDependencies": {
     "node-inspector": "~0.7.4"

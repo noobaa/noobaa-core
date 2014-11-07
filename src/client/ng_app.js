@@ -81,6 +81,12 @@ ng_app.factory('nbMgmt', [
                     return $timeout(function() {
                         $scope.refreshing = false;
                     }, 500);
+                },
+                function(err) {
+                    console.error('STATS FAILED', err);
+                    return $timeout(function() {
+                        $scope.refreshing = false;
+                    }, 500);
                 }
             );
         }

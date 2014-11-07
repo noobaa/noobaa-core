@@ -173,6 +173,9 @@ module.exports = restful_api({
                                 id: {
                                     type: 'string',
                                 },
+                                name: {
+                                    type: 'string',
+                                },
                                 kind: {
                                     type: 'string',
                                 }
@@ -193,6 +196,9 @@ module.exports = restful_api({
                     id: {
                         type: 'string',
                     },
+                    name: {
+                        type: 'string',
+                    },
                     kind: {
                         type: 'string',
                     },
@@ -207,6 +213,9 @@ module.exports = restful_api({
                 required: ['id', 'kind'],
                 properties: {
                     id: {
+                        type: 'string',
+                    },
+                    name: {
                         type: 'string',
                     },
                     kind: {

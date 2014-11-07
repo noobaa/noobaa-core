@@ -38,8 +38,8 @@ ng_app.controller('NodesCtrl', [
 
 
 ng_app.factory('nbNodes', [
-    '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location', 'nbAlertify',
-    function($q, $timeout, nbGoogle, $window, $rootScope, $location, nbAlertify) {
+    '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location', 'nbAlertify', 'nbModal',
+    function($q, $timeout, nbGoogle, $window, $rootScope, $location, nbAlertify, nbModal) {
         var $scope = {};
         $scope.refresh_nodes = refresh_nodes;
         $scope.add_nodes = add_nodes;
@@ -49,7 +49,7 @@ ng_app.factory('nbNodes', [
         $scope.reset_nodes = reset_nodes;
         $scope.detailed_nodes = {};
 
-        get_node_vendors();
+        load_node_vendors();
         refresh_nodes();
 
         function refresh_nodes() {
@@ -71,43 +71,87 @@ ng_app.factory('nbNodes', [
             );
         }
 
-        function get_node_vendors() {
+        function load_node_vendors(force) {
+            if ($scope.node_vendors && $scope.node_vendors.length && force !== 'force') {
+                return;
+            }
             return $q.when(edge_node_client.get_node_vendors()).then(
                 function(res) {
-                    console.log('NODE VENDORS', res.vendors);
+                    $scope.node_vendors = res.vendors;
                     $scope.node_vendors_by_id = _.indexBy(res.vendors, 'id');
-                    $scope.node_vendors_by_kind = _.groupBy(res.vendors, 'kind');
-                    var center = $scope.node_vendors_by_kind.agent_host;
-                    if (center && center[0]) {
-                        $scope.noobaa_center_vendor_id = center[0].id;
-                    }
+                    console.log('NODE VENDORS', $scope.node_vendors);
                 }
             );
         }
 
         function add_nodes() {
-            nbAlertify.prompt('Enter number of nodes', '10').then(
-                function(str) {
-                    var count = Number(str);
-                    if (!count) {
+            $q.when(load_node_vendors()).then(
+                function() {
+                    if (!$scope.node_vendors || !$scope.node_vendors.length) {
+                        nbAlertify.alert(
+                            'In order to add nodes you need to ' +
+                            'setup node-vendors for your account. ' +
+                            'Please seek professional help.');
                         return;
                     }
-                    var node_name_to_number = function(node) {
-                        return Number(node.name) || 0;
+                    var scope = $rootScope.$new();
+                    scope.count = 1;
+                    scope.node_vendors = $scope.node_vendors;
+                    scope.selected_vendor = $scope.node_vendors[0];
+                    scope.vendor_id = $scope.node_vendors[0].id;
+                    scope.allocate_gb = 1;
+                    // in order to allow input[type=range] and input[type=number]
+                    // to work together, we need to convert the value from string to number
+                    // because type=range uses strings and type=number does not accept strings.
+                    Object.defineProperty(scope, 'allocate_gb_str', {
+                        enumerable: true,
+                        get: function() {
+                            return scope.allocate_gb;
+                        },
+                        set: function(val) {
+                            scope.allocate_gb = parseInt(val);
+                        }
+                    });
+                    scope.num_created = 0;
+                    scope.add_nodes = function() {
+                        console.log('ADD NODES');
+                        if (!scope.count || !scope.vendor_id || !scope.allocate_gb) {
+                            return;
+                        }
+                        var node_name_to_number = function(node) {
+                            return Number(node.name) || 0;
+                        };
+                        var max_node = _.max($scope.nodes, node_name_to_number);
+                        var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
+                        scope.num_created = 0;
+                        return $q.all(_.times(scope.count, function(i) {
+                            return $q.when(edge_node_client.create_node({
+                                name: '' + (next_node_name + i),
+                                geolocation: _.sample([
+                                    'United States', 'Germany', 'China',
+                                    'Israel', 'Brazil', 'Canada', 'Korea'
+                                ]),
+                                allocated_storage: scope.allocate_gb * size_utils.GIGABYTE,
+                                vendor: scope.vendor_id,
+                            })).then(function() {
+                                scope.num_created += 1;
+                            });
+                        })).then(refresh_nodes);
                     };
-                    var max_node = _.max($scope.nodes, node_name_to_number);
-                    var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
-                    $q.all(_.times(count, function(i) {
-                        return $q.when(edge_node_client.create_node({
-                            name: '' + (next_node_name + i),
-                            geolocation: _.sample([
-                                'United States', 'Germany', 'China',
-                                'Israel', 'Brazil', 'Canada', 'Korea'
-                            ]),
-                            allocated_storage: size_utils.GIGABYTE,
-                            vendor: $scope.noobaa_center_vendor_id,
-                        }));
-                    })).then(refresh_nodes);
+                    scope.run = function() {
+                        return $q.when(scope.add_nodes()).then(
+                            function() {
+                                scope.modal.modal('hide');
+                            },
+                            function(err) {
+                                nbAlertify.error(err);
+                            }
+                        );
+                    };
+                    scope.modal = nbModal({
+                        template: 'add_nodes_dialog.html',
+                        scope: scope,
+                    });
                 }
             );
         }

@@ -22,7 +22,7 @@
                 <div id="nodes_map" class="img-responsive"></div>
             </div>
             <div class="col-sm-8">
-                <div nb-show-animated="{show:'!nbNodes.detailed_nodes.nodes.length', out:'fadeOutUp'}">
+                <div ng-hide="nbNodes.detailed_nodes.nodes.length">
                     <h1 class="hidden-sm hidden-md hidden-lg pull-right">
                         <i class="fa fa-hand-o-up fa-3x fa-fw text-primary animated bounce"></i>
                     </h1>
@@ -55,11 +55,10 @@
                             </td>
                             <td>{{node.name}}</td>
                             <td>{{moment(node.heartbeat).fromNow()}}</td>
-                            <td>{{nbNodes.node_vendors_by_id[node.vendor].kind}}</td>
+                            <td>{{nbNodes.node_vendors_by_id[node.vendor].name}}</td>
                             <td>
                                 <div class="progress" style="margin:0; position:relative">
-                                    <div class="progress-bar Xprogress-bar-info" ng-class="{'progress-bar-info':($index % 4)==0, 'progress-bar-success':($index % 4)==1, 'progress-bar-warning':($index % 4)==2, 'progress-bar-danger':($index % 4)==3}" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-                                    aria-valuenow="{{100*(node.used_storage||(1024*1024*800))/node.allocated_storage}}" style="width: {{100*(node.used_storage||(1024*1024*800))/node.allocated_storage}}%;"></div>
+                                    <div class="progress-bar Xprogress-bar-info" ng-class="{'progress-bar-info':($index % 4)==0, 'progress-bar-success':($index % 4)==1, 'progress-bar-warning':($index % 4)==2, 'progress-bar-danger':($index % 4)==3}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{100*node.used_storage/node.allocated_storage}}" style="width: {{100*node.used_storage/node.allocated_storage}}%;"></div>
                                     <div class="text-center text-color" style="position:absolute; top:0; left:0; right:0; bottom:0">
                                         <small>{{human_size(node.allocated_storage)}}</small>
                                     </div>

@@ -40,8 +40,10 @@ function AgentHost(params) {
 
     params = params || {};
     assert(params.agent_storage_dir, 'missing agent_storage_dir');
+    assert(params.name, 'missing name');
     assert(params.port, 'missing port');
     self.agent_storage_dir = params.agent_storage_dir;
+    self.name = params.name;
     self.hostname = params.hostname;
     self.port = params.port;
     // node_vendor_id is an optional id of NodeVendor (db model)
@@ -102,6 +104,7 @@ AgentHost.prototype.connect_node_vendor = function() {
     ).then(
         function() {
             var params = {
+                name: self.name,
                 kind: 'agent_host',
                 info: {
                     hostname: self.hostname,
@@ -142,7 +145,6 @@ AgentHost.prototype.start_agent = function(req) {
     var self = this;
     var node_name = req.param('name');
     var geolocation = req.param('geolocation');
-    var account_credentials = req.param('account_credentials');
     return Q.when(self.stop_agent(req)).then(
         function() {
             var agent = self.agents[node_name] = new Agent({
@@ -203,6 +205,7 @@ function host_main() {
     // extend the config with defaults
     var params = _.merge({}, {
         agent_storage_dir: host_dir,
+        name: 'Guy MAC Host',
         hostname: 'localhost',
         port: 5002,
         client_params: {

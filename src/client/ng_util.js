@@ -65,6 +65,76 @@ ng_util.factory('nbServerData', [
 ]);
 
 
+ng_util.factory('nbModal', [
+    '$window', '$q', '$compile', '$rootScope', '$templateCache',
+    function($window, $q, $compile, $rootScope, $templateCache) {
+
+        var modal = function(opt) {
+            var html = opt.html || $templateCache.get(opt.template);
+            var scope = opt.scope || $rootScope.$new();
+            var e = $compile(html)(scope);
+            // close modal on ESC key
+            var keydown_handler = function(event) {
+                if (event.which === 27 && !event.defaultPrevented) {
+                    event.preventDefault();
+                    e.modal('hide');
+                }
+            };
+            $window.addEventListener('keydown', keydown_handler);
+            // close modal on mobile back key or browser history back
+            var back_unsubscribe;
+            e.on('shown.bs.modal', function() {
+                back_unsubscribe = scope.$on('$locationChangeStart', function(event) {
+                    e.modal('hide');
+                    event.preventDefault();
+                    event.stopPropagation();
+                    return false;
+                });
+            });
+            e.on('hidden.bs.modal', function() {
+                if (back_unsubscribe) {
+                    back_unsubscribe();
+                }
+                $window.removeEventListener('keydown', keydown_handler);
+                if (!opt.persist) {
+                    e.remove();
+                }
+                $rootScope.safe_apply();
+            });
+            if (opt.size === 'lg') {
+                e.find('.modal-dialog').addClass('modal-lg');
+            } else if (opt.size === 'sm') {
+                e.find('.modal-dialog').addClass('modal-sm');
+            } else if (opt.size === 'fullscreen') {
+                e.addClass('modal-fullscreen');
+            }
+            e.modal({
+                show: !opt.noshow
+            });
+            return e;
+        };
+
+        modal.wrap_body = function(opt) {
+            return [
+                '<div class="modal"',
+                opt.controller ? ' ng-controller="' + opt.controller + '"' : '',
+                '>',
+                '<div class="modal-dialog">',
+                '<div class="modal-content">',
+                '<div class="modal-body" style="padding: 0">',
+                $templateCache.get(opt.template),
+                '</div>',
+                '</div>',
+                '</div>',
+                '</div>'
+            ].join('\n');
+        };
+
+        return modal;
+    }
+]);
+
+
 ng_util.factory('nbAlertify', [
     '$window', '$q',
     function($window, $q) {
@@ -80,7 +150,7 @@ ng_util.factory('nbAlertify', [
 
         $scope.prompt_password = function() {
             var promise = $scope.prompt.apply(null, arguments);
-            $window.document.getElementById('alertify-text').setAttribute('type','password');
+            $window.document.getElementById('alertify-text').setAttribute('type', 'password');
             // setTimeout(function() {}, 1);
             return promise;
         };
@@ -113,7 +183,6 @@ ng_util.factory('nbAlertify', [
         return $scope;
     }
 ]);
-
 
 
 ng_util.directive('nbShowAnimated', [

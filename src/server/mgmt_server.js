@@ -76,8 +76,8 @@ function system_stats(req) {
                 console.log('mismatching count of used size', allocated_info, used_info);
             }
             return {
-                allocated_storage: allocated_info.allocated,
-                used_storage: used_info.size,
+                allocated_storage: allocated_info.allocated || 0,
+                used_storage: used_info.size || 0,
                 counters: {
                     accounts: accounts,
                     nodes: nodes,

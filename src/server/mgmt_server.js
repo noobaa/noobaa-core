@@ -46,7 +46,7 @@ function system_stats(req) {
                 return EdgeNode.mapReduce({
                     map: function() {
                         /* global emit */
-                        emit('allocated', this.allocated_storage);
+                        emit('alloc', this.allocated_storage);
                         emit('used', this.used_storage);
                     },
                     reduce: size_utils.reduce_sum
@@ -76,7 +76,7 @@ function system_stats(req) {
                 console.log('mismatching count of used size', allocated_info, used_info);
             }
             return {
-                allocated_storage: allocated_info.allocated || 0,
+                allocated_storage: allocated_info.alloc || 0,
                 used_storage: used_info.size || 0,
                 counters: {
                     accounts: accounts,

@@ -10,9 +10,11 @@
             <button class="btn btn-default" ng-click="nbNodes.add_nodes()">
                 Add Nodes
             </button> &nbsp;
+            <!--
             <button class="btn btn-default text-danger" ng-click="nbNodes.reset_nodes()">
                 Reset All Nodes
             </button>
+            -->
         </div>
 
         <hr/>
@@ -58,7 +60,9 @@
                             <td>{{nbNodes.node_vendors_by_id[node.vendor].name}}</td>
                             <td>
                                 <div class="progress" style="margin:0; position:relative">
-                                    <div class="progress-bar Xprogress-bar-info" ng-class="{'progress-bar-info':($index % 4)==0, 'progress-bar-success':($index % 4)==1, 'progress-bar-warning':($index % 4)==2, 'progress-bar-danger':($index % 4)==3}" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{100*node.used_storage/node.allocated_storage}}" style="width: {{100*node.used_storage/node.allocated_storage}}%;"></div>
+                                    <div class="progress-bar Xprogress-bar-info" ng-class="{'progress-bar-info':($index % 4)==0, 'progress-bar-success':($index % 4)==1, 'progress-bar-warning':($index % 4)==2, 'progress-bar-danger':($index % 4)==3}" role="progressbar" aria-valuemin="0" aria-valuemax="100"
+                                    aria-valuenow="{{100*node.used_storage/node.allocated_storage}}" style="width: {{100*node.used_storage/node.allocated_storage}}%;"></div>
+
                                     <div class="text-center text-color" style="position:absolute; top:0; left:0; right:0; bottom:0">
                                         <small>{{human_size(node.allocated_storage)}}</small>
                                     </div>

@@ -21,6 +21,9 @@
 @brand-warning: hsl(60,70%,60%);
 @brand-danger: hsl(350,70%,60%);
 
+@navbar-default-link-active-color: @btn-primary-color;
+@navbar-default-link-active-bg: @btn-primary-bg;
+
 /* @body-bg: hsl(0,0%,20%); */
 /* @text-color: hsl(0,0%,90%); */
 /* @navbar-default-bg: hsl(0,0%,100%); */
@@ -50,9 +53,11 @@
 .text-red {
     color: red;
 }
-.navbar > ul.navbar-nav > li {
-    @c: hsla(0,0%,100%, 0.1);
-    border-left: solid 1px @c;
+.navbar {
+    .navbar-brand > .label {
+        font-size: 17px;
+    }
+
 }
 .dropdown-menu {
     overflow: hidden;
@@ -74,9 +79,7 @@
     &:not(:hover) {
         border-color: transparent;
     }
-}
-.navbar-brand > .label {
-    font-size: 17px;
+
 }
 .modal-header .closer {
     font-size: 1.4em;

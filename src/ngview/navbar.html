@@ -2,18 +2,11 @@
     <div class="container-fluid">
 
         <ul class="nav navbar-nav" ng-if="nav">
-            <!--
-            <li style="border: none" ng-class="{active: !nav.crumbs.length}">
-                <a ng-href="{{nav.root || '/'}}" class="navbar-brand">
-                    <span class="label label-primary" style="font-size:17px"><b><i>NooBaa</i></b></span>
-                </a>
-            </li>
-            -->
-            <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" style="border:none" ng-class="{active: key==nav.active || item.active, dropdown: item.dropdown}">
-                <a ng-if="!item.dropdown" ng-href="{{item.href}}" class="{{item.classes}}">
+            <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active: key==nav.active || item.active, dropdown: item.dropdown}">
+                <a ng-if="!item.dropdown" ng-href="{{item.href}}" ng-class="item.classes">
                     <span class="{{item.text_classes}}">{{item.text}}</span>
                 </a>
-                <a ng-if="item.dropdown" class="dropdown-toggle {{item.classes}}" data-toggle="dropdown">
+                <a ng-if="item.dropdown" class="dropdown-toggle" ng-class="item.classes" data-toggle="dropdown">
                     <span class="{{item.text_classes}}">
                         {{item.text}}
                         <i class="fa fa-angle-down fa-fw text-muted" style="margin-right: -10px"></i>

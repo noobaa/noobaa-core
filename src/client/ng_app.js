@@ -52,7 +52,7 @@ ng_app.controller('AppCtrl', [
                 root: {
                     text: 'NooBaa',
                     classes: 'navbar-brand',
-                    text_classes: 'label label-primary',
+                    // text_classes: 'label label-primary',
                     href: '/app/',
                 },
                 nodes: {

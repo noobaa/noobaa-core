@@ -99,6 +99,7 @@ Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
+    console.log('start agent', self.node_name);
 
     return Q.fcall(
         function() {
@@ -130,6 +131,7 @@ Agent.prototype.start = function() {
 };
 
 Agent.prototype.stop = function() {
+    console.log('stop agent', self.node_name);
     this.is_started = false;
     this.start_stop_http_server();
     this.start_stop_heartbeats();
@@ -209,6 +211,7 @@ Agent.prototype.start_stop_heartbeats = function() {
 
 Agent.prototype.send_heartbeat = function() {
     var self = this;
+    console.log('send heartbeat of agent', self.node_name);
     return this.edge_node_client.heartbeat({
         name: self.node_name,
         geolocation: self.node_geolocation,

@@ -168,10 +168,19 @@ ng_app.factory('nbNodes', [
         }
 
         function click_node_status(node) {
-            // TODO
-            // return $q.when(edge_node_client.start_agents({
-            //     nodes: [node.name]
-            // })).then(refresh_nodes);
+            node.get_status_running = true;
+            return $q.when(edge_node_client.get_agents_status({
+                nodes: [node.name]
+            })).then(
+                function(res) {
+                    console.log('get_agents_status', res);
+                    node.is_online = res.nodes[0].status;
+                    node.get_status_running = false;
+                },
+                function(err) {
+                    node.get_status_running = false;
+                }
+            );
         }
 
         function start_agent(node) {

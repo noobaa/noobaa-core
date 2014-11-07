@@ -49,7 +49,7 @@
                         </tr>
                         <tr ng-repeat="node in nbNodes.detailed_nodes.nodes" ng-click="nbNodes.detailed_nodes.selected=$index" ng-class="{Xactive: nbNodes.detailed_nodes.selected==$index}">
                             <td>
-                                <button class="btn btn-default btn-sm border-hover-only" ng-click="nbNodes.click_node_status(node)">
+                                <button class="btn btn-default btn-sm border-hover-only" ng-click="nbNodes.click_node_status(node)" nb-ladda="node.get_status_running">
                                     <i class="fa {{node.is_online && 'fa-circle text-green' || 'fa-circle text-muted'}}"></i>
                                 </button>
                             </td>

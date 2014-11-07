@@ -218,7 +218,7 @@ function agent_host_action(account, node_names, func_name) {
     ).then(
         function(nodes) {
             var sem = new Semaphore(3);
-            return Q.all(_.map(nodes,
+            return Q.allSettled(_.map(nodes,
                 function(node) {
                     return sem.surround(function() {
                         var params = {
@@ -238,9 +238,18 @@ function agent_host_action(account, node_names, func_name) {
 function get_agents_status(req) {
     var node_names = req.restful_params.nodes;
     return agent_host_action(req.account, node_names, 'get_agent_status').then(
-        function(nodes_status) {
+        function(res) {
             return {
-                nodes: nodes_status
+                nodes: _.map(res, function(node_res) {
+                    var status = false;
+                    if (node_res.state === 'fulfilled' &&
+                        node_res.value && node_res.value.status) {
+                        status = true;
+                    }
+                    return {
+                        status: status
+                    };
+                })
             };
         }
     );

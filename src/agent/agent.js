@@ -131,10 +131,11 @@ Agent.prototype.start = function() {
 };
 
 Agent.prototype.stop = function() {
+    var self = this;
     console.log('stop agent', self.node_name);
-    this.is_started = false;
-    this.start_stop_http_server();
-    this.start_stop_heartbeats();
+    self.is_started = false;
+    self.start_stop_http_server();
+    self.start_stop_heartbeats();
 };
 
 Agent.prototype.mkdirs = function() {

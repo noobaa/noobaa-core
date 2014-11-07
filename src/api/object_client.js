@@ -227,7 +227,9 @@ function read_block(block, block_size, sem) {
                 function(buffer) {
                     // verify the received buffer length must be full size
                     if (!Buffer.isBuffer(buffer)) {
-                        throw new Error('NOT A BUFFER ' + typeof(buffer));
+                        // TODO browser gets strings here. better ask to get UintArray...
+                        // throw new Error('NOT A BUFFER ' + typeof(buffer));
+                        buffer = new Buffer(buffer);
                     }
                     if (buffer.length !== block_size) {
                         throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);

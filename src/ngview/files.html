@@ -3,28 +3,32 @@
 
     <div class="container-fluid" ng-controller="FilesCtrl">
 
-        <div class="row">
-            <div class="col-sm-3 col-md-2">
-                <button ng-click="create_bucket()" class="btn btn-default btn-block">
-                    Create bucket
-                </button>
-                <hr />
-                <ul class="nav nav-pills nav-stacked">
-                    <li ng-repeat="bucket in buckets" ng-class="{active: curr_bucket==bucket}">
-                        <a ng-click="click_bucket(bucket)">
-                        {{bucket.name}}
-                    </a>
-                    </li>
-                </ul>
+        <div class="clearfix">
+            <button class="btn btn-default" ng-click="refresh()" nb-ladda="nbMgmt.refreshing">
+                &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
+            </button>
+            <div class="form-control" style="width: 150px; display: inline-block">
+                <select ng-model="bucket" ng-options="bucket.name for bucket in buckets | orderBy:'name'"></select>
             </div>
-            <div class="col-sm-9 col-md-10" ng-show="curr_bucket">
-                <button ng-click="click_upload()" class="btn btn-default">
-                    Upload file
-                </button>
-                <hr />
-                <div ng-repeat="object in curr_bucket.objects" class="well well-sm">
+            <button ng-click="create_bucket()" class="btn btn-default" title="New Bucket" rel="tooltip">
+                New Bucket
+            </button>
+            <button nb-disabled="!bucket" ng-click="click_upload()" class="btn btn-default">
+                Upload
+            </button>
+        </div>
+
+        <hr />
+
+
+        <img ng-src="{{object_src}}" ng-if="object_src"></video>
+        <video ng-src="{{object_src}}" ng-if="object_src"></video>
+
+        <div class="row" ng-if="bucket">
+            <div ng-repeat="object in bucket.objects" class="col-xs-6 col-sm-4 col-md-3 col-lg-2">
+                <button class="btn btn-default btn-block" style="height: 100px" ng-click="click_object(object)">
                     {{object.key}}
-                </div>
+                </button>
             </div>
         </div>
 

@@ -21,9 +21,9 @@
         <hr />
 
 
-        <!-- <img ng-src="{{object_src}}" ng-if="object_src"/> -->
-        <!-- <video ng-src="{{object_src}}" ng-if="object_src"></video> -->
-        <object ng-src="{{object_src}}" ng-if="object_src"></object>
+        <img ng-src="{{object_src}}" ng-if="object_src" class="img-responsive" />
+        <!-- <video ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></video> -->
+        <!-- <object ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></object> -->
 
         <div class="row" ng-if="bucket">
             <div ng-repeat="object in bucket.objects" class="col-xs-6 col-sm-4 col-md-3 col-lg-2">

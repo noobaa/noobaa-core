@@ -80,7 +80,8 @@ ng_app.controller('FilesCtrl', [
         function click_object(object) {
             return $q.when(read_entire_object(object)).then(
                 function(data) {
-                    var blob = new $window.Blob(data);
+                    console.log('OBJECT DATA', data.length);
+                    var blob = new $window.Blob([data]);
                     var url = $window.URL.createObjectURL(blob);
                     $scope.object_src = $sce.trustAsResourceUrl(url);
                 }

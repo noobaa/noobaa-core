@@ -11,6 +11,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var ObjectReader = require('./object_reader');
 var ObjectWriter = require('./object_writer');
 var crypto = require('crypto');
+var range_utils = require('../util/range_utils');
 
 
 module.exports = ObjectClient;
@@ -95,18 +96,14 @@ ObjectClient.prototype.write_object_part = function(params) {
 ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
     // console.log('read_object_range', params);
-
     return self.read_object_mappings(params).then(
         function(mappings) {
             return Q.all(_.map(mappings.parts, self.read_object_part, self));
         }
     ).then(
-        function(parts_buffers) {
-            if (!parts_buffers.length) {
-                return null;
-            }
+        function(parts) {
             // once all parts finish we can construct the complete buffer.
-            return Buffer.concat(parts_buffers, params.end - params.start);
+            return combine_parts_buffers_in_range(parts, params.start, params.end);
         }
     );
 };
@@ -180,24 +177,42 @@ ObjectClient.prototype.read_object_part = function(part) {
         _.times(part.kblocks, read_the_next_index)
     ).then(
         function() {
-            var buffer = decode_chunk(part, buffer_per_index);
+            // TODO cache decoded chunks with lru client
+            // cut only the part's relevant range from the chunk
+
+            part.buffer = decode_chunk(part, buffer_per_index).slice(
+                part.chunk_offset, part.chunk_offset + part.end - part.start);
 
             var md5 = crypto.createHash('md5');
-            md5.update(buffer);
+            md5.update(part.buffer);
             var md5sum = md5.digest('hex');
             if (md5sum !== part.md5sum) {
                 console.error('MD5 CHECKSUM FAILED', md5sum, part);
                 throw new Error('md5 checksum failed');
             }
 
-            // TODO cache decoded chunks with lru client
-            // cut only the part's relevant range from the chunk
-            buffer = buffer.slice(part.chunk_offset, part.chunk_offset + part.end - part.start);
-            return buffer;
+            return part;
         }
     );
 };
 
+
+function combine_parts_buffers_in_range(parts, start, end) {
+    if (!parts || !parts.length) {
+        return null;
+    }
+    var pos = start;
+    var buffers = _.flatten(_.map(parts, function(part) {
+        var part_range = range_utils.intersection(part.start, part.end, pos, end);
+        if (!part_range) {
+            return [];
+        }
+        var offset = part.chunk_offset + part_range.start - part.start;
+        pos = part_range.end;
+        return part.buffer.slice(offset, pos);
+    }));
+    return Buffer.concat(buffers, end - start);
+}
 
 
 /**
@@ -241,9 +256,7 @@ function read_block(block, block_size, sem) {
                 function(buffer) {
                     // verify the received buffer length must be full size
                     if (!Buffer.isBuffer(buffer)) {
-                        // TODO browser gets strings here. better ask to get UintArray...
-                        // throw new Error('NOT A BUFFER ' + typeof(buffer));
-                        buffer = new Buffer(buffer);
+                        throw new Error('NOT A BUFFER ' + typeof(buffer));
                     }
                     if (buffer.length !== block_size) {
                         throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
@@ -265,7 +278,7 @@ function encode_chunk(part, buffer) {
     for (var i = 0, pos = 0; i < part.kblocks; i++, pos += block_size) {
         var b = buffer.slice(pos, pos + block_size);
         if (b.length < block_size) {
-            var pad = new Buffer(block_size-b.length);
+            var pad = new Buffer(block_size - b.length);
             pad.fill(0);
             b = Buffer.concat([b, pad]);
         }

@@ -22,8 +22,11 @@ require('./ng_nodes');
 require('./ng_files');
 
 
-ng_app.config(['$routeProvider', '$locationProvider',
-    function($routeProvider, $locationProvider) {
+ng_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
+    function($routeProvider, $locationProvider, $compileProvider) {
+        // allow blob urls
+        $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
+        // routes
         $locationProvider.html5Mode(true);
         $routeProvider.when('/', {
             templateUrl: 'status.html',

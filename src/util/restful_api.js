@@ -316,6 +316,11 @@ function send_http_request(options) {
             https.request(options) :
             http.request(options);
 
+        if (req.xhr) {
+            // hack the browserify http module to use binary data
+            req.xhr.responseType = 'arraybuffer';
+        }
+
         req.on('response', function(res) {
             // console.log('HTTP response headers', res.statusCode, res.headers);
             var chunks = [];
@@ -344,8 +349,14 @@ function send_http_request(options) {
                     try {
                         if (chunks_length) {
                             if (typeof(chunks[0]) === 'string') {
+                                // if string was already decoded then keep working with strings
                                 data = String.prototype.concat.apply('', chunks);
                             } else {
+                                // binary data buffers for the win!
+                                if (!Buffer.isBuffer(chunks[0])) {
+                                    // in case of xhr arraybuffer just wrap with node buffers
+                                    chunks = _.map(chunks, Buffer);
+                                }
                                 data = Buffer.concat(chunks, chunks_length);
                                 is_buffer = true;
                             }
@@ -434,8 +445,6 @@ function create_server_handler(server, func, func_info) {
             function(reply) {
                 log_func('SERVER COMPLETED', func_info.name);
                 if (func_info.reply_raw) {
-                    res.set('content-type', 'application/octet-stream');
-                    res.set('content-length', reply.length);
                     return res.status(200).send(reply);
                 } else {
                     validate_schema(reply, func_info.reply_schema, func_info, 'server reply');

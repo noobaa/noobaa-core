@@ -74,6 +74,9 @@ function allocate_object_part(obj, start, end, md5sum) {
 }
 
 
+// query the db for existing parts and blocks which intersect the requested range,
+// return the blocks inside each part (part.indexes) like the api format
+// to make it ready for replying and simpler to iterate
 function read_object_mappings(obj, start, end) {
     var rng = sanitize_object_range(obj, start, end);
     if (!rng) { // empty range
@@ -81,24 +84,8 @@ function read_object_mappings(obj, start, end) {
             parts: []
         };
     }
-
-    return Q.fcall(get_existing_parts, obj, rng.start, rng.end).then(
-        function(parts) {
-            var reply_parts = adjust_parts_to_range(
-                obj, rng.start, rng.end, parts);
-            // console.log('read_object_mappings', reply_parts);
-            return {
-                parts: reply_parts
-            };
-        }
-    );
-}
-
-
-// query the db for existing parts and blocks which intersect the requested range,
-// return the blocks inside each part (part.indexes) like the api format
-// to make it ready for replying and simpler to iterate
-function get_existing_parts(obj, start, end) {
+    start = rng.start;
+    end = rng.end;
     var parts;
 
     return Q.fcall(
@@ -132,27 +119,13 @@ function get_existing_parts(obj, start, end) {
                 return get_part_info(part, part.chunk, blocks);
             });
             // console.log('get_existing_parts', parts_reply);
-            return parts_reply;
+            return {
+                parts: parts_reply
+            };
         }
     );
 }
 
-
-
-function adjust_parts_to_range(obj, start, end, parts) {
-    var pos = start;
-    return _.flatten(_.map(parts, function(part) {
-        var part_range = range_utils.intersection(part.start, part.end, pos, end);
-        if (!part_range) {
-            return [];
-        }
-        part.chunk_offset += part_range.start - part.start;
-        part.start = part_range.start;
-        part.end = part_range.end;
-        pos = part_range.end;
-        return part;
-    }));
-}
 
 // chunk is optional
 function get_part_info(part, chunk, blocks) {

@@ -34,11 +34,7 @@ ng_app.controller('FilesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify',
     function($scope, $http, $q, $window, $timeout, nbAlertify) {
 
-        $scope.nav.crumbs = [{
-            text: 'Files',
-            href: 'files',
-            active: true,
-        }];
+        $scope.nav.active = 'files';
 
         $scope.click_upload = click_upload;
         $scope.load_bucket_objects = load_bucket_objects;

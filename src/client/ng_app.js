@@ -46,7 +46,24 @@ ng_app.controller('AppCtrl', [
         $scope.nbFiles = nbFiles;
 
         $scope.nav = {
-            root: '/app/'
+            active: 'root',
+            order: ['root', 'nodes', 'files'],
+            items: {
+                root: {
+                    text: 'NooBaa',
+                    classes: 'navbar-brand',
+                    text_classes: 'label label-primary',
+                    href: '/app/',
+                },
+                nodes: {
+                    text: 'Nodes',
+                    href: 'nodes',
+                },
+                files: {
+                    text: 'Files',
+                    href: 'files',
+                }
+            }
         };
     }
 ]);
@@ -55,7 +72,7 @@ ng_app.controller('AppCtrl', [
 ng_app.controller('StatusCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
-        $scope.nav.crumbs = [];
+        $scope.nav.active = 'root';
         $scope.nbMgmt.refresh_status();
         $scope.nbNodes.refresh_nodes();
     }

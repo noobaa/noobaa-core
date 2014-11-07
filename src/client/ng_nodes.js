@@ -21,11 +21,8 @@ var ng_app = angular.module('ng_app');
 ng_app.controller('NodesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
-        $scope.nav.crumbs = [{
-            text: 'Nodes',
-            href: 'nodes',
-            active: true,
-        }];
+
+        $scope.nav.active = 'nodes';
 
         $scope.nbNodes.refresh_nodes();
 

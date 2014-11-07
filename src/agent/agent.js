@@ -212,7 +212,7 @@ Agent.prototype.start_stop_heartbeats = function() {
 
 Agent.prototype.send_heartbeat = function() {
     var self = this;
-    console.log('send heartbeat of agent', self.node_name);
+    console.log('send heartbeat by agent', self.node_name);
     return this.edge_node_client.heartbeat({
         name: self.node_name,
         geolocation: self.node_geolocation,

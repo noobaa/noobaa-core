@@ -128,6 +128,7 @@ AgentHost.prototype.connect_node_vendor = function() {
     );
 };
 
+
 AgentHost.prototype.get_agent_status = function(req) {
     var self = this;
     var node_name = req.param('name');
@@ -140,6 +141,7 @@ AgentHost.prototype.get_agent_status = function(req) {
         status: status
     };
 };
+
 
 AgentHost.prototype.start_agent = function(req) {
     var self = this;
@@ -159,6 +161,7 @@ AgentHost.prototype.start_agent = function(req) {
         }
     ).thenResolve();
 };
+
 
 AgentHost.prototype.stop_agent = function(req) {
     var self = this;

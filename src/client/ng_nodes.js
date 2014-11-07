@@ -174,8 +174,10 @@ ng_app.factory('nbNodes', [
             })).then(
                 function(res) {
                     console.log('get_agents_status', res);
-                    node.is_online = res.nodes[0].status;
-                    node.get_status_running = false;
+                    return $timeout(function() {
+                        node.is_online = res.nodes[0].status;
+                        node.get_status_running = false;
+                    }, 500);
                 },
                 function(err) {
                     node.get_status_running = false;

@@ -109,7 +109,7 @@ ng_app.factory('nbNodes', [
                             scope.allocate_gb = parseInt(val);
                         }
                     });
-                    scope.num_created = 0;
+                    scope.progress = 0;
                     scope.add_nodes = function() {
                         console.log('ADD NODES');
                         if (!scope.count || !scope.selected_vendor.id || !scope.allocate_gb) {
@@ -120,7 +120,8 @@ ng_app.factory('nbNodes', [
                         };
                         var max_node = _.max($scope.nodes, node_name_to_number);
                         var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
-                        scope.num_created = 0;
+                        var num_created = 0;
+                        scope.progress = 0;
                         return $q.all(_.times(scope.count, function(i) {
                             return $q.when(edge_node_client.create_node({
                                 name: '' + (next_node_name + i),
@@ -131,17 +132,20 @@ ng_app.factory('nbNodes', [
                                 allocated_storage: scope.allocate_gb * size_utils.GIGABYTE,
                                 vendor: scope.selected_vendor.id,
                             })).then(function() {
-                                scope.num_created += 1;
+                                num_created += 1;
+                                scope.progress = num_created / scope.count;
                             });
                         })).then(refresh_nodes);
                     };
                     scope.run = function() {
+                        scope.running = true;
                         return $q.when(scope.add_nodes()).then(
                             function() {
                                 scope.modal.modal('hide');
                             },
                             function(err) {
                                 nbAlertify.error(err);
+                                scope.running = false;
                             }
                         );
                     };

@@ -113,7 +113,7 @@ ng_app.controller('DownloadCtrl', [
 
 
 ng_app.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData', '$rootScope',
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData','$rootScope',
     function($http, $q, $window, $timeout, $sce, nbAlertify, nbServerData, $rootScope) {
         var $scope = {};
 
@@ -129,9 +129,8 @@ ng_app.factory('nbFiles', [
                 function() {
                     if (!$scope.buckets.length) {
                         // create a first bucket if none
-                        var name = nbServerData.account_email.split('@')[0];
                         return $q.when(object_client.create_bucket({
-                            bucket: name
+                            bucket: 'Default'
                         })).then(refresh);
                     }
                 }

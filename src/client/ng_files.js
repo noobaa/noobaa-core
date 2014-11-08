@@ -47,10 +47,10 @@ ng_app.controller('UploadCtrl', [
             $scope.uploading = true;
             return nbFiles.upload_file($scope.file, bucket).then(
                 function() {
-                    $scope.uploading = false;
+                    // $scope.uploading = false;
                 },
                 function() {
-                    $scope.uploading = false;
+                    // $scope.uploading = false;
                 }
             );
 

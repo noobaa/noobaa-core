@@ -65,11 +65,14 @@ ObjectClient.prototype.write_object_part = function(params) {
     // console.log('write_object_part', params);
 
     var md5 = crypto.createHash('md5');
-    md5.update(params.buffer);
+    // md5.update(params.buffer); // TODO bring back md5sum
     upload_params.md5sum = md5.digest('hex');
 
     return self.allocate_object_part(upload_params).then(
         function(part) {
+            if (self.events) {
+                self.events.emit('part', part);
+            }
             var buffer_per_index = encode_chunk(part, params.buffer);
             var block_size = (part.chunk_size / part.kblocks) | 0;
             return Q.all(_.map(part.indexes, function(blocks, index) {
@@ -187,7 +190,7 @@ ObjectClient.prototype.read_object_part = function(part) {
                 part.chunk_offset, part.chunk_offset + part.end - part.start);
 
             var md5 = crypto.createHash('md5');
-            md5.update(part.buffer);
+            // md5.update(part.buffer); // TODO bring back md5sum
             var md5sum = md5.digest('hex');
             if (md5sum !== part.md5sum) {
                 console.error('MD5 CHECKSUM FAILED', md5sum, part);

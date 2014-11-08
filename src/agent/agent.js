@@ -248,6 +248,9 @@ Agent.prototype._read_block = function(block_id) {
     if (!block_path) {
         throw new Error('NO BLOCK STORAGE');
     }
+    if (true) {
+        return; // TODO temporary test for agent write performance
+    }
     return Q.nfcall(fs.readFile, block_path).then(
         function(data) {
             // console.log('read block from disk', block_id,

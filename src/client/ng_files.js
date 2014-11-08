@@ -10,6 +10,7 @@ var edge_node_api = require('../api/edge_node_api');
 var ObjectClient = require('../api/object_client');
 var file_reader_stream = require('filereader-stream');
 var concat_stream = require('concat-stream');
+var EventEmitter = require('events').EventEmitter;
 var mgmt_client = new mgmt_api.Client({
     path: '/api/mgmt_api/',
 });
@@ -45,12 +46,25 @@ ng_app.controller('UploadCtrl', [
                 return;
             }
             $scope.uploading = true;
+            $scope.parts = [];
+            var apply_timeout;
+            object_client.events = object_client.events || new EventEmitter();
+            object_client.events.on('part', function(part) {
+                console.log('emitter part', part);
+                $scope.parts.push(part);
+                // throttling down the ng scope apply
+                if (!apply_timeout) {
+                    apply_timeout = $timeout(function() {
+                        apply_timeout = null;
+                    }, 500);
+                }
+            });
             return nbFiles.upload_file($scope.file, bucket).then(
                 function() {
-                    // $scope.uploading = false;
+                    $scope.upload_done = true;
                 },
                 function() {
-                    // $scope.uploading = false;
+                    $scope.uploading = false;
                 }
             );
 
@@ -193,7 +207,7 @@ ng_app.factory('nbFiles', [
             console.log('upload', file);
             var object_path = {
                 bucket: bucket.name,
-                key: file.name
+                key: file.name,
             };
             var create_params = _.clone(object_path);
             create_params.size = file.size;

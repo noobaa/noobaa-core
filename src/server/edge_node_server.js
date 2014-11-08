@@ -286,21 +286,30 @@ function get_node_vendors(req) {
 
 
 function connect_node_vendor(req) {
-    var vendor_info = _.pick(req.restful_params, 'id', 'name', 'kind', 'info');
+    var vendor_info = _.pick(req.restful_params, 'name', 'kind', 'info');
     vendor_info.account = req.account.id; // see account_server.account_session
     var vendor;
     return Q.fcall(
         function() {
-            if (vendor_info.id) {
-                return NodeVendor.findById(vendor_info.id).exec();
-            } else {
-                return NodeVendor.create(vendor_info);
+            if (!vendor_info.name) {
+                return;
             }
+            return NodeVendor.findOne({
+                account: req.account.id,
+                name: vendor_info.name,
+            }).exec();
+        }
+    ).then(
+        function(vendor_arg) {
+            if (vendor_arg) {
+                return vendor_arg;
+            }
+            return NodeVendor.create(vendor_info);
         }
     ).then(
         function(vendor_arg) {
             vendor = vendor_arg;
-            verify_vendor_found(req.account.id, vendor_info.id, vendor);
+            verify_vendor_found(req.account.id, vendor.id, vendor);
             // find all nodes hosted by this vendor
             return EdgeNode.find({
                 account: req.account.id,

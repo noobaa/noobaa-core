@@ -226,11 +226,8 @@ module.exports = restful_api({
             path: '/node_vendor',
             params: {
                 type: 'object',
-                required: ['kind'],
+                required: ['name', 'kind', 'info'],
                 properties: {
-                    id: {
-                        type: 'string',
-                    },
                     name: {
                         type: 'string',
                     },
@@ -245,7 +242,7 @@ module.exports = restful_api({
             },
             reply: {
                 type: 'object',
-                required: ['id', 'kind'],
+                required: ['id', 'name', 'kind'],
                 properties: {
                     id: {
                         type: 'string',

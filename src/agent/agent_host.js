@@ -46,9 +46,6 @@ function AgentHost(params) {
     self.name = params.name;
     self.hostname = params.hostname;
     self.port = params.port;
-    // node_vendor_id is an optional id of NodeVendor (db model)
-    // if supplied it should have a kind:'agent_host'.
-    self.node_vendor_id = params.node_vendor_id;
     // client_params and account_credentials are used to access the apis
     assert(params.account_credentials, 'missing account_credentials');
     self.client_params = params.client_params;
@@ -111,18 +108,11 @@ AgentHost.prototype.connect_node_vendor = function() {
                     port: self.port,
                 }
             };
-            if (self.node_vendor_id) {
-                params.id = self.node_vendor_id;
-            }
             console.log('connect_node_vendor', params);
             return self.edge_node_client.connect_node_vendor(params);
         }
     ).then(
         function(vendor) {
-            if (vendor.id !== self.node_vendor_id) {
-                self.node_vendor_id = vendor.id;
-                self.emit('vendor', vendor);
-            }
             console.log('connected node vendor', vendor);
         }
     );
@@ -190,7 +180,7 @@ function host_main() {
     var load_config = function() {
         try {
             var config = JSON.parse(fs.readFileSync(host_config_file));
-            console.log('loaded config', config.node_vendor_id);
+            console.log('loaded config', config);
             return config;
         } catch (err) {
             console.log('no config. new vendor will be created');
@@ -198,7 +188,7 @@ function host_main() {
     };
     var save_config = function(config) {
         try {
-            console.log('saving config', config.node_vendor_id);
+            console.log('saving config', config);
             return fs.writeFileSync(host_config_file, JSON.stringify(config));
         } catch (err) {
             console.error('FAILED SAVE CONFIG');
@@ -221,10 +211,6 @@ function host_main() {
         },
     }, host_config);
     main_host_instance = new AgentHost(params);
-    main_host_instance.on('vendor', function(vendor) {
-        host_config.node_vendor_id = vendor.id;
-        save_config(host_config);
-    });
 }
 
 if (require.main === module) {

@@ -295,22 +295,20 @@ function send_http_request(client_params, func_info, params) {
         // turn off withCredentials for browser xhr requests
         // in order to use allow-origin=* (CORS)
         withCredentials: false,
+        // tell browserify http module to use binary data
+        responseType: 'arraybuffer',
     };
 
     // console.log('HTTP request', options);
     var req = client_params.protocol === 'https' ?
         https.request(options) :
         http.request(options);
-    if (req.xhr) {
-        // hack the browserify http module to use binary data
-        req.xhr.responseType = 'arraybuffer';
-    }
 
     var defer = Q.defer();
     req.on('response', defer.resolve);
     req.on('error', defer.reject);
     if (body) {
-        req.write(body);
+        req.write(body.toArrayBuffer ? body.toArrayBuffer() : body);
     }
     req.end();
     return defer.promise;
@@ -475,6 +473,8 @@ tv4.addFormat('date', function(data) {
 
 
 function validate_schema(obj, schema, info, desc) {
+    // if (true) return; // TODO PERF
+
     var result = tv4.validateResult(
         obj, schema,
         true /*checkRecursive*/ ,

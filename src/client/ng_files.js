@@ -211,15 +211,51 @@ ng_app.factory('nbFiles', [
             };
             var create_params = _.clone(object_path);
             create_params.size = file.size;
+            // TODO PERF
+            create_params.size = 10 * size_utils.MEGABYTE;
+            object_path.key = create_params.key = Date.now().toString();
+            var source_stream = {
+                pos: 0,
+                size: 0,
+                dest: null,
+                next: function() {
+                    if (this.pos >= this.size) {
+                        this.dest.end();
+                        this.events.emit('end', this.size);
+                        return;
+                    }
+                    var len = Math.min(this.size - this.pos, size_utils.MEGABYTE);
+                    var b = new Buffer(len);
+                    b.fill(0);
+                    console.log('next', this.pos, len, b.length);
+                    var ready = this.dest.write(b);
+                    this.pos += len;
+                    var call_next = this.next.bind(this);
+                    if (ready) {
+                        this.events.emit('progress', this.pos);
+                        setTimeout(this.next.bind(this), 0);
+                    } else {
+                        this.dest.once('drain', call_next);
+                    }
+                },
+                pipe: function(dest) {
+                    this.dest = dest;
+                    this.size = create_params.size;
+                    this.events = new EventEmitter();
+                    this.next();
+                    return this.events;
+                }
+            };
 
             return $q.when(object_client.create_multipart_upload(create_params)).then(
                 function() {
                     var defer = $q.defer();
+                    // var file_reader_options = {
+                    //     chunkSize: size_utils.MEGABYTE
+                    // };
+                    // var source_stream = file_reader_stream(file, file_reader_options);
                     var write_stream = object_client.open_write_stream(object_path);
-                    var file_reader_options = {
-                        chunkSize: size_utils.MEGABYTE
-                    };
-                    var stream = file_reader_stream(file, file_reader_options).pipe(write_stream);
+                    var stream = source_stream.pipe(write_stream);
                     stream.once('finish', defer.resolve);
                     stream.once('error', defer.reject);
                     return defer.promise;

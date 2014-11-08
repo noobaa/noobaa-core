@@ -26,8 +26,8 @@ module.exports = ObjectClient;
  */
 function ObjectClient(client_params) {
     object_api.Client.call(this, client_params);
-    this.read_sem = new Semaphore(20);
-    this.write_sem = new Semaphore(20);
+    this.read_sem = new Semaphore(16);
+    this.write_sem = new Semaphore(16);
 }
 
 // proper inheritance
@@ -65,7 +65,7 @@ ObjectClient.prototype.write_object_part = function(params) {
     // console.log('write_object_part', params);
 
     var md5 = crypto.createHash('md5');
-    // md5.update(params.buffer); // TODO bring back md5sum
+    // md5.update(params.buffer); // TODO PERF
     upload_params.md5sum = md5.digest('hex');
 
     return self.allocate_object_part(upload_params).then(
@@ -73,8 +73,8 @@ ObjectClient.prototype.write_object_part = function(params) {
             if (self.events) {
                 self.events.emit('part', part);
             }
-            var buffer_per_index = encode_chunk(part, params.buffer);
             var block_size = (part.chunk_size / part.kblocks) | 0;
+            var buffer_per_index = encode_chunk(params.buffer, part.kblocks, block_size);
             return Q.all(_.map(part.indexes, function(blocks, index) {
                 return Q.all(_.map(blocks, function(block) {
                     return write_block(block, buffer_per_index[index], self.write_sem);
@@ -190,7 +190,7 @@ ObjectClient.prototype.read_object_part = function(part) {
                 part.chunk_offset, part.chunk_offset + part.end - part.start);
 
             var md5 = crypto.createHash('md5');
-            // md5.update(part.buffer); // TODO bring back md5sum
+            // md5.update(part.buffer); // TODO PERF
             var md5sum = md5.digest('hex');
             if (md5sum !== part.md5sum) {
                 console.error('MD5 CHECKSUM FAILED', md5sum, part);
@@ -278,18 +278,17 @@ function read_block(block, block_size, sem) {
 /**
  * for now just encode without erasure coding
  */
-function encode_chunk(part, buffer) {
+function encode_chunk(buffer, kblocks, block_size) {
     var buffer_per_index = [];
-    var block_size = (part.chunk_size / part.kblocks) | 0;
-    for (var i = 0, pos = 0; i < part.kblocks; i++, pos += block_size) {
+    for (var i = 0, pos = 0; i < kblocks; i++, pos += block_size) {
         var b = buffer.slice(pos, pos + block_size);
-        if (b.length < block_size) {
+        if (b.length !== block_size) {
             var pad = new Buffer(block_size - b.length);
             pad.fill(0);
             b = Buffer.concat([b, pad]);
-        }
-        if (b.length !== block_size) {
-            throw new Error('incorrect padding');
+            if (b.length !== block_size) {
+                throw new Error('incorrect padding');
+            }
         }
         buffer_per_index[i] = b;
     }

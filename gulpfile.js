@@ -62,16 +62,21 @@ process.on("SIGTERM", leave_no_wounded);
 var PATHS = {
     css: './src/css/**/*',
     css_candidates: ['./src/css/styles.less'],
-    fonts: [
-        './node_modules/bootstrap/dist/fonts/*',
-        './node_modules/font-awesome/fonts/*',
-    ],
-    fonts2: [
-        './node_modules/video.js/dist/video-js/font/*',
-    ],
-    assets: [
-        './node_modules/video.js/dist/video-js/video-js.swf',
-    ],
+
+    assets: {
+        'build/public': [
+            './node_modules/video.js/dist/video-js/video-js.swf',
+        ],
+        'build/public/css': [
+        ],
+        'build/public/fonts': [
+            './node_modules/bootstrap/dist/fonts/*',
+            './node_modules/font-awesome/fonts/*',
+        ],
+        'build/public/css/font': [
+            './node_modules/video.js/dist/video-js/font/*',
+        ],
+    },
 
     ngview: './src/ngview/**/*',
     scripts: ['./src/**/*.js', './*.js'],
@@ -164,23 +169,14 @@ gulp.task('bower', function() {
 });
 
 gulp.task('assets', ['bower'], function() {
-    var DEST = 'build/public';
-    var FONTS_DEST = 'build/public/fonts';
-    var FONTS2_DEST = 'build/public/css/font';
-    return Q.all([
-        gulp.src(PATHS.assets)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(DEST))
-        .pipe(gulp.dest(DEST)),
-        gulp.src(PATHS.fonts)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(FONTS_DEST))
-        .pipe(gulp.dest(FONTS_DEST)),
-        gulp.src(PATHS.fonts2)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(FONTS2_DEST))
-        .pipe(gulp.dest(FONTS2_DEST))
-    ]);
+    return Q.all(_.map(PATHS.assets,
+        function(src, target) {
+            return gulp.src(src)
+                .pipe(gulp_plumber(PLUMB_CONF))
+                .pipe(gulp_newer(target))
+                .pipe(gulp.dest(target));
+        }
+    ));
 });
 
 gulp.task('css', ['bower'], function() {
@@ -202,7 +198,7 @@ gulp.task('css', ['bower'], function() {
 });
 
 gulp.task('ng', function() {
-    var DEST = 'build/';
+    var DEST = 'build/public/js';
     var NAME = 'templates.js';
     return gulp.src(PATHS.ngview)
         .pipe(gulp_plumber(PLUMB_CONF))

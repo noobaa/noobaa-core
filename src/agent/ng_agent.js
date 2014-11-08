@@ -6,7 +6,7 @@ var util = require('util');
 var moment = require('moment');
 
 // include the generated templates from ngview
-require('../../build/templates');
+// require('../../build/templates');
 
 var ng_agent = angular.module('ng_agent', [
     'templates',

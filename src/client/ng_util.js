@@ -7,7 +7,7 @@ var moment = require('moment');
 var size_utils = require('../util/size_utils');
 
 // include the generated templates from ngview
-require('../../build/templates');
+// require('../../build/templates');
 
 var ng_util = angular.module('ng_util', [
     'templates',

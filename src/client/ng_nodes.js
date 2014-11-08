@@ -251,7 +251,7 @@ ng_app.factory('nbNodes', [
             var options = {
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
-                keepAspectRatio: true,
+                keepAspectRatio: false,
                 backgroundColor: '#3a455f',
                 datalessRegionColor: '#272e3f',
                 colorAxis: {

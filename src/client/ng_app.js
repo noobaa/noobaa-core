@@ -28,7 +28,7 @@ ng_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
         $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
         // routes
         $locationProvider.html5Mode(true);
-        $routeProvider.when('/', {
+        $routeProvider.when('/status', {
             templateUrl: 'status.html',
         }).when('/nodes', {
             templateUrl: 'nodes.html',
@@ -37,7 +37,7 @@ ng_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
         }).when('/download', {
             templateUrl: 'download.html',
         }).otherwise({
-            redirectTo: '/'
+            redirectTo: '/status'
         });
     }
 ]);
@@ -51,14 +51,12 @@ ng_app.controller('AppCtrl', [
         $scope.nbFiles = nbFiles;
 
         $scope.nav = {
-            active: 'root',
-            order: ['root', 'nodes', 'upload', 'download'],
+            active: 'status',
+            order: ['status', 'nodes', 'upload', 'download'],
             items: {
-                root: {
-                    text: 'NooBaa',
-                    classes: 'navbar-brand',
-                    // text_classes: 'label label-primary',
-                    href: '/app/',
+                status: {
+                    text: 'Status',
+                    href: 'status',
                 },
                 nodes: {
                     text: 'Nodes',
@@ -81,7 +79,7 @@ ng_app.controller('AppCtrl', [
 ng_app.controller('StatusCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
-        $scope.nav.active = 'root';
+        $scope.nav.active = 'status';
         $scope.nbMgmt.refresh_status();
         $scope.nbNodes.refresh_nodes();
     }
@@ -89,8 +87,8 @@ ng_app.controller('StatusCtrl', [
 
 
 ng_app.factory('nbMgmt', [
-    '$q', '$timeout',
-    function($q, $timeout) {
+    '$q', '$timeout', '$rootScope',
+    function($q, $timeout, $rootScope) {
         var $scope = {};
         $scope.refresh_status = refresh_status;
         refresh_status();
@@ -100,10 +98,17 @@ ng_app.factory('nbMgmt', [
                 return;
             }
             $scope.refreshing = true;
-            return $q.when(mgmt_client.system_stats()).then(
+            return $q.when(mgmt_client.system_status()).then(
                 function(res) {
-                    console.log('STATS', res);
-                    $scope.stats = res;
+                    $scope.status = res;
+
+                    $scope.total_space = $rootScope.human_size(res.allocated_storage);
+                    var free_storage = res.allocated_storage - res.used_storage;
+                    var free_percent = 100 * free_storage / res.allocated_storage;
+                    $scope.free_space_percent = free_percent.toFixed(1) + '%';
+                    $scope.total_nodes = res.total_nodes;
+                    $scope.online_nodes = res.online_nodes;
+
                     return $timeout(function() {
                         $scope.refreshing = false;
                     }, 500);

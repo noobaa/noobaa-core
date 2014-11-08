@@ -20,22 +20,22 @@
         <hr/>
 
         <div class="row">
-            <div class="col-sm-4" style="overflow: hidden">
+            <div class="col-sm-4 col-sm-push-8" style="overflow: hidden">
                 <div id="nodes_map" class="img-responsive"></div>
             </div>
-            <div class="col-sm-8">
+            <div class="col-sm-8 col-sm-pull-4">
                 <div ng-hide="nbNodes.detailed_nodes.nodes.length">
                     <h1 class="hidden-sm hidden-md hidden-lg pull-right">
                         <span class="animated bounce" style="padding-top: 30px">
                             <i class="fa fa-hand-o-up fa-3x fa-fw text-primary"></i>
                         </span>
                     </h1>
-                    <h1>Click a map marker to show the nodes</h1>
-                    <h1 class="hidden-xs">
-                        <span class="animated shake" style="padding-left: 30px">
-                            <i class="fa fa-hand-o-left fa-4x text-primary"></i>
+                    <h1 class="hidden-xs pull-right">
+                        <span class="animated shake" style="padding-right: 30px">
+                            <i class="fa fa-hand-o-right fa-4x text-primary"></i>
                         </span>
                     </h1>
+                    <h1>Click a map marker to show the nodes</h1>
                 </div>
                 <div ng-if="nbNodes.detailed_nodes.geo" ng-repeat="geo in [nbNodes.detailed_nodes.geo]">
                     <h1 class="animated fadeInUp clearfix">

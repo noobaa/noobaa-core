@@ -10,12 +10,12 @@ module.exports = restful_api({
 
     methods: {
 
-        system_stats: {
+        system_status: {
             method: 'GET',
             path: '/stats',
             reply: {
                 type: 'object',
-                required: ['allocated_storage', 'used_storage', 'counters'],
+                required: ['allocated_storage', 'used_storage', 'total_nodes', 'online_nodes'],
                 properties: {
                     allocated_storage: {
                         $ref: '/edge_node_api/definitions/bigint'
@@ -23,36 +23,49 @@ module.exports = restful_api({
                     used_storage: {
                         $ref: '/edge_node_api/definitions/bigint'
                     },
-                    counters: {
-                        type: 'object',
-                        required: [
-                            'accounts', 'nodes',
-                            'buckets', 'objects',
-                            'parts', 'chunks', 'blocks'
-                        ],
-                        properties: {
-                            accounts: {
-                                type: 'integer'
-                            },
-                            nodes: {
-                                type: 'integer'
-                            },
-                            buckets: {
-                                type: 'integer'
-                            },
-                            objects: {
-                                type: 'integer'
-                            },
-                            parts: {
-                                type: 'integer'
-                            },
-                            chunks: {
-                                type: 'integer'
-                            },
-                            blocks: {
-                                type: 'integer'
-                            },
-                        }
+                    total_nodes: {
+                        type: 'integer',
+                    },
+                    online_nodes: {
+                        type: 'integer',
+                    },
+                }
+            },
+        },
+
+        system_counters: {
+            method: 'GET',
+            path: '/counters',
+            reply: {
+                type: 'object',
+                required: [
+                    'accounts', 'nodes', 'node_vendors',
+                    'buckets', 'objects', 'parts', 'chunks', 'blocks'
+                ],
+                properties: {
+                    accounts: {
+                        type: 'integer'
+                    },
+                    nodes: {
+                        type: 'integer'
+                    },
+                    node_vendors: {
+                        type: 'integer'
+                    },
+                    buckets: {
+                        type: 'integer'
+                    },
+                    objects: {
+                        type: 'integer'
+                    },
+                    parts: {
+                        type: 'integer'
+                    },
+                    chunks: {
+                        type: 'integer'
+                    },
+                    blocks: {
+                        type: 'integer'
                     },
                 }
             },

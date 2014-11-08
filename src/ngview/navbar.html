@@ -1,32 +1,27 @@
 <nav class="navbar navbar-default navbar-static-top" ng-controller="NavCtrl">
     <div class="container-fluid">
 
-        <ul class="nav navbar-nav" ng-if="nav">
-            <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active: key==nav.active || item.active, dropdown: item.dropdown}">
-                <a ng-if="!item.dropdown" ng-href="{{item.href}}" ng-class="item.classes">
-                    <span class="{{item.text_classes}}">{{item.text}}</span>
+        <ul class="nav navbar-nav navbar-right">
+
+            <li class="dropdown visible-xs">
+                <a class="dropdown-toggle" data-toggle="dropdown">
+                    Tabs
+                    <i class="fa fa-angle-down fa-fw text-muted" style="margin-right: -10px"></i>
                 </a>
-                <a ng-if="item.dropdown" class="dropdown-toggle" ng-class="item.classes" data-toggle="dropdown">
-                    <span class="{{item.text_classes}}">
-                        {{item.text}}
-                        <i class="fa fa-angle-down fa-fw text-muted" style="margin-right: -10px"></i>
-                    </span>
-                </a>
-                <ul ng-if="item.dropdown" class="dropdown-menu" role="menu">
-                    <li ng-repeat="opt in item.dropdown"><a ng-href="{{opt.href}}">{{opt.text}}</a>
+                <ul class="dropdown-menu" role="menu">
+                    <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]; active=nav.active==key" ng-class="{active: active, dropdown: item.dropdown}">
+                        <a ng-href="{{item.href}}">{{item.text}}</a>
                     </li>
                 </ul>
             </li>
-        </ul>
 
-        <ul class="nav navbar-nav navbar-right" ng-if="account_email">
-            <li class="dropdown">
+            <li class="dropdown" ng-if="account_email">
                 <a class="dropdown-toggle" data-toggle="dropdown">
                     <span style="visibility: hidden; width: 0; margin-right: -15px">
                         O<!-- needed some text for navbar height align -->
                     </span>
                     <i class="fa fa-user fa-lg"></i>
-                    <i class="fa fa-caret-down"></i>
+                    <i class="fa fa-angle-down"></i>
                 </a>
                 <ul class="dropdown-menu" role="menu">
                     <li>
@@ -43,6 +38,25 @@
                     </li>
                     <li ng-if="account_email">
                         <a href="/logout">Logout</a>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+
+        <div class="navbar-header">
+            <a class="navbar-brand" href="/">NooBaa</a>
+        </div>
+
+        <ul class="nav navbar-nav nav-tabs hidden-xs">
+            <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]; active=nav.active==key" ng-class="{active: active, dropdown: item.dropdown}">
+                <a ng-if="!item.dropdown" ng-href="{{item.href}}">{{item.text}}</a>
+                <a ng-if="item.dropdown" class="dropdown-toggle" data-toggle="dropdown">
+                    {{item.text}}
+                    <i class="fa fa-angle-down fa-fw text-muted" style="margin-right: -10px"></i>
+                </a>
+                <ul ng-if="item.dropdown" class="dropdown-menu" role="menu">
+                    <li ng-repeat="opt in item.dropdown">
+                        <a ng-href="{{opt.href}}">{{opt.text}}</a>
                     </li>
                 </ul>
             </li>

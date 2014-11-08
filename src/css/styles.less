@@ -21,8 +21,8 @@
 @brand-warning: hsl(60,70%,60%);
 @brand-danger: hsl(350,70%,60%);
 
-@navbar-default-link-active-color: @btn-primary-color;
-@navbar-default-link-active-bg: @btn-primary-bg;
+/* @navbar-default-link-active-color: @btn-primary-color; */
+/* @navbar-default-link-active-bg: @btn-primary-bg; */
 
 @border-color: @gray-lighter;
 @modal-backdrop-opacity: 0.7;
@@ -33,7 +33,7 @@
 
 @grid-float-breakpoint: 0;
 
-@font-family-sans-serif: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+@font-family-sans-serif: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
 @font-size-base: 15px;
 @headings-font-weight: 900;
 *:not(input) {
@@ -41,12 +41,12 @@
     font-weight: 600 !important;
 
 }
-/* .btn {
-    .hover-border;
-} */
+.btn {
+    .transition-fast;
+}
 .btn-primary {
     &:hover {
-        background-color: lighten(@brand-primary, 5%);
+        background-color: lighten(@brand-primary, 8%);
     }
 }
 .text-green {
@@ -58,11 +58,19 @@
 .text-red {
     color: red;
 }
+.text-white {
+    color: white;
+}
+.text-black {
+    color: black;
+}
 .navbar {
     .navbar-brand > .label {
         font-size: 17px;
     }
-
+    .nav.navbar-nav.nav-tabs {
+        border-bottom: none;
+    }
 }
 .form-control > select {
     display: block;
@@ -72,6 +80,21 @@
     box-shadow: none;
     background-color: transparent;
     outline: none;
+}
+.progress {
+    /* make progress bars so that the background is absolute position,
+       and the other elements can layout automatically */
+    position: relative;
+    height: auto;
+    z-index: -2;
+    .progress-bar {
+        z-index: -1;
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+    }
+
 }
 .dropdown-menu {
     overflow: hidden;

@@ -3,66 +3,41 @@
 
     <div class="container-fluid" ng-controller="StatusCtrl">
 
-        <div class="clearfix">
-            <button class="btn btn-default" ng-click="nbMgmt.refresh_status()" nb-ladda="nbMgmt.refreshing">
+        <div class="clearfix text-center">
+
+            <!-- <button class="btn btn-default pull-left" ng-click="nbMgmt.refresh_status()" nb-ladda="nbMgmt.refreshing">
                 &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
-            </button>
-        </div>
+            </button> -->
 
-        <hr />
-
-        <div class="row">
-
-            <div class="col-sm-5 col-md-4">
-                <div class="well">
-                    <h3>Capacity</h3>
-                    <table class="table">
-                        <tr>
-                            <td>Storage capacity</td>
-                            <td>{{human_size(nbMgmt.stats.allocated_storage)}}</td>
-                        </tr>
-                        <tr>
-                            <td>Number of nodes</td>
-                            <td>{{nbMgmt.stats.counters.nodes}}</td>
-                        </tr>
-                        <tr></tr>
-                    </table>
-                    <div id="nodes_map" style="margin-bottom: 20px"></div>
-                    <div class="text-center">
-                        <a class="btn btn-primary btn-lg" href="nodes">Open nodes map</a>
-                    </div>
+            <div class="row">
+                <div class="col-sm-3">
+                    <h1 style="font-size: 4em">{{nbMgmt.total_space}}</h1>
+                    <p><small>total space</small>
+                    </p>
+                </div>
+                <div class="col-sm-3">
+                    <h1 style="font-size: 4em">{{nbMgmt.free_space_percent}}</h1>
+                    <p><small>free space</small>
+                    </p>
+                </div>
+                <div class="col-sm-3">
+                    <h1 style="font-size: 4em">{{nbMgmt.total_nodes}}</h1>
+                    <p><small>total nodes</small>
+                    </p>
+                </div>
+                <div class="col-sm-3">
+                    <h1 style="font-size: 4em">{{nbMgmt.online_nodes}}</h1>
+                    <p><small>online nodes</small>
+                    </p>
                 </div>
             </div>
-
-            <div class="col-sm-5 col-md-4">
-                <div class="well">
-                    <h3>Usage</h3>
-                    <table class="table">
-                        <tr>
-                            <td>Used storage</td>
-                            <td>{{human_size(nbMgmt.stats.used_storage)}}</td>
-                        </tr>
-                        <tr>
-                            <td>Number of files</td>
-                            <td>{{nbMgmt.stats.counters.objects}}</td>
-                        </tr>
-                        <tr></tr>
-                    </table>
-                    <div class="text-center">
-                        <a class="btn btn-primary btn-lg" href="files">Open files</a>
-                    </div>
-                </div>
-            </div>
+            <br/>
 
         </div>
 
-
-        <!--
-    <hr />
-    <div ng-repeat="(name,num) in nbMgmt.stats.counters">
-        <b>{{num}}</b> {{name}}
-    </div>
-    -->
+        <div class="row" style="margin-bottom: 20px">
+            <div id="nodes_map"></div>
+        </div>
 
     </div>
 </div>

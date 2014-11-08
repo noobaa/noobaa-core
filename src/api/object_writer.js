@@ -18,7 +18,7 @@ function ObjectWriter(client, params) {
 
     stream.Writable.call(self, {
         // highWaterMark Number - Buffer level when write() starts returning false. Default=16kb
-        highWaterMark: params.high_water_mark,
+        highWaterMark: params.high_water_mark || (1024 * 1024),
         // decodeStrings Boolean - Whether or not to decode strings into Buffers
         // before passing them to _write(). Default=true
         decodeStrings: true,

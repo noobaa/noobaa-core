@@ -86,9 +86,10 @@ ng_app.controller('FilesCtrl', [
 
         function click_object(object) {
             console.log('click_object', object);
+            $scope.video_src = $scope.object_src = null;
             var url = read_as_media_stream(object);
             if (url) {
-                $scope.object_src = $sce.trustAsResourceUrl(url);
+                $scope.video_src = $sce.trustAsResourceUrl(url);
                 return;
             }
             return $q.when(read_entire_object(object)).then(
@@ -120,7 +121,6 @@ ng_app.controller('FilesCtrl', [
             var object_path = {
                 bucket: object.bucket.name,
                 key: object.key,
-                high_water_mark: 16*1024,
             };
             var ms = new $window.MediaSource();
             ms.addEventListener('sourceopen', function(e) {
@@ -163,7 +163,10 @@ ng_app.controller('FilesCtrl', [
                 function() {
                     var defer = $q.defer();
                     var write_stream = object_client.open_write_stream(object_path);
-                    var stream = file_reader_stream(file).pipe(write_stream);
+                    var file_reader_options = {
+                        chunkSize: size_utils.MEGABYTE
+                    };
+                    var stream = file_reader_stream(file, file_reader_options).pipe(write_stream);
                     stream.once('finish', defer.resolve);
                     stream.once('error', defer.reject);
                     return defer.promise;

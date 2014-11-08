@@ -44,6 +44,16 @@ ng_app.controller('UploadCtrl', [
             if (!bucket || !$scope.file) {
                 return;
             }
+            $scope.uploading = true;
+            return nbFiles.upload_file($scope.file, bucket).then(
+                function() {
+                    $scope.uploading = false;
+                },
+                function() {
+                    $scope.uploading = false;
+                }
+            );
+
         };
 
 
@@ -72,6 +82,7 @@ ng_app.factory('nbFiles', [
         $scope.refresh = refresh;
         $scope.create_bucket = create_bucket;
         $scope.click_object = click_object;
+        $scope.upload_file = upload_file;
 
         init();
 

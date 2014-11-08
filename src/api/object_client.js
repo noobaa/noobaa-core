@@ -10,6 +10,7 @@ var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
 var ObjectReader = require('./object_reader');
 var ObjectWriter = require('./object_writer');
+var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
 
@@ -33,6 +34,12 @@ function ObjectClient(client_params) {
 // proper inheritance
 util.inherits(ObjectClient, object_api.Client);
 
+ObjectClient.prototype.events = function() {
+    if (!this._events) {
+        this._events = new EventEmitter();
+    }
+    return this._events;
+};
 
 // in addition to the api functions, the client implements more advanced functions
 // for read/write of objects according to the object mapping.
@@ -70,8 +77,8 @@ ObjectClient.prototype.write_object_part = function(params) {
 
     return self.allocate_object_part(upload_params).then(
         function(part) {
-            if (self.events) {
-                self.events.emit('part', part);
+            if (self._events) {
+                self._events.emit('part', part);
             }
             var block_size = (part.chunk_size / part.kblocks) | 0;
             var buffer_per_index = encode_chunk(params.buffer, part.kblocks, block_size);

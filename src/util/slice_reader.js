@@ -56,7 +56,6 @@ SliceReader.prototype._read = function(requested_size) {
     try {
         var next = Math.min(this._end, this._pos + requested_size);
         var slice = this._source.slice(this._pos, next);
-        console.log('SLICE', slice);
         if (this._fr) {
             this._fr.readAsArrayBuffer(slice);
             return;

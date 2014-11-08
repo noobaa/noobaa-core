@@ -47,17 +47,28 @@ ng_app.controller('UploadCtrl', [
             }
             $scope.uploading = true;
             $scope.parts = [];
+            var nodes = $scope.nodes = {};
             var apply_timeout;
-            object_client.events = object_client.events || new EventEmitter();
-            object_client.events.on('part', function(part) {
+            object_client.events().on('part', function(part) {
                 console.log('emitter part', part);
+                var part_num = $scope.parts.length;
                 $scope.parts.push(part);
-                // throttling down the ng scope apply
-                if (!apply_timeout) {
-                    apply_timeout = $timeout(function() {
-                        apply_timeout = null;
-                    }, 500);
-                }
+                _.each(part.indexes, function(blocks, index) {
+                    _.each(blocks, function(block) {
+                        var node = nodes[block.node.id];
+                        if (!node) {
+                            node = nodes[block.node.id] = _.clone(block.node);
+                            node.blocks = [];
+                        }
+                        node.blocks.push({
+                            part_num: part_num,
+                            id: block.id,
+                            index: index,
+                            part: part,
+                        });
+                    });
+                });
+                $scope.safe_apply();
             });
             return nbFiles.upload_file($scope.file, bucket).then(
                 function() {

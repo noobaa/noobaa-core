@@ -65,18 +65,23 @@
 
 
         <div ng-if="uploading">
-
             <table class="table">
-                <tr ng-repeat="part in parts">
-                    <td>{{part.start}}</td>
-                    <td>{{part.end}}</td>
+                <tr>
+                    <th>Node</th>
+                    <th>Parts</th>
+                </tr>
+                <tr ng-repeat="node in nodes">
+                    <td>{{node.ip}}:{{node.port}}</td>
+                    <td>
+                        <span ng-repeat="block in node.blocks">{{block.part_num}}</spean>
+                    </td>
                 </tr>
             </table>
-
-            <!-- <img ng-src="{{object_src}}" ng-if="object_src" class="img-responsive" /> -->
-            <!-- <video controls autoplay ng-src="{{video_src}}" ng-if="video_src" class="img-responsive"></video> -->
-            <!-- <object ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></object> -->
         </div>
+
+        <!-- <img ng-src="{{object_src}}" ng-if="object_src" class="img-responsive" /> -->
+        <!-- <video controls autoplay ng-src="{{video_src}}" ng-if="video_src" class="img-responsive"></video> -->
+        <!-- <object ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></object> -->
 
     </div>
 </div>

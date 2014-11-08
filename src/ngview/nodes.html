@@ -26,11 +26,15 @@
             <div class="col-sm-8">
                 <div ng-hide="nbNodes.detailed_nodes.nodes.length">
                     <h1 class="hidden-sm hidden-md hidden-lg pull-right">
-                        <i class="fa fa-hand-o-up fa-3x fa-fw text-primary animated bounce"></i>
+                        <span class="animated bounce" style="padding-top: 30px">
+                            <i class="fa fa-hand-o-up fa-3x fa-fw text-primary"></i>
+                        </span>
                     </h1>
                     <h1>Click a map marker to show the nodes</h1>
                     <h1 class="hidden-xs">
-                        <i class="fa fa-hand-o-left fa-4x text-primary animated shake"></i>
+                        <span class="animated shake" style="padding-left: 30px">
+                            <i class="fa fa-hand-o-left fa-4x text-primary"></i>
+                        </span>
                     </h1>
                 </div>
                 <div ng-if="nbNodes.detailed_nodes.geo" ng-repeat="geo in [nbNodes.detailed_nodes.geo]">

@@ -15,7 +15,7 @@
 // bootstrap //
 ///////////////
 
-@brand-primary: hsl(223,24%,20%);
+@brand-primary: hsl(223,24%,30%);
 @brand-info: hsl(190,70%,60%);
 @brand-success: hsl(120,70%,60%);
 @brand-warning: hsl(60,70%,60%);
@@ -24,25 +24,30 @@
 @navbar-default-link-active-color: @btn-primary-color;
 @navbar-default-link-active-bg: @btn-primary-bg;
 
-/* @body-bg: hsl(0,0%,20%); */
-/* @text-color: hsl(0,0%,90%); */
-/* @navbar-default-bg: hsl(0,0%,100%); */
 @border-color: @gray-lighter;
 @modal-backdrop-opacity: 0.7;
 
-@border-radius-small: 10px;
-@border-radius-base: 20px;
-@border-radius-large: 30px;
+/* @border-radius-small: 10px; */
+/* @border-radius-base: 20px; */
+/* @border-radius-large: 30px; */
 
 @grid-float-breakpoint: 0;
 
+@font-family-sans-serif: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
 @font-size-base: 15px;
 @headings-font-weight: 900;
-@font-family-sans-serif: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
 *:not(input) {
     text-transform: uppercase !important;
     font-weight: 600 !important;
 
+}
+/* .btn {
+    .hover-border;
+} */
+.btn-primary {
+    &:hover {
+        background-color: lighten(@brand-primary, 5%);
+    }
 }
 .text-green {
     color: lime;
@@ -133,13 +138,12 @@
 /////////////////
 // transitions //
 /////////////////
-.hover-scale {
+.hover-border {
     .transition-fast;
-    &:hover {
-        transform: scale(1.1);
-        -o-transform: scale(1.1);
-        -moz-transform: scale(1.1);
-        -webkit-transform: scale(1.1);
+    &:hover,
+    &:active {
+        border-color: white;
+        box-shadow: 0 0 7px 0 black;
     }
 
 }

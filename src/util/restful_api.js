@@ -71,6 +71,7 @@ function restful_api(api) {
         self._middlewares = middlewares || [];
         self._impl = {};
         self._handlers = {};
+
         _.each(api.methods, function(func_info, func_name) {
             var func = methods[func_name];
             if (!func && allow_missing_methods) {
@@ -98,6 +99,7 @@ function restful_api(api) {
         var self = this;
         base_path = base_path || '';
         var doc_base = PATH.join(base_path, 'doc', api.name);
+
         _.each(self._middlewares, function(fn) {
             assert(fn, 'RESTFUL_API: undefined middleware function');
             router.use(base_path, function(req, res, next) {
@@ -108,6 +110,7 @@ function restful_api(api) {
                 });
             });
         });
+
         _.each(api.methods, function(func_info, func_name) {
             // install the path handler
             var path = PATH.join(base_path, func_info.path);
@@ -117,7 +120,7 @@ function restful_api(api) {
             // install also a documentation route
             router.get(PATH.join(doc_base, func_name), function(req, res) {
                 res.send(func_info.doc);
-                // TODO docs should return also params/reply/other-info doc
+                // TODO restul doc should return also params/reply/other-info doc
             });
         });
     };
@@ -210,47 +213,38 @@ function restful_api(api) {
 
 // call a specific REST api function over http request.
 function do_client_request(client_params, func_info, params) {
-    return Q.fcall(function() {
-        // first prepare the request
-        return create_client_request(client_params, func_info, params);
-    }).then(function(options) {
-        // now send it over http
-        return send_http_request(options);
-    }).then(function(res) {
-        var cookies = res.response.headers['set-cookie'];
-        if (cookies) {
-            var host = client_params.host || (client_params.hostname + ':' + client_params.post);
-            var jar = cookie_jars_per_host[host] = cookie_jars_per_host[host] || new Cookie.Jar();
-            _.each(cookies, function(cookie_str) {
-                jar.add(new Cookie(cookie_str));
-            });
+    return Q.fcall(
+        send_http_request, client_params, func_info, params
+    ).then(
+        read_http_response
+    ).then(
+        handle_http_reply.bind(null, client_params, func_info)
+    ).then(null,
+        function(err) {
+            console.error('RESTFUL REQUEST FAILED', err);
+            throw err;
         }
-        if (!func_info.reply_raw) {
-            // check the json reply
-            validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
-        }
-        return res.data;
-    }).then(null, function(err) {
-        console.error('RESTFUL REQUEST FAILED', err);
-        throw err;
-    });
+    );
 }
 
 
 // create a REST api call and return the options for http request.
-function create_client_request(client_params, func_info, params) {
+function send_http_request(client_params, func_info, params) {
     var method = func_info.method;
     var path = client_params.path || '/';
     var data = _.clone(params) || {};
     var headers = _.clone(client_params.headers) || {};
     var body;
+
     if (func_info.param_raw) {
         body = data[func_info.param_raw];
         headers['content-type'] = 'application/octet-stream';
         headers['content-length'] = body.length;
         delete data[func_info.param_raw];
     }
+
     validate_schema(data, func_info.params_schema, func_info, 'client request');
+
     // construct the request path for the relevant params
     _.each(func_info.path_items, function(p) {
         if (!p) {
@@ -266,6 +260,7 @@ function create_client_request(client_params, func_info, params) {
             delete data[p.name];
         }
     });
+
     headers.accept = '*/*';
     var host = client_params.host || (client_params.hostname + ':' + client_params.post);
     var jar = cookie_jars_per_host[host];
@@ -274,6 +269,7 @@ function create_client_request(client_params, func_info, params) {
             url: path
         });
     }
+
     if (!func_info.param_raw && (method === 'POST' || method === 'PUT')) {
         body = JSON.stringify(data);
         headers['content-type'] = 'application/json';
@@ -289,125 +285,112 @@ function create_client_request(client_params, func_info, params) {
             path += '?' + query;
         }
     }
+
     var options = {
-        protocol: client_params.protocol,
         hostname: client_params.hostname,
         port: client_params.port,
         method: method,
         path: path,
         headers: headers,
-        body: body,
         // turn off withCredentials for browser xhr requests
         // in order to use allow-origin=* (CORS)
         withCredentials: false,
     };
-    return options;
+
+    // console.log('HTTP request', options);
+    var req = client_params.protocol === 'https' ?
+        https.request(options) :
+        http.request(options);
+    if (req.xhr) {
+        // hack the browserify http module to use binary data
+        req.xhr.responseType = 'arraybuffer';
+    }
+
+    var defer = Q.defer();
+    req.on('response', defer.resolve);
+    req.on('error', defer.reject);
+    if (body) {
+        req.write(body);
+    }
+    req.end();
+    return defer.promise;
 }
 
 
 // send http request and return a promise for the response
-function send_http_request(options) {
-    return Q.Promise(function(resolve, reject) {
-        // console.log('HTTP request', options);
-        var protocol = options.protocol;
-        var body = options.body;
-        options = _.omit(options, 'body', 'protocol');
-        var req = protocol === 'https' ?
-            https.request(options) :
-            http.request(options);
+function read_http_response(res) {
+    // console.log('HTTP response headers', res.statusCode, res.headers);
+    var chunks = [];
+    var chunks_length = 0;
+    var defer = Q.defer();
+    res.on('error', defer.reject);
+    res.on('data', add_chunk);
+    res.on('end', finish);
+    return defer.promise;
 
-        if (req.xhr) {
-            // hack the browserify http module to use binary data
-            req.xhr.responseType = 'arraybuffer';
+    function add_chunk(chunk) {
+        // console.log('HTTP response data', chunk.length, typeof(chunk));
+        chunks.push(chunk);
+        chunks_length += chunk.length;
+    }
+
+    function concat_chunks() {
+        if (!chunks_length) {
+            return '';
         }
+        if (typeof(chunks[0]) === 'string') {
+            // if string was already decoded then keep working with strings
+            return String.prototype.concat.apply('', chunks);
+        }
+        // binary data buffers for the win!
+        if (!Buffer.isBuffer(chunks[0])) {
+            // in case of xhr arraybuffer just wrap with node buffers
+            chunks = _.map(chunks, Buffer);
+        }
+        return Buffer.concat(chunks, chunks_length);
+    }
 
-        req.on('response', function(res) {
-            // console.log('HTTP response headers', res.statusCode, res.headers);
-            var chunks = [];
-            var chunks_length = 0;
-            var response_err;
+    function decode_response(data) {
+        var content_type = res.headers['content-type'];
+        var is_json = content_type && content_type.split(';')[0] === 'application/json';
+        return is_json && data && JSON.parse(data.toString()) || data;
+    }
 
-            res.on('data',
-                function(chunk) {
-                    // console.log('HTTP response data', chunk.length, typeof(chunk));
-                    chunks.push(chunk);
-                    chunks_length += chunk.length;
-                }
-            );
-
-            res.on('error',
-                function(err) {
-                    // console.log('HTTP response error', err);
-                    response_err = response_err || err;
-                }
-            );
-
-            res.on('end',
-                function() {
-                    var data = null;
-                    var is_buffer = false;
-                    try {
-                        if (chunks_length) {
-                            if (typeof(chunks[0]) === 'string') {
-                                // if string was already decoded then keep working with strings
-                                data = String.prototype.concat.apply('', chunks);
-                            } else {
-                                // binary data buffers for the win!
-                                if (!Buffer.isBuffer(chunks[0])) {
-                                    // in case of xhr arraybuffer just wrap with node buffers
-                                    chunks = _.map(chunks, Buffer);
-                                }
-                                data = Buffer.concat(chunks, chunks_length);
-                                is_buffer = true;
-                            }
-                            // console.log('HTTP response end', res.statusCode, response_err, data);
-                            var content_type = res.headers['content-type'];
-                            if (content_type &&
-                                content_type.split(';')[0] === 'application/json') {
-                                if (is_buffer) {
-                                    data = data.toString('utf8');
-                                }
-                                data = JSON.parse(data);
-                            }
-                        }
-                    } catch (err) {
-                        response_err = response_err || err;
-                    }
-                    if (res.statusCode !== 200 || response_err) {
-                        if (is_buffer) {
-                            data = data.toString('utf8');
-                        }
-                        return reject({
-                            status: res.statusCode,
-                            data: response_err || data,
-                        });
-                    } else {
-                        return resolve({
-                            response: res,
-                            data: data,
-                        });
-                    }
-                }
-            );
-        });
-
-        req.on('error',
-            function(err) {
-                // console.log('HTTP request error', err);
-                return reject({
-                    data: err,
+    function finish() {
+        try {
+            var data = decode_response(concat_chunks());
+            if (res.statusCode !== 200) {
+                defer.reject({
+                    status: res.statusCode,
+                    data: data.toString(),
+                });
+            } else {
+                defer.resolve({
+                    response: res,
+                    data: data,
                 });
             }
-        );
-
-        if (body) {
-            req.write(body);
+        } catch (err) {
+            defer.reject(err);
         }
-        req.end();
-    });
+    }
 }
 
-
+function handle_http_reply(client_params, func_info, res) {
+    var cookies = res.response.headers['set-cookie'];
+    if (cookies) {
+        var host = client_params.host || (client_params.hostname + ':' + client_params.post);
+        var jar = cookie_jars_per_host[host] = cookie_jars_per_host[host] || new Cookie.Jar();
+        _.each(cookies, function(cookie_str) {
+            jar.add(new Cookie(cookie_str));
+        });
+    }
+    if (!func_info.reply_raw) {
+        // check the json reply
+        validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
+    }
+    return res.data;
+}
 
 
 // return a route handler that calls the server function

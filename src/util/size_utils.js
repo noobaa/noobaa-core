@@ -15,6 +15,15 @@ var KILOBYTE = 1024;
 var MEGABYTE = 1024 * KILOBYTE;
 var GIGABYTE = 1024 * MEGABYTE;
 var PETABYTE = 1024 * GIGABYTE;
+var EXABYTE = {
+    peta: 1024
+};
+var ZETABYTE = {
+    peta: 1024 * EXABYTE.peta
+};
+var YOTABYTE = {
+    peta: 1024 * ZETABYTE.peta
+};
 
 // cant do 1<<32 because javascript bitwise is limited to 32 bits
 var MAX_UINT32 = (1 << 16) * (1 << 16);
@@ -29,6 +38,9 @@ module.exports = {
     MEGABYTE: MEGABYTE,
     GIGABYTE: GIGABYTE,
     PETABYTE: PETABYTE,
+    EXABYTE: EXABYTE,
+    ZETABYTE: ZETABYTE,
+    YOTABYTE: YOTABYTE,
 };
 
 

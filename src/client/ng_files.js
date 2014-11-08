@@ -23,36 +23,76 @@ var object_client = new ObjectClient({
 var ng_app = angular.module('ng_app');
 
 
-ng_app.factory('nbFiles', [
-    function() {
-        var $scope = {};
-        return $scope;
+
+
+ng_app.controller('UploadCtrl', [
+    '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce', 'nbFiles',
+    function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
+        $scope.nav.active = 'upload';
+
+        $scope.click_browse = function(event) {
+            var chooser = angular.element('<input type="file">');
+            chooser.on('change', function(e) {
+                $scope.file = e.target.files[0];
+                $scope.safe_apply();
+            });
+            chooser.click();
+        };
+
+        $scope.click_upload = function(event) {
+            var bucket = nbFiles.bucket;
+            if (!bucket || !$scope.file) {
+                return;
+            }
+        };
+
+
     }
 ]);
 
 
-ng_app.controller('FilesCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce',
-    function($scope, $http, $q, $window, $timeout, nbAlertify, $sce) {
 
-        $scope.nav.active = 'files';
+ng_app.controller('DownloadCtrl', [
+    '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce', 'nbFiles',
+    function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
+
+        $scope.nav.active = 'download';
+
+
+    }
+]);
+
+
+
+ng_app.factory('nbFiles', [
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData',
+    function($http, $q, $window, $timeout, $sce, nbAlertify, nbServerData) {
+        var $scope = {};
 
         $scope.refresh = refresh;
         $scope.create_bucket = create_bucket;
-        $scope.click_upload = click_upload;
         $scope.click_object = click_object;
 
-        $scope.$watch('bucket', function() {
-            if ($scope.bucket) {
-                load_bucket_objects($scope.bucket);
-            }
-        });
+        init();
 
-        refresh();
+        function init() {
+            return refresh().then(
+                function() {
+                    if (!$scope.buckets.length) {
+                        // create a first bucket if none
+                        var name = nbServerData.account_email.split('@')[0];
+                        return $q.when(object_client.create_bucket({
+                            bucket: name
+                        })).then(refresh);
+                    }
+                }
+            );
+        }
 
         function refresh() {
             return load_buckets();
         }
+
 
         function create_bucket() {
             return nbAlertify.prompt('Enter name for new bucket').then(
@@ -64,25 +104,13 @@ ng_app.controller('FilesCtrl', [
                         bucket: str
                     })).then(load_buckets).then(
                         function() {
-
+                            $scope.bucket = $scope.buckets_by_name[str];
                         }
                     );
                 }
             );
         }
 
-        function click_upload() {
-            if (!$scope.bucket) {
-                return;
-            }
-            var bucket = $scope.bucket;
-            var chooser = angular.element('<input type="file">');
-            chooser.on('change', function(e) {
-                var file = e.target.files[0];
-                upload_file(file, bucket);
-            });
-            chooser.click();
-        }
 
         function click_object(object) {
             console.log('click_object', object);
@@ -216,5 +244,6 @@ ng_app.controller('FilesCtrl', [
             );
         }
 
+        return $scope;
     }
 ]);

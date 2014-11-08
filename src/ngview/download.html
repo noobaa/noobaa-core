@@ -1,14 +1,14 @@
-<div>
+<div ng-controller="DownloadCtrl">
     <div ng-include="'navbar.html'"></div>
 
-    <div class="container-fluid" ng-controller="FilesCtrl">
+    <div class="container-fluid">
 
         <div class="clearfix">
-            <button class="btn btn-default" ng-click="refresh()" nb-ladda="nbMgmt.refreshing">
+            <button class="btn btn-default" ng-click="nbFiles.refresh()" nb-ladda="nbFiles.refreshing">
                 &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
             </button>
             <div class="form-control" style="width: 150px; display: inline-block">
-                <select ng-model="bucket" ng-options="bucket.name for bucket in buckets"></select>
+                <select ng-model="nbFiles.bucket_get_set" ng-mode-options="{getterSetter:true}" ng-options="bucket.name for bucket in buckets"></select>
             </div>
             <button ng-click="create_bucket()" class="btn btn-default" title="New Bucket" rel="tooltip">
                 New Bucket

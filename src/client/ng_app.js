@@ -32,8 +32,10 @@ ng_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
             templateUrl: 'status.html',
         }).when('/nodes', {
             templateUrl: 'nodes.html',
-        }).when('/files', {
-            templateUrl: 'files.html',
+        }).when('/upload', {
+            templateUrl: 'upload.html',
+        }).when('/download', {
+            templateUrl: 'download.html',
         }).otherwise({
             redirectTo: '/'
         });
@@ -50,7 +52,7 @@ ng_app.controller('AppCtrl', [
 
         $scope.nav = {
             active: 'root',
-            order: ['root', 'nodes', 'files'],
+            order: ['root', 'nodes', 'upload', 'download'],
             items: {
                 root: {
                     text: 'NooBaa',
@@ -62,10 +64,14 @@ ng_app.controller('AppCtrl', [
                     text: 'Nodes',
                     href: 'nodes',
                 },
-                files: {
-                    text: 'Files',
-                    href: 'files',
-                }
+                upload: {
+                    text: 'Upload',
+                    href: 'upload',
+                },
+                download: {
+                    text: 'Download',
+                    href: 'download',
+                },
             }
         };
     }

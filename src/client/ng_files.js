@@ -45,31 +45,44 @@ ng_app.controller('UploadCtrl', [
             if (!bucket || !$scope.file) {
                 return;
             }
+
             $scope.uploading = true;
             $scope.parts = [];
+            $scope.num_indexes = 0; // counter for any encountered index
             var nodes = $scope.nodes = {};
             var apply_timeout;
-            object_client.events().on('part', function(part) {
-                console.log('emitter part', part);
-                var part_num = $scope.parts.length;
-                $scope.parts.push(part);
-                _.each(part.indexes, function(blocks, index) {
-                    _.each(blocks, function(block) {
-                        var node = nodes[block.node.id];
-                        if (!node) {
-                            node = nodes[block.node.id] = _.clone(block.node);
-                            node.blocks = [];
-                        }
-                        node.blocks.push({
-                            part_num: part_num,
-                            id: block.id,
-                            index: index,
-                            part: part,
+
+            object_client.events().on('part',
+                function(part) {
+                    console.log('emitter part', part);
+                    $scope.parts.push(part);
+
+                    _.each(part.indexes, function(blocks, index) {
+                        _.each(blocks, function(block) {
+                            var node = nodes[block.node.id];
+                            if (!node) {
+                                node = nodes[block.node.id] = _.clone(block.node);
+                                node.blocks = [];
+                            }
+                            node.blocks[$scope.num_indexes] = {
+                                id: block.id,
+                                part: part,
+                                index: index,
+                                index_num: $scope.num_indexes,
+                            };
                         });
+                        $scope.num_indexes += 1;
                     });
-                });
-                $scope.safe_apply();
-            });
+
+                    // throttled scope apply
+                    if (!apply_timeout) {
+                        apply_timeout = $timeout(function() {
+                            apply_timeout = null;
+                        }, 300);
+                    }
+                }
+            );
+
             return nbFiles.upload_file($scope.file, bucket).then(
                 function() {
                     $scope.upload_done = true;
@@ -246,10 +259,9 @@ ng_app.factory('nbFiles', [
                     var elapsed = duration.toFixed(1) + 'sec';
                     var speed = $rootScope.human_size(file.size / duration) + '/sec';
                     console.log('upload completed', elapsed, speed);
-                    nbAlertify.log('upload completed ' + elapsed + ' ' + speed);
+                    nbAlertify.success('upload completed ' + elapsed + ' ' + speed);
                     return load_bucket_objects(bucket);
-                }
-            ).then(null,
+                },
                 function(err) {
                     console.error('upload failed', err);
                     nbAlertify.error('upload failed. ' + err.toString());

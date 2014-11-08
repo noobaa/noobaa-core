@@ -185,6 +185,58 @@ ng_util.factory('nbAlertify', [
 ]);
 
 
+ng_util.directive('nbProgressCanvas', [
+    function() {
+        return {
+            restrict: 'A',
+            scope: {
+                nbProgressCanvas: '=',
+                progressLength: '=',
+                progressColor: '=',
+            },
+            link: function(scope, element, attrs) {
+                var d = element[0].getContext('2d'); // expected to be a canvas
+                var data;
+                var opt = {};
+
+                scope.$watch('nbProgressCanvas', update_data, true);
+                scope.$watch('progressLength', update_options.bind(null, 'length'));
+                scope.$watch('progressColor', update_options.bind(null, 'color'));
+
+                function update_data(value) {
+                    data = value;
+                    redraw();
+                }
+
+                function update_options(key, value) {
+                    opt[key] = value;
+                    redraw();
+                }
+
+                function redraw() {
+                    d.fillStyle = opt.color;
+                    var w = opt.width || d.canvas.width;
+                    var h = opt.height || d.canvas.height;
+                    if (!data || !data.length) {
+                        d.clearRect(0, 0, w, h);
+                        return;
+                    }
+                    var len = opt.length;
+                    var wp = w / len;
+                    for (var i = 0, p = 0; i < len; i++, p += wp) {
+                        if (data[i]) {
+                            d.fillRect(p, 0, wp, h);
+                        } else {
+                            d.clearRect(p, 0, wp, h);
+                        }
+                    }
+                }
+            }
+        };
+    }
+]);
+
+
 ng_util.directive('nbShowAnimated', [
     function() {
         return {

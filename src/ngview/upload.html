@@ -73,7 +73,7 @@
                 <tr ng-repeat="node in nodes">
                     <td>{{node.ip}}:{{node.port}}</td>
                     <td>
-                        <span ng-repeat="block in node.blocks">{{block.part_num}}</spean>
+                        <canvas nb-progress-canvas="node.blocks" progress-length="num_indexes" progress-color="'lime'" style="width: 100%; height: 20px; border: 1px solid gray; background-color: hsl(0,0%,10%)"></canvas>
                     </td>
                 </tr>
             </table>

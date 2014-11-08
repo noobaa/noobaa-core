@@ -80,9 +80,7 @@ function allocate_object_part(obj, start, end, md5sum) {
 function read_object_mappings(obj, start, end) {
     var rng = sanitize_object_range(obj, start, end);
     if (!rng) { // empty range
-        return {
-            parts: []
-        };
+        return [];
     }
     start = rng.start;
     end = rng.end;
@@ -119,9 +117,7 @@ function read_object_mappings(obj, start, end) {
                 return get_part_info(part, part.chunk, blocks);
             });
             // console.log('get_existing_parts', parts_reply);
-            return {
-                parts: parts_reply
-            };
+            return parts_reply;
         }
     );
 }

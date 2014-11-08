@@ -96,14 +96,17 @@ ObjectClient.prototype.write_object_part = function(params) {
 ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
     // console.log('read_object_range', params);
+    var obj_size;
     return self.read_object_mappings(params).then(
         function(mappings) {
+            obj_size = mappings.size;
             return Q.all(_.map(mappings.parts, self.read_object_part, self));
         }
     ).then(
         function(parts) {
             // once all parts finish we can construct the complete buffer.
-            return combine_parts_buffers_in_range(parts, params.start, params.end);
+            var end = Math.min(obj_size, params.end);
+            return combine_parts_buffers_in_range(parts, params.start, end);
         }
     );
 };
@@ -202,10 +205,10 @@ function combine_parts_buffers_in_range(parts, start, end) {
         return null;
     }
     var pos = start;
-    var buffers = _.flatten(_.map(parts, function(part) {
+    var buffers = _.compact(_.map(parts, function(part) {
         var part_range = range_utils.intersection(part.start, part.end, pos, end);
         if (!part_range) {
-            return [];
+            return;
         }
         var offset = part.chunk_offset + part_range.start - part.start;
         pos = part_range.end;

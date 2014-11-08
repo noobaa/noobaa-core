@@ -57,9 +57,16 @@ ng_app.controller('FilesCtrl', [
         function create_bucket() {
             return nbAlertify.prompt('Enter name for new bucket').then(
                 function(str) {
-                    $q.when(object_client.create_bucket({
+                    if (!str) {
+                        return;
+                    }
+                    return $q.when(object_client.create_bucket({
                         bucket: str
-                    })).then(load_buckets);
+                    })).then(load_buckets).then(
+                        function() {
+
+                        }
+                    );
                 }
             );
         }
@@ -78,6 +85,12 @@ ng_app.controller('FilesCtrl', [
         }
 
         function click_object(object) {
+            console.log('click_object', object);
+            var url = read_as_media_stream(object);
+            if (url) {
+                $scope.object_src = $sce.trustAsResourceUrl(url);
+                return;
+            }
             return $q.when(read_entire_object(object)).then(
                 function(data) {
                     console.log('OBJECT DATA', data.length);
@@ -101,18 +114,29 @@ ng_app.controller('FilesCtrl', [
         }
 
         function read_as_media_stream(object) {
+            if (!object.key.match(/.*\.(webm)/)) {
+                return;
+            }
             var object_path = {
                 bucket: object.bucket.name,
                 key: object.key,
+                high_water_mark: 16*1024,
             };
             var ms = new $window.MediaSource();
             ms.addEventListener('sourceopen', function(e) {
                 // TODO need to have content type, and check support for types
-                var sourceBuffer = ms.addSourceBuffer('video/webm; codecs="vorbis,vp8"');
+                var source_buffer = ms.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
                 var stream = object_client.open_read_stream(object_path);
+                var video = $window.document.getElementsByTagName('video')[0];
+                video.addEventListener('progress', function() {
+                    stream.resume();
+                });
                 stream.on('data', function(data) {
-                    console.log('STREAM DATA', data);
-                    sourceBuffer.appendBuffer(data);
+                    console.log('STREAM DATA', data.length);
+                    if (source_buffer.updating) {
+                        stream.pause();
+                    }
+                    source_buffer.appendBuffer(data.toArrayBuffer());
                 });
                 stream.once('finish', function() {
                     console.log('STREAM FINISH');
@@ -132,10 +156,10 @@ ng_app.controller('FilesCtrl', [
                 bucket: bucket.name,
                 key: file.name
             };
-            var create_params = _.merge({
-                size: file.size
-            }, object_path);
-            $q.when(object_client.create_multipart_upload(create_params)).then(
+            var create_params = _.clone(object_path);
+            create_params.size = file.size;
+
+            return $q.when(object_client.create_multipart_upload(create_params)).then(
                 function() {
                     var defer = $q.defer();
                     var write_stream = object_client.open_write_stream(object_path);
@@ -163,16 +187,19 @@ ng_app.controller('FilesCtrl', [
         function load_buckets() {
             return $q.when(object_client.list_buckets()).then(
                 function(res) {
-                    $scope.buckets = res.buckets;
-                    if ($scope.buckets && $scope.buckets.length) {
-                        $scope.bucket = $scope.buckets[0];
-                        return load_bucket_objects($scope.bucket);
-                    }
+                    $scope.buckets = _.sortBy(res.buckets, 'name');
+                    $scope.buckets_by_name = _.indexBy($scope.buckets, 'name');
+                    $scope.bucket =
+                        $scope.bucket && $scope.buckets_by_name[$scope.bucket.name] ||
+                        $scope.buckets[0];
+                    return load_bucket_objects($scope.bucket);
                 }
             );
         }
 
         function load_bucket_objects(bucket) {
+            if (!bucket) return;
+
             return $q.when(object_client.list_bucket_objects({
                 bucket: bucket.name
             })).then(

@@ -8,7 +8,7 @@
                 &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
             </button>
             <div class="form-control" style="width: 150px; display: inline-block">
-                <select ng-model="bucket" ng-options="bucket.name for bucket in buckets | orderBy:'name'"></select>
+                <select ng-model="bucket" ng-options="bucket.name for bucket in buckets"></select>
             </div>
             <button ng-click="create_bucket()" class="btn btn-default" title="New Bucket" rel="tooltip">
                 New Bucket
@@ -21,8 +21,8 @@
         <hr />
 
 
-        <img ng-src="{{object_src}}" ng-if="object_src" class="img-responsive" />
-        <!-- <video ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></video> -->
+        <!-- <img ng-src="{{object_src}}" ng-if="object_src" class="img-responsive" /> -->
+        <video ng-src="{{object_src}}" ng-if="object_src" controls class="img-responsive"></video>
         <!-- <object ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></object> -->
 
         <div class="row" ng-if="bucket">

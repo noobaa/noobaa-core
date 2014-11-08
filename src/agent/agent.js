@@ -240,8 +240,8 @@ Agent.prototype._read_block = function(block_id) {
     var self = this;
     var lru_block = self.blocks_lru.find_or_add_item(block_id);
     if (lru_block && lru_block.data) {
-        console.log('read block from cache', block_id,
-            lru_block.data.length, typeof(lru_block.data), self.node_name);
+        // console.log('read block from cache', block_id,
+            // lru_block.data.length, typeof(lru_block.data), self.node_name);
         return lru_block.data;
     }
     var block_path = self._block_path(block_id);
@@ -250,8 +250,8 @@ Agent.prototype._read_block = function(block_id) {
     }
     return Q.nfcall(fs.readFile, block_path).then(
         function(data) {
-            console.log('read block from disk', block_id,
-                data.length, typeof(data), self.node_name);
+            // console.log('read block from disk', block_id,
+                // data.length, typeof(data), self.node_name);
             lru_block.data = data;
             return data;
         },
@@ -270,7 +270,7 @@ Agent.prototype.write_block = function(req) {
     var block_path = self._block_path(block_id);
     var old_size = 0;
 
-    console.log('write block', block_id, data.length, typeof(data), self.node_name);
+    // console.log('write block', block_id, data.length, typeof(data), self.node_name);
 
     return Q.fcall(
         function() {

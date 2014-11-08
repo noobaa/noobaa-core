@@ -288,8 +288,11 @@ module.exports = restful_api({
             },
             reply: {
                 type: 'object',
-                required: ['parts'],
+                required: ['size', 'parts'],
                 properties: {
+                    size: {
+                        type: 'integer'
+                    },
                     parts: {
                         type: 'array',
                         items: {
@@ -345,7 +348,7 @@ module.exports = restful_api({
             required: [
                 'start', 'end',
                 'kblocks', 'md5sum',
-                'chunk_size', 'chunk_offset', 
+                'chunk_size', 'chunk_offset',
                 'indexes'
             ],
             properties: {

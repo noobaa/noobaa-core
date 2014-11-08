@@ -243,6 +243,7 @@ function read_object_mappings(req) {
     var key = req.restful_params.key;
     var start = Number(req.restful_params.start);
     var end = Number(req.restful_params.end);
+    var obj;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -254,8 +255,16 @@ function read_object_mappings(req) {
             return ObjectMD.findOne(info).exec();
         }
     ).then(
-        function(obj) {
+        function(obj_arg) {
+            obj = obj_arg;
             return object_mapper.read_object_mappings(obj, start, end);
+        }
+    ).then(
+        function(parts) {
+            return {
+                size: obj.size,
+                parts: parts,
+            };
         }
     );
 }

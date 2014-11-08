@@ -76,9 +76,11 @@ after(function() {
     edge_node_server.disable_routes();
 });
 
+/*
 beforeEach(function(done) {
     login_default_account().nodeify(done);
 });
+*/
 
 function login_default_account() {
     return account_client.login_account(account_credentials);
@@ -115,6 +117,7 @@ function init_test_nodes(count, allocated_storage) {
             }
         );
     }
+
     return clear_test_nodes().then(
         function() {
             return Q.all(_.times(count, function(i) {
@@ -134,13 +137,27 @@ function init_test_nodes(count, allocated_storage) {
 function clear_test_nodes() {
     return Q.fcall(
         function() {
-            return EdgeNode.remove({}).exec();
+            console.log('REMOVE NODES');
+            var warning_timeout = setTimeout(function() {
+                console.log(
+                    '\n\n\nWaiting too long?\n\n',
+                    'the test got stuck on EdgeNode.remove().',
+                    'this is known when running in mocha standalone (root cause unknown).',
+                    'it does work fine when running with gulp, so we let it be.\n\n');
+                process.exit(1);
+            }, 3000);
+            return Q.when(EdgeNode.remove().exec())['finally'](
+                function() {
+                    clearTimeout(warning_timeout);
+                }
+            );
         }
     ).then(
         function() {
             if (!test_agents) {
                 return;
             }
+            console.log('STOPING AGENTS');
             var sem = new Semaphore(3);
             return Q.all(_.map(test_agents,
                 function(agent) {

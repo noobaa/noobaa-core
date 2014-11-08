@@ -8,7 +8,7 @@ var size_utils = require('../util/size_utils');
 var mgmt_api = require('../api/mgmt_api');
 var edge_node_api = require('../api/edge_node_api');
 var ObjectClient = require('../api/object_client');
-var file_reader_stream = require('filereader-stream');
+var SliceReader = require('../util/slice_reader');
 var concat_stream = require('concat-stream');
 var EventEmitter = require('events').EventEmitter;
 var mgmt_client = new mgmt_api.Client({
@@ -89,8 +89,8 @@ ng_app.controller('DownloadCtrl', [
 
 
 ng_app.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData',
-    function($http, $q, $window, $timeout, $sce, nbAlertify, nbServerData) {
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData', '$rootScope',
+    function($http, $q, $window, $timeout, $sce, nbAlertify, nbServerData, $rootScope) {
         var $scope = {};
 
         $scope.refresh = refresh;
@@ -207,57 +207,22 @@ ng_app.factory('nbFiles', [
             console.log('upload', file);
             var object_path = {
                 bucket: bucket.name,
-                key: file.name,
+                key: file.name + '_' + Date.now().toString(),
             };
             var create_params = _.clone(object_path);
             create_params.size = file.size;
-            // TODO PERF
-            create_params.size = 10 * size_utils.MEGABYTE;
-            object_path.key = create_params.key = Date.now().toString();
-            var source_stream = {
-                pos: 0,
-                size: 0,
-                dest: null,
-                next: function() {
-                    if (this.pos >= this.size) {
-                        this.dest.end();
-                        this.events.emit('end', this.size);
-                        return;
-                    }
-                    var len = Math.min(this.size - this.pos, size_utils.MEGABYTE);
-                    var b = new Buffer(len);
-                    b.fill(0);
-                    console.log('next', this.pos, len, b.length);
-                    var ready = this.dest.write(b);
-                    this.pos += len;
-                    var call_next = this.next.bind(this);
-                    if (ready) {
-                        this.events.emit('progress', this.pos);
-                        setTimeout(this.next.bind(this), 0);
-                    } else {
-                        this.dest.once('drain', call_next);
-                    }
-                },
-                pipe: function(dest) {
-                    this.dest = dest;
-                    this.size = create_params.size;
-                    this.events = new EventEmitter();
-                    this.next();
-                    return this.events;
-                }
-            };
-
+            var start_time = Date.now();
             return $q.when(object_client.create_multipart_upload(create_params)).then(
                 function() {
                     var defer = $q.defer();
-                    // var file_reader_options = {
-                    //     chunkSize: size_utils.MEGABYTE
-                    // };
-                    // var source_stream = file_reader_stream(file, file_reader_options);
-                    var write_stream = object_client.open_write_stream(object_path);
-                    var stream = source_stream.pipe(write_stream);
-                    stream.once('finish', defer.resolve);
+                    var reader = new SliceReader(file, {
+                        highWaterMark: size_utils.MEGABYTE,
+                        FileReader: $window.FileReader,
+                    });
+                    var writer = object_client.open_write_stream(object_path);
+                    var stream = reader.pipe(writer);
                     stream.once('error', defer.reject);
+                    stream.once('finish', defer.resolve);
                     return defer.promise;
                 }
             ).then(
@@ -266,11 +231,16 @@ ng_app.factory('nbFiles', [
                 }
             ).then(
                 function() {
-                    nbAlertify.log('upload completed');
+                    var duration = (Date.now() - start_time) / 1000;
+                    var elapsed = duration.toFixed(1) + 'sec';
+                    var speed = $rootScope.human_size(file.size / duration) + '/sec';
+                    console.log('upload completed', elapsed, speed);
+                    nbAlertify.log('upload completed ' + elapsed + ' ' + speed);
                     return load_bucket_objects(bucket);
                 }
             ).then(null,
                 function(err) {
+                    console.error('upload failed', err);
                     nbAlertify.error('upload failed. ' + err.toString());
                 }
             );

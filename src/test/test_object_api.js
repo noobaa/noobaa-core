@@ -26,16 +26,13 @@ describe('object_api', function() {
         this.timeout(20000);
         Q.fcall(
             function() {
-                return coretest.login_default_account();
-            }
-        ).then(
-            function() {
                 return coretest.init_test_nodes(10, size_utils.GIGABYTE);
             }
         ).nodeify(done);
     });
 
     after(function(done) {
+        this.timeout(20000);
         Q.fcall(
             function() {
                 return coretest.clear_test_nodes();
@@ -48,8 +45,6 @@ describe('object_api', function() {
         var BKT = '1_bucket';
         var KEY = '1_key';
         Q.fcall(function() {
-            return coretest.login_default_account();
-        }).then(function() {
             return coretest.object_client.list_buckets();
         }).then(function() {
             return coretest.object_client.create_bucket({
@@ -109,8 +104,6 @@ describe('object_api', function() {
 
         before(function(done) {
             Q.fcall(function() {
-                return coretest.login_default_account();
-            }).then(function() {
                 return coretest.object_client.create_bucket({
                     bucket: BKT,
                 });
@@ -155,11 +148,16 @@ describe('object_api', function() {
                     coretest.object_client.open_write_stream({
                         bucket: BKT,
                         key: KEY,
-                    }).on('error', function(err) {
+                    }).once('error', function(err) {
                         reject(err);
-                    }).on('close', function(err) {
+                    }).once('finish', function() {
                         resolve();
                     }).end(data);
+                });
+            }).then(function() {
+                return coretest.object_client.complete_multipart_upload({
+                    bucket: BKT,
+                    key: KEY,
                 });
             }).then(function() {
                 return Q.Promise(function(resolve, reject) {
@@ -172,11 +170,11 @@ describe('object_api', function() {
                     }).on('data', function(chunk) {
                         console.log('read data', chunk.length);
                         buffers.push(chunk);
-                    }).on('end', function() {
+                    }).once('end', function() {
                         var read_buf = Buffer.concat(buffers);
                         console.log('read end', read_buf.length);
                         resolve(read_buf);
-                    }).on('error', function(err) {
+                    }).once('error', function(err) {
                         console.log('read error', err);
                         reject(err);
                     });
@@ -186,6 +184,7 @@ describe('object_api', function() {
                 for (var i = 0; i < size; i++) {
                     assert.strictEqual(data[i], read_buf[i]);
                 }
+                console.log('READ SUCCESS');
             }).nodeify(done);
         });
     });

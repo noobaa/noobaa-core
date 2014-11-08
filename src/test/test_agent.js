@@ -12,16 +12,25 @@ var size_utils = require('../util/size_utils');
 
 describe('agent', function() {
 
-    it('should run agents', function(done) {
+    before(function(done) {
         Q.fcall(
             function() {
                 return coretest.init_test_nodes(10, size_utils.GIGABYTE);
             }
-        ).then(
+        ).nodeify(done);
+    });
+
+    after(function(done) {
+        Q.fcall(
             function() {
-                coretest.clear_test_nodes();
+                return coretest.clear_test_nodes();
             }
         ).nodeify(done);
+    });
+
+    it('should run agents', function(done) {
+        // TODO
+        done();
     });
 
 });

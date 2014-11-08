@@ -14,8 +14,6 @@ describe('edge_node_api', function() {
 
     it('works', function(done) {
         Q.fcall(function() {
-            return coretest.login_default_account();
-        }).then(function() {
             return coretest.edge_node_client.create_node({
                 name: 'haha',
                 geolocation: 'home',

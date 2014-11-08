@@ -12,13 +12,13 @@ module.exports = ObjectWriter;
 
 /**
  * ObjectWriter is a Writable stream for the specified object and range.
+ * params is also used for stream.Writable highWaterMark
  */
 function ObjectWriter(client, params) {
     var self = this;
-
     stream.Writable.call(self, {
         // highWaterMark Number - Buffer level when write() starts returning false. Default=16kb
-        highWaterMark: params.high_water_mark || (1024 * 1024),
+        highWaterMark: params.highWaterMark || (1024 * 1024),
         // decodeStrings Boolean - Whether or not to decode strings into Buffers
         // before passing them to _write(). Default=true
         decodeStrings: true,
@@ -30,19 +30,6 @@ function ObjectWriter(client, params) {
     self._bucket = params.bucket;
     self._key = params.key;
     self._pos = 0;
-
-    self.once('finish', function() {
-        self.complete_upload().then(
-            function() {
-                // on successful completion we emit the 'close' event
-                // that is optional for streams with a backing resource
-                self.emit('close');
-            },
-            function(err) {
-                self.emit('error', err);
-            }
-        );
-    });
 }
 
 // proper inheritance
@@ -68,31 +55,4 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
             self._pos += chunk.length;
         }
     ).nodeify(callback);
-};
-
-
-/**
- * notify the server that the upload is completed.
- * triggered automatically on 'finish' event.
- */
-ObjectWriter.prototype.complete_upload = function() {
-    var self = this;
-    return self._client.complete_multipart_upload({
-        bucket: self._bucket,
-        key: self._key,
-        // size: this._pos,
-    });
-};
-
-
-/**
- * notify the server that the upload is aborted
- * and that the data uploaded so far should be discarded.
- */
-ObjectWriter.prototype.abort_upload = function() {
-    var self = this;
-    return self._client.abort_multipart_upload({
-        bucket: self._bucket,
-        key: self._key,
-    });
 };

@@ -12,15 +12,15 @@ module.exports = ObjectReader;
 
 /**
  * ObjectReader is a Readable stream for the specified object and range.
+ * params is also used for stream.Readable highWaterMark
  */
 function ObjectReader(client, params) {
     var self = this;
-
     stream.Readable.call(self, {
         // highWaterMark Number - The maximum number of bytes to store
         // in the internal buffer before ceasing to read
         // from the underlying resource. Default=16kb
-        highWaterMark: params.high_water_mark || (1024 * 1024),
+        highWaterMark: params.highWaterMark || (1024 * 1024),
         // encoding String - If specified, then buffers will be decoded to strings
         // using the specified encoding. Default=null
         encoding: null,
@@ -29,7 +29,6 @@ function ObjectReader(client, params) {
         // instead of a Buffer of size n. Default=false
         objectMode: false,
     });
-
     self._client = client;
     self._bucket = params.bucket;
     self._key = params.key;

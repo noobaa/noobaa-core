@@ -473,8 +473,6 @@ tv4.addFormat('date', function(data) {
 
 
 function validate_schema(obj, schema, info, desc) {
-    // if (true) return; // TODO PERF
-
     var result = tv4.validateResult(
         obj, schema,
         true /*checkRecursive*/ ,

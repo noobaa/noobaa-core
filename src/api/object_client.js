@@ -204,7 +204,7 @@ ObjectClient.prototype.read_object_part = function(part) {
 
 
 function combine_parts_buffers_in_range(parts, start, end) {
-    if (!parts || !parts.length) {
+    if (!parts || !parts.length || end <= start) {
         return null;
     }
     var pos = start;

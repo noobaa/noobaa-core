@@ -14,6 +14,15 @@ describe('account_api', function() {
     var EMAIL = 'bla@bla.blabla';
     var PASSWORD = 'supersecret';
 
+    after(function(done) {
+        Q.fcall(
+            function() {
+                // login back to default account for other tests to run well
+                return coretest.login_default_account();
+            }
+        ).nodeify(done);
+    });
+
     describe('account full flow', function() {
 
         it('works', function(done) {

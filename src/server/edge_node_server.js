@@ -158,19 +158,51 @@ function heartbeat(req) {
         req.connection.remoteAddress;
     updates.heartbeat = new Date();
 
-    var used_storage = req.restful_params.used_storage;
+    var agent_used_storage = req.restful_params.used_storage;
+    var node;
 
     return Q.fcall(
         function() {
             return EdgeNode.findOne(info).exec();
         }
     ).then(
-        function(node) {
+        function(node_arg) {
+            node = node_arg;
             if (!node) {
                 throw new Error('node not found ' + info.name);
             }
+            // TODO need to optimize - we read blocks and chunks on every heartbeat...
+            return DataBlock.find({
+                node: node.id
+            }).populate('chunk').exec();
+        }
+    ).then(
+        function(blocks) {
+            var real_usage = 0;
+            _.each(blocks, function(block) {
+                if (block.chunk && block.chunk.kblocks) {
+                    real_usage += (block.chunk.size / block.chunk.kblocks) | 0;
+                }
+            });
+            if (node.used_storage !== real_usage) {
+                updates.used_storage = real_usage;
+            }
+            // the agent's used storage is verified but not updated
+            if (agent_used_storage !== real_usage) {
+                console.log('NODE agent used storage not in sync',
+                    agent_used_storage, 'real', real_usage);
+                // TODO trigger a usage check
+            }
 
-            // we log the updates,
+            if (updates.allocated_storage !== node.allocated_storage) {
+                console.log('NODE change allocated storage from',
+                    node.allocated_storage, 'to', updates.allocated_storage);
+                // TODO agent sends allocated_storage but never reads it so it always overrides it...
+                //      so for now we just ignore this change from the agent.
+                delete updates.allocated_storage;
+            }
+
+            // we log the ip and location updates,
             // probably need to detect nodes that change too rapidly
 
             if (updates.geolocation !== node.geolocation) {
@@ -181,17 +213,6 @@ function heartbeat(req) {
                 console.log('NODE change ip:port from',
                     node.ip + ':' + node.port, 'to',
                     updates.ip + ':' + updates.port);
-            }
-            if (updates.allocated_storage !== node.allocated_storage) {
-                console.log('NODE change allocated storage from',
-                    node.allocated_storage, 'to', updates.allocated_storage);
-            }
-
-            // used storage is verified but not updated
-            if (used_storage !== node.used_storage) {
-                console.log('NODE used storage mismatch',
-                    node.used_storage, 'got', used_storage);
-                // TODO trigger a usage check
             }
 
             return EdgeNode.findByIdAndUpdate(node.id, updates).exec();

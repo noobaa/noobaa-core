@@ -57,7 +57,7 @@ app.engine('html', dot_engine(views_path));
 // configure app middleware handlers in the order to use them
 
 app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon_bgblack.ico')));
-app.use(express_morgan_logger('combined'));
+app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:
     // since we want to provide secure and certified connections

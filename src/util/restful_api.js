@@ -238,9 +238,13 @@ function send_http_request(client_params, func_info, params) {
 
     if (func_info.param_raw) {
         body = data[func_info.param_raw];
+        delete data[func_info.param_raw];
         headers['content-type'] = 'application/octet-stream';
         headers['content-length'] = body.length;
-        delete data[func_info.param_raw];
+        if (!Buffer.isBuffer(body)) {
+            console.log('body is not a buffer, try to convert', body);
+            body = new Buffer(new Uint8Array(body));
+        }
     }
 
     validate_schema(data, func_info.params_schema, func_info, 'client request');
@@ -308,7 +312,7 @@ function send_http_request(client_params, func_info, params) {
     req.on('response', defer.resolve);
     req.on('error', defer.reject);
     if (body) {
-        req.write(body.toArrayBuffer ? body.toArrayBuffer() : body);
+        req.write(body);
     }
     req.end();
     return defer.promise;

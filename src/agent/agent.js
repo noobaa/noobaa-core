@@ -15,6 +15,7 @@ var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
 var edge_node_api = require('../api/edge_node_api');
 var agent_api = require('../api/agent_api');
+var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
@@ -50,6 +51,7 @@ function Agent(params) {
     self.blocks_lru = new LRU(lru_options);
 
     var app = express();
+    app.use(express_morgan_logger('dev'));
     app.use(express_body_parser.json());
     app.use(express_body_parser.raw({
         limit: 16 * size_utils.MEGABYTE // size limit on raw requests
@@ -270,7 +272,7 @@ Agent.prototype.write_block = function(req) {
     var block_path = self._block_path(block_id);
     var old_size = 0;
 
-    // console.log('write block', block_id, data.length, typeof(data), self.node_name);
+    console.log('write block', block_id, data.length, typeof(data), self.node_name);
 
     return Q.fcall(
         function() {

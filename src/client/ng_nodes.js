@@ -19,16 +19,21 @@ var ng_app = angular.module('ng_app');
 
 
 ng_app.controller('NodesCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout',
-    function($scope, $http, $q, $window, $timeout) {
+    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes',
+    function($scope, $http, $q, $window, $timeout, nbNodes) {
 
         $scope.nav.active = 'nodes';
 
-        $scope.nbNodes.refresh_nodes();
+        nbNodes.refresh_nodes();
+
+        $scope.refresh_view = function() {
+            return nbNodes.refresh_nodes();
+        };
 
         $scope.click_node = function(node) {
-
+            // TODO click on node row in nodes table
         };
+
     }
 ]);
 
@@ -44,17 +49,10 @@ ng_app.factory('nbNodes', [
         $scope.click_node_status = click_node_status;
         $scope.start_agent = start_agent;
         $scope.stop_agent = stop_agent;
-        $scope.reset_nodes = reset_nodes;
         $scope.detailed_nodes = {};
 
-        load_node_vendors();
-        refresh_nodes();
 
         function refresh_nodes() {
-            if ($scope.refreshing) {
-                return;
-            }
-            $scope.refreshing = true;
             return $q.when(edge_node_client.list_nodes()).then(
                 function(res) {
                     console.log('NODES', res);
@@ -62,17 +60,11 @@ ng_app.factory('nbNodes', [
                     $scope.nodes_by_geo = _.groupBy($scope.nodes, 'geolocation');
                     update_detailed_nodes();
                     nbGoogle.then(draw_nodes_map);
-                    return $timeout(function() {
-                        $scope.refreshing = false;
-                    }, 500);
                 }
             );
         }
 
         function load_node_vendors(force) {
-            if ($scope.node_vendors && $scope.node_vendors.length && force !== 'force') {
-                return;
-            }
             return $q.when(edge_node_client.get_node_vendors()).then(
                 function(res) {
                     $scope.node_vendors = res.vendors;
@@ -82,86 +74,94 @@ ng_app.factory('nbNodes', [
             );
         }
 
-        function add_nodes() {
-            $q.when(load_node_vendors()).then(
-                function() {
-                    if (!$scope.node_vendors || !$scope.node_vendors.length) {
-                        nbAlertify.alert(
-                            'In order to add nodes you need to ' +
-                            'setup node-vendors for your account. ' +
-                            'Please seek professional help.');
-                        return;
-                    }
-                    var scope = $rootScope.$new();
-                    scope.count = 1;
-                    scope.node_vendors = $scope.node_vendors;
-                    scope.selected_vendor = $scope.node_vendors[0];
-                    scope.allocate_gb = 1;
-                    // in order to allow input[type=range] and input[type=number]
-                    // to work together, we need to convert the value from string to number
-                    // because type=range uses strings and type=number does not accept strings.
-                    Object.defineProperty(scope, 'allocate_gb_str', {
-                        enumerable: true,
-                        get: function() {
-                            return scope.allocate_gb;
-                        },
-                        set: function(val) {
-                            scope.allocate_gb = parseInt(val);
-                        }
-                    });
-                    scope.progress = 0;
-                    scope.add_nodes = function() {
-                        console.log('ADD NODES');
-                        if (!scope.count || !scope.selected_vendor.id || !scope.allocate_gb) {
-                            return;
-                        }
-                        var node_name_to_number = function(node) {
-                            return Number(node.name) || 0;
-                        };
-                        var max_node = _.max($scope.nodes, node_name_to_number);
-                        var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
-                        var num_created = 0;
-                        scope.progress = 0;
-                        return $q.all(_.times(scope.count, function(i) {
-                            return $q.when(edge_node_client.create_node({
-                                name: '' + (next_node_name + i),
-                                geolocation: _.sample([
-                                    'United States', 'Germany', 'China',
-                                    'Israel', 'Brazil', 'Canada', 'Korea'
-                                ]),
-                                allocated_storage: scope.allocate_gb * size_utils.GIGABYTE,
-                                vendor: scope.selected_vendor.id,
-                            })).then(function() {
-                                num_created += 1;
-                                scope.progress = num_created / scope.count;
-                            });
-                        })).then(refresh_nodes);
-                    };
-                    scope.run = function() {
-                        scope.running = true;
-                        return $q.when(scope.add_nodes()).then(
-                            function() {
-                                scope.modal.modal('hide');
-                            },
-                            function(err) {
-                                nbAlertify.error(err);
-                                scope.running = false;
-                            }
-                        );
-                    };
-                    scope.modal = nbModal({
-                        template: 'add_nodes_dialog.html',
-                        scope: scope,
-                    });
+        function add_nodes(loaded_vendors) {
+            if (!loaded_vendors) {
+                return $q.when(load_node_vendors()).then(function() {
+                    // call myself again with true to skip loading again
+                    return add_nodes(true);
+                });
+            }
+            if (!$scope.node_vendors || !$scope.node_vendors.length) {
+                nbAlertify.alert(
+                    'In order to add nodes you need to ' +
+                    'setup node-vendors for your account. ' +
+                    'Please seek professional help.');
+                return;
+            }
+
+            // make a scope for the modal
+            var scope = $rootScope.$new();
+            scope.count = 1;
+            scope.node_vendors = $scope.node_vendors;
+            scope.selected_vendor = $scope.node_vendors[0];
+            scope.allocate_gb = 1;
+
+            // in order to allow input[type=range] and input[type=number]
+            // to work together, we need to convert the value from string to number
+            // because type=range uses strings and type=number does not accept strings.
+            Object.defineProperty(scope, 'allocate_gb_str', {
+                enumerable: true,
+                get: function() {
+                    return scope.allocate_gb;
+                },
+                set: function(val) {
+                    scope.allocate_gb = parseInt(val);
                 }
-            );
+            });
+
+            scope.add_nodes = function() {
+                console.log('ADD NODES');
+                if (!scope.count || !scope.selected_vendor.id || !scope.allocate_gb) {
+                    return;
+                }
+                var node_name_to_number = function(node) {
+                    return Number(node.name) || 0;
+                };
+                var max_node = _.max($scope.nodes, node_name_to_number);
+                var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
+                var num_created = 0;
+                // using manual defer in order to report progress to the ladda button
+                var defer = $q.defer();
+                $q.all(_.times(scope.count, function(i) {
+                    return $q.when(edge_node_client.create_node({
+                        name: '' + (next_node_name + i),
+                        // TODO these sample geolocations are just for testing
+                        geolocation: _.sample([
+                            'United States', 'Germany', 'China',
+                            'Israel', 'Brazil', 'Canada', 'Korea'
+                        ]),
+                        allocated_storage: scope.allocate_gb * size_utils.GIGABYTE,
+                        vendor: scope.selected_vendor.id,
+                    })).then(function() {
+                        num_created += 1;
+                        defer.notify(num_created / scope.count);
+                    });
+                })).then(refresh_nodes).then(defer.resolve, defer.reject);
+                return defer.promise;
+            };
+
+            scope.run = function() {
+                return $q.when(scope.add_nodes()).then(
+                    function() {
+                        scope.modal.modal('hide');
+                    },
+                    function(err) {
+                        nbAlertify.error(err);
+                    }
+                );
+            };
+
+            scope.modal = nbModal({
+                template: 'add_nodes_dialog.html',
+                scope: scope,
+            });
         }
 
         function remove_node(node) {
-            nbAlertify.confirm('Really remove node ' +
+            return nbAlertify.confirm('Really remove node ' +
                 node.name + ' @ ' + node.geolocation + ' ?').then(
                 function() {
-                    $q.when(edge_node_client.delete_node({
+                    return $q.when(edge_node_client.delete_node({
                         name: node.name
                     })).then(refresh_nodes);
                 }
@@ -169,19 +169,16 @@ ng_app.factory('nbNodes', [
         }
 
         function click_node_status(node) {
-            node.get_status_running = true;
             return $q.when(edge_node_client.get_agents_status({
                 nodes: [node.name]
             })).then(
                 function(res) {
                     console.log('get_agents_status', res);
-                    return $timeout(function() {
-                        node.is_online = res.nodes[0].status;
-                        node.get_status_running = false;
-                    }, 500);
+                    node.is_online = res.nodes[0].status;
                 },
                 function(err) {
-                    node.get_status_running = false;
+                    console.log('FAILED get_agents_status', err);
+                    node.is_online = undefined;
                 }
             );
         }
@@ -196,16 +193,6 @@ ng_app.factory('nbNodes', [
             return $q.when(edge_node_client.stop_agents({
                 nodes: [node.name]
             })).then(refresh_nodes);
-        }
-
-        function reset_nodes() {
-            nbAlertify.confirm('Really reset nodes?').then(
-                function() {
-                    nbAlertify.log('TODO');
-                    // $q.when(mgmt_client.reset_nodes()).then(refresh_nodes);
-                    return;
-                }
-            );
         }
 
 

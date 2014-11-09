@@ -29,7 +29,14 @@ var ng_app = angular.module('ng_app');
 ng_app.controller('UploadCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce', 'nbFiles',
     function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
+
         $scope.nav.active = 'upload';
+
+        nbFiles.load_buckets();
+
+        $scope.refresh_view = function() {
+            return nbFiles.load_buckets();
+        };
 
         $scope.click_browse = function(event) {
             var chooser = angular.element('<input type="file">');
@@ -40,20 +47,22 @@ ng_app.controller('UploadCtrl', [
             chooser.click();
         };
 
+
         $scope.click_upload = function(event) {
             var bucket = nbFiles.bucket;
             if (!bucket || !$scope.file) {
                 return;
             }
 
-            $scope.uploading = true;
-            $scope.parts = [];
-            $scope.num_indexes = 0; // counter for any encountered index
-            var nodes = $scope.nodes = {};
-            var apply_timeout;
+            return $q.when(true, function() {
 
-            object_client.events().on('part',
-                function(part) {
+                $scope.uploading = true;
+                $scope.parts = [];
+                $scope.num_indexes = 0; // counter for any encountered index
+                var nodes = $scope.nodes = {};
+                var apply_timeout;
+
+                object_client.events().on('part', function(part) {
                     console.log('emitter part', part);
                     $scope.parts.push(part);
 
@@ -80,20 +89,20 @@ ng_app.controller('UploadCtrl', [
                             apply_timeout = null;
                         }, 300);
                     }
-                }
-            );
-
-            return nbFiles.upload_file($scope.file, bucket).then(
+                });
+            }).then(
                 function() {
-                    $scope.upload_done = true;
+                    return nbFiles.upload_file($scope.file, bucket);
+                }
+            ).then(
+                function() {
+                    $scope.uploading = false;
                 },
                 function() {
                     $scope.uploading = false;
                 }
             );
-
         };
-
 
     }
 ]);
@@ -106,6 +115,9 @@ ng_app.controller('DownloadCtrl', [
 
         $scope.nav.active = 'download';
 
+        nbFiles.load_buckets();
+
+        // TODO
 
     }
 ]);
@@ -113,32 +125,54 @@ ng_app.controller('DownloadCtrl', [
 
 
 ng_app.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData','$rootScope',
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData', '$rootScope',
     function($http, $q, $window, $timeout, $sce, nbAlertify, nbServerData, $rootScope) {
         var $scope = {};
 
-        $scope.refresh = refresh;
+        $scope.load_buckets = load_buckets;
         $scope.create_bucket = create_bucket;
-        $scope.click_object = click_object;
         $scope.upload_file = upload_file;
+        $scope.click_object = click_object;
 
-        init();
 
-        function init() {
-            return refresh().then(
-                function() {
-                    if (!$scope.buckets.length) {
-                        // create a first bucket if none
-                        return $q.when(object_client.create_bucket({
-                            bucket: 'Default'
-                        })).then(refresh);
+        function load_buckets() {
+            return $q.when(object_client.list_buckets()).then(
+                function(res) {
+                    if (res.buckets && res.buckets.length) {
+                        return res;
                     }
+                    // create a first bucket if none
+                    return object_client.create_bucket({
+                        bucket: 'Default'
+                    }).then(function() {
+                        return object_client.list_buckets();
+                    });
+                }
+            ).then(
+                function(res) {
+                    $scope.buckets = _.sortBy(res.buckets, 'name');
+                    $scope.buckets_by_name = _.indexBy($scope.buckets, 'name');
+                    $scope.bucket =
+                        $scope.bucket && $scope.buckets_by_name[$scope.bucket.name] ||
+                        $scope.buckets[0];
                 }
             );
         }
 
-        function refresh() {
-            return load_buckets();
+        function load_bucket_objects(bucket) {
+            if (!bucket) return;
+
+            return $q.when(object_client.list_bucket_objects({
+                bucket: bucket.name
+            })).then(
+                function(res) {
+                    console.log('load_bucket_objects', bucket.name, res);
+                    bucket.objects = res.objects;
+                    _.each(bucket.objects, function(object) {
+                        object.bucket = bucket;
+                    });
+                }
+            );
         }
 
 
@@ -152,9 +186,53 @@ ng_app.factory('nbFiles', [
                         bucket: str
                     })).then(load_buckets).then(
                         function() {
+                            // choose the created bucket
                             $scope.bucket = $scope.buckets_by_name[str];
                         }
                     );
+                }
+            );
+        }
+
+
+        function upload_file(file, bucket) {
+            console.log('upload', file);
+            var object_path = {
+                bucket: bucket.name,
+                key: file.name + '_' + Date.now().toString(),
+            };
+            var create_params = _.clone(object_path);
+            create_params.size = file.size;
+            var start_time = Date.now();
+            return $q.when(object_client.create_multipart_upload(create_params)).then(
+                function() {
+                    var defer = $q.defer();
+                    var reader = new SliceReader(file, {
+                        highWaterMark: size_utils.MEGABYTE,
+                        FileReader: $window.FileReader,
+                    });
+                    var writer = object_client.open_write_stream(object_path);
+                    var stream = reader.pipe(writer);
+                    stream.once('error', defer.reject);
+                    stream.once('finish', defer.resolve);
+                    return defer.promise;
+                }
+            ).then(
+                function() {
+                    return object_client.complete_multipart_upload(object_path);
+                }
+            ).then(
+                function() {
+                    var duration = (Date.now() - start_time) / 1000;
+                    var elapsed = duration.toFixed(1) + 'sec';
+                    var speed = $rootScope.human_size(file.size / duration) + '/sec';
+                    console.log('upload completed', elapsed, speed);
+                    nbAlertify.success('upload completed ' + elapsed + ' ' + speed);
+                    return load_bucket_objects(bucket);
+                },
+                function(err) {
+                    console.error('upload failed', err);
+                    nbAlertify.error('upload failed. ' + err.toString());
                 }
             );
         }
@@ -224,77 +302,6 @@ ng_app.factory('nbFiles', [
                 });
             }, false);
             return $window.URL.createObjectURL(ms);
-        }
-
-        function upload_file(file, bucket) {
-            console.log('upload', file);
-            var object_path = {
-                bucket: bucket.name,
-                key: file.name + '_' + Date.now().toString(),
-            };
-            var create_params = _.clone(object_path);
-            create_params.size = file.size;
-            var start_time = Date.now();
-            return $q.when(object_client.create_multipart_upload(create_params)).then(
-                function() {
-                    var defer = $q.defer();
-                    var reader = new SliceReader(file, {
-                        highWaterMark: size_utils.MEGABYTE,
-                        FileReader: $window.FileReader,
-                    });
-                    var writer = object_client.open_write_stream(object_path);
-                    var stream = reader.pipe(writer);
-                    stream.once('error', defer.reject);
-                    stream.once('finish', defer.resolve);
-                    return defer.promise;
-                }
-            ).then(
-                function() {
-                    return object_client.complete_multipart_upload(object_path);
-                }
-            ).then(
-                function() {
-                    var duration = (Date.now() - start_time) / 1000;
-                    var elapsed = duration.toFixed(1) + 'sec';
-                    var speed = $rootScope.human_size(file.size / duration) + '/sec';
-                    console.log('upload completed', elapsed, speed);
-                    nbAlertify.success('upload completed ' + elapsed + ' ' + speed);
-                    return load_bucket_objects(bucket);
-                },
-                function(err) {
-                    console.error('upload failed', err);
-                    nbAlertify.error('upload failed. ' + err.toString());
-                }
-            );
-        }
-
-        function load_buckets() {
-            return $q.when(object_client.list_buckets()).then(
-                function(res) {
-                    $scope.buckets = _.sortBy(res.buckets, 'name');
-                    $scope.buckets_by_name = _.indexBy($scope.buckets, 'name');
-                    $scope.bucket =
-                        $scope.bucket && $scope.buckets_by_name[$scope.bucket.name] ||
-                        $scope.buckets[0];
-                    return load_bucket_objects($scope.bucket);
-                }
-            );
-        }
-
-        function load_bucket_objects(bucket) {
-            if (!bucket) return;
-
-            return $q.when(object_client.list_bucket_objects({
-                bucket: bucket.name
-            })).then(
-                function(res) {
-                    console.log('load_bucket_objects', bucket.name, res);
-                    bucket.objects = res.objects;
-                    _.each(bucket.objects, function(object) {
-                        object.bucket = bucket;
-                    });
-                }
-            );
         }
 
         return $scope;

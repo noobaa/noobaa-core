@@ -1,4 +1,4 @@
-<nav class="navbar navbar-default navbar-static-top" ng-controller="NavCtrl">
+<nav class="navbar navbar-default navbar-static-top">
     <div class="container-fluid">
 
         <ul class="nav navbar-nav navbar-right">
@@ -13,6 +13,15 @@
                         <a ng-href="{{item.href}}">{{item.text}}</a>
                     </li>
                 </ul>
+            </li>
+
+            <li ng-if="refresh_view">
+                <a nb-click-ladda="refresh_view()">
+                    <span style="visibility: hidden; width: 0; margin-right: -15px">
+                        O<!-- needed some text for navbar height align -->
+                    </span>
+                    <i class="fa fa-repeat fa-lg"></i>
+                </a>
             </li>
 
             <li class="dropdown" ng-if="account_email">

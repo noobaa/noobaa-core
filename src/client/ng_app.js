@@ -44,11 +44,19 @@ ng_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
 
 
 ng_app.controller('AppCtrl', [
-    '$scope', '$http', '$q', '$window', 'nbMgmt', 'nbNodes', 'nbFiles',
-    function($scope, $http, $q, $window, nbMgmt, nbNodes, nbFiles) {
+    '$scope', '$http', '$q', '$window',
+    'nbMgmt', 'nbNodes', 'nbFiles',
+    'nbAlertify', '$location', 'nbServerData',
+    function($scope, $http, $q, $window,
+        nbMgmt, nbNodes, nbFiles,
+        nbAlertify, $location, nbServerData) {
+
         $scope.nbMgmt = nbMgmt;
         $scope.nbNodes = nbNodes;
         $scope.nbFiles = nbFiles;
+        $scope.nbAlertify = nbAlertify;
+
+        $scope.account_email = nbServerData.account_email;
 
         $scope.nav = {
             active: 'status',
@@ -80,8 +88,13 @@ ng_app.controller('StatusCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
         $scope.nav.active = 'status';
-        $scope.nbMgmt.refresh_status();
-        $scope.nbNodes.refresh_nodes();
+        $scope.refresh_view = function() {
+            return $q.all([
+                $scope.nbMgmt.refresh_status(),
+                $scope.nbNodes.refresh_nodes()
+            ]);
+        };
+        $scope.refresh_view();
     }
 ]);
 
@@ -90,34 +103,23 @@ ng_app.factory('nbMgmt', [
     '$q', '$timeout', '$rootScope',
     function($q, $timeout, $rootScope) {
         var $scope = {};
+
         $scope.refresh_status = refresh_status;
-        refresh_status();
 
         function refresh_status() {
-            if ($scope.refreshing) {
-                return;
-            }
-            $scope.refreshing = true;
             return $q.when(mgmt_client.system_status()).then(
                 function(res) {
+                    console.log('STATUS', res);
                     $scope.status = res;
-
                     $scope.total_space = $rootScope.human_size(res.allocated_storage);
                     var free_storage = res.allocated_storage - res.used_storage;
                     var free_percent = 100 * free_storage / res.allocated_storage;
                     $scope.free_space_percent = free_percent.toFixed(1) + '%';
                     $scope.total_nodes = res.total_nodes;
                     $scope.online_nodes = res.online_nodes;
-
-                    return $timeout(function() {
-                        $scope.refreshing = false;
-                    }, 500);
                 },
                 function(err) {
                     console.error('STATS FAILED', err);
-                    return $timeout(function() {
-                        $scope.refreshing = false;
-                    }, 500);
                 }
             );
         }

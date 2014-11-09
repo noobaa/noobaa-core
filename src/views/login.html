@@ -12,27 +12,25 @@
 
     <div class="container">
         <div class="panel panel-default center-block" style="max-width: 350px">
-            <!-- <div class="panel-heading">
-                <h3 class="panel-title">Enter :</h3>
-            </div> -->
             <div class="panel-body" style="padding-bottom: 0">
+
                 <form role="form">
                     <div class="form-group form-group-lg">
-                        <input class="form-control" type="email" id="input_email" placeholder="Email" required ng-model="email" />
+                        <input class="form-control" type="email" id="input_email" placeholder="Email" required ng-model="email" ng-disabled="form_disabled" />
                     </div>
 
                     <div class="form-group form-group-lg">
-                        <input class="form-control" type="password" id="input_password" placeholder="Password" required ng-model="password" />
+                        <input class="form-control" type="password" id="input_password" placeholder="Password" required ng-model="password" ng-disabled="form_disabled" />
                     </div>
 
                     <div class="form-group text-center">
-                        <button type="submit" class="btn btn-lg btn-primary" ng-disabled="form_done" nb-ladda="login_running" ng-click="login()">
+                        <button type="submit" class="btn btn-lg btn-primary" ng-disabled="form_disabled" nb-click-ladda="login()">
                             Login
                         </button>
                     </div>
 
                     <div class="form-group text-center">
-                        <button type="submit" class="btn btn-link" ng-disabled="form_done" nb-ladda="create_running" ng-click="create()">
+                        <button type="submit" class="btn btn-link" ng-disabled="form_disabled" nb-click-ladda="create()">
                             Create a new account
                         </button>
                     </div>
@@ -45,6 +43,7 @@
                         {{alert_text}}
                     </div>
                 </form>
+
             </div>
         </div>
     </div>

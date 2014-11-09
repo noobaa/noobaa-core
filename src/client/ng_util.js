@@ -23,15 +23,6 @@ ng_util.run(['$rootScope', function($rootScope) {
 
 
 
-ng_util.controller('NavCtrl', [
-    '$scope', 'nbServerData',
-    function($scope, nbServerData) {
-        $scope.account_email = nbServerData.account_email;
-    }
-]);
-
-
-
 
 ng_util.factory('nbGoogle', [
     '$q', '$window',
@@ -286,7 +277,50 @@ ng_util.directive('nbShowAnimated', [
     }
 ]);
 
-ng_util.directive('nbLadda', [
+
+ng_util.directive('nbClickLadda', [
+    '$compile', '$q', '$timeout',
+    function($compile, $q, $timeout) {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                element.addClass('ladda-button');
+                if (angular.isUndefined(element.attr('data-style'))) {
+                    element.attr('data-style', 'zoom-out');
+                }
+                /* global Ladda */
+                var ladda = Ladda.create(element[0]);
+                $compile(angular.element(element.children()[0]).contents())(scope);
+
+                element.on('click', function() {
+                    var promise = scope.$eval(attrs.nbClickLadda);
+                    if (promise && !ladda.isLoading()) {
+                        ladda.start();
+                    }
+                    $q.when(promise).then(
+                        function() {
+                            return $timeout(function() {
+                                ladda.stop();
+                            }, 300); // human delay for fast runs
+                        },
+                        function() {
+                            return $timeout(function() {
+                                ladda.stop();
+                            }, 300); // human delay for fast runs
+                        },
+                        function(progress) {
+                            ladda.setProgress(progress);
+                        }
+                    );
+                });
+            }
+        };
+    }
+]);
+
+
+// DEPRECATED - prefer to use nbClickLadda which uses promises and easier to use
+ng_util.directive('nbLaddaWatch', [
     '$compile',
     function($compile) {
         return {
@@ -299,8 +333,7 @@ ng_util.directive('nbLadda', [
                 /* global Ladda */
                 var ladda = Ladda.create(element[0]);
                 $compile(angular.element(element.children()[0]).contents())(scope);
-
-                scope.$watch(attrs.nbLadda, function(loading) {
+                scope.$watch(attrs.nbLaddaWatch, function(loading) {
                     var is_number = angular.isNumber(loading);
                     if (loading || is_number) {
                         if (!ladda.isLoading()) {

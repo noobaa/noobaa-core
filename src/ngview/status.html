@@ -1,31 +1,27 @@
-<div>
+<div ng-controller="StatusCtrl">
     <div ng-include="'navbar.html'"></div>
 
-    <div class="container-fluid" ng-controller="StatusCtrl">
+    <div class="container-fluid">
 
         <div class="clearfix text-center">
 
-            <!-- <button class="btn btn-default pull-left" ng-click="nbMgmt.refresh_status()" nb-ladda="nbMgmt.refreshing">
-                &nbsp;&nbsp;<i class="fa fa-repeat fa-fw fa-lg"></i>&nbsp;&nbsp;
-            </button> -->
-
             <div class="row">
-                <div class="col-sm-3">
+                <div class="col-sm-6 col-md-3">
                     <h1 style="font-size: 4em">{{nbMgmt.total_space}}</h1>
                     <p><small>total space</small>
                     </p>
                 </div>
-                <div class="col-sm-3">
+                <div class="col-sm-6 col-md-3">
                     <h1 style="font-size: 4em">{{nbMgmt.free_space_percent}}</h1>
                     <p><small>free space</small>
                     </p>
                 </div>
-                <div class="col-sm-3">
+                <div class="col-sm-6 col-md-3">
                     <h1 style="font-size: 4em">{{nbMgmt.total_nodes}}</h1>
                     <p><small>total nodes</small>
                     </p>
                 </div>
-                <div class="col-sm-3">
+                <div class="col-sm-6 col-md-3">
                     <h1 style="font-size: 4em">{{nbMgmt.online_nodes}}</h1>
                     <p><small>online nodes</small>
                     </p>
@@ -35,8 +31,8 @@
 
         </div>
 
-        <div class="row" style="margin-bottom: 20px">
-            <div id="nodes_map"></div>
+        <div class="row">
+            <div id="nodes_map" style="height: 600px"></div>
         </div>
 
     </div>

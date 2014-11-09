@@ -30,41 +30,30 @@ ng_login.controller('LoginCtrl', [
         });
 
         $scope.login = function() {
-            if ($scope.login_running || $scope.create_running) {
-                return;
-            }
             if (!$scope.email || !$scope.password) {
                 return;
             }
             $scope.alert_text = '';
-            $scope.login_running = true;
+            $scope.form_disabled = true;
             return $q.when(account_client.login_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
                 $scope.alert_text = '';
-                $scope.form_done = true;
-                return $timeout(function() {
-                    $window.location.href = '/';
-                }, 500);
+                $window.location.href = '/';
             }, function(err) {
-                return $timeout(function() {
-                    $scope.alert_text = err.data || 'failed. hard to say why.';
-                    $scope.login_running = false;
-                }, 500);
+                $scope.alert_text = err.data || 'failed. hard to say why.';
+                $scope.form_disabled = false;
             });
         };
 
         $scope.create = function() {
-            if ($scope.login_running || $scope.create_running) {
-                return;
-            }
             if (!$scope.email || !$scope.password) {
                 return;
             }
             $scope.alert_text = '';
-            $scope.create_running = true;
-            nbAlertify.prompt_password('Verify your password').then(
+            $scope.form_disabled = true;
+            return nbAlertify.prompt_password('Verify your password').then(
                 function(str) {
                     if (str !== $scope.password) {
                         throw 'the passwords don\'t match :O';
@@ -79,16 +68,11 @@ ng_login.controller('LoginCtrl', [
             ).then(
                 function() {
                     $scope.alert_text = '';
-                    $scope.form_done = true;
-                    return $timeout(function() {
-                        $window.location.href = '/';
-                    }, 500);
+                    $window.location.href = '/';
                 },
                 function(err) {
-                    return $timeout(function() {
-                        $scope.alert_text = err || '';
-                        $scope.create_running = false;
-                    }, 500);
+                    $scope.alert_text = err || '';
+                    $scope.form_disabled = false;
                 }
             );
         };

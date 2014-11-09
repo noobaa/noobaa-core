@@ -15,11 +15,8 @@ module.exports = {
     read_object_mappings: read_object_mappings,
 };
 
-// default split of object to parts of 2^14 = 16 MB
-var PART_SIZE_ALLOCATION_BITWISE = 14;
-
-// default split of chunks with kblocks = 2^7 = 128
-var CHUNK_KBLOCKS_BITWISE = 1; // TODO: make 7
+// default split of chunks with kblocks
+var CHUNK_KBLOCKS_BITWISE = 0; // TODO: pick kblocks?
 var CHUNK_KBLOCKS = 1 << CHUNK_KBLOCKS_BITWISE;
 
 

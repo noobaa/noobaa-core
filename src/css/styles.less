@@ -81,21 +81,6 @@
     background-color: transparent;
     outline: none;
 }
-.progress {
-    /* make progress bars so that the background is absolute position,
-       and the other elements can layout automatically */
-    position: relative;
-    height: auto;
-    z-index: -2;
-    .progress-bar {
-        z-index: -1;
-        position: absolute;
-        top: 0;
-        left: 0;
-        bottom: 0;
-    }
-
-}
 .dropdown-menu {
     overflow: hidden;
     &> li {
@@ -155,6 +140,14 @@
     }
 }
 */
+
+.absfill {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
+}
 
 /**/
 

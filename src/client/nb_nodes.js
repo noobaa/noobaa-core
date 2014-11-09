@@ -53,12 +53,18 @@ nb_app.factory('nbNodes', [
 
 
         function refresh_nodes() {
-            return $q.when(edge_node_client.list_nodes()).then(
+            return $q.when(load_node_vendors()).then(
+                function() {
+                    return edge_node_client.list_nodes();
+                }
+            ).then(
                 function(res) {
                     console.log('NODES', res);
                     $scope.nodes = res.nodes;
                     _.each($scope.nodes, function(node) {
                         node.hearbeat_moment = moment(new Date(node.heartbeat));
+                        node.usage_percent = 100 * node.used_storage / node.allocated_storage;
+                        node.vendor = $scope.node_vendors_by_id[node.vendor];
                     });
                     $scope.nodes_by_geo = _.groupBy($scope.nodes, 'geolocation');
                     update_detailed_nodes();
@@ -67,7 +73,7 @@ nb_app.factory('nbNodes', [
             );
         }
 
-        function load_node_vendors(force) {
+        function load_node_vendors() {
             return $q.when(edge_node_client.get_node_vendors()).then(
                 function(res) {
                     $scope.node_vendors = res.vendors;
@@ -130,8 +136,10 @@ nb_app.factory('nbNodes', [
                         name: '' + (next_node_name + i),
                         // TODO these sample geolocations are just for testing
                         geolocation: _.sample([
-                            'United States', 'Germany', 'China',
-                            'Israel', 'Brazil', 'Canada', 'Korea'
+                            'United States', 'Canada', 'Brazil', 'Mexico',
+                            'China', 'Japan', 'Korea', 'India', 'Australia',
+                            'Israel', 'Romania', 'Russia',
+                            'Germany', 'England', 'France', 'Spain',
                         ]),
                         allocated_storage: scope.allocate_gb * size_utils.GIGABYTE,
                         vendor: scope.selected_vendor.id,

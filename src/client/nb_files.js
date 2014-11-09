@@ -27,8 +27,10 @@ var nb_app = angular.module('nb_app');
 
 
 nb_app.controller('UploadCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce', 'nbFiles',
-    function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
+    '$scope', '$http', '$q', '$window', '$timeout',
+    'nbAlertify', '$sce', 'nbFiles', 'nbNetworkMonitor',
+    function($scope, $http, $q, $window, $timeout,
+        nbAlertify, $sce, nbFiles, nbNetworkMonitor) {
 
         $scope.nav.active = 'upload';
 
@@ -90,13 +92,17 @@ nb_app.controller('UploadCtrl', [
                         }, 300);
                     }
                 });
+
+                // report outgoing bytes
+                object_client.events().on('send', function(len) {
+                    nbNetworkMonitor.report_outgoing(len);
+                });
+
+
+                return nbFiles.upload_file($scope.file, bucket);
             }).then(
                 function() {
-                    return nbFiles.upload_file($scope.file, bucket);
-                }
-            ).then(
-                function() {
-                    $scope.uploading = false;
+                    // $scope.uploading = false;
                 },
                 function() {
                     $scope.uploading = false;

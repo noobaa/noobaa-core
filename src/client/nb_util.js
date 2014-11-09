@@ -23,6 +23,129 @@ nb_util.run(['$rootScope', function($rootScope) {
 
 
 
+nb_util.factory('nbNetworkMonitor', [
+    '$q', '$window', '$interval',
+    function($q, $window, $interval) {
+        var $scope = {};
+
+        $scope.data = [];
+        $scope.count = 0;
+        var curr = {
+            out: 0,
+            inn: 0,
+        };
+        var last_time = Date.now();
+
+        $interval(function() {
+            if (!curr.inn && !curr.out) {
+                return;
+            }
+            $scope.count += 1;
+            curr.time = new Date();
+            var time = curr.time.getTime();
+            var elapsed = (time - last_time) / 1000;
+            last_time = time;
+            curr.out /= elapsed;
+            curr.inn /= elapsed;
+            // push and keep under size limit
+            $scope.data.push(curr);
+            if ($scope.data.length > 60) {
+                $scope.data.shift();
+            }
+            curr = {
+                out: 0,
+                inn: 0,
+            };
+        }, 3000);
+
+        $scope.report_incoming = function(bytes) {
+            curr.inn += bytes;
+        };
+        $scope.report_outgoing = function(bytes) {
+            curr.out += bytes;
+        };
+
+        return $scope;
+    }
+]);
+
+nb_util.directive('nbNetworkChart', [
+    'nbNetworkMonitor', 'nbGoogle', '$rootScope',
+    function(nbNetworkMonitor, nbGoogle, $rootScope) {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                scope.mon = nbNetworkMonitor; // for watching
+                scope.$watch('mon.data', redraw, true);
+
+                var table;
+                var last_count;
+                var google;
+
+                function redraw() {
+                    if (!google) {
+                        return nbGoogle.then(function(google_arg) {
+                            google = google_arg;
+                            redraw();
+                        });
+                    }
+                    if (!table) {
+                        table = new google.visualization.DataTable();
+                        table.addColumn('datetime', 'Time');
+                        table.addColumn('number', 'Incoming');
+                        table.addColumn('number', 'Outgoing');
+                    }
+                    var data = nbNetworkMonitor.data || [];
+                    var rows_to_add = nbNetworkMonitor.count - last_count;
+                    last_count = nbNetworkMonitor.count;
+                    if (rows_to_add > data.length) {
+                        rows_to_add = data.length;
+                        // in this case we missed some points,
+                        // so we want to flatten the graph in the missed area
+                        // so we insert two zero points 1 millisecond after/before
+                        // the last/next points of the gap.
+                        var num_rows_in_table = table.getNumberOfRows();
+                        var date_value = table.getCell(num_rows_in_table - 1, 0);
+                        date_value.setTime(date_value.getTime() + 1);
+                        table.addRow([date_value, 0, 0]);
+                        date_value = data[0].time;
+                        date_value.setTime(date_value.getTime() - 1);
+                        table.addRow([date_value, 0, 0]);
+                    }
+                    for (var i = 0; i < rows_to_add; i++) {
+                        var d = data[data.length - rows_to_add + i];
+                        table.addRow([d.time, {
+                            v: d.inn,
+                            f: $rootScope.human_size(d.inn)
+                        }, {
+                            v: d.out,
+                            f: $rootScope.human_size(d.out)
+                        }]);
+                    }
+                    var extra_rows = table.getNumberOfRows() - 600;
+                    if (extra_rows > 0) {
+                        table.removeRows(0, extra_rows);
+                    }
+
+                    var options = {
+                        hAxis: {
+                            title: 'Time',
+                            titleTextStyle: {
+                                color: '#333'
+                            }
+                        },
+                        vAxis: {
+                            minValue: 0
+                        }
+                    };
+                    var chart = new google.visualization.AreaChart(element[0]);
+                    chart.draw(table, options);
+                }
+            }
+        };
+    }
+]);
+
 
 nb_util.factory('nbGoogle', [
     '$q', '$window',
@@ -30,7 +153,7 @@ nb_util.factory('nbGoogle', [
         var defer = $q.defer();
         try {
             $window.google.load("visualization", "1.1", {
-                packages: ["geochart"],
+                packages: ['geochart', 'corechart'],
                 // must pass callback to make the loader use document.append
                 // instead of document.write which will delete all the document.
                 callback: function() {
@@ -205,20 +328,27 @@ nb_util.directive('nbProgressCanvas', [
                 }
 
                 function redraw() {
+                    var w = d.canvas.width;
+                    var h = d.canvas.height;
+                    var wd = w / opt.length;
+                    /*
+                    // this comented code adjusts the canvas width so
+                    // that there is a minimal width to the data points.
+                    // but updating the canvas width is heavy with multiple canvases in a page.
+                    if (wd < 20) {
+                        wd = 100;
+                        w = wd * opt.length;
+                        d.canvas.width = w;
+                    }*/
                     d.fillStyle = opt.color;
-                    var w = opt.width || d.canvas.width;
-                    var h = opt.height || d.canvas.height;
+                    d.clearRect(0, 0, w, h);
                     if (!data || !data.length) {
-                        d.clearRect(0, 0, w, h);
                         return;
                     }
-                    var len = opt.length;
-                    var wp = w / len;
-                    for (var i = 0, p = 0; i < len; i++, p += wp) {
+                    var len = Math.min(data.length, opt.length);
+                    for (var i = 0, p = 0; i < len; i++, p += wd) {
                         if (data[i]) {
-                            d.fillRect(p, 0, wp, h);
-                        } else {
-                            d.clearRect(p, 0, wp, h);
+                            d.fillRect(p, 0, wd, h);
                         }
                     }
                 }

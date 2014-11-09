@@ -46,8 +46,9 @@
                             <th></th>
                             <th>Node</th>
                             <th>Heartbeat</th>
-                            <th>Vendor</th>
+                            <th>Runs on</th>
                             <th>Storage</th>
+                            <th>Used</th>
                             <th></th>
                         </tr>
                         <tr ng-repeat="node in nbNodes.detailed_nodes.nodes" ng-click="nbNodes.detailed_nodes.selected=$index" ng-class="{Xactive: nbNodes.detailed_nodes.selected==$index}">
@@ -58,14 +59,12 @@
                             </td>
                             <td>{{node.name}}</td>
                             <td>{{node.hearbeat_moment.fromNow()}}</td>
-                            <td>{{nbNodes.node_vendors_by_id[node.vendor].name}}</td>
-                            <td>
-                                <div class="progress" style="margin:0; position:relative">
-                                    <div class="progress-bar Xprogress-bar-info" ng-class="{'progress-bar-info':($index % 4)==0, 'progress-bar-success':($index % 4)==1, 'progress-bar-warning':($index % 4)==2, 'progress-bar-danger':($index % 4)==3}" role="progressbar" aria-valuemin="0" aria-valuemax="100"
-                                    aria-valuenow="{{100*node.used_storage/node.allocated_storage}}" style="width: {{100*node.used_storage/node.allocated_storage}}%;"></div>
-
-                                    <div class="text-center text-color" style="position:absolute; top:0; left:0; right:0; bottom:0">
-                                        <small>{{human_size(node.allocated_storage)}}</small>
+                            <td>{{node.vendor.name}}</td>
+                            <td>{{human_size(node.allocated_storage)}}</td>
+                            <td ng-init="node.used_storage=node.allocated_storage*0.90">
+                                <div class="progress" style="margin: 0">
+                                    <div class="progress-bar progress-bar-default" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{node.usage_percent}}" style="width: {{node.usage_percent}}%;">
+                                        <small>{{node.usage_percent.toFixed(0)}}</small>
                                     </div>
                                 </div>
                             </td>

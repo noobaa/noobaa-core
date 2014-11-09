@@ -84,7 +84,13 @@ ObjectClient.prototype.write_object_part = function(params) {
             var buffer_per_index = encode_chunk(params.buffer, part.kblocks, block_size);
             return Q.all(_.map(part.indexes, function(blocks, index) {
                 return Q.all(_.map(blocks, function(block) {
-                    return write_block(block, buffer_per_index[index], self.write_sem);
+                    // use semaphore to surround the IO
+                    return self.write_sem.surround(function() {
+                        if (self._events) {
+                            self._events.emit('send', buffer_per_index[index].length);
+                        }
+                        return write_block(block, buffer_per_index[index]);
+                    });
                 }));
             }));
         }
@@ -159,7 +165,10 @@ ObjectClient.prototype.read_object_part = function(part) {
                     if (err !== chain_init_err) {
                         console.error('READ FAILED BLOCK', err);
                     }
-                    return read_block(block, block_size, self.read_sem);
+                    // use semaphore to surround the IO
+                    return self.read_sem.surround(function() {
+                        return read_block(block, block_size);
+                    });
                 }
             );
         };
@@ -231,52 +240,42 @@ function combine_parts_buffers_in_range(parts, start, end) {
 /**
  * read a block to the storage node
  */
-function write_block(block, buffer, sem) {
-    // use read semaphore to surround the IO
-    return sem.surround(
-        function() {
-            var agent = new agent_api.Client({
-                hostname: block.node.ip,
-                port: block.node.port,
-                path: '/agent_api/',
-            });
-            // console.log('write_block', buffer.length, block, agent);
-            return agent.write_block({
-                block_id: block.id,
-                data: buffer,
-            });
-        }
-    );
+function write_block(block, buffer) {
+    var agent = new agent_api.Client({
+        hostname: block.node.ip,
+        port: block.node.port,
+        path: '/agent_api/',
+    });
+    // console.log('write_block', buffer.length, block, agent);
+    return agent.write_block({
+        block_id: block.id,
+        data: buffer,
+    });
 }
 
 
 /**
  * read a block from the storage node
  */
-function read_block(block, block_size, sem) {
-    // use read semaphore to surround the IO
-    return sem.surround(
-        function() {
-            var agent = new agent_api.Client({
-                hostname: block.node.ip,
-                port: block.node.port,
-                path: '/agent_api/',
-            });
-            // console.log('read_block', block_size, block, agent);
-            return agent.read_block({
-                block_id: block.id
-            }).then(
-                function(buffer) {
-                    // verify the received buffer length must be full size
-                    if (!Buffer.isBuffer(buffer)) {
-                        throw new Error('NOT A BUFFER ' + typeof(buffer));
-                    }
-                    if (buffer.length !== block_size) {
-                        throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
-                    }
-                    return buffer;
-                }
-            );
+function read_block(block, block_size) {
+    var agent = new agent_api.Client({
+        hostname: block.node.ip,
+        port: block.node.port,
+        path: '/agent_api/',
+    });
+    // console.log('read_block', block_size, block, agent);
+    return agent.read_block({
+        block_id: block.id
+    }).then(
+        function(buffer) {
+            // verify the received buffer length must be full size
+            if (!Buffer.isBuffer(buffer)) {
+                throw new Error('NOT A BUFFER ' + typeof(buffer));
+            }
+            if (buffer.length !== block_size) {
+                throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
+            }
+            return buffer;
         }
     );
 }

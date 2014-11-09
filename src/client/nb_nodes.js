@@ -15,10 +15,10 @@ var edge_node_client = new edge_node_api.Client({
     path: '/api/edge_node_api/',
 });
 
-var ng_app = angular.module('ng_app');
+var nb_app = angular.module('nb_app');
 
 
-ng_app.controller('NodesCtrl', [
+nb_app.controller('NodesCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes',
     function($scope, $http, $q, $window, $timeout, nbNodes) {
 
@@ -39,7 +39,7 @@ ng_app.controller('NodesCtrl', [
 
 
 
-ng_app.factory('nbNodes', [
+nb_app.factory('nbNodes', [
     '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location', 'nbAlertify', 'nbModal',
     function($q, $timeout, nbGoogle, $window, $rootScope, $location, nbAlertify, nbModal) {
         var $scope = {};

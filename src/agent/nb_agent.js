@@ -8,7 +8,7 @@ var moment = require('moment');
 // include the generated templates from ngview
 // require('../../build/templates');
 
-var ng_agent = angular.module('ng_agent', [
+var nb_agent = angular.module('nb_agent', [
     'templates',
     'ngRoute',
     'ngCookies',
@@ -17,7 +17,7 @@ var ng_agent = angular.module('ng_agent', [
     'ngTouch',
 ]);
 
-ng_agent.config(['$routeProvider', '$locationProvider',
+nb_agent.config(['$routeProvider', '$locationProvider',
     function($routeProvider, $locationProvider) {
         $locationProvider.html5Mode(true);
         $routeProvider.when('/log', {
@@ -29,7 +29,7 @@ ng_agent.config(['$routeProvider', '$locationProvider',
     }
 ]);
 
-ng_agent.controller('AgentCtrl', [
+nb_agent.controller('AgentCtrl', [
     '$scope', '$http',
     function($scope, $http) {
 
@@ -38,7 +38,7 @@ ng_agent.controller('AgentCtrl', [
     }
 ]);
 
-ng_agent.controller('LogCtrl', [
+nb_agent.controller('LogCtrl', [
     '$scope', '$http',
     function($scope, $http) {
 

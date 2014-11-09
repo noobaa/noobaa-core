@@ -21,12 +21,12 @@ var object_client = new ObjectClient({
     path: '/api/object_api/',
 });
 
-var ng_app = angular.module('ng_app');
+var nb_app = angular.module('nb_app');
 
 
 
 
-ng_app.controller('UploadCtrl', [
+nb_app.controller('UploadCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce', 'nbFiles',
     function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
 
@@ -109,7 +109,7 @@ ng_app.controller('UploadCtrl', [
 
 
 
-ng_app.controller('DownloadCtrl', [
+nb_app.controller('DownloadCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce', 'nbFiles',
     function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
 
@@ -124,7 +124,7 @@ ng_app.controller('DownloadCtrl', [
 
 
 
-ng_app.factory('nbFiles', [
+nb_app.factory('nbFiles', [
     '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData', '$rootScope',
     function($http, $q, $window, $timeout, $sce, nbAlertify, nbServerData, $rootScope) {
         var $scope = {};

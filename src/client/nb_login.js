@@ -5,8 +5,8 @@ var _ = require('lodash');
 var util = require('util');
 var account_api = require('../api/account_api');
 
-var ng_login = angular.module('ng_login', [
-    'ng_util',
+var nb_login = angular.module('nb_login', [
+    'nb_util',
     'ngRoute',
     'ngCookies',
     'ngAnimate',
@@ -17,7 +17,7 @@ var ng_login = angular.module('ng_login', [
 
 
 
-ng_login.controller('LoginCtrl', [
+nb_login.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify',
     function($scope, $http, $q, $timeout, $window, nbAlertify) {
 

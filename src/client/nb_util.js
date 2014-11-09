@@ -9,12 +9,12 @@ var size_utils = require('../util/size_utils');
 // include the generated templates from ngview
 // require('../../build/templates');
 
-var ng_util = angular.module('ng_util', [
+var nb_util = angular.module('nb_util', [
     'templates',
 ]);
 
 
-ng_util.run(['$rootScope', function($rootScope) {
+nb_util.run(['$rootScope', function($rootScope) {
     $rootScope.human_size = size_utils.human_size;
     $rootScope.safe_apply = safe_apply;
     $rootScope.safe_callback = safe_callback;
@@ -24,7 +24,7 @@ ng_util.run(['$rootScope', function($rootScope) {
 
 
 
-ng_util.factory('nbGoogle', [
+nb_util.factory('nbGoogle', [
     '$q', '$window',
     function($q, $window) {
         var defer = $q.defer();
@@ -46,7 +46,7 @@ ng_util.factory('nbGoogle', [
 ]);
 
 
-ng_util.factory('nbServerData', [
+nb_util.factory('nbServerData', [
     '$window',
     function($window) {
         var server_data_element = $window.document.getElementById('server_data');
@@ -56,7 +56,7 @@ ng_util.factory('nbServerData', [
 ]);
 
 
-ng_util.factory('nbModal', [
+nb_util.factory('nbModal', [
     '$window', '$q', '$compile', '$rootScope', '$templateCache',
     function($window, $q, $compile, $rootScope, $templateCache) {
 
@@ -126,7 +126,7 @@ ng_util.factory('nbModal', [
 ]);
 
 
-ng_util.factory('nbAlertify', [
+nb_util.factory('nbAlertify', [
     '$window', '$q',
     function($window, $q) {
 
@@ -176,7 +176,7 @@ ng_util.factory('nbAlertify', [
 ]);
 
 
-ng_util.directive('nbProgressCanvas', [
+nb_util.directive('nbProgressCanvas', [
     function() {
         return {
             restrict: 'A',
@@ -228,7 +228,7 @@ ng_util.directive('nbProgressCanvas', [
 ]);
 
 
-ng_util.directive('nbShowAnimated', [
+nb_util.directive('nbShowAnimated', [
     function() {
         return {
             restrict: 'A',
@@ -278,7 +278,7 @@ ng_util.directive('nbShowAnimated', [
 ]);
 
 
-ng_util.directive('nbClickLadda', [
+nb_util.directive('nbClickLadda', [
     '$compile', '$q', '$timeout',
     function($compile, $q, $timeout) {
         return {
@@ -320,7 +320,7 @@ ng_util.directive('nbClickLadda', [
 
 
 // DEPRECATED - prefer to use nbClickLadda which uses promises and easier to use
-ng_util.directive('nbLaddaWatch', [
+nb_util.directive('nbLaddaWatch', [
     '$compile',
     function($compile) {
         return {
@@ -351,7 +351,7 @@ ng_util.directive('nbLaddaWatch', [
     }
 ]);
 
-ng_util.directive('nbActiveLocation', [
+nb_util.directive('nbActiveLocation', [
     '$location',
     function($location) {
         return {

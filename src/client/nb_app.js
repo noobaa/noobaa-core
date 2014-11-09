@@ -9,8 +9,8 @@ var mgmt_client = new mgmt_api.Client({
     path: '/api/mgmt_api/',
 });
 
-var ng_app = angular.module('ng_app', [
-    'ng_util',
+var nb_app = angular.module('nb_app', [
+    'nb_util',
     'ngRoute',
     'ngCookies',
     'ngAnimate',
@@ -18,11 +18,11 @@ var ng_app = angular.module('ng_app', [
     'ngTouch',
 ]);
 
-require('./ng_nodes');
-require('./ng_files');
+require('./nb_nodes');
+require('./nb_files');
 
 
-ng_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
+nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
     function($routeProvider, $locationProvider, $compileProvider) {
         // allow blob urls
         $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
@@ -43,7 +43,7 @@ ng_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
 ]);
 
 
-ng_app.controller('AppCtrl', [
+nb_app.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
     'nbMgmt', 'nbNodes', 'nbFiles',
     'nbAlertify', '$location', 'nbServerData',
@@ -84,7 +84,7 @@ ng_app.controller('AppCtrl', [
 ]);
 
 
-ng_app.controller('StatusCtrl', [
+nb_app.controller('StatusCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
         $scope.nav.active = 'status';
@@ -99,7 +99,7 @@ ng_app.controller('StatusCtrl', [
 ]);
 
 
-ng_app.factory('nbMgmt', [
+nb_app.factory('nbMgmt', [
     '$q', '$timeout', '$rootScope',
     function($q, $timeout, $rootScope) {
         var $scope = {};

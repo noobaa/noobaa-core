@@ -57,6 +57,9 @@ nb_app.factory('nbNodes', [
                 function(res) {
                     console.log('NODES', res);
                     $scope.nodes = res.nodes;
+                    _.each($scope.nodes, function(node) {
+                        node.hearbeat_moment = moment(new Date(node.heartbeat));
+                    });
                     $scope.nodes_by_geo = _.groupBy($scope.nodes, 'geolocation');
                     update_detailed_nodes();
                     nbGoogle.then(draw_nodes_map);

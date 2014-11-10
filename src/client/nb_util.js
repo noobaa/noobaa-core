@@ -16,6 +16,7 @@ var nb_util = angular.module('nb_util', [
 
 nb_util.run(['$rootScope', function($rootScope) {
     $rootScope.human_size = size_utils.human_size;
+    $rootScope.human_percent = human_percent;
     $rootScope.safe_apply = safe_apply;
     $rootScope.safe_callback = safe_callback;
     $rootScope.moment = moment;
@@ -538,4 +539,15 @@ function safe_callback(func) {
         var fn = Function.prototype.bind.apply(func, args);
         return self.safe_apply(fn);
     };
+}
+
+
+function human_percent(percent) {
+    var str = Number(percent || 0).toFixed(1);
+    var n = str.length;
+    if (str[n - 1] === '0' && str[n - 2] === '.') {
+        return str.substr(0, n - 2)  + ' %';
+    } else {
+        return str + ' %';
+    }
 }

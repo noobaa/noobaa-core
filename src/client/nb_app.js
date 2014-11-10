@@ -142,6 +142,7 @@ nb_app.factory('nbAccount', [
                     // TODO handle bigint type (defined at account_api) for sizes > petabyte
                     $scope.stats.free_storage = res.allocated_storage - res.used_storage;
                     $scope.stats.free_storage_percent =
+                        !res.allocated_storage ? 0 :
                         100 * ($scope.stats.free_storage / res.allocated_storage);
                 },
                 function(err) {

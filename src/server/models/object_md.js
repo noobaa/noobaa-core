@@ -48,6 +48,12 @@ var objmd_schema = new Schema({
 
 });
 
+objmd_schema.index({
+    account: 1,
+}, {
+    unique: false
+});
+
 // (bucket+key) are unique in the system
 objmd_schema.index({
     bucket: 1,

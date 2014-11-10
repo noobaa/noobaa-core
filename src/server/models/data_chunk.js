@@ -42,7 +42,7 @@ data_chunk_schema.index({
     // TODO avoid "MongoError: ns doesn't exist" failures by defining an unneeded index
     // which force mongo to create the collection. this occurs by mapReduce calls
     // when the collection is still empty.
-    // TODO this is clearly wrong - any better way?
+    // TODO any better way?
     _id: 1,
 }, {
     unique: true

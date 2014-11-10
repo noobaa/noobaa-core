@@ -59,7 +59,7 @@ function allocate_blocks_for_new_chunk(chunk) {
 
 
 function update_alloc_nodes() {
-    var minimum_time_for_alloc = moment().subtract(90, 'second');
+    var minimum_time_for_alloc = moment().subtract(2, 'minutes');
     if (alloc_nodes && last_update_time_alloc_nodes &&
         last_update_time_alloc_nodes.isAfter(minimum_time_for_alloc)) {
         return;

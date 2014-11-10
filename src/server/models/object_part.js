@@ -11,6 +11,13 @@ var types = mongoose.Schema.Types;
 
 var object_part_schema = new Schema({
 
+    // owner account
+    account: {
+        type: types.ObjectId,
+        ref: 'Account',
+        required: true,
+    },
+
     // the object that this part belong to.
     obj: {
         type: types.ObjectId,
@@ -45,6 +52,12 @@ var object_part_schema = new Schema({
         type: Number,
     },
 
+});
+
+object_part_schema.index({
+    account: 1,
+}, {
+    unique: false
 });
 
 object_part_schema.index({

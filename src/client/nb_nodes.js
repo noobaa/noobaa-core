@@ -273,6 +273,9 @@ nb_app.factory('nbNodes', [
                     enable: false,
                     zoomFactor: 10
                 },
+                tooltip: {
+                    trigger: 'both' // 'focus' / 'selection'
+                },
             };
             var chart = new google.visualization.GeoChart(element);
             google.visualization.events.addListener(chart, 'select', function() {

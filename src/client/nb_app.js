@@ -34,10 +34,10 @@ nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
         $locationProvider.html5Mode(true);
         $routeProvider.when('/dashboard', {
             templateUrl: 'dashboard.html',
-        }).when('/account', {
-            templateUrl: 'account.html',
         }).when('/nodes', {
             templateUrl: 'nodes.html',
+        }).when('/stats', {
+            templateUrl: 'stats.html',
         }).when('/upload', {
             templateUrl: 'upload.html',
         }).when('/download', {
@@ -51,13 +51,12 @@ nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
 
 nb_app.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
-    'nbMgmt', 'nbNodes', 'nbFiles', 'nbAccount',
+    'nbAccount', 'nbNodes', 'nbFiles',
     'nbAlertify', '$location', 'nbServerData',
     function($scope, $http, $q, $window,
-        nbMgmt, nbNodes, nbFiles, nbAccount,
+        nbAccount, nbNodes, nbFiles,
         nbAlertify, $location, nbServerData) {
 
-        $scope.nbMgmt = nbMgmt;
         $scope.nbAccount = nbAccount;
         $scope.nbNodes = nbNodes;
         $scope.nbFiles = nbFiles;
@@ -67,15 +66,15 @@ nb_app.controller('AppCtrl', [
 
         $scope.nav = {
             active: 'dashboard',
-            order: ['dashboard', 'account', 'nodes', 'upload', 'download'],
+            order: ['dashboard', 'stats', 'nodes', 'upload', 'download'],
             items: {
                 dashboard: {
                     text: 'Dashboard',
                     href: 'dashboard',
                 },
-                account: {
-                    text: 'Account',
-                    href: 'account',
+                stats: {
+                    text: 'Stats',
+                    href: 'stats',
                 },
                 nodes: {
                     text: 'Nodes',
@@ -103,7 +102,7 @@ nb_app.controller('DashboardCtrl', [
 
         $scope.refresh_view = function() {
             return $q.all([
-                $scope.nbMgmt.refresh_status(),
+                $scope.nbAccount.refresh_stats(),
                 $scope.nbNodes.refresh_nodes()
             ]);
         };
@@ -113,14 +112,14 @@ nb_app.controller('DashboardCtrl', [
 ]);
 
 
-nb_app.controller('AccountCtrl', [
+nb_app.controller('StatsCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
-        $scope.nav.active = 'account';
+        $scope.nav.active = 'stats';
 
         $scope.refresh_view = function() {
-            return $scope.nbAccount.refresh_usage();
+            return $scope.nbAccount.refresh_stats();
         };
 
         $scope.refresh_view();
@@ -128,53 +127,25 @@ nb_app.controller('AccountCtrl', [
 ]);
 
 
-nb_app.factory('nbMgmt', [
-    '$q', '$timeout', '$rootScope',
-    function($q, $timeout, $rootScope) {
-        var $scope = {};
-
-        $scope.refresh_status = refresh_status;
-
-        function refresh_status() {
-            return $q.when(mgmt_client.system_status()).then(
-                function(res) {
-                    console.log('SYSTEM STATUS', res);
-                    $scope.status = res;
-                    $scope.total_nodes = res.total_nodes;
-                    $scope.online_nodes = res.online_nodes;
-                    $scope.total_space = $rootScope.human_size(res.allocated_storage);
-                    // TODO handle bigint type (defined at account_api) for sizes > petabyte
-                    var free_storage = res.allocated_storage - res.used_chunks_storage;
-                    var free_percent = 100 * free_storage / res.allocated_storage;
-                    $scope.free_space_percent = free_percent.toFixed(1) + '%';
-                },
-                function(err) {
-                    console.error('SYSTEM STATUS FAILED', err);
-                }
-            );
-        }
-
-        return $scope;
-    }
-]);
-
 nb_app.factory('nbAccount', [
     '$q', '$timeout', '$rootScope',
     function($q, $timeout, $rootScope) {
         var $scope = {};
 
-        $scope.refresh_usage = refresh_usage;
+        $scope.refresh_stats = refresh_stats;
 
-        function refresh_usage() {
-            return $q.when(account_client.usage_stats()).then(
+        function refresh_stats() {
+            return $q.when(account_client.get_stats({})).then(
                 function(res) {
-                    console.log('ACCOUNT USAGE', res);
-                    $scope.usage = res;
-                    $scope.allocated_storage = $rootScope.human_size(res.allocated_storage);
-                    $scope.used_storage = $rootScope.human_size(res.used_storage);
+                    console.log('STATS', res);
+                    $scope.stats = res;
+                    // TODO handle bigint type (defined at account_api) for sizes > petabyte
+                    $scope.stats.free_storage = res.allocated_storage - res.used_storage;
+                    $scope.stats.free_storage_percent =
+                        100 * ($scope.stats.free_storage / res.allocated_storage);
                 },
                 function(err) {
-                    console.error('ACCOUNT USAGE FAILED', err);
+                    console.error('STATS FAILED', err);
                 }
             );
         }

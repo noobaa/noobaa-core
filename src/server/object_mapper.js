@@ -32,6 +32,7 @@ function allocate_object_part(obj, start, end, md5sum) {
         md5sum: md5sum,
     });
     var new_part = new ObjectPart({
+        account: obj.account,
         obj: obj.id,
         start: start,
         end: end,

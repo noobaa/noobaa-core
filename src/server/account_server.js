@@ -27,7 +27,7 @@ var account_server = new account_api.Server({
     read_account: read_account,
     update_account: update_account,
     delete_account: delete_account,
-    usage_stats: usage_stats,
+    get_stats: get_stats,
 });
 
 module.exports = account_server;
@@ -201,11 +201,12 @@ function delete_account(req) {
 }
 
 
-function usage_stats(req) {
+function get_stats(req) {
+    var system_stats = req.restful_params.system_stats;
     var minimum_online_heartbeat = moment().subtract(5, 'minutes').toDate();
     return account_session(req).then(
         function() {
-            var account_query = {
+            var account_query = system_stats && {} || {
                 account: req.account.id
             };
             return Q.all([
@@ -233,7 +234,7 @@ function usage_stats(req) {
                 Bucket.count(account_query).exec(),
                 // objects
                 ObjectMD.count(account_query).exec(),
-                // used_storage
+                // parts
                 ObjectPart.mapReduce({
                     query: account_query,
                     map: function() {
@@ -242,12 +243,23 @@ function usage_stats(req) {
                     },
                     reduce: size_utils.reduce_sum
                 }),
+                // chunks - only in system_stats request
+                system_stats && DataChunk.mapReduce({
+                    map: function() {
+                        /* global emit */
+                        emit('size', this.size);
+                    },
+                    reduce: size_utils.reduce_sum
+                }) || 0,
             ]).spread(
-                function(nodes, node_vendors, buckets, objects, used_storage) {
+                function(nodes, node_vendors, buckets, objects, parts, chunks) {
                     nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
+                    parts = _.mapValues(_.indexBy(parts, '_id'), 'value');
+                    chunks = chunks && _.mapValues(_.indexBy(chunks, '_id'), 'value');
                     return {
                         allocated_storage: nodes.alloc || 0,
-                        used_storage: used_storage.size || 0,
+                        used_storage: parts.size || 0,
+                        chunks_storage: chunks.size || 0,
                         nodes: nodes.count || 0,
                         online_nodes: nodes.online || 0,
                         node_vendors: node_vendors || 0,

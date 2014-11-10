@@ -96,14 +96,24 @@ module.exports = restful_api({
         },
 
 
-        usage_stats: {
+        get_stats: {
             method: 'GET',
-            path: '/usage',
+            path: '/stats',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    system_stats: {
+                        type: 'boolean'
+                    }
+                }
+            },
             reply: {
                 type: 'object',
                 required: [
                     'allocated_storage',
                     'used_storage',
+                    'chunks_storage',
                     'nodes',
                     'online_nodes',
                     'node_vendors',
@@ -115,6 +125,9 @@ module.exports = restful_api({
                         $ref: '/account_api/definitions/bigint'
                     },
                     used_storage: {
+                        $ref: '/account_api/definitions/bigint'
+                    },
+                    chunks_storage: {
                         $ref: '/account_api/definitions/bigint'
                     },
                     nodes: {

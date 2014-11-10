@@ -1,0 +1,62 @@
+<div ng-controller="AccountCtrl">
+
+    <div ng-include="'navbar.html'"></div>
+
+    <div class="container-fluid">
+        <div class="row text-center">
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbAccount.allocated_storage}}</h1>
+                <p>
+                    <small>allocated storage</small>
+                </p>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbAccount.used_storage}}</h1>
+                <p>
+                    <small>used storage</small>
+                </p>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbAccount.usage.nodes}}</h1>
+                <p>
+                    <small>account nodes</small>
+                </p>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbAccount.usage.online_nodes}}</h1>
+                <p>
+                    <small>online nodes</small>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <br/>
+
+    <div class="jumbotron">
+
+    <div class="container-fluid">
+        <div class="row text-center">
+            <div class="col-sm-4 col-md-4">
+                <h1 style="font-size: 4em">{{nbAccount.usage.buckets}}</h1>
+                <p>
+                    <small>buckets</small>
+                </p>
+            </div>
+            <div class="col-sm-4 col-md-4">
+                <div>
+                    <i class="fa fa-user text-green" style="font-size: 400px"></i>
+                </div>
+                <p>{{account_email}}</p>
+            </div>
+            <div class="col-sm-4 col-md-4">
+                <h1 style="font-size: 4em">{{nbAccount.usage.objects}}</h1>
+                <p>
+                    <small>files</small>
+                </p>
+            </div>
+        </div>
+    </div>
+    </div>
+
+</div>

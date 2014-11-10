@@ -26,7 +26,6 @@ var DataBlock = require('./models/data_block');
 
 var mgmt_server = new mgmt_api.Server({
     system_status: system_status,
-    system_counters: system_counters,
 }, [
     // middleware to verify the account session before any of this server calls
     account_server.account_session
@@ -34,81 +33,61 @@ var mgmt_server = new mgmt_api.Server({
 
 module.exports = mgmt_server;
 
-
+/**
+ * return the system status, *not* from single account perspective.
+ */
 function system_status(req) {
     var minimum_online_heartbeat = moment().subtract(5, 'minutes').toDate();
     return Q.all([
-        Q.fcall(
-            function() {
-                return EdgeNode.mapReduce({
-                    map: function() {
-                        /* global emit */
-                        emit('alloc', this.allocated_storage);
-                        emit('used', this.used_storage);
-                    },
-                    reduce: size_utils.reduce_sum
-                });
-            }
-        ),
-        Q.fcall(
-            function() {
-                return DataChunk.mapReduce({
-                    map: function() {
-                        /* global emit */
-                        emit('size', this.size);
-                    },
-                    reduce: size_utils.reduce_sum
-                });
-            }
-        ),
-        EdgeNode.count().exec(),
-        EdgeNode.count({
-            heartbeat: {
-                $gt: minimum_online_heartbeat
-            }
-        }).exec()
+        // nodes - count, online count, allocated/used storage
+        EdgeNode.mapReduce({
+            scope: {
+                // have to pass variables to map/reduce with a scope
+                minimum_online_heartbeat: minimum_online_heartbeat,
+            },
+            map: function() {
+                /* global emit */
+                emit('count', 1);
+                if (this.heartbeat >= minimum_online_heartbeat) {
+                    emit('online', 1);
+                }
+                emit('alloc', this.allocated_storage);
+                emit('used', this.used_storage);
+            },
+            reduce: size_utils.reduce_sum
+        }),
+        // used_parts - count usage from object parts
+        ObjectPart.mapReduce({
+            map: function() {
+                /* global emit */
+                emit('size', this.end - this.start);
+            },
+            reduce: size_utils.reduce_sum
+        }),
+        // used_chunks - count usage from chunks
+        DataChunk.mapReduce({
+            map: function() {
+                /* global emit */
+                emit('size', this.size);
+            },
+            reduce: size_utils.reduce_sum
+        }),
     ]).spread(
-        function(allocated_res, used_res, total_nodes, online_nodes) {
-            var allocated_info = _.mapValues(_.indexBy(allocated_res, '_id'), 'value');
-            var used_info = _.mapValues(_.indexBy(used_res, '_id'), 'value');
-            if (used_info.size !== allocated_info.used) {
-                // TODO not so good that we keep two used size counters...
-                console.log('mismatching count of used size', allocated_info, used_info);
+        function(nodes, used_parts, used_chunks) {
+            nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
+            // used_parts counts the size of parts, so if we share chunks between parts
+            // then it will be higher than used_chunks.
+            used_parts = _.mapValues(_.indexBy(used_parts, '_id'), 'value');
+            used_chunks = _.mapValues(_.indexBy(used_chunks, '_id'), 'value');
+            if (used_chunks.size !== nodes.used) {
+                console.log('skews in nodes used storage', nodes, used_chunks);
             }
             return {
-                allocated_storage: allocated_info.alloc || 0,
-                used_storage: used_info.size || 0,
-                total_nodes: total_nodes,
-                online_nodes: online_nodes,
-            };
-        }
-    );
-}
-
-
-function system_counters(req) {
-    return Q.all([
-        Account.count().exec(),
-        EdgeNode.count().exec(),
-        NodeVendor.count().exec(),
-        Bucket.count().exec(),
-        ObjectMD.count().exec(),
-        ObjectPart.count().exec(),
-        DataChunk.count().exec(),
-        DataBlock.count().exec(),
-    ]).spread(
-        function(
-            accounts, nodes, node_vendors,
-            buckets, objects, parts, chunks, blocks) {
-            return {
-                accounts: accounts,
-                nodes: nodes,
-                node_vendors: node_vendors,
-                buckets: buckets,
-                objects: objects,
-                parts: parts,
-                chunks: chunks,
-                blocks: blocks,
+                allocated_storage: nodes.alloc || 0,
+                used_objects_storage: used_parts.size || 0,
+                used_chunks_storage: used_chunks.size || 0,
+                total_nodes: nodes.count || 0,
+                online_nodes: nodes.online || 0,
             };
         }
     );

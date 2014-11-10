@@ -4,10 +4,21 @@
 var _ = require('lodash');
 var assert = require('assert');
 var Q = require('q');
+var moment = require('moment');
 var restful_api = require('../util/restful_api');
+var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
-var Account = require('./models/account');
 var LRU = require('noobaa-util/lru');
+// db models
+var Account = require('./models/account');
+var EdgeNode = require('./models/edge_node');
+var NodeVendor = require('./models/node_vendor');
+var Bucket = require('./models/bucket');
+var ObjectMD = require('./models/object_md');
+var ObjectPart = require('./models/object_part');
+var DataChunk = require('./models/data_chunk');
+var DataBlock = require('./models/data_block');
+
 
 var account_server = new account_api.Server({
     login_account: login_account,
@@ -16,12 +27,61 @@ var account_server = new account_api.Server({
     read_account: read_account,
     update_account: update_account,
     delete_account: delete_account,
+    usage_stats: usage_stats,
 });
 
-// utility function for other servers
+module.exports = account_server;
+
+
+// cache for accounts in memory.
+// since accounts don't really change we can simply keep in the server's memory,
+// and decide how much time it makes sense before expiring and re-reading from db.
+var accounts_lru = new LRU({
+    max_length: 200,
+    expiry_ms: 600000, // 10 minutes expiry
+    name: 'accounts_lru'
+});
+
 account_server.account_session = account_session;
 
-module.exports = account_server;
+// verify that the session has a valid account using the accounts_lru cache.
+// this function is also exported to be used by other servers as a middleware.
+function account_session(req, force) {
+    return Q.fcall(
+        function() {
+            var account_id = req.session.account_id;
+            if (!account_id) {
+                console.error('NO ACCOUNT SESSION', account_id);
+                throw new Error('not logged in');
+            }
+
+            var item = accounts_lru.find_or_add_item(account_id);
+
+            // use cached account if not expired
+            if (item.account && force !== 'force') {
+                req.account = item.account;
+                return req.account;
+            }
+
+            // fetch account from the database
+            console.log('ACCOUNT MISS', account_id);
+            return Account.findById(account_id).exec().then(
+                function(account) {
+                    if (!account) {
+                        console.error('MISSING ACCOUNT SESSION', account_id);
+                        throw new Error('account removed');
+                    }
+                    // update the cache item
+                    item.account = account;
+                    req.account = account;
+                    return req.account;
+                }
+            );
+        }
+    );
+}
+
+
 
 function login_account(req) {
     var info = _.pick(req.restful_params, 'email');
@@ -141,45 +201,59 @@ function delete_account(req) {
 }
 
 
-// 10 minutes expiry
-var accounts_lru = new LRU({
-    max_length: 200,
-    expiry_ms: 600000,
-    name: 'accounts_lru'
-});
-assert(accounts_lru.params.max_length === 200);
-
-// verify that the session has a valid account using a cache
-// to be used by other servers
-function account_session(req, force) {
-    return Q.fcall(
+function usage_stats(req) {
+    var minimum_online_heartbeat = moment().subtract(5, 'minutes').toDate();
+    return account_session(req).then(
         function() {
-            var account_id = req.session.account_id;
-            if (!account_id) {
-                console.error('NO ACCOUNT SESSION', account_id);
-                throw new Error('not logged in');
-            }
-
-            var item = accounts_lru.find_or_add_item(account_id);
-
-            // use cached account if not expired
-            if (item.account && force !== 'force') {
-                req.account = item.account;
-                return req.account;
-            }
-
-            // fetch account from the database
-            console.log('ACCOUNT MISS', account_id);
-            return Account.findById(account_id).exec().then(
-                function(account) {
-                    if (!account) {
-                        console.error('MISSING ACCOUNT SESSION', account_id);
-                        throw new Error('account removed');
-                    }
-                    // update the cache item
-                    item.account = account;
-                    req.account = account;
-                    return req.account;
+            var account_query = {
+                account: req.account.id
+            };
+            return Q.all([
+                // nodes - count, online count, allocated/used storage
+                EdgeNode.mapReduce({
+                    query: account_query,
+                    scope: {
+                        // have to pass variables to map/reduce with a scope
+                        minimum_online_heartbeat: minimum_online_heartbeat,
+                    },
+                    map: function() {
+                        /* global emit */
+                        emit('count', 1);
+                        if (this.heartbeat >= minimum_online_heartbeat) {
+                            emit('online', 1);
+                        }
+                        emit('alloc', this.allocated_storage);
+                        emit('used', this.used_storage);
+                    },
+                    reduce: size_utils.reduce_sum
+                }),
+                // node_vendors
+                NodeVendor.count(account_query).exec(),
+                // buckets
+                Bucket.count(account_query).exec(),
+                // objects
+                ObjectMD.count(account_query).exec(),
+                // used_storage
+                ObjectPart.mapReduce({
+                    query: account_query,
+                    map: function() {
+                        /* global emit */
+                        emit('size', this.end - this.start);
+                    },
+                    reduce: size_utils.reduce_sum
+                }),
+            ]).spread(
+                function(nodes, node_vendors, buckets, objects, used_storage) {
+                    nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
+                    return {
+                        allocated_storage: nodes.alloc || 0,
+                        used_storage: used_storage.size || 0,
+                        nodes: nodes.count || 0,
+                        online_nodes: nodes.online || 0,
+                        node_vendors: node_vendors || 0,
+                        buckets: buckets || 0,
+                        objects: objects || 0,
+                    };
                 }
             );
         }

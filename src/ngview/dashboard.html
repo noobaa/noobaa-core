@@ -1,0 +1,38 @@
+<div ng-controller="DashboardCtrl">
+
+    <div ng-include="'navbar.html'"></div>
+
+    <div class="container-fluid">
+        <div class="row text-center">
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbMgmt.total_space}}</h1>
+                <p>
+                    <small>total storage</small>
+                </p>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbMgmt.free_space_percent}}</h1>
+                <p>
+                    <small>free storage</small>
+                </p>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbMgmt.total_nodes}}</h1>
+                <p>
+                    <small>total nodes</small>
+                </p>
+            </div>
+            <div class="col-sm-6 col-md-3">
+                <h1 style="font-size: 4em">{{nbMgmt.online_nodes}}</h1>
+                <p>
+                    <small>online nodes</small>
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <br/>
+
+    <div id="nodes_map" style="height: 600px"></div>
+
+</div>

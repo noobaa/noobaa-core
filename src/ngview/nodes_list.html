@@ -16,18 +16,15 @@
 
         <div class="row">
 
-            <div class="col-sm-8">
+            <div class="col-sm-6">
 
                 <div class="table-responsive" ng-if="nodes.length">
                     <table class="table table-hover">
                         <tr>
                             <th></th>
                             <th>Node</th>
-                            <th>Heartbeat</th>
-                            <th>Runs on</th>
                             <th>Storage</th>
                             <th>Used</th>
-                            <th></th>
                         </tr>
                         <tr ng-repeat="node in nodes" ng-click="click_node(node)">
                             <td>
@@ -36,8 +33,6 @@
                                 </button>
                             </td>
                             <td>{{node.name}}</td>
-                            <td>{{node.hearbeat_moment.fromNow()}}</td>
-                            <td>{{node.vendor.name}}</td>
                             <td>{{human_size(node.allocated_storage)}}</td>
                             <td ng-init="node.used_storage=node.allocated_storage*0.90">
                                 <div class="progress" style="margin: 0">
@@ -45,11 +40,6 @@
                                         <small>{{node.usage_percent.toFixed(0)}}</small>
                                     </div>
                                 </div>
-                            </td>
-                            <td>
-                                <button class="btn btn-default btn-sm border-hover-only" nb-click-ladda="nbNodes.remove_node(node)">
-                                    <i class="fa fa-trash text-muted"></i>
-                                </button>
                             </td>
                         </tr>
                     </table>
@@ -74,7 +64,7 @@
             </div>
 
 
-            <div class="col-sm-4" style="overflow: hidden">
+            <div class="col-sm-6" style="overflow: hidden">
                 <div class="relpos">
                     <div id="nodes_stats_map" class="img-responsive"></div>
                     <div ng-if="nbNodes.has_no_nodes" class="abscenter text-center" style="margin-top: -30px; margin-left: -50px">

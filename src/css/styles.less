@@ -54,7 +54,7 @@
     color: #76ff00;
 }
 .text-yellow {
-    color: yellow;
+    color: #f8ef00;
 }
 .text-red {
     color: red;
@@ -172,6 +172,19 @@
     bottom: auto;
     left: 50%;
     right: auto;
+}
+table.grid {
+    width: auto;
+    &>tr>td,
+    &>tr>th,
+    &>tbody>tr>td,
+    &>tbody>tr>th,
+    &>thead>tr>td,
+    &>thead>tr>th {
+        vertical-align: middle;
+        text-align: center;
+    }
+
 }
 /**/
 

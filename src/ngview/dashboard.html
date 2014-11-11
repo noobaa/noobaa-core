@@ -33,6 +33,13 @@
 
     <br/>
 
-    <div id="nodes_map" style="height: 600px"></div>
+    <div class="relpos">
+        <div id="nodes_stats_map" style="height: 90vh"></div>
+        <div ng-if="nbNodes.has_no_nodes" class="abscenter text-center" style="margin-top: -30px; margin-left: -50px">
+            <a class="btn btn-success btn-lg animated fadeInUp" ng-click="nbNodes.add_nodes()">
+                Add nodes
+            </a>
+        </div>
+    </div>
 
 </div>

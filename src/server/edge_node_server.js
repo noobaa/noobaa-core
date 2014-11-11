@@ -5,6 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var mongoose = require('mongoose');
 var restful_api = require('../util/restful_api');
+var size_utils = require('../util/size_utils');
 var edge_node_api = require('../api/edge_node_api');
 var agent_host_api = require('../api/agent_host_api');
 var account_server = require('./account_server');
@@ -20,8 +21,9 @@ var NodeVendor = require('./models/node_vendor');
 module.exports = new edge_node_api.Server({
     create_node: create_node,
     delete_node: delete_node,
-    list_nodes: list_nodes,
     read_node: read_node,
+    list_nodes: list_nodes,
+    nodes_stats: nodes_stats,
     heartbeat: heartbeat,
     get_agents_status: get_agents_status,
     start_agents: start_agents,
@@ -107,23 +109,6 @@ function delete_node(req) {
 }
 
 
-function list_nodes(req) {
-    var info = {};
-    info.account = req.account.id; // see account_server.account_session
-    return Q.fcall(
-        function() {
-            return EdgeNode.find(info).exec();
-        }
-    ).then(
-        function(nodes) {
-            return {
-                nodes: _.map(nodes, get_node_info)
-            };
-        }
-    );
-}
-
-
 function read_node(req) {
     var info = _.pick(req.restful_params, 'name');
     info.account = req.account.id; // see account_server.account_session
@@ -137,6 +122,116 @@ function read_node(req) {
                 throw new Error('node not found ' + info.name);
             }
             return get_node_info(node);
+        }
+    );
+}
+
+
+function list_nodes(req) {
+    var info = {};
+    info.account = req.account.id; // see account_server.account_session
+    var query = req.restful_params.query;
+    var skip = req.restful_params.skip;
+    var limit = req.restful_params.limit;
+    if (query) {
+        if (query.name) {
+            info.name = new RegExp(query.name);
+        }
+        if (query.geolocation) {
+            info.geolocation = new RegExp(query.geolocation);
+        }
+        if (query.vendor) {
+            info.vendor = query.vendor;
+        }
+    }
+    return Q.fcall(
+        function() {
+            var q = EdgeNode.find(info).sort('-_id');
+            if (skip) {
+                q.skip(skip);
+            }
+            if (limit) {
+                q.limit(limit);
+            }
+            return q.exec();
+        }
+    ).then(
+        function(nodes) {
+            return {
+                nodes: _.map(nodes, get_node_info)
+            };
+        }
+    );
+}
+
+
+function nodes_stats(req) {
+    var info = {};
+    info.account = req.account.id; // see account_server.account_session
+    var group_by = req.restful_params.group_by;
+    return Q.fcall(
+        function() {
+            var reduce_sum = size_utils.reduce_sum;
+            return EdgeNode.mapReduce({
+                scope: {
+                    group_by: group_by,
+                    reduce_sum: reduce_sum,
+                },
+                map: function() {
+                    var key = {};
+                    if (group_by.geolocation) {
+                        key.g = this.geolocation;
+                    }
+                    if (group_by.vendor) {
+                        key.v = this.vendor;
+                    }
+                    var val = {
+                        // count
+                        c: 1,
+                        // allocated
+                        a: this.allocated_storage,
+                        // used
+                        u: this.used_storage,
+                    };
+                    /* global emit */
+                    emit(key, val);
+                },
+                reduce: function(key, values) {
+                    var c = []; // count
+                    var a = []; // allocated
+                    var u = []; // used
+                    values.forEach(function(v) {
+                        c.push(v.c);
+                        a.push(v.a);
+                        u.push(v.u);
+                    });
+                    return {
+                        c: reduce_sum(key, c),
+                        a: reduce_sum(key, a),
+                        u: reduce_sum(key, u),
+                    };
+                }
+            });
+        }
+    ).then(
+        function(res) {
+            console.log('NODES_STATS', res);
+            return {
+                groups: _.map(res, function(r) {
+                    var group = {
+                        count: r.value.c,
+                        allocated_storage: r.value.a,
+                        used_storage: r.value.u,
+                    };
+                    if (r._id.g) {
+                        group.geolocation = r._id.g;
+                    }
+                    if (r._id.v) {
+                        group.vendor = r._id.v;
+                    }
+                    return group;
+                })
+            };
         }
     );
 }

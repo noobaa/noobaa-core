@@ -48,23 +48,6 @@ module.exports = restful_api({
             },
         },
 
-        list_nodes: {
-            method: 'GET',
-            path: '/node',
-            reply: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            $ref: '/edge_node_api/definitions/node_info'
-                        }
-                    }
-                }
-            }
-        },
-
         read_node: {
             method: 'GET',
             path: '/node/:name',
@@ -79,6 +62,106 @@ module.exports = restful_api({
             },
             reply: {
                 $ref: '/edge_node_api/definitions/node_info'
+            }
+        },
+
+
+        list_nodes: {
+            method: 'GET',
+            path: '/node',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    query: {
+                        type: 'object',
+                        required: [],
+                        properties: {
+                            name: {
+                                // regexp
+                                type: 'string'
+                            },
+                            geolocation: {
+                                // regexp
+                                type: 'string'
+                            },
+                            vendor: {
+                                type: 'string'
+                            }
+                        }
+                    },
+                    skip: {
+                        type: 'integer'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            $ref: '/edge_node_api/definitions/node_info'
+                        }
+                    }
+                }
+            }
+        },
+
+        nodes_stats: {
+            method: 'GET',
+            path: '/nodes_stats',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    group_by: {
+                        type: 'object',
+                        required: [],
+                        properties: {
+                            geolocation: {
+                                type: 'boolean'
+                            },
+                            vendor: {
+                                type: 'boolean'
+                            }
+                        }
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['groups'],
+                properties: {
+                    groups: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['count'],
+                            properties: {
+                                geolocation: {
+                                    type: 'string'
+                                },
+                                vendor: {
+                                    type: 'string'
+                                },
+                                count: {
+                                    type: 'integer'
+                                },
+                                allocated_storage: {
+                                    $ref: '/account_api/definitions/bigint'
+                                },
+                                used_storage: {
+                                    $ref: '/account_api/definitions/bigint'
+                                },
+                            }
+                        }
+                    }
+                }
             }
         },
 

@@ -48,9 +48,10 @@
     &:hover {
         background-color: lighten(@brand-primary, 8%);
     }
+
 }
 .text-green {
-    color: #76FF00;
+    color: #76ff00;
 }
 .text-yellow {
     color: yellow;
@@ -71,6 +72,7 @@
     .nav.navbar-nav.nav-tabs {
         border-bottom: none;
     }
+
 }
 .form-control > select {
     display: block;
@@ -140,15 +142,37 @@
     }
 }
 */
+/**/
 
+/////////////
+// layouts //
+/////////////
+
+.hflow {
+    overflow: hidden;
+}
+.relpos {
+    position: relative;
+}
+.abspos {
+    position: absolute;
+}
 .absfill {
     position: absolute;
     top: 0;
     bottom: 0;
     left: 0;
     right: 0;
-}
 
+}
+.abscenter {
+    /* use negative margin-top and margin-left to adjust */
+    position: absolute;
+    top: 50%;
+    bottom: auto;
+    left: 50%;
+    right: auto;
+}
 /**/
 
 /////////////////

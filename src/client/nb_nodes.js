@@ -24,15 +24,104 @@ nb_app.controller('NodesCtrl', [
 
         $scope.nav.active = 'nodes';
 
-        nbNodes.refresh_nodes();
+        $scope.refresh_view = function() {
+            return nbNodes.refresh_nodes_stats();
+        };
+
+        $scope.refresh_view();
+    }
+]);
+
+
+
+nb_app.controller('NodesListCtrl', [
+    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams',
+    function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams) {
+
+        $scope.nav.active = 'nodes';
+
+        $scope.previous_page = previous_page;
+        $scope.next_page = next_page;
+        $scope.click_node = click_node;
+        $scope.refresh_view = refresh_view;
+        $scope.geo = $routeParams.geo;
+        $scope.skip = 0;
+        $scope.limit = 10;
+        $scope.nodes_count = 0;
+
+        $scope.$watch('nbNodes.nodes_stats_by_geo', function() {
+            if ($scope.geo && nbNodes.nodes_stats_by_geo) {
+                $scope.geo_stats = nbNodes.nodes_stats_by_geo[$scope.geo];
+                $scope.nodes_count = $scope.geo_stats.count;
+            } else {
+                $scope.nodes_count = nbNodes.nodes_count;
+            }
+        });
+
+        $scope.refresh_view();
+
+
+        function refresh_view() {
+            return $q.all([
+                nbNodes.refresh_nodes_stats($scope.geo),
+                refresh_list(),
+            ]);
+        }
+
+        function refresh_list() {
+            var query = {};
+            if ($scope.geo) {
+                // the query takes a regexp string
+                query.geolocation = '^' + $scope.geo + '$';
+            }
+            return nbNodes.list_nodes({
+                query: query,
+                skip: $scope.skip,
+                limit: $scope.limit,
+            }).then(
+                function(nodes) {
+                    $scope.nodes = nodes;
+                }
+            );
+        }
+
+        function previous_page() {
+            $scope.skip -= $scope.limit;
+            if ($scope.skip < 0) {
+                $scope.skip = 0;
+                return;
+            }
+            return refresh_list();
+        }
+
+        function next_page() {
+            $scope.skip += $scope.limit;
+            if ($scope.skip >= $scope.nodes_count) {
+                $scope.skip -= $scope.limit;
+                return;
+            }
+            return refresh_list();
+        }
+
+        function click_node(node) {
+            // TODO click on node row in nodes table
+        }
+    }
+]);
+
+
+
+nb_app.controller('NodeDetailsCtrl', [
+    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams',
+    function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams) {
+
+        $scope.nav.active = 'nodes';
+
 
         $scope.refresh_view = function() {
-            return nbNodes.refresh_nodes();
+            // TODO
         };
 
-        $scope.click_node = function(node) {
-            // TODO click on node row in nodes table
-        };
 
     }
 ]);
@@ -43,32 +132,61 @@ nb_app.factory('nbNodes', [
     '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location', 'nbAlertify', 'nbModal',
     function($q, $timeout, nbGoogle, $window, $rootScope, $location, nbAlertify, nbModal) {
         var $scope = {};
-        $scope.refresh_nodes = refresh_nodes;
+        $scope.refresh_nodes_stats = refresh_nodes_stats;
+        $scope.list_nodes = list_nodes;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
         $scope.click_node_status = click_node_status;
         $scope.start_agent = start_agent;
         $scope.stop_agent = stop_agent;
-        $scope.detailed_nodes = {};
 
 
-        function refresh_nodes() {
+        function refresh_nodes_stats(selected_geo) {
             return $q.when(load_node_vendors()).then(
                 function() {
-                    return edge_node_client.list_nodes();
+                    return edge_node_client.nodes_stats({
+                        group_by: {
+                            geolocation: true
+                        }
+                    });
+                }
+            ).then(
+                function(res) {
+                    console.log('NODES STATS', res);
+                    $scope.nodes_stats = res.groups;
+                    $scope.nodes_stats_by_geo = _.indexBy(res.groups, 'geolocation');
+                    $scope.nodes_count = _.reduce(res.groups, function(sum, g) {
+                        return sum + g.count;
+                    }, 0);
+                    if (res.groups.length) {
+                        $scope.has_nodes = true;
+                        $scope.has_no_nodes = false;
+                    } else {
+                        $scope.has_nodes = false;
+                        $scope.has_no_nodes = true;
+                    }
+                    return nbGoogle.then(function(google) {
+                        return draw_nodes_stats_map(google, selected_geo);
+                    });
+                }
+            );
+        }
+
+        function list_nodes(params) {
+            return $q.when(load_node_vendors()).then(
+                function() {
+                    return edge_node_client.list_nodes(params);
                 }
             ).then(
                 function(res) {
                     console.log('NODES', res);
-                    $scope.nodes = res.nodes;
-                    _.each($scope.nodes, function(node) {
+                    var nodes = res.nodes;
+                    _.each(nodes, function(node) {
                         node.hearbeat_moment = moment(new Date(node.heartbeat));
                         node.usage_percent = 100 * node.used_storage / node.allocated_storage;
                         node.vendor = $scope.node_vendors_by_id[node.vendor];
                     });
-                    $scope.nodes_by_geo = _.groupBy($scope.nodes, 'geolocation');
-                    update_detailed_nodes();
-                    nbGoogle.then(draw_nodes_map);
+                    return nodes;
                 }
             );
         }
@@ -123,11 +241,7 @@ nb_app.factory('nbNodes', [
                 if (!scope.count || !scope.selected_vendor.id || !scope.allocate_gb) {
                     return;
                 }
-                var node_name_to_number = function(node) {
-                    return Number(node.name) || 0;
-                };
-                var max_node = _.max($scope.nodes, node_name_to_number);
-                var next_node_name = max_node ? (node_name_to_number(max_node) + 1) : 0;
+                var next_node_name = $scope.nodes_count + 1;
                 var num_created = 0;
                 // using manual defer in order to report progress to the ladda button
                 var defer = $q.defer();
@@ -147,7 +261,7 @@ nb_app.factory('nbNodes', [
                         num_created += 1;
                         defer.notify(num_created / scope.count);
                     });
-                })).then(refresh_nodes).then(defer.resolve, defer.reject);
+                })).then(refresh_nodes_stats).then(defer.resolve, defer.reject);
                 return defer.promise;
             };
 
@@ -174,7 +288,7 @@ nb_app.factory('nbNodes', [
                 function() {
                     return $q.when(edge_node_client.delete_node({
                         name: node.name
-                    })).then(refresh_nodes);
+                    })).then(refresh_nodes_stats);
                 }
             );
         }
@@ -197,22 +311,18 @@ nb_app.factory('nbNodes', [
         function start_agent(node) {
             return $q.when(edge_node_client.start_agents({
                 nodes: [node.name]
-            })).then(refresh_nodes);
+            }));
         }
 
         function stop_agent(node) {
             return $q.when(edge_node_client.stop_agents({
                 nodes: [node.name]
-            })).then(refresh_nodes);
+            }));
         }
 
 
-        function update_detailed_nodes() {
-            $scope.detailed_nodes.nodes = $scope.nodes_by_geo[$scope.detailed_nodes.geo];
-        }
-
-        function draw_nodes_map(google) {
-            var element = $window.document.getElementById('nodes_map');
+        function draw_nodes_stats_map(google, selected_geo) {
+            var element = $window.document.getElementById('nodes_stats_map');
             if (!element) {
                 return;
             }
@@ -224,27 +334,27 @@ nb_app.factory('nbNodes', [
             data.addColumn('string', 'Location');
             data.addColumn('number', 'Storage Capacity');
             data.addColumn('number', 'Number of Nodes');
-            _.each($scope.nodes_by_geo, function(nodes, geo) {
-                var geo_alloc = 0;
-                _.each(nodes, function(node) {
-                    geo_alloc += node.allocated_storage;
-                });
-                if (geo_alloc > max_alloc) {
-                    max_alloc = geo_alloc;
+            var selected_row = -1;
+            _.each($scope.nodes_stats, function(stat, index) {
+                if (stat.geolocation === selected_geo) {
+                    selected_row = index;
                 }
-                if (geo_alloc < min_alloc) {
-                    min_alloc = geo_alloc;
+                if (stat.allocated_storage > max_alloc) {
+                    max_alloc = stat.allocated_storage;
                 }
-                if (nodes.length > max_num_nodes) {
-                    max_num_nodes = nodes.length;
+                if (stat.allocated_storage < min_alloc) {
+                    min_alloc = stat.allocated_storage;
                 }
-                if (nodes.length < min_num_nodes) {
-                    min_num_nodes = nodes.length;
+                if (stat.count > max_num_nodes) {
+                    max_num_nodes = stat.count;
                 }
-                data.addRow([geo, {
-                    v: geo_alloc,
-                    f: $rootScope.human_size(geo_alloc)
-                }, nodes.length]);
+                if (stat.count < min_num_nodes) {
+                    min_num_nodes = stat.count;
+                }
+                data.addRow([stat.geolocation, {
+                    v: stat.allocated_storage,
+                    f: $rootScope.human_size(stat.allocated_storage)
+                }, stat.count]);
             });
             var options = {
                 displayMode: 'markers',
@@ -278,11 +388,20 @@ nb_app.factory('nbNodes', [
                 },
             };
             var chart = new google.visualization.GeoChart(element);
+            google.visualization.events.addListener(chart, 'ready', function() {
+                if (selected_row >= 0) {
+                    chart.setSelection([{
+                        row: selected_row,
+                        column: null,
+                    }]);
+                }
+            });
             google.visualization.events.addListener(chart, 'select', function() {
                 var selection = chart.getSelection();
-                $scope.detailed_nodes.geo = data.getValue(selection[0].row, 0);
-                update_detailed_nodes();
-                if (selection.length) {
+                if (selection[0]) {
+                    var geo = data.getValue(selection[0].row, 0);
+                    $location.path('nodes/geo/' + geo);
+                } else {
                     $location.path('nodes');
                 }
                 $rootScope.safe_apply();

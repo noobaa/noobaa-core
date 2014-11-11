@@ -35,7 +35,11 @@ nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
         $routeProvider.when('/dashboard', {
             templateUrl: 'dashboard.html',
         }).when('/nodes', {
-            templateUrl: 'nodes.html',
+            templateUrl: 'nodes_list.html',
+        }).when('/nodes/geo/:geo', {
+            templateUrl: 'nodes_list.html',
+        }).when('/nodes/n/:name', {
+            templateUrl: 'node_details.html',
         }).when('/stats', {
             templateUrl: 'stats.html',
         }).when('/upload', {
@@ -103,7 +107,7 @@ nb_app.controller('DashboardCtrl', [
         $scope.refresh_view = function() {
             return $q.all([
                 $scope.nbAccount.refresh_stats(),
-                $scope.nbNodes.refresh_nodes()
+                $scope.nbNodes.refresh_nodes_stats()
             ]);
         };
 

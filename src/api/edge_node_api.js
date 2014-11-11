@@ -170,35 +170,7 @@ module.exports = restful_api({
             method: 'PUT',
             path: '/node/:name',
             params: {
-                type: 'object',
-                required: [
-                    'name',
-                    'geolocation',
-                    'ip',
-                    'port',
-                    'allocated_storage',
-                    'used_storage',
-                ],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    geolocation: {
-                        type: 'string'
-                    },
-                    ip: {
-                        type: 'string'
-                    },
-                    port: {
-                        type: 'integer'
-                    },
-                    allocated_storage: {
-                        type: 'integer'
-                    },
-                    used_storage: {
-                        type: 'integer'
-                    },
-                }
+                $ref: '/edge_node_api/definitions/node_info'
             },
             reply: {
                 $ref: '/edge_node_api/definitions/node_info'
@@ -360,6 +332,7 @@ module.exports = restful_api({
                 'heartbeat',
                 'allocated_storage',
                 'used_storage',
+                'system_info',
             ],
             properties: {
                 name: {
@@ -389,6 +362,16 @@ module.exports = restful_api({
                 },
                 vendor_node_id: {
                     type: 'string'
+                },
+                system_info: {
+                    type: 'object',
+                    required: ['os'],
+                    properties: {
+                        os: {
+                            type: 'object',
+                            additionalProperties: true,
+                        }
+                    }
                 }
             }
         }

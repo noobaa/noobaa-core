@@ -91,7 +91,7 @@ function delete_node(req) {
         function(node_arg) {
             node = node_arg;
             if (!node) {
-                throw new Error('node not found ' + info.name);
+                throw_node_not_found(node, info.name);
             }
             return DataBlock.findOne({
                 node: node.id
@@ -118,9 +118,7 @@ function read_node(req) {
         }
     ).then(
         function(node) {
-            if (!node) {
-                throw new Error('node not found ' + info.name);
-            }
+            throw_node_not_found(node);
             return get_node_info(node);
         }
     );
@@ -247,7 +245,9 @@ function heartbeat(req) {
         'geolocation',
         'ip',
         'port',
-        'allocated_storage');
+        'allocated_storage',
+        'system_info'
+    );
     updates.ip = (updates.ip && updates.ip !== '0.0.0.0' && updates.ip) ||
         req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress;
@@ -263,9 +263,7 @@ function heartbeat(req) {
     ).then(
         function(node_arg) {
             node = node_arg;
-            if (!node) {
-                throw new Error('node not found ' + info.name);
-            }
+            throw_node_not_found(node, info.name);
             // TODO need to optimize - we read blocks and chunks on every heartbeat...
             return DataBlock.find({
                 node: node.id
@@ -489,5 +487,17 @@ function get_node_info(node) {
     if (node.vendor_node_id) {
         info.vendor_node_id = node.vendor_node_id;
     }
+    info.system_info = node.system_info && node.system_info.toObject() || {};
+    if (!info.system_info.os) {
+        info.system_info.os = {};
+    }
     return info;
+}
+
+function throw_node_not_found(node, info) {
+    if (!node) {
+        var err = new Error('node not found' + (info && ' ' + info || ''));
+        err.status = 404;
+        throw err;
+    }
 }

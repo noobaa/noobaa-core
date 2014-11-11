@@ -71,6 +71,12 @@ var edge_node_schema = new Schema({
     // desired state - true=started, false=stopped
     vendor_node_desired_state: {
         type: Boolean
+    },
+
+    // system information sent by the agent.
+    // TODO no schema yet for system_info
+    system_info: {
+        os: {}
     }
 
 });

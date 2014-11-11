@@ -19,6 +19,7 @@ var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var os = require('os');
 
 module.exports = Agent;
 
@@ -220,8 +221,24 @@ Agent.prototype.send_heartbeat = function() {
         geolocation: self.node_geolocation,
         ip: '',
         port: self.http_port,
+        heartbeat: new Date().toString(),
         allocated_storage: self.allocated_storage,
         used_storage: self.used_storage,
+        system_info: {
+            os: {
+                hostname: os.hostname(),
+                type: os.type(),
+                platform: os.platform(),
+                arch: os.arch(),
+                release: os.release(),
+                uptime: os.uptime(),
+                loadavg: os.loadavg(),
+                totalmem: os.totalmem(),
+                freemem: os.freemem(),
+                cpus: os.cpus(),
+                networkInterfaces: os.networkInterfaces(),
+            }
+        }
     });
 };
 
@@ -243,7 +260,7 @@ Agent.prototype._read_block = function(block_id) {
     var lru_block = self.blocks_lru.find_or_add_item(block_id);
     if (lru_block && lru_block.data) {
         // console.log('read block from cache', block_id,
-            // lru_block.data.length, typeof(lru_block.data), self.node_name);
+        // lru_block.data.length, typeof(lru_block.data), self.node_name);
         return lru_block.data;
     }
     var block_path = self._block_path(block_id);
@@ -253,7 +270,7 @@ Agent.prototype._read_block = function(block_id) {
     return Q.nfcall(fs.readFile, block_path).then(
         function(data) {
             // console.log('read block from disk', block_id,
-                // data.length, typeof(data), self.node_name);
+            // data.length, typeof(data), self.node_name);
             lru_block.data = data;
             return data;
         },

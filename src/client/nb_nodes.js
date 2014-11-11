@@ -18,25 +18,9 @@ var edge_node_client = new edge_node_api.Client({
 var nb_app = angular.module('nb_app');
 
 
-nb_app.controller('NodesCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes',
-    function($scope, $http, $q, $window, $timeout, nbNodes) {
-
-        $scope.nav.active = 'nodes';
-
-        $scope.refresh_view = function() {
-            return nbNodes.refresh_nodes_stats();
-        };
-
-        $scope.refresh_view();
-    }
-]);
-
-
-
 nb_app.controller('NodesListCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams',
-    function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams) {
+    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams', '$location',
+    function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams, $location) {
 
         $scope.nav.active = 'nodes';
 
@@ -104,7 +88,7 @@ nb_app.controller('NodesListCtrl', [
         }
 
         function click_node(node) {
-            // TODO click on node row in nodes table
+            $location.path('nodes/n/' + node.name);
         }
     }
 ]);
@@ -112,17 +96,32 @@ nb_app.controller('NodesListCtrl', [
 
 
 nb_app.controller('NodeDetailsCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams',
-    function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams) {
+    '$scope', '$http', '$q', '$window', '$timeout',
+    'nbNodes', '$routeParams', '$location','nbAlertify',
+    function($scope, $http, $q, $window, $timeout,
+        nbNodes, $routeParams, $location,nbAlertify) {
 
         $scope.nav.active = 'nodes';
 
+        $scope.node_name = $routeParams.name;
+        $scope.refresh_view = refresh_view;
+        $scope.refresh_view();
 
-        $scope.refresh_view = function() {
-            // TODO
-        };
-
-
+        function refresh_view() {
+            return nbNodes.read_node($scope.node_name).then(
+                function(node) {
+                    $scope.node = node;
+                },
+                function(err) {
+                    if (err.status === 404) {
+                        nbAlertify.error('node not found...');
+                        $location.path('nodes/');
+                        return;
+                    }
+                    throw err;
+                }
+            );
+        }
     }
 ]);
 
@@ -134,6 +133,7 @@ nb_app.factory('nbNodes', [
         var $scope = {};
         $scope.refresh_nodes_stats = refresh_nodes_stats;
         $scope.list_nodes = list_nodes;
+        $scope.read_node = read_node;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
         $scope.click_node_status = click_node_status;
@@ -181,11 +181,7 @@ nb_app.factory('nbNodes', [
                 function(res) {
                     console.log('NODES', res);
                     var nodes = res.nodes;
-                    _.each(nodes, function(node) {
-                        node.hearbeat_moment = moment(new Date(node.heartbeat));
-                        node.usage_percent = 100 * node.used_storage / node.allocated_storage;
-                        node.vendor = $scope.node_vendors_by_id[node.vendor];
-                    });
+                    _.each(nodes, extend_node_info);
                     return nodes;
                 }
             );
@@ -199,6 +195,29 @@ nb_app.factory('nbNodes', [
                     console.log('NODE VENDORS', $scope.node_vendors);
                 }
             );
+        }
+
+        function read_node(name) {
+            return $q.when(load_node_vendors()).then(
+                function() {
+                    return edge_node_client.read_node({
+                        name: name
+                    });
+                }
+            ).then(
+                function(res) {
+                    console.log('READ NODE', res);
+                    var node = res;
+                    extend_node_info(node);
+                    return node;
+                }
+            );
+        }
+
+        function extend_node_info(node) {
+            node.hearbeat_moment = moment(new Date(node.heartbeat));
+            node.usage_percent = 100 * node.used_storage / node.allocated_storage;
+            node.vendor = $scope.node_vendors_by_id[node.vendor];
         }
 
         function add_nodes(loaded_vendors) {

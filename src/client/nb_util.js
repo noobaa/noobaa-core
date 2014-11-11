@@ -307,7 +307,7 @@ nb_util.directive('nbProgressCanvas', [
             restrict: 'A',
             scope: {
                 nbProgressCanvas: '=',
-                progressLength: '=',
+                progressMax: '=',
                 progressColor: '=',
             },
             link: function(scope, element, attrs) {
@@ -316,7 +316,7 @@ nb_util.directive('nbProgressCanvas', [
                 var opt = {};
 
                 scope.$watch('nbProgressCanvas', update_data, true);
-                scope.$watch('progressLength', update_options.bind(null, 'length'));
+                scope.$watch('progressMax', update_options.bind(null, 'max'));
                 scope.$watch('progressColor', update_options.bind(null, 'color'));
 
                 function update_data(value) {
@@ -332,27 +332,14 @@ nb_util.directive('nbProgressCanvas', [
                 function redraw() {
                     var w = d.canvas.width;
                     var h = d.canvas.height;
-                    var wd = w / opt.length;
-                    /*
-                    // this comented code adjusts the canvas width so
-                    // that there is a minimal width to the data points.
-                    // but updating the canvas width is heavy with multiple canvases in a page.
-                    if (wd < 20) {
-                        wd = 100;
-                        w = wd * opt.length;
-                        d.canvas.width = w;
-                    }*/
+                    var wd = w / opt.max;
                     d.fillStyle = opt.color;
                     d.clearRect(0, 0, w, h);
-                    if (!data || !data.length) {
-                        return;
-                    }
-                    var len = Math.min(data.length, opt.length);
-                    for (var i = 0, p = 0; i < len; i++, p += wd) {
-                        if (data[i]) {
-                            d.fillRect(p, 0, wd, h);
-                        }
-                    }
+                    _.each(data, function(p) {
+                        var start = p.start * wd;
+                        var end = p.end * wd;
+                        d.fillRect(start, 0, end - start, h);
+                    });
                 }
             }
         };
@@ -547,7 +534,7 @@ function human_percent(percent) {
     var str = Number(percent || 0).toFixed(1);
     var n = str.length;
     if (str[n - 1] === '0' && str[n - 2] === '.') {
-        return str.substr(0, n - 2)  + ' %';
+        return str.substr(0, n - 2) + ' %';
     } else {
         return str + ' %';
     }

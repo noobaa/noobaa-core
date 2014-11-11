@@ -60,29 +60,26 @@ nb_app.controller('UploadCtrl', [
 
                 $scope.uploading = true;
                 $scope.parts = [];
-                $scope.num_indexes = 0; // counter for any encountered index
                 var nodes = $scope.nodes = {};
                 var apply_timeout;
 
                 object_client.events().on('part', function(part) {
-                    console.log('emitter part', part);
-                    $scope.parts.push(part);
-
+                    // $scope.parts.push(part); // unneeded for now
+                    var block_size = (part.chunk_size / part.kblocks) | 0;
                     _.each(part.indexes, function(blocks, index) {
+                        var start = part.start + (block_size * index);
+                        var end = start + block_size;
                         _.each(blocks, function(block) {
                             var node = nodes[block.node.id];
                             if (!node) {
                                 node = nodes[block.node.id] = _.clone(block.node);
-                                node.blocks = [];
+                                node.blocks = {};
                             }
-                            node.blocks[$scope.num_indexes] = {
-                                id: block.id,
-                                part: part,
-                                index: index,
-                                index_num: $scope.num_indexes,
+                            node.blocks[block.id] = {
+                                start: start,
+                                end: end,
                             };
                         });
-                        $scope.num_indexes += 1;
                     });
 
                     // throttled scope apply

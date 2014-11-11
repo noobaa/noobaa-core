@@ -97,9 +97,9 @@ nb_app.controller('NodesListCtrl', [
 
 nb_app.controller('NodeDetailsCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
-    'nbNodes', '$routeParams', '$location','nbAlertify',
+    'nbNodes', '$routeParams', '$location', 'nbAlertify',
     function($scope, $http, $q, $window, $timeout,
-        nbNodes, $routeParams, $location,nbAlertify) {
+        nbNodes, $routeParams, $location, nbAlertify) {
 
         $scope.nav.active = 'nodes';
 
@@ -257,8 +257,16 @@ nb_app.factory('nbNodes', [
 
             scope.add_nodes = function() {
                 console.log('ADD NODES');
-                if (!scope.count || !scope.selected_vendor.id || !scope.allocate_gb) {
-                    return;
+                if (typeof(scope.count) !== 'number' ||
+                    scope.count < 1 || scope.count > 100) {
+                    throw 'Number of nodes should be a number in range 1-100';
+                }
+                if (typeof(scope.allocate_gb) !== 'number' ||
+                    scope.allocate_gb < 1 || scope.allocate_gb > 100) {
+                    throw 'Gigabyte per node should be a number in range 1-100';
+                }
+                if (!scope.selected_vendor.id) {
+                    throw 'Missing selection where to run on';
                 }
                 var next_node_name = $scope.nodes_count + 1;
                 var num_created = 0;
@@ -285,12 +293,17 @@ nb_app.factory('nbNodes', [
             };
 
             scope.run = function() {
-                return $q.when(scope.add_nodes()).then(
+                return $q.when(true,
                     function() {
+                        return scope.add_nodes();
+                    }
+                ).then(
+                    function() {
+                        nbAlertify.success('The deed is done');
                         scope.modal.modal('hide');
                     },
                     function(err) {
-                        nbAlertify.error(err);
+                        nbAlertify.error(err.data || err.message || err.toString());
                     }
                 );
             };

@@ -16,16 +16,16 @@
                 <form class="form-horizontal" role="form">
                     <div class="form-group">
                         <label class="control-label col-xs-4">How many</label>
-                        <div class="col-xs-4 col-sm-3">
-                            <input ng-disabled="running" type="number" class="form-control form-control-lg" ng-model="count" autofocus />
+                        <div class="col-xs-4">
+                            <input ng-disabled="running" type="number" class="form-control form-control-lg" ng-model="count" min="1" max="100" required autofocus />
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="control-label col-xs-4">GigaBytes per Node</label>
-                        <div class="col-xs-4 col-sm-3">
-                            <input ng-disabled="running" type="number" class="form-control form-control-lg" ng-model="allocate_gb" min="1" max="100" />
+                        <div class="col-xs-4">
+                            <input ng-disabled="running" type="number" class="form-control form-control-lg" ng-model="allocate_gb" min="1" max="100" required />
                         </div>
-                        <!-- <div class="col-xs-4 col-sm-5">
+                        <!-- <div class="col-xs-4">
                             <input ng-disabled="running" type="range" class="form-control form-control-lg" ng-model="allocate_gb_str" min="1" max="100" step="1" />
                         </div> -->
                     </div>
@@ -33,7 +33,7 @@
                         <label class="control-label col-xs-4">Run on</label>
                         <div class="col-xs-8">
                             <div class="form-control form-control-lg">
-                                <select ng-disabled="running" ng-model="selected_vendor" ng-options="vendor.name for vendor in node_vendors"></select>
+                                <select ng-disabled="running" ng-model="selected_vendor" ng-options="vendor.name for vendor in node_vendors" required></select>
                             </div>
                         </div>
                     </div>
@@ -41,7 +41,7 @@
             </div>
 
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" nb-click-ladda="run()">Add Nodes</button>
+                <button type="submit" class="btn btn-primary" nb-click-ladda="run()">Add Nodes</button>
             </div>
 
         </div>

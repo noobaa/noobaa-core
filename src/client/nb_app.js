@@ -70,19 +70,19 @@ nb_app.controller('AppCtrl', [
 
         $scope.nav = {
             active: 'dashboard',
-            order: ['dashboard', 'stats', 'nodes', 'upload', 'download'],
+            order: ['dashboard', 'nodes', 'stats', 'upload', 'download'],
             items: {
                 dashboard: {
                     text: 'Dashboard',
                     href: 'dashboard',
                 },
-                stats: {
-                    text: 'Stats',
-                    href: 'stats',
-                },
                 nodes: {
                     text: 'Nodes',
                     href: 'nodes',
+                },
+                stats: {
+                    text: 'Stats',
+                    href: 'stats',
                 },
                 upload: {
                     text: 'Upload',

@@ -1,73 +1,84 @@
 <div ng-controller="NodeDetailsCtrl">
+
     <div ng-include="'navbar.html'"></div>
 
     <div class="container-fluid" ng-if="node">
 
-        <div class="clearfix">
-            <h1 class="animated fadeInDown">
-                {{node_name}} @ {{node.geolocation}}
-            </h1>
+        <h1 class="text-muted">Node Details</h1>
+
+        <hr/>
+
+        <div class="row">
+
+            <div class="col-sm-6 col-md-4">
+                <h1>{{node_name}}</h1> Name
+                <h1>{{node.geolocation}}</h1> Location
+                <h1>{{node.ip}}</h1> IP
+                <h1>{{node.port}}</h1> Port
+            </div>
+
+            <div class="col-sm-6 col-md-4">
+                <h4 class="text-muted">Status</h4>
+                <table class="grid">
+                    <tr>
+                        <td>
+                            <button class="btn btn-link btn-lg" style="outline:none" nb-click-ladda="nbNodes.click_node_status(node)">
+                                <i class="fa fa-2x fa-circle text-green" ng-show="node.is_online"></i>
+                                <i class="fa fa-2x fa-circle text-muted" ng-hide="node.is_online"></i>
+                            </button>
+                        </td>
+                        <td>{{node.ip}}:{{node.port}}</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <button class="btn btn-link btn-lg" nb-click-ladda="nbNodes.click_node_status(node)">
+                                <i class="fa fa-heart text-danger fa-2x" ng-show="node.is_online"></i>
+                                <i class="fa fa-heart text-muted fa-2x" ng-hide="node.is_online"></i>
+                            </button>
+                        </td>
+                        <td>{{node.hearbeat_moment.fromNow()}}</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <button class="btn btn-link btn-lg" style="outline:none" ng-click="node.desired_state=!node.desired_state">
+                                <i class="fa fa-toggle-on text-yellow fa-2x" ng-hide="node.desired_state"></i>
+                                <i class="fa fa-toggle-off text-muted fa-2x" ng-show="node.desired_state"></i>
+                            </button>
+                        </td>
+                        <td>Turn on/off</td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <button class="btn btn-link btn-lg" nb-click-ladda="nbNodes.remove_node(node)">
+                                <i class="fa fa-trash text-muted fa-2x"></i>
+                            </button>
+                        </td>
+                        <td>Remove node</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="col-sm-6 col-md-4">
+                <h4 class="text-muted">System Info</h4>
+                <table class="table" style="max-width:400px; width:auto">
+                    <tr>
+                        <td>Runs on</td>
+                        <td>{{node.vendor.name}}</td>
+                    </tr>
+                    <tr ng-repeat="(key,val) in node.system_info.os">
+                        <td>{{key}}</td>
+                        <td ng-switch="key">
+                            <span ng-switch-when="freemem">{{human_size(val)}}</span>
+                            <span ng-switch-when="totalmem">{{human_size(val)}}</span>
+                            <span ng-switch-when="cpus">{{val.length}}</span>
+                            <span ng-switch-when="loadavg">{{val[0].toFixed(2)}} {{val[1].toFixed(2)}} {{val[2].toFixed(2)}}</span>
+                            <span ng-switch-when="networkInterfaces">{{_.keys(val).join(', ')}}</span>
+                            <span ng-switch-default>{{val}}</span>
+                        </td>
+                    </tr>
+                </table>
+
+            </div>
         </div>
-
-        <br/>
-
-        <table class="grid">
-            <tr>
-                <td>
-                    <button class="btn btn-link btn-lg" style="outline:none" nb-click-ladda="nbNodes.click_node_status(node)">
-                        <i class="fa fa-2x fa-circle text-green" ng-show="node.is_online"></i>
-                        <i class="fa fa-2x fa-circle text-muted" ng-hide="node.is_online"></i>
-                    </button>
-                </td>
-                <td>{{node.ip}}:{{node.port}}</td>
-            </tr>
-            <tr>
-                <td>
-                    <button class="btn btn-link btn-lg" nb-click-ladda="nbNodes.click_node_status(node)">
-                        <i class="fa fa-heart text-danger fa-2x" ng-show="node.is_online"></i>
-                        <i class="fa fa-heart text-muted fa-2x" ng-hide="node.is_online"></i>
-                    </button>
-                </td>
-                <td>{{node.hearbeat_moment.fromNow()}}</td>
-            </tr>
-            <tr>
-                <td>
-                    <button class="btn btn-link btn-lg" style="outline:none" ng-click="node.desired_state=!node.desired_state">
-                        <i class="fa fa-toggle-on text-yellow fa-2x" ng-hide="node.desired_state"></i>
-                        <i class="fa fa-toggle-off text-muted fa-2x" ng-show="node.desired_state"></i>
-                    </button>
-                </td>
-                <td>Turn on/off</td>
-            </tr>
-            <tr>
-                <td>
-                    <button class="btn btn-link btn-lg" nb-click-ladda="nbNodes.remove_node(node)">
-                        <i class="fa fa-trash text-muted fa-2x"></i>
-                    </button>
-                </td>
-                <td>Remove node</td>
-            </tr>
-        </table>
-
-        <br/>
-
-        <table class="table" style="max-width:400px; width:auto">
-            <tr>
-                <td>Runs on</td>
-                <td>{{node.vendor.name}}</td>
-            </tr>
-            <tr ng-repeat="(key,val) in node.system_info.os">
-                <td>{{key}}</td>
-                <td ng-switch="key">
-                    <span ng-switch-when="freemem">{{human_size(val)}}</span>
-                    <span ng-switch-when="totalmem">{{human_size(val)}}</span>
-                    <span ng-switch-when="cpus">{{val.length}}</span>
-                    <span ng-switch-when="loadavg">{{val[0].toFixed(2)}} {{val[1].toFixed(2)}} {{val[2].toFixed(2)}}</span>
-                    <span ng-switch-when="networkInterfaces">{{_.keys(val).join(', ')}}</span>
-                    <span ng-switch-default>{{val}}</span>
-                </td>
-            </tr>
-        </table>
-
     </div>
 </div>

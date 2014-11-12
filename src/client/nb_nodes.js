@@ -28,7 +28,7 @@ nb_app.controller('NodesListCtrl', [
         $scope.open_node = open_node;
         $scope.select_node = select_node;
         $scope.is_selected_node = is_selected_node;
-        $scope.previous_page = previous_page;
+        $scope.prev_page = prev_page;
         $scope.next_page = next_page;
         $scope.geo = $routeParams.geo;
         $scope.skip = 0;
@@ -83,7 +83,7 @@ nb_app.controller('NodesListCtrl', [
             return $scope.selected_node === node;
         }
 
-        function previous_page() {
+        function prev_page() {
             $scope.skip -= $scope.limit;
             if ($scope.skip < 0) {
                 $scope.skip = 0;

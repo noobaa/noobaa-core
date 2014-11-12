@@ -21,6 +21,11 @@
 @brand-warning: hsl(60,70%,60%);
 @brand-danger: hsl(350,70%,60%);
 
+// less contrast of gray levels
+/* @gray: lighten(@gray-base, 40%); */
+@gray-light: lighten(@gray-base, 65%);
+@gray-lighter: lighten(@gray-base, 90%);
+
 /* @navbar-default-link-active-color: @btn-primary-color; */
 /* @navbar-default-link-active-bg: @btn-primary-bg; */
 
@@ -64,6 +69,16 @@
 }
 .text-black {
     color: black;
+}
+table th {
+    .text-muted;
+}
+/*.breadcrumb {
+    background-color: transparent;
+    padding: 0;
+}*/
+.progress {
+    background-color: darken(@gray-lighter, 3%);
 }
 .noselect {
     -webkit-touch-callout: all;

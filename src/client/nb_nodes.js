@@ -30,6 +30,8 @@ nb_app.controller('NodesListCtrl', [
         $scope.is_selected_node = is_selected_node;
         $scope.prev_page = prev_page;
         $scope.next_page = next_page;
+        $scope.toggle_node_started = toggle_node_started;
+        $scope.add_nodes = add_nodes;
         $scope.geo = $routeParams.geo;
         $scope.skip = 0;
         $scope.limit = 10;
@@ -101,6 +103,18 @@ nb_app.controller('NodesListCtrl', [
             return refresh_list();
         }
 
+        function toggle_node_started(node) {
+            if (node.started) {
+                return nbNodes.stop_node(node).then(refresh_view);
+            } else {
+                return nbNodes.start_node(node).then(refresh_view);
+            }
+        }
+
+        function add_nodes() {
+            return nbNodes.add_nodes().then(refresh_view);
+        }
+
     }
 ]);
 
@@ -116,6 +130,8 @@ nb_app.controller('NodeDetailsCtrl', [
 
         $scope.node_name = $routeParams.name;
         $scope.refresh_view = refresh_view;
+        $scope.start_node = start_node;
+        $scope.stop_node = stop_node;
         $scope.refresh_view();
 
         function refresh_view() {
@@ -133,6 +149,14 @@ nb_app.controller('NodeDetailsCtrl', [
                 }
             );
         }
+
+        function start_node(node) {
+            return nbNodes.start_node(node).then(refresh_view);
+        }
+
+        function stop_node(node) {
+            return nbNodes.stop_node(node).then(refresh_view);
+        }
     }
 ]);
 
@@ -147,9 +171,8 @@ nb_app.factory('nbNodes', [
         $scope.read_node = read_node;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
-        $scope.click_node_status = click_node_status;
-        $scope.start_agent = start_agent;
-        $scope.stop_agent = stop_agent;
+        $scope.start_node = start_node;
+        $scope.stop_node = stop_node;
 
 
         function refresh_nodes_stats(selected_geo) {
@@ -303,6 +326,8 @@ nb_app.factory('nbNodes', [
                 return defer.promise;
             };
 
+            var defer = $q.defer();
+
             scope.run = function() {
                 return $q.when(true,
                     function() {
@@ -312,9 +337,11 @@ nb_app.factory('nbNodes', [
                     function() {
                         nbAlertify.success('The deed is done');
                         scope.modal.modal('hide');
+                        defer.resolve();
                     },
                     function(err) {
                         nbAlertify.error(err.data || err.message || err.toString());
+                        defer.reject(err);
                     }
                 );
             };
@@ -323,7 +350,15 @@ nb_app.factory('nbNodes', [
                 template: 'add_nodes_dialog.html',
                 scope: scope,
             });
+
+            // this promise is a bit fishy, we only resolve/reject it if the
+            // modal is run (which can even be multiple times) and we don't
+            // do anything if the modal is just closed.
+            // this is fine as long as we only need it as a notification for refreshing
+            // after the nodes were added.
+            return defer.promise;
         }
+
 
         function remove_node(node) {
             return nbAlertify.confirm('Really remove node ' +
@@ -336,29 +371,15 @@ nb_app.factory('nbNodes', [
             );
         }
 
-        function click_node_status(node) {
-            return $q.when(edge_node_client.get_agents_status({
-                nodes: [node.name]
-            })).then(
-                function(res) {
-                    console.log('get_agents_status', res);
-                    node.is_online = res.nodes[0].status;
-                },
-                function(err) {
-                    console.log('FAILED get_agents_status', err);
-                    node.is_online = undefined;
-                }
-            );
-        }
 
-        function start_agent(node) {
-            return $q.when(edge_node_client.start_agents({
+        function start_node(node) {
+            return $q.when(edge_node_client.start_nodes({
                 nodes: [node.name]
             }));
         }
 
-        function stop_agent(node) {
-            return $q.when(edge_node_client.stop_agents({
+        function stop_node(node) {
+            return $q.when(edge_node_client.stop_nodes({
                 nodes: [node.name]
             }));
         }

@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
+var node_monitor = require('./node_monitor');
 
 // db models
 var DataBlock = require('./models/data_block');
@@ -59,24 +60,24 @@ function allocate_blocks_for_new_chunk(chunk) {
 
 
 function update_alloc_nodes() {
-    var minimum_time_for_alloc = moment().subtract(2, 'minutes');
-    if (alloc_nodes && last_update_time_alloc_nodes &&
-        last_update_time_alloc_nodes.isAfter(minimum_time_for_alloc)) {
+    var minimum_alloc_heartbeat = node_monitor.get_minimum_alloc_heartbeat();
+    if (alloc_nodes && last_update_time_alloc_nodes >= minimum_alloc_heartbeat) {
         return;
     }
     if (!update_alloc_nodes_promise) {
         update_alloc_nodes_promise = Q.fcall(
             function() {
                 return EdgeNode.find({
+                    started: true,
                     heartbeat: {
-                        $gt: minimum_time_for_alloc.toDate()
+                        $gt: minimum_alloc_heartbeat
                     }
                 }).exec();
             }
         ).then(
             function(nodes) {
                 alloc_nodes = nodes;
-                last_update_time_alloc_nodes = moment();
+                last_update_time_alloc_nodes = new Date();
                 update_alloc_nodes_promise = null;
             },
             function(err) {

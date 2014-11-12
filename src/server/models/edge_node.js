@@ -38,6 +38,12 @@ var edge_node_schema = new Schema({
         type: Number,
     },
 
+    // started/stopped state for the node agent
+    started: {
+        type: Boolean,
+        required: true,
+    },
+
     // the last time the node sent heartbeat
     heartbeat: {
         type: Date,

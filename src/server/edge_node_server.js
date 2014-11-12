@@ -9,6 +9,7 @@ var size_utils = require('../util/size_utils');
 var edge_node_api = require('../api/edge_node_api');
 var agent_host_api = require('../api/agent_host_api');
 var account_server = require('./account_server');
+var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
 // db models
@@ -24,11 +25,11 @@ module.exports = new edge_node_api.Server({
     read_node: read_node,
     list_nodes: list_nodes,
     nodes_stats: nodes_stats,
-    heartbeat: heartbeat,
-    get_agents_status: get_agents_status,
-    start_agents: start_agents,
-    stop_agents: stop_agents,
+    start_nodes: start_nodes,
+    stop_nodes: stop_nodes,
     get_node_vendors: get_node_vendors,
+    get_agents_status: get_agents_status,
+    heartbeat: heartbeat,
     connect_node_vendor: connect_node_vendor,
 }, [
     // middleware to verify the account session before any of this server calls
@@ -45,11 +46,9 @@ function create_node(req) {
         'vendor_node_id'
     );
     info.account = req.account.id; // see account_server.account_session
+    info.started = true;
     info.heartbeat = new Date();
     info.used_storage = 0;
-
-    // TODO handle vendor_node_desired_state !!
-    info.vendor_node_desired_state = true;
 
     var vendor;
     return Q.fcall(
@@ -100,9 +99,10 @@ function delete_node(req) {
     ).then(
         function(block) {
             if (block) {
-                // TODO initiate rebuild
+                // TODO delete_node initiate rebuild of blocks
                 console.log('DELETE NODE WITH BLOCK', block);
             }
+            // TODO delete_node move the node to deleted nodes collection
             return node.remove();
         }
     ).thenResolve();
@@ -234,6 +234,69 @@ function nodes_stats(req) {
     );
 }
 
+function start_nodes(req) {
+    var node_names = req.restful_params.nodes;
+    return Q.fcall(set_nodes_started_state, req.account, node_names, true).then(
+        function(nodes) {
+            return agent_host_action(nodes, 'start_agent');
+        }
+    ).thenResolve();
+}
+
+function stop_nodes(req) {
+    var node_names = req.restful_params.nodes;
+    return Q.fcall(set_nodes_started_state, req.account, node_names, false).then(
+        function(nodes) {
+            return agent_host_action(nodes, 'stop_agent');
+        }
+    ).thenResolve();
+}
+
+
+function get_node_vendors(req) {
+    return Q.fcall(
+        function() {
+            return NodeVendor.find({
+                account: req.account.id
+            }).exec();
+        }
+    ).then(
+        function(vendors) {
+            return {
+                vendors: _.map(vendors, function(v) {
+                    return _.pick(v, 'id', 'name', 'kind');
+                })
+            };
+        }
+    );
+}
+
+
+
+// TODO is this still needed as api method?
+function get_agents_status(req) {
+    var node_names = req.restful_params.nodes;
+    return Q.fcall(get_nodes_with_vendors, req.account, node_names).then(
+        function(nodes) {
+            return agent_host_action(nodes, 'get_agent_status');
+        }
+    ).then(
+        function(res) {
+            return {
+                nodes: _.map(res, function(node_res) {
+                    var status = false;
+                    if (node_res.state === 'fulfilled' &&
+                        node_res.value && node_res.value.status) {
+                        status = true;
+                    }
+                    return {
+                        status: status
+                    };
+                })
+            };
+        }
+    );
+}
 
 
 
@@ -264,7 +327,7 @@ function heartbeat(req) {
         function(node_arg) {
             node = node_arg;
             throw_node_not_found(node, info.name);
-            // TODO need to optimize - we read blocks and chunks on every heartbeat...
+            // TODO CRITICAL need to optimize - we read blocks and chunks on every heartbeat...
             return DataBlock.find({
                 node: node.id
             }).populate('chunk').exec();
@@ -319,86 +382,6 @@ function heartbeat(req) {
 
 
 
-function agent_host_action(account, node_names, func_name) {
-    return Q.fcall(
-        function() {
-            return EdgeNode.find({
-                account: account.id,
-                name: {
-                    $in: node_names
-                }
-            }).populate('vendor').exec();
-        }
-    ).then(
-        function(nodes) {
-            var sem = new Semaphore(3);
-            return Q.allSettled(_.map(nodes,
-                function(node) {
-                    return sem.surround(function() {
-                        var params = {
-                            name: node.name,
-                        };
-                        if (func_name === 'start_agent') {
-                            params.geolocation = node.geolocation;
-                        }
-                        return agent_host_caller(node.vendor)[func_name](params);
-                    });
-                }
-            ));
-        }
-    );
-}
-
-function get_agents_status(req) {
-    var node_names = req.restful_params.nodes;
-    return agent_host_action(req.account, node_names, 'get_agent_status').then(
-        function(res) {
-            return {
-                nodes: _.map(res, function(node_res) {
-                    var status = false;
-                    if (node_res.state === 'fulfilled' &&
-                        node_res.value && node_res.value.status) {
-                        status = true;
-                    }
-                    return {
-                        status: status
-                    };
-                })
-            };
-        }
-    );
-}
-
-function start_agents(req) {
-    var node_names = req.restful_params.nodes;
-    return agent_host_action(req.account, node_names, 'start_agent').thenResolve();
-}
-
-function stop_agents(req) {
-    var node_names = req.restful_params.nodes;
-    return agent_host_action(req.account, node_names, 'stop_agent').thenResolve();
-}
-
-
-function get_node_vendors(req) {
-    return Q.fcall(
-        function() {
-            return NodeVendor.find({
-                account: req.account.id
-            }).exec();
-        }
-    ).then(
-        function(vendors) {
-            return {
-                vendors: _.map(vendors, function(v) {
-                    return _.pick(v, 'id', 'name', 'kind');
-                })
-            };
-        }
-    );
-}
-
-
 function connect_node_vendor(req) {
     var vendor_info = _.pick(req.restful_params, 'name', 'kind', 'info');
     vendor_info.account = req.account.id; // see account_server.account_session
@@ -442,6 +425,68 @@ function connect_node_vendor(req) {
     );
 }
 
+
+
+
+// utilities
+
+
+function get_nodes_with_vendors(account, node_names) {
+    return EdgeNode.find({
+        account: account.id,
+        name: {
+            $in: node_names
+        }
+    }).populate('vendor').exec();
+}
+
+
+function set_nodes_started_state(account, node_names, started) {
+    var nodes;
+    return Q.fcall(get_nodes_with_vendors, account, node_names).then(
+        function(nodes_arg) {
+            nodes = nodes_arg;
+            var nodes_to_update = _.compact(_.map(nodes, function(node) {
+                if (node.started !== started) {
+                    return node;
+                }
+            }));
+            var sem = new Semaphore(3);
+            return Q.all(_.map(nodes_to_update, function(node) {
+                return sem.surround(function() {
+                    var updates = {
+                        started: started
+                    };
+                    return node.update({
+                        $set: updates
+                    }).exec();
+                });
+            }));
+        }
+    ).then(
+        function() {
+            return agent_host_action(nodes, started ? 'start_agent' : 'stop_agent');
+        }
+    ).thenResolve();
+}
+
+function agent_host_action(nodes, func_name) {
+    var sem = new Semaphore(3);
+    return Q.allSettled(_.map(nodes,
+        function(node) {
+            return sem.surround(function() {
+                var params = {
+                    name: node.name,
+                };
+                if (func_name === 'start_agent') {
+                    params.geolocation = node.geolocation;
+                }
+                return agent_host_caller(node.vendor)[func_name](params);
+            });
+        }
+    ));
+}
+
 function verify_vendor_found(account_id, vendor_id, vendor) {
     if (!vendor) {
         console.error('NODE VENDOR NOT FOUND', vendor_id);
@@ -470,6 +515,7 @@ function agent_host_caller(vendor) {
 function get_node_info(node) {
     var info = _.pick(node,
         'name',
+        'started',
         'geolocation',
         'allocated_storage',
         'used_storage'
@@ -477,6 +523,7 @@ function get_node_info(node) {
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
+    info.online = node.started && node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
     var vendor_id = node.populated('vendor');
     if (!vendor_id) {
         vendor_id = node.vendor;

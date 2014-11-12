@@ -166,18 +166,73 @@ module.exports = restful_api({
         },
 
 
-        heartbeat: {
-            method: 'PUT',
-            path: '/node/:name',
+
+        start_nodes: {
+            method: 'POST',
+            path: '/start_nodes',
             params: {
-                $ref: '/edge_node_api/definitions/node_info'
-            },
-            reply: {
-                $ref: '/edge_node_api/definitions/node_info'
-            },
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'string', // node name
+                        }
+                    }
+                }
+            }
+        },
+
+        stop_nodes: {
+            method: 'POST',
+            path: '/stop_nodes',
+            params: {
+                type: 'object',
+                required: ['nodes'],
+                properties: {
+                    nodes: {
+                        type: 'array',
+                        items: {
+                            type: 'string', // node name
+                        }
+                    }
+                }
+            }
         },
 
 
+        get_node_vendors: {
+            method: 'GET',
+            path: '/node_vendor',
+            reply: {
+                type: 'object',
+                required: ['vendors'],
+                properties: {
+                    vendors: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['id', 'kind'],
+                            properties: {
+                                id: {
+                                    type: 'string',
+                                },
+                                name: {
+                                    type: 'string',
+                                },
+                                kind: {
+                                    type: 'string',
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+
+        // TODO is this still needed as api method?
         get_agents_status: {
             method: 'GET',
             path: '/agents/',
@@ -213,68 +268,26 @@ module.exports = restful_api({
             },
         },
 
-        start_agents: {
-            method: 'POST',
-            path: '/agents',
-            params: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string', // node name
-                        }
-                    }
-                }
-            }
-        },
 
-        stop_agents: {
+
+        /////////////////////
+        // apis for agents //
+        /////////////////////
+
+        heartbeat: {
             method: 'PUT',
-            path: '/agents',
+            path: '/node/:name',
             params: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string', // node name
-                        }
-                    }
-                }
-            }
+                $ref: '/edge_node_api/definitions/node_info'
+            },
+            reply: {
+                $ref: '/edge_node_api/definitions/node_info'
+            },
         },
 
-        get_node_vendors: {
-            method: 'GET',
-            path: '/node_vendor',
-            reply: {
-                type: 'object',
-                required: ['vendors'],
-                properties: {
-                    vendors: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['id', 'kind'],
-                            properties: {
-                                id: {
-                                    type: 'string',
-                                },
-                                name: {
-                                    type: 'string',
-                                },
-                                kind: {
-                                    type: 'string',
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        },
+        ///////////////////////////
+        // apis for node vendors //
+        ///////////////////////////
 
         connect_node_vendor: {
             method: 'POST',
@@ -329,6 +342,8 @@ module.exports = restful_api({
                 'geolocation',
                 'ip',
                 'port',
+                'started',
+                'online',
                 'heartbeat',
                 'allocated_storage',
                 'used_storage',
@@ -346,6 +361,12 @@ module.exports = restful_api({
                 },
                 port: {
                     type: 'integer'
+                },
+                started: {
+                    type: 'boolean',
+                },
+                online: {
+                    type: 'boolean',
                 },
                 heartbeat: {
                     type: 'string',

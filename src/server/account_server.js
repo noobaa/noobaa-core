@@ -8,6 +8,7 @@ var moment = require('moment');
 var restful_api = require('../util/restful_api');
 var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
+var node_monitor = require('./node_monitor');
 var LRU = require('noobaa-util/lru');
 // db models
 var Account = require('./models/account');
@@ -203,7 +204,7 @@ function delete_account(req) {
 
 function get_stats(req) {
     var system_stats = req.restful_params.system_stats;
-    var minimum_online_heartbeat = moment().subtract(5, 'minutes').toDate();
+    var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
     return account_session(req).then(
         function() {
             var account_query = system_stats && {} || {
@@ -220,7 +221,7 @@ function get_stats(req) {
                     map: function() {
                         /* global emit */
                         emit('count', 1);
-                        if (this.heartbeat >= minimum_online_heartbeat) {
+                        if (this.started && this.heartbeat >= minimum_online_heartbeat) {
                             emit('online', 1);
                         }
                         emit('alloc', this.allocated_storage);

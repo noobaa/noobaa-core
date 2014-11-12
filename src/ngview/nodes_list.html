@@ -24,8 +24,7 @@
                 <button class="btn btn-default btn-sm" ng-class="{disabled: skip+limit>=nodes_count}" ng-click="next_page()">&nbsp;<i class="fa fa-caret-right"></i>&nbsp;
                 </button>
             </div>
-            <small class="text-muted">{{skip+1}}-{{skip+limit}} of {{nodes_count}}</small>
-            &nbsp;
+            <small class="text-muted">{{skip+1}}-{{skip+limit}} of {{nodes_count}}</small> &nbsp;
             <button class="btn btn-default pull-right" ng-click="nbNodes.add_nodes()">
                 Add Nodes
             </button>
@@ -61,9 +60,9 @@
                                 </div>
                             </td>
                             <td class="noselect" style="width:1px">
-                                <button class="btn btn-default border-hover-only btn-sm" style="outline:none" nb-click-ladda="nbNodes.click_node_status(node)">
-                                    <i class="fa fa-rss text-green fa-lg" ng-show="node.is_online"></i>
-                                    <i class="fa fa-plug text-muted fa-lg" ng-hide="node.is_online"></i>
+                                <button class="btn btn-default border-hover-only btn-sm" style="outline:none" nb-click-ladda="toggle_node_started(node)">
+                                    <i class="fa fa-rss text-green fa-lg" ng-show="node.started"></i>
+                                    <i class="fa fa-plug text-muted fa-lg" ng-hide="node.started"></i>
                                 </button>
                             </td>
                             <td class="noselect" style="width:1px">
@@ -86,7 +85,7 @@
                 <div class="relpos">
                     <div id="nodes_stats_map" class="img-responsive"></div>
                     <div ng-if="nbNodes.has_no_nodes" class="abscenter text-center" style="margin-top: -30px; margin-left: -50px">
-                        <a class="btn btn-success btn-lg animated fadeInUp" ng-click="nbNodes.add_nodes()">
+                        <a class="btn btn-success btn-lg animated fadeInUp" ng-click="add_nodes()">
                         Add nodes
                     </a>
                     </div>

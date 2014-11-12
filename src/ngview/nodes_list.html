@@ -21,28 +21,36 @@
                 <div class="table-responsive" ng-if="nodes.length">
                     <table class="table table-hover">
                         <tr>
-                            <th></th>
                             <th>Node</th>
                             <th>Storage</th>
                             <th>Used Storage</th>
                             <th>Usage</th>
+                            <th style="width:1px"></th>
+                            <th style="width:1px"></th>
                         </tr>
-                        <tr ng-repeat="node in nodes" ng-click="click_node(node)">
-                            <td>
-                                <i class="fa fa-circle text-green" ng-show="node.is_online"></i>
-                                <i class="fa fa-circle text-muted" ng-hide="node.is_online"></i>
-                            </td>
+                        <tr ng-repeat="node in nodes" ng-click="select_node(node)" ng-dblclick="open_node(node)" Xng-class="{active:is_selected_node(node)}" style="cursor:default">
                             <td>
                                 {{node.name}}
                             </td>
                             <td>{{human_size(node.allocated_storage)}}</td>
                             <td>{{human_size(node.used_storage)}}</td>
-                            <td>
+                            <td class="noselect" >
                                 <div class="progress" style="margin: 0">
-                                    <div class="progress-bar progress-bar-default" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{node.usage_percent}}" style="width: {{node.usage_percent}}%;">
-                                        <small>{{node.usage_percent.toFixed(0)}}</small>
+                                    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{node.usage_percent}}" style="width: {{node.usage_percent}}%;">
+                                        {{node.usage_percent.toFixed(0)}}%
                                     </div>
                                 </div>
+                            </td>
+                            <td class="noselect" style="width:1px">
+                                <button class="btn btn-default border-hover-only btn-sm" style="outline:none" nb-click-ladda="nbNodes.click_node_status(node)">
+                                    <i class="fa fa-rss text-green fa-lg" ng-show="node.is_online"></i>
+                                    <i class="fa fa-plug text-muted fa-lg" ng-hide="node.is_online"></i>
+                                </button>
+                            </td>
+                            <td class="noselect" style="width:1px">
+                                <button class="btn btn-link btn-sm" style="outline:none" ng-click="open_node(node)">
+                                    <i class="fa fa-ellipsis-h text-muted fa-lg"></i>
+                                </button>
                             </td>
                         </tr>
                     </table>

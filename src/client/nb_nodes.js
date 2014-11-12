@@ -24,10 +24,12 @@ nb_app.controller('NodesListCtrl', [
 
         $scope.nav.active = 'nodes';
 
+        $scope.refresh_view = refresh_view;
+        $scope.open_node = open_node;
+        $scope.select_node = select_node;
+        $scope.is_selected_node = is_selected_node;
         $scope.previous_page = previous_page;
         $scope.next_page = next_page;
-        $scope.click_node = click_node;
-        $scope.refresh_view = refresh_view;
         $scope.geo = $routeParams.geo;
         $scope.skip = 0;
         $scope.limit = 10;
@@ -69,6 +71,18 @@ nb_app.controller('NodesListCtrl', [
             );
         }
 
+        function open_node(node) {
+            $location.path('nodes/n/' + node.name);
+        }
+
+        function select_node(node) {
+            $scope.selected_node = node;
+        }
+
+        function is_selected_node(node) {
+            return $scope.selected_node === node;
+        }
+
         function previous_page() {
             $scope.skip -= $scope.limit;
             if ($scope.skip < 0) {
@@ -87,9 +101,6 @@ nb_app.controller('NodesListCtrl', [
             return refresh_list();
         }
 
-        function click_node(node) {
-            $location.path('nodes/n/' + node.name);
-        }
     }
 ]);
 

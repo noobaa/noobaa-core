@@ -1,14 +1,20 @@
 <div ng-controller="UploadCtrl">
+
     <div ng-include="'navbar.html'"></div>
 
     <div class="container-fluid">
+
+        <h1 class="text-muted">Upload</h1>
+
+        <br/>
+
         <div class="clearfix">
-            <button class="btn btn-default" nb-click-ladda="nbFiles.create_bucket()" title="New Bucket" rel="tooltip">
+            <button class="btn btn-default pull-right" nb-click-ladda="nbFiles.create_bucket()" title="New Bucket" rel="tooltip">
                 New Bucket
             </button>
         </div>
-        <hr />
 
+        <hr />
 
         <div class="row">
 

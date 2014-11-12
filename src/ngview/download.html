@@ -1,36 +1,33 @@
 <div ng-controller="DownloadCtrl">
+
     <div ng-include="'navbar.html'"></div>
 
     <div class="container-fluid">
 
-        <div class="clearfix">
-            <div class="form-control" style="width: 150px; display: inline-block">
-                <select ng-model="nbFiles.bucket_get_set" ng-mode-options="{getterSetter:true}" ng-options="bucket.name for bucket in buckets"></select>
+        <h1 class="text-muted">Download</h1>
+
+        <br/>
+
+        <div class="row">
+            <div class="col-sm-6">
+                <div class="form-control">
+                    <select ng-model="nbFiles.bucket" ng-options="bkt.name for bkt in nbFiles.buckets" ng-disabled="uploading"></select>
+                </div>
             </div>
-            <button ng-click="create_bucket()" class="btn btn-default" title="New Bucket" rel="tooltip">
-                New Bucket
-            </button>
-            <button nb-disabled="!bucket" ng-click="click_upload()" class="btn btn-default">
-                Upload
-            </button>
         </div>
 
         <hr />
 
 
-        <div class="row" ng-if="bucket">
+        <div class="row" ng-if="nbFiles.bucket">
 
-            <div class="col-sm-6 col-md-8">
-                <div class="row">
-                    <div ng-repeat="object in bucket.objects" class="col-xs-6 col-sm-4 col-md-3 col-lg-2">
-                        <button class="btn btn-default btn-block" style="height: 100px" ng-click="click_object(object)">
-                            {{object.key}}
-                        </button>
-                    </div>
+            <div class="col-sm-6">
+                <div ng-repeat="object in nbFiles.bucket.objects">
+                    <a ng-click="click_object(object)">{{object.key}}</a>
                 </div>
             </div>
 
-            <div class="col-sm-6 col-md-4">
+            <div class="col-sm-6">
                 <img ng-src="{{object_src}}" ng-if="object_src" class="img-responsive" />
                 <video controls autoplay ng-src="{{video_src}}" ng-if="video_src" class="img-responsive"></video>
                 <!-- <object ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></object> -->

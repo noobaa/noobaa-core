@@ -6,6 +6,21 @@
 
         <h1 class="text-muted">Node Details</h1>
 
+        <br/>
+
+        <div class="clearfix">
+            <span ng-show="node.started" class="pull-right">
+                <button class="btn btn-default" nb-click-ladda="stop_node(node)">
+                    <i class="fa fa-plug fa-lg fa-fw text-muted"></i> Stop node
+                </button>
+            </span>
+            <span ng-hide="node.started" class="pull-right">
+                <button class="btn btn-primary" nb-click-ladda="start_node(node)">
+                    <i class="fa fa-rss fa-lg fa-fw text-muted"></i> Start node
+                </button>
+            </span>
+        </div>
+
         <hr/>
 
         <div class="row">
@@ -27,17 +42,6 @@
                     <span class="fa-stack" style="font-size: 150px" ng-show="node.started">
                         <i class="fa fa-square fa-stack-2x text-green"></i>
                         <i class="fa fa-rss fa-stack-1x text-primary" ></i>
-                    </span>
-                    <br/>
-                    <span ng-show="node.started && node.online">
-                        <button class="btn btn-default border-hover-only" style="outline:none" nb-click-ladda="stop_node(node)">
-                            <i class="fa fa-plug fa-lg fa-fw text-muted"></i> Stop node
-                        </button>
-                    </span>
-                    <span ng-hide="node.started && node.online">
-                        <button class="btn btn-primary border-hover-only" style="outline:none" nb-click-ladda="start_node(node)">
-                            <i class="fa fa-rss fa-lg fa-fw text-muted"></i> Start node
-                        </button>
                     </span>
                 </div>
                 <br/>

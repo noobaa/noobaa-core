@@ -33,24 +33,26 @@ nb_app.controller('UploadCtrl', [
         nbAlertify, $sce, nbFiles, nbNetworkMonitor) {
 
         $scope.nav.active = 'upload';
+        $scope.refresh_view = refresh_view;
+        $scope.click_upload = click_upload;
+        $scope.click_browse = click_browse;
+        refresh_view();
 
-        nbFiles.load_buckets();
 
-        $scope.refresh_view = function() {
+        function refresh_view() {
             return nbFiles.load_buckets();
-        };
+        }
 
-        $scope.click_browse = function(event) {
+        function click_browse(event) {
             var chooser = angular.element('<input type="file">');
             chooser.on('change', function(e) {
                 $scope.file = e.target.files[0];
                 $scope.safe_apply();
             });
             chooser.click();
-        };
+        }
 
-
-        $scope.click_upload = function(event) {
+        function click_upload(event) {
             var bucket = nbFiles.bucket;
             if (!bucket || !$scope.file) {
                 return;
@@ -105,7 +107,7 @@ nb_app.controller('UploadCtrl', [
                     $scope.uploading = false;
                 }
             );
-        };
+        }
 
     }
 ]);
@@ -117,10 +119,36 @@ nb_app.controller('DownloadCtrl', [
     function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
 
         $scope.nav.active = 'download';
+        $scope.refresh_view = refresh_view;
+        $scope.click_object = click_object;
+        refresh_view();
 
-        nbFiles.load_buckets();
+        $scope.$watch('nbFiles.bucket', function(bucket) {
+            nbFiles.load_bucket_objects(bucket);
+        });
 
-        // TODO
+        function refresh_view() {
+            return nbFiles.load_buckets();
+        }
+
+        function click_object(object) {
+            console.log('click_object', object);
+            $scope.video_src = $scope.object_src = null;
+            var url = nbFiles.read_as_media_stream(object);
+            if (url) {
+                $scope.video_src = $sce.trustAsResourceUrl(url);
+                return;
+            }
+            return $q.when(nbFiles.read_entire_object(object)).then(
+                function(data) {
+                    console.log('OBJECT DATA', data.length);
+                    var blob = new $window.Blob([data]);
+                    var url = $window.URL.createObjectURL(blob);
+                    $scope.object_src = $sce.trustAsResourceUrl(url);
+                }
+            );
+        }
+
 
     }
 ]);
@@ -133,10 +161,11 @@ nb_app.factory('nbFiles', [
         var $scope = {};
 
         $scope.load_buckets = load_buckets;
+        $scope.load_bucket_objects = load_bucket_objects;
         $scope.create_bucket = create_bucket;
         $scope.upload_file = upload_file;
-        $scope.click_object = click_object;
-
+        $scope.read_entire_object = read_entire_object;
+        $scope.read_as_media_stream = read_as_media_stream;
 
         function load_buckets() {
             return $q.when(object_client.list_buckets()).then(
@@ -231,7 +260,6 @@ nb_app.factory('nbFiles', [
                     var speed = $rootScope.human_size(file.size / duration) + '/sec';
                     console.log('upload completed', elapsed, speed);
                     nbAlertify.success('upload completed ' + elapsed + ' ' + speed);
-                    return load_bucket_objects(bucket);
                 },
                 function(err) {
                     console.error('upload failed', err);
@@ -240,24 +268,6 @@ nb_app.factory('nbFiles', [
             );
         }
 
-
-        function click_object(object) {
-            console.log('click_object', object);
-            $scope.video_src = $scope.object_src = null;
-            var url = read_as_media_stream(object);
-            if (url) {
-                $scope.video_src = $sce.trustAsResourceUrl(url);
-                return;
-            }
-            return $q.when(read_entire_object(object)).then(
-                function(data) {
-                    console.log('OBJECT DATA', data.length);
-                    var blob = new $window.Blob([data]);
-                    var url = $window.URL.createObjectURL(blob);
-                    $scope.object_src = $sce.trustAsResourceUrl(url);
-                }
-            );
-        }
 
         function read_entire_object(object) {
             var object_path = {

@@ -15,12 +15,14 @@ var nb_util = angular.module('nb_util', [
 
 
 nb_util.run(['$rootScope', function($rootScope) {
+    /* jshint jquery:true */
     $rootScope._ = _;
     $rootScope.human_size = size_utils.human_size;
     $rootScope.human_percent = human_percent;
     $rootScope.safe_apply = safe_apply;
     $rootScope.safe_callback = safe_callback;
     $rootScope.moment = moment;
+    $.material.init();
 }]);
 
 

@@ -72,6 +72,7 @@ var PATHS = {
         'build/public/fonts': [
             './node_modules/bootstrap/dist/fonts/*',
             './node_modules/font-awesome/fonts/*',
+            './bower_components/bootstrap-material-design/fonts/*',
         ],
         'build/public/css/font': [
             './node_modules/video.js/dist/video-js/font/*',
@@ -90,6 +91,8 @@ var PATHS = {
     agent_bundle: './src/agent/bundle.js',
     client_externals: [
         './node_modules/bootstrap/dist/js/bootstrap.js',
+        './bower_components/bootstrap-material-design/scripts/material.js',
+        './bower_components/bootstrap-material-design/scripts/ripples.js',
         './bower_components/ladda/js/spin.js',
         './bower_components/ladda/js/ladda.js',
         './bower_components/alertify.js/lib/alertify.js',

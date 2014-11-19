@@ -3,9 +3,12 @@
  ******************************************************************************/
 
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
+@import (less)"../../bower_components/bootstrap-material-design/less/material.less";
+/* @import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less"; */
+@import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
 @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
 @import (less)"../../bower_components/alertify.js/themes/alertify.core.css";
-@import (less)"../../bower_components/alertify.js/themes/alertify.default.css";
+/* @import (less)"../../bower_components/alertify.js/themes/alertify.default.css"; */
 @import (inline)"../../node_modules/video.js/dist/video-js/video-js.css";
 @import (less)"../../bower_components/ladda/dist/ladda-themeless.min.css";
 @import (less)"../../node_modules/animate.css/animate.min.css";
@@ -15,16 +18,25 @@
 // bootstrap //
 ///////////////
 
-@brand-primary: hsl(223,24%,30%);
-@brand-info: hsl(190,70%,60%);
-@brand-success: hsl(120,70%,60%);
-@brand-warning: hsl(60,70%,60%);
-@brand-danger: hsl(350,70%,60%);
+@primary: @teal;
+@success: @lightgreen;
+
+@brand-primary: @primary;
+@brand-success: @success;
+@brand-danger: @danger;
+@brand-warning: @warning;
+@brand-info: @info;
+
+/* @brand-primary: hsl(223,24%,30%); */
+/* @brand-info: hsl(190,70%,60%); */
+/* @brand-success: hsl(120,70%,60%); */
+/* @brand-warning: hsl(60,70%,60%); */
+/* @brand-danger: hsl(350,70%,60%); */
 
 // less contrast of gray levels
 /* @gray: lighten(@gray-base, 40%); */
-@gray-light: lighten(@gray-base, 65%);
-@gray-lighter: lighten(@gray-base, 90%);
+/* @gray-light: lighten(@gray-base, 65%); */
+/* @gray-lighter: lighten(@gray-base, 90%); */
 
 /* @navbar-default-link-active-color: @btn-primary-color; */
 /* @navbar-default-link-active-bg: @btn-primary-bg; */
@@ -40,29 +52,24 @@
 
 @font-family-sans-serif: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
 @font-size-base: 15px;
-@headings-font-weight: 900;
+/* @headings-font-weight: 900; */
 *:not(input) {
     text-transform: uppercase !important;
-    font-weight: 600 !important;
+    /* font-weight: 600 !important; */
 
 }
-.btn {
+/* .btn {
     .transition-fast;
-}
+} */
 .btn-primary {
     &:hover {
-        background-color: lighten(@brand-primary, 8%);
+        /* background-color: lighten(@brand-primary, 8%); */
     }
 
 }
 .text-green {
-    color: #76ff00;
-}
-.text-yellow {
-    color: #f8ef00;
-}
-.text-red {
-    color: red;
+    /* color: #76ff00; */
+    color: @success;
 }
 .text-white {
     color: white;
@@ -72,13 +79,14 @@
 }
 table th {
     .text-muted;
+
 }
 /*.breadcrumb {
     background-color: transparent;
     padding: 0;
 }*/
 .progress {
-    background-color: darken(@gray-lighter, 3%);
+    /* background-color: darken(@gray-lighter, 3%); */
 }
 .noselect {
     -webkit-touch-callout: all;
@@ -121,38 +129,16 @@ table th {
 .close {
     outline: none;
 }
-.border-hover-only {
-    .transition-fast;
-    &:not(:hover) {
-        border-color: transparent;
-    }
-
-}
-.btn-file {
-    position: relative;
-    overflow: hidden;
-}
-.btn-file input[type=file] {
-    position: absolute;
-    top: 0;
-    right: 0;
-    min-width: 100%;
-    min-height: 100%;
-    font-size: 100px;
-    text-align: right;
-    filter: alpha(opacity=0);
-    opacity: 0;
-    outline: none;
-    background: white;
-    cursor: inherit;
-    display: block;
-}
 .modal-header .closer {
     font-size: 1.4em;
     line-height: 0.9em;
 }
 .modal-footer {
     .text-center;
+
+}
+.modal-backdrop.in {
+    display: block;
 
 }
 /* not working with new bootstrap because the backdrop is now inside the modal
@@ -218,8 +204,8 @@ table.grid {
     .transition-fast;
     &:hover,
     &:active {
-        border-color: white;
-        box-shadow: 0 0 7px 0 black;
+        /* border-color: white; */
+        /* box-shadow: 0 0 7px 0 black; */
     }
 
 }
@@ -304,23 +290,6 @@ table.grid {
 //////////////
 
 // style alertify from bootstrap theme
-.alertify-button {
-    text-shadow: none;
-    box-shadow: none;
-}
-.alertify-button.alertify-button-ok {
-    .btn;
-    .btn-primary;
-}
-.alertify-button.alertify-button-cancel {
-    .btn;
-    .btn-default;
-}
-.alertify-cover {
-    .modal-backdrop;
-    .modal-backdrop.in;
-    z-index: 1060;
-}
 .alertify {
     border-radius: @border-radius-base;
     border-width: 1px;
@@ -328,6 +297,31 @@ table.grid {
     background-color: @modal-content-bg;
     color: @text-color;
     font-family: @font-family-sans-serif;
+}
+.alertify-cover:not(.alertify-cover-hidden) {
+    .modal-backdrop;
+    .in;
+    display: block;
+    z-index: 1060;
+}
+.alertify-button.alertify-button-ok {
+    &,
+    &:not(.btn-flat) {
+        .btn;
+        .btn-primary;
+    }
+
+}
+.alertify-button.alertify-button-cancel {
+    &,
+    &:not(.btn-flat) {
+        .btn;
+        .btn-default;
+    }
+
+}
+.alertify-text-wrapper {
+    .form-control-wrapper;
 }
 .alertify-text {
     .form-control;

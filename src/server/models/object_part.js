@@ -11,10 +11,9 @@ var types = mongoose.Schema.Types;
 
 var object_part_schema = new Schema({
 
-    // owner account
-    account: {
+    system: {
+        ref: 'System',
         type: types.ObjectId,
-        ref: 'Account',
         required: true,
     },
 
@@ -54,11 +53,6 @@ var object_part_schema = new Schema({
 
 });
 
-object_part_schema.index({
-    account: 1,
-}, {
-    unique: false
-});
 
 object_part_schema.index({
     obj: 1,

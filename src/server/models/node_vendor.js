@@ -10,15 +10,14 @@ var types = mongoose.Schema.Types;
  * NodeVendor represents an external virtual-machine vendor
  * and the related info needed to work with it.
  *
- * for example for AWS opworks the info should contain:
+ * for example for AWS ec2 the vendor_info should contain:
  *      access-key, secret, region, etc.
  */
 var node_vendor_schema = new Schema({
 
-    // owner account
-    account: {
+    system: {
+        ref: 'System',
         type: types.ObjectId,
-        ref: 'Account',
         required: true,
     },
 
@@ -29,13 +28,13 @@ var node_vendor_schema = new Schema({
 
     // enum of the available vendors
     kind: {
+        enum: ['agent_host', 'ec2'],
         type: String,
-        enum: ['agent_host', 'aws_opworks'],
         required: true,
     },
 
     // the vendor related info needed to work with it
-    info: {
+    vendor_info: {
         type: Object,
     },
 
@@ -43,7 +42,7 @@ var node_vendor_schema = new Schema({
 
 
 node_vendor_schema.index({
-    account: 1,
+    system: 1,
     name: 1,
 }, {
     unique: true

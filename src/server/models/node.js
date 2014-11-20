@@ -7,25 +7,32 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 
-var edge_node_schema = new Schema({
+var node_schema = new Schema({
 
-    // owner account
-    account: {
+    system: {
+        ref: 'System',
         type: types.ObjectId,
-        ref: 'Account',
         required: true,
     },
 
-    // node name
     name: {
         type: String,
         required: true,
     },
 
+    tier: {
+        ref: 'Tier',
+        type: types.ObjectId,
+        required: true,
+    },
+
+    is_server: {
+        type: Boolean,
+    },
+
     // geolocation - country / region
     geolocation: {
         type: String,
-        required: true,
     },
 
     // the public ip of the node
@@ -41,7 +48,6 @@ var edge_node_schema = new Schema({
     // started/stopped state for the node agent
     started: {
         type: Boolean,
-        required: true,
     },
 
     // the last time the node sent heartbeat
@@ -67,33 +73,30 @@ var edge_node_schema = new Schema({
     // the vendor that operates this node.
     // if not specificed it means that this node is a noobaa distributed node.
     vendor: {
-        type: types.ObjectId,
         ref: 'NodeVendor',
+        type: types.ObjectId,
     },
+
     // optional vendor specific resource identifier
     vendor_node_id: {
         type: String
     },
-    // desired state - true=started, false=stopped
-    vendor_node_desired_state: {
-        type: Boolean
-    },
 
-    // system information sent by the agent.
-    // TODO no schema yet for system_info
-    system_info: {
-        os: {}
+    // device information sent by the agent.
+    // TODO define schema for device_info
+    device_info: {
+        type: Object
     }
 
 });
 
 
-edge_node_schema.index({
-    account: 1,
+node_schema.index({
+    system: 1,
     name: 1,
 }, {
     unique: true
 });
 
 
-var EdgeNode = module.exports = mongoose.model('EdgeNode', edge_node_schema);
+var Node = module.exports = mongoose.model('Node', node_schema);

@@ -82,6 +82,7 @@ function delete_node(req) {
     var info = _.pick(req.restful_params, 'name');
     info.account = req.account.id; // see account_server.account_session
     var node;
+
     return Q.fcall(
         function() {
             return EdgeNode.findOne(info).exec();
@@ -112,6 +113,7 @@ function delete_node(req) {
 function read_node(req) {
     var info = _.pick(req.restful_params, 'name');
     info.account = req.account.id; // see account_server.account_session
+
     return Q.fcall(
         function() {
             return EdgeNode.findOne(info).exec();
@@ -142,6 +144,7 @@ function list_nodes(req) {
             info.vendor = query.vendor;
         }
     }
+
     return Q.fcall(
         function() {
             var q = EdgeNode.find(info).sort('-_id');

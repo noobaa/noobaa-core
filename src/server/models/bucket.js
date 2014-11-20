@@ -9,10 +9,9 @@ var types = mongoose.Schema.Types;
 
 var bucket_schema = new Schema({
 
-    // owner account
-    account: {
+    system: {
+        ref: 'System',
         type: types.ObjectId,
-        ref: 'Account',
         required: true,
     },
 
@@ -21,10 +20,12 @@ var bucket_schema = new Schema({
         required: true,
     },
 
-    // optional bucket global name - must be unique in the entire system
+    // optional subdomain name - must be unique in the domain
     // in order to resolve RESTful urls such as:
-    //   https://www.noobaa.com/bucketname/objectkey
-    global_name: {
+    //   https://www.noobaa.com/{{subdomain}}/{{objectkey}}
+    // or as real subdomain
+    //   https://{{subdomain}}.noobaa.com/{{objectkey}}
+    subdomain: {
         type: String,
     },
 
@@ -32,18 +33,19 @@ var bucket_schema = new Schema({
 
 
 bucket_schema.index({
-    account: 1,
+    system: 1,
     name: 1,
 }, {
     unique: true
 });
 
+
 bucket_schema.index({
-    global_name: 1,
+    subdomain: 1,
 }, {
     unique: true,
-    // most buckets will not have a global name at all,
-    // so we have to define the index sparse for the null values to not collide
+    // subdomain is not required so we have to define the index as sparse
+    // for the null values to not collide.
     sparse: true,
 });
 

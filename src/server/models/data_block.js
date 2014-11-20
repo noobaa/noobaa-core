@@ -12,8 +12,8 @@ var data_block_schema = new Schema({
 
     // (chunk,index) define the block content
     chunk: {
-        type: types.ObjectId,
         ref: 'DataChunk',
+        type: types.ObjectId,
         required: true,
     },
 
@@ -23,16 +23,17 @@ var data_block_schema = new Schema({
         required: true,
     },
 
-    // each block should define exactly one of these storage options.
+    // each block should define exactly one of these storage options: node or vendor
     // blocks that are stored on multiple storage options should have
     // different blocks with same (chunk,index) to describe it.
     node: {
+        ref: 'Node',
         type: types.ObjectId,
-        ref: 'EdgeNode',
     },
+
     vendor: {
-        type: types.ObjectId,
         ref: 'StorageVendor',
+        type: types.ObjectId,
     },
 
 });

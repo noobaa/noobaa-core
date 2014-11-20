@@ -9,17 +9,16 @@ var types = mongoose.Schema.Types;
 
 var objmd_schema = new Schema({
 
-    // owner account
-    account: {
+    system: {
+        ref: 'System',
         type: types.ObjectId,
-        ref: 'Account',
         required: true,
     },
 
     // every object belongs to a single bucket
     bucket: {
-        type: types.ObjectId,
         ref: 'Bucket',
+        type: types.ObjectId,
         required: true,
     },
 
@@ -48,13 +47,7 @@ var objmd_schema = new Schema({
 
 });
 
-objmd_schema.index({
-    account: 1,
-}, {
-    unique: false
-});
-
-// (bucket+key) are unique in the system
+// the combination (bucket,key) is unique
 objmd_schema.index({
     bucket: 1,
     key: 1,

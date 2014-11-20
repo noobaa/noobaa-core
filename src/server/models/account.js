@@ -10,22 +10,37 @@ var types = mongoose.Schema.Types;
 
 var account_schema = new Schema({
 
-    // account main contact email
+    system: {
+        ref: 'System',
+        type: types.ObjectId,
+        required: true,
+    },
+
+    name: {
+        type: String,
+        required: true,
+    },
+
     email: {
         type: String,
         required: true,
     },
 
-    // the account secret password
+    // bcrypted password
     password: {
         type: String,
         required: true,
+    },
+
+    is_admin: {
+        type: Boolean,
     },
 
 });
 
 
 account_schema.index({
+    system: 1,
     email: 1,
 }, {
     unique: true

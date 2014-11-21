@@ -4,8 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
-// db models
-var EdgeNode = require('./models/edge_node');
+var db = require('./db');
 
 
 module.exports = {

@@ -8,11 +8,7 @@ var object_api = require('../api/object_api');
 var account_server = require('./account_server');
 var LRU = require('noobaa-util/lru');
 var object_mapper = require('./object_mapper');
-// db models
-var Account = require('./models/account');
-var Bucket = require('./models/bucket');
-var ObjectMD = require('./models/object_md');
-var EdgeNode = require('./models/edge_node');
+var db = require('./db');
 
 
 module.exports = new object_api.Server({
@@ -43,7 +39,7 @@ module.exports = new object_api.Server({
 function list_buckets(req) {
     return Q.fcall(
         function() {
-            return Bucket.find({
+            return db.Bucket.find({
                 account: req.account.id
             }).exec();
         }
@@ -68,7 +64,7 @@ function create_bucket(req) {
                 account: req.account.id,
                 name: bucket_name,
             };
-            return Bucket.create(info);
+            return db.Bucket.create(info);
         }
     ).thenResolve();
 }
@@ -96,7 +92,7 @@ function update_bucket(req) {
                 account: req.account.id,
                 name: bucket_name,
             };
-            return Bucket.findOneAndUpdate(info, updates).exec();
+            return db.Bucket.findOneAndUpdate(info, updates).exec();
         }
     ).thenResolve();
 }
@@ -112,7 +108,7 @@ function delete_bucket(req) {
                 account: req.account.id,
                 name: bucket_name,
             };
-            return Bucket.findOneAndRemove(info).exec();
+            return db.Bucket.findOneAndRemove(info).exec();
         }
     ).thenResolve();
 }
@@ -131,7 +127,7 @@ function list_bucket_objects(req) {
             if (key) {
                 info.key = new RegExp(key);
             }
-            return ObjectMD.find(info).exec();
+            return db.ObjectMD.find(info).exec();
         }
     ).then(
         function(objects) {
@@ -162,7 +158,7 @@ function create_multipart_upload(req) {
                 size: size,
                 upload_mode: true,
             };
-            return ObjectMD.create(info);
+            return db.ObjectMD.create(info);
         }
     ).thenResolve();
 }
@@ -183,7 +179,7 @@ function complete_multipart_upload(req) {
                     upload_mode: 1
                 }
             };
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
+            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
         }
     ).thenResolve();
 }
@@ -202,7 +198,7 @@ function abort_multipart_upload(req) {
             var updates = {
                 upload_mode: true
             };
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
+            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
         }
     ).thenResolve();
 }
@@ -221,7 +217,7 @@ function allocate_object_part(req) {
                 bucket: bucket.id,
                 key: key,
             };
-            return ObjectMD.findOne(info).exec();
+            return db.ObjectMD.findOne(info).exec();
         }
     ).then(
         function(obj) {
@@ -252,7 +248,7 @@ function read_object_mappings(req) {
                 bucket: bucket.id,
                 key: key,
             };
-            return ObjectMD.findOne(info).exec();
+            return db.ObjectMD.findOne(info).exec();
         }
     ).then(
         function(obj_arg) {
@@ -285,7 +281,7 @@ function read_object_md(req) {
                 bucket: bucket.id,
                 key: key,
             };
-            return ObjectMD.findOne(info).exec();
+            return db.ObjectMD.findOne(info).exec();
         }
     ).then(
         function(obj) {
@@ -308,7 +304,7 @@ function update_object_md(req) {
             };
             // TODO no fields can be updated for now
             var updates = _.pick(req.rest_params);
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
+            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
         }
     ).thenResolve();
 }
@@ -325,7 +321,7 @@ function delete_object(req) {
                 bucket: bucket.id,
                 key: key,
             };
-            return ObjectMD.findOneAndRemove(info).exec();
+            return db.ObjectMD.findOneAndRemove(info).exec();
         }
     ).thenResolve();
 }
@@ -355,7 +351,7 @@ function find_bucket(account_id, bucket_name, force) {
             console.log('BUCKET MISS', info);
             return Q.fcall(
                 function() {
-                    return Bucket.findOne(info).exec();
+                    return db.Bucket.findOne(info).exec();
                 }
             ).then(
                 function(bucket) {

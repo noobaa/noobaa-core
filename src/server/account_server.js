@@ -2,23 +2,15 @@
 'use strict';
 
 var _ = require('lodash');
-var assert = require('assert');
 var Q = require('q');
+var assert = require('assert');
 var moment = require('moment');
+var LRU = require('noobaa-util/lru');
+var db = require('./db');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
 var node_monitor = require('./node_monitor');
-var LRU = require('noobaa-util/lru');
-// db models
-var Account = require('./models/account');
-var EdgeNode = require('./models/edge_node');
-var NodeVendor = require('./models/node_vendor');
-var Bucket = require('./models/bucket');
-var ObjectMD = require('./models/object_md');
-var ObjectPart = require('./models/object_part');
-var DataChunk = require('./models/data_chunk');
-var DataBlock = require('./models/data_block');
 
 
 var account_server = new account_api.Server({
@@ -66,7 +58,7 @@ function account_session(req, force) {
 
             // fetch account from the database
             console.log('ACCOUNT MISS', account_id);
-            return Account.findById(account_id).exec().then(
+            return db.Account.findById(account_id).exec().then(
                 function(account) {
                     if (!account) {
                         console.error('MISSING ACCOUNT SESSION', account_id);
@@ -91,7 +83,7 @@ function login_account(req) {
     // find account by email, and verify password
     return Q.fcall(
         function() {
-            return Account.findOne(info).exec();
+            return db.Account.findOne(info).exec();
         }
     ).then(
         function(account_arg) {
@@ -128,7 +120,7 @@ function create_account(req) {
     var info = _.pick(req.rest_params, 'email', 'password');
     return Q.fcall(
         function() {
-            return Account.create(info);
+            return db.Account.create(info);
         }
     ).then(
         function(account) {
@@ -153,7 +145,7 @@ function create_account(req) {
 function read_account(req) {
     return account_session(req, 'force').then(
         function() {
-            return Account.findById(req.session.account_id).exec();
+            return db.Account.findById(req.session.account_id).exec();
         }
     ).then(
         function(account) {
@@ -177,7 +169,7 @@ function update_account(req) {
     return account_session(req, 'force').then(
         function() {
             var info = _.pick(req.rest_params, 'email', 'password');
-            return Account.findByIdAndUpdate(req.session.account_id, info).exec();
+            return db.Account.findByIdAndUpdate(req.session.account_id, info).exec();
         }
     ).thenResolve().then(null,
         function(err) {
@@ -191,7 +183,7 @@ function update_account(req) {
 function delete_account(req) {
     return account_session(req, 'force').then(
         function() {
-            return Account.findByIdAndRemove(req.session.account_id).exec();
+            return db.Account.findByIdAndRemove(req.session.account_id).exec();
         }
     ).thenResolve().then(null,
         function(err) {
@@ -212,7 +204,7 @@ function get_stats(req) {
             };
             return Q.all([
                 // nodes - count, online count, allocated/used storage
-                EdgeNode.mapReduce({
+                db.Node.mapReduce({
                     query: account_query,
                     scope: {
                         // have to pass variables to map/reduce with a scope
@@ -230,13 +222,13 @@ function get_stats(req) {
                     reduce: size_utils.reduce_sum
                 }),
                 // node_vendors
-                NodeVendor.count(account_query).exec(),
+                db.NodeVendor.count(account_query).exec(),
                 // buckets
-                Bucket.count(account_query).exec(),
+                db.Bucket.count(account_query).exec(),
                 // objects
-                ObjectMD.count(account_query).exec(),
+                db.ObjectMD.count(account_query).exec(),
                 // parts
-                ObjectPart.mapReduce({
+                db.ObjectPart.mapReduce({
                     query: account_query,
                     map: function() {
                         /* global emit */
@@ -245,7 +237,7 @@ function get_stats(req) {
                     reduce: size_utils.reduce_sum
                 }),
                 // chunks - only in system_stats request
-                system_stats && DataChunk.mapReduce({
+                system_stats && db.DataChunk.mapReduce({
                     map: function() {
                         /* global emit */
                         emit('size', this.size);

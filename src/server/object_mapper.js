@@ -4,9 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
-var ObjectPart = require('./models/object_part');
-var DataChunk = require('./models/data_chunk');
-var DataBlock = require('./models/data_block');
+var db = require('./db');
 var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
 
@@ -26,12 +24,12 @@ function allocate_object_part(obj, start, end, md5sum) {
         end - start,
         CHUNK_KBLOCKS_BITWISE
     );
-    var new_chunk = new DataChunk({
+    var new_chunk = new db.DataChunk({
         size: chunk_size,
         kblocks: CHUNK_KBLOCKS,
         md5sum: md5sum,
     });
-    var new_part = new ObjectPart({
+    var new_part = new db.ObjectPart({
         account: obj.account,
         obj: obj.id,
         start: start,
@@ -44,7 +42,7 @@ function allocate_object_part(obj, start, end, md5sum) {
     return Q.fcall(
         function() {
             // console.log('create chunk', new_chunk);
-            return DataChunk.create(new_chunk);
+            return db.DataChunk.create(new_chunk);
         }
     ).then(
         function() {
@@ -55,12 +53,12 @@ function allocate_object_part(obj, start, end, md5sum) {
         function(new_blocks) {
             // console.log('create blocks', new_blocks);
             part_info = get_part_info(new_part, new_chunk, new_blocks);
-            return DataBlock.create(new_blocks);
+            return db.DataBlock.create(new_blocks);
         }
     ).then(
         function() {
             // console.log('create part', new_part);
-            return ObjectPart.create(new_part);
+            return db.ObjectPart.create(new_part);
         }
     ).then(
         function() {
@@ -87,7 +85,7 @@ function read_object_mappings(obj, start, end) {
     return Q.fcall(
         function() {
             // find parts intersecting the [start,end) range
-            return ObjectPart.find({
+            return db.ObjectPart.find({
                 obj: obj.id,
                 start: {
                     $lt: end
@@ -101,7 +99,7 @@ function read_object_mappings(obj, start, end) {
         function(parts_arg) {
             parts = parts_arg;
             // find all blocks of the resulting parts
-            return DataBlock.find({
+            return db.DataBlock.find({
                 chunk: {
                     $in: _.pluck(parts, 'chunk')
                 }

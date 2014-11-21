@@ -14,15 +14,7 @@ var account_server = require('./account_server');
 var Agent = require('../agent/agent');
 var LRU = require('noobaa-util/lru');
 var Semaphore = require('noobaa-util/semaphore');
-// db models
-var Account = require('./models/account');
-var EdgeNode = require('./models/edge_node');
-var NodeVendor = require('./models/node_vendor');
-var Bucket = require('./models/bucket');
-var ObjectMD = require('./models/object_md');
-var ObjectPart = require('./models/object_part');
-var DataChunk = require('./models/data_chunk');
-var DataBlock = require('./models/data_block');
+var db = require('./db');
 
 var mgmt_server = new mgmt_api.Server({
 }, [

@@ -5,10 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
 var node_monitor = require('./node_monitor');
-
-// db models
-var DataBlock = require('./models/data_block');
-var EdgeNode = require('./models/edge_node');
+var db = require('./db');
 
 
 module.exports = {
@@ -42,7 +39,7 @@ function allocate_blocks_for_new_chunk(chunk) {
                 var node = alloc_nodes.shift();
                 alloc_nodes.push(node);
 
-                var block = new DataBlock({
+                var block = new db.DataBlock({
                     index: i % chunk.kblocks,
                 });
                 // using setValue as a small hack to make these fields seem populated
@@ -67,7 +64,7 @@ function update_alloc_nodes() {
     if (!update_alloc_nodes_promise) {
         update_alloc_nodes_promise = Q.fcall(
             function() {
-                return EdgeNode.find({
+                return db.Node.find({
                     started: true,
                     heartbeat: {
                         $gt: minimum_alloc_heartbeat

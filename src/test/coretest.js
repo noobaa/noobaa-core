@@ -9,7 +9,7 @@ var path = require('path');
 var utilitest = require('noobaa-util/utilitest');
 var rimraf = require('rimraf');
 var Semaphore = require('noobaa-util/semaphore');
-var EdgeNode = require('../server/models/edge_node');
+var db = require('../server/db');
 var Agent = require('../agent/agent');
 
 // better stack traces for promises
@@ -141,12 +141,12 @@ function clear_test_nodes() {
             var warning_timeout = setTimeout(function() {
                 console.log(
                     '\n\n\nWaiting too long?\n\n',
-                    'the test got stuck on EdgeNode.remove().',
+                    'the test got stuck on db.Node.remove().',
                     'this is known when running in mocha standalone (root cause unknown).',
                     'it does work fine when running with gulp, so we let it be.\n\n');
                 process.exit(1);
             }, 3000);
-            return Q.when(EdgeNode.remove().exec())['finally'](
+            return Q.when(db.Node.remove().exec())['finally'](
                 function() {
                     clearTimeout(warning_timeout);
                 }

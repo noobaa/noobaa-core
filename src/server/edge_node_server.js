@@ -12,11 +12,7 @@ var account_server = require('./account_server');
 var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
-// db models
-var Account = require('./models/account');
-var EdgeNode = require('./models/edge_node');
-var DataBlock = require('./models/data_block');
-var NodeVendor = require('./models/node_vendor');
+var db = require('./db');
 
 
 module.exports = new edge_node_api.Server({
@@ -54,7 +50,7 @@ function create_node(req) {
     return Q.fcall(
         function() {
             if (info.vendor) {
-                return NodeVendor.findById(info.vendor).exec();
+                return db.NodeVendor.findById(info.vendor).exec();
             }
         }
     ).then(
@@ -63,7 +59,7 @@ function create_node(req) {
             if (info.vendor) {
                 verify_vendor_found(req.account.id, info.vendor, vendor);
             }
-            return EdgeNode.create(info);
+            return db.Node.create(info);
         }
     ).then(
         function(node) {
@@ -85,7 +81,7 @@ function delete_node(req) {
 
     return Q.fcall(
         function() {
-            return EdgeNode.findOne(info).exec();
+            return db.Node.findOne(info).exec();
         }
     ).then(
         function(node_arg) {
@@ -93,7 +89,7 @@ function delete_node(req) {
             if (!node) {
                 throw_node_not_found(node, info.name);
             }
-            return DataBlock.findOne({
+            return db.DataBlock.findOne({
                 node: node.id
             }).exec();
         }
@@ -116,7 +112,7 @@ function read_node(req) {
 
     return Q.fcall(
         function() {
-            return EdgeNode.findOne(info).exec();
+            return db.Node.findOne(info).exec();
         }
     ).then(
         function(node) {
@@ -147,7 +143,7 @@ function list_nodes(req) {
 
     return Q.fcall(
         function() {
-            var q = EdgeNode.find(info).sort('-_id');
+            var q = db.Node.find(info).sort('-_id');
             if (skip) {
                 q.skip(skip);
             }
@@ -173,7 +169,7 @@ function nodes_stats(req) {
     return Q.fcall(
         function() {
             var reduce_sum = size_utils.reduce_sum;
-            return EdgeNode.mapReduce({
+            return db.Node.mapReduce({
                 scope: {
                     group_by: group_by,
                     reduce_sum: reduce_sum,
@@ -259,7 +255,7 @@ function stop_nodes(req) {
 function get_node_vendors(req) {
     return Q.fcall(
         function() {
-            return NodeVendor.find({
+            return db.NodeVendor.find({
                 account: req.account.id
             }).exec();
         }
@@ -324,14 +320,14 @@ function heartbeat(req) {
 
     return Q.fcall(
         function() {
-            return EdgeNode.findOne(info).exec();
+            return db.Node.findOne(info).exec();
         }
     ).then(
         function(node_arg) {
             node = node_arg;
             throw_node_not_found(node, info.name);
             // TODO CRITICAL need to optimize - we read blocks and chunks on every heartbeat...
-            return DataBlock.find({
+            return db.DataBlock.find({
                 node: node.id
             }).populate('chunk').exec();
         }
@@ -374,7 +370,7 @@ function heartbeat(req) {
                     updates.ip + ':' + updates.port);
             }
 
-            return EdgeNode.findByIdAndUpdate(node.id, updates).exec();
+            return db.Node.findByIdAndUpdate(node.id, updates).exec();
         }
     ).then(
         function(node) {
@@ -394,7 +390,7 @@ function connect_node_vendor(req) {
             if (!vendor_info.name) {
                 return;
             }
-            return NodeVendor.findOne({
+            return db.NodeVendor.findOne({
                 account: req.account.id,
                 name: vendor_info.name,
             }).exec();
@@ -404,14 +400,14 @@ function connect_node_vendor(req) {
             if (vendor_arg) {
                 return vendor_arg;
             }
-            return NodeVendor.create(vendor_info);
+            return db.NodeVendor.create(vendor_info);
         }
     ).then(
         function(vendor_arg) {
             vendor = vendor_arg;
             verify_vendor_found(req.account.id, vendor.id, vendor);
             // find all nodes hosted by this vendor
-            return EdgeNode.find({
+            return db.Node.find({
                 account: req.account.id,
                 vendor: vendor.id,
             }).select('name').exec();
@@ -435,7 +431,7 @@ function connect_node_vendor(req) {
 
 
 function get_nodes_with_vendors(account, node_names) {
-    return EdgeNode.find({
+    return db.Node.find({
         account: account.id,
         name: {
             $in: node_names

@@ -6,7 +6,7 @@ var rest_api = require('../util/rest_api');
 
 module.exports = rest_api({
 
-    name: 'account_api',
+    name: 'system_api',
 
     methods: {
 
@@ -122,13 +122,13 @@ module.exports = rest_api({
                 ],
                 properties: {
                     allocated_storage: {
-                        $ref: '/account_api/definitions/bigint'
+                        $ref: '/system_api/definitions/bigint'
                     },
                     used_storage: {
-                        $ref: '/account_api/definitions/bigint'
+                        $ref: '/system_api/definitions/bigint'
                     },
                     chunks_storage: {
-                        $ref: '/account_api/definitions/bigint'
+                        $ref: '/system_api/definitions/bigint'
                     },
                     nodes: {
                         type: 'integer'

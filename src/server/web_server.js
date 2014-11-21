@@ -107,13 +107,9 @@ app.use(express_compress());
 var api_router = express.Router();
 app.use('/api', api_router);
 
-var account_server = require('./account_server');
-account_server.set_logging();
-account_server.install_routes(api_router, '/account_api/');
-
-var mgmt_server = require('./mgmt_server');
-mgmt_server.set_logging();
-mgmt_server.install_routes(api_router, '/mgmt_api/');
+var system_server = require('./system_server');
+system_server.set_logging();
+system_server.install_routes(api_router, '/system_api/');
 
 var edge_node_server = require('./edge_node_server');
 edge_node_server.set_logging();
@@ -163,7 +159,7 @@ app.all('/login', function(req, res) {
 });
 
 app.all('/logout', function(req, res) {
-    var logout_func = account_server.impl('logout_account');
+    var logout_func = system_server.impl('logout_account');
     Q.when(logout_func(req), function() {
         res.redirect('/login/');
     });

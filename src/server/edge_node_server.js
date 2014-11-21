@@ -8,7 +8,7 @@ var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var edge_node_api = require('../api/edge_node_api');
 var agent_host_api = require('../api/agent_host_api');
-var account_server = require('./account_server');
+var system_server = require('./system_server');
 var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
@@ -29,7 +29,7 @@ module.exports = new edge_node_api.Server({
     connect_node_vendor: connect_node_vendor,
 }, [
     // middleware to verify the account session before any of this server calls
-    account_server.account_session
+    system_server.account_session
 ]);
 
 
@@ -41,7 +41,7 @@ function create_node(req) {
         'vendor',
         'vendor_node_id'
     );
-    info.account = req.account.id; // see account_server.account_session
+    info.account = req.account.id; // see system_server.account_session
     info.started = true;
     info.heartbeat = new Date();
     info.used_storage = 0;
@@ -76,7 +76,7 @@ function create_node(req) {
 
 function delete_node(req) {
     var info = _.pick(req.rest_params, 'name');
-    info.account = req.account.id; // see account_server.account_session
+    info.account = req.account.id; // see system_server.account_session
     var node;
 
     return Q.fcall(
@@ -108,7 +108,7 @@ function delete_node(req) {
 
 function read_node(req) {
     var info = _.pick(req.rest_params, 'name');
-    info.account = req.account.id; // see account_server.account_session
+    info.account = req.account.id; // see system_server.account_session
 
     return Q.fcall(
         function() {
@@ -125,7 +125,7 @@ function read_node(req) {
 
 function list_nodes(req) {
     var info = {};
-    info.account = req.account.id; // see account_server.account_session
+    info.account = req.account.id; // see system_server.account_session
     var query = req.rest_params.query;
     var skip = req.rest_params.skip;
     var limit = req.rest_params.limit;
@@ -164,7 +164,7 @@ function list_nodes(req) {
 
 function nodes_stats(req) {
     var info = {};
-    info.account = req.account.id; // see account_server.account_session
+    info.account = req.account.id; // see system_server.account_session
     var group_by = req.rest_params.group_by;
     return Q.fcall(
         function() {
@@ -301,7 +301,7 @@ function get_agents_status(req) {
 
 function heartbeat(req) {
     var info = _.pick(req.rest_params, 'name');
-    info.account = req.account.id; // see account_server.account_session
+    info.account = req.account.id; // see system_server.account_session
 
     var updates = _.pick(req.rest_params,
         'geolocation',
@@ -383,7 +383,7 @@ function heartbeat(req) {
 
 function connect_node_vendor(req) {
     var vendor_info = _.pick(req.rest_params, 'name', 'kind', 'info');
-    vendor_info.account = req.account.id; // see account_server.account_session
+    vendor_info.account = req.account.id; // see system_server.account_session
     var vendor;
     return Q.fcall(
         function() {

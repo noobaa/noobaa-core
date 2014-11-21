@@ -5,7 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var rest_api = require('../util/rest_api');
 var object_api = require('../api/object_api');
-var account_server = require('./account_server');
+var system_server = require('./system_server');
 var LRU = require('noobaa-util/lru');
 var object_mapper = require('./object_mapper');
 var db = require('./db');
@@ -32,7 +32,7 @@ module.exports = new object_api.Server({
     delete_object: delete_object,
 }, [
     // middleware to verify the account session
-    account_server.account_session
+    system_server.account_session
 ]);
 
 

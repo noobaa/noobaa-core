@@ -5,15 +5,11 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var mgmt_api = require('../api/mgmt_api');
 var edge_node_api = require('../api/edge_node_api');
 var ObjectClient = require('../api/object_client');
 var SliceReader = require('../util/slice_reader');
 var concat_stream = require('concat-stream');
 var EventEmitter = require('events').EventEmitter;
-var mgmt_client = new mgmt_api.Client({
-    path: '/api/mgmt_api/',
-});
 var edge_node_client = new edge_node_api.Client({
     path: '/api/edge_node_api/',
 });

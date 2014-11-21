@@ -9,11 +9,11 @@ var LRU = require('noobaa-util/lru');
 var db = require('./db');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
-var account_api = require('../api/account_api');
+var system_api = require('../api/system_api');
 var node_monitor = require('./node_monitor');
 
 
-var account_server = new account_api.Server({
+var system_server = new system_api.Server({
     login_account: login_account,
     logout_account: logout_account,
     create_account: create_account,
@@ -23,7 +23,7 @@ var account_server = new account_api.Server({
     get_stats: get_stats,
 });
 
-module.exports = account_server;
+module.exports = system_server;
 
 
 // cache for accounts in memory.
@@ -35,7 +35,7 @@ var accounts_lru = new LRU({
     name: 'accounts_lru'
 });
 
-account_server.account_session = account_session;
+system_server.account_session = account_session;
 
 // verify that the session has a valid account using the accounts_lru cache.
 // this function is also exported to be used by other servers as a middleware.

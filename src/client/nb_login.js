@@ -3,7 +3,7 @@
 
 var _ = require('lodash');
 var util = require('util');
-var account_api = require('../api/account_api');
+var system_api = require('../api/system_api');
 
 var nb_login = angular.module('nb_login', [
     'nb_util',
@@ -25,8 +25,8 @@ nb_login.controller('LoginCtrl', [
             root: '/'
         };
 
-        var account_client = new account_api.Client({
-            path: '/api/account_api/',
+        var account_client = new system_api.Client({
+            path: '/api/system_api/',
         });
 
         $scope.login = function() {

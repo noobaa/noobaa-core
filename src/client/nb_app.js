@@ -4,13 +4,9 @@
 var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
-var account_api = require('../api/account_api');
-var account_client = new account_api.Client({
-    path: '/api/account_api/',
-});
-var mgmt_api = require('../api/mgmt_api');
-var mgmt_client = new mgmt_api.Client({
-    path: '/api/mgmt_api/',
+var system_api = require('../api/system_api');
+var account_client = new system_api.Client({
+    path: '/api/system_api/',
 });
 
 var nb_app = angular.module('nb_app', [
@@ -143,7 +139,7 @@ nb_app.factory('nbAccount', [
                 function(res) {
                     console.log('STATS', res);
                     $scope.stats = res;
-                    // TODO handle bigint type (defined at account_api) for sizes > petabyte
+                    // TODO handle bigint type (defined at system_api) for sizes > petabyte
                     $scope.stats.free_storage = res.allocated_storage - res.used_storage;
                     $scope.stats.free_storage_percent =
                         !res.allocated_storage ? 0 :

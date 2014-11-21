@@ -16,16 +16,10 @@ var Agent = require('../agent/agent');
 // used for testing only to avoid its big mem & cpu overheads
 Q.longStackSupport = true;
 
-var account_api = require('../api/account_api');
-var account_server = require('../server/account_server');
-var account_client = new account_api.Client({
-    path: '/account_api/',
-});
-
-var mgmt_api = require('../api/mgmt_api');
-var mgmt_server = require('../server/mgmt_server');
-var mgmt_client = new mgmt_api.Client({
-    path: '/mgmt_api/',
+var system_api = require('../api/system_api');
+var system_server = require('../server/system_server');
+var account_client = new system_api.Client({
+    path: '/system_api/',
 });
 
 var edge_node_api = require('../api/edge_node_api');
@@ -49,13 +43,9 @@ var account_credentials = {
 before(function(done) {
     Q.fcall(
         function() {
-            account_server.set_logging();
-            account_server.install_routes(utilitest.router, '/account_api/');
+            system_server.set_logging();
+            system_server.install_routes(utilitest.router, '/system_api/');
             account_client.set_param('port', utilitest.http_port());
-
-            mgmt_server.set_logging();
-            mgmt_server.install_routes(utilitest.router, '/mgmt_api/');
-            mgmt_client.set_param('port', utilitest.http_port());
 
             edge_node_server.set_logging();
             edge_node_server.install_routes(utilitest.router, '/edge_node_api/');
@@ -71,8 +61,7 @@ before(function(done) {
 });
 
 after(function() {
-    mgmt_server.disable_routes();
-    account_server.disable_routes();
+    system_server.disable_routes();
     edge_node_server.disable_routes();
 });
 
@@ -184,7 +173,6 @@ function clear_test_nodes() {
 
 module.exports = {
     account_client: account_client,
-    mgmt_client: mgmt_client,
     edge_node_client: edge_node_client,
     object_client: object_client,
 

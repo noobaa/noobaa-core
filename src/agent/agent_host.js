@@ -15,7 +15,7 @@ var LRU = require('noobaa-util/lru');
 var agent_host_api = require('../api/agent_host_api');
 var Agent = require('./agent');
 var size_utils = require('../util/size_utils');
-var account_api = require('../api/account_api');
+var system_api = require('../api/system_api');
 var edge_node_api = require('../api/edge_node_api');
 var agent_api = require('../api/agent_api');
 var express_morgan_logger = require('morgan');
@@ -75,8 +75,8 @@ function AgentHost(params) {
     self.agent_host_server.install_routes(app, '/api/agent_host_api/');
 
     self.agents = {};
-    self.account_client = new account_api.Client(_.merge({
-        path: '/api/account_api/',
+    self.account_client = new system_api.Client(_.merge({
+        path: '/api/system_api/',
     }, self.client_params));
     self.edge_node_client = new edge_node_api.Client(_.merge({
         path: '/api/edge_node_api/',

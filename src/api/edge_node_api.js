@@ -153,10 +153,10 @@ module.exports = rest_api({
                                     type: 'integer'
                                 },
                                 allocated_storage: {
-                                    $ref: '/account_api/definitions/bigint'
+                                    $ref: '/system_api/definitions/bigint'
                                 },
                                 used_storage: {
-                                    $ref: '/account_api/definitions/bigint'
+                                    $ref: '/system_api/definitions/bigint'
                                 },
                             }
                         }

@@ -7,7 +7,7 @@ var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
 
-describe('account_api', function() {
+describe('system_api', function() {
 
     var account_client = coretest.account_client;
 

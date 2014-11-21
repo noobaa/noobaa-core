@@ -7,7 +7,9 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
-
+/**
+ * Account represents a user with credentials and permissions to use the system.
+ */
 var account_schema = new Schema({
 
     system: {

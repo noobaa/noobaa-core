@@ -240,7 +240,7 @@ describe('rest_api', function() {
 
                 it('should return doc', function(done) {
                     var doc_url = 'http://localhost:' + utilitest.http_port() +
-                        '/test_api/doc/' + func_name;
+                        '/doc/api/test_api/' + func_name;
                     request(doc_url, function(error, response, body) {
                         assert(!error);
                         assert.strictEqual(response.statusCode, 200);

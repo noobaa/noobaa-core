@@ -102,7 +102,7 @@ function login_account(req) {
             console.error('FAILED login_account', err);
             throw new Error('login failed');
         }
-    );
+    ).thenResolve();
 }
 
 
@@ -122,7 +122,7 @@ function create_account(req) {
         function(account) {
             set_session_account(req, account);
         }
-    ).thenResolve().then(null,
+    ).then(null,
         function(err) {
             if (err.code === 11000) {
                 throw new Error('account already exists for email');
@@ -131,7 +131,7 @@ function create_account(req) {
                 throw new Error('failed create account');
             }
         }
-    );
+    ).thenResolve();
 }
 
 
@@ -165,12 +165,12 @@ function update_account(req) {
             var info = _.pick(req.rest_params, 'name', 'email', 'password');
             return db.Account.findByIdAndUpdate(get_session_account_id(req), info).exec();
         }
-    ).thenResolve().then(null,
+    ).then(null,
         function(err) {
             console.error('FAILED update_account', err);
             throw new Error('update account failed');
         }
-    );
+    ).thenResolve();
 }
 
 
@@ -179,12 +179,12 @@ function delete_account(req) {
         function() {
             return db.Account.findByIdAndRemove(get_session_account_id(req)).exec();
         }
-    ).thenResolve().then(null,
+    ).then(null,
         function(err) {
             console.error('FAILED delete_account', err);
             throw new Error('delete account failed');
         }
-    );
+    ).thenResolve();
 }
 
 

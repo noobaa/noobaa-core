@@ -3,7 +3,9 @@
 
 var _ = require('lodash');
 var util = require('util');
-var system_api = require('../api/system_api');
+var account_api = require('../api/account_api');
+var account_client = new account_api.Client();
+
 
 var nb_login = angular.module('nb_login', [
     'nb_util',
@@ -15,8 +17,6 @@ var nb_login = angular.module('nb_login', [
 ]);
 
 
-
-
 nb_login.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify',
     function($scope, $http, $q, $timeout, $window, nbAlertify) {
@@ -25,17 +25,13 @@ nb_login.controller('LoginCtrl', [
             root: '/'
         };
 
-        var system_client = new system_api.Client({
-            path: '/api/system_api/',
-        });
-
         $scope.login = function() {
             if (!$scope.email || !$scope.password) {
                 return;
             }
             $scope.alert_text = '';
             $scope.form_disabled = true;
-            return $q.when(system_client.login_account({
+            return $q.when(account_client.login_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
@@ -58,7 +54,10 @@ nb_login.controller('LoginCtrl', [
                     if (str !== $scope.password) {
                         throw 'the passwords don\'t match :O';
                     }
-                    return $q.when(system_client.create_account({
+                    return $q.when(account_client.create_account({
+                        // to simplify the form, we just use the email as a name
+                        // and will allow to update it later from the account settings.
+                        name: $scope.email,
                         email: $scope.email,
                         password: $scope.password,
                     })).then(null, function(err) {

@@ -113,7 +113,7 @@ account_server.install_routes(api_router);
 system_server.install_routes(api_router);
 edge_node_server.install_routes(api_router);
 object_server.install_routes(api_router);
-app.use('/api', api_router);
+app.use(api_router);
 
 
 // setup pages
@@ -155,9 +155,9 @@ app.all('/login', function(req, res) {
 });
 
 app.all('/logout', function(req, res) {
-    var logout_func = system_server.impl('logout_account');
+    var logout_func = account_server.impl('logout_account');
     Q.when(logout_func(req), function() {
-        res.redirect('/login/');
+        res.redirect('/');
     });
 });
 

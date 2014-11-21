@@ -35,6 +35,7 @@ var global_cookie_jars = {};
  *   - data (Function) - function(params) that returns the data (String|Buffer) for the call
  */
 function rest_api(api) {
+    var api_path = PATH.join('/api', api.name);
 
     /**
      * client class for the api.
@@ -50,7 +51,7 @@ function rest_api(api) {
     function Client(client_params) {
         this._rest_client_params = _.extend({
             // default path is simply the api name
-            path: '/' + api.name + '/',
+            path: api_path,
             // default cookie jar is global, which is good unless needed to maintain
             // multiple separated sessions between the same client and host.
             // the cookie jars are needed to save set-cookie replies in memory
@@ -110,25 +111,24 @@ function rest_api(api) {
      */
     Server.prototype.install_routes = function(router, path) {
         var self = this;
-        path = path || ('/' + api.name + '/');
-        var doc_base = PATH.join(path, 'doc');
+        path = path || api_path;
+        var doc_base = PATH.join('/doc', path);
 
         _.each(self._middlewares, function(fn) {
             assert(fn, 'rest_api: undefined middleware function');
             router.use(path, function(req, res, next) {
-                Q.fcall(fn, req).done(function() {
-                    return next();
-                }, function(err) {
-                    return next(err);
-                });
+                Q.fcall(fn, req).nodeify(next);
             });
         });
 
+        // install methods on the router
         _.each(api.methods, function(func_info, func_name) {
-            // install the path handler
             var method_path = PATH.join(path, func_info.path);
             var handler = self._handlers[func_name];
-            install_route(router, func_info.method, method_path, handler);
+            // route_func points to the route functions router.get/post/put/delete
+            var route_func = router[func_info.method.toLowerCase()];
+            // call the route function to set the route handler
+            route_func.call(router, method_path, handler);
 
             // install also a documentation route
             router.get(PATH.join(doc_base, func_name), function(req, res) {
@@ -470,16 +470,6 @@ function create_server_handler(server, func, func_info) {
             }
         );
     };
-}
-
-
-// install a route handler for the given router.
-// see install_routes().
-function install_route(router, method, path, handler) {
-    // route_func points to the route functions router.get/post/put/delete
-    var route_func = router[method.toLowerCase()];
-    // call the route function to set the route handler
-    route_func.call(router, path, handler);
 }
 
 

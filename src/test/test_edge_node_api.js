@@ -7,7 +7,7 @@ var Q = require('q');
 var assert = require('assert');
 var size_utils = require('../util/size_utils');
 
-describe('edge_node_api', function() {
+describe.skip('edge_node_api', function() {
 
     var coretest = require('./coretest');
 

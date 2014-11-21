@@ -7,7 +7,7 @@ var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
 
-describe('system_api', function() {
+describe.skip('system_api', function() {
 
     var system_client = coretest.system_client;
 

@@ -62,7 +62,7 @@ nb_app.controller('AppCtrl', [
         $scope.nbFiles = nbFiles;
         $scope.nbAlertify = nbAlertify;
 
-        $scope.account_email = nbServerData.account_email;
+        $scope.account = nbServerData.account;
 
         $scope.nav = {
             active: 'dashboard',

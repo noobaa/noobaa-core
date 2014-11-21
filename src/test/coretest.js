@@ -16,63 +16,57 @@ var Agent = require('../agent/agent');
 // used for testing only to avoid its big mem & cpu overheads
 Q.longStackSupport = true;
 
-var system_api = require('../api/system_api');
-var system_server = require('../server/system_server');
-var system_client = new system_api.Client({
-    path: '/system_api/',
-});
-
-var edge_node_api = require('../api/edge_node_api');
-var edge_node_server = require('../server/edge_node_server');
-var edge_node_client = new edge_node_api.Client({
-    path: '/edge_node_api/',
-});
-
-var object_api = require('../api/object_api');
-var object_server = require('../server/object_server');
-var ObjectClient = require('../api/object_client');
-var object_client = new ObjectClient({
-    path: '/object_api/',
-});
-
 var account_credentials = {
     email: 'coretest@core.test',
     password: 'coretest',
 };
+var account_api = require('../api/account_api');
+var account_server = require('../server/account_server');
+var account_client = new account_api.Client();
+
+var system_api = require('../api/system_api');
+var system_server = require('../server/system_server');
+var system_client = new system_api.Client();
+
+var edge_node_api = require('../api/edge_node_api');
+var edge_node_server = require('../server/edge_node_server');
+var edge_node_client = new edge_node_api.Client();
+
+var object_api = require('../api/object_api');
+var object_server = require('../server/object_server');
+var ObjectClient = require('../api/object_client');
+var object_client = new ObjectClient();
+
 
 before(function(done) {
     Q.fcall(
         function() {
-            system_server.set_logging();
-            system_server.install_routes(utilitest.router, '/system_api/');
+            account_server.install_routes(utilitest.router);
+            system_server.install_routes(utilitest.router);
+            edge_node_server.install_routes(utilitest.router);
+            object_server.install_routes(utilitest.router);
+
+            account_client.set_param('port', utilitest.http_port());
             system_client.set_param('port', utilitest.http_port());
-
-            edge_node_server.set_logging();
-            edge_node_server.install_routes(utilitest.router, '/edge_node_api/');
             edge_node_client.set_param('port', utilitest.http_port());
-
-            object_server.set_logging();
-            object_server.install_routes(utilitest.router, '/object_api/');
             object_client.set_param('port', utilitest.http_port());
 
-            return system_client.create_account(account_credentials);
+            return account_client.create_account(_.merge({
+                name: 'coretest'
+            }, account_credentials));
         }
     ).nodeify(done);
 });
 
 after(function() {
+    account_server.disable_routes();
     system_server.disable_routes();
     edge_node_server.disable_routes();
+    object_server.disable_routes();
 });
-
-/*
-beforeEach(function(done) {
-    login_default_account().nodeify(done);
-});
-*/
 
 function login_default_account() {
-    return system_client.login_account(account_credentials);
+    return account_client.login_account(account_credentials);
 }
 
 var test_agents;
@@ -172,12 +166,13 @@ function clear_test_nodes() {
 
 
 module.exports = {
+    account_client: account_client,
+    account_credentials: account_credentials,
+    login_default_account: login_default_account,
+
     system_client: system_client,
     edge_node_client: edge_node_client,
     object_client: object_client,
-
-    account_credentials: account_credentials,
-    login_default_account: login_default_account,
 
     init_test_nodes: init_test_nodes,
     clear_test_nodes: clear_test_nodes,

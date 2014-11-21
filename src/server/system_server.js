@@ -14,12 +14,6 @@ var node_monitor = require('./node_monitor');
 
 
 var system_server = new system_api.Server({
-    login_account: login_account,
-    logout_account: logout_account,
-    create_account: create_account,
-    read_account: read_account,
-    update_account: update_account,
-    delete_account: delete_account,
     get_stats: get_stats,
 });
 
@@ -76,46 +70,6 @@ function account_session(req, force) {
 
 
 
-function login_account(req) {
-    var info = _.pick(req.rest_params, 'email');
-    var password = req.rest_params.password;
-    var account;
-    // find account by email, and verify password
-    return Q.fcall(
-        function() {
-            return db.Account.findOne(info).exec();
-        }
-    ).then(
-        function(account_arg) {
-            account = account_arg;
-            if (account) {
-                return Q.npost(account, 'verify_password', [password]);
-            }
-        }
-    ).then(
-        function(matching) {
-            if (!matching) {
-                throw new Error('incorrect email and password');
-            }
-            // insert the account id into the session
-            // (expected to use secure cookie session)
-            req.session.account_id = account.id;
-            req.session.account_email = account.email;
-        },
-        function(err) {
-            console.error('FAILED login_account', err);
-            throw new Error('login failed');
-        }
-    );
-}
-
-
-function logout_account(req) {
-    delete req.session.account_id;
-    delete req.session.account_email;
-}
-
-
 function create_account(req) {
     var info = _.pick(req.rest_params, 'email', 'password');
     return Q.fcall(
@@ -124,10 +78,6 @@ function create_account(req) {
         }
     ).then(
         function(account) {
-            // insert the account id into the session
-            // (expected to use secure cookie session)
-            req.session.account_id = account.id;
-            req.session.account_email = account.email;
         }
     ).thenResolve().then(null,
         function(err) {

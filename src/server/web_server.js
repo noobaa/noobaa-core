@@ -105,25 +105,21 @@ app.use(express_compress());
 // setup apis
 
 var api_router = express.Router();
-app.use('/api', api_router);
-
+var account_server = require('./account_server');
 var system_server = require('./system_server');
-system_server.set_logging();
-system_server.install_routes(api_router, '/system_api/');
-
 var edge_node_server = require('./edge_node_server');
-edge_node_server.set_logging();
-edge_node_server.install_routes(api_router, '/edge_node_api/');
-
 var object_server = require('./object_server');
-object_server.set_logging();
-object_server.install_routes(api_router, '/object_api/');
+account_server.install_routes(api_router);
+system_server.install_routes(api_router);
+edge_node_server.install_routes(api_router);
+object_server.install_routes(api_router);
+app.use('/api', api_router);
 
 
 // setup pages
 
 function redirect_no_account(req, res, next) {
-    if (req.session.account_id) {
+    if (req.session.account && req.session.account.id) {
         return next();
     }
     return res.redirect('/login/');
@@ -131,7 +127,7 @@ function redirect_no_account(req, res, next) {
 
 function page_context(req) {
     var data = {};
-    _.extend(data, _.pick(req.session, 'account_id', 'account_email'));
+    _.extend(data, _.pick(req.session, 'account'));
     return {
         data: data
     };

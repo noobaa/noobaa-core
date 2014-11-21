@@ -71,7 +71,6 @@ function AgentHost(params) {
         start_agent: self.start_agent.bind(self),
         stop_agent: self.stop_agent.bind(self),
     });
-    self.agent_host_server.set_logging();
     self.agent_host_server.install_routes(app, '/api/agent_host_api/');
 
     self.agents = {};

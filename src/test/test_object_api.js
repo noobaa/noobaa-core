@@ -15,7 +15,7 @@ console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
 
 
-describe('object_api', function() {
+describe.skip('object_api', function() {
 
     var coretest = require('./coretest');
     var object_client = coretest.object_client;

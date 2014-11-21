@@ -10,7 +10,7 @@ var Agent = require('../agent/agent');
 var agent_api = require('../api/agent_api');
 var size_utils = require('../util/size_utils');
 
-describe('agent', function() {
+describe.skip('agent', function() {
 
     before(function(done) {
         Q.fcall(

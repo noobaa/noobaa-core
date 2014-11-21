@@ -204,12 +204,10 @@ describe('rest_api', function() {
                         }
                     };
                     server = new test_api.Server(methods, [], 'allow_missing_methods');
-                    server.install_routes(utilitest.router, '/test_rest_api');
-                    server.set_logging();
+                    server.install_routes(utilitest.router);
 
                     client = new test_api.Client({
                         port: utilitest.http_port(),
-                        path: '/test_rest_api',
                     });
                 });
 
@@ -242,7 +240,7 @@ describe('rest_api', function() {
 
                 it('should return doc', function(done) {
                     var doc_url = 'http://localhost:' + utilitest.http_port() +
-                        '/test_rest_api/doc/test_api/' + func_name;
+                        '/test_api/doc/' + func_name;
                     request(doc_url, function(error, response, body) {
                         assert(!error);
                         assert.strictEqual(response.statusCode, 200);

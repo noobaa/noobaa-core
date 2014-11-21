@@ -24,7 +24,7 @@
                 </a>
             </li>
 
-            <li class="dropdown" ng-if="account_email">
+            <li class="dropdown" ng-if="account">
                 <a class="dropdown-toggle" data-toggle="dropdown">
                     <span style="visibility: hidden; width: 0; margin-right: -15px">
                         O<!-- needed some text for navbar height align -->
@@ -37,15 +37,15 @@
                         <a>
                             <h4 class="text-muted" style="margin:0">
                                 <i class="fa fa-envelope fa-fw"></i>
-                                {{account_email}}
+                                {{account.email}}
                             </h4>
                         </a>
                     </li>
                     <li class="divider"></li>
-                    <li ng-if="!account_email">
+                    <li ng-if="!account">
                         <a href="/login">Login</a>
                     </li>
-                    <li ng-if="account_email">
+                    <li ng-if="account">
                         <a href="/logout">Logout</a>
                     </li>
                 </ul>

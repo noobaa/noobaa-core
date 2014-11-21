@@ -8,9 +8,8 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * System is the top-most entity. 
- * All other db entities belong to one system.
- * Allows to create several separated systems on the same db.
+ * System defines an infrastructure entity.
+ * Allows to create several separated systems on the same domain.
  */
 var system_schema = new Schema({
 
@@ -18,6 +17,18 @@ var system_schema = new Schema({
         type: String,
         required: true,
     },
+
+    // a list of accounts with permission to act on this system.
+    permissions: [{
+        account: {
+            ref: 'Account',
+            type: types.ObjectId,
+            required: true,
+        },
+        admin: {
+            type: Boolean
+        },
+    }],
 
 });
 

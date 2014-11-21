@@ -12,12 +12,6 @@ var types = mongoose.Schema.Types;
  */
 var account_schema = new Schema({
 
-    system: {
-        ref: 'System',
-        type: types.ObjectId,
-        required: true,
-    },
-
     name: {
         type: String,
         required: true,
@@ -34,15 +28,10 @@ var account_schema = new Schema({
         required: true,
     },
 
-    is_admin: {
-        type: Boolean,
-    },
-
 });
 
-
+// primary-key: email
 account_schema.index({
-    system: 1,
     email: 1,
 }, {
     unique: true

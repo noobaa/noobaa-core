@@ -24,50 +24,56 @@ var PATH_ITEM_RE = /^\S*$/;
 
 var global_cookie_jars = {};
 
-// Check and initialize the api structure.
-//
-// api (Object):
-// - each key is func_name (String)
-// - each value is func_info (Object):
-//   - method (String) - http method GET/POST/...
-//   - path (Function) - function(params) that returns the path (String) for the call
-//   - data (Function) - function(params) that returns the data (String|Buffer) for the call
-//
+/**
+ * Check and initialize the api structure.
+ *
+ * api (Object):
+ * - each key is func_name (String)
+ * - each value is func_info (Object):
+ *   - method (String) - http method GET/POST/...
+ *   - path (Function) - function(params) that returns the path (String) for the call
+ *   - data (Function) - function(params) that returns the data (String|Buffer) for the call
+ */
 function rest_api(api) {
 
-    // client class for the api.
-    // creating a client instance takes client_params,
-    // which is needed for when doing the actual calls.
-    //
-    // client_params (Object):
-    // - hostname (String)
-    // - port (Number)
-    // - path (String) - base path for the host
-    // - cookie_jars (Object) - map of host to cookie jar
-    //      to save set-cookie replies in memory when running in nodejs.
-    //      for the browser, it already saves the cookies persistently.
-    //      pass a common object to share the cookies between the clients of all apis.
-    //      this is required for a login flow to work.
-    //
+    /**
+     * client class for the api.
+     * creating a client instance takes client_params,
+     * which is needed for when doing the actual calls.
+     *
+     * client_params (Object):
+     * - hostname (String)
+     * - port (Number)
+     * - path (String) - optional base path for the host (default to the api name)
+     * - cookie_jars (Object) - optional object map from host to cookie jar (default to global object)
+     */
     function Client(client_params) {
-        this._rest_client_params = client_params || {};
-        this._rest_client_params.cookie_jars =
-            this._rest_client_params.cookie_jars || global_cookie_jars;
+        this._rest_client_params = _.extend({
+            // default path is simply the api name
+            path: '/' + api.name + '/',
+            // default cookie jar is global, which is good unless needed to maintain
+            // multiple separated sessions between the same client and host.
+            // the cookie jars are needed to save set-cookie replies in memory
+            // when running in nodejs. in a the browser it already saves the cookies persistently.
+            // this is required for a login flow to work.
+            cookie_jars: global_cookie_jars,
+        }, client_params);
     }
 
     Client.prototype.set_param = function(key, value) {
         this._rest_client_params[key] = value;
     };
 
-    // server class for the api.
-    //
-    // methods (Object): map of function names to function(params).
-    //
-    // allow_missing_methods (String):
-    //    call with allow_missing_methods==='allow_missing_methods' to make the server
-    //    accept missing functions, the handler for missing functions will fail on runtime.
-    //    useful for test servers.
-    //
+    /**
+     * server class for the api.
+     *
+     * methods (Object): map of function names to function(params).
+     *
+     * allow_missing_methods (String):
+     *    call with allow_missing_methods==='allow_missing_methods' to make the server
+     *    accept missing functions, the handler for missing functions will fail on runtime.
+     *    useful for test servers.
+     */
     function Server(methods, middlewares, allow_missing_methods) {
         var self = this;
         if (allow_missing_methods) {
@@ -76,6 +82,7 @@ function rest_api(api) {
         self._middlewares = middlewares || [];
         self._impl = {};
         self._handlers = {};
+        self._log = console.log.bind(console);
 
         _.each(api.methods, function(func_info, func_name) {
             var func = methods[func_name];
@@ -93,21 +100,22 @@ function rest_api(api) {
         });
     }
 
-    // install the server handlers to the given router.
-    //
-    // router (Object) - express/connect style app router with the following functions:
-    // - get,post,put,delete which are function(path, handler).
-    //
-    // base_path (String) - optional base path for the routes.
-    //
-    Server.prototype.install_routes = function(router, base_path) {
+    /**
+     * install the server handlers to the given router.
+     *
+     * router (Object) - express/connect style app router with the following functions:
+     * - get,post,put,delete which are function(path, handler).
+     *
+     * path (String) - optional base path for the routes.
+     */
+    Server.prototype.install_routes = function(router, path) {
         var self = this;
-        base_path = base_path || '';
-        var doc_base = PATH.join(base_path, 'doc', api.name);
+        path = path || ('/' + api.name + '/');
+        var doc_base = PATH.join(path, 'doc');
 
         _.each(self._middlewares, function(fn) {
             assert(fn, 'rest_api: undefined middleware function');
-            router.use(base_path, function(req, res, next) {
+            router.use(path, function(req, res, next) {
                 Q.fcall(fn, req).done(function() {
                     return next();
                 }, function(err) {
@@ -118,9 +126,9 @@ function rest_api(api) {
 
         _.each(api.methods, function(func_info, func_name) {
             // install the path handler
-            var path = PATH.join(base_path, func_info.path);
+            var method_path = PATH.join(path, func_info.path);
             var handler = self._handlers[func_name];
-            install_route(router, func_info.method, path, handler);
+            install_route(router, func_info.method, method_path, handler);
 
             // install also a documentation route
             router.get(PATH.join(doc_base, func_name), function(req, res) {
@@ -130,16 +138,15 @@ function rest_api(api) {
         });
     };
 
-    // call to bypass the server routes
+    /**
+     * call to bypass the server routes
+     */
     Server.prototype.disable_routes = function() {
         this._disabled = true;
     };
-
-    // call to start logging the server requests
-    Server.prototype.set_logging = function() {
-        this._log = console.log.bind(console);
+    Server.prototype.set_logger = function(logger) {
+        this._log = logger;
     };
-
     Server.prototype.impl = function(func_name) {
         return this._impl[func_name];
     };

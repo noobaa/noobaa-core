@@ -28,12 +28,12 @@ module.exports = Agent;
  */
 function Agent(params) {
     var self = this;
-    assert(params.account_client, 'missing params.account_client');
+    assert(params.system_client, 'missing params.system_client');
     assert(params.edge_node_client, 'missing params.edge_node_client');
     assert(params.account_credentials, 'missing params.account_credentials');
     assert(params.node_name, 'missing params.node_name');
     assert(params.node_geolocation, 'missing params.node_geolocation');
-    self.account_client = params.account_client;
+    self.system_client = params.system_client;
     self.edge_node_client = params.edge_node_client;
     self.account_credentials = params.account_credentials;
     self.node_name = params.node_name;
@@ -106,7 +106,7 @@ Agent.prototype.start = function() {
 
     return Q.fcall(
         function() {
-            return self.account_client.login_account(self.account_credentials);
+            return self.system_client.login_account(self.account_credentials);
         }
     ).then(
         function() {

@@ -25,7 +25,7 @@ nb_login.controller('LoginCtrl', [
             root: '/'
         };
 
-        var account_client = new system_api.Client({
+        var system_client = new system_api.Client({
             path: '/api/system_api/',
         });
 
@@ -35,7 +35,7 @@ nb_login.controller('LoginCtrl', [
             }
             $scope.alert_text = '';
             $scope.form_disabled = true;
-            return $q.when(account_client.login_account({
+            return $q.when(system_client.login_account({
                 email: $scope.email,
                 password: $scope.password,
             })).then(function() {
@@ -58,7 +58,7 @@ nb_login.controller('LoginCtrl', [
                     if (str !== $scope.password) {
                         throw 'the passwords don\'t match :O';
                     }
-                    return $q.when(account_client.create_account({
+                    return $q.when(system_client.create_account({
                         email: $scope.email,
                         password: $scope.password,
                     })).then(null, function(err) {

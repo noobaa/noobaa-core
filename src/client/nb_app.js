@@ -5,7 +5,7 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var system_api = require('../api/system_api');
-var account_client = new system_api.Client({
+var system_client = new system_api.Client({
     path: '/api/system_api/',
 });
 
@@ -135,7 +135,7 @@ nb_app.factory('nbAccount', [
         $scope.refresh_stats = refresh_stats;
 
         function refresh_stats() {
-            return $q.when(account_client.get_stats({})).then(
+            return $q.when(system_client.get_stats({})).then(
                 function(res) {
                     console.log('STATS', res);
                     $scope.stats = res;

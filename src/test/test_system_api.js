@@ -9,7 +9,7 @@ var coretest = require('./coretest');
 
 describe('system_api', function() {
 
-    var account_client = coretest.account_client;
+    var system_client = coretest.system_client;
 
     var EMAIL = 'bla@bla.blabla';
     var PASSWORD = 'supersecret';
@@ -27,36 +27,36 @@ describe('system_api', function() {
 
         it('works', function(done) {
             Q.fcall(function() {
-                return account_client.create_account({
+                return system_client.create_account({
                     email: EMAIL,
                     password: PASSWORD,
                 });
             }).then(function() {
-                return account_client.login_account({
+                return system_client.login_account({
                     email: EMAIL,
                     password: PASSWORD,
                 });
             }).then(function() {
-                return account_client.read_account().then(function(res) {
+                return system_client.read_account().then(function(res) {
                     assert.strictEqual(res.email, EMAIL);
                 });
             }).then(function() {
-                return account_client.logout_account();
+                return system_client.logout_account();
             }).then(function() {
-                return account_client.login_account({
+                return system_client.login_account({
                     email: EMAIL,
                     password: PASSWORD,
                 });
             }).then(function() {
-                return account_client.update_account({
+                return system_client.update_account({
                     email: EMAIL + '123',
                 });
             }).then(function() {
-                return account_client.read_account().then(function(res) {
+                return system_client.read_account().then(function(res) {
                     assert.strictEqual(res.email, EMAIL + '123');
                 });
             }).then(function() {
-                return account_client.delete_account();
+                return system_client.delete_account();
             }).nodeify(done);
         });
 

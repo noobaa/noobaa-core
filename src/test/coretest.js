@@ -18,7 +18,7 @@ Q.longStackSupport = true;
 
 var system_api = require('../api/system_api');
 var system_server = require('../server/system_server');
-var account_client = new system_api.Client({
+var system_client = new system_api.Client({
     path: '/system_api/',
 });
 
@@ -45,7 +45,7 @@ before(function(done) {
         function() {
             system_server.set_logging();
             system_server.install_routes(utilitest.router, '/system_api/');
-            account_client.set_param('port', utilitest.http_port());
+            system_client.set_param('port', utilitest.http_port());
 
             edge_node_server.set_logging();
             edge_node_server.install_routes(utilitest.router, '/edge_node_api/');
@@ -55,7 +55,7 @@ before(function(done) {
             object_server.install_routes(utilitest.router, '/object_api/');
             object_client.set_param('port', utilitest.http_port());
 
-            return account_client.create_account(account_credentials);
+            return system_client.create_account(account_credentials);
         }
     ).nodeify(done);
 });
@@ -72,7 +72,7 @@ beforeEach(function(done) {
 */
 
 function login_default_account() {
-    return account_client.login_account(account_credentials);
+    return system_client.login_account(account_credentials);
 }
 
 var test_agents;
@@ -95,7 +95,7 @@ function init_test_nodes(count, allocated_storage) {
         ).then(
             function() {
                 var agent = new Agent({
-                    account_client: account_client,
+                    system_client: system_client,
                     edge_node_client: edge_node_client,
                     account_credentials: account_credentials,
                     node_name: '' + i,
@@ -172,7 +172,7 @@ function clear_test_nodes() {
 
 
 module.exports = {
-    account_client: account_client,
+    system_client: system_client,
     edge_node_client: edge_node_client,
     object_client: object_client,
 

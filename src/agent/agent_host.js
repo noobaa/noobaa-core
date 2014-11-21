@@ -75,7 +75,7 @@ function AgentHost(params) {
     self.agent_host_server.install_routes(app, '/api/agent_host_api/');
 
     self.agents = {};
-    self.account_client = new system_api.Client(_.merge({
+    self.system_client = new system_api.Client(_.merge({
         path: '/api/system_api/',
     }, self.client_params));
     self.edge_node_client = new edge_node_api.Client(_.merge({
@@ -96,7 +96,7 @@ AgentHost.prototype.connect_node_vendor = function() {
     return Q.fcall(
         function() {
             console.log('login_account', self.account_credentials.email);
-            return self.account_client.login_account(self.account_credentials);
+            return self.system_client.login_account(self.account_credentials);
         }
     ).then(
         function() {
@@ -140,7 +140,7 @@ AgentHost.prototype.start_agent = function(req) {
     return Q.when(self.stop_agent(req)).then(
         function() {
             var agent = self.agents[node_name] = new Agent({
-                account_client: self.account_client,
+                system_client: self.system_client,
                 edge_node_client: self.edge_node_client,
                 account_credentials: self.account_credentials,
                 node_name: node_name,

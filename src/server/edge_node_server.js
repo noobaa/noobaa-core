@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var mongoose = require('mongoose');
-var restful_api = require('../util/restful_api');
+var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var edge_node_api = require('../api/edge_node_api');
 var agent_host_api = require('../api/agent_host_api');
@@ -38,7 +38,7 @@ module.exports = new edge_node_api.Server({
 
 
 function create_node(req) {
-    var info = _.pick(req.restful_params,
+    var info = _.pick(req.rest_params,
         'name',
         'geolocation',
         'allocated_storage',
@@ -79,7 +79,7 @@ function create_node(req) {
 
 
 function delete_node(req) {
-    var info = _.pick(req.restful_params, 'name');
+    var info = _.pick(req.rest_params, 'name');
     info.account = req.account.id; // see account_server.account_session
     var node;
 
@@ -111,7 +111,7 @@ function delete_node(req) {
 
 
 function read_node(req) {
-    var info = _.pick(req.restful_params, 'name');
+    var info = _.pick(req.rest_params, 'name');
     info.account = req.account.id; // see account_server.account_session
 
     return Q.fcall(
@@ -130,9 +130,9 @@ function read_node(req) {
 function list_nodes(req) {
     var info = {};
     info.account = req.account.id; // see account_server.account_session
-    var query = req.restful_params.query;
-    var skip = req.restful_params.skip;
-    var limit = req.restful_params.limit;
+    var query = req.rest_params.query;
+    var skip = req.rest_params.skip;
+    var limit = req.rest_params.limit;
     if (query) {
         if (query.name) {
             info.name = new RegExp(query.name);
@@ -169,7 +169,7 @@ function list_nodes(req) {
 function nodes_stats(req) {
     var info = {};
     info.account = req.account.id; // see account_server.account_session
-    var group_by = req.restful_params.group_by;
+    var group_by = req.rest_params.group_by;
     return Q.fcall(
         function() {
             var reduce_sum = size_utils.reduce_sum;
@@ -238,7 +238,7 @@ function nodes_stats(req) {
 }
 
 function start_nodes(req) {
-    var node_names = req.restful_params.nodes;
+    var node_names = req.rest_params.nodes;
     return Q.fcall(set_nodes_started_state, req.account, node_names, true).then(
         function(nodes) {
             return agent_host_action(nodes, 'start_agent');
@@ -247,7 +247,7 @@ function start_nodes(req) {
 }
 
 function stop_nodes(req) {
-    var node_names = req.restful_params.nodes;
+    var node_names = req.rest_params.nodes;
     return Q.fcall(set_nodes_started_state, req.account, node_names, false).then(
         function(nodes) {
             return agent_host_action(nodes, 'stop_agent');
@@ -278,7 +278,7 @@ function get_node_vendors(req) {
 
 // TODO is this still needed as api method?
 function get_agents_status(req) {
-    var node_names = req.restful_params.nodes;
+    var node_names = req.rest_params.nodes;
     return Q.fcall(get_nodes_with_vendors, req.account, node_names).then(
         function(nodes) {
             return agent_host_action(nodes, 'get_agent_status');
@@ -304,10 +304,10 @@ function get_agents_status(req) {
 
 
 function heartbeat(req) {
-    var info = _.pick(req.restful_params, 'name');
+    var info = _.pick(req.rest_params, 'name');
     info.account = req.account.id; // see account_server.account_session
 
-    var updates = _.pick(req.restful_params,
+    var updates = _.pick(req.rest_params,
         'geolocation',
         'ip',
         'port',
@@ -319,7 +319,7 @@ function heartbeat(req) {
         req.connection.remoteAddress;
     updates.heartbeat = new Date();
 
-    var agent_used_storage = req.restful_params.used_storage;
+    var agent_used_storage = req.rest_params.used_storage;
     var node;
 
     return Q.fcall(
@@ -386,7 +386,7 @@ function heartbeat(req) {
 
 
 function connect_node_vendor(req) {
-    var vendor_info = _.pick(req.restful_params, 'name', 'kind', 'info');
+    var vendor_info = _.pick(req.rest_params, 'name', 'kind', 'info');
     vendor_info.account = req.account.id; // see account_server.account_session
     var vendor;
     return Q.fcall(

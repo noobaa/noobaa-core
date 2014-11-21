@@ -1,8 +1,8 @@
 'use strict';
 
-var restful_api = require('../util/restful_api');
+var rest_api = require('../util/rest_api');
 
-module.exports = restful_api({
+module.exports = rest_api({
 
     name: 'edge_node_api',
 

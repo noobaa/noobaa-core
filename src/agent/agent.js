@@ -286,8 +286,8 @@ Agent.prototype._read_block = function(block_id) {
 
 Agent.prototype.write_block = function(req) {
     var self = this;
-    var block_id = req.restful_params.block_id;
-    var data = req.restful_params.data;
+    var block_id = req.rest_params.block_id;
+    var data = req.rest_params.data;
     var block_path = self._block_path(block_id);
     var old_size = 0;
 
@@ -331,7 +331,7 @@ Agent.prototype.write_block = function(req) {
 };
 
 Agent.prototype.read_block = function(req) {
-    var block_id = req.restful_params.block_id;
+    var block_id = req.rest_params.block_id;
     return this._read_block(block_id);
 };
 
@@ -339,8 +339,8 @@ Agent.prototype.read_block = function(req) {
 
 Agent.prototype.check_block = function(req) {
     var self = this;
-    var block_id = req.restful_params.block_id;
-    var slices = req.restful_params.slices;
+    var block_id = req.rest_params.block_id;
+    var slices = req.rest_params.slices;
     return self._read_block(block_id).then(
         function(data) {
             // calculate the md5 of the requested slices
@@ -359,7 +359,7 @@ Agent.prototype.check_block = function(req) {
 
 Agent.prototype.remove_block = function(req) {
     var self = this;
-    var block_id = req.restful_params.block_id;
+    var block_id = req.rest_params.block_id;
     self.blocks_lru.remove_item(block_id);
     var block_path = self._block_path(block_id);
     if (block_path) {

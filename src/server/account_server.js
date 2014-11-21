@@ -5,7 +5,7 @@ var _ = require('lodash');
 var assert = require('assert');
 var Q = require('q');
 var moment = require('moment');
-var restful_api = require('../util/restful_api');
+var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
 var node_monitor = require('./node_monitor');
@@ -85,8 +85,8 @@ function account_session(req, force) {
 
 
 function login_account(req) {
-    var info = _.pick(req.restful_params, 'email');
-    var password = req.restful_params.password;
+    var info = _.pick(req.rest_params, 'email');
+    var password = req.rest_params.password;
     var account;
     // find account by email, and verify password
     return Q.fcall(
@@ -125,7 +125,7 @@ function logout_account(req) {
 
 
 function create_account(req) {
-    var info = _.pick(req.restful_params, 'email', 'password');
+    var info = _.pick(req.rest_params, 'email', 'password');
     return Q.fcall(
         function() {
             return Account.create(info);
@@ -176,7 +176,7 @@ function read_account(req) {
 function update_account(req) {
     return account_session(req, 'force').then(
         function() {
-            var info = _.pick(req.restful_params, 'email', 'password');
+            var info = _.pick(req.rest_params, 'email', 'password');
             return Account.findByIdAndUpdate(req.session.account_id, info).exec();
         }
     ).thenResolve().then(null,
@@ -203,7 +203,7 @@ function delete_account(req) {
 
 
 function get_stats(req) {
-    var system_stats = req.restful_params.system_stats;
+    var system_stats = req.rest_params.system_stats;
     var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
     return account_session(req).then(
         function() {

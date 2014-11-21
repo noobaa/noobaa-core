@@ -21,7 +21,7 @@ var bucket_schema = new Schema({
     },
 
     // optional subdomain name - must be unique in the domain
-    // in order to resolve RESTful urls such as:
+    // in order to resolve REST urls such as:
     //   https://www.noobaa.com/{{subdomain}}/{{objectkey}}
     // or as real subdomain
     //   https://{{subdomain}}.noobaa.com/{{objectkey}}

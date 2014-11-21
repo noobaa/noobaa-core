@@ -12,7 +12,7 @@ var PATH = require('path');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
 
-module.exports = restful_api;
+module.exports = rest_api;
 
 // TODO better keep cookie jars in a client object, but now the client objects are per api
 var cookie_jars_per_host = {};
@@ -35,7 +35,7 @@ var PATH_ITEM_RE = /^\S*$/;
 //   - path (Function) - function(params) that returns the path (String) for the call
 //   - data (Function) - function(params) that returns the data (String|Buffer) for the call
 //
-function restful_api(api) {
+function rest_api(api) {
 
     // client class for the api.
     // creating a client instance takes client_params,
@@ -47,11 +47,11 @@ function restful_api(api) {
     // - path (String) - base path for the host
     //
     function Client(client_params) {
-        this._restful_client_params = client_params || {};
+        this._rest_client_params = client_params || {};
     }
 
     Client.prototype.set_param = function(key, value) {
-        this._restful_client_params[key] = value;
+        this._rest_client_params[key] = value;
     };
 
     // server class for the api.
@@ -77,12 +77,12 @@ function restful_api(api) {
             if (!func && allow_missing_methods) {
                 func = function(params) {
                     return Q.reject({
-                        data: 'RESTFUL_API: missing method implementation - ' + func_info.fullname
+                        data: 'rest_api: missing method implementation - ' + func_info.fullname
                     });
                 };
             }
             assert.strictEqual(typeof(func), 'function',
-                'RESTFUL_API: server method should be a function - ' + func_info.fullname);
+                'rest_api: server method should be a function - ' + func_info.fullname);
             self._impl[func_name] = func;
             self._handlers[func_name] = create_server_handler(self, func, func_info);
         });
@@ -101,7 +101,7 @@ function restful_api(api) {
         var doc_base = PATH.join(base_path, 'doc', api.name);
 
         _.each(self._middlewares, function(fn) {
-            assert(fn, 'RESTFUL_API: undefined middleware function');
+            assert(fn, 'rest_api: undefined middleware function');
             router.use(base_path, function(req, res, next) {
                 Q.fcall(fn, req).done(function() {
                     return next();
@@ -162,17 +162,17 @@ function restful_api(api) {
         func_info.params_properties = tv4.getSchema(func_info.params_schema).properties;
 
         assert(func_info.method in VALID_METHODS,
-            'RESTFUL_API: unexpected http method: ' +
+            'rest_api: unexpected http method: ' +
             func_info.method + ' for ' + func_info.fullname);
 
         assert.strictEqual(typeof(func_info.path), 'string',
-            'RESTFUL_API: unexpected path type: ' +
+            'rest_api: unexpected path type: ' +
             func_info.path + ' for ' + func_info.fullname);
 
         // split the path to its items
         func_info.path_items = _.map(func_info.path.split('/'), function(p) {
             assert(PATH_ITEM_RE.test(p),
-                'RESTFUL_API: invalid path item: ' + p + ' for ' + func_info.fullname);
+                'rest_api: invalid path item: ' + p + ' for ' + func_info.fullname);
 
             // if a normal path item, just return the string
             if (p[0] !== ':') {
@@ -181,7 +181,7 @@ function restful_api(api) {
             // if a param item (starts with colon) find the param info
             p = p.slice(1);
             var param = func_info.params_properties[p];
-            assert(param, 'RESTFUL_API: missing param info: ' + p + ' for ' + func_info.fullname);
+            assert(param, 'rest_api: missing param info: ' + p + ' for ' + func_info.fullname);
             return {
                 name: p,
                 param: param,
@@ -191,14 +191,14 @@ function restful_api(api) {
         // test for colliding method+path
         var method_and_path = func_info.method + func_info.path;
         var collision = method_and_path_collide[method_and_path];
-        assert(!collision, 'RESTFUL_API: collision of method+path: ' +
+        assert(!collision, 'rest_api: collision of method+path: ' +
             func_info.name + ' ~ ' + collision);
         method_and_path_collide[method_and_path] = func_info.name;
 
         // set the client class prototype functions
         Client.prototype[func_name] = function(params) {
-            // resolve this._restful_client_params to use the client object
-            return do_client_request(this._restful_client_params, func_info, params);
+            // resolve this._rest_client_params to use the client object
+            return do_client_request(this._rest_client_params, func_info, params);
         };
     });
 
@@ -221,7 +221,7 @@ function do_client_request(client_params, func_info, params) {
         handle_http_reply.bind(null, client_params, func_info)
     ).then(null,
         function(err) {
-            console.error('RESTFUL REQUEST FAILED', err);
+            console.error('REST REQUEST FAILED', err);
             throw err;
         }
     );
@@ -258,7 +258,7 @@ function send_http_request(client_params, func_info, params) {
             path = PATH.join(path, p);
         } else {
             assert(p.name in params,
-                'RESTFUL_API: missing required path param: ' +
+                'rest_api: missing required path param: ' +
                 p + ' for ' + func_info.fullname);
             path = PATH.join(path, param_to_component(data[p.name], p.param.type));
             delete data[p.name];
@@ -405,23 +405,23 @@ function create_server_handler(server, func, func_info) {
         var log_func = server._log || function() {};
         Q.fcall(
             function() {
-                req.restful_params = {};
+                req.rest_params = {};
                 _.each(req.query, function(v, k) {
-                    req.restful_params[k] =
+                    req.rest_params[k] =
                         component_to_param(v, func_info.params_properties[k].type);
                 });
                 if (!func_info.param_raw) {
                     _.each(req.body, function(v, k) {
-                        req.restful_params[k] = v;
+                        req.rest_params[k] = v;
                     });
                 }
                 _.each(req.params, function(v, k) {
-                    req.restful_params[k] =
+                    req.rest_params[k] =
                         component_to_param(v, func_info.params_properties[k].type);
                 });
-                validate_schema(req.restful_params, func_info.params_schema, func_info, 'server request');
+                validate_schema(req.rest_params, func_info.params_schema, func_info, 'server request');
                 if (func_info.param_raw) {
-                    req.restful_params[func_info.param_raw] = req.body;
+                    req.rest_params[func_info.param_raw] = req.body;
                 }
                 // server functions are expected to return a promise
                 return func(req, res, next);

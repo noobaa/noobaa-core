@@ -23,7 +23,7 @@ module.exports = ObjectClient;
  * the client provides api access to remote object storage.
  * the client API functions have the signature function(params), and return a promise.
  *
- * @param {Object} client_params - see restful_api.init_client()
+ * @param {Object} client_params - see rest_api.init_client()
  */
 function ObjectClient(client_params) {
     object_api.Client.call(this, client_params);

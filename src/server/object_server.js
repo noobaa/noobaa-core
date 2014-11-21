@@ -3,7 +3,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var restful_api = require('../util/restful_api');
+var rest_api = require('../util/rest_api');
 var object_api = require('../api/object_api');
 var account_server = require('./account_server');
 var LRU = require('noobaa-util/lru');
@@ -60,7 +60,7 @@ function list_buckets(req) {
 
 
 function create_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
+    var bucket_name = req.rest_params.bucket;
 
     return Q.fcall(
         function() {
@@ -75,7 +75,7 @@ function create_bucket(req) {
 
 
 function read_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
+    var bucket_name = req.rest_params.bucket;
 
     return find_bucket(req.account.id, bucket_name, 'force').then(
         function(bucket) {
@@ -86,12 +86,12 @@ function read_bucket(req) {
 
 
 function update_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
+    var bucket_name = req.rest_params.bucket;
 
     return Q.fcall(
         function() {
             // TODO no fields can be updated for now
-            var updates = _.pick(req.restful_params);
+            var updates = _.pick(req.rest_params);
             var info = {
                 account: req.account.id,
                 name: bucket_name,
@@ -103,7 +103,7 @@ function update_bucket(req) {
 
 
 function delete_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
+    var bucket_name = req.rest_params.bucket;
     // TODO mark deleted on objects and reclaim data blocks
 
     return Q.fcall(
@@ -119,8 +119,8 @@ function delete_bucket(req) {
 
 
 function list_bucket_objects(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -149,9 +149,9 @@ function list_bucket_objects(req) {
 
 
 function create_multipart_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var size = req.restful_params.size;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
+    var size = req.rest_params.size;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -168,8 +168,8 @@ function create_multipart_upload(req) {
 }
 
 function complete_multipart_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -189,8 +189,8 @@ function complete_multipart_upload(req) {
 }
 
 function abort_multipart_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -208,11 +208,11 @@ function abort_multipart_upload(req) {
 }
 
 function allocate_object_part(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var start = Number(req.restful_params.start);
-    var end = Number(req.restful_params.end);
-    var md5sum = req.restful_params.md5sum;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
+    var start = Number(req.rest_params.start);
+    var end = Number(req.rest_params.end);
+    var md5sum = req.rest_params.md5sum;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -239,10 +239,10 @@ function allocate_object_part(req) {
 
 
 function read_object_mappings(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var start = Number(req.restful_params.start);
-    var end = Number(req.restful_params.end);
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
+    var start = Number(req.rest_params.start);
+    var end = Number(req.rest_params.end);
     var obj;
 
     return find_bucket(req.account.id, bucket_name).then(
@@ -275,8 +275,8 @@ function read_object_mappings(req) {
 //////////////////////
 
 function read_object_md(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -296,8 +296,8 @@ function read_object_md(req) {
 
 
 function update_object_md(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {
@@ -307,7 +307,7 @@ function update_object_md(req) {
                 key: key,
             };
             // TODO no fields can be updated for now
-            var updates = _.pick(req.restful_params);
+            var updates = _.pick(req.rest_params);
             return ObjectMD.findOneAndUpdate(info, updates).exec();
         }
     ).thenResolve();
@@ -315,8 +315,8 @@ function update_object_md(req) {
 
 
 function delete_object(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
+    var bucket_name = req.rest_params.bucket;
+    var key = req.rest_params.key;
 
     return find_bucket(req.account.id, bucket_name).then(
         function(bucket) {

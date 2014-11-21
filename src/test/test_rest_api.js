@@ -10,12 +10,12 @@ var request = require('request');
 var utilitest = require('noobaa-util/utilitest');
 
 
-describe('restful_api', function() {
+describe('rest_api', function() {
 
-    var restful_api = require('../util/restful_api');
+    var rest_api = require('../util/rest_api');
 
     // init the test api
-    var test_api = restful_api({
+    var test_api = rest_api({
         name: 'test_api',
         definitions: {
             params_schema: {
@@ -121,7 +121,7 @@ describe('restful_api', function() {
 
         it('should detect api with collision paths', function() {
             assert.throws(function() {
-                restful_api({
+                rest_api({
                     methods: {
                         a: {
                             method: 'GET',
@@ -195,7 +195,7 @@ describe('restful_api', function() {
                     methods[func_name] = function(req) {
                         // console.log('TEST SERVER REQUEST');
                         _.each(PARAMS, function(param, name) {
-                            assert.deepEqual(param, req.restful_params[name]);
+                            assert.deepEqual(param, req.rest_params[name]);
                         });
                         if (reply_error) {
                             return Q.reject(ERROR_REPLY);
@@ -204,12 +204,12 @@ describe('restful_api', function() {
                         }
                     };
                     server = new test_api.Server(methods, [], 'allow_missing_methods');
-                    server.install_routes(utilitest.router, '/test_restful_api');
+                    server.install_routes(utilitest.router, '/test_rest_api');
                     server.set_logging();
 
                     client = new test_api.Client({
                         port: utilitest.http_port(),
-                        path: '/test_restful_api',
+                        path: '/test_rest_api',
                     });
                 });
 
@@ -242,7 +242,7 @@ describe('restful_api', function() {
 
                 it('should return doc', function(done) {
                     var doc_url = 'http://localhost:' + utilitest.http_port() +
-                        '/test_restful_api/doc/test_api/' + func_name;
+                        '/test_rest_api/doc/test_api/' + func_name;
                     request(doc_url, function(error, response, body) {
                         assert(!error);
                         assert.strictEqual(response.statusCode, 200);

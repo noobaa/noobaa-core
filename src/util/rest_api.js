@@ -14,9 +14,6 @@ var tv4 = require('tv4').freshApi();
 
 module.exports = rest_api;
 
-// TODO better keep cookie jars in a client object, but now the client objects are per api
-var cookie_jars_per_host = {};
-
 var VALID_METHODS = {
     GET: 1,
     PUT: 1,
@@ -25,6 +22,7 @@ var VALID_METHODS = {
 };
 var PATH_ITEM_RE = /^\S*$/;
 
+var global_cookie_jars = {};
 
 // Check and initialize the api structure.
 //
@@ -45,9 +43,16 @@ function rest_api(api) {
     // - hostname (String)
     // - port (Number)
     // - path (String) - base path for the host
+    // - cookie_jars (Object) - map of host to cookie jar
+    //      to save set-cookie replies in memory when running in nodejs.
+    //      for the browser, it already saves the cookies persistently.
+    //      pass a common object to share the cookies between the clients of all apis.
+    //      this is required for a login flow to work.
     //
     function Client(client_params) {
         this._rest_client_params = client_params || {};
+        this._rest_client_params.cookie_jars =
+            this._rest_client_params.cookie_jars || global_cookie_jars;
     }
 
     Client.prototype.set_param = function(key, value) {
@@ -267,7 +272,7 @@ function send_http_request(client_params, func_info, params) {
 
     headers.accept = '*/*';
     var host = client_params.host || (client_params.hostname + ':' + client_params.post);
-    var jar = cookie_jars_per_host[host];
+    var jar = client_params.cookie_jars[host];
     if (jar) {
         headers.cookie = jar.cookieString({
             url: path
@@ -382,7 +387,8 @@ function handle_http_reply(client_params, func_info, res) {
     var cookies = res.response.headers['set-cookie'];
     if (cookies) {
         var host = client_params.host || (client_params.hostname + ':' + client_params.post);
-        var jar = cookie_jars_per_host[host] = cookie_jars_per_host[host] || new Cookie.Jar();
+        var jar = client_params.cookie_jars[host] =
+            client_params.cookie_jars[host] || new Cookie.Jar();
         _.each(cookies, function(cookie_str) {
             jar.add(new Cookie(cookie_str));
         });

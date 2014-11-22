@@ -18,18 +18,6 @@ var system_schema = new Schema({
         required: true,
     },
 
-    // a list of accounts with permission to act on this system.
-    permissions: [{
-        account: {
-            ref: 'Account',
-            type: types.ObjectId,
-            required: true,
-        },
-        admin: {
-            type: Boolean
-        },
-    }],
-
 });
 
 system_schema.index({

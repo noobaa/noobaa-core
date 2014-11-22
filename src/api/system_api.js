@@ -10,10 +10,65 @@ module.exports = rest_api({
 
     methods: {
 
-        /*
+        list_systems: {
+            method: 'GET',
+            path: '/systems/',
+            reply: {
+                type: 'array',
+                items: {
+                    $ref: '/system_api/definitions/system_info'
+                }
+            },
+        },
+
         create_system: {
             method: 'POST',
-            path: '/system',
+            path: '/system/',
+            params: {
+                $ref: '/system_api/definitions/system_info'
+            },
+        },
+
+        read_system: {
+            method: 'GET',
+            path: '/system/:id',
+            params: {
+                $ref: '/system_api/definitions/system_id'
+            },
+            reply: {
+                $ref: '/system_api/definitions/system_info'
+            },
+        },
+
+        update_system: {
+            method: 'PUT',
+            path: '/system/:id',
+            params: {
+                type: 'object',
+                required: ['id'],
+                properties: {
+                    id: {
+                        type: 'string',
+                    },
+                    name: {
+                        type: 'string',
+                    },
+                },
+            },
+        },
+
+        delete_system: {
+            method: 'DELETE',
+            path: '/system/:id',
+            params: {
+                $ref: '/system_api/definitions/system_id'
+            },
+        },
+
+
+        connect_system: {
+            method: 'GET',
+            path: '/connect',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -24,20 +79,10 @@ module.exports = rest_api({
                 },
             },
         },
-        */
 
-        get_stats: {
+        system_stats: {
             method: 'GET',
             path: '/stats',
-            params: {
-                type: 'object',
-                required: [],
-                properties: {
-                    system_stats: {
-                        type: 'boolean'
-                    }
-                }
-            },
             reply: {
                 type: 'object',
                 required: [
@@ -87,6 +132,29 @@ module.exports = rest_api({
     ////////////////////////////////
 
     definitions: {
+
+        system_info: {
+            type: 'object',
+            required: ['id', 'name'],
+            properties: {
+                id: {
+                    type: 'string',
+                },
+                name: {
+                    type: 'string',
+                },
+            },
+        },
+
+        system_id: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+                id: {
+                    type: 'string',
+                },
+            },
+        },
 
         bigint: {
             oneOf: [{

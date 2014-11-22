@@ -5,9 +5,7 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var system_api = require('../api/system_api');
-var system_client = new system_api.Client({
-    path: '/api/system_api/',
-});
+var system_client = new system_api.Client();
 
 var nb_app = angular.module('nb_app', [
     'nb_util',
@@ -51,13 +49,13 @@ nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
 
 nb_app.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
-    'nbAccount', 'nbNodes', 'nbFiles',
+    'nbSystem', 'nbNodes', 'nbFiles',
     'nbAlertify', '$location', 'nbServerData',
     function($scope, $http, $q, $window,
-        nbAccount, nbNodes, nbFiles,
+        nbSystem, nbNodes, nbFiles,
         nbAlertify, $location, nbServerData) {
 
-        $scope.nbAccount = nbAccount;
+        $scope.nbSystem = nbSystem;
         $scope.nbNodes = nbNodes;
         $scope.nbFiles = nbFiles;
         $scope.nbAlertify = nbAlertify;
@@ -102,7 +100,7 @@ nb_app.controller('DashboardCtrl', [
 
         $scope.refresh_view = function() {
             return $q.all([
-                $scope.nbAccount.refresh_stats(),
+                $scope.nbSystem.refresh_stats(),
                 $scope.nbNodes.refresh_nodes_stats()
             ]);
         };
@@ -119,7 +117,7 @@ nb_app.controller('StatsCtrl', [
         $scope.nav.active = 'stats';
 
         $scope.refresh_view = function() {
-            return $scope.nbAccount.refresh_stats();
+            return $scope.nbSystem.refresh_stats();
         };
 
         $scope.refresh_view();
@@ -127,22 +125,48 @@ nb_app.controller('StatsCtrl', [
 ]);
 
 
-nb_app.factory('nbAccount', [
-    '$q', '$timeout', '$rootScope',
-    function($q, $timeout, $rootScope) {
+nb_app.factory('nbSystem', [
+    '$q', '$timeout', '$rootScope', 'nbServerData',
+    function($q, $timeout, $rootScope, nbServerData) {
         var $scope = {};
 
+        $scope.refresh_systems = refresh_systems;
+        $scope.create_system = create_system;
+        $scope.connect_system = connect_system;
         $scope.refresh_stats = refresh_stats;
 
+        function refresh_systems() {
+            return $q.when(system_client.list_systems()).then(
+                function(res) {
+                    console.log('SYSTEMS', res);
+                    $scope.systems = res;
+                    if (!$scope.systems.length) {
+                        return create_system(nbServerData.account.name);
+                    }
+                }
+            );
+        }
+
+        function create_system(name) {
+            return $q.when(system_client.create_system({
+                name: name
+            })).then(refresh_systems);
+        }
+
+        function connect_system(name) {
+            return $q.when(system_client.connect_system({
+                name: name
+            }));
+        }
+
         function refresh_stats() {
-            return $q.when(system_client.get_stats({})).then(
+            return $q.when(system_client.system_stats()).then(
                 function(res) {
                     console.log('STATS', res);
                     $scope.stats = res;
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
                     $scope.stats.free_storage = res.allocated_storage - res.used_storage;
-                    $scope.stats.free_storage_percent =
-                        !res.allocated_storage ? 0 :
+                    $scope.stats.free_storage_percent = !res.allocated_storage ? 0 :
                         100 * ($scope.stats.free_storage / res.allocated_storage);
                 },
                 function(err) {

@@ -19,6 +19,10 @@ var storage_vendor_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
+    },
+
+    name: {
+        type: String,
         required: true,
     },
 
@@ -34,6 +38,13 @@ var storage_vendor_schema = new Schema({
         type: Object,
     },
 
+});
+
+storage_vendor_schema.index({
+    system: 1,
+    name: 1,
+}, {
+    unique: true
 });
 
 

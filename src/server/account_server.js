@@ -24,7 +24,7 @@ var account_server = new account_api.Server({
     logout_account: logout_account,
 });
 
-account_server.account_session = account_session;
+account_server.account_session_middleware = account_session_middleware;
 
 module.exports = account_server;
 
@@ -61,12 +61,12 @@ function create_account(req) {
 function read_account(req) {
     return account_session(req, 'force').then(
         function() {
-            return db.Account.findById(get_session_account_id(req)).exec();
+            return db.Account.findById(req.session.account_id).exec();
         }
     ).then(
         function(account) {
             if (!account) {
-                console.error('MISSING ACCOUNT', get_session_account_id(req));
+                console.error('MISSING ACCOUNT', req.session.account_id);
                 throw new Error('account not found');
             }
             return {
@@ -86,7 +86,7 @@ function update_account(req) {
     return account_session(req, 'force').then(
         function() {
             var info = _.pick(req.rest_params, 'name', 'email', 'password');
-            return db.Account.findByIdAndUpdate(get_session_account_id(req), info).exec();
+            return db.Account.findByIdAndUpdate(req.session.account_id, info).exec();
         }
     ).then(null,
         function(err) {
@@ -98,9 +98,11 @@ function update_account(req) {
 
 
 function delete_account(req) {
+    // TODO delete_account is partially implemented -
+    // should remove from systems, and logout session.
     return account_session(req, 'force').then(
         function() {
-            return db.Account.findByIdAndRemove(get_session_account_id(req)).exec();
+            return db.Account.findByIdAndRemove(req.session.account_id).exec();
         }
     ).then(null,
         function(err) {
@@ -149,7 +151,7 @@ function login_account(req) {
 
 
 function logout_account(req) {
-    delete req.session.account;
+    delete req.session.account_id;
 }
 
 
@@ -158,22 +160,10 @@ function logout_account(req) {
 // SESSION //
 /////////////
 
-
-function get_session_account_id(req) {
-    var a = req.session.account;
-    if (a) {
-        return a.id;
-    }
-}
-
 // set account info in the session
 // (expected to use secure cookie session)
 function set_session_account(req, account) {
-    req.session.account = {
-        id: account.id,
-        name: account.name,
-        email: account.email,
-    };
+    req.session.account_id = account.id;
 }
 
 // cache for accounts in memory.
@@ -184,16 +174,19 @@ var account_session_lru = new LRU({
     expiry_ms: 600000, // 10 minutes expiry
 });
 
+// this is exported to be used by other servers as a middleware
+function account_session_middleware(req, res, next) {
+    account_session(req).thenResolve().nodeify(next);
+}
 
-// verify that the session has a valid account using the account_session_lru cache.
-// this function is also exported to be used by other servers as a middleware.
+// verify that the session has a valid account using the account_session_lru cache,
+// and set req.account to be available for other apis.
 function account_session(req, force) {
     return Q.fcall(
         function() {
-            var account_id = get_session_account_id(req);
+            var account_id = req.session.account_id;
             if (!account_id) {
-                console.error('NO ACCOUNT SESSION', account_id);
-                throw new Error('not logged in');
+                return;
             }
 
             var item = account_session_lru.find_or_add_item(account_id);
@@ -213,8 +206,8 @@ function account_session(req, force) {
                         throw new Error('account removed');
                     }
                     // update the cache item
-                    item.account = account;
-                    req.account = account;
+                    item.account = account.toObject();
+                    req.account = item.account;
                     return req.account;
                 }
             );

@@ -18,7 +18,6 @@ var node_vendor_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
-        required: true,
     },
 
     name: {

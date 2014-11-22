@@ -143,7 +143,9 @@ describe('rest_api', function() {
         it('should work on server inited properly', function() {
             // init the server and add extra propoerty and check that it works
             var router = new express.Router();
-            var server = new test_api.Server({}, [], 'allow_missing_methods');
+            var server = new test_api.Server({}, {
+                allow_missing_methods: 'allow_missing_methods'
+            });
             server.install_routes(router);
         });
 
@@ -151,6 +153,14 @@ describe('rest_api', function() {
             // check that missing functions are detected
             assert.throws(function() {
                 var server = new test_api.Server();
+            }, Error);
+        });
+
+        it('should be strict about allow_missing_methods', function() {
+            assert.throws(function() {
+                var server = new test_api.Server({}, {
+                    allow_missing_methods: true
+                });
             }, Error);
         });
 
@@ -163,13 +173,17 @@ describe('rest_api', function() {
                 delete: function() {},
                 use: function() {},
             };
-            var server = new test_api.Server({}, [], 'allow_missing_methods');
+            var server = new test_api.Server({}, {
+                allow_missing_methods: 'allow_missing_methods'
+            });
             server.install_routes(router, '/');
         });
 
         it('should work on express app', function() {
             var app = express();
-            var server = new test_api.Server({}, [], 'allow_missing_methods');
+            var server = new test_api.Server({}, {
+                allow_missing_methods: 'allow_missing_methods'
+            });
             server.install_routes(app, '/base/route/path/');
         });
 
@@ -203,7 +217,9 @@ describe('rest_api', function() {
                             return Q.resolve(REPLY);
                         }
                     };
-                    server = new test_api.Server(methods, [], 'allow_missing_methods');
+                    server = new test_api.Server(methods, {
+                        allow_missing_methods: 'allow_missing_methods'
+                    });
                     server.install_routes(utilitest.router);
 
                     client = new test_api.Client({

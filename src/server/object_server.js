@@ -30,10 +30,18 @@ module.exports = new object_api.Server({
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
-}, [
-    // middleware to verify the account session
-    system_server.account_session
-]);
+}, {
+    before: before
+});
+
+
+function before(req) {
+    if (!req.account) {
+        var err = new Error('not logged in');
+        err.status = 403;
+        throw err;
+    }
+}
 
 
 function list_buckets(req) {

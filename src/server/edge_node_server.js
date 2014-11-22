@@ -27,10 +27,18 @@ module.exports = new edge_node_api.Server({
     get_agents_status: get_agents_status,
     heartbeat: heartbeat,
     connect_node_vendor: connect_node_vendor,
-}, [
-    // middleware to verify the account session before any of this server calls
-    system_server.account_session
-]);
+}, {
+    before: before
+});
+
+
+function before(req) {
+    if (!req.account) {
+        var err = new Error('not logged in');
+        err.status = 403;
+        throw err;
+    }
+}
 
 
 function create_node(req) {

@@ -15,7 +15,7 @@ var LRU = require('noobaa-util/lru');
 var agent_host_api = require('../api/agent_host_api');
 var Agent = require('./agent');
 var size_utils = require('../util/size_utils');
-var system_api = require('../api/system_api');
+var account_api = require('../api/account_api');
 var edge_node_api = require('../api/edge_node_api');
 var agent_api = require('../api/agent_api');
 var express_morgan_logger = require('morgan');
@@ -74,12 +74,8 @@ function AgentHost(params) {
     self.agent_host_server.install_routes(app, '/api/agent_host_api/');
 
     self.agents = {};
-    self.system_client = new system_api.Client(_.merge({
-        path: '/api/system_api/',
-    }, self.client_params));
-    self.edge_node_client = new edge_node_api.Client(_.merge({
-        path: '/api/edge_node_api/',
-    }, self.client_params));
+    self.account_client = new account_api.Client(self.client_params);
+    self.edge_node_client = new edge_node_api.Client(self.client_params);
 
     // start http server
     self.server = http.createServer(app);
@@ -95,7 +91,7 @@ AgentHost.prototype.connect_node_vendor = function() {
     return Q.fcall(
         function() {
             console.log('login_account', self.account_credentials.email);
-            return self.system_client.login_account(self.account_credentials);
+            return self.account_client.login_account(self.account_credentials);
         }
     ).then(
         function() {
@@ -139,7 +135,7 @@ AgentHost.prototype.start_agent = function(req) {
     return Q.when(self.stop_agent(req)).then(
         function() {
             var agent = self.agents[node_name] = new Agent({
-                system_client: self.system_client,
+                account_client: self.account_client,
                 edge_node_client: self.edge_node_client,
                 account_credentials: self.account_credentials,
                 node_name: node_name,

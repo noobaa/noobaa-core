@@ -12,8 +12,6 @@ var express = require('express');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
 var size_utils = require('../util/size_utils');
-var system_api = require('../api/system_api');
-var edge_node_api = require('../api/edge_node_api');
 var agent_api = require('../api/agent_api');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
@@ -28,12 +26,12 @@ module.exports = Agent;
  */
 function Agent(params) {
     var self = this;
-    assert(params.system_client, 'missing params.system_client');
+    assert(params.account_client, 'missing params.account_client');
     assert(params.edge_node_client, 'missing params.edge_node_client');
     assert(params.account_credentials, 'missing params.account_credentials');
     assert(params.node_name, 'missing params.node_name');
     assert(params.node_geolocation, 'missing params.node_geolocation');
-    self.system_client = params.system_client;
+    self.account_client = params.account_client;
     self.edge_node_client = params.edge_node_client;
     self.account_credentials = params.account_credentials;
     self.node_name = params.node_name;
@@ -105,7 +103,7 @@ Agent.prototype.start = function() {
 
     return Q.fcall(
         function() {
-            return self.system_client.login_account(self.account_credentials);
+            return self.account_client.login_account(self.account_credentials);
         }
     ).then(
         function() {

@@ -70,24 +70,27 @@ function rest_api(api) {
      *
      * methods (Object): map of function names to function(params).
      *
-     * allow_missing_methods (String):
+     * options (Object):
+     * - before (Function): called before each server function
+     * - allow_missing_methods (String):
      *    call with allow_missing_methods==='allow_missing_methods' to make the server
      *    accept missing functions, the handler for missing functions will fail on runtime.
      *    useful for test servers.
      */
-    function Server(methods, middlewares, allow_missing_methods) {
+    function Server(methods, options) {
         var self = this;
-        if (allow_missing_methods) {
-            assert.strictEqual(allow_missing_methods, 'allow_missing_methods');
+        options = options || {};
+        if (options.allow_missing_methods) {
+            assert.strictEqual(options.allow_missing_methods, 'allow_missing_methods');
         }
-        self._middlewares = middlewares || [];
+        self._before = options.before || function() {};
         self._impl = {};
         self._handlers = {};
         self._log = console.log.bind(console);
 
         _.each(api.methods, function(func_info, func_name) {
             var func = methods[func_name];
-            if (!func && allow_missing_methods) {
+            if (!func && options.allow_missing_methods) {
                 func = function(params) {
                     return Q.reject({
                         data: 'rest_api: missing method implementation - ' + func_info.fullname
@@ -113,13 +116,6 @@ function rest_api(api) {
         var self = this;
         path = path || api_path;
         var doc_base = PATH.join('/doc', path);
-
-        _.each(self._middlewares, function(fn) {
-            assert(fn, 'rest_api: undefined middleware function');
-            router.use(path, function(req, res, next) {
-                Q.fcall(fn, req).nodeify(next);
-            });
-        });
 
         // install methods on the router
         _.each(api.methods, function(func_info, func_name) {
@@ -436,6 +432,10 @@ function create_server_handler(server, func, func_info) {
                 if (func_info.param_raw) {
                     req.rest_params[func_info.param_raw] = req.body;
                 }
+                return server._before(req);
+            }
+        ).then(
+            function() {
                 // server functions are expected to return a promise
                 return func(req, res, next);
             }

@@ -10,6 +10,11 @@ var types = mongoose.Schema.Types;
 
 var data_block_schema = new Schema({
 
+    system: {
+        ref: 'System',
+        type: types.ObjectId,
+    },
+
     // (chunk,index) define the block content
     chunk: {
         ref: 'DataChunk',
@@ -50,6 +55,19 @@ data_block_schema.index({
 }, {
     unique: false
 });
+
+data_block_schema.index({
+    vendor: 1,
+}, {
+    unique: false
+});
+
+data_block_schema.index({
+    system: 1,
+}, {
+    unique: false
+});
+
 
 data_block_schema.pre('save', function(callback) {
     var self = this;

@@ -14,7 +14,6 @@ var object_part_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
-        required: true,
     },
 
     // the object that this part belong to.
@@ -64,6 +63,12 @@ object_part_schema.index({
 
 object_part_schema.index({
     chunk: 1,
+}, {
+    unique: false
+});
+
+object_part_schema.index({
+    system: 1,
 }, {
     unique: false
 });

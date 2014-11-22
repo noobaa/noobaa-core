@@ -23,6 +23,10 @@ var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var account_server = require('./account_server');
+var system_server = require('./system_server');
+var edge_node_server = require('./edge_node_server');
+var object_server = require('./object_server');
 
 
 if (!process.env.PORT) {
@@ -94,7 +98,7 @@ app.use(express_cookie_session({
     maxage: 356 * 24 * 60 * 60 * 1000 // 1 year
 }));
 app.use(express_compress());
-
+app.use(account_server.account_session_middleware);
 
 ////////////
 // ROUTES //
@@ -105,10 +109,6 @@ app.use(express_compress());
 // setup apis
 
 var api_router = express.Router();
-var account_server = require('./account_server');
-var system_server = require('./system_server');
-var edge_node_server = require('./edge_node_server');
-var object_server = require('./object_server');
 account_server.install_routes(api_router);
 system_server.install_routes(api_router);
 edge_node_server.install_routes(api_router);
@@ -119,7 +119,7 @@ app.use(api_router);
 // setup pages
 
 function redirect_no_account(req, res, next) {
-    if (req.session.account && req.session.account.id) {
+    if (req.account) {
         return next();
     }
     return res.redirect('/login/');
@@ -127,7 +127,9 @@ function redirect_no_account(req, res, next) {
 
 function page_context(req) {
     var data = {};
-    _.extend(data, _.pick(req.session, 'account'));
+    if (req.account) {
+        data.account = req.account;
+    }
     return {
         data: data
     };

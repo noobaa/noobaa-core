@@ -237,10 +237,10 @@ function find_system_by_id_and_permission(req) {
                 throw new Error('no system permission');
             }
             if (!system_id) {
-                // the global system
+                // the default system
                 return {
-                    id: '',
-                    name: 'System',
+                    id: null,
+                    name: null,
                 };
             }
             return db.System.findById(system_id).exec();

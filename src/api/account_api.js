@@ -10,7 +10,6 @@ module.exports = rest_api({
 
     methods: {
 
-
         //////////
         // CRUD //
         //////////

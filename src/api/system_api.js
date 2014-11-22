@@ -10,21 +10,17 @@ module.exports = rest_api({
 
     methods: {
 
-        list_systems: {
-            method: 'GET',
-            path: '/systems/',
-            reply: {
-                type: 'array',
-                items: {
-                    $ref: '/system_api/definitions/system_info'
-                }
-            },
-        },
+        //////////
+        // CRUD //
+        //////////
 
         create_system: {
             method: 'POST',
             path: '/system/',
             params: {
+                $ref: '/system_api/definitions/system_create_info'
+            },
+            reply: {
                 $ref: '/system_api/definitions/system_info'
             },
         },
@@ -44,16 +40,7 @@ module.exports = rest_api({
             method: 'PUT',
             path: '/system/:id',
             params: {
-                type: 'object',
-                required: ['id'],
-                properties: {
-                    id: {
-                        type: 'string',
-                    },
-                    name: {
-                        type: 'string',
-                    },
-                },
+                $ref: '/system_api/definitions/system_info'
             },
         },
 
@@ -66,23 +53,53 @@ module.exports = rest_api({
         },
 
 
-        connect_system: {
+        //////////
+        // LIST //
+        //////////
+
+        list_systems: {
             method: 'GET',
-            path: '/connect',
+            path: '/systems/',
+            reply: {
+                type: 'array',
+                items: {
+                    $ref: '/system_api/definitions/system_info'
+                }
+            },
+        },
+
+
+        ////////////////////
+        // LOGIN / LOGOUT //
+        ////////////////////
+
+        login_system: {
+            method: 'GET',
+            path: '/login/:id',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['id'],
                 properties: {
-                    name: {
+                    id: {
                         type: 'string',
                     },
                 },
             },
         },
 
+        logout_system: {
+            method: 'GET',
+            path: '/logout',
+        },
+
+
+        ///////////
+        // STATS //
+        ///////////
+
         system_stats: {
             method: 'GET',
-            path: '/stats',
+            path: '/stats/',
             reply: {
                 type: 'object',
                 required: [
@@ -133,6 +150,16 @@ module.exports = rest_api({
 
     definitions: {
 
+        system_id: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+                id: {
+                    type: 'string',
+                },
+            },
+        },
+
         system_info: {
             type: 'object',
             required: ['id', 'name'],
@@ -146,11 +173,11 @@ module.exports = rest_api({
             },
         },
 
-        system_id: {
+        system_create_info: {
             type: 'object',
-            required: ['id'],
+            required: ['name'],
             properties: {
-                id: {
+                name: {
                     type: 'string',
                 },
             },

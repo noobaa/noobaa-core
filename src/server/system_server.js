@@ -14,12 +14,17 @@ var node_monitor = require('./node_monitor');
 
 
 var system_server = new system_api.Server({
-    list_systems: list_systems,
+    // CRUD
     create_system: create_system,
     read_system: read_system,
     update_system: update_system,
     delete_system: delete_system,
-    connect_system: connect_system,
+    // LIST
+    list_systems: list_systems,
+    // LOGIN / LOGOUT
+    login_system: login_system,
+    logout_system: logout_system,
+    // STATS
     system_stats: system_stats,
 }, {
     before: before
@@ -35,24 +40,81 @@ function before(req) {
     }
 }
 
+
+//////////
+// CRUD //
+//////////
+
+
+function create_system(req) {
+    var info = _.pick(req.rest_params, 'name');
+    var system;
+    return Q.fcall(
+        function() {
+            return db.System.create(info);
+        }
+    ).then(
+        function(system_arg) {
+            system = system_arg;
+            return db.SystemPermission.create({
+                system: system,
+                account: req.account.id,
+                admin: true,
+            });
+        }
+    ).then(
+        function() {
+            return get_system_info(system);
+        },
+        function(err) {
+            // TODO if a system was created and perm did not, then the system is in limbo...
+            console.error('FAILED create_system', err);
+            throw new Error('create system failed');
+        }
+    );
+}
+
+function read_system(req) {
+    var system_id = req.rest_params.id;
+    return Q.fcall(find_system_by_id_and_permission, req).then(get_system_info);
+}
+
+function update_system(req) {
+    var info = _.pick(req.rest_params, 'name');
+    return Q.fcall(find_system_by_id_and_permission, req).then(
+        function(system) {
+            return db.System.findByIdAndUpdate(system.id, info).exec();
+        }
+    ).thenResolve();
+}
+
+// TODO delete should also handle all related models - permissions, buckets, nodes, etc.
+function delete_system(req) {
+    return Q.fcall(find_system_by_id_and_permission, req).then(
+        function(system) {
+            return db.System.findByIdAndRemove(system.id).exec();
+        }
+    ).thenResolve();
+}
+
+
+//////////
+// LIST //
+//////////
+
+
 function list_systems(req) {
     return Q.fcall(
         function() {
-            return db.System.find({
-                permissions: {
-                    $elemMatch: {
-                        account: req.account.id,
-                    }
-                }
-            }).exec();
+            return db.SystemPermission.find({
+                account: req.account.id
+            }).populate('system').exec();
         }
     ).then(
-        function(systems) {
-            return {
-                systems: _.map(systems, function(system) {
-                    return _.pick(system, 'name');
-                })
-            };
+        function(permissions) {
+            return _.map(permissions, function(perm) {
+                return _.pick(perm.system, 'name');
+            });
         },
         function(err) {
             console.error('FAILED list_systems', err);
@@ -61,71 +123,28 @@ function list_systems(req) {
     );
 }
 
-function create_system(req) {
-    var info = _.pick(req.rest_params, 'name');
-    info.permissions = [{
-        account: req.account.id,
-        admin: true,
-    }];
-    return Q.fcall(
-        function() {
-            return db.System.create(info);
-        }
-    ).then(null,
-        function(err) {
-            console.error('FAILED create_system', err);
-            throw new Error('create system failed');
-        }
-    ).thenResolve();
-}
 
-function read_system(req) {
-    var info = _.pick(req.rest_params, 'name');
-    info.permissions = {
-        $elemMatch: {
-            account: req.account.id,
-        }
-    };
-    return Q.fcall(
-        function() {
-            return db.System.find(info).exec();
-        }
-    ).then(
+////////////////////
+// LOGIN / LOGOUT //
+////////////////////
+
+
+function login_system(req) {
+    return Q.fcall(find_system_by_id_and_permission, req).then(
         function(system) {
-            if (!system) {
-                console.error('no such system', info);
-                throw new Error('no such system');
-            }
-            return _.pick(system, 'name');
-        }
-    ).thenResolve();
-}
-
-function update_system(req) {
-    throw new Error('TODO');
-}
-
-function delete_system(req) {
-    throw new Error('TODO');
-}
-
-
-function connect_system(req) {
-    var info = _.pick(req.rest_params, 'name');
-    return Q.fcall(
-        function() {
-            return db.System.find(info).exec();
-        }
-    ).then(
-        function(system) {
-            if (!system) {
-                console.error('no such system', info);
-                throw new Error('no such system');
-            }
             req.session.system_id = system.id;
         }
-    ).thenResolve();
+    );
 }
+
+function logout_system(req) {
+    delete req.session.system_id;
+}
+
+
+///////////
+// STATS //
+///////////
 
 
 function system_stats(req) {
@@ -192,4 +211,51 @@ function system_stats(req) {
             };
         }
     );
+}
+
+
+
+//////////
+// UTIL //
+//////////
+
+
+function find_system_by_id_and_permission(req) {
+    var system_id = req.rest_params.id;
+    var perm_info = {
+        system: system_id,
+        account: req.account.id,
+    };
+    return Q.fcall(
+        function() {
+            return db.SystemPermission.findOne(perm_info).exec();
+        }
+    ).then(
+        function(perm) {
+            if (!perm) {
+                console.error('no system permission', perm_info);
+                throw new Error('no system permission');
+            }
+            if (!system_id) {
+                // the global system
+                return {
+                    id: '',
+                    name: 'System',
+                };
+            }
+            return db.System.findById(system_id).exec();
+        }
+    ).then(
+        function(system) {
+            if (!system) {
+                console.error('no such system', system_id);
+                throw new Error('no such system');
+            }
+            return system;
+        }
+    );
+}
+
+function get_system_info(system) {
+    return _.pick(system, 'id', 'name');
 }

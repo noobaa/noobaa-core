@@ -41,7 +41,7 @@ var object_client = new ObjectClient();
 before(function(done) {
     Q.fcall(
         function() {
-            utilitest.app.use(account_server.account_session_middleware);
+            utilitest.router.use(account_server.account_session_middleware);
             account_server.install_routes(utilitest.router);
             system_server.install_routes(utilitest.router);
             edge_node_server.install_routes(utilitest.router);

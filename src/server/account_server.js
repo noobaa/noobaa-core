@@ -206,7 +206,7 @@ function account_session(req, force) {
                         throw new Error('account removed');
                     }
                     // update the cache item
-                    item.account = account.toObject();
+                    item.account = _.pick(account, 'id', 'name', 'email');
                     req.account = item.account;
                     return req.account;
                 }

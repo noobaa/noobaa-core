@@ -14,102 +14,25 @@ var node_monitor = require('./node_monitor');
 
 
 var account_server = new account_api.Server({
-    login_account: login_account,
-    logout_account: logout_account,
+    // CRUD
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
     delete_account: delete_account,
-});
-
-module.exports = account_server;
-
-
-// cache for accounts in memory.
-// since accounts don't really change we can simply keep in the server's memory,
-// and decide how much time it makes sense before expiring and re-reading from db.
-var accounts_lru = new LRU({
-    max_length: 100,
-    expiry_ms: 600000, // 10 minutes expiry
-    name: 'accounts_lru'
+    // LOGIN / LOGOUT
+    login_account: login_account,
+    logout_account: logout_account,
 });
 
 account_server.account_session = account_session;
 
-// verify that the session has a valid account using the accounts_lru cache.
-// this function is also exported to be used by other servers as a middleware.
-function account_session(req, force) {
-    return Q.fcall(
-        function() {
-            var account_id = get_session_account_id(req);
-            if (!account_id) {
-                console.error('NO ACCOUNT SESSION', account_id);
-                throw new Error('not logged in');
-            }
-
-            var item = accounts_lru.find_or_add_item(account_id);
-
-            // use cached account if not expired
-            if (item.account && force !== 'force') {
-                req.account = item.account;
-                return req.account;
-            }
-
-            // fetch account from the database
-            console.log('ACCOUNT MISS', account_id);
-            return db.Account.findById(account_id).exec().then(
-                function(account) {
-                    if (!account) {
-                        console.error('MISSING ACCOUNT SESSION', account_id);
-                        throw new Error('account removed');
-                    }
-                    // update the cache item
-                    item.account = account;
-                    req.account = account;
-                    return req.account;
-                }
-            );
-        }
-    );
-}
+module.exports = account_server;
 
 
 
-function login_account(req) {
-    var info = _.pick(req.rest_params, 'email');
-    var password = req.rest_params.password;
-    var account;
-    // find the account by email, and verify password
-    return Q.fcall(
-        function() {
-            return db.Account.findOne(info).exec();
-        }
-    ).then(
-        function(account_arg) {
-            account = account_arg;
-            if (account) {
-                return Q.npost(account, 'verify_password', [password]);
-            }
-        }
-    ).then(
-        function(matching) {
-            if (!matching) {
-                throw new Error('incorrect email and password');
-            }
-            set_session_account(req, account);
-        },
-        function(err) {
-            console.error('FAILED login_account', err);
-            throw new Error('login failed');
-        }
-    ).thenResolve();
-}
-
-
-function logout_account(req) {
-    delete req.session.account;
-}
-
+//////////
+// CRUD //
+//////////
 
 
 function create_account(req) {
@@ -125,7 +48,7 @@ function create_account(req) {
     ).then(null,
         function(err) {
             if (err.code === 11000) {
-                throw new Error('account already exists for email');
+                throw new Error('account already exists');
             } else {
                 console.error('FAILED create_account', err);
                 throw new Error('failed create account');
@@ -188,6 +111,54 @@ function delete_account(req) {
 }
 
 
+
+////////////////////
+// LOGIN / LOGOUT //
+////////////////////
+
+
+function login_account(req) {
+    var info = _.pick(req.rest_params, 'email');
+    var password = req.rest_params.password;
+    var account;
+    // find the account by email, and verify password
+    return Q.fcall(
+        function() {
+            return db.Account.findOne(info).exec();
+        }
+    ).then(
+        function(account_arg) {
+            account = account_arg;
+            if (account) {
+                return Q.npost(account, 'verify_password', [password]);
+            }
+        }
+    ).then(
+        function(matching) {
+            if (!matching) {
+                throw new Error('incorrect email and password');
+            }
+            set_session_account(req, account);
+        },
+        function(err) {
+            console.error('FAILED login_account', err);
+            throw new Error('login failed');
+        }
+    ).thenResolve();
+}
+
+
+function logout_account(req) {
+    delete req.session.account;
+}
+
+
+
+/////////////
+// SESSION //
+/////////////
+
+
 function get_session_account_id(req) {
     var a = req.session.account;
     if (a) {
@@ -203,4 +174,50 @@ function set_session_account(req, account) {
         name: account.name,
         email: account.email,
     };
+}
+
+// cache for accounts in memory.
+// since accounts don't really change we can simply keep in the server's memory,
+// and decide how much time it makes sense before expiring and re-reading from db.
+var account_session_lru = new LRU({
+    max_length: 100,
+    expiry_ms: 600000, // 10 minutes expiry
+});
+
+
+// verify that the session has a valid account using the account_session_lru cache.
+// this function is also exported to be used by other servers as a middleware.
+function account_session(req, force) {
+    return Q.fcall(
+        function() {
+            var account_id = get_session_account_id(req);
+            if (!account_id) {
+                console.error('NO ACCOUNT SESSION', account_id);
+                throw new Error('not logged in');
+            }
+
+            var item = account_session_lru.find_or_add_item(account_id);
+
+            // use cached account if not expired
+            if (item.account && force !== 'force') {
+                req.account = item.account;
+                return req.account;
+            }
+
+            // fetch account from the database
+            console.log('ACCOUNT MISS', account_id);
+            return db.Account.findById(account_id).exec().then(
+                function(account) {
+                    if (!account) {
+                        console.error('MISSING ACCOUNT SESSION', account_id);
+                        throw new Error('account removed');
+                    }
+                    // update the cache item
+                    item.account = account;
+                    req.account = account;
+                    return req.account;
+                }
+            );
+        }
+    );
 }

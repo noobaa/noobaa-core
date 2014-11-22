@@ -34,6 +34,31 @@ describe('account', function() {
                     password: PASSWORD,
                 });
             }).then(function() {
+                return account_client.create_account({
+                    name: NAME,
+                    email: EMAIL,
+                    password: PASSWORD,
+                }).then(
+                    function(res) {
+                        throw new Error('expected error: account already exists');
+                    },
+                    function(err) {
+                        assert.strictEqual(err.data, 'account already exists');
+                    }
+                );
+            }).then(function() {
+                return account_client.login_account({
+                    email: EMAIL,
+                    password: PASSWORD + '!',
+                }).then(
+                    function(res) {
+                        throw new Error('expected error: incorrect email and password');
+                    },
+                    function(err) {
+                        assert.strictEqual(err.data, 'incorrect email and password');
+                    }
+                );
+            }).then(function() {
                 return account_client.login_account({
                     email: EMAIL,
                     password: PASSWORD,

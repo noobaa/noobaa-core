@@ -73,7 +73,7 @@ var node_schema = new Schema({
     // the vendor that operates this node.
     // if not specificed it means that this node is a noobaa distributed node.
     vendor: {
-        ref: 'NodeVendor',
+        ref: 'Vendor',
         type: types.ObjectId,
     },
 

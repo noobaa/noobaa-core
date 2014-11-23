@@ -32,7 +32,7 @@ module.exports = rest_api({
                 $ref: '/system_api/definitions/system_id'
             },
             reply: {
-                $ref: '/system_api/definitions/system_info'
+                $ref: '/system_api/definitions/system_full_info'
             },
         },
 
@@ -92,55 +92,6 @@ module.exports = rest_api({
             path: '/logout',
         },
 
-
-        ///////////
-        // STATS //
-        ///////////
-
-        system_stats: {
-            method: 'GET',
-            path: '/stats/',
-            reply: {
-                type: 'object',
-                required: [
-                    'allocated_storage',
-                    'used_storage',
-                    'chunks_storage',
-                    'nodes',
-                    'online_nodes',
-                    'node_vendors',
-                    'buckets',
-                    'objects',
-                ],
-                properties: {
-                    allocated_storage: {
-                        $ref: '/system_api/definitions/bigint'
-                    },
-                    used_storage: {
-                        $ref: '/system_api/definitions/bigint'
-                    },
-                    chunks_storage: {
-                        $ref: '/system_api/definitions/bigint'
-                    },
-                    nodes: {
-                        type: 'integer'
-                    },
-                    online_nodes: {
-                        type: 'integer'
-                    },
-                    node_vendors: {
-                        type: 'integer'
-                    },
-                    buckets: {
-                        type: 'integer'
-                    },
-                    objects: {
-                        type: 'integer'
-                    },
-                }
-            },
-        },
-
     },
 
 
@@ -160,6 +111,16 @@ module.exports = rest_api({
             },
         },
 
+        system_create_info: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+            },
+        },
+
         system_info: {
             type: 'object',
             required: ['id', 'name'],
@@ -173,15 +134,109 @@ module.exports = rest_api({
             },
         },
 
-        system_create_info: {
+        system_full_info: {
+            type: 'object',
+            required: [
+                'id',
+                'name',
+                'allocated_storage',
+                'used_storage',
+                'chunks_storage',
+                'nodes',
+                'online_nodes',
+                'buckets',
+                'objects',
+                'tiers',
+                'vendors',
+                'permissions',
+            ],
+            properties: {
+                id: {
+                    type: 'string',
+                },
+                name: {
+                    type: 'string',
+                },
+                allocated_storage: {
+                    $ref: '/system_api/definitions/bigint'
+                },
+                used_storage: {
+                    $ref: '/system_api/definitions/bigint'
+                },
+                chunks_storage: {
+                    $ref: '/system_api/definitions/bigint'
+                },
+                nodes: {
+                    type: 'integer'
+                },
+                online_nodes: {
+                    type: 'integer'
+                },
+                buckets: {
+                    type: 'integer'
+                },
+                objects: {
+                    type: 'integer'
+                },
+                permissions: {
+                    type: 'array',
+                    items: {
+                        $ref: '/system_api/definitions/persmission_info'
+                    }
+                },
+                tiers: {
+                    type: 'array',
+                    items: {
+                        $ref: '/system_api/definitions/tier_info'
+                    }
+                },
+                vendors: {
+                    type: 'array',
+                    items: {
+                        $ref: '/system_api/definitions/vendor_info'
+                    }
+                },
+            }
+        },
+
+        persmission_info: {
             type: 'object',
             required: ['name'],
             properties: {
                 name: {
                     type: 'string',
                 },
-            },
+            }
         },
+
+
+        tier_info: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+            }
+        },
+
+
+        vendor_info: {
+            type: 'object',
+            required: ['name', 'category', 'kind'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                category: {
+                    type: 'string',
+                },
+                kind: {
+                    type: 'string',
+                },
+            }
+        },
+
 
         bigint: {
             oneOf: [{

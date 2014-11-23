@@ -24,8 +24,6 @@ var system_server = new system_api.Server({
     // LOGIN / LOGOUT
     login_system: login_system,
     logout_system: logout_system,
-    // STATS
-    system_stats: system_stats,
 }, {
     before: before
 });
@@ -76,7 +74,76 @@ function create_system(req) {
 
 function read_system(req) {
     var system_id = req.rest_params.id;
-    return Q.fcall(find_system_by_id_and_permission, req).then(get_system_info);
+    return Q.fcall(
+        find_system_by_id_and_permission, req
+    ).then(
+        function() {
+            var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
+            var system_query = {
+                system: req.session.system_id
+            };
+            return Q.all([
+                // nodes - count, online count, allocated/used storage
+                db.Node.mapReduce({
+                    query: system_query,
+                    scope: {
+                        // have to pass variables to map/reduce with a scope
+                        minimum_online_heartbeat: minimum_online_heartbeat,
+                    },
+                    map: function() {
+                        /* global emit */
+                        emit('count', 1);
+                        if (this.started && this.heartbeat >= minimum_online_heartbeat) {
+                            emit('online', 1);
+                        }
+                        emit('alloc', this.allocated_storage);
+                        emit('used', this.used_storage);
+                    },
+                    reduce: size_utils.reduce_sum
+                }),
+                // vendors
+                db.Vendor.count(system_query).exec(),
+                // buckets
+                db.Bucket.count(system_query).exec(),
+                // objects
+                db.ObjectMD.count(system_query).exec(),
+                // parts
+                db.ObjectPart.mapReduce({
+                    query: system_query,
+                    map: function() {
+                        /* global emit */
+                        emit('size', this.end - this.start);
+                    },
+                    reduce: size_utils.reduce_sum
+                }),
+                // TODO chunks and blocks don't have link to system...
+                /*
+                db.DataChunk.mapReduce({
+                map: function() {
+                emit('size', this.size);
+            },
+            reduce: size_utils.reduce_sum
+        }),*/
+            ]).spread(
+                function(nodes, vendors, buckets, objects, parts) {
+                    nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
+                    parts = _.mapValues(_.indexBy(parts, '_id'), 'value');
+                    // chunks = chunks && _.mapValues(_.indexBy(chunks, '_id'), 'value');
+                    return {
+                        allocated_storage: nodes.alloc || 0,
+                        used_storage: parts.size || 0,
+                        chunks_storage: 0, //chunks.size || 0,
+                        nodes: nodes.count || 0,
+                        online_nodes: nodes.online || 0,
+                        vendors: vendors || 0,
+                        buckets: buckets || 0,
+                        objects: objects || 0,
+                    };
+                }
+            );
+
+        }
+    );
 }
 
 function update_system(req) {
@@ -90,13 +157,14 @@ function update_system(req) {
     ).thenResolve();
 }
 
-// TODO delete should also handle all related models - permissions, buckets, nodes, etc.
 function delete_system(req) {
     return Q.fcall(
         find_system_by_id_and_permission, req, must_have_admin_permission
     ).then(
         function(system) {
-            return db.System.findByIdAndRemove(system.id).exec();
+            // TODO delete should also handle all related models - permissions, buckets, nodes, etc.
+            throw new Error('TODO');
+            // return db.System.findByIdAndRemove(system.id).exec();
         }
     ).thenResolve();
 }
@@ -143,78 +211,6 @@ function login_system(req) {
 
 function logout_system(req) {
     delete req.session.system_id;
-}
-
-
-///////////
-// STATS //
-///////////
-
-
-function system_stats(req) {
-    var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
-    var system_query = {
-        system: req.session.system_id
-    };
-    return Q.all([
-        // nodes - count, online count, allocated/used storage
-        db.Node.mapReduce({
-            query: system_query,
-            scope: {
-                // have to pass variables to map/reduce with a scope
-                minimum_online_heartbeat: minimum_online_heartbeat,
-            },
-            map: function() {
-                /* global emit */
-                emit('count', 1);
-                if (this.started && this.heartbeat >= minimum_online_heartbeat) {
-                    emit('online', 1);
-                }
-                emit('alloc', this.allocated_storage);
-                emit('used', this.used_storage);
-            },
-            reduce: size_utils.reduce_sum
-        }),
-        // node_vendors
-        db.NodeVendor.count(system_query).exec(),
-        // buckets
-        db.Bucket.count(system_query).exec(),
-        // objects
-        db.ObjectMD.count(system_query).exec(),
-        // parts
-        db.ObjectPart.mapReduce({
-            query: system_query,
-            map: function() {
-                /* global emit */
-                emit('size', this.end - this.start);
-            },
-            reduce: size_utils.reduce_sum
-        }),
-        // TODO chunks and blocks don't have link to system...
-        /*
-        db.DataChunk.mapReduce({
-            map: function() {
-                emit('size', this.size);
-            },
-            reduce: size_utils.reduce_sum
-        }),*/
-    ]).spread(
-        function(nodes, node_vendors, buckets, objects, parts) {
-            nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
-            parts = _.mapValues(_.indexBy(parts, '_id'), 'value');
-            // chunks = chunks && _.mapValues(_.indexBy(chunks, '_id'), 'value');
-            return {
-                allocated_storage: nodes.alloc || 0,
-                used_storage: parts.size || 0,
-                chunks_storage: 0, //chunks.size || 0,
-                nodes: nodes.count || 0,
-                online_nodes: nodes.online || 0,
-                node_vendors: node_vendors || 0,
-                buckets: buckets || 0,
-                objects: objects || 0,
-            };
-        }
-    );
 }
 
 

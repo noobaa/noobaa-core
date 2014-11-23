@@ -7,13 +7,13 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * NodeVendor represents an external virtual-machine vendor
+ * Vendor represents an external service vendor
  * and the related info needed to work with it.
  *
  * for example for AWS ec2 the vendor_info should contain:
  *      access-key, secret, region, etc.
  */
-var node_vendor_schema = new Schema({
+var vendor_schema = new Schema({
 
     system: {
         ref: 'System',
@@ -26,9 +26,15 @@ var node_vendor_schema = new Schema({
         required: true,
     },
 
+    category: {
+        enum: ['vm', 'storage'],
+        type: String,
+        required: true,
+    },
+
     // enum of the available vendors
     kind: {
-        enum: ['agent_host', 'ec2'],
+        enum: ['agent_host', 'aws.ec2', 'aws.s3'],
         type: String,
         required: true,
     },
@@ -41,12 +47,14 @@ var node_vendor_schema = new Schema({
 });
 
 
-node_vendor_schema.index({
+vendor_schema.index({
     system: 1,
     name: 1,
+    category: 1,
+    kind: 1,
 }, {
     unique: true
 });
 
 
-var NodeVendor = module.exports = mongoose.model('NodeVendor', node_vendor_schema);
+var Vendor = module.exports = mongoose.model('Vendor', vendor_schema);

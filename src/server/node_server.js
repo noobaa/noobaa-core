@@ -58,7 +58,7 @@ function create_node(req) {
     return Q.fcall(
         function() {
             if (info.vendor) {
-                return db.NodeVendor.findById(info.vendor).exec();
+                return db.Vendor.findById(info.vendor).exec();
             }
         }
     ).then(
@@ -263,7 +263,7 @@ function stop_nodes(req) {
 function get_node_vendors(req) {
     return Q.fcall(
         function() {
-            return db.NodeVendor.find({
+            return db.Vendor.find({
                 account: req.account.id
             }).exec();
         }
@@ -398,7 +398,7 @@ function connect_node_vendor(req) {
             if (!vendor_info.name) {
                 return;
             }
-            return db.NodeVendor.findOne({
+            return db.Vendor.findOne({
                 account: req.account.id,
                 name: vendor_info.name,
             }).exec();
@@ -408,7 +408,7 @@ function connect_node_vendor(req) {
             if (vendor_arg) {
                 return vendor_arg;
             }
-            return db.NodeVendor.create(vendor_info);
+            return db.Vendor.create(vendor_info);
         }
     ).then(
         function(vendor_arg) {

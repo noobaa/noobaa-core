@@ -38,7 +38,7 @@ var data_block_schema = new Schema({
     },
 
     vendor: {
-        ref: 'StorageVendor',
+        ref: 'Vendor',
         type: types.ObjectId,
     },
 

@@ -24,6 +24,12 @@ module.exports = rest_api({
                     allocated_storage: {
                         type: 'integer'
                     },
+                    tier: {
+                        type: 'string',
+                    },
+                    is_server: {
+                        type: 'boolean',
+                    },
                     vendor: {
                         type: 'string'
                     },

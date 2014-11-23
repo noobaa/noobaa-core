@@ -1,7 +1,7 @@
 // this single module makes it more convinient to get to all the models
 module.exports = {
     System: require('./system'),
-    SystemPermission: require('./system_permission'),
+    Role: require('./role'),
     Account: require('./account'),
     Tier: require('./tier'),
     Node: require('./node'),

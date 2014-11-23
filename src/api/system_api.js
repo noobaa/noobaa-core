@@ -146,9 +146,9 @@ module.exports = rest_api({
                 'online_nodes',
                 'buckets',
                 'objects',
+                'roles',
                 'tiers',
                 'vendors',
-                'permissions',
             ],
             properties: {
                 id: {
@@ -178,10 +178,10 @@ module.exports = rest_api({
                 objects: {
                     type: 'integer'
                 },
-                permissions: {
+                roles: {
                     type: 'array',
                     items: {
-                        $ref: '/system_api/definitions/persmission_info'
+                        $ref: '/system_api/definitions/role_info'
                     }
                 },
                 tiers: {
@@ -199,13 +199,25 @@ module.exports = rest_api({
             }
         },
 
-        persmission_info: {
+        role_info: {
             type: 'object',
-            required: ['name'],
+            required: ['role', 'account'],
             properties: {
-                name: {
+                role: {
                     type: 'string',
                 },
+                account: {
+                    type: 'object',
+                    required: ['name', 'email'],
+                    properties: {
+                        name: {
+                            type: 'string',
+                        },
+                        email: {
+                            type: 'string',
+                        },
+                    }
+                }
             }
         },
 

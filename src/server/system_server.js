@@ -54,10 +54,10 @@ function create_system(req) {
     ).then(
         function(system_arg) {
             system = system_arg;
-            return db.SystemPermission.create({
-                system: system,
+            return db.Role.create({
                 account: req.account.id,
-                is_admin: true,
+                system: system,
+                role: 'admin',
             });
         }
     ).then(
@@ -65,7 +65,7 @@ function create_system(req) {
             return get_system_info(system);
         },
         function(err) {
-            // TODO if a system was created and perm did not, then the system is in limbo...
+            // TODO if a system was created but role did not, then the system is in limbo...
             console.error('FAILED create_system', err);
             throw new Error('create system failed');
         }
@@ -74,9 +74,7 @@ function create_system(req) {
 
 function read_system(req) {
     var system_id = req.rest_params.id;
-    return Q.fcall(
-        find_system_by_id_and_permission, req
-    ).then(
+    return Q.fcall(find_system_by_id, req).then(
         function() {
             var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
             var system_query = {
@@ -148,9 +146,7 @@ function read_system(req) {
 
 function update_system(req) {
     var info = _.pick(req.rest_params, 'name');
-    return Q.fcall(
-        find_system_by_id_and_permission, req, must_have_admin_permission
-    ).then(
+    return Q.fcall(find_system_by_id, req, ['admin']).then(
         function(system) {
             return db.System.findByIdAndUpdate(system.id, info).exec();
         }
@@ -158,11 +154,9 @@ function update_system(req) {
 }
 
 function delete_system(req) {
-    return Q.fcall(
-        find_system_by_id_and_permission, req, must_have_admin_permission
-    ).then(
+    return Q.fcall(find_system_by_id, req, ['admin']).then(
         function(system) {
-            // TODO delete should also handle all related models - permissions, buckets, nodes, etc.
+            // TODO delete should also handle all related models - roles, buckets, nodes, etc.
             throw new Error('TODO');
             // return db.System.findByIdAndRemove(system.id).exec();
         }
@@ -178,14 +172,14 @@ function delete_system(req) {
 function list_systems(req) {
     return Q.fcall(
         function() {
-            return db.SystemPermission.find({
+            return db.Role.find({
                 account: req.account.id
             }).populate('system').exec();
         }
     ).then(
-        function(permissions) {
-            return _.map(permissions, function(perm) {
-                return _.pick(perm.system, 'name');
+        function(roles) {
+            return _.map(roles, function(role) {
+                return _.pick(role.system, 'name');
             });
         },
         function(err) {
@@ -202,7 +196,7 @@ function list_systems(req) {
 
 
 function login_system(req) {
-    return Q.fcall(find_system_by_id_and_permission, req).then(
+    return Q.fcall(find_system_by_id, req).then(
         function(system) {
             req.session.system_id = system.id;
         }
@@ -220,28 +214,26 @@ function logout_system(req) {
 //////////
 
 
-function find_system_by_id_and_permission(req, permission_check_func) {
+function find_system_by_id(req, accepted_roles) {
     var system_id = req.rest_params.id;
-    var perm_info = {
-        system: system_id,
+    var role_info = {
         account: req.account.id,
+        system: system_id,
     };
     return Q.fcall(
         function() {
-            return db.SystemPermission.findOne(perm_info).exec();
+            return db.Role.findOne(role_info).exec();
         }
     ).then(
-        function(perm) {
-            if (!perm) {
-                console.error('no system permission', perm_info);
-                throw new Error('no system permission');
+        function(role) {
+            if (!role) {
+                console.error('unauthorized account', role_info);
+                throw new Error('unauthorized account');
             }
-            if (permission_check_func) {
-                return permission_check_func(perm);
+            if (accepted_roles && !(role.role in accepted_roles)) {
+                console.error('unauthorized account role', role_info, accepted_roles);
+                throw new Error('unauthorized account role');
             }
-        }
-    ).then(
-        function() {
             return db.System.findById(system_id).exec();
         }
     ).then(
@@ -253,12 +245,6 @@ function find_system_by_id_and_permission(req, permission_check_func) {
             return system;
         }
     );
-}
-
-function must_have_admin_permission(perm) {
-    if (!perm.is_admin) {
-        throw new Error('expected system permission of admin');
-    }
 }
 
 function get_system_info(system) {

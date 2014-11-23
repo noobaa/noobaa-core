@@ -8,7 +8,7 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * Account represents a user with credentials and permissions to use the system.
+ * Account represents a user with its credentials to authenticate.
  */
 var account_schema = new Schema({
 

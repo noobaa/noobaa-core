@@ -27,12 +27,12 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
     assert(params.account_client, 'missing params.account_client');
-    assert(params.edge_node_client, 'missing params.edge_node_client');
+    assert(params.node_client, 'missing params.node_client');
     assert(params.account_credentials, 'missing params.account_credentials');
     assert(params.node_name, 'missing params.node_name');
     assert(params.node_geolocation, 'missing params.node_geolocation');
     self.account_client = params.account_client;
-    self.edge_node_client = params.edge_node_client;
+    self.node_client = params.node_client;
     self.account_credentials = params.account_credentials;
     self.node_name = params.node_name;
     self.node_geolocation = params.node_geolocation;
@@ -213,7 +213,7 @@ Agent.prototype.start_stop_heartbeats = function() {
 Agent.prototype.send_heartbeat = function() {
     var self = this;
     console.log('send heartbeat by agent', self.node_name);
-    return this.edge_node_client.heartbeat({
+    return this.node_client.heartbeat({
         name: self.node_name,
         geolocation: self.node_geolocation,
         ip: '',

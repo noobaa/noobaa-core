@@ -5,11 +5,8 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var edge_node_api = require('../api/edge_node_api');
-
-var edge_node_client = new edge_node_api.Client({
-    path: '/api/edge_node_api/',
-});
+var node_api = require('../api/node_api');
+var node_client = new node_api.Client();
 
 var nb_app = angular.module('nb_app');
 
@@ -174,7 +171,7 @@ nb_app.factory('nbNodes', [
         function refresh_nodes_stats(selected_geo) {
             return $q.when(load_node_vendors()).then(
                 function() {
-                    return edge_node_client.nodes_stats({
+                    return node_client.nodes_stats({
                         group_by: {
                             geolocation: true
                         }
@@ -205,7 +202,7 @@ nb_app.factory('nbNodes', [
         function list_nodes(params) {
             return $q.when(load_node_vendors()).then(
                 function() {
-                    return edge_node_client.list_nodes(params);
+                    return node_client.list_nodes(params);
                 }
             ).then(
                 function(res) {
@@ -218,7 +215,7 @@ nb_app.factory('nbNodes', [
         }
 
         function load_node_vendors() {
-            return $q.when(edge_node_client.get_node_vendors()).then(
+            return $q.when(node_client.get_node_vendors()).then(
                 function(res) {
                     $scope.node_vendors = res.vendors;
                     $scope.node_vendors_by_id = _.indexBy(res.vendors, 'id');
@@ -230,7 +227,7 @@ nb_app.factory('nbNodes', [
         function read_node(name) {
             return $q.when(load_node_vendors()).then(
                 function() {
-                    return edge_node_client.read_node({
+                    return node_client.read_node({
                         name: name
                     });
                 }
@@ -303,7 +300,7 @@ nb_app.factory('nbNodes', [
                 // using manual defer in order to report progress to the ladda button
                 var defer = $q.defer();
                 $q.all(_.times(scope.count, function(i) {
-                    return $q.when(edge_node_client.create_node({
+                    return $q.when(node_client.create_node({
                         name: '' + (next_node_name + i),
                         // TODO these sample geolocations are just for testing
                         geolocation: _.sample([
@@ -360,7 +357,7 @@ nb_app.factory('nbNodes', [
             return nbAlertify.confirm('Really remove node ' +
                 node.name + ' @ ' + node.geolocation + ' ?').then(
                 function() {
-                    return $q.when(edge_node_client.delete_node({
+                    return $q.when(node_client.delete_node({
                         name: node.name
                     })).then(refresh_nodes_stats);
                 }
@@ -369,13 +366,13 @@ nb_app.factory('nbNodes', [
 
 
         function start_node(node) {
-            return $q.when(edge_node_client.start_nodes({
+            return $q.when(node_client.start_nodes({
                 nodes: [node.name]
             }));
         }
 
         function stop_node(node) {
-            return $q.when(edge_node_client.stop_nodes({
+            return $q.when(node_client.stop_nodes({
                 nodes: [node.name]
             }));
         }

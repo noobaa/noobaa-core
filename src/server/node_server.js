@@ -6,7 +6,7 @@ var Q = require('q');
 var mongoose = require('mongoose');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
-var edge_node_api = require('../api/edge_node_api');
+var node_api = require('../api/node_api');
 var agent_host_api = require('../api/agent_host_api');
 var system_server = require('./system_server');
 var node_monitor = require('./node_monitor');
@@ -15,7 +15,7 @@ var Agent = require('../agent/agent');
 var db = require('./db');
 
 
-module.exports = new edge_node_api.Server({
+module.exports = new node_api.Server({
     create_node: create_node,
     delete_node: delete_node,
     read_node: read_node,

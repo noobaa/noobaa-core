@@ -16,7 +16,7 @@ var agent_host_api = require('../api/agent_host_api');
 var Agent = require('./agent');
 var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
-var edge_node_api = require('../api/edge_node_api');
+var node_api = require('../api/node_api');
 var agent_api = require('../api/agent_api');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
@@ -75,7 +75,7 @@ function AgentHost(params) {
 
     self.agents = {};
     self.account_client = new account_api.Client(self.client_params);
-    self.edge_node_client = new edge_node_api.Client(self.client_params);
+    self.node_client = new node_api.Client(self.client_params);
 
     // start http server
     self.server = http.createServer(app);
@@ -104,7 +104,7 @@ AgentHost.prototype.connect_node_vendor = function() {
                 }
             };
             console.log('connect_node_vendor', params);
-            return self.edge_node_client.connect_node_vendor(params);
+            return self.node_client.connect_node_vendor(params);
         }
     ).then(
         function(vendor) {
@@ -136,7 +136,7 @@ AgentHost.prototype.start_agent = function(req) {
         function() {
             var agent = self.agents[node_name] = new Agent({
                 account_client: self.account_client,
-                edge_node_client: self.edge_node_client,
+                node_client: self.node_client,
                 account_credentials: self.account_credentials,
                 node_name: node_name,
                 node_geolocation: geolocation,

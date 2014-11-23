@@ -7,20 +7,20 @@ var Q = require('q');
 var assert = require('assert');
 var size_utils = require('../util/size_utils');
 
-describe.skip('edge_node_api', function() {
+describe.skip('node_api', function() {
 
     var coretest = require('./coretest');
 
 
     it('works', function(done) {
         Q.fcall(function() {
-            return coretest.edge_node_client.create_node({
+            return coretest.node_client.create_node({
                 name: 'haha',
                 geolocation: 'home',
                 allocated_storage: 10 * size_utils.GIGABYTE,
             });
         }).then(function() {
-            return coretest.edge_node_client.heartbeat({
+            return coretest.node_client.heartbeat({
                 name: 'haha',
                 geolocation: 'home',
                 ip: '0.0.0.0',
@@ -29,13 +29,13 @@ describe.skip('edge_node_api', function() {
                 used_storage: size_utils.GIGABYTE,
             });
         }).then(function() {
-            return coretest.edge_node_client.read_node({
+            return coretest.node_client.read_node({
                 name: 'haha',
             });
         }).then(function() {
-            return coretest.edge_node_client.list_nodes();
+            return coretest.node_client.list_nodes();
         }).then(function() {
-            return coretest.edge_node_client.delete_node({
+            return coretest.node_client.delete_node({
                 name: 'haha',
             });
         }).nodeify(done);

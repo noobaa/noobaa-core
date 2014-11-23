@@ -28,9 +28,9 @@ var system_api = require('../api/system_api');
 var system_server = require('../server/system_server');
 var system_client = new system_api.Client();
 
-var edge_node_api = require('../api/edge_node_api');
-var edge_node_server = require('../server/edge_node_server');
-var edge_node_client = new edge_node_api.Client();
+var node_api = require('../api/node_api');
+var node_server = require('../server/node_server');
+var node_client = new node_api.Client();
 
 var object_api = require('../api/object_api');
 var object_server = require('../server/object_server');
@@ -44,12 +44,12 @@ before(function(done) {
             utilitest.router.use(account_server.account_session_middleware);
             account_server.install_routes(utilitest.router);
             system_server.install_routes(utilitest.router);
-            edge_node_server.install_routes(utilitest.router);
+            node_server.install_routes(utilitest.router);
             object_server.install_routes(utilitest.router);
 
             account_client.set_param('port', utilitest.http_port());
             system_client.set_param('port', utilitest.http_port());
-            edge_node_client.set_param('port', utilitest.http_port());
+            node_client.set_param('port', utilitest.http_port());
             object_client.set_param('port', utilitest.http_port());
 
             return account_client.create_account(_.merge({
@@ -62,7 +62,7 @@ before(function(done) {
 after(function() {
     account_server.disable_routes();
     system_server.disable_routes();
-    edge_node_server.disable_routes();
+    node_server.disable_routes();
     object_server.disable_routes();
 });
 
@@ -81,7 +81,7 @@ function init_test_nodes(count, allocated_storage) {
     function init_test_node(i) {
         return Q.fcall(
             function() {
-                return edge_node_client.create_node({
+                return node_client.create_node({
                     name: '' + i,
                     geolocation: 'test',
                     allocated_storage: allocated_storage,
@@ -91,7 +91,7 @@ function init_test_nodes(count, allocated_storage) {
             function() {
                 var agent = new Agent({
                     account_client: account_client,
-                    edge_node_client: edge_node_client,
+                    node_client: node_client,
                     account_credentials: account_credentials,
                     node_name: '' + i,
                     node_geolocation: 'test',
@@ -172,7 +172,7 @@ module.exports = {
     login_default_account: login_default_account,
 
     system_client: system_client,
-    edge_node_client: edge_node_client,
+    node_client: node_client,
     object_client: object_client,
 
     init_test_nodes: init_test_nodes,

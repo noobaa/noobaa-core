@@ -4,7 +4,7 @@ var rest_api = require('../util/rest_api');
 
 module.exports = rest_api({
 
-    name: 'edge_node_api',
+    name: 'node_api',
 
     methods: {
 
@@ -61,7 +61,7 @@ module.exports = rest_api({
                 }
             },
             reply: {
-                $ref: '/edge_node_api/definitions/node_info'
+                $ref: '/node_api/definitions/node_info'
             }
         },
 
@@ -105,7 +105,7 @@ module.exports = rest_api({
                     nodes: {
                         type: 'array',
                         items: {
-                            $ref: '/edge_node_api/definitions/node_info'
+                            $ref: '/node_api/definitions/node_info'
                         }
                     }
                 }
@@ -278,10 +278,10 @@ module.exports = rest_api({
             method: 'PUT',
             path: '/node/:name',
             params: {
-                $ref: '/edge_node_api/definitions/node_info'
+                $ref: '/node_api/definitions/node_info'
             },
             reply: {
-                $ref: '/edge_node_api/definitions/node_info'
+                $ref: '/node_api/definitions/node_info'
             },
         },
 

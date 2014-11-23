@@ -25,7 +25,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var account_server = require('./account_server');
 var system_server = require('./system_server');
-var edge_node_server = require('./edge_node_server');
+var node_server = require('./node_server');
 var object_server = require('./object_server');
 
 
@@ -111,7 +111,7 @@ app.use(account_server.account_session_middleware);
 var api_router = express.Router();
 account_server.install_routes(api_router);
 system_server.install_routes(api_router);
-edge_node_server.install_routes(api_router);
+node_server.install_routes(api_router);
 object_server.install_routes(api_router);
 app.use(api_router);
 

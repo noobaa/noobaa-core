@@ -12,6 +12,7 @@ var objmd_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
+        required: true,
     },
 
     // every object belongs to a single bucket

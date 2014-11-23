@@ -59,7 +59,7 @@ function create_system(req) {
             return db.SystemPermission.create({
                 system: system,
                 account: req.account.id,
-                admin: true,
+                is_admin: true,
             });
         }
     ).then(
@@ -81,7 +81,9 @@ function read_system(req) {
 
 function update_system(req) {
     var info = _.pick(req.rest_params, 'name');
-    return Q.fcall(find_system_by_id_and_permission, req).then(
+    return Q.fcall(
+        find_system_by_id_and_permission, req, must_have_admin_permission
+    ).then(
         function(system) {
             return db.System.findByIdAndUpdate(system.id, info).exec();
         }
@@ -90,7 +92,9 @@ function update_system(req) {
 
 // TODO delete should also handle all related models - permissions, buckets, nodes, etc.
 function delete_system(req) {
-    return Q.fcall(find_system_by_id_and_permission, req).then(
+    return Q.fcall(
+        find_system_by_id_and_permission, req, must_have_admin_permission
+    ).then(
         function(system) {
             return db.System.findByIdAndRemove(system.id).exec();
         }
@@ -220,7 +224,7 @@ function system_stats(req) {
 //////////
 
 
-function find_system_by_id_and_permission(req) {
+function find_system_by_id_and_permission(req, permission_check_func) {
     var system_id = req.rest_params.id;
     var perm_info = {
         system: system_id,
@@ -236,13 +240,12 @@ function find_system_by_id_and_permission(req) {
                 console.error('no system permission', perm_info);
                 throw new Error('no system permission');
             }
-            if (!system_id) {
-                // the default system
-                return {
-                    id: null,
-                    name: null,
-                };
+            if (permission_check_func) {
+                return permission_check_func(perm);
             }
+        }
+    ).then(
+        function() {
             return db.System.findById(system_id).exec();
         }
     ).then(
@@ -254,6 +257,12 @@ function find_system_by_id_and_permission(req) {
             return system;
         }
     );
+}
+
+function must_have_admin_permission(perm) {
+    if (!perm.is_admin) {
+        throw new Error('expected system permission of admin');
+    }
 }
 
 function get_system_info(system) {

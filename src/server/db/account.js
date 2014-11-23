@@ -28,6 +28,8 @@ var account_schema = new Schema({
         required: true,
     },
 
+    is_support: Boolean,
+
 });
 
 // primary-key: email

@@ -13,6 +13,7 @@ var data_block_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
+        required: true,
     },
 
     // (chunk,index) define the block content

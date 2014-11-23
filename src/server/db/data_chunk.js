@@ -15,6 +15,7 @@ var data_chunk_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
+        required: true,
     },
 
     // chunk size in bytes

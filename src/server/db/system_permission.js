@@ -15,6 +15,7 @@ var system_permission_schema = new Schema({
     system: {
         ref: 'System',
         type: types.ObjectId,
+        required: true,
     },
 
     account: {
@@ -23,9 +24,9 @@ var system_permission_schema = new Schema({
         required: true,
     },
 
-    admin: {
-        type: Boolean
-    },
+    // permission flags
+    is_admin: Boolean,
+    is_agent: Boolean,
 
 });
 

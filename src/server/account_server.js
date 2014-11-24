@@ -59,20 +59,9 @@ function create_account(req) {
 
 
 function read_account(req) {
-    return account_session(req, 'force').then(
+    return account_session(req, true).then(
         function() {
-            return db.Account.findById(req.session.account_id).exec();
-        }
-    ).then(
-        function(account) {
-            if (!account) {
-                console.error('MISSING ACCOUNT', req.session.account_id);
-                throw new Error('account not found');
-            }
-            return {
-                name: account.name,
-                email: account.email,
-            };
+            return _.pick(req.account, 'name', 'email', 'systems_role');
         },
         function(err) {
             console.error('FAILED read_account', err);
@@ -83,10 +72,10 @@ function read_account(req) {
 
 
 function update_account(req) {
-    return account_session(req, 'force').then(
+    return account_session(req, true).then(
         function() {
             var info = _.pick(req.rest_params, 'name', 'email', 'password');
-            return db.Account.findByIdAndUpdate(req.session.account_id, info).exec();
+            return db.Account.findByIdAndUpdate(req.account.id, info).exec();
         }
     ).then(null,
         function(err) {
@@ -98,11 +87,13 @@ function update_account(req) {
 
 
 function delete_account(req) {
-    // TODO delete_account is partially implemented -
-    // should remove from systems, and logout session.
-    return account_session(req, 'force').then(
+    return account_session(req, true).then(
         function() {
-            return db.Account.findByIdAndRemove(req.session.account_id).exec();
+            clear_session_account(req);
+            db.AccountCache.invalidate(req.account.id);
+            return db.Account.findByIdAndUpdate(req.account.id, {
+                deleted: new Date()
+            }).exec();
         }
     ).then(null,
         function(err) {
@@ -120,7 +111,11 @@ function delete_account(req) {
 
 
 function login_account(req) {
-    var info = _.pick(req.rest_params, 'email');
+    var info = {
+        email: req.rest_params.email,
+        // filter out accounts that were deleted
+        deleted: null,
+    };
     var password = req.rest_params.password;
     var account;
     // find the account by email, and verify password
@@ -151,7 +146,7 @@ function login_account(req) {
 
 
 function logout_account(req) {
-    delete req.session.account_id;
+    clear_session_account(req);
 }
 
 
@@ -160,55 +155,44 @@ function logout_account(req) {
 // SESSION //
 /////////////
 
-// set account info in the session
-// (expected to use secure cookie session)
+// set account info in the secure cookie session
+// (expected the request to provide secure cookie session)
 function set_session_account(req, account) {
     req.session.account_id = account.id;
 }
-
-// cache for accounts in memory.
-// since accounts don't really change we can simply keep in the server's memory,
-// and decide how much time it makes sense before expiring and re-reading from db.
-var account_session_lru = new LRU({
-    max_length: 100,
-    expiry_ms: 600000, // 10 minutes expiry
-});
+function clear_session_account(req) {
+    delete req.session.account_id;
+}
 
 // this is exported to be used by other servers as a middleware
 function account_session_middleware(req, res, next) {
     account_session(req).thenResolve().nodeify(next);
 }
 
-// verify that the session has a valid account using the account_session_lru cache,
+// verify that the session has a valid account using the account cache,
 // and set req.account to be available for other apis.
 function account_session(req, force) {
     return Q.fcall(
         function() {
             var account_id = req.session.account_id;
             if (!account_id) {
+                if (force) {
+                    console.error('ACCOUNT SESSION NOT LOGGED IN', account_id);
+                    throw new Error('not logged in');
+                }
                 return;
             }
-
-            var item = account_session_lru.find_or_add_item(account_id);
-
-            // use cached account if not expired
-            if (item.account && force !== 'force') {
-                req.account = item.account;
-                return req.account;
-            }
-
-            // fetch account from the database
-            console.log('ACCOUNT MISS', account_id);
-            return db.Account.findById(account_id).exec().then(
+            return db.AccountCache.get(account_id, force && 'bypass').then(
                 function(account) {
                     if (!account) {
-                        console.error('MISSING ACCOUNT SESSION', account_id);
-                        throw new Error('account removed');
+                        console.error('ACCOUNT SESSION MISSING', account_id);
+                        throw new Error('account missing');
                     }
-                    // update the cache item
-                    item.account = _.pick(account, 'id', 'name', 'email');
-                    req.account = item.account;
-                    return req.account;
+                    if (account.deleted) {
+                        console.error('ACCOUNT SESSION DELETED', account);
+                        throw new Error('account deleted');
+                    }
+                    req.account = account;
                 }
             );
         }

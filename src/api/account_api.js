@@ -15,6 +15,7 @@ module.exports = rest_api({
         //////////
 
         create_account: {
+            doc: 'Create a new account and login to it',
             method: 'POST',
             path: '/',
             params: {
@@ -35,11 +36,12 @@ module.exports = rest_api({
         },
 
         read_account: {
+            doc: 'Read the info of the logged in account',
             method: 'GET',
             path: '/',
             reply: {
                 type: 'object',
-                required: ['name', 'email'],
+                required: ['name', 'email', 'systems_role'],
                 properties: {
                     name: {
                         type: 'string',
@@ -47,11 +49,21 @@ module.exports = rest_api({
                     email: {
                         type: 'string',
                     },
+                    systems_role: {
+                        type: 'object',
+                        patternProperties: {
+                            '^[0-9a-f]*$': {
+                                type: 'string',
+                                enum: ['admin', 'agent'],
+                            }
+                        }
+                    }
                 },
             },
         },
 
         update_account: {
+            doc: 'Update the info of the logged in account',
             method: 'PUT',
             path: '/',
             params: {
@@ -72,6 +84,7 @@ module.exports = rest_api({
         },
 
         delete_account: {
+            doc: 'Delete the logged in account, and logout',
             method: 'DELETE',
             path: '/',
         },
@@ -82,6 +95,7 @@ module.exports = rest_api({
         ////////////////////
 
         login_account: {
+            doc: 'Login to account with credentials, saved in cookie session',
             method: 'POST',
             path: '/login',
             params: {
@@ -99,9 +113,9 @@ module.exports = rest_api({
         },
 
         logout_account: {
+            doc: 'Logout from account, cleared from cookie session',
             method: 'POST',
             path: '/logout',
-            doc: 'logout current account',
         },
 
     },

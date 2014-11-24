@@ -28,13 +28,17 @@ var account_schema = new Schema({
         required: true,
     },
 
-    is_support: Boolean,
+    // set to deletion date
+    deleted: {
+        type: Date
+    }
 
 });
 
 // primary-key: email
 account_schema.index({
     email: 1,
+    deleted: 1,
 }, {
     unique: true
 });

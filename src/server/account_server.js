@@ -215,33 +215,54 @@ function authorize() {
                     return next(err);
                 }
             }
-            verify_authorized_account(req).thenResolve().nodeify(next);
+            prepare_auth_request(req).thenResolve().nodeify(next);
         });
     };
 }
 
-// verify that the request authorization is a valid account using the account cache,
-// and set req.account to be available for other apis.
-function verify_authorized_account(req) {
+// verify that the request authorization is a valid account and system,
+// and set req.account & req.system & req.role to be available for other apis.
+function prepare_auth_request(req) {
     return Q.fcall(
         function() {
-            var account_id = req.auth && req.auth.account_id;
+            if (!req.auth) {
+                return;
+            }
+            var account_id = req.auth.account_id;
             if (!account_id) {
                 return;
             }
-            return db.AccountCache.get(account_id).then(
-                function(account) {
-                    if (!account) {
-                        console.error('ACCOUNT MISSING', account_id);
-                        throw new Error('account missing');
+            var system_id = req.auth.system_id;
+            return Q.all([
+                db.AccountCache.get(account_id).then(
+                    function(account) {
+                        if (!account) {
+                            console.error('ACCOUNT MISSING', account_id);
+                            throw new Error('account missing');
+                        }
+                        if (account.deleted) {
+                            console.error('ACCOUNT DELETED', account);
+                            throw new Error('account deleted');
+                        }
+                        req.account = account;
                     }
-                    if (account.deleted) {
-                        console.error('ACCOUNT DELETED', account);
-                        throw new Error('account deleted');
+                ),
+                // check system if auth provided a system_id
+                system_id && db.SystemCache.get(system_id).then(
+                    function(system) {
+                        if (!system) {
+                            console.error('SYSTEM MISSING', system_id);
+                            throw new Error('system missing');
+                        }
+                        if (system.deleted) {
+                            console.error('SYSTEM DELETED', system);
+                            throw new Error('system deleted');
+                        }
+                        req.system = system;
+                        req.role = req.auth.role;
                     }
-                    req.account = account;
-                }
-            );
+                ),
+            ]);
         }
     );
 }

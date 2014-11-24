@@ -31,11 +31,7 @@ var system_server = new system_api.Server({
 module.exports = system_server;
 
 function before(req) {
-    if (!req.account) {
-        var err = new Error('not logged in');
-        err.status = 403;
-        throw err;
-    }
+    req.fail_if_no_account();
 }
 
 

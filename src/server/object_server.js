@@ -36,11 +36,7 @@ module.exports = new object_api.Server({
 
 
 function before(req) {
-    if (!req.account) {
-        var err = new Error('not logged in');
-        err.status = 403;
-        throw err;
-    }
+    req.fail_if_no_account();
 }
 
 

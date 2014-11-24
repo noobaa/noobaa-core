@@ -61,13 +61,13 @@ function create_account(req) {
 
 
 function read_account(req) {
-    fail_no_account(req);
+    req.fail_if_no_account();
     return _.pick(req.account, 'id', 'name', 'email', 'systems_role');
 }
 
 
 function update_account(req) {
-    fail_no_account(req);
+    req.fail_if_no_account();
     return Q.fcall(
         function() {
             db.AccountCache.invalidate(req.account.id);
@@ -84,7 +84,7 @@ function update_account(req) {
 
 
 function delete_account(req) {
-    fail_no_account(req);
+    req.fail_if_no_account();
     return Q.fcall(
         function() {
             db.AccountCache.invalidate(req.account.id);
@@ -231,6 +231,15 @@ function authorize() {
 // verify that the request authorization is a valid account and system,
 // and set req.account & req.system & req.role to be available for other apis.
 function prepare_auth_request(req) {
+
+    req.fail_if_no_account = function() {
+        if (!req.account) {
+            var err = new Error('unauthorized');
+            err.status = 401;
+            throw err;
+        }
+    };
+
     return Q.fcall(
         function() {
             if (!req.auth) {
@@ -273,11 +282,4 @@ function prepare_auth_request(req) {
             ]);
         }
     );
-}
-
-function fail_no_account(req) {
-    if (!req.account) {
-        console.error('NOT LOGGED IN', req.auth);
-        throw new Error('not logged in');
-    }
 }

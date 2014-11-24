@@ -25,6 +25,8 @@ var account_server = new account_api.Server({
     authenticate: authenticate,
 });
 
+// authorize is exported to be used as an express middleware
+// it reads and prepares the authorized info on the request.
 account_server.authorize = authorize;
 
 module.exports = account_server;
@@ -155,6 +157,7 @@ function authenticate(req) {
         }
     ).then(
         function(res) {
+            // use jwt (json web token) to create a signed token
             var jwt_payload = {
                 account_id: account.id
             };
@@ -194,19 +197,24 @@ function authenticate(req) {
 
 
 
-
-// this is exported to be used as a middleware
 function authorize() {
+    // use jwt (json web token) to verify and decode the signed token
+    // the token is expected to be set in req.headers.authorization = 'Bearer ' + token
+    // which is a standard token authorization used by oauth2.
     var ej = express_jwt({
         secret: JWT_SECRET,
         userProperty: 'auth',
         credentialsRequired: false,
     });
+    // return an express middleware
     return function(req, res, next) {
         ej(req, res, function(err) {
             console.log('JWT', err, req.auth);
             if (err) {
                 if (err.name === 'UnauthorizedError') {
+                    // if the verification of the token failed it might be because of expiration
+                    // in any case return http code 401 (Unauthorized)
+                    // hoping the client will do authenticate() again.
                     return next({
                         status: 401,
                         data: 'invalid token',

@@ -41,7 +41,7 @@ var object_client = new ObjectClient();
 before(function(done) {
     Q.fcall(
         function() {
-            utilitest.router.use(account_server.account_session_middleware);
+            utilitest.router.use(account_server.authorize());
             account_server.install_routes(utilitest.router);
             system_server.install_routes(utilitest.router);
             node_server.install_routes(utilitest.router);
@@ -66,8 +66,13 @@ after(function() {
     object_server.disable_routes();
 });
 
-function login_default_account() {
-    return account_client.login_account(account_credentials);
+function authenticate_default_account() {
+    return account_client.authenticate(account_credentials).then(
+        function(res) {
+            console.log('AUTH TOKEN', res.token);
+            account_client.set_global_authorization(res.token);
+        }
+    );
 }
 
 var test_agents;
@@ -169,7 +174,7 @@ function clear_test_nodes() {
 module.exports = {
     account_client: account_client,
     account_credentials: account_credentials,
-    login_default_account: login_default_account,
+    authenticate_default_account: authenticate_default_account,
 
     system_client: system_client,
     node_client: node_client,

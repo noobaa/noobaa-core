@@ -11,6 +11,8 @@ var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var account_api = require('../api/account_api');
 var node_monitor = require('./node_monitor');
+var express_jwt = require('express-jwt');
+var jwt = require('jsonwebtoken');
 
 
 var account_server = new account_api.Server({
@@ -19,12 +21,11 @@ var account_server = new account_api.Server({
     read_account: read_account,
     update_account: update_account,
     delete_account: delete_account,
-    // LOGIN / LOGOUT
-    login_account: login_account,
-    logout_account: logout_account,
+    // AUTH
+    authenticate: authenticate,
 });
 
-account_server.account_session_middleware = account_session_middleware;
+account_server.authorize = authorize;
 
 module.exports = account_server;
 
@@ -43,9 +44,8 @@ function create_account(req) {
         }
     ).then(
         function(account) {
-            set_session_account(req, account);
-        }
-    ).then(null,
+            return _.pick(account, 'id');
+        },
         function(err) {
             if (err.code === 11000) {
                 throw new Error('account already exists');
@@ -54,26 +54,21 @@ function create_account(req) {
                 throw new Error('failed create account');
             }
         }
-    ).thenResolve();
-}
-
-
-function read_account(req) {
-    return account_session(req, true).then(
-        function() {
-            return _.pick(req.account, 'name', 'email', 'systems_role');
-        },
-        function(err) {
-            console.error('FAILED read_account', err);
-            throw new Error('read account failed');
-        }
     );
 }
 
 
+function read_account(req) {
+    fail_no_account(req);
+    return _.pick(req.account, 'id', 'name', 'email', 'systems_role');
+}
+
+
 function update_account(req) {
-    return account_session(req, true).then(
+    fail_no_account(req);
+    return Q.fcall(
         function() {
+            db.AccountCache.invalidate(req.account.id);
             var info = _.pick(req.rest_params, 'name', 'email', 'password');
             return db.Account.findByIdAndUpdate(req.account.id, info).exec();
         }
@@ -87,9 +82,9 @@ function update_account(req) {
 
 
 function delete_account(req) {
-    return account_session(req, true).then(
+    fail_no_account(req);
+    return Q.fcall(
         function() {
-            clear_session_account(req);
             db.AccountCache.invalidate(req.account.id);
             return db.Account.findByIdAndUpdate(req.account.id, {
                 deleted: new Date()
@@ -105,19 +100,23 @@ function delete_account(req) {
 
 
 
-////////////////////
-// LOGIN / LOGOUT //
-////////////////////
+//////////
+// AUTH //
+//////////
 
+var JWT_SECRET = process.env.JWT_SECRET || '93874gfn987wgfb98721tb4f897tu';
 
-function login_account(req) {
+function authenticate(req) {
     var info = {
         email: req.rest_params.email,
         // filter out accounts that were deleted
         deleted: null,
     };
     var password = req.rest_params.password;
+    var system_id = req.rest_params.system;
+    var expires = req.rest_params.expires;
     var account;
+    var auth_error;
     // find the account by email, and verify password
     return Q.fcall(
         function() {
@@ -126,70 +125,118 @@ function login_account(req) {
     ).then(
         function(account_arg) {
             account = account_arg;
-            if (account) {
+            if (!account) {
+                // consider no account as non matching password
+                // to avoid brute force attacks of requests on this api.
+                return false;
+            } else {
                 return Q.npost(account, 'verify_password', [password]);
             }
         }
     ).then(
         function(matching) {
             if (!matching) {
-                throw new Error('incorrect email and password');
+                auth_error = new Error('incorrect email and password');
+                throw auth_error;
             }
-            set_session_account(req, account);
-        },
-        function(err) {
-            console.error('FAILED login_account', err);
-            throw new Error('login failed');
+
+            if (!system_id) {
+                return [];
+            } else {
+                // find system and role
+                return Q.all([
+                    db.System.findById(system_id).exec(),
+                    db.Role.find({
+                        account: account.id,
+                        system: system_id,
+                    }).exec()
+                ]);
+            }
         }
-    ).thenResolve();
+    ).then(
+        function(res) {
+            var jwt_payload = {
+                account_id: account.id
+            };
+            if (system_id) {
+                var system = res[0];
+                var role = res[1];
+                if (!system) {
+                    auth_error = new Error('system not found');
+                    throw auth_error;
+                }
+                if (!role) {
+                    auth_error = new Error('role not found');
+                    throw auth_error;
+                }
+                jwt_payload.system_id = system_id;
+                jwt_payload.role = role.role;
+            }
+            var jwt_options = {};
+            if (expires) {
+                jwt_options.expiresInMinutes = expires / 60;
+            }
+            var token = jwt.sign(jwt_payload, JWT_SECRET, jwt_options);
+            return {
+                token: token
+            };
+        }
+    ).then(null,
+        function(err) {
+            if (err === auth_error) {
+                throw auth_error;
+            }
+            console.error('FAILED authenticate', err);
+            throw new Error('authenticate failed');
+        }
+    );
 }
 
 
-function logout_account(req) {
-    clear_session_account(req);
+
+
+// this is exported to be used as a middleware
+function authorize() {
+    var ej = express_jwt({
+        secret: JWT_SECRET,
+        userProperty: 'auth',
+        credentialsRequired: false,
+    });
+    return function(req, res, next) {
+        ej(req, res, function(err) {
+            console.log('JWT', err, req.auth);
+            if (err) {
+                if (err.name === 'UnauthorizedError') {
+                    return next({
+                        status: 401,
+                        data: 'invalid token',
+                    });
+                } else {
+                    return next(err);
+                }
+            }
+            verify_authorized_account(req).thenResolve().nodeify(next);
+        });
+    };
 }
 
-
-
-/////////////
-// SESSION //
-/////////////
-
-// set account info in the secure cookie session
-// (expected the request to provide secure cookie session)
-function set_session_account(req, account) {
-    req.session.account_id = account.id;
-}
-function clear_session_account(req) {
-    delete req.session.account_id;
-}
-
-// this is exported to be used by other servers as a middleware
-function account_session_middleware(req, res, next) {
-    account_session(req).thenResolve().nodeify(next);
-}
-
-// verify that the session has a valid account using the account cache,
+// verify that the request authorization is a valid account using the account cache,
 // and set req.account to be available for other apis.
-function account_session(req, force) {
+function verify_authorized_account(req) {
     return Q.fcall(
         function() {
-            var account_id = req.session.account_id;
+            var account_id = req.auth && req.auth.account_id;
             if (!account_id) {
-                if (force) {
-                    console.error('ACCOUNT SESSION NOT LOGGED IN', account_id);
-                    throw new Error('not logged in');
-                }
                 return;
             }
-            return db.AccountCache.get(account_id, force && 'bypass').then(
+            return db.AccountCache.get(account_id).then(
                 function(account) {
                     if (!account) {
-                        console.error('ACCOUNT SESSION MISSING', account_id);
+                        console.error('ACCOUNT MISSING', account_id);
                         throw new Error('account missing');
                     }
                     if (account.deleted) {
-                        console.error('ACCOUNT SESSION DELETED', account);
+                        console.error('ACCOUNT DELETED', account);
                         throw new Error('account deleted');
                     }
                     req.account = account;
@@ -197,4 +244,11 @@ function account_session(req, force) {
             );
         }
     );
+}
+
+function fail_no_account(req) {
+    if (!req.account) {
+        console.error('NOT LOGGED IN', req.auth);
+        throw new Error('not logged in');
+    }
 }

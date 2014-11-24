@@ -74,8 +74,10 @@ function create_system(req) {
 
 function read_system(req) {
     var system_id = req.rest_params.id;
+    var system;
     return Q.fcall(find_system_by_id, req).then(
-        function() {
+        function(system_arg) {
+            system = system_arg;
             var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
             var system_query = {
                 system: req.session.system_id
@@ -128,6 +130,8 @@ function read_system(req) {
                     parts = _.mapValues(_.indexBy(parts, '_id'), 'value');
                     // chunks = chunks && _.mapValues(_.indexBy(chunks, '_id'), 'value');
                     return {
+                        id: system.id,
+                        name: system.name,
                         allocated_storage: nodes.alloc || 0,
                         used_storage: parts.size || 0,
                         chunks_storage: 0, //chunks.size || 0,

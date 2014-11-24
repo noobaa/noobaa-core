@@ -18,7 +18,13 @@ module.exports = rest_api({
             method: 'POST',
             path: '/system/',
             params: {
-                $ref: '/system_api/definitions/system_create_info'
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                },
             },
             reply: {
                 $ref: '/system_api/definitions/system_info'
@@ -37,6 +43,7 @@ module.exports = rest_api({
         },
 
         update_system: {
+            doc: 'List the systems that the current account has a role',
             method: 'PUT',
             path: '/system/:id',
             params: {
@@ -45,6 +52,7 @@ module.exports = rest_api({
         },
 
         delete_system: {
+            doc: 'Delete ',
             method: 'DELETE',
             path: '/system/:id',
             params: {
@@ -58,6 +66,7 @@ module.exports = rest_api({
         //////////
 
         list_systems: {
+            doc: 'List the systems that the current account has a role',
             method: 'GET',
             path: '/systems/',
             reply: {
@@ -106,16 +115,6 @@ module.exports = rest_api({
             required: ['id'],
             properties: {
                 id: {
-                    type: 'string',
-                },
-            },
-        },
-
-        system_create_info: {
-            type: 'object',
-            required: ['name'],
-            properties: {
-                name: {
                     type: 'string',
                 },
             },

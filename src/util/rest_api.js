@@ -22,6 +22,7 @@ var VALID_METHODS = {
 };
 var PATH_ITEM_RE = /^\S*$/;
 
+var global_headers = {};
 var global_cookie_jars = {};
 
 /**
@@ -63,6 +64,29 @@ function rest_api(api) {
 
     Client.prototype.set_param = function(key, value) {
         this._rest_client_params[key] = value;
+    };
+    Client.prototype.set_header = function(key, value) {
+        this._rest_client_params.headers = this._rest_client_params.headers || {};
+        if (value) {
+            this._rest_client_params.headers[key] = value;
+        } else {
+            delete this._rest_client_params.headers[key];
+        }
+    };
+    Client.prototype.set_global_header = function(key, value) {
+        if (value) {
+            global_headers[key] = value;
+        } else {
+            delete global_headers[key];
+        }
+    };
+    Client.prototype.set_authorization = function(token) {
+        var auth = token && ('Bearer ' + token);
+        this.set_header('authorization', auth);
+    };
+    Client.prototype.set_global_authorization = function(token) {
+        var auth = token && ('Bearer ' + token);
+        this.set_global_header('authorization', auth);
     };
 
     /**
@@ -218,7 +242,6 @@ function rest_api(api) {
 }
 
 
-
 // call a specific REST api function over http request.
 function do_client_request(client_params, func_info, params) {
     return Q.fcall(
@@ -241,7 +264,7 @@ function send_http_request(client_params, func_info, params) {
     var method = func_info.method;
     var path = client_params.path || '/';
     var data = _.clone(params) || {};
-    var headers = _.clone(client_params.headers) || {};
+    var headers = _.extend({}, global_headers, client_params.headers);
     var body;
 
     if (func_info.param_raw) {

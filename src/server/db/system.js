@@ -18,10 +18,15 @@ var system_schema = new Schema({
         required: true,
     },
 
+    deleted: {
+        type: Date,
+    },
+
 });
 
 system_schema.index({
     name: 1,
+    deleted: 1,
 }, {
     unique: true
 });

@@ -98,7 +98,7 @@ app.use(express_cookie_session({
     maxage: 356 * 24 * 60 * 60 * 1000 // 1 year
 }));
 app.use(express_compress());
-app.use(account_server.account_session_middleware);
+app.use(account_server.authorize());
 
 ////////////
 // ROUTES //

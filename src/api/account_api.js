@@ -15,9 +15,9 @@ module.exports = rest_api({
         //////////
 
         create_account: {
-            doc: 'Create a new account and login to it',
+            doc: 'Create a new account',
             method: 'POST',
-            path: '/',
+            path: '/account',
             params: {
                 type: 'object',
                 required: ['name', 'email', 'password'],
@@ -33,16 +33,28 @@ module.exports = rest_api({
                     },
                 },
             },
+            reply: {
+                type: 'object',
+                required: ['id'],
+                properties: {
+                    id: {
+                        type: 'string',
+                    },
+                },
+            }
         },
 
         read_account: {
-            doc: 'Read the info of the logged in account',
+            doc: 'Read the info of the authorized account',
             method: 'GET',
-            path: '/',
+            path: '/account',
             reply: {
                 type: 'object',
-                required: ['name', 'email', 'systems_role'],
+                required: ['id', 'name', 'email', 'systems_role'],
                 properties: {
+                    id: {
+                        type: 'string',
+                    },
                     name: {
                         type: 'string',
                     },
@@ -63,9 +75,9 @@ module.exports = rest_api({
         },
 
         update_account: {
-            doc: 'Update the info of the logged in account',
+            doc: 'Update the info of the authorized account',
             method: 'PUT',
-            path: '/',
+            path: '/account',
             params: {
                 type: 'object',
                 required: [],
@@ -84,20 +96,22 @@ module.exports = rest_api({
         },
 
         delete_account: {
-            doc: 'Delete the logged in account, and logout',
+            doc: 'Delete the authorized account',
             method: 'DELETE',
-            path: '/',
+            path: '/account',
         },
 
 
-        ////////////////////
-        // LOGIN / LOGOUT //
-        ////////////////////
+        //////////
+        // AUTH //
+        //////////
 
-        login_account: {
-            doc: 'Login to account with credentials, saved in cookie session',
+        authenticate: {
+            doc: 'Authenticate account with credentials, ' +
+                'and returns an access token. ' +
+                'supply a system id to create a token for acting on the system.',
             method: 'POST',
-            path: '/login',
+            path: '/auth',
             params: {
                 type: 'object',
                 required: ['email', 'password'],
@@ -108,14 +122,24 @@ module.exports = rest_api({
                     password: {
                         type: 'string',
                     },
+                    system: {
+                        type: 'string',
+                    },
+                    expires: {
+                        type: 'integer',
+                        doc: 'Number of seconds before the authentication expires',
+                    },
                 },
             },
-        },
-
-        logout_account: {
-            doc: 'Logout from account, cleared from cookie session',
-            method: 'POST',
-            path: '/logout',
+            reply: {
+                type: 'object',
+                required: ['token'],
+                properties: {
+                    token: {
+                        type: 'string',
+                    },
+                }
+            }
         },
 
     },

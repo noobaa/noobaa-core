@@ -15,15 +15,6 @@ describe('account', function() {
     var EMAIL = 'bla@bla.blabla';
     var PASSWORD = 'shhhhhhh';
 
-    after(function(done) {
-        Q.fcall(
-            function() {
-                // login back to default account for other tests to run well
-                return coretest.login_default_account();
-            }
-        ).nodeify(done);
-    });
-
     describe('account full flow', function() {
 
         it('works', function(done) {
@@ -47,7 +38,7 @@ describe('account', function() {
                     }
                 );
             }).then(function() {
-                return account_client.login_account({
+                return account_client.authenticate({
                     email: EMAIL,
                     password: PASSWORD + '!',
                 }).then(
@@ -59,20 +50,16 @@ describe('account', function() {
                     }
                 );
             }).then(function() {
-                return account_client.login_account({
+                return account_client.authenticate({
                     email: EMAIL,
                     password: PASSWORD,
+                }).then(function(res) {
+                    console.log('AUTH TOKEN', res.token);
+                    account_client.set_authorization(res.token);
                 });
             }).then(function() {
                 return account_client.read_account().then(function(res) {
                     assert.strictEqual(res.email, EMAIL);
-                });
-            }).then(function() {
-                return account_client.logout_account();
-            }).then(function() {
-                return account_client.login_account({
-                    email: EMAIL,
-                    password: PASSWORD,
                 });
             }).then(function() {
                 return account_client.update_account({

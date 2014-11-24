@@ -172,6 +172,8 @@ function clear_test_nodes() {
 
 
 module.exports = {
+    http_port: utilitest.http_port, // function
+
     account_client: account_client,
     account_credentials: account_credentials,
     authenticate_default_account: authenticate_default_account,

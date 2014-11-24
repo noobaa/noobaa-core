@@ -6,14 +6,22 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
+var account_api = require('../api/account_api');
 
 describe('account', function() {
 
-    var account_client = coretest.account_client;
-
+    var account_client;
     var NAME = 'bla bla';
     var EMAIL = 'bla@bla.blabla';
     var PASSWORD = 'shhhhhhh';
+
+    beforeEach(function() {
+        // create my own account client on each test
+        // to prevent contaminating the headers
+        account_client = new account_api.Client({
+            port: coretest.http_port()
+        });
+    });
 
     describe('account full flow', function() {
 
@@ -73,6 +81,8 @@ describe('account', function() {
                 });
             }).then(function() {
                 return account_client.delete_account();
+            }).then(function() {
+                account_client.set_authorization(null);
             }).nodeify(done);
         });
 

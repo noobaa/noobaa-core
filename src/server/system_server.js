@@ -21,9 +21,6 @@ var system_server = new system_api.Server({
     delete_system: delete_system,
     // LIST
     list_systems: list_systems,
-    // LOGIN / LOGOUT
-    login_system: login_system,
-    logout_system: logout_system,
 }, {
     before: before
 });
@@ -31,7 +28,7 @@ var system_server = new system_api.Server({
 module.exports = system_server;
 
 function before(req) {
-    req.fail_if_no_account();
+    return req.load_account();
 }
 
 
@@ -68,15 +65,13 @@ function create_system(req) {
     );
 }
 
+
 function read_system(req) {
-    var system_id = req.rest_params.id;
-    var system;
-    return Q.fcall(find_system_by_id, req).then(
-        function(system_arg) {
-            system = system_arg;
+    return req.load_system(['admin']).then(
+        function() {
             var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
             var system_query = {
-                system: req.session.system_id
+                system: req.system.id
             };
             return Q.all([
                 // nodes - count, online count, allocated/used storage
@@ -126,8 +121,8 @@ function read_system(req) {
                     parts = _.mapValues(_.indexBy(parts, '_id'), 'value');
                     // chunks = chunks && _.mapValues(_.indexBy(chunks, '_id'), 'value');
                     return {
-                        id: system.id,
-                        name: system.name,
+                        id: req.system.id,
+                        name: req.system.name,
                         allocated_storage: nodes.alloc || 0,
                         used_storage: parts.size || 0,
                         chunks_storage: 0, //chunks.size || 0,
@@ -144,21 +139,23 @@ function read_system(req) {
     );
 }
 
+
 function update_system(req) {
     var info = _.pick(req.rest_params, 'name');
-    return Q.fcall(find_system_by_id, req, ['admin']).then(
-        function(system) {
-            return db.System.findByIdAndUpdate(system.id, info).exec();
+    return req.load_system(['admin']).then(
+        function() {
+            return db.System.findByIdAndUpdate(req.system.id, info).exec();
         }
     ).thenResolve();
 }
 
+
 function delete_system(req) {
-    return Q.fcall(find_system_by_id, req, ['admin']).then(
-        function(system) {
-            // TODO delete should also handle all related models - roles, buckets, nodes, etc.
-            throw new Error('TODO');
-            // return db.System.findByIdAndRemove(system.id).exec();
+    return req.load_system(['admin']).then(
+        function() {
+            return db.System.findByIdAndUpdate(req.system.id, {
+                deleted: new Date()
+            }).exec();
         }
     ).thenResolve();
 }
@@ -190,62 +187,10 @@ function list_systems(req) {
 }
 
 
-////////////////////
-// LOGIN / LOGOUT //
-////////////////////
-
-
-function login_system(req) {
-    return Q.fcall(find_system_by_id, req).then(
-        function(system) {
-            req.session.system_id = system.id;
-        }
-    );
-}
-
-function logout_system(req) {
-    delete req.session.system_id;
-}
-
-
 
 //////////
 // UTIL //
 //////////
-
-
-function find_system_by_id(req, accepted_roles) {
-    var system_id = req.rest_params.id;
-    var role_info = {
-        account: req.account.id,
-        system: system_id,
-    };
-    return Q.fcall(
-        function() {
-            return db.Role.findOne(role_info).exec();
-        }
-    ).then(
-        function(role) {
-            if (!role) {
-                console.error('unauthorized account', role_info);
-                throw new Error('unauthorized account');
-            }
-            if (accepted_roles && !(role.role in accepted_roles)) {
-                console.error('unauthorized account role', role_info, accepted_roles);
-                throw new Error('unauthorized account role');
-            }
-            return db.System.findById(system_id).exec();
-        }
-    ).then(
-        function(system) {
-            if (!system) {
-                console.error('no such system', system_id);
-                throw new Error('no such system');
-            }
-            return system;
-        }
-    );
-}
 
 function get_system_info(system) {
     return _.pick(system, 'id', 'name');

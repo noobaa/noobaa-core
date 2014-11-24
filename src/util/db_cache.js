@@ -26,17 +26,17 @@ function DBCache(options) {
 /**
  * get from cache, will load on cache miss, returns a promise.
  *
- * bypass (String) - pass the literal string 'bypass' to force fetching.
+ * force_miss (String) - pass the literal string 'force_miss' to force fetching.
  *
  */
-DBCache.prototype.get = function(key, bypass) {
+DBCache.prototype.get = function(key, force_miss) {
     var self = this;
     return Q.fcall(
         function() {
             var item = self.lru.find_or_add_item(key);
 
             // use cached item when not expired
-            if (bypass !== 'bypass') {
+            if (force_miss !== 'force_miss') {
                 if (item.missing) {
                     return;
                 }
@@ -52,11 +52,11 @@ DBCache.prototype.get = function(key, bypass) {
                     if (doc) {
                         // update the cache item
                         item.doc = doc;
-                        delete item.missing;
+                        item.missing = null;
                     } else {
                         // mark entry as missing - aka negative cache
                         item.missing = true;
-                        delete item.doc;
+                        item.doc = null;
                     }
                     return doc;
                 }

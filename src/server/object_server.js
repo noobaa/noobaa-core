@@ -36,7 +36,7 @@ module.exports = new object_api.Server({
 
 
 function before(req) {
-    req.fail_if_no_account();
+    return req.load_system();
 }
 
 

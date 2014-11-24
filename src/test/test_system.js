@@ -11,7 +11,6 @@ describe('system', function() {
 
     var system_client = coretest.system_client;
 
-
     it('crud', function(done) {
         var system_id;
         Q.fcall(function() {
@@ -20,38 +19,18 @@ describe('system', function() {
             });
         }).then(function(res) {
             system_id = res.id;
-            return system_client.read_system({
-                id: system_id,
+            return coretest.account_auth({
+                system: system_id
             });
-        }).then(function(res) {
+        }).then(function() {
+            return system_client.read_system();
+        }).then(function() {
             return system_client.update_system({
-                id: system_id,
                 name: 'sys2',
             });
         }).then(function() {
-            return system_client.delete_system({
-                id: system_id,
-            });
+            return system_client.delete_system();
         }).nodeify(done);
     });
-
-    it('create -> login -> stats -> logout', function(done) {
-        var system_id;
-        Q.fcall(function() {
-            return system_client.create_system({
-                name: 'sys1',
-            });
-        }).then(function(res) {
-            system_id = res.id;
-            return system_client.login_system({
-                id: system_id,
-            });
-        }).then(function(res) {
-            return system_client.system_stats();
-        }).then(function() {
-            return system_client.logout_system();
-        }).nodeify(done);
-    });
-
 
 });

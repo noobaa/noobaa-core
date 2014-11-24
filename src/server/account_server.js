@@ -61,14 +61,16 @@ function create_account(req) {
 
 
 function read_account(req) {
-    req.fail_if_no_account();
-    return _.pick(req.account, 'id', 'name', 'email', 'systems_role');
+    return req.load_account('force_miss').then(
+        function() {
+            return _.pick(req.account, 'id', 'name', 'email', 'systems_role');
+        }
+    );
 }
 
 
 function update_account(req) {
-    req.fail_if_no_account();
-    return Q.fcall(
+    return req.load_account('force_miss').then(
         function() {
             db.AccountCache.invalidate(req.account.id);
             var info = _.pick(req.rest_params, 'name', 'email', 'password');
@@ -84,8 +86,7 @@ function update_account(req) {
 
 
 function delete_account(req) {
-    req.fail_if_no_account();
-    return Q.fcall(
+    return req.load_account('force_miss').then(
         function() {
             db.AccountCache.invalidate(req.account.id);
             return db.Account.findByIdAndUpdate(req.account.id, {
@@ -148,7 +149,7 @@ function authenticate(req) {
                 // find system and role
                 return Q.all([
                     db.System.findById(system_id).exec(),
-                    db.Role.find({
+                    db.Role.findOne({
                         account: account.id,
                         system: system_id,
                     }).exec()
@@ -209,8 +210,8 @@ function authorize() {
     // return an express middleware
     return function(req, res, next) {
         ej(req, res, function(err) {
-            console.log('JWT', err, req.auth);
             if (err) {
+                console.log('JWT ERROR', err);
                 if (err.name === 'UnauthorizedError') {
                     // if the verification of the token failed it might be because of expiration
                     // in any case return http code 401 (Unauthorized)
@@ -223,38 +224,33 @@ function authorize() {
                     return next(err);
                 }
             }
-            prepare_auth_request(req).thenResolve().nodeify(next);
+            console.log('AUTH', req.auth);
+            prepare_auth_request(req);
+            next();
         });
     };
 }
 
-// verify that the request authorization is a valid account and system,
-// and set req.account & req.system & req.role to be available for other apis.
+// hang calls on the request to be able to use in other api's.
 function prepare_auth_request(req) {
 
-    req.fail_if_no_account = function() {
-        if (!req.account) {
-            var err = new Error('unauthorized');
-            err.status = 401;
-            throw err;
-        }
-    };
-
-    return Q.fcall(
-        function() {
-            if (!req.auth) {
-                return;
-            }
-            var account_id = req.auth.account_id;
-            if (!account_id) {
-                return;
-            }
-            var system_id = req.auth.system_id;
-            return Q.all([
-                db.AccountCache.get(account_id).then(
+    // verify that the request auth has a valid account and set req.account.
+    req.load_account = function(force_miss) {
+        return Q.fcall(
+            function() {
+                if (req.account) {
+                    return; // already loaded
+                }
+                if (!req.auth || !req.auth.account_id) {
+                    console.error('UNAUTHORIZED', req.auth);
+                    var err = new Error('unauthorized');
+                    err.status = 401;
+                    throw err;
+                }
+                return db.AccountCache.get(req.auth.account_id, force_miss).then(
                     function(account) {
                         if (!account) {
-                            console.error('ACCOUNT MISSING', account_id);
+                            console.error('ACCOUNT MISSING', req.auth);
                             throw new Error('account missing');
                         }
                         if (account.deleted) {
@@ -263,12 +259,37 @@ function prepare_auth_request(req) {
                         }
                         req.account = account;
                     }
-                ),
-                // check system if auth provided a system_id
-                system_id && db.SystemCache.get(system_id).then(
+                );
+            }
+        );
+    };
+
+    // verify that the request auth has a valid system and set req.system and req.role.
+    // also calls load_account.
+    req.load_system = function(valid_roles, force_miss) {
+        return req.load_account().then(
+            function() {
+                if (req.system) {
+                    return; // already loaded
+                }
+                var err;
+                if (!req.auth || !req.auth.system_id) {
+                    console.error('UNAUTHORIZED SYSTEM', req.auth);
+                    err = new Error('unauthorized system');
+                    err.status = 401;
+                    throw err;
+                }
+                if ((!valid_roles && !req.auth.role) ||
+                    (valid_roles && !_.contains(valid_roles, req.auth.role))) {
+                    console.error('FORBIDDEN ROLE', req.auth);
+                    err = new Error('forbidden role');
+                    err.status = 403;
+                    throw err;
+                }
+                return db.SystemCache.get(req.auth.system_id, force_miss).then(
                     function(system) {
                         if (!system) {
-                            console.error('SYSTEM MISSING', system_id);
+                            console.error('SYSTEM MISSING', req.auth);
                             throw new Error('system missing');
                         }
                         if (system.deleted) {
@@ -278,8 +299,8 @@ function prepare_auth_request(req) {
                         req.system = system;
                         req.role = req.auth.role;
                     }
-                ),
-            ]);
-        }
-    );
+                );
+            }
+        );
+    };
 }

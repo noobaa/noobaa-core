@@ -62,7 +62,6 @@ describe('account', function() {
                     email: EMAIL,
                     password: PASSWORD,
                 }).then(function(res) {
-                    console.log('AUTH TOKEN', res.token);
                     account_client.set_authorization(res.token);
                 });
             }).then(function() {

@@ -52,9 +52,13 @@ before(function(done) {
             node_client.set_param('port', utilitest.http_port());
             object_client.set_param('port', utilitest.http_port());
 
-            return account_client.create_account(_.merge({
-                name: 'coretest'
-            }, account_credentials));
+            var account_params = _.clone(account_credentials);
+            account_params.name = 'coretest';
+            return account_client.create_account(account_params);
+        }
+    ).then(
+        function() {
+            return account_auth();
         }
     ).nodeify(done);
 });
@@ -66,10 +70,10 @@ after(function() {
     object_server.disable_routes();
 });
 
-function authenticate_default_account() {
-    return account_client.authenticate(account_credentials).then(
+function account_auth(options) {
+    var params = _.extend({}, account_credentials, options);
+    return account_client.authenticate(params).then(
         function(res) {
-            console.log('AUTH TOKEN', res.token);
             account_client.set_global_authorization(res.token);
         }
     );
@@ -176,7 +180,7 @@ module.exports = {
 
     account_client: account_client,
     account_credentials: account_credentials,
-    authenticate_default_account: authenticate_default_account,
+    account_auth: account_auth,
 
     system_client: system_client,
     node_client: node_client,

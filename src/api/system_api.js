@@ -27,37 +27,47 @@ module.exports = rest_api({
                 },
             },
             reply: {
-                $ref: '/system_api/definitions/system_info'
+                type: 'object',
+                required: ['id', 'name'],
+                properties: {
+                    id: {
+                        type: 'string',
+                    },
+                    name: {
+                        type: 'string',
+                    },
+                },
             },
         },
 
         read_system: {
+            doc: 'Read the info of the authorized system',
             method: 'GET',
-            path: '/system/:id',
-            params: {
-                $ref: '/system_api/definitions/system_id'
-            },
+            path: '/system',
             reply: {
                 $ref: '/system_api/definitions/system_full_info'
             },
         },
 
         update_system: {
-            doc: 'List the systems that the current account has a role',
+            doc: 'Update the authorized system',
             method: 'PUT',
-            path: '/system/:id',
+            path: '/system',
             params: {
-                $ref: '/system_api/definitions/system_info'
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                },
             },
         },
 
         delete_system: {
-            doc: 'Delete ',
+            doc: 'Delete the authorized system',
             method: 'DELETE',
-            path: '/system/:id',
-            params: {
-                $ref: '/system_api/definitions/system_id'
-            },
+            path: '/system',
         },
 
 
@@ -66,39 +76,15 @@ module.exports = rest_api({
         //////////
 
         list_systems: {
-            doc: 'List the systems that the current account has a role',
+            doc: 'List the systems that the authorized account can access',
             method: 'GET',
-            path: '/systems/',
+            path: '/systems',
             reply: {
                 type: 'array',
                 items: {
-                    $ref: '/system_api/definitions/system_info'
+                    $ref: '/system_api/definitions/system_id'
                 }
             },
-        },
-
-
-        ////////////////////
-        // LOGIN / LOGOUT //
-        ////////////////////
-
-        login_system: {
-            method: 'GET',
-            path: '/login/:id',
-            params: {
-                type: 'object',
-                required: ['id'],
-                properties: {
-                    id: {
-                        type: 'string',
-                    },
-                },
-            },
-        },
-
-        logout_system: {
-            method: 'GET',
-            path: '/logout',
         },
 
     },
@@ -115,19 +101,6 @@ module.exports = rest_api({
             required: ['id'],
             properties: {
                 id: {
-                    type: 'string',
-                },
-            },
-        },
-
-        system_info: {
-            type: 'object',
-            required: ['id', 'name'],
-            properties: {
-                id: {
-                    type: 'string',
-                },
-                name: {
                     type: 'string',
                 },
             },

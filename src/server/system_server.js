@@ -75,7 +75,7 @@ function read_system(req) {
             };
             return Q.all([
                 // roles
-                db.Role.find(by_system_id).exec(),
+                db.Role.find(by_system_id).populate('account').exec(),
                 // vendors
                 db.Vendor.find(by_system_id).exec(),
                 // tiers
@@ -128,9 +128,17 @@ function read_system(req) {
                     return {
                         id: req.system.id,
                         name: req.system.name,
-                        roles: [],
-                        vendors: [],
-                        tiers: [],
+                        roles: _.map(roles, function(role) {
+                            role = _.pick(role, 'role', 'account');
+                            role.account = _.pick(role.account, 'name', 'email');
+                            return role;
+                        }),
+                        vendors: _.map(vendors, function(vendor) {
+                            return _.pick(vendor, 'name' ,'category', 'kind');
+                        }),
+                        tiers: _.map(tiers, function(tier) {
+                            return _.pick(tier, 'name');
+                        }),
                         nodes: nodes.count || 0,
                         online_nodes: nodes.online || 0,
                         buckets: buckets || 0,

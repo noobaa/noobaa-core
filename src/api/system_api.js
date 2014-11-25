@@ -194,17 +194,6 @@ module.exports = rest_api({
         },
 
 
-        tier_info: {
-            type: 'object',
-            required: ['name'],
-            properties: {
-                name: {
-                    type: 'string',
-                },
-            }
-        },
-
-
         vendor_info: {
             type: 'object',
             required: ['name', 'category', 'kind'],
@@ -216,6 +205,17 @@ module.exports = rest_api({
                     type: 'string',
                 },
                 kind: {
+                    type: 'string',
+                },
+            }
+        },
+
+
+        tier_info: {
+            type: 'object',
+            required: ['name'],
+            properties: {
+                name: {
                     type: 'string',
                 },
             }

@@ -40,6 +40,7 @@ module.exports = account_server;
 
 function create_account(req) {
     var info = _.pick(req.rest_params, 'name', 'email', 'password');
+
     return Q.fcall(
         function() {
             return db.Account.create(info);

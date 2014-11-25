@@ -25,6 +25,7 @@ var update_alloc_nodes_promise;
 //
 function allocate_blocks_for_new_chunk(chunk) {
     var num = chunk.kfrag * COPIES;
+    var block_size = (chunk.size / chunk.kfrag) | 0;
 
     return Q.fcall(update_alloc_nodes).then(
         function() {
@@ -41,6 +42,7 @@ function allocate_blocks_for_new_chunk(chunk) {
 
                 var block = new db.DataBlock({
                     fragment: i % chunk.kfrag,
+                    size: block_size,
                 });
                 // using setValue as a small hack to make these fields seem populated
                 // so that we can use them after returning from here.

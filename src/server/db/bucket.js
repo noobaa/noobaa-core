@@ -29,12 +29,18 @@ var bucket_schema = new Schema({
         type: String,
     },
 
+    // on delete set deletion time
+    deleted: {
+        type: Date,
+    },
+
 });
 
 
 bucket_schema.index({
     system: 1,
     name: 1,
+    deleted: 1, // delete time part of the unique index
 }, {
     unique: true
 });
@@ -42,6 +48,7 @@ bucket_schema.index({
 
 bucket_schema.index({
     subdomain: 1,
+    deleted: 1, // delete time part of the unique index
 }, {
     unique: true,
     // subdomain is not required so we have to define the index as sparse

@@ -385,7 +385,7 @@ function heartbeat(req) {
 
 
 function connect_node_vendor(req) {
-    var vendor_info = _.pick(req.rest_params, 'name', 'kind', 'info');
+    var vendor_info = _.pick(req.rest_params, 'name', 'category', 'kind', 'details');
     vendor_info.account = req.account.id; // see system_server.account_session
     var vendor;
     return Q.fcall(
@@ -422,7 +422,7 @@ function connect_node_vendor(req) {
         }
     ).then(
         function() {
-            return _.pick(vendor, 'id', 'name', 'kind');
+            return _.pick(vendor, 'id', 'name', 'category', 'kind', 'details');
         }
     );
 }

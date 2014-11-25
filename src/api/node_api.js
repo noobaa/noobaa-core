@@ -300,15 +300,19 @@ module.exports = rest_api({
             path: '/node_vendor',
             params: {
                 type: 'object',
-                required: ['name', 'kind', 'info'],
+                required: ['name', 'category', 'kind', 'details'],
                 properties: {
                     name: {
+                        type: 'string',
+                    },
+                    // TODO revise this func and params
+                    category: {
                         type: 'string',
                     },
                     kind: {
                         type: 'string',
                     },
-                    info: {
+                    details: {
                         type: 'object',
                         additionalProperties: true,
                     },

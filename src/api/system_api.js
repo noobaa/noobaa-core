@@ -78,6 +78,116 @@ module.exports = rest_api({
             },
         },
 
+
+        ///////////
+        // ROLES //
+        ///////////
+
+        add_role: {
+            doc: 'Add role',
+            method: 'POST',
+            path: '/role',
+            params: {
+                type: 'object',
+                requires: ['role', 'email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                    role: {
+                        $ref: '/system_api/definitions/role_enum'
+                    },
+                }
+            },
+        },
+
+        remove_role: {
+            doc: 'Remove role',
+            method: 'DELETE',
+            path: '/role/:email',
+            params: {
+                type: 'object',
+                requires: ['email'],
+                properties: {
+                    email: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        /////////////
+        // VENDORS //
+        /////////////
+
+        add_vendor: {
+            doc: 'Add vendor',
+            method: 'POST',
+            path: '/vendor',
+            params: {
+                type: 'object',
+                requires: ['role', 'email'],
+                properties: {
+                    role: {
+                        $ref: '/system_api/definitions/role_enum'
+                    },
+                    email: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        remove_vendor: {
+            doc: 'Remove vendor',
+            method: 'DELETE',
+            path: '/vendor/:name',
+            params: {
+                type: 'object',
+                requires: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        ///////////
+        // TIERS //
+        ///////////
+
+        add_tier: {
+            doc: 'Add tier',
+            method: 'POST',
+            path: '/tier',
+            params: {
+                type: 'object',
+                requires: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        remove_tier: {
+            doc: 'Remove tier',
+            method: 'DELETE',
+            path: '/tier/:name',
+            params: {
+                type: 'object',
+                requires: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+
     },
 
 
@@ -100,6 +210,7 @@ module.exports = rest_api({
             },
         },
 
+
         system_full_info: {
             type: 'object',
             required: [
@@ -108,13 +219,10 @@ module.exports = rest_api({
                 'roles',
                 'vendors',
                 'tiers',
+                'storage',
                 'nodes',
-                'online_nodes',
                 'buckets',
                 'objects',
-                'allocated_storage',
-                'used_storage',
-                'chunks_storage',
             ],
             properties: {
                 id: {
@@ -141,11 +249,11 @@ module.exports = rest_api({
                         $ref: '/system_api/definitions/tier_info'
                     }
                 },
-                nodes: {
-                    type: 'integer'
+                storage: {
+                    $ref: '/system_api/definitions/storage_info'
                 },
-                online_nodes: {
-                    type: 'integer'
+                nodes: {
+                    $ref: '/system_api/definitions/nodes_info'
                 },
                 buckets: {
                     type: 'integer'
@@ -153,24 +261,16 @@ module.exports = rest_api({
                 objects: {
                     type: 'integer'
                 },
-                allocated_storage: {
-                    $ref: '/system_api/definitions/bigint'
-                },
-                used_storage: {
-                    $ref: '/system_api/definitions/bigint'
-                },
-                chunks_storage: {
-                    $ref: '/system_api/definitions/bigint'
-                },
             }
         },
+
 
         role_info: {
             type: 'object',
             required: ['role', 'account'],
             properties: {
                 role: {
-                    type: 'string',
+                    $ref: '/system_api/definitions/role_enum'
                 },
                 account: {
                     type: 'object',
@@ -190,16 +290,27 @@ module.exports = rest_api({
 
         vendor_info: {
             type: 'object',
-            required: ['name', 'category', 'kind'],
+            required: ['name', 'category', 'kind', 'details', 'storage', 'nodes'],
             properties: {
                 name: {
                     type: 'string',
                 },
                 category: {
-                    type: 'string',
+                    $ref: '/system_api/definitions/vendor_category'
                 },
                 kind: {
-                    type: 'string',
+                    $ref: '/system_api/definitions/vendor_kind'
+                },
+                details: {
+                    type: 'object',
+                    // vendor specific properties
+                    additionalProperties: true,
+                },
+                storage: {
+                    $ref: '/system_api/definitions/storage_info'
+                },
+                nodes: {
+                    $ref: '/system_api/definitions/nodes_info'
                 },
             }
         },
@@ -207,10 +318,61 @@ module.exports = rest_api({
 
         tier_info: {
             type: 'object',
-            required: ['name'],
+            required: ['name', 'storage', 'nodes'],
             properties: {
                 name: {
                     type: 'string',
+                },
+                storage: {
+                    $ref: '/system_api/definitions/storage_info'
+                },
+                nodes: {
+                    $ref: '/system_api/definitions/nodes_info'
+                },
+            }
+        },
+
+
+        role_enum: {
+            enum: ['admin', 'agent'],
+            type: 'string',
+        },
+
+        vendor_category: {
+            enum: ['vm', 'storage'],
+            type: 'string',
+        },
+
+        vendor_kind: {
+            enum: ['agent_host', 'aws.ec2', 'aws.s3'],
+            type: 'string',
+        },
+
+        nodes_info: {
+            type: 'object',
+            required: ['count', 'online'],
+            properties: {
+                count: {
+                    type: 'integer'
+                },
+                online: {
+                    type: 'integer'
+                },
+            }
+        },
+
+        storage_info: {
+            type: 'object',
+            required: ['alloc', 'used'],
+            properties: {
+                alloc: {
+                    $ref: '/system_api/definitions/bigint'
+                },
+                used: {
+                    $ref: '/system_api/definitions/bigint'
+                },
+                real: {
+                    $ref: '/system_api/definitions/bigint'
                 },
             }
         },

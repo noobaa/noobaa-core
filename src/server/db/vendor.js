@@ -10,7 +10,7 @@ var types = mongoose.Schema.Types;
  * Vendor represents an external service vendor
  * and the related info needed to work with it.
  *
- * for example for AWS ec2 the vendor_info should contain:
+ * for example for AWS ec2 the details should contain:
  *      access-key, secret, region, etc.
  */
 var vendor_schema = new Schema({
@@ -39,9 +39,14 @@ var vendor_schema = new Schema({
         required: true,
     },
 
-    // the vendor related info needed to work with it
-    vendor_info: {
+    // the vendor related details needed to work with it
+    details: {
         type: Object,
+    },
+
+    // on delete set deletion time
+    deleted: {
+        type: Date
     },
 
 });
@@ -50,8 +55,7 @@ var vendor_schema = new Schema({
 vendor_schema.index({
     system: 1,
     name: 1,
-    category: 1,
-    kind: 1,
+    deleted: 1, // delete time part of the unique index
 }, {
     unique: true
 });

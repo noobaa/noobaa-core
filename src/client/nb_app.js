@@ -160,9 +160,9 @@ nb_app.factory('nbSystem', [
                     console.log('STATS', res);
                     $scope.system = res;
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
-                    $scope.system.free_storage = res.allocated_storage - res.used_storage;
-                    $scope.system.free_storage_percent = !res.allocated_storage ? 0 :
-                        100 * ($scope.system.free_storage / res.allocated_storage);
+                    var s = $scope.system.storage;
+                    s.free = s.alloc - s.used;
+                    s.free_percent = !s.alloc ? 0 : 100 * (s.free / s.alloc);
                 },
                 function(err) {
                     console.error('STATS FAILED', err);

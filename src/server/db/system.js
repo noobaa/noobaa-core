@@ -18,6 +18,7 @@ var system_schema = new Schema({
         required: true,
     },
 
+    // on delete set deletion time
     deleted: {
         type: Date,
     },
@@ -26,7 +27,7 @@ var system_schema = new Schema({
 
 system_schema.index({
     name: 1,
-    deleted: 1,
+    deleted: 1, // delete time part of the unique index
 }, {
     unique: true
 });

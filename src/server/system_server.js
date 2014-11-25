@@ -21,6 +21,15 @@ var system_server = new api.system_api.Server({
     delete_system: delete_system,
     // LIST
     list_systems: list_systems,
+    // ROLES
+    add_role: add_role,
+    remove_role: remove_role,
+    // VENDORS
+    add_vendor: add_vendor,
+    remove_vendor: remove_vendor,
+    // TIERS
+    add_tier: add_tier,
+    remove_tier: remove_tier,
 }, {
     before: before
 });
@@ -89,42 +98,60 @@ function read_system(req) {
                     },
                     map: function() {
                         /* global emit */
-                        emit('count', 1);
-                        if (this.started && this.heartbeat >= minimum_online_heartbeat) {
-                            emit('online', 1);
-                        }
                         emit('alloc', this.allocated_storage);
                         emit('used', this.used_storage);
+                        emit('count', 1);
+                        var online = (this.started && this.heartbeat >= minimum_online_heartbeat);
+                        if (online) {
+                            emit('online', 1);
+                        }
+                        if (this.tier) {
+                            var tkey = 'tier/' + this.tier + '/';
+                            emit(tkey + 'alloc', this.allocated_storage);
+                            emit(tkey + 'used', this.used_storage);
+                            emit(tkey + 'count', 1);
+                            if (online) {
+                                emit(tkey + 'online', 1);
+                            }
+                        }
+                        if (this.vendor) {
+                            var vkey = 'vendor/' + this.vendor + '/';
+                            emit(vkey + 'alloc', this.allocated_storage);
+                            emit(vkey + 'used', this.used_storage);
+                            emit(vkey + 'count', 1);
+                            if (online) {
+                                emit(vkey + 'online', 1);
+                            }
+                        }
+                    },
+                    reduce: size_utils.reduce_sum
+                }),
+                // objects
+                db.ObjectMD.mapReduce({
+                    query: by_system_id,
+                    map: function() {
+                        /* global emit */
+                        emit('size', this.size);
+                        emit('count', 1);
+                    },
+                    reduce: size_utils.reduce_sum
+                }),
+                // blocks
+                db.DataBlock.mapReduce({
+                    query: by_system_id,
+                    map: function() {
+                        /* global emit */
+                        emit('size', this.size);
                     },
                     reduce: size_utils.reduce_sum
                 }),
                 // buckets
                 db.Bucket.count(by_system_id).exec(),
-                // objects
-                db.ObjectMD.count(by_system_id).exec(),
-                // parts
-                db.ObjectPart.mapReduce({
-                    query: by_system_id,
-                    map: function() {
-                        /* global emit */
-                        emit('size', this.end - this.start);
-                    },
-                    reduce: size_utils.reduce_sum
-                }),
-                /*
-                // TODO chunks and blocks don't have link to system...
-                db.DataChunk.mapReduce({
-                    map: function() {
-                        emit('size', this.size);
-                    },
-                    reduce: size_utils.reduce_sum
-                }),
-                */
             ]).spread(
-                function(roles, vendors, tiers, nodes, buckets, objects, parts) {
+                function(roles, vendors, tiers, nodes, objects, blocks, buckets) {
                     nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
-                    parts = _.mapValues(_.indexBy(parts, '_id'), 'value');
-                    // chunks = chunks && _.mapValues(_.indexBy(chunks, '_id'), 'value');
+                    objects = _.mapValues(_.indexBy(objects, '_id'), 'value');
+                    blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
                     return {
                         id: req.system.id,
                         name: req.system.name,
@@ -134,18 +161,40 @@ function read_system(req) {
                             return role;
                         }),
                         vendors: _.map(vendors, function(vendor) {
-                            return _.pick(vendor, 'name' ,'category', 'kind');
+                            var v = _.pick(vendor, 'name', 'category', 'kind', 'details');
+                            v.storage = {
+                                alloc: nodes['vendor/' + v.name + '/alloc'] || 0,
+                                used: nodes['vendor/' + v.name + '/used'] || 0,
+                            };
+                            v.nodes = {
+                                count: nodes['vendor/' + v.name + '/count'] || 0,
+                                online: nodes['vendor/' + v.name + '/online'] || 0,
+                            };
+                            return v;
                         }),
                         tiers: _.map(tiers, function(tier) {
-                            return _.pick(tier, 'name');
+                            var t = _.pick(tier, 'name');
+                            t.storage = {
+                                alloc: nodes['tier/' + t.name + '/alloc'] || 0,
+                                used: nodes['tier/' + t.name + '/used'] || 0,
+                            };
+                            t.nodes = {
+                                count: nodes['tier/' + t.name + '/count'] || 0,
+                                online: nodes['tier/' + t.name + '/online'] || 0,
+                            };
+                            return t;
                         }),
-                        nodes: nodes.count || 0,
-                        online_nodes: nodes.online || 0,
+                        storage: {
+                            alloc: nodes.alloc || 0,
+                            used: objects.size || 0,
+                            real: blocks.size || 0,
+                        },
+                        nodes: {
+                            count: nodes.count || 0,
+                            online: nodes.online || 0,
+                        },
                         buckets: buckets || 0,
-                        objects: objects || 0,
-                        allocated_storage: nodes.alloc || 0,
-                        used_storage: parts.size || 0,
-                        chunks_storage: 0, //chunks.size || 0,
+                        objects: objects.count || 0,
                     };
                 }
             );
@@ -200,6 +249,34 @@ function list_systems(req) {
         }
     );
 }
+
+
+
+//////////
+// ROLE //
+//////////
+
+function add_role(req) {}
+
+function remove_role(req) {}
+
+
+////////////
+// VENDOR //
+////////////
+
+function add_vendor(req) {}
+
+function remove_vendor(req) {}
+
+
+//////////
+// TIER //
+//////////
+
+function add_tier(req) {}
+
+function remove_tier(req) {}
 
 
 

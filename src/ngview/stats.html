@@ -28,23 +28,23 @@
                     </tr>
                     <tr>
                         <td>used storage</td>
-                        <td>{{human_size(nbSystem.system.used_storage)}}</td>
+                        <td>{{human_size(nbSystem.system.storage.used)}}</td>
                     </tr>
                     <tr>
                         <td>free storage</td>
-                        <td>{{human_size(nbSystem.system.free_storage)}}</td>
+                        <td>{{human_size(nbSystem.system.storage.free)}}</td>
                     </tr>
                     <tr>
                         <td>total storage</td>
-                        <td>{{human_size(nbSystem.system.allocated_storage)}}</td>
+                        <td>{{human_size(nbSystem.system.storage.alloc)}}</td>
                     </tr>
                     <tr>
                         <td>nodes</td>
-                        <td>{{nbSystem.system.nodes}}</td>
+                        <td>{{nbSystem.system.nodes.count}}</td>
                     </tr>
                     <tr>
                         <td>online nodes</td>
-                        <td>{{nbSystem.system.online_nodes}}</td>
+                        <td>{{nbSystem.system.nodes.online}}</td>
                     </tr>
                 </table>
             </div>

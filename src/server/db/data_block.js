@@ -29,6 +29,12 @@ var data_block_schema = new Schema({
         required: true,
     },
 
+    // chunk size in bytes
+    size: {
+        type: Number,
+        required: true,
+    },
+
     // each block should define exactly one of these storage options: node or vendor
     // blocks that are stored on multiple storage options should have
     // different blocks with same (chunk,fragment) to describe it.

@@ -20,11 +20,17 @@ var tier_schema = new Schema({
         required: true,
     },
 
+    // on delete set deletion time
+    deleted: {
+        type: Date,
+    },
+
 });
 
 tier_schema.index({
     system: 1,
     name: 1,
+    deleted: 1, // delete time part of the unique index
 }, {
     unique: true
 });

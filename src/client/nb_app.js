@@ -99,7 +99,7 @@ nb_app.controller('DashboardCtrl', [
 
         $scope.refresh_view = function() {
             return $q.all([
-                $scope.nbSystem.refresh_stats(),
+                $scope.nbSystem.refresh_system(),
                 $scope.nbNodes.refresh_nodes_stats()
             ]);
         };
@@ -116,7 +116,7 @@ nb_app.controller('StatsCtrl', [
         $scope.nav.active = 'stats';
 
         $scope.refresh_view = function() {
-            return $scope.nbSystem.refresh_stats();
+            return $scope.nbSystem.refresh_system();
         };
 
         $scope.refresh_view();
@@ -125,14 +125,17 @@ nb_app.controller('StatsCtrl', [
 
 
 nb_app.factory('nbSystem', [
-    '$q', '$timeout', '$rootScope',
-    function($q, $timeout, $rootScope) {
+    '$q', '$timeout', '$rootScope', 'nbAlertify', 'nbAuth',
+    function($q, $timeout, $rootScope, nbAlertify, nbAuth) {
         var $scope = {};
 
         $scope.refresh_systems = refresh_systems;
+        $scope.new_system = new_system;
         $scope.create_system = create_system;
         $scope.connect_system = connect_system;
-        $scope.refresh_stats = refresh_stats;
+        $scope.refresh_system = refresh_system;
+
+        refresh_systems();
 
         function refresh_systems() {
             return $q.when().then(
@@ -147,6 +150,16 @@ nb_app.factory('nbSystem', [
             );
         }
 
+        function new_system() {
+            nbAlertify.prompt('Enter name for new system').then(
+                function(str) {
+                    if (str) {
+                        return create_system(str);
+                    }
+                }
+            );
+        }
+
         function create_system(name) {
             return $q.when().then(
                 function() {
@@ -157,17 +170,13 @@ nb_app.factory('nbSystem', [
             ).then(refresh_systems);
         }
 
-        function connect_system(name) {
-            return $q.when().then(
-                function() {
-                    return system_client.connect_system({
-                        name: name
-                    });
-                }
-            );
+        function connect_system(system_id) {
+            return nbAuth.authenticate_update({
+                system: system_id
+            }).then(refresh_system);
         }
 
-        function refresh_stats() {
+        function refresh_system() {
             return $q.when().then(
                 function() {
                     return system_client.read_system();
@@ -175,11 +184,11 @@ nb_app.factory('nbSystem', [
             ).then(
                 function(res) {
                     console.log('STATS', res);
-                    $scope.stats = res;
+                    $scope.system = res;
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
-                    $scope.stats.free_storage = res.allocated_storage - res.used_storage;
-                    $scope.stats.free_storage_percent = !res.allocated_storage ? 0 :
-                        100 * ($scope.stats.free_storage / res.allocated_storage);
+                    $scope.system.free_storage = res.allocated_storage - res.used_storage;
+                    $scope.system.free_storage_percent = !res.allocated_storage ? 0 :
+                        100 * ($scope.system.free_storage / res.allocated_storage);
                 },
                 function(err) {
                     console.error('STATS FAILED', err);

@@ -23,6 +23,7 @@ var account_server = new account_api.Server({
     delete_account: delete_account,
     // AUTH
     authenticate: authenticate,
+    authenticate_update: authenticate_update,
 });
 
 // authorize is exported to be used as an express middleware
@@ -138,18 +139,42 @@ function authenticate(req) {
     ).then(
         function(matching) {
             if (!matching) {
-                auth_error = new Error('incorrect email and password');
-                throw auth_error;
+                throw tag('ui_error', new Error('incorrect email and password'));
             }
+            return make_token_from_account(account.id, system_id, expires);
+        }
+    ).then(null,
+        function(err) {
+            if (err.ui_error) {
+                throw err;
+            }
+            console.error('FAILED authenticate', err);
+            throw new Error('authenticate failed');
+        }
+    );
+}
 
-            if (!system_id) {
-                return [];
-            } else {
+
+function authenticate_update(req) {
+    var system_id = req.rest_params.system;
+    var expires = req.rest_params.expires;
+    return req.load_account('force_miss').then(
+        function() {
+            return make_token_from_account(req.account.id, system_id, expires);
+        }
+    );
+}
+
+
+function make_token_from_account(account_id, system_id, expires) {
+    return Q.fcall(
+        function() {
+            if (system_id) {
                 // find system and role
                 return Q.all([
                     db.System.findById(system_id).exec(),
                     db.Role.findOne({
-                        account: account.id,
+                        account: account_id,
                         system: system_id,
                     }).exec()
                 ]);
@@ -159,18 +184,16 @@ function authenticate(req) {
         function(res) {
             // use jwt (json web token) to create a signed token
             var jwt_payload = {
-                account_id: account.id
+                account_id: account_id
             };
             if (system_id) {
                 var system = res[0];
                 var role = res[1];
                 if (!system) {
-                    auth_error = new Error('system not found');
-                    throw auth_error;
+                    throw tag('ui_error', new Error('system not found'));
                 }
                 if (!role) {
-                    auth_error = new Error('role not found');
-                    throw auth_error;
+                    throw tag('ui_error', new Error('role not found'));
                 }
                 jwt_payload.system_id = system_id;
                 jwt_payload.role = role.role;
@@ -184,18 +207,16 @@ function authenticate(req) {
                 token: token
             };
         }
-    ).then(null,
-        function(err) {
-            if (err === auth_error) {
-                throw auth_error;
-            }
-            console.error('FAILED authenticate', err);
-            throw new Error('authenticate failed');
-        }
     );
 }
 
 
+// inject a tag on the object and return it.
+// useful for throwing an error with a tag.
+function tag(tag_name, obj) {
+    obj[tag_name] = true;
+    return obj;
+}
 
 function authorize() {
     // use jwt (json web token) to verify and decode the signed token

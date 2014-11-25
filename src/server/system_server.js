@@ -191,7 +191,7 @@ function list_systems(req) {
     ).then(
         function(roles) {
             return _.map(roles, function(role) {
-                return _.pick(role.system, 'name');
+                return _.pick(role.system, 'id', 'name');
             });
         },
         function(err) {

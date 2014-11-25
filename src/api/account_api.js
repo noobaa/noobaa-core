@@ -142,6 +142,35 @@ module.exports = rest_api({
             }
         },
 
+        authenticate_update: {
+            doc: 'Authenticate based on previous token, to get a different token '+
+                'for example in order to use system_id.',
+            method: 'PUT',
+            path: '/auth',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    system: {
+                        type: 'string',
+                    },
+                    expires: {
+                        type: 'integer',
+                        doc: 'Number of seconds before the authentication expires',
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['token'],
+                properties: {
+                    token: {
+                        type: 'string',
+                    },
+                }
+            }
+        },
+
     },
 
 });

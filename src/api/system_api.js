@@ -27,16 +27,7 @@ module.exports = rest_api({
                 },
             },
             reply: {
-                type: 'object',
-                required: ['id', 'name'],
-                properties: {
-                    id: {
-                        type: 'string',
-                    },
-                    name: {
-                        type: 'string',
-                    },
-                },
+                $ref: '/system_api/definitions/system_info'
             },
         },
 
@@ -82,7 +73,7 @@ module.exports = rest_api({
             reply: {
                 type: 'array',
                 items: {
-                    $ref: '/system_api/definitions/system_id'
+                    $ref: '/system_api/definitions/system_info'
                 }
             },
         },
@@ -96,11 +87,14 @@ module.exports = rest_api({
 
     definitions: {
 
-        system_id: {
+        system_info: {
             type: 'object',
-            required: ['id'],
+            required: ['id', 'name'],
             properties: {
                 id: {
+                    type: 'string',
+                },
+                name: {
                     type: 'string',
                 },
             },

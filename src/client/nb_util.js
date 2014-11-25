@@ -46,7 +46,7 @@ nb_util.factory('nbAuth', [
                 if (!pathname.match(/^\/login/)) {
                     $scope.logout();
                 } else {
-                    $scope.loaded = true;                    
+                    $scope.loaded = true;
                 }
                 return $q.when();
             }
@@ -76,6 +76,21 @@ nb_util.factory('nbAuth', [
             return $q.when().then(
                 function() {
                     return account_client.authenticate(params);
+                }
+            ).then(
+                function(res) {
+                    account_client.set_global_authorization(res.token);
+                    win_storage.nb_auth = res.token;
+                    win_storage.nb_system = params.system;
+                    return res;
+                }
+            );
+        };
+
+        $scope.authenticate_update = function(params) {
+            return $q.when().then(
+                function() {
+                    return account_client.authenticate_update(params);
                 }
             ).then(
                 function(res) {

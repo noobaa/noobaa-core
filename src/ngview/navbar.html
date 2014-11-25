@@ -42,10 +42,19 @@
                         </a>
                     </li>
                     <li class="divider"></li>
-                    <li ng-if="!nbAuth.account">
-                        <a href="/login">Login</a>
+                    <li class="divider"></li>
+                    <li ng-repeat="sys in nbSystem.systems">
+                        <a ng-click="nbSystem.connect_system(sys.id)">
+                            <i ng-if="nbSystem.system.id==sys.id" class="fa fa-check pull-right"></i>
+                            {{sys.name}}
+                        </a>
                     </li>
-                    <li ng-if="nbAuth.account">
+                    <li class="divider"></li>
+                    <li>
+                        <a ng-click="nbSystem.new_system()">New System</a>
+                    </li>
+                    <li class="divider"></li>
+                    <li>
                         <a ng-click="nbAuth.logout()">Logout</a>
                     </li>
                 </ul>

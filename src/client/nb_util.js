@@ -5,6 +5,7 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
+var auth_api = require('../api/auth_api');
 var account_api = require('../api/account_api');
 
 // include the generated templates from ngview
@@ -33,6 +34,7 @@ nb_util.factory('nbAuth', [
     function($q, $window, $location) {
         var $scope = {};
 
+        var auth_client = new auth_api.Client();
         var account_client = new account_api.Client();
         var win_storage = $window.sessionStorage;
 
@@ -51,7 +53,7 @@ nb_util.factory('nbAuth', [
                 return $q.when();
             }
 
-            account_client.set_global_authorization(win_storage.nb_auth);
+            auth_client.set_global_authorization(win_storage.nb_auth);
 
             return $q.when().then(
                 function() {
@@ -72,14 +74,14 @@ nb_util.factory('nbAuth', [
             );
         }
 
-        $scope.authenticate = function(params) {
+        $scope.create_auth = function(params) {
             return $q.when().then(
                 function() {
-                    return account_client.authenticate(params);
+                    return auth_client.create_auth(params);
                 }
             ).then(
                 function(res) {
-                    account_client.set_global_authorization(res.token);
+                    auth_client.set_global_authorization(res.token);
                     win_storage.nb_auth = res.token;
                     win_storage.nb_system = params.system;
                     return res;
@@ -87,14 +89,14 @@ nb_util.factory('nbAuth', [
             );
         };
 
-        $scope.authenticate_update = function(params) {
+        $scope.update_auth = function(params) {
             return $q.when().then(
                 function() {
-                    return account_client.authenticate_update(params);
+                    return auth_client.update_auth(params);
                 }
             ).then(
                 function(res) {
-                    account_client.set_global_authorization(res.token);
+                    auth_client.set_global_authorization(res.token);
                     win_storage.nb_auth = res.token;
                     win_storage.nb_system = params.system;
                     return res;
@@ -103,7 +105,7 @@ nb_util.factory('nbAuth', [
         };
 
         $scope.logout = function() {
-            account_client.set_global_authorization();
+            auth_client.set_global_authorization();
             delete win_storage.nb_auth;
             $window.location.href= '/login';
         };

@@ -5,32 +5,24 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var moment = require('moment');
-var LRU = require('noobaa-util/lru');
 var db = require('./db');
 var rest_api = require('../util/rest_api');
-var size_utils = require('../util/size_utils');
-var account_api = require('../api/account_api');
-var node_monitor = require('./node_monitor');
+var auth_api = require('../api/auth_api');
 var express_jwt = require('express-jwt');
 var jwt = require('jsonwebtoken');
 
 
-var account_server = new account_api.Server({
+var auth_server = new auth_api.Server({
     // CRUD
-    create_account: create_account,
-    read_account: read_account,
-    update_account: update_account,
-    delete_account: delete_account,
-    // AUTH
-    authenticate: authenticate,
-    authenticate_update: authenticate_update,
+    create_auth: create_auth,
+    update_auth: update_auth,
 });
 
 // authorize is exported to be used as an express middleware
 // it reads and prepares the authorized info on the request.
-account_server.authorize = authorize;
+auth_server.authorize = authorize;
 
-module.exports = account_server;
+module.exports = auth_server;
 
 
 
@@ -38,78 +30,7 @@ module.exports = account_server;
 // CRUD //
 //////////
 
-
-function create_account(req) {
-    var info = _.pick(req.rest_params, 'name', 'email', 'password');
-
-    return Q.fcall(
-        function() {
-            return db.Account.create(info);
-        }
-    ).then(
-        function(account) {
-            return _.pick(account, 'id');
-        },
-        function(err) {
-            if (err.code === 11000) {
-                throw new Error('account already exists');
-            } else {
-                console.error('FAILED create_account', err);
-                throw new Error('failed create account');
-            }
-        }
-    );
-}
-
-
-function read_account(req) {
-    return req.load_account('force_miss').then(
-        function() {
-            return _.pick(req.account, 'id', 'name', 'email', 'systems_role');
-        }
-    );
-}
-
-
-function update_account(req) {
-    return req.load_account('force_miss').then(
-        function() {
-            db.AccountCache.invalidate(req.account.id);
-            var info = _.pick(req.rest_params, 'name', 'email', 'password');
-            return db.Account.findByIdAndUpdate(req.account.id, info).exec();
-        }
-    ).then(null,
-        function(err) {
-            console.error('FAILED update_account', err);
-            throw new Error('update account failed');
-        }
-    ).thenResolve();
-}
-
-
-function delete_account(req) {
-    return req.load_account('force_miss').then(
-        function() {
-            db.AccountCache.invalidate(req.account.id);
-            return db.Account.findByIdAndUpdate(req.account.id, {
-                deleted: new Date()
-            }).exec();
-        }
-    ).then(null,
-        function(err) {
-            console.error('FAILED delete_account', err);
-            throw new Error('delete account failed');
-        }
-    ).thenResolve();
-}
-
-
-
-//////////
-// AUTH //
-//////////
-
-function authenticate(req) {
+function create_auth(req) {
     var info = {
         email: req.rest_params.email,
         // filter out accounts that were deleted
@@ -141,7 +62,7 @@ function authenticate(req) {
             if (!matching) {
                 throw tag('ui_error', new Error('incorrect email and password'));
             }
-            return make_token_from_account(account.id, system_id, expires);
+            return auth_by_account(account.id, system_id, expires);
         }
     ).then(null,
         function(err) {
@@ -155,18 +76,18 @@ function authenticate(req) {
 }
 
 
-function authenticate_update(req) {
+function update_auth(req) {
     var system_id = req.rest_params.system;
     var expires = req.rest_params.expires;
     return req.load_account('force_miss').then(
         function() {
-            return make_token_from_account(req.account.id, system_id, expires);
+            return auth_by_account(req.account.id, system_id, expires);
         }
     );
 }
 
 
-function make_token_from_account(account_id, system_id, expires) {
+function auth_by_account(account_id, system_id, expires) {
     return Q.fcall(
         function() {
             if (system_id) {

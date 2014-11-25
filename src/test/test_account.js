@@ -6,10 +6,12 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
+var auth_api = require('../api/auth_api');
 var account_api = require('../api/account_api');
 
 describe('account', function() {
 
+    var auth_client;
     var account_client;
     var NAME = 'bla bla';
     var EMAIL = 'bla@bla.blabla';
@@ -18,6 +20,7 @@ describe('account', function() {
     beforeEach(function() {
         // create my own account client on each test
         // to prevent contaminating the headers
+        auth_client = new auth_api.Client();
         account_client = new account_api.Client();
     });
 
@@ -44,7 +47,7 @@ describe('account', function() {
                     }
                 );
             }).then(function() {
-                return account_client.authenticate({
+                return auth_client.create_auth({
                     email: EMAIL,
                     password: PASSWORD + '!',
                 }).then(
@@ -56,7 +59,7 @@ describe('account', function() {
                     }
                 );
             }).then(function() {
-                return account_client.authenticate({
+                return auth_client.create_auth({
                     email: EMAIL,
                     password: PASSWORD,
                 }).then(function(res) {

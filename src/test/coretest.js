@@ -22,6 +22,11 @@ var account_credentials = {
     email: 'coretest@core.test',
     password: 'coretest',
 };
+
+var auth_api = require('../api/auth_api');
+var auth_server = require('../server/auth_server');
+var auth_client = new auth_api.Client();
+
 var account_api = require('../api/account_api');
 var account_server = require('../server/account_server');
 var account_client = new account_api.Client();
@@ -43,14 +48,15 @@ var object_client = new ObjectClient();
 before(function(done) {
     Q.fcall(
         function() {
-            utilitest.router.use(account_server.authorize());
+            utilitest.router.use(auth_server.authorize());
+            auth_server.install_rest(utilitest.router);
             account_server.install_rest(utilitest.router);
             system_server.install_rest(utilitest.router);
             node_server.install_rest(utilitest.router);
             object_server.install_rest(utilitest.router);
 
             // setting the port globally for all the clients
-            account_client.set_global_option('port', utilitest.http_port());
+            auth_client.set_global_option('port', utilitest.http_port());
 
             var account_params = _.clone(account_credentials);
             account_params.name = 'coretest';
@@ -58,23 +64,24 @@ before(function(done) {
         }
     ).then(
         function() {
-            return account_auth();
+            return create_auth();
         }
     ).nodeify(done);
 });
 
 after(function() {
+    auth_server.disable_rest();
     account_server.disable_rest();
     system_server.disable_rest();
     node_server.disable_rest();
     object_server.disable_rest();
 });
 
-function account_auth(options) {
+function create_auth(options) {
     var params = _.extend({}, account_credentials, options);
-    return account_client.authenticate(params).then(
+    return auth_client.create_auth(params).then(
         function(res) {
-            account_client.set_global_authorization(res.token);
+            auth_client.set_global_authorization(res.token);
         }
     );
 }
@@ -180,10 +187,11 @@ module.exports = {
     router: utilitest.router,
     http_port: utilitest.http_port, // function
 
-    account_client: account_client,
+    auth_client: auth_client,
     account_credentials: account_credentials,
-    account_auth: account_auth,
+    create_auth: create_auth,
 
+    account_client: account_client,
     system_client: system_client,
     node_client: node_client,
     object_client: object_client,

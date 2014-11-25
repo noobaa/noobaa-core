@@ -31,7 +31,7 @@ nb_login.controller('LoginCtrl', [
             }
             $scope.alert_text = '';
             $scope.form_disabled = true;
-            return nbAuth.authenticate({
+            return nbAuth.create_auth({
                 email: $scope.email,
                 password: $scope.password,
             }).then(function(res) {
@@ -67,7 +67,7 @@ nb_login.controller('LoginCtrl', [
                 }
             ).then(
                 function() {
-                    return nbAuth.authenticate({
+                    return nbAuth.create_auth({
                         email: $scope.email,
                         password: $scope.password,
                     });

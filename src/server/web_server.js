@@ -23,6 +23,7 @@ var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var auth_server = require('./auth_server');
 var account_server = require('./account_server');
 var system_server = require('./system_server');
 var node_server = require('./node_server');
@@ -98,7 +99,7 @@ app.use(express_cookie_session({
     maxage: 356 * 24 * 60 * 60 * 1000 // 1 year
 }));
 app.use(express_compress());
-app.use(account_server.authorize());
+app.use(auth_server.authorize());
 
 ////////////
 // ROUTES //
@@ -109,6 +110,7 @@ app.use(account_server.authorize());
 // setup apis
 
 var api_router = express.Router();
+auth_server.install_rest(api_router);
 account_server.install_rest(api_router);
 system_server.install_rest(api_router);
 node_server.install_rest(api_router);

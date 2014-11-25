@@ -171,7 +171,7 @@ nb_app.factory('nbSystem', [
         }
 
         function connect_system(system_id) {
-            return nbAuth.authenticate_update({
+            return nbAuth.update_auth({
                 system: system_id
             }).then(refresh_system);
         }

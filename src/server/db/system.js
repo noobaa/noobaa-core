@@ -18,6 +18,12 @@ var system_schema = new Schema({
         required: true,
     },
 
+    owner: {
+        ref: 'Account',
+        type: types.ObjectId,
+        required: true,
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date,

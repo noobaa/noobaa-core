@@ -126,13 +126,21 @@ module.exports = rest_api({
             path: '/vendor',
             params: {
                 type: 'object',
-                requires: ['role', 'email'],
+                required: ['name', 'category', 'kind', 'details'],
                 properties: {
-                    role: {
-                        $ref: '/system_api/definitions/role_enum'
-                    },
-                    email: {
+                    name: {
                         type: 'string',
+                    },
+                    category: {
+                        $ref: '/system_api/definitions/vendor_category'
+                    },
+                    kind: {
+                        $ref: '/system_api/definitions/vendor_kind'
+                    },
+                    details: {
+                        type: 'object',
+                        // vendor specific properties
+                        additionalProperties: true,
                     },
                 }
             },

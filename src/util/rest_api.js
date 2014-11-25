@@ -216,6 +216,17 @@ function rest_api(api) {
             }
             Q.fcall(
                 function() {
+                    req.rest_error = function(data, status) {
+                        if (!req._rest_error_data) {
+                            req._rest_error_data = data;
+                            req._rest_error_status = status;
+                        }
+                        return new Error('throw rest error');
+                    };
+                    req.rest_clear_error = function() {
+                        req._rest_error_data = undefined;
+                        req._rest_error_status = undefined;
+                    };
                     req.rest_params = {};
                     _.each(req.query, function(v, k) {
                         req.rest_params[k] =
@@ -243,6 +254,9 @@ function rest_api(api) {
                 }
             ).then(
                 function(reply) {
+                    if (req._rest_error_data) {
+                        throw new Error('rethrow rest error');
+                    }
                     self._log('SERVER COMPLETED', func_info.name);
                     if (func_info.reply_raw) {
                         return res.status(200).send(reply);
@@ -253,17 +267,15 @@ function rest_api(api) {
                 }
             ).then(null,
                 function(err) {
-                    self._log('SERVER ERROR', func_info.name, ':', err, err.stack);
-                    var status = err.status || err.statusCode;
-                    var data = err.data || err.message || err.toString();
-                    if (typeof status === 'number' &&
-                        status >= 100 &&
-                        status < 600
-                    ) {
-                        return res.status(status).json(data);
-                    } else {
-                        return res.status(500).json(data);
+                    self._log('SERVER ERROR', func_info.name, ':',
+                        'REST ERROR', req._rest_error_data,
+                        'EXCEPTION', err, err.stack);
+                    var status = req._rest_error_status || err.status || err.statusCode;
+                    if (typeof status !== 'number' || status < 100 || status >= 600) {
+                        status = 500;
                     }
+                    var data = req._rest_error_data || 'error';
+                    return res.status(status).json(data);
                 }
             ).done(null,
                 function(err) {

@@ -30,6 +30,31 @@ describe('system', function() {
                 name: 'sys2',
             });
         }).then(function() {
+            return system_client.add_vendor({
+                name: 'me',
+                category: 'vm',
+                kind: 'agent_host',
+                details: {
+                    email: 'me@me.me'
+                },
+            });
+        }).then(function() {
+            return system_client.remove_vendor({
+                name: 'me',
+            });
+        }).then(function() {
+            return system_client.add_tier({
+                name: 'tier',
+            });
+        }).then(function() {
+            return system_client.remove_tier({
+                name: 'tier',
+            });
+        }).then(function() {
+            return system_client.read_system();
+        }).then(function() {
+            return system_client.list_systems();
+        }).then(function() {
             return system_client.delete_system();
         }).nodeify(done);
     });

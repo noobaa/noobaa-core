@@ -33,8 +33,7 @@ module.exports = auth_server;
 function create_auth(req) {
     var info = {
         email: req.rest_params.email,
-        // filter out accounts that were deleted
-        deleted: null,
+        deleted: null, // filter out accounts that were deleted
     };
     var password = req.rest_params.password;
     var system_id = req.rest_params.system;
@@ -60,17 +59,9 @@ function create_auth(req) {
     ).then(
         function(matching) {
             if (!matching) {
-                throw tag('ui_error', new Error('incorrect email and password'));
+                throw req.rest_error('incorrect email and password');
             }
-            return auth_by_account(account.id, system_id, expires);
-        }
-    ).then(null,
-        function(err) {
-            if (err.ui_error) {
-                throw err;
-            }
-            console.error('FAILED authenticate', err);
-            throw new Error('authenticate failed');
+            return auth_by_account(req, account.id, system_id, expires);
         }
     );
 }
@@ -81,13 +72,13 @@ function update_auth(req) {
     var expires = req.rest_params.expires;
     return req.load_account('force_miss').then(
         function() {
-            return auth_by_account(req.account.id, system_id, expires);
+            return auth_by_account(req, req.account.id, system_id, expires);
         }
     );
 }
 
 
-function auth_by_account(account_id, system_id, expires) {
+function auth_by_account(req, account_id, system_id, expires) {
     return Q.fcall(
         function() {
             if (system_id) {
@@ -111,10 +102,10 @@ function auth_by_account(account_id, system_id, expires) {
                 var system = res[0];
                 var role = res[1];
                 if (!system) {
-                    throw tag('ui_error', new Error('system not found'));
+                    throw req.rest_error('system not found');
                 }
                 if (!role) {
-                    throw tag('ui_error', new Error('role not found'));
+                    throw req.rest_error('role not found');
                 }
                 jwt_payload.system_id = system_id;
                 jwt_payload.role = role.role;
@@ -132,12 +123,10 @@ function auth_by_account(account_id, system_id, expires) {
 }
 
 
-// inject a tag on the object and return it.
-// useful for throwing an error with a tag.
-function tag(tag_name, obj) {
-    obj[tag_name] = true;
-    return obj;
-}
+
+//////////////////////////
+// AUTHORIZE MIDDLEWARE //
+//////////////////////////
 
 function authorize() {
     // use jwt (json web token) to verify and decode the signed token
@@ -152,22 +141,19 @@ function authorize() {
     return function(req, res, next) {
         ej(req, res, function(err) {
             if (err) {
-                console.log('JWT ERROR', err);
+                console.log('AUTH ERROR', err);
                 if (err.name === 'UnauthorizedError') {
                     // if the verification of the token failed it might be because of expiration
                     // in any case return http code 401 (Unauthorized)
                     // hoping the client will do authenticate() again.
-                    return next({
-                        status: 401,
-                        data: 'invalid token',
-                    });
+                    res.status(401).send('unauthorized token');
                 } else {
-                    return next(err);
+                    next(err);
                 }
+            } else {
+                prepare_auth_request(req);
+                next();
             }
-            console.log('AUTH', req.auth);
-            prepare_auth_request(req);
-            next();
         });
     };
 }
@@ -184,9 +170,7 @@ function prepare_auth_request(req) {
                 }
                 if (!req.auth || !req.auth.account_id) {
                     console.error('UNAUTHORIZED', req.auth);
-                    var err = new Error('unauthorized');
-                    err.status = 401;
-                    throw err;
+                    throw req.rest_error('unauthorized', 401);
                 }
                 return db.AccountCache.get(req.auth.account_id, force_miss).then(
                     function(account) {
@@ -216,16 +200,12 @@ function prepare_auth_request(req) {
                 var err;
                 if (!req.auth || !req.auth.system_id) {
                     console.error('UNAUTHORIZED SYSTEM', req.auth);
-                    err = new Error('unauthorized system');
-                    err.status = 401;
-                    throw err;
+                    throw req.rest_error('unauthorized system', 401);
                 }
                 if ((!valid_roles && !req.auth.role) ||
                     (valid_roles && !_.contains(valid_roles, req.auth.role))) {
                     console.error('FORBIDDEN ROLE', req.auth);
-                    err = new Error('forbidden role');
-                    err.status = 403;
-                    throw err;
+                    throw req.rest_error('forbidden role', 403);
                 }
                 return db.SystemCache.get(req.auth.system_id, force_miss).then(
                     function(system) {

@@ -111,10 +111,8 @@ describe('rest_api', function() {
             fucking: 'aWeSoMe'
         }]
     };
-    var ERROR_REPLY = {
-        data: 'testing error',
-        status: 404,
-    };
+    var ERROR_REPLY = 'testing error';
+    var ERROR_STATUS = 473;
 
 
     describe('define_api', function() {
@@ -212,7 +210,7 @@ describe('rest_api', function() {
                             assert.deepEqual(param, req.rest_params[name]);
                         });
                         if (reply_error) {
-                            return Q.reject(ERROR_REPLY);
+                            throw req.rest_error(ERROR_REPLY, ERROR_STATUS);
                         } else {
                             return Q.resolve(REPLY);
                         }
@@ -248,7 +246,8 @@ describe('rest_api', function() {
                         console.log('UNEXPECTED REPLY', res);
                         throw 'UNEXPECTED REPLY';
                     }, function(err) {
-                        assert.deepEqual(err, ERROR_REPLY);
+                        assert.deepEqual(err.status, ERROR_STATUS);
+                        assert.deepEqual(err.data, ERROR_REPLY);
                     }).nodeify(done);
                 });
 

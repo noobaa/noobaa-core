@@ -42,11 +42,9 @@ function create_account(req) {
         },
         function(err) {
             if (err.code === 11000) {
-                throw new Error('account already exists');
-            } else {
-                console.error('FAILED create_account', err);
-                throw new Error('failed create account');
+                throw req.rest_error('account already exists');
             }
+            throw err;
         }
     );
 }
@@ -68,11 +66,6 @@ function update_account(req) {
             var info = _.pick(req.rest_params, 'name', 'email', 'password');
             return db.Account.findByIdAndUpdate(req.account.id, info).exec();
         }
-    ).then(null,
-        function(err) {
-            console.error('FAILED update_account', err);
-            throw new Error('update account failed');
-        }
     ).thenResolve();
 }
 
@@ -84,11 +77,6 @@ function delete_account(req) {
             return db.Account.findByIdAndUpdate(req.account.id, {
                 deleted: new Date()
             }).exec();
-        }
-    ).then(null,
-        function(err) {
-            console.error('FAILED delete_account', err);
-            throw new Error('delete account failed');
         }
     ).thenResolve();
 }

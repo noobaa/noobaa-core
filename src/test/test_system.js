@@ -30,6 +30,21 @@ describe('system', function() {
                 name: 'sys2',
             });
         }).then(function() {
+            return coretest.account_client.create_account({
+                name: 'role tester',
+                email: 'role@test.er',
+                password: 'roletester',
+            });
+        }).then(function() {
+            return system_client.add_role({
+                email: 'role@test.er',
+                role: 'admin',
+            });
+        }).then(function() {
+            return system_client.remove_role({
+                email: 'role@test.er',
+            });
+        }).then(function() {
             return system_client.add_vendor({
                 name: 'me',
                 category: 'vm',

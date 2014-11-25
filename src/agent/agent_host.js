@@ -42,13 +42,14 @@ function AgentHost(params) {
     assert(params.agent_storage_dir, 'missing agent_storage_dir');
     assert(params.name, 'missing name');
     assert(params.port, 'missing port');
+    assert(params.center_port, 'missing center_port');
+    assert(params.account_credentials, 'missing account_credentials');
     self.agent_storage_dir = params.agent_storage_dir;
     self.name = params.name;
     self.hostname = params.hostname;
     self.port = params.port;
-    // client_params and account_credentials are used to access the apis
-    assert(params.account_credentials, 'missing account_credentials');
-    self.client_params = params.client_params;
+    self.center_hostname = params.center_hostname;
+    self.center_port = params.center_port;
     self.account_credentials = params.account_credentials;
 
     // create express app
@@ -74,8 +75,12 @@ function AgentHost(params) {
     self.agent_host_server.install_rest(app, '/api/agent_host_api/');
 
     self.agents = {};
-    self.account_client = new account_api.Client(self.client_params);
-    self.node_client = new node_api.Client(self.client_params);
+    self.account_client = new account_api.Client();
+    self.account_client.set_option('hostname', self.center_hostname);
+    self.account_client.set_option('port', self.center_port);
+    self.node_client = new node_api.Client();
+    self.node_client.set_option('hostname', self.center_hostname);
+    self.node_client.set_option('port', self.center_port);
 
     // start http server
     self.server = http.createServer(app);
@@ -196,10 +201,8 @@ function host_main() {
         name: 'Guy MAC Host',
         hostname: 'localhost',
         port: 5002,
-        client_params: {
-            hostname: 'localhost',
-            port: 5001
-        },
+        center_hostname: 'localhost',
+        center_port: 5001,
         account_credentials: {
             email: 'a@a.a',
             password: 'aaa',

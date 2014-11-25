@@ -47,10 +47,8 @@ before(function(done) {
             node_server.install_rest(utilitest.router);
             object_server.install_rest(utilitest.router);
 
-            account_client.set_param('port', utilitest.http_port());
-            system_client.set_param('port', utilitest.http_port());
-            node_client.set_param('port', utilitest.http_port());
-            object_client.set_param('port', utilitest.http_port());
+            // setting the port globally for all the clients
+            account_client.set_global_option('port', utilitest.http_port());
 
             var account_params = _.clone(account_credentials);
             account_params.name = 'coretest';
@@ -176,6 +174,8 @@ function clear_test_nodes() {
 
 
 module.exports = {
+    utilitest: utilitest,
+    router: utilitest.router,
     http_port: utilitest.http_port, // function
 
     account_client: account_client,

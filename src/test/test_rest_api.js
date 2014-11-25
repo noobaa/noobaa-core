@@ -7,7 +7,7 @@ var Q = require('q');
 var assert = require('assert');
 var express = require('express');
 var request = require('request');
-var utilitest = require('noobaa-util/utilitest');
+var coretest = require('./coretest');
 
 
 describe('rest_api', function() {
@@ -220,11 +220,9 @@ describe('rest_api', function() {
                     server = new test_api.Server(methods, {
                         allow_missing_methods: 'allow_missing_methods'
                     });
-                    server.install_rest(utilitest.router);
+                    server.install_rest(coretest.router);
 
-                    client = new test_api.Client({
-                        port: utilitest.http_port(),
-                    });
+                    client = new test_api.Client();
                 });
 
                 after(function() {
@@ -255,7 +253,7 @@ describe('rest_api', function() {
                 });
 
                 it('should return doc', function(done) {
-                    var doc_url = 'http://localhost:' + utilitest.http_port() +
+                    var doc_url = 'http://localhost:' + coretest.http_port() +
                         '/doc/api/test_api/' + func_name;
                     request(doc_url, function(error, response, body) {
                         assert(!error);

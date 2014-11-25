@@ -18,9 +18,7 @@ describe('account', function() {
     beforeEach(function() {
         // create my own account client on each test
         // to prevent contaminating the headers
-        account_client = new account_api.Client({
-            port: coretest.http_port()
-        });
+        account_client = new account_api.Client();
     });
 
     describe('account full flow', function() {

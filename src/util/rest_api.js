@@ -22,8 +22,17 @@ var VALID_METHODS = {
 };
 var PATH_ITEM_RE = /^\S*$/;
 
-var global_headers = {};
-var global_cookie_jars = {};
+var global_client_options = {
+    // cookie jars are needed to maintain cookie sessions.
+    // in nodes.js we save set-cookie replies only in memory.
+    // in a the browser then browserify http module already saves the cookies persistently.
+    // the default cookie jar is global for all api's which is convinient, and suitable unless
+    // need to maintain multiple separated sessions between the same client and host.
+    cookie_jars: {},
+};
+var global_client_headers = {
+    accept: '*/*',
+};
 
 /**
  * Check and initialize the api structure.
@@ -274,26 +283,13 @@ function rest_api(api) {
 
     /**
      * client class for the api.
-     * creating a client instance takes client_params,
-     * which is needed for when doing the actual calls.
-     *
-     * client_params (Object):
-     * - hostname (String)
-     * - port (Number)
-     * - path (String) - optional base path for the host (default to the api name)
-     * - cookie_jars (Object) - optional object map from host to cookie jar (default to global object)
      */
-    function Client(client_params) {
-        this._rest_client_params = _.extend({
-            // default path is simply the api name
-            path: api_path,
-            // default cookie jar is global, which is good unless needed to maintain
-            // multiple separated sessions between the same client and host.
-            // the cookie jars are needed to save set-cookie replies in memory
-            // when running in nodejs. in a the browser it already saves the cookies persistently.
-            // this is required for a login flow to work.
-            cookie_jars: global_cookie_jars,
-        }, client_params);
+    function Client() {
+        // allow to set global values or per client values.
+        this._options = {};
+        this._headers = {};
+        // default path uses the api name
+        this._options.path = api_path;
     }
 
     // set the client class prototype functions
@@ -303,32 +299,52 @@ function rest_api(api) {
         };
     });
 
-    Client.prototype.set_param = function(key, value) {
-        this._rest_client_params[key] = value;
-    };
-
-    Client.prototype.set_header = function(key, value) {
-        this._rest_client_params.headers = this._rest_client_params.headers || {};
-        if (value) {
-            this._rest_client_params.headers[key] = value;
+    function set_property(obj, key, val) {
+        if (val) {
+            obj[key] = val;
         } else {
-            delete this._rest_client_params.headers[key];
+            delete obj[key];
+        }
+    }
+
+    /*
+     * available options (either global or per client):
+     * - hostname (String)
+     * - port (Number)
+     * - path (String) - optional base path for the host (default to the api name)
+     * - cookie_jars (Object) - optional object map from host to cookie jar (default to global object)
+     */
+    Client.prototype.set_option = function(key, val) {
+        return set_property(this._options, key, val);
+    };
+    Client.prototype.set_global_option = function(key, val) {
+        return set_property(global_client_options, key, val);
+    };
+    Client.prototype.get_option = function(key) {
+        if (this._options.hasOwnProperty(key)) {
+            return this._options[key];
+        } else {
+            return global_client_options[key];
         }
     };
-
-    Client.prototype.set_global_header = function(key, value) {
-        if (value) {
-            global_headers[key] = value;
-        } else {
-            delete global_headers[key];
-        }
+    Client.prototype.get_host = function() {
+        return this.get_option('host') ||
+            (this.get_option('hostname') + ':' + this.get_option('port'));
     };
 
+    /**
+     * set http headers (either global or per client)
+     */
+    Client.prototype.set_header = function(key, val) {
+        return set_property(this._headers, key, val);
+    };
+    Client.prototype.set_global_header = function(key, val) {
+        return set_property(global_client_headers, key, val);
+    };
     Client.prototype.set_authorization = function(token) {
         var auth = token && ('Bearer ' + token);
         this.set_header('authorization', auth);
     };
-
     Client.prototype.set_global_authorization = function(token) {
         var auth = token && ('Bearer ' + token);
         this.set_global_header('authorization', auth);
@@ -337,7 +353,6 @@ function rest_api(api) {
     // call a specific REST api function over http request.
     Client.prototype._client_request = function(func_info, params) {
         var self = this;
-        var client_params = self._rest_client_params;
         return Q.fcall(
             function() {
                 return self._http_request(func_info, params);
@@ -359,11 +374,12 @@ function rest_api(api) {
     // create a REST api call and return the options for http request.
     Client.prototype._http_request = function(func_info, params) {
         var self = this;
-        var client_params = self._rest_client_params;
         var method = func_info.method;
-        var path = client_params.path || '/';
-        var data = _.clone(params) || {};
-        var headers = _.extend({}, global_headers, client_params.headers);
+        var path = self.get_option('path') || '/';
+        var data = _.clone(params);
+        var headers = _.extend({}, global_client_headers, self._headers);
+        var host = self.get_host();
+        var jar = self.get_option('cookie_jars')[host];
         var body;
 
         if (func_info.param_raw) {
@@ -395,9 +411,6 @@ function rest_api(api) {
             }
         });
 
-        headers.accept = '*/*';
-        var host = client_params.host || (client_params.hostname + ':' + client_params.post);
-        var jar = client_params.cookie_jars[host];
         if (jar) {
             headers.cookie = jar.cookieString({
                 url: path
@@ -421,8 +434,8 @@ function rest_api(api) {
         }
 
         var options = {
-            hostname: client_params.hostname,
-            port: client_params.port,
+            hostname: self.get_option('hostname'),
+            port: self.get_option('port'),
             method: method,
             path: path,
             headers: headers,
@@ -434,7 +447,7 @@ function rest_api(api) {
         };
 
         // console.log('HTTP request', options);
-        var req = client_params.protocol === 'https' ?
+        var req = self.get_option('protocol') === 'https' ?
             https.request(options) :
             http.request(options);
 
@@ -450,12 +463,11 @@ function rest_api(api) {
 
     Client.prototype._handle_http_reply = function(func_info, res) {
         var self = this;
-        var client_params = self._rest_client_params;
         var cookies = res.response.headers['set-cookie'];
         if (cookies) {
-            var host = client_params.host || (client_params.hostname + ':' + client_params.post);
-            var jar = client_params.cookie_jars[host] =
-                client_params.cookie_jars[host] || new Cookie.Jar();
+            var host = self.get_host();
+            var jars = self.get_option('cookie_jars');
+            var jar = jars[host] = jars[host] || new Cookie.Jar();
             _.each(cookies, function(cookie_str) {
                 jar.add(new Cookie(cookie_str));
             });

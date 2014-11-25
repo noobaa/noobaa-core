@@ -509,10 +509,11 @@ function agent_host_caller(vendor) {
     if (vendor.kind !== 'agent_host') {
         throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + vendor.kind);
     }
-    var params = _.merge({
-        path: '/api/agent_host_api/'
-    }, vendor.info);
-    return new agent_host_api.Client(params);
+    var client = new agent_host_api.Client();
+    _.each(vendor.info, function(val, key) {
+        client.set_option(key, val);
+    });
+    return client;
 }
 
 function get_node_info(node) {

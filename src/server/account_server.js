@@ -9,13 +9,10 @@ var LRU = require('noobaa-util/lru');
 var db = require('./db');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
-var account_api = require('../api/account_api');
-var node_monitor = require('./node_monitor');
-var express_jwt = require('express-jwt');
-var jwt = require('jsonwebtoken');
+var api = require('../api');
 
 
-var account_server = new account_api.Server({
+var account_server = new api.account_api.Server({
     // CRUD
     create_account: create_account,
     read_account: read_account,

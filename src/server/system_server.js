@@ -9,11 +9,11 @@ var LRU = require('noobaa-util/lru');
 var db = require('./db');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
-var system_api = require('../api/system_api');
+var api = require('../api');
 var node_monitor = require('./node_monitor');
 
 
-var system_server = new system_api.Server({
+var system_server = new api.system_api.Server({
     // CRUD
     create_system: create_system,
     read_system: read_system,

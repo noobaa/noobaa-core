@@ -87,8 +87,8 @@ var PATHS = {
     ],
 
     server_main: './src/server/web_server.js',
-    client_bundle: './src/client/bundle.js',
-    agent_bundle: './src/agent/bundle.js',
+    client_bundle: './src/client/index.js',
+    agent_bundle: './src/agent/index.js',
     client_externals: [
         './node_modules/bootstrap/dist/js/bootstrap.js',
         './bower_components/bootstrap-material-design/scripts/material.js',
@@ -226,8 +226,8 @@ gulp.task('jshint', function() {
 
 gulp.task('client', ['bower', 'ng'], function() {
     var DEST = 'build/public/js';
-    var NAME = 'bundle.js';
-    var NAME_MIN = 'bundle.min.js';
+    var NAME = 'index.js';
+    var NAME_MIN = 'index.min.js';
     var bundler = browserify({
         entries: [PATHS.client_bundle, PATHS.agent_bundle],
         debug: (process.env.DEBUG_MODE === 'true'),

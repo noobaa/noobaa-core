@@ -4,8 +4,8 @@
 var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
-var system_api = require('../api/system_api');
-var system_client = new system_api.Client();
+var api = require('../api');
+var system_client = new api.system_api.Client();
 
 var nb_app = angular.module('nb_app', [
     'nb_util',
@@ -135,10 +135,10 @@ nb_app.factory('nbSystem', [
         $scope.connect_system = connect_system;
         $scope.refresh_system = refresh_system;
 
-        refresh_systems();
+        nbAuth.init_promise.then(refresh_systems);
 
         function refresh_systems() {
-            return $q.when().then(
+            return nbAuth.init_promise.then(
                 function() {
                     return system_client.list_systems();
                 }
@@ -146,6 +146,26 @@ nb_app.factory('nbSystem', [
                 function(res) {
                     console.log('SYSTEMS', res);
                     $scope.systems = res;
+                }
+            );
+        }
+
+        function refresh_system() {
+            return nbAuth.init_promise.then(
+                function() {
+                    return system_client.read_system();
+                }
+            ).then(
+                function(res) {
+                    console.log('STATS', res);
+                    $scope.system = res;
+                    // TODO handle bigint type (defined at system_api) for sizes > petabyte
+                    $scope.system.free_storage = res.allocated_storage - res.used_storage;
+                    $scope.system.free_storage_percent = !res.allocated_storage ? 0 :
+                        100 * ($scope.system.free_storage / res.allocated_storage);
+                },
+                function(err) {
+                    console.error('STATS FAILED', err);
                 }
             );
         }
@@ -174,26 +194,6 @@ nb_app.factory('nbSystem', [
             return nbAuth.update_auth({
                 system: system_id
             }).then(refresh_system);
-        }
-
-        function refresh_system() {
-            return $q.when().then(
-                function() {
-                    return system_client.read_system();
-                }
-            ).then(
-                function(res) {
-                    console.log('STATS', res);
-                    $scope.system = res;
-                    // TODO handle bigint type (defined at system_api) for sizes > petabyte
-                    $scope.system.free_storage = res.allocated_storage - res.used_storage;
-                    $scope.system.free_storage_percent = !res.allocated_storage ? 0 :
-                        100 * ($scope.system.free_storage / res.allocated_storage);
-                },
-                function(err) {
-                    console.error('STATS FAILED', err);
-                }
-            );
         }
 
         return $scope;

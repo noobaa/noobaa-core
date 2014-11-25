@@ -9,6 +9,7 @@ var path = require('path');
 var utilitest = require('noobaa-util/utilitest');
 var rimraf = require('rimraf');
 var Semaphore = require('noobaa-util/semaphore');
+var api = require('../api');
 var db = require('../server/db');
 var Agent = require('../agent/agent');
 
@@ -23,26 +24,17 @@ var account_credentials = {
     password: 'coretest',
 };
 
-var auth_api = require('../api/auth_api');
 var auth_server = require('../server/auth_server');
-var auth_client = new auth_api.Client();
-
-var account_api = require('../api/account_api');
 var account_server = require('../server/account_server');
-var account_client = new account_api.Client();
-
-var system_api = require('../api/system_api');
 var system_server = require('../server/system_server');
-var system_client = new system_api.Client();
-
-var node_api = require('../api/node_api');
 var node_server = require('../server/node_server');
-var node_client = new node_api.Client();
-
-var object_api = require('../api/object_api');
 var object_server = require('../server/object_server');
-var ObjectClient = require('../api/object_client');
-var object_client = new ObjectClient();
+
+var auth_client = new api.auth_api.Client();
+var account_client = new api.account_api.Client();
+var system_client = new api.system_api.Client();
+var node_client = new api.node_api.Client();
+var object_client = new api.ObjectClient();
 
 
 before(function(done) {

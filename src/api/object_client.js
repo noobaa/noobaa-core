@@ -78,16 +78,16 @@ ObjectClient.prototype.write_object_part = function(params) {
             if (self._events) {
                 self._events.emit('part', part);
             }
-            var block_size = (part.chunk_size / part.kblocks) | 0;
-            var buffer_per_index = encode_chunk(params.buffer, part.kblocks, block_size);
-            return Q.all(_.map(part.indexes, function(blocks, index) {
+            var block_size = (part.chunk_size / part.kfrag) | 0;
+            var buffer_per_fragment = encode_chunk(params.buffer, part.kfrag, block_size);
+            return Q.all(_.map(part.fragments, function(blocks, fragment) {
                 return Q.all(_.map(blocks, function(block) {
                     // use semaphore to surround the IO
                     return self.write_sem.surround(function() {
                         if (self._events) {
-                            self._events.emit('send', buffer_per_index[index].length);
+                            self._events.emit('send', buffer_per_fragment[fragment].length);
                         }
-                        return write_block(block, buffer_per_index[index]);
+                        return write_block(block, buffer_per_fragment[fragment]);
                     });
                 }));
             }));
@@ -130,33 +130,33 @@ ObjectClient.prototype.read_object_range = function(params) {
  */
 ObjectClient.prototype.read_object_part = function(part) {
     var self = this;
-    var block_size = (part.chunk_size / part.kblocks) | 0;
-    var buffer_per_index = {};
-    var next_index = 0;
+    var block_size = (part.chunk_size / part.kfrag) | 0;
+    var buffer_per_fragment = {};
+    var next_fragment = 0;
 
     // console.log('read_object_part', part);
 
-    // advancing the read by taking the next index and return promise to read it.
-    // will fail if no more indexes remain, which means the part cannot be served.
-    function read_the_next_index() {
-        while (next_index < part.indexes.length) {
-            var curr_index = next_index;
-            var blocks = part.indexes[curr_index];
-            next_index += 1;
+    // advancing the read by taking the next fragment and return promise to read it.
+    // will fail if no more fragments remain, which means the part cannot be served.
+    function read_the_next_fragment() {
+        while (next_fragment < part.fragments.length) {
+            var curr_fragment = next_fragment;
+            var blocks = part.fragments[curr_fragment];
+            next_fragment += 1;
             if (blocks) {
-                return read_index_blocks_chain(blocks, curr_index);
+                return read_fragment_blocks_chain(blocks, curr_fragment);
             }
         }
         throw new Error('READ PART EXHAUSTED', part);
     }
 
-    function read_index_blocks_chain(blocks, index) {
-        // console.log('read_index_blocks_chain', index);
+    function read_fragment_blocks_chain(blocks, fragment) {
+        // console.log('read_fragment_blocks_chain', fragment);
 
-        // chain the blocks of the index with array reduce
+        // chain the blocks of the fragment with array reduce
         // to handle read failures we create a promise chain such that each block of
-        // this index will read and if fails it's promise rejection handler will go
-        // to read the next block of the index.
+        // this fragment will read and if fails it's promise rejection handler will go
+        // to read the next block of the fragment.
         var add_block_promise_to_chain = function(promise, block) {
             return promise.then(null,
                 function(err) {
@@ -181,26 +181,26 @@ ObjectClient.prototype.read_object_part = function(part) {
         ).then(
             function(buffer) {
                 // when done, just keep the buffer and finish this promise chain
-                buffer_per_index[index] = buffer;
+                buffer_per_fragment[fragment] = buffer;
             }
         ).then(null,
             function(err) {
-                // failed to read this index, try another.
-                console.error('READ FAILED INDEX', index, err);
-                return read_the_next_index();
+                // failed to read this fragment, try another.
+                console.error('READ FAILED FRAGMENT', fragment, err);
+                return read_the_next_fragment();
             }
         );
     }
 
-    // start reading by queueing the first kblocks
+    // start reading by queueing the first kfrag
     return Q.all(
-        _.times(part.kblocks, read_the_next_index)
+        _.times(part.kfrag, read_the_next_fragment)
     ).then(
         function() {
             // TODO cache decoded chunks with lru client
             // cut only the part's relevant range from the chunk
 
-            part.buffer = decode_chunk(part, buffer_per_index).slice(
+            part.buffer = decode_chunk(part, buffer_per_fragment).slice(
                 part.chunk_offset, part.chunk_offset + part.end - part.start);
 
             var md5 = crypto.createHash('md5');
@@ -278,9 +278,9 @@ function read_block(block, block_size) {
 /**
  * for now just encode without erasure coding
  */
-function encode_chunk(buffer, kblocks, block_size) {
-    var buffer_per_index = [];
-    for (var i = 0, pos = 0; i < kblocks; i++, pos += block_size) {
+function encode_chunk(buffer, kfrag, block_size) {
+    var buffer_per_fragment = [];
+    for (var i = 0, pos = 0; i < kfrag; i++, pos += block_size) {
         var b = buffer.slice(pos, pos + block_size);
         if (b.length !== block_size) {
             var pad = new Buffer(block_size - b.length);
@@ -290,19 +290,19 @@ function encode_chunk(buffer, kblocks, block_size) {
                 throw new Error('incorrect padding');
             }
         }
-        buffer_per_index[i] = b;
+        buffer_per_fragment[i] = b;
     }
-    return buffer_per_index;
+    return buffer_per_fragment;
 }
 
 
 /**
  * for now just decode without erasure coding
  */
-function decode_chunk(part, buffer_per_index) {
+function decode_chunk(part, buffer_per_fragment) {
     var buffers = [];
-    for (var i = 0; i < part.kblocks; i++) {
-        buffers[i] = buffer_per_index[i];
+    for (var i = 0; i < part.kfrag; i++) {
+        buffers[i] = buffer_per_fragment[i];
         if (!buffers[i]) {
             throw new Error('DECODE FAILED MISSING BLOCK ' + i);
         }

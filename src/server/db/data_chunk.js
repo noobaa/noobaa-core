@@ -27,12 +27,12 @@ var data_chunk_schema = new Schema({
     // for mapping to storage nodes, the logical range is divided
     // into k blocks of equal size.
     // in order to support copies and/or erasure coded blocks,
-    // the schema contains a list of blocks such that each one has an index.
-    // - blocks with (index < kblocks) contain real data segment.
-    // - blocks with (index >= kblocks) contain a computed erasure coded segment.
-    // different blocks can appear with the same index - which means
+    // the schema contains a list of blocks such that each one has a fragment number.
+    // - blocks with (fragment < kfrag) contain real data fragment.
+    // - blocks with (fragment >= kfrag) contain a computed erasure coded fragment.
+    // different blocks can appear with the same fragment - which means
     // they are keeping copies of the same data block.
-    kblocks: {
+    kfrag: {
         type: Number,
         required: true,
     },

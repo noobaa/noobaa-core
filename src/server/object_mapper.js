@@ -13,20 +13,20 @@ module.exports = {
     read_object_mappings: read_object_mappings,
 };
 
-// default split of chunks with kblocks
-var CHUNK_KBLOCKS_BITWISE = 0; // TODO: pick kblocks?
-var CHUNK_KBLOCKS = 1 << CHUNK_KBLOCKS_BITWISE;
+// default split of chunks with kfrag
+var CHUNK_KFRAG_BITWISE = 0; // TODO: pick kfrag?
+var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
 
 
 function allocate_object_part(obj, start, end, md5sum) {
-    // chunk size is aligned up to be an integer multiple of kblocks*block_size
+    // chunk size is aligned up to be an integer multiple of kfrag*block_size
     var chunk_size = range_utils.align_up_bitwise(
         end - start,
-        CHUNK_KBLOCKS_BITWISE
+        CHUNK_KFRAG_BITWISE
     );
     var new_chunk = new db.DataChunk({
         size: chunk_size,
-        kblocks: CHUNK_KBLOCKS,
+        kfrag: CHUNK_KFRAG,
         md5sum: md5sum,
     });
     var new_part = new db.ObjectPart({
@@ -71,7 +71,7 @@ function allocate_object_part(obj, start, end, md5sum) {
 
 
 // query the db for existing parts and blocks which intersect the requested range,
-// return the blocks inside each part (part.indexes) like the api format
+// return the blocks inside each part (part.fragments) like the api format
 // to make it ready for replying and simpler to iterate
 function read_object_mappings(obj, start, end) {
     var rng = sanitize_object_range(obj, start, end);
@@ -103,7 +103,7 @@ function read_object_mappings(obj, start, end) {
                 chunk: {
                     $in: _.pluck(parts, 'chunk')
                 }
-            }).sort('index').populate('node').exec();
+            }).sort('fragment').populate('node').exec();
         }
     ).then(
         function(blocks) {
@@ -121,17 +121,17 @@ function read_object_mappings(obj, start, end) {
 
 // chunk is optional
 function get_part_info(part, chunk, blocks) {
-    var indexes = [];
-    _.each(_.groupBy(blocks, 'index'), function(index_blocks, index) {
-        indexes[index] = _.map(index_blocks, function(block) {
+    var fragments = [];
+    _.each(_.groupBy(blocks, 'fragment'), function(fragment_blocks, fragment) {
+        fragments[fragment] = _.map(fragment_blocks, function(block) {
             var b = _.pick(block, 'id');
             b.node = _.pick(block.node, 'id', 'ip', 'port');
             return b;
         });
     });
     var p = _.pick(part, 'start', 'end', 'chunk_offset');
-    p.indexes = indexes;
-    p.kblocks = chunk.kblocks;
+    p.fragments = fragments;
+    p.kfrag = chunk.kfrag;
     p.md5sum = chunk.md5sum;
     p.chunk_size = chunk.size;
     p.chunk_offset = p.chunk_offset || 0;

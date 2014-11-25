@@ -16,22 +16,22 @@ var data_block_schema = new Schema({
         required: true,
     },
 
-    // (chunk,index) define the block content
+    // (chunk,fragment) define the block content
     chunk: {
         ref: 'DataChunk',
         type: types.ObjectId,
         required: true,
     },
 
-    // the index in the chunk - see kblocks in DataChunk
-    index: {
+    // the fragment in the chunk - see kfrag in DataChunk
+    fragment: {
         type: Number,
         required: true,
     },
 
     // each block should define exactly one of these storage options: node or vendor
     // blocks that are stored on multiple storage options should have
-    // different blocks with same (chunk,index) to describe it.
+    // different blocks with same (chunk,fragment) to describe it.
     node: {
         ref: 'Node',
         type: types.ObjectId,
@@ -46,7 +46,7 @@ var data_block_schema = new Schema({
 
 data_block_schema.index({
     chunk: 1,
-    index: 1,
+    fragment: 1,
 }, {
     unique: false
 });

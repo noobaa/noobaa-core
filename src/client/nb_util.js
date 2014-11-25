@@ -5,8 +5,7 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var auth_api = require('../api/auth_api');
-var account_api = require('../api/account_api');
+var api = require('../api');
 
 // include the generated templates from ngview
 // require('../../build/templates');
@@ -34,8 +33,8 @@ nb_util.factory('nbAuth', [
     function($q, $window, $location) {
         var $scope = {};
 
-        var auth_client = new auth_api.Client();
-        var account_client = new account_api.Client();
+        var auth_client = new api.auth_api.Client();
+        var account_client = new api.account_api.Client();
         var win_storage = $window.sessionStorage;
 
         $scope.set_state = set_state;

@@ -347,9 +347,9 @@ module.exports = rest_api({
             type: 'object',
             required: [
                 'start', 'end',
-                'kblocks', 'md5sum',
+                'kfrag', 'md5sum',
                 'chunk_size', 'chunk_offset',
-                'indexes'
+                'fragments'
             ],
             properties: {
                 start: {
@@ -358,7 +358,7 @@ module.exports = rest_api({
                 end: {
                     type: 'integer',
                 },
-                kblocks: {
+                kfrag: {
                     type: 'integer',
                 },
                 md5sum: {
@@ -370,11 +370,11 @@ module.exports = rest_api({
                 chunk_offset: {
                     type: 'integer',
                 },
-                indexes: {
-                    // the indexes composing the data chunk
+                fragments: {
+                    // the fragments composing the data chunk
                     type: 'array',
                     items: {
-                        // each index contains an array of blocks
+                        // each fragment contains an array of blocks
                         type: 'array',
                         items: {
                             type: 'object',

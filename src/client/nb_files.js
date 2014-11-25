@@ -5,11 +5,11 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var ObjectClient = require('../api/object_client');
+var api = require('../api');
 var SliceReader = require('../util/slice_reader');
 var concat_stream = require('concat-stream');
 var EventEmitter = require('events').EventEmitter;
-var object_client = new ObjectClient();
+var object_client = new api.ObjectClient();
 
 var nb_app = angular.module('nb_app');
 
@@ -57,9 +57,9 @@ nb_app.controller('UploadCtrl', [
 
                 object_client.events().on('part', function(part) {
                     // $scope.parts.push(part); // unneeded for now
-                    var block_size = (part.chunk_size / part.kblocks) | 0;
-                    _.each(part.indexes, function(blocks, index) {
-                        var start = part.start + (block_size * index);
+                    var block_size = (part.chunk_size / part.kfrag) | 0;
+                    _.each(part.fragments, function(blocks, fragment) {
+                        var start = part.start + (block_size * fragment);
                         var end = start + block_size;
                         _.each(blocks, function(block) {
                             var node = nodes[block.node.id];

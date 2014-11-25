@@ -5,8 +5,8 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var node_api = require('../api/node_api');
-var node_client = new node_api.Client();
+var api = require('../api');
+var node_client = new api.node_api.Client();
 
 var nb_app = angular.module('nb_app');
 

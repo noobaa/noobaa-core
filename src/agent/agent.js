@@ -12,7 +12,7 @@ var express = require('express');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
 var size_utils = require('../util/size_utils');
-var agent_api = require('../api/agent_api');
+var api = require('../api');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
@@ -71,7 +71,7 @@ function Agent(params) {
         res.header('Access-Control-Allow-Credentials', true);
         next();
     });
-    var agent_server = new agent_api.Server({
+    var agent_server = new api.agent_api.Server({
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
         check_block: self.check_block.bind(self),

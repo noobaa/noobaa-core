@@ -12,12 +12,9 @@ var express = require('express');
 var mkdirp = require('mkdirp');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
-var agent_host_api = require('../api/agent_host_api');
+var api = require('../api');
 var Agent = require('./agent');
 var size_utils = require('../util/size_utils');
-var account_api = require('../api/account_api');
-var node_api = require('../api/node_api');
-var agent_api = require('../api/agent_api');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
@@ -67,18 +64,18 @@ function AgentHost(params) {
     app.use(express_compress());
 
 
-    self.agent_host_server = new agent_host_api.Server({
+    self.agent_host_server = new api.agent_host_api.Server({
         get_agent_status: self.get_agent_status.bind(self),
         start_agent: self.start_agent.bind(self),
         stop_agent: self.stop_agent.bind(self),
     });
-    self.agent_host_server.install_rest(app, '/api/agent_host_api/');
+    self.agent_host_server.install_rest(app);
 
     self.agents = {};
-    self.account_client = new account_api.Client();
+    self.account_client = new api.account_api.Client();
     self.account_client.set_option('hostname', self.center_hostname);
     self.account_client.set_option('port', self.center_port);
-    self.node_client = new node_api.Client();
+    self.node_client = new api.node_api.Client();
     self.node_client.set_option('hostname', self.center_hostname);
     self.node_client.set_option('port', self.center_port);
 

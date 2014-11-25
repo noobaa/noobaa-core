@@ -6,8 +6,7 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
-var auth_api = require('../api/auth_api');
-var account_api = require('../api/account_api');
+var api = require('../api');
 
 describe('account', function() {
 
@@ -20,8 +19,8 @@ describe('account', function() {
     beforeEach(function() {
         // create my own account client on each test
         // to prevent contaminating the headers
-        auth_client = new auth_api.Client();
-        account_client = new account_api.Client();
+        auth_client = new api.auth_api.Client();
+        account_client = new api.account_api.Client();
     });
 
     describe('account full flow', function() {

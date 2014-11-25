@@ -3,8 +3,8 @@
 
 var _ = require('lodash');
 var util = require('util');
-var account_api = require('../api/account_api');
-var account_client = new account_api.Client();
+var api = require('../api');
+var account_client = new api.account_api.Client();
 
 
 var nb_login = angular.module('nb_login', [

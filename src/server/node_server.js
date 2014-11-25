@@ -6,8 +6,7 @@ var Q = require('q');
 var mongoose = require('mongoose');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
-var node_api = require('../api/node_api');
-var agent_host_api = require('../api/agent_host_api');
+var api = require('../api');
 var system_server = require('./system_server');
 var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
@@ -15,7 +14,7 @@ var Agent = require('../agent/agent');
 var db = require('./db');
 
 
-module.exports = new node_api.Server({
+module.exports = new api.node_api.Server({
     create_node: create_node,
     delete_node: delete_node,
     read_node: read_node,
@@ -339,8 +338,8 @@ function heartbeat(req) {
         function(blocks) {
             var real_usage = 0;
             _.each(blocks, function(block) {
-                if (block.chunk && block.chunk.kblocks) {
-                    real_usage += (block.chunk.size / block.chunk.kblocks) | 0;
+                if (block.chunk && block.chunk.kfrag) {
+                    real_usage += (block.chunk.size / block.chunk.kfrag) | 0;
                 }
             });
             if (node.used_storage !== real_usage) {
@@ -509,7 +508,7 @@ function agent_host_caller(vendor) {
     if (vendor.kind !== 'agent_host') {
         throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + vendor.kind);
     }
-    var client = new agent_host_api.Client();
+    var client = new api.agent_host_api.Client();
     _.each(vendor.info, function(val, key) {
         client.set_option(key, val);
     });

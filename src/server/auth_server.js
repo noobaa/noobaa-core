@@ -7,12 +7,12 @@ var assert = require('assert');
 var moment = require('moment');
 var db = require('./db');
 var rest_api = require('../util/rest_api');
-var auth_api = require('../api/auth_api');
+var api = require('../api');
 var express_jwt = require('express-jwt');
 var jwt = require('jsonwebtoken');
 
 
-var auth_server = new auth_api.Server({
+var auth_server = new api.auth_api.Server({
     // CRUD
     create_auth: create_auth,
     update_auth: update_auth,

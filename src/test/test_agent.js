@@ -7,7 +7,6 @@ var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
 var Agent = require('../agent/agent');
-var agent_api = require('../api/agent_api');
 var size_utils = require('../util/size_utils');
 
 describe.skip('agent', function() {

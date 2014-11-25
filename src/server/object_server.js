@@ -4,14 +4,14 @@
 var _ = require('lodash');
 var Q = require('q');
 var rest_api = require('../util/rest_api');
-var object_api = require('../api/object_api');
+var api = require('../api');
 var system_server = require('./system_server');
 var LRU = require('noobaa-util/lru');
 var object_mapper = require('./object_mapper');
 var db = require('./db');
 
 
-module.exports = new object_api.Server({
+module.exports = new api.object_api.Server({
     // bucket actions
     list_buckets: list_buckets,
     create_bucket: create_bucket,

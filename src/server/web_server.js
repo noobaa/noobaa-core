@@ -109,10 +109,10 @@ app.use(account_server.authorize());
 // setup apis
 
 var api_router = express.Router();
-account_server.install_routes(api_router);
-system_server.install_routes(api_router);
-node_server.install_routes(api_router);
-object_server.install_routes(api_router);
+account_server.install_rest(api_router);
+system_server.install_rest(api_router);
+node_server.install_rest(api_router);
+object_server.install_rest(api_router);
 app.use(api_router);
 
 
@@ -157,10 +157,11 @@ app.all('/login', function(req, res) {
 });
 
 app.all('/logout', function(req, res) {
-    var logout_func = account_server.impl('logout_account');
-    Q.when(logout_func(req), function() {
-        res.redirect('/');
-    });
+    account_server.call_rest_func('logout_account', req).then(
+        function() {
+            res.redirect('/');
+        }
+    );
 });
 
 app.all('/', redirect_no_account, function(req, res) {

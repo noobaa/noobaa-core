@@ -146,7 +146,7 @@ describe('rest_api', function() {
             var server = new test_api.Server({}, {
                 allow_missing_methods: 'allow_missing_methods'
             });
-            server.install_routes(router);
+            server.install_rest(router);
         });
 
         it('should detect missing api func', function() {
@@ -176,7 +176,7 @@ describe('rest_api', function() {
             var server = new test_api.Server({}, {
                 allow_missing_methods: 'allow_missing_methods'
             });
-            server.install_routes(router, '/');
+            server.install_rest(router, '/');
         });
 
         it('should work on express app', function() {
@@ -184,7 +184,7 @@ describe('rest_api', function() {
             var server = new test_api.Server({}, {
                 allow_missing_methods: 'allow_missing_methods'
             });
-            server.install_routes(app, '/base/route/path/');
+            server.install_rest(app, '/base/route/path/');
         });
 
     });
@@ -220,7 +220,7 @@ describe('rest_api', function() {
                     server = new test_api.Server(methods, {
                         allow_missing_methods: 'allow_missing_methods'
                     });
-                    server.install_routes(utilitest.router);
+                    server.install_rest(utilitest.router);
 
                     client = new test_api.Client({
                         port: utilitest.http_port(),
@@ -231,7 +231,7 @@ describe('rest_api', function() {
                     // disable the server to bypass its routes,
                     // this allows us to create a separate test for every function,
                     // since the express middlewares cannot be removed.
-                    server.disable_routes();
+                    server.disable_rest();
                 });
 
                 it('should call and get reply', function(done) {

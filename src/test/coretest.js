@@ -42,10 +42,10 @@ before(function(done) {
     Q.fcall(
         function() {
             utilitest.router.use(account_server.authorize());
-            account_server.install_routes(utilitest.router);
-            system_server.install_routes(utilitest.router);
-            node_server.install_routes(utilitest.router);
-            object_server.install_routes(utilitest.router);
+            account_server.install_rest(utilitest.router);
+            system_server.install_rest(utilitest.router);
+            node_server.install_rest(utilitest.router);
+            object_server.install_rest(utilitest.router);
 
             account_client.set_param('port', utilitest.http_port());
             system_client.set_param('port', utilitest.http_port());
@@ -64,10 +64,10 @@ before(function(done) {
 });
 
 after(function() {
-    account_server.disable_routes();
-    system_server.disable_routes();
-    node_server.disable_routes();
-    object_server.disable_routes();
+    account_server.disable_rest();
+    system_server.disable_rest();
+    node_server.disable_rest();
+    object_server.disable_rest();
 });
 
 function account_auth(options) {

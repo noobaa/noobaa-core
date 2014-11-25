@@ -77,7 +77,7 @@ function Agent(params) {
         check_block: self.check_block.bind(self),
         remove_block: self.remove_block.bind(self),
     });
-    agent_server.install_routes(app, '/agent_api/');
+    agent_server.install_rest(app, '/agent_api/');
 
     var http_server = http.createServer(app);
     http_server.on('listening', self.server_listening_handler.bind(self));

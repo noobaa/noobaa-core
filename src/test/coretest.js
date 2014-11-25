@@ -16,6 +16,8 @@ var Agent = require('../agent/agent');
 // used for testing only to avoid its big mem & cpu overheads
 Q.longStackSupport = true;
 
+process.env.JWT_SECRET = 'coretest';
+
 var account_credentials = {
     email: 'coretest@core.test',
     password: 'coretest',

@@ -107,8 +107,6 @@ function delete_account(req) {
 // AUTH //
 //////////
 
-var JWT_SECRET = process.env.JWT_SECRET || '93874gfn987wgfb98721tb4f897tu';
-
 function authenticate(req) {
     var info = {
         email: req.rest_params.email,
@@ -180,7 +178,7 @@ function authenticate(req) {
             if (expires) {
                 jwt_options.expiresInMinutes = expires / 60;
             }
-            var token = jwt.sign(jwt_payload, JWT_SECRET, jwt_options);
+            var token = jwt.sign(jwt_payload, process.env.JWT_SECRET, jwt_options);
             return {
                 token: token
             };
@@ -203,7 +201,7 @@ function authorize() {
     // the token is expected to be set in req.headers.authorization = 'Bearer ' + token
     // which is a standard token authorization used by oauth2.
     var ej = express_jwt({
-        secret: JWT_SECRET,
+        secret: process.env.JWT_SECRET,
         userProperty: 'auth',
         credentialsRequired: false,
     });

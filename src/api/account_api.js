@@ -50,7 +50,7 @@ module.exports = rest_api({
             path: '/account',
             reply: {
                 type: 'object',
-                required: ['id', 'name', 'email', 'systems_role'],
+                required: ['id', 'name', 'email'],
                 properties: {
                     id: {
                         type: 'string',
@@ -61,15 +61,6 @@ module.exports = rest_api({
                     email: {
                         type: 'string',
                     },
-                    systems_role: {
-                        type: 'object',
-                        patternProperties: {
-                            '^[0-9a-f]*$': {
-                                type: 'string',
-                                enum: ['admin', 'agent'],
-                            }
-                        }
-                    }
                 },
             },
         },

@@ -34,17 +34,15 @@ module.exports = {
         name: 'AccountCache',
         load: function(account_id) {
             // load the account and its roles per system
-            return Q.all([
-                Account.findById(account_id).exec(),
-                Role.find({
-                    account: account_id
-                }).exec(),
-            ]).spread(function(account, roles) {
-                account = _.pick(account, 'id', 'name', 'email');
-                // systems_role is a map of: system_id -> role
-                account.systems_role = _.mapValues(_.indexBy(roles, 'system'), 'role');
-                return account;
-            });
+            return Q.fcall(
+                function() {
+                    return Account.findById(account_id).exec();
+                }
+            ).then(
+                function(account) {
+                    return _.pick(account, 'id', 'name', 'email');
+                }
+            );
         }
     }),
 
@@ -52,11 +50,15 @@ module.exports = {
         name: 'SystemCache',
         load: function(system_id) {
             // load the system
-            return Q.when(
-                System.findById(system_id).exec()
-            ).then(function(system) {
-                return _.pick(system, 'id', 'name');
-            });
+            return Q.fcall(
+                function() {
+                    return System.findById(system_id).exec();
+                }
+            ).then(
+                function(system) {
+                    return _.pick(system, 'id', 'name');
+                }
+            );
         }
     }),
 

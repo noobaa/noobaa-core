@@ -58,7 +58,7 @@ function create_account(req) {
 function read_account(req) {
     return req.load_account('force_miss').then(
         function() {
-            return _.pick(req.account, 'id', 'name', 'email', 'systems_role');
+            return _.pick(req.account, 'id', 'name', 'email');
         }
     );
 }

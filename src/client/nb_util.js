@@ -38,77 +38,75 @@ nb_util.factory('nbAuth', [
         var account_client = new account_api.Client();
         var win_storage = $window.sessionStorage;
 
-        $scope.init_promise = init();
+        $scope.set_state = set_state;
+        $scope.init_state = init_state;
+        $scope.logout = logout;
+        $scope.create_auth = create_auth;
+        $scope.update_auth = update_auth;
+        $scope.init_promise = init_state();
 
-        function init() {
-            var pathname = $window.location.pathname;
-            console.log('nbAuth', pathname, win_storage.nb_auth);
+        function set_state(token, system_id) {
+            win_storage.nb_auth = token;
+            win_storage.nb_system = system_id;
+        }
 
-            if (!win_storage.nb_auth) {
-                if (!pathname.match(/^\/login/)) {
-                    $scope.logout();
-                } else {
-                    $scope.loaded = true;
-                }
-                return $q.when();
-            }
-
-            auth_client.set_global_authorization(win_storage.nb_auth);
+        function init_state() {
+            var token = win_storage.nb_auth;
+            var system_id = win_storage.nb_system;
+            auth_client.set_global_authorization(token);
 
             return $q.when().then(
                 function() {
-                    return account_client.read_account();
+                    if (token) {
+                        return account_client.read_account();
+                    }
                 }
             ).then(
-                function(res) {
-                    $scope.account = res;
-                    $scope.system = win_storage.nb_system;
-                    $scope.loaded = true;
+                function(account) {
+                    $scope.account = account;
+                    $scope.system = system_id;
+                    $scope.inited = true;
                 },
                 function(err) {
-                    console.error(err);
                     if (err.status === 401) { // unauthorized
-                        $scope.logout();
+                        logout();
                     }
                 }
             );
         }
 
-        $scope.create_auth = function(params) {
+        function logout() {
+            set_state('', '');
+            if ($window.location.pathname.search(/^\/login/) < 0) {
+                $window.location.href = '/login';
+            }
+        }
+
+        function create_auth(params) {
             return $q.when().then(
                 function() {
                     return auth_client.create_auth(params);
                 }
             ).then(
                 function(res) {
-                    auth_client.set_global_authorization(res.token);
-                    win_storage.nb_auth = res.token;
-                    win_storage.nb_system = params.system;
-                    return res;
+                    set_state(res.token, params.system);
+                    return init_state();
                 }
             );
-        };
+        }
 
-        $scope.update_auth = function(params) {
+        function update_auth(params) {
             return $q.when().then(
                 function() {
                     return auth_client.update_auth(params);
                 }
             ).then(
                 function(res) {
-                    auth_client.set_global_authorization(res.token);
-                    win_storage.nb_auth = res.token;
-                    win_storage.nb_system = params.system;
-                    return res;
+                    set_state(res.token, params.system);
+                    return init_state();
                 }
             );
-        };
-
-        $scope.logout = function() {
-            auth_client.set_global_authorization();
-            delete win_storage.nb_auth;
-            $window.location.href= '/login';
-        };
+        }
 
         return $scope;
     }

@@ -34,48 +34,54 @@ nb_util.factory('nbAuth', [
         var $scope = {};
 
         var account_client = new account_api.Client();
+        var win_storage = $window.sessionStorage;
 
-        init();
+        $scope.init_promise = init();
 
         function init() {
             var pathname = $window.location.pathname;
-            console.log('nbAuth', pathname, $window.sessionStorage.nb_auth);
+            console.log('nbAuth', pathname, win_storage.nb_auth);
 
-            if (!$window.sessionStorage.nb_auth) {
+            if (!win_storage.nb_auth) {
                 if (!pathname.match(/^\/login/)) {
-                    $window.location.href = '/login';
+                    $scope.logout();
+                } else {
+                    $scope.loaded = true;                    
                 }
-                return;
+                return $q.when();
             }
 
-            account_client.set_global_authorization($window.sessionStorage.nb_auth);
+            account_client.set_global_authorization(win_storage.nb_auth);
 
-            $q.when().then(
+            return $q.when().then(
                 function() {
                     return account_client.read_account();
                 }
             ).then(
                 function(res) {
                     $scope.account = res;
+                    $scope.system = win_storage.nb_system;
+                    $scope.loaded = true;
                 },
                 function(err) {
                     console.error(err);
                     if (err.status === 401) { // unauthorized
-                        $window.location.href = '/login';
+                        $scope.logout();
                     }
                 }
             );
         }
 
-        $scope.authenticate = function(credentials) {
+        $scope.authenticate = function(params) {
             return $q.when().then(
                 function() {
-                    return account_client.authenticate(credentials);
+                    return account_client.authenticate(params);
                 }
             ).then(
                 function(res) {
                     account_client.set_global_authorization(res.token);
-                    $window.sessionStorage.nb_auth = res.token;
+                    win_storage.nb_auth = res.token;
+                    win_storage.nb_system = params.system;
                     return res;
                 }
             );
@@ -83,7 +89,7 @@ nb_util.factory('nbAuth', [
 
         $scope.logout = function() {
             account_client.set_global_authorization();
-            delete $window.sessionStorage.nb_auth;
+            delete win_storage.nb_auth;
             $window.location.href= '/login';
         };
 

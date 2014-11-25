@@ -19,6 +19,7 @@ describe('system', function() {
             });
         }).then(function(res) {
             system_id = res.id;
+            // authenticate now with the new system
             return coretest.account_auth({
                 system: system_id
             });

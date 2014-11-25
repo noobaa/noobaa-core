@@ -118,34 +118,24 @@ app.use(api_router);
 
 // setup pages
 
-function redirect_no_account(req, res, next) {
-    if (req.account) {
-        return next();
-    }
-    return res.redirect('/login/');
-}
-
 function page_context(req) {
     var data = {};
-    if (req.account) {
-        data.account = req.account;
-    }
     return {
         data: data
     };
 }
 
-app.all('/agent/*', redirect_no_account, function(req, res) {
+app.all('/agent/*', function(req, res) {
     return res.render('agent.html', page_context(req));
 });
-app.all('/agent', redirect_no_account, function(req, res) {
+app.all('/agent', function(req, res) {
     return res.redirect('/agent/');
 });
 
-app.all('/app/*', redirect_no_account, function(req, res) {
+app.all('/app/*', function(req, res) {
     return res.render('app.html', page_context(req));
 });
-app.all('/app', redirect_no_account, function(req, res) {
+app.all('/app', function(req, res) {
     return res.redirect('/app/');
 });
 
@@ -156,15 +146,7 @@ app.all('/login', function(req, res) {
     return res.redirect('/login/');
 });
 
-app.all('/logout', function(req, res) {
-    account_server.call_rest_func('logout_account', req).then(
-        function() {
-            res.redirect('/');
-        }
-    );
-});
-
-app.all('/', redirect_no_account, function(req, res) {
+app.all('/', function(req, res) {
     return res.redirect('/app/');
 });
 

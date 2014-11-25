@@ -111,16 +111,16 @@ module.exports = rest_api({
             required: [
                 'id',
                 'name',
-                'allocated_storage',
-                'used_storage',
-                'chunks_storage',
+                'roles',
+                'vendors',
+                'tiers',
                 'nodes',
                 'online_nodes',
                 'buckets',
                 'objects',
-                'roles',
-                'tiers',
-                'vendors',
+                'allocated_storage',
+                'used_storage',
+                'chunks_storage',
             ],
             properties: {
                 id: {
@@ -129,14 +129,23 @@ module.exports = rest_api({
                 name: {
                     type: 'string',
                 },
-                allocated_storage: {
-                    $ref: '/system_api/definitions/bigint'
+                roles: {
+                    type: 'array',
+                    items: {
+                        $ref: '/system_api/definitions/role_info'
+                    }
                 },
-                used_storage: {
-                    $ref: '/system_api/definitions/bigint'
+                vendors: {
+                    type: 'array',
+                    items: {
+                        $ref: '/system_api/definitions/vendor_info'
+                    }
                 },
-                chunks_storage: {
-                    $ref: '/system_api/definitions/bigint'
+                tiers: {
+                    type: 'array',
+                    items: {
+                        $ref: '/system_api/definitions/tier_info'
+                    }
                 },
                 nodes: {
                     type: 'integer'
@@ -150,23 +159,14 @@ module.exports = rest_api({
                 objects: {
                     type: 'integer'
                 },
-                roles: {
-                    type: 'array',
-                    items: {
-                        $ref: '/system_api/definitions/role_info'
-                    }
+                allocated_storage: {
+                    $ref: '/system_api/definitions/bigint'
                 },
-                tiers: {
-                    type: 'array',
-                    items: {
-                        $ref: '/system_api/definitions/tier_info'
-                    }
+                used_storage: {
+                    $ref: '/system_api/definitions/bigint'
                 },
-                vendors: {
-                    type: 'array',
-                    items: {
-                        $ref: '/system_api/definitions/vendor_info'
-                    }
+                chunks_storage: {
+                    $ref: '/system_api/definitions/bigint'
                 },
             }
         },

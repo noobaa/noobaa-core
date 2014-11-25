@@ -5,6 +5,7 @@ var _ = require('lodash');
 var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
+var account_api = require('../api/account_api');
 
 // include the generated templates from ngview
 // require('../../build/templates');
@@ -25,6 +26,70 @@ nb_util.run(['$rootScope', function($rootScope) {
     $.material.init();
 }]);
 
+
+
+nb_util.factory('nbAuth', [
+    '$q', '$window', '$location',
+    function($q, $window, $location) {
+        var $scope = {};
+
+        var account_client = new account_api.Client();
+
+        init();
+
+        function init() {
+            var pathname = $window.location.pathname;
+            console.log('nbAuth', pathname, $window.sessionStorage.nb_auth);
+
+            if (!$window.sessionStorage.nb_auth) {
+                if (!pathname.match(/^\/login/)) {
+                    $window.location.href = '/login';
+                }
+                return;
+            }
+
+            account_client.set_global_authorization($window.sessionStorage.nb_auth);
+
+            $q.when().then(
+                function() {
+                    return account_client.read_account();
+                }
+            ).then(
+                function(res) {
+                    $scope.account = res;
+                },
+                function(err) {
+                    console.error(err);
+                    if (err.status === 401) { // unauthorized
+                        $window.location.href = '/login';
+                    }
+                }
+            );
+        }
+
+        $scope.authenticate = function(credentials) {
+            return $q.when().then(
+                function() {
+                    return account_client.authenticate(credentials);
+                }
+            ).then(
+                function(res) {
+                    account_client.set_global_authorization(res.token);
+                    $window.sessionStorage.nb_auth = res.token;
+                    return res;
+                }
+            );
+        };
+
+        $scope.logout = function() {
+            account_client.set_global_authorization();
+            delete $window.sessionStorage.nb_auth;
+            $window.location.href= '/login';
+        };
+
+        return $scope;
+    }
+]);
 
 
 nb_util.factory('nbNetworkMonitor', [

@@ -146,8 +146,8 @@ nb_app.controller('DownloadCtrl', [
 
 
 nb_app.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', 'nbServerData', '$rootScope',
-    function($http, $q, $window, $timeout, $sce, nbAlertify, nbServerData, $rootScope) {
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope',
+    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope) {
         var $scope = {};
 
         $scope.load_buckets = load_buckets;

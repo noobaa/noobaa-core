@@ -24,7 +24,7 @@
                 </a>
             </li>
 
-            <li class="dropdown" ng-if="account">
+            <li class="dropdown" ng-if="nbAuth.account">
                 <a class="dropdown-toggle" data-toggle="dropdown">
                     <span style="visibility: hidden; width: 0; margin-right: -15px">
                         O<!-- needed some text for navbar height align -->
@@ -37,16 +37,16 @@
                         <a>
                             <h4 class="text-muted" style="margin:0">
                                 <i class="fa fa-envelope fa-fw"></i>
-                                {{account.email}}
+                                {{nbAuth.account.email}}
                             </h4>
                         </a>
                     </li>
                     <li class="divider"></li>
-                    <li ng-if="!account">
+                    <li ng-if="!nbAuth.account">
                         <a href="/login">Login</a>
                     </li>
-                    <li ng-if="account">
-                        <a href="/logout">Logout</a>
+                    <li ng-if="nbAuth.account">
+                        <a ng-click="nbAuth.logout()">Logout</a>
                     </li>
                 </ul>
             </li>

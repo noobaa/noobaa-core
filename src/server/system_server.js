@@ -70,13 +70,19 @@ function read_system(req) {
     return req.load_system(['admin']).then(
         function() {
             var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
-            var system_query = {
+            var by_system_id = {
                 system: req.system.id
             };
             return Q.all([
+                // roles
+                db.Role.find(by_system_id).exec(),
+                // vendors
+                db.Vendor.find(by_system_id).exec(),
+                // tiers
+                db.Tier.find(by_system_id).exec(),
                 // nodes - count, online count, allocated/used storage
                 db.Node.mapReduce({
-                    query: system_query,
+                    query: by_system_id,
                     scope: {
                         // have to pass variables to map/reduce with a scope
                         minimum_online_heartbeat: minimum_online_heartbeat,
@@ -92,45 +98,46 @@ function read_system(req) {
                     },
                     reduce: size_utils.reduce_sum
                 }),
-                // vendors
-                db.Vendor.count(system_query).exec(),
                 // buckets
-                db.Bucket.count(system_query).exec(),
+                db.Bucket.count(by_system_id).exec(),
                 // objects
-                db.ObjectMD.count(system_query).exec(),
+                db.ObjectMD.count(by_system_id).exec(),
                 // parts
                 db.ObjectPart.mapReduce({
-                    query: system_query,
+                    query: by_system_id,
                     map: function() {
                         /* global emit */
                         emit('size', this.end - this.start);
                     },
                     reduce: size_utils.reduce_sum
                 }),
-                // TODO chunks and blocks don't have link to system...
                 /*
+                // TODO chunks and blocks don't have link to system...
                 db.DataChunk.mapReduce({
-                map: function() {
-                emit('size', this.size);
-            },
-            reduce: size_utils.reduce_sum
-        }),*/
+                    map: function() {
+                        emit('size', this.size);
+                    },
+                    reduce: size_utils.reduce_sum
+                }),
+                */
             ]).spread(
-                function(nodes, vendors, buckets, objects, parts) {
+                function(roles, vendors, tiers, nodes, buckets, objects, parts) {
                     nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
                     parts = _.mapValues(_.indexBy(parts, '_id'), 'value');
                     // chunks = chunks && _.mapValues(_.indexBy(chunks, '_id'), 'value');
                     return {
                         id: req.system.id,
                         name: req.system.name,
+                        roles: [],
+                        vendors: [],
+                        tiers: [],
+                        nodes: nodes.count || 0,
+                        online_nodes: nodes.online || 0,
+                        buckets: buckets || 0,
+                        objects: objects || 0,
                         allocated_storage: nodes.alloc || 0,
                         used_storage: parts.size || 0,
                         chunks_storage: 0, //chunks.size || 0,
-                        nodes: nodes.count || 0,
-                        online_nodes: nodes.online || 0,
-                        vendors: vendors || 0,
-                        buckets: buckets || 0,
-                        objects: objects || 0,
                     };
                 }
             );

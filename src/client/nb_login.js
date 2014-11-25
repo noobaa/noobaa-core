@@ -18,8 +18,8 @@ var nb_login = angular.module('nb_login', [
 
 
 nb_login.controller('LoginCtrl', [
-    '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify',
-    function($scope, $http, $q, $timeout, $window, nbAlertify) {
+    '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify', 'nbAuth',
+    function($scope, $http, $q, $timeout, $window, nbAlertify,nbAuth) {
 
         $scope.nav = {
             root: '/'
@@ -31,10 +31,10 @@ nb_login.controller('LoginCtrl', [
             }
             $scope.alert_text = '';
             $scope.form_disabled = true;
-            return $q.when(account_client.login_account({
+            return nbAuth.authenticate({
                 email: $scope.email,
                 password: $scope.password,
-            })).then(function() {
+            }).then(function(res) {
                 $scope.alert_text = '';
                 $window.location.href = '/';
             }, function(err) {
@@ -54,14 +54,22 @@ nb_login.controller('LoginCtrl', [
                     if (str !== $scope.password) {
                         throw 'the passwords don\'t match :O';
                     }
-                    return $q.when(account_client.create_account({
-                        // to simplify the form, we just use the email as a name
-                        // and will allow to update it later from the account settings.
+                    // to simplify the form, we just use the email as a name
+                    // and will allow to update it later from the account settings.
+                    return account_client.create_account({
                         name: $scope.email,
                         email: $scope.email,
                         password: $scope.password,
-                    })).then(null, function(err) {
+                    }).then(null, function(err) {
+                        // server errors in this case are descriptive enough to show in ui
                         throw err.data;
+                    });
+                }
+            ).then(
+                function() {
+                    return nbAuth.authenticate({
+                        email: $scope.email,
+                        password: $scope.password,
                     });
                 }
             ).then(

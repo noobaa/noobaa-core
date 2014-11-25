@@ -52,23 +52,10 @@ module.exports = {
         name: 'SystemCache',
         load: function(system_id) {
             // load the system
-            return Q.all([
-                System.findById(system_id).exec(),
-                Vendor.find({
-                    system: system_id
-                }).exec(),
-                Tier.find({
-                    system: system_id
-                }).exec(),
-            ]).spread(function(system, vendors, tiers) {
-                system = _.pick(system, 'id', 'name');
-                system.vendors = _.map(vendors, function(vendor) {
-                    return _.pick(vendor, 'id', 'name', 'category', 'kind', 'vendor_info');
-                });
-                system.tiers = _.map(tiers, function(tier) {
-                    return _.pick(tier, 'id', 'name');
-                });
-                return system;
+            return Q.when(
+                System.findById(system_id).exec()
+            ).then(function(system) {
+                return _.pick(system, 'id', 'name');
             });
         }
     }),

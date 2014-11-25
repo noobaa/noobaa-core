@@ -50,17 +50,16 @@ nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
 nb_app.controller('AppCtrl', [
     '$scope', '$http', '$q', '$window',
     'nbSystem', 'nbNodes', 'nbFiles',
-    'nbAlertify', '$location', 'nbServerData',
+    'nbAlertify', '$location', 'nbAuth',
     function($scope, $http, $q, $window,
         nbSystem, nbNodes, nbFiles,
-        nbAlertify, $location, nbServerData) {
+        nbAlertify, $location, nbAuth) {
 
+        $scope.nbAuth = nbAuth;
         $scope.nbSystem = nbSystem;
         $scope.nbNodes = nbNodes;
         $scope.nbFiles = nbFiles;
         $scope.nbAlertify = nbAlertify;
-
-        $scope.account = nbServerData.account;
 
         $scope.nav = {
             active: 'dashboard',
@@ -126,8 +125,8 @@ nb_app.controller('StatsCtrl', [
 
 
 nb_app.factory('nbSystem', [
-    '$q', '$timeout', '$rootScope', 'nbServerData',
-    function($q, $timeout, $rootScope, nbServerData) {
+    '$q', '$timeout', '$rootScope',
+    function($q, $timeout, $rootScope) {
         var $scope = {};
 
         $scope.refresh_systems = refresh_systems;
@@ -136,31 +135,44 @@ nb_app.factory('nbSystem', [
         $scope.refresh_stats = refresh_stats;
 
         function refresh_systems() {
-            return $q.when(system_client.list_systems()).then(
+            return $q.when().then(
+                function() {
+                    return system_client.list_systems();
+                }
+            ).then(
                 function(res) {
                     console.log('SYSTEMS', res);
                     $scope.systems = res;
-                    if (!$scope.systems.length) {
-                        return create_system(nbServerData.account.name);
-                    }
                 }
             );
         }
 
         function create_system(name) {
-            return $q.when(system_client.create_system({
-                name: name
-            })).then(refresh_systems);
+            return $q.when().then(
+                function() {
+                    return system_client.create_system({
+                        name: name
+                    });
+                }
+            ).then(refresh_systems);
         }
 
         function connect_system(name) {
-            return $q.when(system_client.connect_system({
-                name: name
-            }));
+            return $q.when().then(
+                function() {
+                    return system_client.connect_system({
+                        name: name
+                    });
+                }
+            );
         }
 
         function refresh_stats() {
-            return $q.when(system_client.system_stats()).then(
+            return $q.when().then(
+                function() {
+                    return system_client.read_system();
+                }
+            ).then(
                 function(res) {
                     console.log('STATS', res);
                     $scope.stats = res;

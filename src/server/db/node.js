@@ -35,28 +35,6 @@ var node_schema = new Schema({
         type: String,
     },
 
-    // the public ip of the node
-    ip: {
-        type: String,
-    },
-
-    // the listening port of the agent running on the node
-    port: {
-        type: Number,
-    },
-
-    // started/stopped state for the node agent
-    started: {
-        type: Boolean,
-    },
-
-    // the last time the node sent heartbeat
-    heartbeat: {
-        type: Date,
-        default: Date.now,
-        required: true,
-    },
-
     // the allocated storage space
     allocated_storage: {
         type: Number,
@@ -80,6 +58,27 @@ var node_schema = new Schema({
     // optional vendor specific resource identifier
     vendor_node_id: {
         type: String
+    },
+
+    // started/stopped state for the node agent
+    started: {
+        type: Boolean,
+    },
+
+    // the public ip of the node
+    ip: {
+        type: String,
+    },
+
+    // the listening port of the agent running on the node
+    port: {
+        type: Number,
+    },
+
+    // the last time the agent sent heartbeat
+    heartbeat: {
+        type: Date,
+        required: true,
     },
 
     // device information sent by the agent.

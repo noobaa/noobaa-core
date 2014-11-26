@@ -30,9 +30,9 @@ nb_app.controller('NodesListCtrl', [
         $scope.limit = 10;
         $scope.nodes_count = 0;
 
-        $scope.$watch('nbNodes.nodes_stats_by_geo', function() {
-            if ($scope.geo && nbNodes.nodes_stats_by_geo) {
-                $scope.geo_stats = nbNodes.nodes_stats_by_geo[$scope.geo];
+        $scope.$watch('nbNodes.node_groups_by_geo', function() {
+            if ($scope.geo && nbNodes.node_groups_by_geo) {
+                $scope.geo_stats = nbNodes.node_groups_by_geo[$scope.geo];
                 $scope.nodes_count = $scope.geo_stats.count;
             } else {
                 $scope.nodes_count = nbNodes.nodes_count;
@@ -44,7 +44,7 @@ nb_app.controller('NodesListCtrl', [
 
         function refresh_view() {
             return $q.all([
-                nbNodes.refresh_nodes_stats($scope.geo),
+                nbNodes.refresh_node_groups($scope.geo),
                 refresh_list(),
             ]);
         }
@@ -159,7 +159,7 @@ nb_app.factory('nbNodes', [
     '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location', 'nbAlertify', 'nbModal',
     function($q, $timeout, nbGoogle, $window, $rootScope, $location, nbAlertify, nbModal) {
         var $scope = {};
-        $scope.refresh_nodes_stats = refresh_nodes_stats;
+        $scope.refresh_node_groups = refresh_node_groups;
         $scope.list_nodes = list_nodes;
         $scope.read_node = read_node;
         $scope.add_nodes = add_nodes;
@@ -168,10 +168,10 @@ nb_app.factory('nbNodes', [
         $scope.stop_node = stop_node;
 
 
-        function refresh_nodes_stats(selected_geo) {
+        function refresh_node_groups(selected_geo) {
             return $q.when(load_node_vendors()).then(
                 function() {
-                    return node_client.nodes_stats({
+                    return node_client.group_nodes({
                         group_by: {
                             geolocation: true
                         }
@@ -179,9 +179,9 @@ nb_app.factory('nbNodes', [
                 }
             ).then(
                 function(res) {
-                    console.log('NODES STATS', res);
-                    $scope.nodes_stats = res.groups;
-                    $scope.nodes_stats_by_geo = _.indexBy(res.groups, 'geolocation');
+                    console.log('NODE GROUPS', res);
+                    $scope.node_groups = res.groups;
+                    $scope.node_groups_by_geo = _.indexBy(res.groups, 'geolocation');
                     $scope.nodes_count = _.reduce(res.groups, function(sum, g) {
                         return sum + g.count;
                     }, 0);
@@ -193,7 +193,7 @@ nb_app.factory('nbNodes', [
                         $scope.has_no_nodes = true;
                     }
                     return nbGoogle.then(function(google) {
-                        return draw_nodes_stats_map(google, selected_geo);
+                        return draw_nodes_map(google, selected_geo);
                     });
                 }
             );
@@ -315,7 +315,7 @@ nb_app.factory('nbNodes', [
                         num_created += 1;
                         defer.notify(num_created / scope.count);
                     });
-                })).then(refresh_nodes_stats).then(defer.resolve, defer.reject);
+                })).then(refresh_node_groups).then(defer.resolve, defer.reject);
                 return defer.promise;
             };
 
@@ -359,7 +359,7 @@ nb_app.factory('nbNodes', [
                 function() {
                     return $q.when(node_client.delete_node({
                         name: node.name
-                    })).then(refresh_nodes_stats);
+                    })).then(refresh_node_groups);
                 }
             );
         }
@@ -378,8 +378,8 @@ nb_app.factory('nbNodes', [
         }
 
 
-        function draw_nodes_stats_map(google, selected_geo) {
-            var element = $window.document.getElementById('nodes_stats_map');
+        function draw_nodes_map(google, selected_geo) {
+            var element = $window.document.getElementById('nodes_map');
             if (!element) {
                 return;
             }
@@ -392,7 +392,7 @@ nb_app.factory('nbNodes', [
             data.addColumn('number', 'Storage Capacity');
             data.addColumn('number', 'Number of Nodes');
             var selected_row = -1;
-            _.each($scope.nodes_stats, function(stat, index) {
+            _.each($scope.node_groups, function(stat, index) {
                 if (stat.geolocation === selected_geo) {
                     selected_row = index;
                 }

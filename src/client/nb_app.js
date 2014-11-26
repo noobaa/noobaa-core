@@ -100,7 +100,7 @@ nb_app.controller('DashboardCtrl', [
         $scope.refresh_view = function() {
             return $q.all([
                 $scope.nbSystem.refresh_system(),
-                $scope.nbNodes.refresh_nodes_stats()
+                $scope.nbNodes.refresh_nodes_groups()
             ]);
         };
 

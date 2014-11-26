@@ -15,36 +15,47 @@ var db = require('./db');
 
 
 module.exports = new api.node_api.Server({
+    // CRUD
     create_node: create_node,
     delete_node: delete_node,
     read_node: read_node,
+    // LIST
     list_nodes: list_nodes,
-    nodes_stats: nodes_stats,
+    // GROUP
+    group_nodes: group_nodes,
+    // START STOP
     start_nodes: start_nodes,
     stop_nodes: stop_nodes,
-    get_node_vendors: get_node_vendors,
     get_agents_status: get_agents_status,
+    // AGENT
     heartbeat: heartbeat,
+    // NODE VENDOR
     connect_node_vendor: connect_node_vendor,
 }, {
-    before: before
+    before: function(req) {
+        return req.load_system(['admin']);
+    }
 });
 
 
-function before(req) {
-    return req.load_system();
-}
 
+
+
+//////////
+// CRUD //
+//////////
 
 function create_node(req) {
     var info = _.pick(req.rest_params,
         'name',
+        'tier',
+        'is_server',
         'geolocation',
         'allocated_storage',
         'vendor',
         'vendor_node_id'
     );
-    info.account = req.account.id; // see system_server.account_session
+    info.system = req.system.id;
     info.started = true;
     info.heartbeat = new Date();
     info.used_storage = 0;
@@ -60,7 +71,7 @@ function create_node(req) {
         function(vendor_arg) {
             vendor = vendor_arg;
             if (info.vendor) {
-                verify_vendor_found(req.account.id, info.vendor, vendor);
+                verify_vendor_found(req.system.id, info.vendor, vendor);
             }
             return db.Node.create(info);
         }
@@ -79,7 +90,7 @@ function create_node(req) {
 
 function delete_node(req) {
     var info = _.pick(req.rest_params, 'name');
-    info.account = req.account.id; // see system_server.account_session
+    info.system = req.system.id; // see system_server.account_session
     var node;
 
     return Q.fcall(
@@ -165,7 +176,7 @@ function list_nodes(req) {
 }
 
 
-function nodes_stats(req) {
+function group_nodes(req) {
     var info = {};
     info.account = req.account.id; // see system_server.account_session
     var group_by = req.rest_params.group_by;
@@ -215,7 +226,7 @@ function nodes_stats(req) {
         }
     ).then(
         function(res) {
-            console.log('NODES_STATS', res);
+            console.log('GROUP NODES', res);
             return {
                 groups: _.map(res, function(r) {
                     var group = {
@@ -252,25 +263,6 @@ function stop_nodes(req) {
             return agent_host_action(nodes, 'stop_agent');
         }
     ).thenResolve();
-}
-
-
-function get_node_vendors(req) {
-    return Q.fcall(
-        function() {
-            return db.Vendor.find({
-                account: req.account.id
-            }).exec();
-        }
-    ).then(
-        function(vendors) {
-            return {
-                vendors: _.map(vendors, function(v) {
-                    return _.pick(v, 'id', 'name', 'kind');
-                })
-            };
-        }
-    );
 }
 
 
@@ -489,7 +481,7 @@ function agent_host_action(nodes, func_name) {
     ));
 }
 
-function verify_vendor_found(account_id, vendor_id, vendor) {
+function verify_vendor_found(system_id, vendor_id, vendor) {
     if (!vendor) {
         console.error('NODE VENDOR NOT FOUND', vendor_id);
         throw new Error('node vendor not found');
@@ -498,9 +490,9 @@ function verify_vendor_found(account_id, vendor_id, vendor) {
         console.error('NODE VENDOR ID MISMATCH', vendor_id, vendor.id);
         throw new Error('node vendor id mismatch');
     }
-    if (String(account_id) !== String(vendor.account)) {
-        console.error('NODE VENDOR ACCOUNT MISMATCH', account_id, vendor.account);
-        throw new Error('node vendor account mismatch');
+    if (String(system_id) !== String(vendor.system)) {
+        console.error('NODE VENDOR SYSTEM MISMATCH', system_id, vendor.system);
+        throw new Error('node vendor system mismatch');
     }
 }
 

@@ -8,27 +8,32 @@ module.exports = rest_api({
 
     methods: {
 
+
+        //////////
+        // CRUD //
+        //////////
+
         create_node: {
             method: 'POST',
             path: '/node',
             params: {
                 type: 'object',
-                required: ['name', 'geolocation', 'allocated_storage'],
+                required: ['name', 'tier', 'geolocation', 'allocated_storage'],
                 properties: {
                     name: {
                         type: 'string',
-                    },
-                    geolocation: {
-                        type: 'string',
-                    },
-                    allocated_storage: {
-                        type: 'integer'
                     },
                     tier: {
                         type: 'string',
                     },
                     is_server: {
                         type: 'boolean',
+                    },
+                    geolocation: {
+                        type: 'string',
+                    },
+                    allocated_storage: {
+                        type: 'integer'
                     },
                     vendor: {
                         type: 'string'
@@ -71,6 +76,10 @@ module.exports = rest_api({
             }
         },
 
+
+        //////////
+        // LIST //
+        //////////
 
         list_nodes: {
             method: 'GET',
@@ -118,9 +127,14 @@ module.exports = rest_api({
             }
         },
 
-        nodes_stats: {
+
+        ///////////
+        // GROUP //
+        ///////////
+
+        group_nodes: {
             method: 'GET',
-            path: '/nodes_stats',
+            path: '/group',
             params: {
                 type: 'object',
                 required: [],
@@ -172,10 +186,13 @@ module.exports = rest_api({
         },
 
 
+        ////////////////
+        // START STOP //
+        ////////////////
 
         start_nodes: {
             method: 'POST',
-            path: '/start_nodes',
+            path: '/start',
             params: {
                 type: 'object',
                 required: ['nodes'],
@@ -192,7 +209,7 @@ module.exports = rest_api({
 
         stop_nodes: {
             method: 'POST',
-            path: '/stop_nodes',
+            path: '/stop',
             params: {
                 type: 'object',
                 required: ['nodes'],
@@ -201,36 +218,6 @@ module.exports = rest_api({
                         type: 'array',
                         items: {
                             type: 'string', // node name
-                        }
-                    }
-                }
-            }
-        },
-
-
-        get_node_vendors: {
-            method: 'GET',
-            path: '/node_vendor',
-            reply: {
-                type: 'object',
-                required: ['vendors'],
-                properties: {
-                    vendors: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['id', 'kind'],
-                            properties: {
-                                id: {
-                                    type: 'string',
-                                },
-                                name: {
-                                    type: 'string',
-                                },
-                                kind: {
-                                    type: 'string',
-                                }
-                            }
                         }
                     }
                 }

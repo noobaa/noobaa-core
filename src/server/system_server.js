@@ -31,14 +31,13 @@ var system_server = new api.system_api.Server({
     add_tier: add_tier,
     remove_tier: remove_tier,
 }, {
-    before: before
+    before: function(req) {
+        return req.load_account();
+    }
 });
 
 module.exports = system_server;
 
-function before(req) {
-    return req.load_account();
-}
 
 
 //////////
@@ -83,13 +82,17 @@ function read_system(req) {
             var by_system_id = {
                 system: req.system.id
             };
+            var by_system_id_undeleted = {
+                system: req.system.id,
+                deleted: null,
+            };
             return Q.all([
                 // roles
                 db.Role.find(by_system_id).populate('account').exec(),
                 // vendors
-                db.Vendor.find(by_system_id).exec(),
+                db.Vendor.find(by_system_id_undeleted).exec(),
                 // tiers
-                db.Tier.find(by_system_id).exec(),
+                db.Tier.find(by_system_id_undeleted).exec(),
                 // nodes - count, online count, allocated/used storage
                 db.Node.mapReduce({
                     query: by_system_id,

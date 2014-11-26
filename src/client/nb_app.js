@@ -100,7 +100,7 @@ nb_app.controller('DashboardCtrl', [
         $scope.refresh_view = function() {
             return $q.all([
                 $scope.nbSystem.refresh_system(),
-                $scope.nbNodes.refresh_nodes_groups()
+                $scope.nbNodes.refresh_node_groups()
             ]);
         };
 
@@ -190,9 +190,9 @@ nb_app.factory('nbSystem', [
             ).then(refresh_systems);
         }
 
-        function connect_system(system_id) {
+        function connect_system(system_name) {
             return nbAuth.update_auth({
-                system: system_id
+                system: system_name
             }).then(refresh_system);
         }
 

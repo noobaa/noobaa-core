@@ -207,11 +207,8 @@ module.exports = rest_api({
 
         system_info: {
             type: 'object',
-            required: ['id', 'name'],
+            required: ['name'],
             properties: {
-                id: {
-                    type: 'string',
-                },
                 name: {
                     type: 'string',
                 },
@@ -222,7 +219,6 @@ module.exports = rest_api({
         system_full_info: {
             type: 'object',
             required: [
-                'id',
                 'name',
                 'roles',
                 'vendors',
@@ -233,9 +229,6 @@ module.exports = rest_api({
                 'objects',
             ],
             properties: {
-                id: {
-                    type: 'string',
-                },
                 name: {
                     type: 'string',
                 },

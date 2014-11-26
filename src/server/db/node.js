@@ -85,7 +85,12 @@ var node_schema = new Schema({
     // TODO define schema for device_info
     device_info: {
         type: Object
-    }
+    },
+
+    // on delete set deletion time
+    deleted: {
+        type: Date,
+    },
 
 });
 
@@ -93,8 +98,16 @@ var node_schema = new Schema({
 node_schema.index({
     system: 1,
     name: 1,
+    deleted: 1, // delete time part of the unique index
 }, {
     unique: true
+});
+
+node_schema.index({
+    vendor: 1,
+    deleted: 1,
+}, {
+    unique: false
 });
 
 

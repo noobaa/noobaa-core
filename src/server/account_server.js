@@ -37,23 +37,15 @@ function create_account(req) {
             return db.Account.create(info);
         }
     ).then(
-        function(account) {
-            return _.pick(account, 'id');
-        },
-        function(err) {
-            if (err.code === 11000) {
-                throw req.rest_error('account already exists');
-            }
-            throw err;
-        }
-    );
+        null, db.check_already_exists(req, 'account')
+    ).thenResolve();
 }
 
 
 function read_account(req) {
     return req.load_account('force_miss').then(
         function() {
-            return _.pick(req.account, 'id', 'name', 'email');
+            return _.pick(req.account, 'name', 'email');
         }
     );
 }

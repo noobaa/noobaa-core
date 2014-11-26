@@ -344,7 +344,7 @@ module.exports = rest_api({
                 'heartbeat',
                 'allocated_storage',
                 'used_storage',
-                'system_info',
+                'device_info',
             ],
             properties: {
                 name: {
@@ -381,15 +381,9 @@ module.exports = rest_api({
                 vendor_node_id: {
                     type: 'string'
                 },
-                system_info: {
+                device_info: {
                     type: 'object',
-                    required: ['os'],
-                    properties: {
-                        os: {
-                            type: 'object',
-                            additionalProperties: true,
-                        }
-                    }
+                    additionalProperties: true,
                 }
             }
         }

@@ -62,7 +62,13 @@ describe('account', function() {
                     email: EMAIL,
                     password: PASSWORD,
                 }).then(function(res) {
+                    auth_client.set_authorization(res.token);
                     account_client.set_authorization(res.token);
+                });
+            }).then(function() {
+                return auth_client.read_auth().then(function(res) {
+                    assert.strictEqual(res.account.name, NAME);
+                    assert.strictEqual(res.account.email, EMAIL);
                 });
             }).then(function() {
                 return account_client.read_account().then(function(res) {
@@ -81,6 +87,7 @@ describe('account', function() {
             }).then(function() {
                 return account_client.delete_account();
             }).then(function() {
+                auth_client.set_authorization(null);
                 account_client.set_authorization(null);
             }).nodeify(done);
         });

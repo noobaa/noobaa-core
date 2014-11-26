@@ -54,7 +54,7 @@ function create_system(req) {
             return db.System.create(info);
         }
     ).then(
-        null, check_already_exists(req, 'system')
+        null, db.check_already_exists(req, 'system')
     ).then(
         function(system_arg) {
             system = system_arg;
@@ -66,7 +66,7 @@ function create_system(req) {
             });
         }
     ).then(
-        null, check_already_exists(req, 'role')
+        null, db.check_already_exists(req, 'role')
     ).then(
         function() {
             return get_system_info(system);
@@ -95,7 +95,7 @@ function read_system(req) {
                 db.Tier.find(by_system_id_undeleted).exec(),
                 // nodes - count, online count, allocated/used storage
                 db.Node.mapReduce({
-                    query: by_system_id,
+                    query: by_system_id_undeleted,
                     scope: {
                         // have to pass variables to map/reduce with a scope
                         minimum_online_heartbeat: minimum_online_heartbeat,
@@ -157,7 +157,6 @@ function read_system(req) {
                     objects = _.mapValues(_.indexBy(objects, '_id'), 'value');
                     blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
                     return {
-                        id: req.system.id,
                         name: req.system.name,
                         roles: _.map(roles, function(role) {
                             role = _.pick(role, 'role', 'account');
@@ -244,7 +243,7 @@ function list_systems(req) {
     ).then(
         function(roles) {
             return _.map(roles, function(role) {
-                return _.pick(role.system, 'id', 'name');
+                return get_system_info(role.system);
             });
         },
         function(err) {
@@ -261,43 +260,38 @@ function list_systems(req) {
 //////////
 
 function add_role(req) {
-    var email = req.rest_params.email;
-    var role = req.rest_params.role;
-
     return req.load_system(['admin']).then(
         function() {
             return db.Account.findOne({
-                email: email,
+                email: req.rest_params.email,
                 deleted: null,
             }).exec();
         }
     ).then(
-        check_not_found(req, 'account')
+        db.check_not_deleted(req, 'account')
     ).then(
         function(account) {
             return db.Role.create({
                 account: account.id,
                 system: req.system.id,
-                role: role,
+                role: req.rest_params.role,
             });
         }
     ).then(
-        null, check_already_exists(req, 'role')
+        null, db.check_already_exists(req, 'role')
     ).thenResolve();
 }
 
 function remove_role(req) {
-    var email = req.rest_params.email;
-
     return req.load_system(['admin']).then(
         function() {
             return db.Account.findOne({
-                email: email,
+                email: req.rest_params.email,
                 deleted: null,
             }).exec();
         }
     ).then(
-        check_not_found(req, 'account')
+        db.check_not_deleted(req, 'account')
     ).then(
         function(account) {
             return db.Role.findOneAndRemove({
@@ -305,8 +299,6 @@ function remove_role(req) {
                 system: req.system.id,
             }).exec();
         }
-    ).then(
-        check_not_found(req, 'role')
     ).thenResolve();
 }
 
@@ -323,24 +315,22 @@ function add_vendor(req) {
             return db.Vendor.create(info);
         }
     ).then(
-        null, check_already_exists(req, 'vendor')
+        null, db.check_already_exists(req, 'vendor')
     ).thenResolve();
 }
 
 function remove_vendor(req) {
-    var name = req.rest_params.name;
-
     return req.load_system(['admin']).then(
         function() {
             return db.Vendor.findOneAndUpdate({
                 system: req.system.id,
-                name: name,
+                name: req.rest_params.name,
             }, {
                 deleted: new Date()
             }).exec();
         }
     ).then(
-        check_not_found(req, 'vendor')
+        db.check_not_found(req, 'vendor')
     ).thenResolve();
 }
 
@@ -357,25 +347,23 @@ function add_tier(req) {
             return db.Tier.create(info);
         }
     ).then(
-        null, check_already_exists(req, 'tier')
+        null, db.check_already_exists(req, 'tier')
     ).thenResolve();
 
 }
 
 function remove_tier(req) {
-    var name = req.rest_params.name;
-
     return req.load_system(['admin']).then(
         function() {
             return db.Tier.findOneAndUpdate({
                 system: req.system.id,
-                name: name,
+                name: req.rest_params.name,
             }, {
                 deleted: new Date()
             }).exec();
         }
     ).then(
-        check_not_found(req, 'tier')
+        db.check_not_found(req, 'tier')
     ).thenResolve();
 }
 
@@ -386,23 +374,5 @@ function remove_tier(req) {
 //////////
 
 function get_system_info(system) {
-    return _.pick(system, 'id', 'name');
-}
-
-function check_not_found(req, entity) {
-    return function(doc) {
-        if (!doc) {
-            throw req.rest_error(entity + ' not found');
-        }
-        return doc;
-    };
-}
-
-function check_already_exists(req, entity) {
-    return function(err) {
-        if (err.code === 11000) {
-            throw req.rest_error(entity + ' already exists');
-        }
-        throw err;
-    };
+    return _.pick(system, 'name');
 }

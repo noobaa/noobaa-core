@@ -16,6 +16,7 @@ var auth_server = new api.auth_api.Server({
     // CRUD
     create_auth: create_auth,
     update_auth: update_auth,
+    read_auth: read_auth,
 });
 
 // authorize is exported to be used as an express middleware
@@ -31,19 +32,15 @@ module.exports = auth_server;
 //////////
 
 function create_auth(req) {
-    var info = {
-        email: req.rest_params.email,
-        deleted: null, // filter out accounts that were deleted
-    };
     var password = req.rest_params.password;
-    var system_id = req.rest_params.system;
-    var expires = req.rest_params.expires;
     var account;
-    var auth_error;
     // find the account by email, and verify password
     return Q.fcall(
         function() {
-            return db.Account.findOne(info).exec();
+            return db.Account.findOne({
+                email: req.rest_params.email,
+                deleted: null,
+            }).exec();
         }
     ).then(
         function(account_arg) {
@@ -61,53 +58,64 @@ function create_auth(req) {
             if (!matching) {
                 throw req.rest_error('incorrect email and password');
             }
-            return auth_by_account(req, account.id, system_id, expires);
+            return auth_by_account(req, account.id);
         }
     );
 }
 
 
 function update_auth(req) {
-    var system_id = req.rest_params.system;
-    var expires = req.rest_params.expires;
     return req.load_account('force_miss').then(
         function() {
-            return auth_by_account(req, req.account.id, system_id, expires);
+            return auth_by_account(req, req.account.id);
         }
     );
 }
 
 
-function auth_by_account(req, account_id, system_id, expires) {
+function auth_by_account(req, account_id) {
+    var system_name = req.rest_params.system;
+    var expires = req.rest_params.expires;
+    var system;
+    var role;
     return Q.fcall(
         function() {
-            if (system_id) {
-                // find system and role
-                return Q.all([
-                    db.System.findById(system_id).exec(),
-                    db.Role.findOne({
-                        account: account_id,
-                        system: system_id,
-                    }).exec()
-                ]);
+            if (!system_name) {
+                return;
             }
+            // find system
+            return db.System.findOne({
+                name: system_name,
+                deleted: null,
+            }).exec().then(
+                function(system_arg) {
+                    system = system_arg;
+                    if (!system || system.deleted) {
+                        throw req.rest_error('system not found');
+                    }
+                    // find role
+                    return db.Role.findOne({
+                        account: account_id,
+                        system: system.id,
+                    }).exec();
+                }
+            ).then(
+                function(role_arg) {
+                    role = role_arg;
+                    if (!role) {
+                        throw req.rest_error('role not found');
+                    }
+                }
+            );
         }
     ).then(
-        function(res) {
+        function() {
             // use jwt (json web token) to create a signed token
             var jwt_payload = {
                 account_id: account_id
             };
-            if (system_id) {
-                var system = res[0];
-                var role = res[1];
-                if (!system) {
-                    throw req.rest_error('system not found');
-                }
-                if (!role) {
-                    throw req.rest_error('role not found');
-                }
-                jwt_payload.system_id = system_id;
+            if (system_name) {
+                jwt_payload.system_id = system.id;
                 jwt_payload.role = role.role;
             }
             var jwt_options = {};
@@ -120,6 +128,43 @@ function auth_by_account(req, account_id, system_id, expires) {
             };
         }
     );
+}
+
+
+function read_auth(req) {
+    if (!req.auth) {
+        return {};
+    }
+    var reply = {};
+    if (req.auth.role) {
+        reply.role = req.auth.role;
+    }
+
+    return Q.fcall(
+        function() {
+            if (req.auth.account_id) {
+                return db.AccountCache.get(req.auth.account_id, 'force_miss').then(
+                    function(account) {
+                        if (account) {
+                            reply.account = _.pick(account, 'name', 'email');
+                        }
+                    }
+                );
+            }
+        }
+    ).then(
+        function() {
+            if (req.auth && req.auth.system_id) {
+                return db.SystemCache.get(req.auth.system_id, 'force_miss').then(
+                    function(system) {
+                        if (system) {
+                            reply.system = _.pick(system, 'name');
+                        }
+                    }
+                );
+            }
+        }
+    ).thenResolve(reply);
 }
 
 
@@ -169,18 +214,12 @@ function prepare_auth_request(req) {
                     return; // already loaded
                 }
                 if (!req.auth || !req.auth.account_id) {
-                    console.error('UNAUTHORIZED', req.auth);
                     throw req.rest_error('unauthorized', 401);
                 }
                 return db.AccountCache.get(req.auth.account_id, force_miss).then(
                     function(account) {
                         if (!account) {
-                            console.error('ACCOUNT MISSING', req.auth);
                             throw new Error('account missing');
-                        }
-                        if (account.deleted) {
-                            console.error('ACCOUNT DELETED', account);
-                            throw new Error('account deleted');
                         }
                         req.account = account;
                     }
@@ -199,23 +238,16 @@ function prepare_auth_request(req) {
                 }
                 var err;
                 if (!req.auth || !req.auth.system_id) {
-                    console.error('UNAUTHORIZED SYSTEM', req.auth);
                     throw req.rest_error('unauthorized system', 401);
                 }
                 if ((!valid_roles && !req.auth.role) ||
                     (valid_roles && !_.contains(valid_roles, req.auth.role))) {
-                    console.error('FORBIDDEN ROLE', req.auth);
                     throw req.rest_error('forbidden role', 403);
                 }
                 return db.SystemCache.get(req.auth.system_id, force_miss).then(
                     function(system) {
                         if (!system) {
-                            console.error('SYSTEM MISSING', req.auth);
                             throw new Error('system missing');
-                        }
-                        if (system.deleted) {
-                            console.error('SYSTEM DELETED', system);
-                            throw new Error('system deleted');
                         }
                         req.system = system;
                         req.role = req.auth.role;

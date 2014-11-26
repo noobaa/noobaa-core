@@ -156,8 +156,10 @@ nb_app.controller('NodeDetailsCtrl', [
 
 
 nb_app.factory('nbNodes', [
-    '$q', '$timeout', 'nbGoogle', '$window', '$rootScope', '$location', 'nbAlertify', 'nbModal',
-    function($q, $timeout, nbGoogle, $window, $rootScope, $location, nbAlertify, nbModal) {
+    '$q', '$timeout', 'nbGoogle', '$window', '$rootScope',
+    '$location', 'nbAlertify', 'nbModal', 'nbSystem',
+    function($q, $timeout, nbGoogle, $window, $rootScope,
+        $location, nbAlertify, nbModal, nbSystem) {
         var $scope = {};
         $scope.refresh_node_groups = refresh_node_groups;
         $scope.list_nodes = list_nodes;
@@ -169,7 +171,7 @@ nb_app.factory('nbNodes', [
 
 
         function refresh_node_groups(selected_geo) {
-            return $q.when(load_node_vendors()).then(
+            return $q.when().then(
                 function() {
                     return node_client.group_nodes({
                         group_by: {
@@ -200,7 +202,7 @@ nb_app.factory('nbNodes', [
         }
 
         function list_nodes(params) {
-            return $q.when(load_node_vendors()).then(
+            return $q.when().then(
                 function() {
                     return node_client.list_nodes(params);
                 }
@@ -214,18 +216,8 @@ nb_app.factory('nbNodes', [
             );
         }
 
-        function load_node_vendors() {
-            return $q.when(node_client.get_node_vendors()).then(
-                function(res) {
-                    $scope.node_vendors = res.vendors;
-                    $scope.node_vendors_by_id = _.indexBy(res.vendors, 'id');
-                    console.log('NODE VENDORS', $scope.node_vendors);
-                }
-            );
-        }
-
         function read_node(name) {
-            return $q.when(load_node_vendors()).then(
+            return $q.when().then(
                 function() {
                     return node_client.read_node({
                         name: name
@@ -244,19 +236,17 @@ nb_app.factory('nbNodes', [
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
             node.usage_percent = 100 * node.used_storage / node.allocated_storage;
-            node.vendor = $scope.node_vendors_by_id[node.vendor];
+            // TODO resolve vendor id to name by client or server?
+            // node.vendor = $scope.node_vendors_by_id[node.vendor];
         }
 
-        function add_nodes(loaded_vendors) {
-            if (!loaded_vendors) {
-                return $q.when(load_node_vendors()).then(function() {
-                    // call myself again with true to skip loading again
-                    return add_nodes(true);
-                });
-            }
-            if (!$scope.node_vendors || !$scope.node_vendors.length) {
+        function add_nodes() {
+            var node_vendors = _.filter(nbSystem.system.vendors, {
+                category: 'vm'
+            });
+            if (!node_vendors || !node_vendors.length) {
                 nbAlertify.alert(
-                    'In order to add nodes you need to ' +
+                    'In order to add nodes you will need to ' +
                     'setup node-vendors for your account. ' +
                     'Please seek professional help.');
                 return;
@@ -265,8 +255,8 @@ nb_app.factory('nbNodes', [
             // make a scope for the modal
             var scope = $rootScope.$new();
             scope.count = 1;
-            scope.node_vendors = $scope.node_vendors;
-            scope.selected_vendor = $scope.node_vendors[0];
+            scope.node_vendors = node_vendors;
+            scope.selected_vendor = node_vendors[0];
             scope.allocate_gb = 1;
 
             // in order to allow input[type=range] and input[type=number]

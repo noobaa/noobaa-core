@@ -32,15 +32,6 @@ module.exports = rest_api({
                         type: 'string',
                     },
                 },
-            },
-            reply: {
-                type: 'object',
-                required: ['id'],
-                properties: {
-                    id: {
-                        type: 'string',
-                    },
-                },
             }
         },
 
@@ -50,11 +41,8 @@ module.exports = rest_api({
             path: '/account',
             reply: {
                 type: 'object',
-                required: ['id', 'name', 'email'],
+                required: ['name', 'email'],
                 properties: {
-                    id: {
-                        type: 'string',
-                    },
                     name: {
                         type: 'string',
                     },

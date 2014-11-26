@@ -39,20 +39,17 @@ module.exports = new api.node_api.Server({
 
 
 
-
-
 //////////
 // CRUD //
 //////////
 
+
 function create_node(req) {
     var info = _.pick(req.rest_params,
         'name',
-        'tier',
         'is_server',
         'geolocation',
         'allocated_storage',
-        'vendor',
         'vendor_node_id'
     );
     info.system = req.system.id;
@@ -60,25 +57,44 @@ function create_node(req) {
     info.heartbeat = new Date();
     info.used_storage = 0;
 
-    var vendor;
     return Q.fcall(
         function() {
-            if (info.vendor) {
-                return db.Vendor.findById(info.vendor).exec();
-            }
+            return Q.all([
+                db.Tier.findOne({
+                    system: req.system.id,
+                    name: req.rest_params.tier,
+                    deleted: null,
+                }).exec(),
+                req.rest_params.vendor && db.Vendor.findOne({
+                    system: req.system.id,
+                    name: req.rest_params.vendor,
+                    deleted: null,
+                }).exec(),
+            ]);
         }
     ).then(
-        function(vendor_arg) {
-            vendor = vendor_arg;
-            if (info.vendor) {
-                verify_vendor_found(req.system.id, info.vendor, vendor);
+        function(res) {
+            info.tier = res[0];
+            info.vendor = res[1];
+            if (!info.tier || String(info.tier.system) !== String(info.system) || info.tier.deleted) {
+                console.error('BAD TIER', info);
+                throw req.rest_error('tier not found');
             }
+            if (req.rest_params.vendor && (!info.vendor ||
+                    String(info.vendor.system) !== String(info.system) ||
+                    info.vendor.deleted)) {
+                console.error('BAD VENDOR', info);
+                throw req.rest_error('vendor not found');
+            }
+
             return db.Node.create(info);
         }
     ).then(
+        null, db.check_already_exists(req, 'node')
+    ).then(
         function(node) {
-            if (vendor) {
-                return agent_host_caller(vendor).start_agent({
+            if (info.vendor) {
+                return agent_host_caller(info.vendor).start_agent({
                     name: node.name,
                     geolocation: node.geolocation,
                 });
@@ -89,57 +105,47 @@ function create_node(req) {
 
 
 function delete_node(req) {
-    var info = _.pick(req.rest_params, 'name');
-    info.system = req.system.id; // see system_server.account_session
-    var node;
-
     return Q.fcall(
         function() {
-            return db.Node.findOne(info).exec();
-        }
-    ).then(
-        function(node_arg) {
-            node = node_arg;
-            if (!node) {
-                throw_node_not_found(node, info.name);
-            }
-            return db.DataBlock.findOne({
-                node: node.id
+            return db.Node.findOneAndUpdate({
+                system: req.system.id,
+                name: req.rest_params.name,
+                deleted: null,
+            }, {
+                deleted: new Date()
             }).exec();
         }
     ).then(
-        function(block) {
-            if (block) {
-                // TODO delete_node initiate rebuild of blocks
-                console.log('DELETE NODE WITH BLOCK', block);
-            }
-            // TODO delete_node move the node to deleted nodes collection
-            return node.remove();
+        db.check_not_found(req, 'node')
+    ).then(
+        function(node) {
+            // TODO notify to initiate rebuild of blocks
         }
     ).thenResolve();
 }
 
 
 function read_node(req) {
-    var info = _.pick(req.rest_params, 'name');
-    info.account = req.account.id; // see system_server.account_session
-
     return Q.fcall(
-        function() {
-            return db.Node.findOne(info).exec();
-        }
+        find_node_by_name, req, req.rest_params.name
     ).then(
         function(node) {
-            throw_node_not_found(node);
             return get_node_info(node);
         }
     );
 }
 
 
+
+//////////
+// LIST //
+//////////
+
 function list_nodes(req) {
-    var info = {};
-    info.account = req.account.id; // see system_server.account_session
+    var info = {
+        system: req.system.id,
+        deleted: null,
+    };
     var query = req.rest_params.query;
     var skip = req.rest_params.skip;
     var limit = req.rest_params.limit;
@@ -176,14 +182,22 @@ function list_nodes(req) {
 }
 
 
+
+///////////
+// GROUP //
+///////////
+
 function group_nodes(req) {
-    var info = {};
-    info.account = req.account.id; // see system_server.account_session
+    var by_system = {
+        system: req.system.id,
+        deleted: null,
+    };
     var group_by = req.rest_params.group_by;
     return Q.fcall(
         function() {
             var reduce_sum = size_utils.reduce_sum;
             return db.Node.mapReduce({
+                query: by_system,
                 scope: {
                     group_by: group_by,
                     reduce_sum: reduce_sum,
@@ -247,9 +261,15 @@ function group_nodes(req) {
     );
 }
 
+
+
+////////////////
+// START STOP //
+////////////////
+
 function start_nodes(req) {
     var node_names = req.rest_params.nodes;
-    return Q.fcall(set_nodes_started_state, req.account, node_names, true).then(
+    return Q.fcall(update_nodes_started_state, req, node_names, true).then(
         function(nodes) {
             return agent_host_action(nodes, 'start_agent');
         }
@@ -258,7 +278,7 @@ function start_nodes(req) {
 
 function stop_nodes(req) {
     var node_names = req.rest_params.nodes;
-    return Q.fcall(set_nodes_started_state, req.account, node_names, false).then(
+    return Q.fcall(update_nodes_started_state, req, node_names, false).then(
         function(nodes) {
             return agent_host_action(nodes, 'stop_agent');
         }
@@ -270,7 +290,7 @@ function stop_nodes(req) {
 // TODO is this still needed as api method?
 function get_agents_status(req) {
     var node_names = req.rest_params.nodes;
-    return Q.fcall(get_nodes_with_vendors, req.account, node_names).then(
+    return Q.fcall(find_nodes_with_vendors, req, node_names).then(
         function(nodes) {
             return agent_host_action(nodes, 'get_agent_status');
         }
@@ -294,16 +314,17 @@ function get_agents_status(req) {
 
 
 
-function heartbeat(req) {
-    var info = _.pick(req.rest_params, 'name');
-    info.account = req.account.id; // see system_server.account_session
+///////////////
+// HEARTBEAT //
+///////////////
 
+function heartbeat(req) {
     var updates = _.pick(req.rest_params,
         'geolocation',
         'ip',
         'port',
         'allocated_storage',
-        'system_info'
+        'device_info'
     );
     updates.ip = (updates.ip && updates.ip !== '0.0.0.0' && updates.ip) ||
         req.headers['x-forwarded-for'] ||
@@ -314,33 +335,22 @@ function heartbeat(req) {
     var node;
 
     return Q.fcall(
-        function() {
-            return db.Node.findOne(info).exec();
-        }
+        find_node_by_name, req, req.rest_params.name
     ).then(
         function(node_arg) {
             node = node_arg;
-            throw_node_not_found(node, info.name);
-            // TODO CRITICAL need to optimize - we read blocks and chunks on every heartbeat...
-            return db.DataBlock.find({
-                node: node.id
-            }).populate('chunk').exec();
+            // TODO CRITICAL need to optimize - we count blocks on every heartbeat...
+            return count_node_used_storage(node.id);
         }
     ).then(
-        function(blocks) {
-            var real_usage = 0;
-            _.each(blocks, function(block) {
-                if (block.chunk && block.chunk.kfrag) {
-                    real_usage += (block.chunk.size / block.chunk.kfrag) | 0;
-                }
-            });
-            if (node.used_storage !== real_usage) {
-                updates.used_storage = real_usage;
+        function(used_storage) {
+            if (node.used_storage !== used_storage) {
+                updates.used_storage = used_storage;
             }
             // the agent's used storage is verified but not updated
-            if (agent_used_storage !== real_usage) {
+            if (agent_used_storage !== used_storage) {
                 console.log('NODE agent used storage not in sync',
-                    agent_used_storage, 'real', real_usage);
+                    agent_used_storage, 'real', used_storage);
                 // TODO trigger a usage check
             }
 
@@ -376,9 +386,13 @@ function heartbeat(req) {
 
 
 
+/////////////////
+// NODE VENDOR //
+/////////////////
+
 function connect_node_vendor(req) {
     var vendor_info = _.pick(req.rest_params, 'name', 'category', 'kind', 'details');
-    vendor_info.account = req.account.id; // see system_server.account_session
+    vendor_info.system = req.system.id;
     var vendor;
     return Q.fcall(
         function() {
@@ -388,23 +402,26 @@ function connect_node_vendor(req) {
             return db.Vendor.findOne({
                 account: req.account.id,
                 name: vendor_info.name,
+                deleted: null,
             }).exec();
         }
     ).then(
         function(vendor_arg) {
             if (vendor_arg) {
                 return vendor_arg;
+            } else {
+                return db.Vendor.create(vendor_info);
             }
-            return db.Vendor.create(vendor_info);
         }
+    ).then(
+        null, db.check_already_exists(req, 'vendor')
     ).then(
         function(vendor_arg) {
             vendor = vendor_arg;
-            verify_vendor_found(req.account.id, vendor.id, vendor);
             // find all nodes hosted by this vendor
             return db.Node.find({
-                account: req.account.id,
                 vendor: vendor.id,
+                deleted: null,
             }).select('name').exec();
         }
     ).then(
@@ -422,22 +439,51 @@ function connect_node_vendor(req) {
 
 
 
-// utilities
+///////////
+// UTILS //
+///////////
 
 
-function get_nodes_with_vendors(account, node_names) {
+function count_node_used_storage(node_id) {
+    return db.DataBlock.mapReduce({
+        query: {
+            node: node_id
+        },
+        map: function() {
+            emit('size', this.size);
+        },
+        reduce: size_utils.reduce_sum
+    }).then(
+        function(res) {
+            return res && res[0] && res[0].value || 0;
+        }
+    );
+}
+
+function find_node_by_name(req, name) {
+    return db.Node.findOne({
+        system: req.system.id,
+        name: name,
+        deleted: null,
+    }).exec().then(
+        db.check_not_deleted(req, 'node')
+    );
+}
+
+function find_nodes_with_vendors(req, node_names) {
     return db.Node.find({
-        account: account.id,
+        system: req.system.id,
         name: {
             $in: node_names
-        }
+        },
+        deleted: null,
     }).populate('vendor').exec();
 }
 
 
-function set_nodes_started_state(account, node_names, started) {
+function update_nodes_started_state(req, node_names, started) {
     var nodes;
-    return Q.fcall(get_nodes_with_vendors, account, node_names).then(
+    return Q.fcall(find_nodes_with_vendors, req, node_names).then(
         function(nodes_arg) {
             nodes = nodes_arg;
             var nodes_to_update = _.compact(_.map(nodes, function(node) {
@@ -481,21 +527,6 @@ function agent_host_action(nodes, func_name) {
     ));
 }
 
-function verify_vendor_found(system_id, vendor_id, vendor) {
-    if (!vendor) {
-        console.error('NODE VENDOR NOT FOUND', vendor_id);
-        throw new Error('node vendor not found');
-    }
-    if (String(vendor_id) !== String(vendor.id)) {
-        console.error('NODE VENDOR ID MISMATCH', vendor_id, vendor.id);
-        throw new Error('node vendor id mismatch');
-    }
-    if (String(system_id) !== String(vendor.system)) {
-        console.error('NODE VENDOR SYSTEM MISMATCH', system_id, vendor.system);
-        throw new Error('node vendor system mismatch');
-    }
-}
-
 function agent_host_caller(vendor) {
     if (vendor.kind !== 'agent_host') {
         throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + vendor.kind);
@@ -529,17 +560,9 @@ function get_node_info(node) {
     if (node.vendor_node_id) {
         info.vendor_node_id = node.vendor_node_id;
     }
-    info.system_info = node.system_info && node.system_info.toObject() || {};
-    if (!info.system_info.os) {
-        info.system_info.os = {};
-    }
+    info.device_info =
+        node.device_info &&
+        node.device_info.toObject &&
+        node.device_info.toObject() || {};
     return info;
-}
-
-function throw_node_not_found(node, info) {
-    if (!node) {
-        var err = new Error('node not found' + (info && ' ' + info || ''));
-        err.status = 404;
-        throw err;
-    }
 }

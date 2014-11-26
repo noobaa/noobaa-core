@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
+var mongoose = require('mongoose');
 
 var DBCache = require('../../util/db_cache');
 var Account = require('./account');
@@ -17,6 +18,7 @@ var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 
 module.exports = {
+    ObjectID: mongoose.Schema.Types.ObjectID,
 
     Account: Account,
     Role: Role,
@@ -40,7 +42,9 @@ module.exports = {
                 }
             ).then(
                 function(account) {
-                    return _.pick(account, 'id', 'name', 'email');
+                    if (!account.deleted) {
+                        return _.pick(account, 'id', 'name', 'email');
+                    }
                 }
             );
         }
@@ -56,10 +60,43 @@ module.exports = {
                 }
             ).then(
                 function(system) {
-                    return _.pick(system, 'id', 'name');
+                    if (!system.deleted) {
+                        return _.pick(system, 'id', 'name');
+                    }
                 }
             );
         }
     }),
 
+    check_not_found: check_not_found,
+    check_not_deleted: check_not_deleted,
+    check_already_exists: check_already_exists,
 };
+
+
+function check_not_found(req, entity, allow_deleted) {
+    return function(doc) {
+        if (!doc) {
+            throw req.rest_error(entity + ' not found');
+        }
+        return doc;
+    };
+}
+
+function check_not_deleted(req, entity) {
+    return function(doc) {
+        if (!doc || doc.deleted) {
+            throw req.rest_error(entity + ' not found');
+        }
+        return doc;
+    };
+}
+
+function check_already_exists(req, entity) {
+    return function(err) {
+        if (err.code === 11000) {
+            throw req.rest_error(entity + ' already exists');
+        }
+        throw err;
+    };
+}

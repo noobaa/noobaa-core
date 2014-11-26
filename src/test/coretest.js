@@ -15,7 +15,7 @@ var Agent = require('../agent/agent');
 
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
-Q.longStackSupport = true;
+// Q.longStackSupport = true;
 
 process.env.JWT_SECRET = 'coretest';
 

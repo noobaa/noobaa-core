@@ -17,7 +17,7 @@ module.exports = rest_api({
         create_auth: {
             doc: 'Authenticate account with credentials, ' +
                 'and returns an access token. ' +
-                'supply a system id to create a token for acting on the system.',
+                'supply a system name to create a token for acting on the system.',
             method: 'POST',
             path: '/auth',
             params: {
@@ -51,8 +51,8 @@ module.exports = rest_api({
         },
 
         update_auth: {
-            doc: 'Authenticate based on previous token, to get a different token '+
-                'for example in order to use system_id.',
+            doc: 'Authenticate based on previous token, to get a different token ' +
+                'for example in order to use different system.',
             method: 'PUT',
             path: '/auth',
             params: {
@@ -78,6 +78,42 @@ module.exports = rest_api({
                 }
             }
         },
+
+        read_auth: {
+            doc: 'Get info about the authenticated token.',
+            method: 'GET',
+            path: '/auth',
+            reply: {
+                type: 'object',
+                required: [],
+                properties: {
+                    account: {
+                        type: 'object',
+                        required: [],
+                        properties: {
+                            name: {
+                                type: 'string',
+                            },
+                            email: {
+                                type: 'string',
+                            },
+                        }
+                    },
+                    system: {
+                        type: 'object',
+                        required: [],
+                        properties: {
+                            name: {
+                                type: 'string',
+                            },
+                        }
+                    },
+                    role: {
+                        type: 'string',
+                    },
+                }
+            }
+        }
 
     },
 

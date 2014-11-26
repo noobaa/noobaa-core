@@ -19,7 +19,7 @@ var nb_login = angular.module('nb_login', [
 
 nb_login.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify', 'nbAuth',
-    function($scope, $http, $q, $timeout, $window, nbAlertify,nbAuth) {
+    function($scope, $http, $q, $timeout, $window, nbAlertify, nbAuth) {
 
         $scope.nav = {
             root: '/'

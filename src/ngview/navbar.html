@@ -42,8 +42,8 @@
                         <li class="divider"></li>
                         <li class="divider"></li>
                         <li ng-repeat="sys in nbSystem.systems">
-                            <a ng-click="nbSystem.connect_system(sys.id)">
-                                <i ng-if="nbSystem.system.id==sys.id" class="fa fa-check pull-right"></i> {{sys.name}}
+                            <a ng-click="nbSystem.connect_system(sys.name)">
+                                <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
                             </a>
                         </li>
                         <li class="divider"></li>

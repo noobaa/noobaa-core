@@ -17,11 +17,10 @@ describe('system', function() {
             return system_client.create_system({
                 name: 'sys1',
             });
-        }).then(function(res) {
-            system_id = res.id;
+        }).then(function() {
             // authenticate now with the new system
             return coretest.create_auth({
-                system: system_id
+                system: 'sys1'
             });
         }).then(function() {
             return system_client.read_system();

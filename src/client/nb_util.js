@@ -37,33 +37,34 @@ nb_util.factory('nbAuth', [
         var account_client = new api.account_api.Client();
         var win_storage = $window.sessionStorage;
 
-        $scope.set_state = set_state;
-        $scope.init_state = init_state;
+        $scope.set_token = set_token;
+        $scope.init_token = init_token;
         $scope.logout = logout;
         $scope.create_auth = create_auth;
         $scope.update_auth = update_auth;
-        $scope.init_promise = init_state();
+        $scope.init_promise = init_token();
 
-        function set_state(token, system_id) {
-            win_storage.nb_auth = token;
-            win_storage.nb_system = system_id;
+        function set_token(token) {
+            win_storage.nb_token = token;
         }
 
-        function init_state() {
-            var token = win_storage.nb_auth;
-            var system_id = win_storage.nb_system;
+        function init_token() {
+            var token = win_storage.nb_token;
             auth_client.set_global_authorization(token);
 
             return $q.when().then(
                 function() {
                     if (token) {
-                        return account_client.read_account();
+                        return auth_client.read_auth();
                     }
                 }
             ).then(
-                function(account) {
-                    $scope.account = account;
-                    $scope.system = system_id;
+                function(res) {
+                    if (res) {
+                        $scope.account = res.account;
+                        $scope.system = res.system;
+                        $scope.role = res.role;
+                    }
                     $scope.inited = true;
                 },
                 function(err) {
@@ -75,7 +76,7 @@ nb_util.factory('nbAuth', [
         }
 
         function logout() {
-            set_state('', '');
+            set_token('');
             if ($window.location.pathname.search(/^\/login/) < 0) {
                 $window.location.href = '/login';
             }
@@ -88,8 +89,8 @@ nb_util.factory('nbAuth', [
                 }
             ).then(
                 function(res) {
-                    set_state(res.token, params.system);
-                    return init_state();
+                    set_token(res.token);
+                    return init_token();
                 }
             );
         }
@@ -101,8 +102,8 @@ nb_util.factory('nbAuth', [
                 }
             ).then(
                 function(res) {
-                    set_state(res.token, params.system);
-                    return init_state();
+                    set_token(res.token);
+                    return init_token();
                 }
             );
         }

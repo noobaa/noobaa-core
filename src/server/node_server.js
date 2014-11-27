@@ -15,20 +15,26 @@ var db = require('./db');
 
 
 module.exports = new api.node_api.Server({
+
     // CRUD
     create_node: create_node,
     delete_node: delete_node,
     read_node: read_node,
+
     // LIST
     list_nodes: list_nodes,
+
     // GROUP
     group_nodes: group_nodes,
+
     // START STOP
     start_nodes: start_nodes,
     stop_nodes: stop_nodes,
     get_agents_status: get_agents_status,
+
     // AGENT
     heartbeat: heartbeat,
+
     // NODE VENDOR
     connect_node_vendor: connect_node_vendor,
 }, {
@@ -57,56 +63,49 @@ function create_node(req) {
     info.heartbeat = new Date();
     info.used_storage = 0;
 
-    return Q.fcall(
-        function() {
-            return Q.all([
-                db.Tier.findOne({
-                    system: req.system.id,
-                    name: req.rest_params.tier,
-                    deleted: null,
-                }).exec(),
-                req.rest_params.vendor && db.Vendor.findOne({
-                    system: req.system.id,
-                    name: req.rest_params.vendor,
-                    deleted: null,
-                }).exec(),
-            ]);
+    return Q.fcall(function() {
+        return Q.all([
+            db.Tier.findOne({
+                system: req.system.id,
+                name: req.rest_params.tier,
+                deleted: null,
+            }).exec(),
+            req.rest_params.vendor && db.Vendor.findOne({
+                system: req.system.id,
+                name: req.rest_params.vendor,
+                deleted: null,
+            }).exec(),
+        ]);
+    }).then(function(res) {
+        info.tier = res[0];
+        info.vendor = res[1];
+        if (!info.tier || String(info.tier.system) !== String(info.system) || info.tier.deleted) {
+            console.error('BAD TIER', info);
+            throw req.rest_error('tier not found');
         }
-    ).then(
-        function(res) {
-            info.tier = res[0];
-            info.vendor = res[1];
-            if (!info.tier || String(info.tier.system) !== String(info.system) || info.tier.deleted) {
-                console.error('BAD TIER', info);
-                throw req.rest_error('tier not found');
-            }
-            if (req.rest_params.vendor && (!info.vendor ||
-                    String(info.vendor.system) !== String(info.system) ||
-                    info.vendor.deleted)) {
-                console.error('BAD VENDOR', info);
-                throw req.rest_error('vendor not found');
-            }
+        if (req.rest_params.vendor && (!info.vendor ||
+                String(info.vendor.system) !== String(info.system) ||
+                info.vendor.deleted)) {
+            console.error('BAD VENDOR', info);
+            throw req.rest_error('vendor not found');
+        }
 
-            return db.Node.create(info);
-        }
-    ).then(
+        return db.Node.create(info);
+
+    }).then(
         null, db.check_already_exists(req, 'node')
-    ).then(
-        function(node) {
-            if (info.vendor) {
-                return agent_host_caller(info.vendor).start_agent({
-                    name: node.name,
-                    geolocation: node.geolocation,
-                });
-            }
-        }
-    ).thenResolve();
+    ).then(function(node) {
+        if (!info.vendor) return;
+        return agent_host_caller(info.vendor).start_agent({
+            name: node.name,
+            geolocation: node.geolocation,
+        });
+    }).thenResolve();
 }
 
 
 function delete_node(req) {
-    return Q.fcall(
-        function() {
+    return Q.fcall(function() {
             return db.Node.findOneAndUpdate({
                 system: req.system.id,
                 name: req.rest_params.name,
@@ -114,25 +113,20 @@ function delete_node(req) {
             }, {
                 deleted: new Date()
             }).exec();
-        }
-    ).then(
-        db.check_not_found(req, 'node')
-    ).then(
-        function(node) {
+        })
+        .then(db.check_not_found(req, 'node'))
+        .then(function(node) {
             // TODO notify to initiate rebuild of blocks
-        }
-    ).thenResolve();
+        })
+        .thenResolve();
 }
 
 
 function read_node(req) {
-    return Q.fcall(
-        find_node_by_name, req, req.rest_params.name
-    ).then(
-        function(node) {
+    return find_node_by_name(req, req.rest_params.name)
+        .then(function(node) {
             return get_node_info(node);
-        }
-    );
+        });
 }
 
 
@@ -161,8 +155,7 @@ function list_nodes(req) {
         }
     }
 
-    return Q.fcall(
-        function() {
+    return Q.fcall(function() {
             var q = db.Node.find(info).sort('-_id');
             if (skip) {
                 q.skip(skip);
@@ -171,14 +164,12 @@ function list_nodes(req) {
                 q.limit(limit);
             }
             return q.exec();
-        }
-    ).then(
-        function(nodes) {
+        })
+        .then(function(nodes) {
             return {
                 nodes: _.map(nodes, get_node_info)
             };
-        }
-    );
+        });
 }
 
 
@@ -193,72 +184,70 @@ function group_nodes(req) {
         deleted: null,
     };
     var group_by = req.rest_params.group_by;
-    return Q.fcall(
-        function() {
-            var reduce_sum = size_utils.reduce_sum;
-            return db.Node.mapReduce({
-                query: by_system,
-                scope: {
-                    group_by: group_by,
-                    reduce_sum: reduce_sum,
-                },
-                map: function() {
-                    var key = {};
-                    if (group_by.geolocation) {
-                        key.g = this.geolocation;
-                    }
-                    if (group_by.vendor) {
-                        key.v = this.vendor;
-                    }
-                    var val = {
-                        // count
-                        c: 1,
-                        // allocated
-                        a: this.allocated_storage,
-                        // used
-                        u: this.used_storage,
-                    };
-                    /* global emit */
-                    emit(key, val);
-                },
-                reduce: function(key, values) {
-                    var c = []; // count
-                    var a = []; // allocated
-                    var u = []; // used
-                    values.forEach(function(v) {
-                        c.push(v.c);
-                        a.push(v.a);
-                        u.push(v.u);
-                    });
-                    return {
-                        c: reduce_sum(key, c),
-                        a: reduce_sum(key, a),
-                        u: reduce_sum(key, u),
-                    };
+
+    return Q.fcall(function() {
+        var reduce_sum = size_utils.reduce_sum;
+        return db.Node.mapReduce({
+            query: by_system,
+            scope: {
+                group_by: group_by,
+                reduce_sum: reduce_sum,
+            },
+            map: function() {
+                var key = {};
+                if (group_by.geolocation) {
+                    key.g = this.geolocation;
                 }
-            });
-        }
-    ).then(
-        function(res) {
-            console.log('GROUP NODES', res);
-            return {
-                groups: _.map(res, function(r) {
-                    var group = {
-                        count: r.value.c,
-                        allocated_storage: r.value.a,
-                        used_storage: r.value.u,
-                    };
-                    if (r._id.g) {
-                        group.geolocation = r._id.g;
-                    }
-                    if (r._id.v) {
-                        group.vendor = r._id.v;
-                    }
-                    return group;
-                })
-            };
-        }
-    );
+                if (group_by.vendor) {
+                    key.v = this.vendor;
+                }
+                var val = {
+                    // count
+                    c: 1,
+                    // allocated
+                    a: this.allocated_storage,
+                    // used
+                    u: this.used_storage,
+                };
+                /* global emit */
+                emit(key, val);
+            },
+            reduce: function(key, values) {
+                var c = []; // count
+                var a = []; // allocated
+                var u = []; // used
+                values.forEach(function(v) {
+                    c.push(v.c);
+                    a.push(v.a);
+                    u.push(v.u);
+                });
+                return {
+                    c: reduce_sum(key, c),
+                    a: reduce_sum(key, a),
+                    u: reduce_sum(key, u),
+                };
+            }
+        });
+
+    }).then(function(res) {
+        console.log('GROUP NODES', res);
+        return {
+            groups: _.map(res, function(r) {
+                var group = {
+                    count: r.value.c,
+                    allocated_storage: r.value.a,
+                    used_storage: r.value.u,
+                };
+                if (r._id.g) {
+                    group.geolocation = r._id.g;
+                }
+                if (r._id.v) {
+                    group.vendor = r._id.v;
+                }
+                return group;
+            })
+        };
+    });
 }
 
 
@@ -269,20 +258,20 @@ function group_nodes(req) {
 
 function start_nodes(req) {
     var node_names = req.rest_params.nodes;
-    return Q.fcall(update_nodes_started_state, req, node_names, true).then(
-        function(nodes) {
+    return Q.fcall(update_nodes_started_state, req, node_names, true)
+        .then(function(nodes) {
             return agent_host_action(nodes, 'start_agent');
-        }
-    ).thenResolve();
+        })
+        .thenResolve();
 }
 
 function stop_nodes(req) {
     var node_names = req.rest_params.nodes;
-    return Q.fcall(update_nodes_started_state, req, node_names, false).then(
-        function(nodes) {
+    return Q.fcall(update_nodes_started_state, req, node_names, false)
+        .then(function(nodes) {
             return agent_host_action(nodes, 'stop_agent');
-        }
-    ).thenResolve();
+        })
+        .thenResolve();
 }
 
 
@@ -290,12 +279,11 @@ function stop_nodes(req) {
 // TODO is this still needed as api method?
 function get_agents_status(req) {
     var node_names = req.rest_params.nodes;
-    return Q.fcall(find_nodes_with_vendors, req, node_names).then(
-        function(nodes) {
+    return find_nodes_with_vendors(req, node_names)
+        .then(function(nodes) {
             return agent_host_action(nodes, 'get_agent_status');
-        }
-    ).then(
-        function(res) {
+        })
+        .then(function(res) {
             return {
                 nodes: _.map(res, function(node_res) {
                     var status = false;
@@ -308,8 +296,7 @@ function get_agents_status(req) {
                     };
                 })
             };
-        }
-    );
+        });
 }
 
 
@@ -334,16 +321,13 @@ function heartbeat(req) {
     var agent_used_storage = req.rest_params.used_storage;
     var node;
 
-    return Q.fcall(
-        find_node_by_name, req, req.rest_params.name
-    ).then(
-        function(node_arg) {
+    return find_node_by_name(req, req.rest_params.name)
+        .then(function(node_arg) {
             node = node_arg;
             // TODO CRITICAL need to optimize - we count blocks on every heartbeat...
             return count_node_used_storage(node.id);
-        }
-    ).then(
-        function(used_storage) {
+        })
+        .then(function(used_storage) {
             if (node.used_storage !== used_storage) {
                 updates.used_storage = used_storage;
             }
@@ -376,12 +360,10 @@ function heartbeat(req) {
             }
 
             return db.Node.findByIdAndUpdate(node.id, updates).exec();
-        }
-    ).then(
-        function(node) {
+        })
+        .then(function(node) {
             return get_node_info(node);
-        }
-    );
+        });
 }
 
 
@@ -394,46 +376,39 @@ function connect_node_vendor(req) {
     var vendor_info = _.pick(req.rest_params, 'name', 'category', 'kind', 'details');
     vendor_info.system = req.system.id;
     var vendor;
-    return Q.fcall(
-        function() {
-            if (!vendor_info.name) {
-                return;
-            }
+
+    return Q.fcall(function() {
+            if (!vendor_info.name) return;
             return db.Vendor.findOne({
                 account: req.account.id,
                 name: vendor_info.name,
                 deleted: null,
             }).exec();
-        }
-    ).then(
-        function(vendor_arg) {
+        })
+        .then(function(vendor_arg) {
             if (vendor_arg) {
                 return vendor_arg;
             } else {
                 return db.Vendor.create(vendor_info);
             }
-        }
-    ).then(
-        null, db.check_already_exists(req, 'vendor')
-    ).then(
-        function(vendor_arg) {
+        })
+        .then(null, db.check_already_exists(req, 'vendor'))
+        .then(function(vendor_arg) {
             vendor = vendor_arg;
+
             // find all nodes hosted by this vendor
             return db.Node.find({
                 vendor: vendor.id,
                 deleted: null,
             }).select('name').exec();
-        }
-    ).then(
-        function(nodes) {
+        })
+        .then(function(nodes) {
             var node_names = _.pluck(nodes, 'name');
             return agent_host_action(req.account, node_names, 'start_agent');
-        }
-    ).then(
-        function() {
+        })
+        .then(function() {
             return _.pick(vendor, 'id', 'name', 'category', 'kind', 'details');
-        }
-    );
+        });
 }
 
 
@@ -445,46 +420,46 @@ function connect_node_vendor(req) {
 
 
 function count_node_used_storage(node_id) {
-    return db.DataBlock.mapReduce({
-        query: {
-            node: node_id
-        },
-        map: function() {
-            emit('size', this.size);
-        },
-        reduce: size_utils.reduce_sum
-    }).then(
-        function(res) {
+    return Q.when(db.DataBlock.mapReduce({
+            query: {
+                node: node_id
+            },
+            map: function() {
+                emit('size', this.size);
+            },
+            reduce: size_utils.reduce_sum
+        }))
+        .then(function(res) {
             return res && res[0] && res[0].value || 0;
-        }
-    );
+        });
 }
 
 function find_node_by_name(req, name) {
-    return db.Node.findOne({
-        system: req.system.id,
-        name: name,
-        deleted: null,
-    }).exec().then(
-        db.check_not_deleted(req, 'node')
-    );
+    return Q.when(db.Node.findOne({
+            system: req.system.id,
+            name: name,
+            deleted: null,
+        }).exec())
+        .then(db.check_not_deleted(req, 'node'));
 }
 
 function find_nodes_with_vendors(req, node_names) {
-    return db.Node.find({
-        system: req.system.id,
-        name: {
-            $in: node_names
-        },
-        deleted: null,
-    }).populate('vendor').exec();
+    return Q.when(db.Node.find({
+            system: req.system.id,
+            name: {
+                $in: node_names
+            },
+            deleted: null,
+        })
+        .populate('vendor')
+        .exec());
 }
 
 
 function update_nodes_started_state(req, node_names, started) {
     var nodes;
-    return Q.fcall(find_nodes_with_vendors, req, node_names).then(
-        function(nodes_arg) {
+    return find_nodes_with_vendors(req, node_names)
+        .then(function(nodes_arg) {
             nodes = nodes_arg;
             var nodes_to_update = _.compact(_.map(nodes, function(node) {
                 if (node.started !== started) {
@@ -502,12 +477,11 @@ function update_nodes_started_state(req, node_names, started) {
                     }).exec();
                 });
             }));
-        }
-    ).then(
-        function() {
+        })
+        .then(function() {
             return agent_host_action(nodes, started ? 'start_agent' : 'stop_agent');
-        }
-    ).thenResolve();
+        })
+        .thenResolve();
 }
 
 function agent_host_action(nodes, func_name) {

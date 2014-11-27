@@ -36,17 +36,11 @@ module.exports = {
         name: 'AccountCache',
         load: function(account_id) {
             // load the account and its roles per system
-            return Q.fcall(
-                function() {
-                    return Account.findById(account_id).exec();
-                }
-            ).then(
-                function(account) {
-                    if (!account.deleted) {
-                        return _.pick(account, 'id', 'name', 'email');
-                    }
-                }
-            );
+            return Account.findById(account_id).exec()
+                .then(function(account) {
+                    if (account.deleted) return;
+                    return _.pick(account, 'id', 'name', 'email');
+                });
         }
     }),
 
@@ -54,17 +48,11 @@ module.exports = {
         name: 'SystemCache',
         load: function(system_id) {
             // load the system
-            return Q.fcall(
-                function() {
-                    return System.findById(system_id).exec();
-                }
-            ).then(
-                function(system) {
-                    if (!system.deleted) {
-                        return _.pick(system, 'id', 'name');
-                    }
-                }
-            );
+            return System.findById(system_id).exec()
+                .then(function(system) {
+                    if (system.deleted) return;
+                    return _.pick(system, 'id', 'name');
+                });
         }
     }),
 
@@ -76,27 +64,21 @@ module.exports = {
 
 function check_not_found(req, entity, allow_deleted) {
     return function(doc) {
-        if (!doc) {
-            throw req.rest_error(entity + ' not found');
-        }
+        if (!doc) throw req.rest_error(entity + ' not found');
         return doc;
     };
 }
 
 function check_not_deleted(req, entity) {
     return function(doc) {
-        if (!doc || doc.deleted) {
-            throw req.rest_error(entity + ' not found');
-        }
+        if (!doc || doc.deleted) throw req.rest_error(entity + ' not found');
         return doc;
     };
 }
 
 function check_already_exists(req, entity) {
     return function(err) {
-        if (err.code === 11000) {
-            throw req.rest_error(entity + ' already exists');
-        }
+        if (err.code === 11000) throw req.rest_error(entity + ' already exists');
         throw err;
     };
 }

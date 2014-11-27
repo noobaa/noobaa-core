@@ -214,8 +214,7 @@ function rest_api(api) {
             if (self._disabled) {
                 return next();
             }
-            Q.fcall(
-                function() {
+            Q.fcall(function() {
                     req.rest_error = function(data, status) {
                         if (!req._rest_error_data) {
                             req._rest_error_data = data;
@@ -246,14 +245,12 @@ function rest_api(api) {
                         req.rest_params[func_info.param_raw] = req.body;
                     }
                     return self._before(req);
-                }
-            ).then(
-                function() {
+                })
+                .then(function() {
                     // server functions are expected to return a promise
                     return func(req, res, next);
-                }
-            ).then(
-                function(reply) {
+                })
+                .then(function(reply) {
                     if (req._rest_error_data) {
                         throw new Error('rethrow rest error');
                     }
@@ -264,9 +261,8 @@ function rest_api(api) {
                         validate_schema(reply, func_info.reply_schema, func_info, 'server reply');
                         return res.status(200).json(reply);
                     }
-                }
-            ).then(null,
-                function(err) {
+                })
+                .then(null, function(err) {
                     self._log('SERVER ERROR', func_info.name, ':',
                         'REST ERROR', req._rest_error_data,
                         'EXCEPTION', err, err.stack);
@@ -276,13 +272,11 @@ function rest_api(api) {
                     }
                     var data = req._rest_error_data || 'error';
                     return res.status(status).json(data);
-                }
-            ).done(null,
-                function(err) {
+                })
+                .done(null, function(err) {
                     self._log('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
                     return next(err);
-                }
-            );
+                });
         };
     };
 
@@ -365,22 +359,17 @@ function rest_api(api) {
     // call a specific REST api function over http request.
     Client.prototype._client_request = function(func_info, params) {
         var self = this;
-        return Q.fcall(
-            function() {
+        return Q.fcall(function() {
                 return self._http_request(func_info, params);
-            }
-        ).then(
-            read_http_response
-        ).then(
-            function(res) {
+            })
+            .then(read_http_response)
+            .then(function(res) {
                 return self._handle_http_reply(func_info, res);
-            }
-        ).then(null,
-            function(err) {
+            })
+            .then(null, function(err) {
                 console.error('REST REQUEST FAILED', err);
                 throw err;
-            }
-        );
+            });
     };
 
     // create a REST api call and return the options for http request.

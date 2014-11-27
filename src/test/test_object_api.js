@@ -25,20 +25,16 @@ describe.skip('object_api', function() {
 
     before(function(done) {
         this.timeout(20000);
-        Q.fcall(
-            function() {
-                return coretest.init_test_nodes(10, size_utils.GIGABYTE);
-            }
-        ).nodeify(done);
+        Q.fcall(function() {
+            return coretest.init_test_nodes(10, size_utils.GIGABYTE);
+        }).nodeify(done);
     });
 
     after(function(done) {
         this.timeout(20000);
-        Q.fcall(
-            function() {
-                return coretest.clear_test_nodes();
-            }
-        ).nodeify(done);
+        Q.fcall(function() {
+            return coretest.clear_test_nodes();
+        }).nodeify(done);
     });
 
 

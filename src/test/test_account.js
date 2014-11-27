@@ -37,26 +37,20 @@ describe('account', function() {
                     name: NAME,
                     email: EMAIL,
                     password: PASSWORD,
-                }).then(
-                    function(res) {
-                        throw new Error('expected error: account already exists');
-                    },
-                    function(err) {
-                        assert.strictEqual(err.data, 'account already exists');
-                    }
-                );
+                }).then(function(res) {
+                    throw new Error('expected error: account already exists');
+                }, function(err) {
+                    assert.strictEqual(err.data, 'account already exists');
+                });
             }).then(function() {
                 return auth_client.create_auth({
                     email: EMAIL,
                     password: PASSWORD + '!',
-                }).then(
-                    function(res) {
-                        throw new Error('expected error: incorrect email and password');
-                    },
-                    function(err) {
-                        assert.strictEqual(err.data, 'incorrect email and password');
-                    }
-                );
+                }).then(function(res) {
+                    throw new Error('expected error: incorrect email and password');
+                }, function(err) {
+                    assert.strictEqual(err.data, 'incorrect email and password');
+                });
             }).then(function() {
                 return auth_client.create_auth({
                     email: EMAIL,

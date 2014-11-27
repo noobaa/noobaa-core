@@ -31,38 +31,34 @@ function DBCache(options) {
  */
 DBCache.prototype.get = function(key, force_miss) {
     var self = this;
-    return Q.fcall(
-        function() {
-            var item = self.lru.find_or_add_item(key);
+    return Q.fcall(function() {
+        var item = self.lru.find_or_add_item(key);
 
-            // use cached item when not expired
-            if (force_miss !== 'force_miss') {
-                if (item.missing) {
-                    return;
-                }
-                if (item.doc) {
-                    return item.doc;
-                }
+        // use cached item when not expired
+        if (force_miss !== 'force_miss') {
+            if (item.missing) {
+                return;
             }
-
-            // load from the database
-            console.log('CACHE MISS', self.name, key);
-            return self.load(key).then(
-                function(doc) {
-                    if (doc) {
-                        // update the cache item
-                        item.doc = doc;
-                        item.missing = null;
-                    } else {
-                        // mark entry as missing - aka negative cache
-                        item.missing = true;
-                        item.doc = null;
-                    }
-                    return doc;
-                }
-            );
+            if (item.doc) {
+                return item.doc;
+            }
         }
-    );
+
+        // load from the database
+        console.log('CACHE MISS', self.name, key);
+        return self.load(key).then(function(doc) {
+            if (doc) {
+                // update the cache item
+                item.doc = doc;
+                item.missing = null;
+            } else {
+                // mark entry as missing - aka negative cache
+                item.missing = true;
+                item.doc = null;
+            }
+            return doc;
+        });
+    });
 };
 
 /**

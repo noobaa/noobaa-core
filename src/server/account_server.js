@@ -32,43 +32,48 @@ module.exports = account_server;
 function create_account(req) {
     var info = _.pick(req.rest_params, 'name', 'email', 'password');
 
-    return Q.fcall(
-        function() {
-            return db.Account.create(info);
-        }
-    ).then(
-        null, db.check_already_exists(req, 'account')
-    ).thenResolve();
+    return Q.when(db.Account.create(info))
+        .then(null, db.check_already_exists(req, 'account'))
+        .thenResolve();
 }
 
 
 function read_account(req) {
-    return req.load_account('force_miss').then(
-        function() {
+    return req.load_account('force_miss')
+        .then(function() {
             return _.pick(req.account, 'name', 'email');
-        }
-    );
+        });
 }
 
 
 function update_account(req) {
-    return req.load_account('force_miss').then(
-        function() {
+    return req.load_account('force_miss')
+        .then(function() {
+
+            // invalidate the local cache
             db.AccountCache.invalidate(req.account.id);
+
+            // pick and send the updates
             var info = _.pick(req.rest_params, 'name', 'email', 'password');
             return db.Account.findByIdAndUpdate(req.account.id, info).exec();
-        }
-    ).thenResolve();
+
+        })
+        .thenResolve();
 }
 
 
 function delete_account(req) {
-    return req.load_account('force_miss').then(
-        function() {
+    return req.load_account('force_miss')
+        .then(function() {
+
+            // invalidate the local cache
             db.AccountCache.invalidate(req.account.id);
+
+            // we just mark the deletion time to make it easy to regret
+            // and to avoid stale refs side effects of actually removing from the db.
             return db.Account.findByIdAndUpdate(req.account.id, {
                 deleted: new Date()
             }).exec();
-        }
-    ).thenResolve();
+        })
+        .thenResolve();
 }

@@ -100,7 +100,6 @@ function _auth_by_account(req, account_id) {
                 account: account_id,
                 system: system.id,
             }).exec();
-
         }).then(function(role_arg) {
             role = role_arg;
             if (!role) throw req.rest_error('role not found');
@@ -136,7 +135,6 @@ function _auth_by_account(req, account_id) {
  * read_auth()
  */
 function read_auth(req) {
-    // req.auth is
     if (!req.auth) return {};
 
     var reply = {};
@@ -146,19 +144,21 @@ function read_auth(req) {
 
         if (!req.auth.account_id) return;
 
-        return db.AccountCache.get(req.auth.account_id, 'force_miss').then(function(account) {
-            if (!account) return;
-            reply.account = _.pick(account, 'name', 'email');
-        });
+        return db.AccountCache.get(req.auth.account_id, 'force_miss')
+            .then(function(account) {
+                if (!account) return;
+                reply.account = _.pick(account, 'name', 'email');
+            });
 
     }).then(function() {
 
         if (!req.auth || !req.auth.system_id) return;
 
-        return db.SystemCache.get(req.auth.system_id, 'force_miss').then(function(system) {
-            if (!system) return;
-            reply.system = _.pick(system, 'name');
-        });
+        return db.SystemCache.get(req.auth.system_id, 'force_miss')
+            .then(function(system) {
+                if (!system) return;
+                reply.system = _.pick(system, 'name');
+            });
 
     }).thenResolve(reply);
 }
@@ -225,10 +225,11 @@ function _prepare_auth_request(req) {
             if (!req.auth || !req.auth.account_id) throw req.rest_error('unauthorized', 401);
 
             // use a cache because this is called on every authorized api
-            return db.AccountCache.get(req.auth.account_id, force_miss).then(function(account) {
-                if (!account) throw new Error('account missing');
-                req.account = account;
-            });
+            return db.AccountCache.get(req.auth.account_id, force_miss)
+                .then(function(account) {
+                    if (!account) throw new Error('account missing');
+                    req.account = account;
+                });
         });
     };
 
@@ -256,11 +257,12 @@ function _prepare_auth_request(req) {
             }
 
             // use a cache because this is called on every authorized api
-            return db.SystemCache.get(req.auth.system_id, force_miss).then(function(system) {
-                if (!system) throw new Error('system missing');
-                req.system = system;
-                req.role = req.auth.role;
-            });
+            return db.SystemCache.get(req.auth.system_id, force_miss)
+                .then(function(system) {
+                    if (!system) throw new Error('system missing');
+                    req.system = system;
+                    req.role = req.auth.role;
+                });
         });
     };
 }

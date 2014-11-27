@@ -38,27 +38,23 @@ var object_client = new api.ObjectClient();
 
 
 before(function(done) {
-    Q.fcall(
-        function() {
-            utilitest.router.use(auth_server.authorize());
-            auth_server.install_rest(utilitest.router);
-            account_server.install_rest(utilitest.router);
-            system_server.install_rest(utilitest.router);
-            node_server.install_rest(utilitest.router);
-            object_server.install_rest(utilitest.router);
+    Q.fcall(function() {
+        utilitest.router.use(auth_server.authorize());
+        auth_server.install_rest(utilitest.router);
+        account_server.install_rest(utilitest.router);
+        system_server.install_rest(utilitest.router);
+        node_server.install_rest(utilitest.router);
+        object_server.install_rest(utilitest.router);
 
-            // setting the port globally for all the clients
-            auth_client.set_global_option('port', utilitest.http_port());
+        // setting the port globally for all the clients
+        auth_client.set_global_option('port', utilitest.http_port());
 
-            var account_params = _.clone(account_credentials);
-            account_params.name = 'coretest';
-            return account_client.create_account(account_params);
-        }
-    ).then(
-        function() {
-            return create_auth();
-        }
-    ).nodeify(done);
+        var account_params = _.clone(account_credentials);
+        account_params.name = 'coretest';
+        return account_client.create_account(account_params);
+    }).then(function() {
+        return create_auth();
+    }).nodeify(done);
 });
 
 after(function() {
@@ -71,11 +67,10 @@ after(function() {
 
 function create_auth(options) {
     var params = _.extend({}, account_credentials, options);
-    return auth_client.create_auth(params).then(
-        function(res) {
+    return auth_client.create_auth(params)
+        .then(function(res) {
             auth_client.set_global_authorization(res.token);
-        }
-    );
+        });
 }
 
 var test_agents;
@@ -87,16 +82,14 @@ function init_test_nodes(count, allocated_storage) {
     var sem = new Semaphore(3);
 
     function init_test_node(i) {
-        return Q.fcall(
-            function() {
+        return Q.fcall(function() {
                 return node_client.create_node({
                     name: '' + i,
                     geolocation: 'test',
                     allocated_storage: allocated_storage,
                 });
-            }
-        ).then(
-            function() {
+            })
+            .then(function() {
                 var agent = new Agent({
                     account_client: account_client,
                     node_client: node_client,
@@ -106,70 +99,53 @@ function init_test_nodes(count, allocated_storage) {
                     storage_path: agent_storage_dir,
                 });
                 return agent.start().thenResolve(agent);
-            }
-        );
+            });
     }
 
-    return clear_test_nodes().then(
-        function() {
+    return clear_test_nodes()
+        .then(function() {
             return Q.all(_.times(count, function(i) {
                 return sem.surround(function() {
                     return init_test_node(i);
                 });
             }));
-        }
-    ).then(
-        function(agents) {
+        })
+        .then(function(agents) {
             test_agents = agents;
-        }
-    );
+        });
 }
 
 // delete all edge nodes directly from the db
 function clear_test_nodes() {
-    return Q.fcall(
-        function() {
-            console.log('REMOVE NODES');
-            var warning_timeout = setTimeout(function() {
-                console.log(
-                    '\n\n\nWaiting too long?\n\n',
-                    'the test got stuck on db.Node.remove().',
-                    'this is known when running in mocha standalone (root cause unknown).',
-                    'it does work fine when running with gulp, so we let it be.\n\n');
-                process.exit(1);
-            }, 3000);
-            return Q.when(db.Node.remove().exec())['finally'](
-                function() {
-                    clearTimeout(warning_timeout);
-                }
-            );
-        }
-    ).then(
-        function() {
-            if (!test_agents) {
-                return;
-            }
-            console.log('STOPING AGENTS');
-            var sem = new Semaphore(3);
-            return Q.all(_.map(test_agents,
-                function(agent) {
-                    return sem.surround(function() {
-                        console.log('agent stop', agent.node_name);
-                        return agent.stop();
-                    });
-                }
-            )).then(
-                function() {
-                    test_agents = null;
-                }
-            );
-        }
-    ).then(
-        function() {
-            console.log('RIMRAF', agent_storage_dir);
-            return Q.nfcall(rimraf, agent_storage_dir);
-        }
-    );
+    return Q.fcall(function() {
+        console.log('REMOVE NODES');
+        var warning_timeout = setTimeout(function() {
+            console.log(
+                '\n\n\nWaiting too long?\n\n',
+                'the test got stuck on db.Node.remove().',
+                'this is known when running in mocha standalone (root cause unknown).',
+                'it does work fine when running with gulp, so we let it be.\n\n');
+            process.exit(1);
+        }, 3000);
+        return Q.when(db.Node.remove().exec())['finally'](function() {
+            clearTimeout(warning_timeout);
+        });
+    }).then(function() {
+        if (!test_agents) return;
+        console.log('STOPING AGENTS');
+        var sem = new Semaphore(3);
+        return Q.all(_.map(test_agents, function(agent) {
+            return sem.surround(function() {
+                console.log('agent stop', agent.node_name);
+                return agent.stop();
+            });
+        })).then(function() {
+            test_agents = null;
+        });
+    }).then(function() {
+        console.log('RIMRAF', agent_storage_dir);
+        return Q.nfcall(rimraf, agent_storage_dir);
+    });
 }
 
 

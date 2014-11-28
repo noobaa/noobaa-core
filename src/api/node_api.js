@@ -252,7 +252,6 @@ module.exports = rest_api({
                 'geolocation',
                 'ip',
                 'port',
-                'started',
                 'online',
                 'heartbeat',
                 'allocated_storage',
@@ -271,9 +270,6 @@ module.exports = rest_api({
                 },
                 port: {
                     type: 'integer'
-                },
-                started: {
-                    type: 'boolean',
                 },
                 online: {
                     type: 'boolean',

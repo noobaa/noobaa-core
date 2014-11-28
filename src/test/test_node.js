@@ -22,8 +22,9 @@ describe('node', function() {
                 system: 'sys'
             });
         }).then(function() {
-            return coretest.system_client.add_tier({
-                name: 'tier'
+            return coretest.tier_client.create_tier({
+                name: 'tier',
+                kind: 'edge',
             });
         }).then(function() {
             return coretest.node_client.create_node({
@@ -38,7 +39,6 @@ describe('node', function() {
                 geolocation: 'home',
                 allocated_storage: 10 * size_utils.GIGABYTE,
                 used_storage: size_utils.GIGABYTE,
-                started: true,
                 online: true,
                 heartbeat: new Date().toString(),
                 ip: '0.0.0.0',

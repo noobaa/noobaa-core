@@ -1,0 +1,148 @@
+// this module is written for both nodejs, or for client with browserify.
+'use strict';
+
+var rest_api = require('../util/rest_api');
+
+
+module.exports = rest_api({
+
+    name: 'bucket_api',
+
+    methods: {
+
+        // bucket functions
+
+        list_buckets: {
+            method: 'GET',
+            path: '/',
+            reply: {
+                type: 'object',
+                required: ['buckets'],
+                properties: {
+                    buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['name'],
+                            properties: {
+                                name: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        create_bucket: {
+            method: 'POST',
+            path: '/',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    }
+                }
+            }
+        },
+
+        read_bucket: {
+            method: 'GET',
+            path: '/:bucket',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
+            }
+        },
+
+        update_bucket: {
+            method: 'PUT',
+            path: '/:bucket',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        delete_bucket: {
+            method: 'DELETE',
+            path: '/:bucket',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
+            },
+        },
+
+        list_bucket_objects: {
+            method: 'GET',
+            path: '/:bucket/list',
+            params: {
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['objects'],
+                properties: {
+                    objects: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['key', 'info'],
+                            properties: {
+                                key: {
+                                    type: 'string',
+                                },
+                                info: {
+                                    $ref: '/object_api/definitions/object_info'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+    },
+
+
+
+    ////////////////////////////////
+    // general schema definitions //
+    ////////////////////////////////
+
+    definitions: {},
+
+});

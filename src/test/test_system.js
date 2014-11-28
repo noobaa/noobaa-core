@@ -44,11 +44,12 @@ describe('system', function() {
                 email: 'role@test.er',
             });
         }).then(function() {
-            return system_client.add_tier({
+            return coretest.tier_client.create_tier({
                 name: 'tier',
+                kind: 'edge',
             });
         }).then(function() {
-            return system_client.remove_tier({
+            return coretest.tier_client.delete_tier({
                 name: 'tier',
             });
         }).then(function() {

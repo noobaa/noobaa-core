@@ -59,7 +59,6 @@ function create_node(req) {
         'vendor_node_id'
     );
     info.system = req.system.id;
-    info.started = true;
     info.heartbeat = new Date();
     info.used_storage = 0;
 
@@ -515,7 +514,6 @@ function agent_host_caller(vendor) {
 function get_node_info(node) {
     var info = _.pick(node,
         'name',
-        'started',
         'geolocation',
         'allocated_storage',
         'used_storage'
@@ -523,7 +521,7 @@ function get_node_info(node) {
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
-    info.online = node.started && node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
+    info.online = node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
     var vendor_id = node.populated('vendor');
     if (!vendor_id) {
         vendor_id = node.vendor;

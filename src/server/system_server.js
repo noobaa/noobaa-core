@@ -28,9 +28,6 @@ var system_server = new api.system_api.Server({
     add_role: add_role,
     remove_role: remove_role,
 
-    // TIERS
-    add_tier: add_tier,
-    remove_tier: remove_tier,
 }, {
     before: function(req) {
         return req.load_account();
@@ -262,38 +259,6 @@ function remove_role(req) {
         })
         .thenResolve();
 }
-
-
-//////////
-// TIER //
-//////////
-
-function add_tier(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            var info = _.pick(req.rest_params, 'name');
-            info.system = req.system.id;
-            return db.Tier.create(info);
-        })
-        .then(null, db.check_already_exists(req, 'tier'))
-        .thenResolve();
-
-}
-
-function remove_tier(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            return db.Tier.findOneAndUpdate({
-                system: req.system.id,
-                name: req.rest_params.name,
-            }, {
-                deleted: new Date()
-            }).exec();
-        })
-        .then(db.check_not_found(req, 'tier'))
-        .thenResolve();
-}
-
 
 
 //////////

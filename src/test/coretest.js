@@ -27,13 +27,17 @@ var account_credentials = {
 var auth_server = require('../server/auth_server');
 var account_server = require('../server/account_server');
 var system_server = require('../server/system_server');
+var tier_server = require('../server/tier_server');
 var node_server = require('../server/node_server');
+var bucket_server = require('../server/bucket_server');
 var object_server = require('../server/object_server');
 
 var auth_client = new api.auth_api.Client();
 var account_client = new api.account_api.Client();
 var system_client = new api.system_api.Client();
+var tier_client = new api.tier_api.Client();
 var node_client = new api.node_api.Client();
+var bucket_client = new api.bucket_api.Client();
 var object_client = new api.ObjectClient();
 
 
@@ -43,7 +47,9 @@ before(function(done) {
         auth_server.install_rest(utilitest.router);
         account_server.install_rest(utilitest.router);
         system_server.install_rest(utilitest.router);
+        tier_server.install_rest(utilitest.router);
         node_server.install_rest(utilitest.router);
+        bucket_server.install_rest(utilitest.router);
         object_server.install_rest(utilitest.router);
 
         // setting the port globally for all the clients
@@ -61,7 +67,9 @@ after(function() {
     auth_server.disable_rest();
     account_server.disable_rest();
     system_server.disable_rest();
+    tier_server.disable_rest();
     node_server.disable_rest();
+    bucket_server.disable_rest();
     object_server.disable_rest();
 });
 
@@ -161,7 +169,9 @@ module.exports = {
 
     account_client: account_client,
     system_client: system_client,
+    tier_client: tier_client,
     node_client: node_client,
+    bucket_client: bucket_client,
     object_client: object_client,
 
     init_test_nodes: init_test_nodes,

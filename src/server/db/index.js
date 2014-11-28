@@ -30,6 +30,10 @@ module.exports = {
     DataChunk: DataChunk,
     DataBlock: DataBlock,
 
+    check_not_found: check_not_found,
+    check_not_deleted: check_not_deleted,
+    check_already_exists: check_already_exists,
+
     AccountCache: new DBCache({
         name: 'AccountCache',
         load: function(account_id) {
@@ -37,7 +41,7 @@ module.exports = {
             return Account.findById(account_id).exec()
                 .then(function(account) {
                     if (account.deleted) return;
-                    return _.pick(account, 'id', 'name', 'email');
+                    return account;
                 });
         }
     }),
@@ -49,14 +53,28 @@ module.exports = {
             return System.findById(system_id).exec()
                 .then(function(system) {
                     if (system.deleted) return;
-                    return _.pick(system, 'id', 'name');
+                    return system;
                 });
         }
     }),
 
-    check_not_found: check_not_found,
-    check_not_deleted: check_not_deleted,
-    check_already_exists: check_already_exists,
+    BucketCache: new DBCache({
+        name: 'BucketCache',
+        key_stringify: function(key) {
+            return key.system + ':' + key.name;
+        },
+        load: function(key) {
+            // load the system
+            return Bucket.findOne({
+                    system: key.system,
+                    name: key.name,
+                    deleted: null,
+                }).exec()
+                .then(function(bucket) {
+                    return bucket;
+                });
+        }
+    }),
 };
 
 

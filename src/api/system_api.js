@@ -115,45 +115,7 @@ module.exports = rest_api({
                 }
             },
         },
-
-
-        ///////////
-        // TIERS //
-        ///////////
-
-        add_tier: {
-            doc: 'Add tier',
-            method: 'POST',
-            path: '/tier',
-            params: {
-                type: 'object',
-                requires: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        remove_tier: {
-            doc: 'Remove tier',
-            method: 'DELETE',
-            path: '/tier/:name',
-            params: {
-                type: 'object',
-                requires: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-
     },
-
 
     ////////////////////////////////
     // general schema definitions //
@@ -196,7 +158,7 @@ module.exports = rest_api({
                 tiers: {
                     type: 'array',
                     items: {
-                        $ref: '/system_api/definitions/tier_info'
+                        $ref: '/tier_api/definitions/tier_info'
                     }
                 },
                 storage: {
@@ -238,38 +200,8 @@ module.exports = rest_api({
         },
 
 
-        tier_info: {
-            type: 'object',
-            required: ['name', 'kind', 'storage', 'nodes'],
-            properties: {
-                name: {
-                    type: 'string',
-                },
-                kind: {
-                    $ref: '/system_api/definitions/tier_kind'
-                },
-                cloud_details: {
-                    type: 'object',
-                    // vendor specific properties
-                    additionalProperties: true,
-                },
-                storage: {
-                    $ref: '/system_api/definitions/storage_info'
-                },
-                nodes: {
-                    $ref: '/system_api/definitions/nodes_info'
-                },
-            }
-        },
-
-
         role_enum: {
             enum: ['admin', 'agent'],
-            type: 'string',
-        },
-
-        tier_kind: {
-            enum: ['edge', 'cloud'],
             type: 'string',
         },
 

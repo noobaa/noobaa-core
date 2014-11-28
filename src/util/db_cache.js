@@ -15,6 +15,9 @@ module.exports = DBCache;
 function DBCache(options) {
     var self = this;
     options = options || {};
+    self.key_stringify = options.key_stringify || function(k) {
+        return k;
+    };
     self.load = options.load;
     self.name = options.name;
     self.lru = new LRU({
@@ -32,7 +35,7 @@ function DBCache(options) {
 DBCache.prototype.get = function(key, force_miss) {
     var self = this;
     return Q.fcall(function() {
-        var item = self.lru.find_or_add_item(key);
+        var item = self.lru.find_or_add_item(self.key_stringify(key));
 
         // use cached item when not expired
         if (force_miss !== 'force_miss') {

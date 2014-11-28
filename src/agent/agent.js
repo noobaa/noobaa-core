@@ -218,7 +218,6 @@ Agent.prototype.send_heartbeat = function() {
         geolocation: self.node_geolocation,
         ip: '',
         port: self.http_port,
-        started: true,
         online: true,
         heartbeat: new Date().toString(),
         allocated_storage: self.allocated_storage,

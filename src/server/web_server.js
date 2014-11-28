@@ -26,7 +26,9 @@ var express_compress = require('compression');
 var auth_server = require('./auth_server');
 var account_server = require('./account_server');
 var system_server = require('./system_server');
+var tier_server = require('./tier_server');
 var node_server = require('./node_server');
+var bucket_server = require('./bucket_server');
 var object_server = require('./object_server');
 
 
@@ -113,7 +115,9 @@ var api_router = express.Router();
 auth_server.install_rest(api_router);
 account_server.install_rest(api_router);
 system_server.install_rest(api_router);
+tier_server.install_rest(api_router);
 node_server.install_rest(api_router);
+bucket_server.install_rest(api_router);
 object_server.install_rest(api_router);
 app.use(api_router);
 

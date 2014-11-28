@@ -8,7 +8,6 @@ var DBCache = require('../../util/db_cache');
 var Account = require('./account');
 var Role = require('./role');
 var System = require('./system');
-var Vendor = require('./vendor');
 var Tier = require('./tier');
 var Node = require('./node');
 var Bucket = require('./bucket');
@@ -23,7 +22,6 @@ module.exports = {
     Account: Account,
     Role: Role,
     System: System,
-    Vendor: Vendor,
     Tier: Tier,
     Node: Node,
     Bucket: Bucket,

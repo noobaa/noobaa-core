@@ -35,12 +35,6 @@ module.exports = rest_api({
                     allocated_storage: {
                         type: 'integer'
                     },
-                    vendor: {
-                        type: 'string'
-                    },
-                    vendor_node_id: {
-                        type: 'string'
-                    }
                 }
             },
         },
@@ -92,6 +86,9 @@ module.exports = rest_api({
                         type: 'object',
                         required: [],
                         properties: {
+                            tier: {
+                                type: 'string'
+                            },
                             name: {
                                 // regexp
                                 type: 'string'
@@ -100,9 +97,6 @@ module.exports = rest_api({
                                 // regexp
                                 type: 'string'
                             },
-                            vendor: {
-                                type: 'string'
-                            }
                         }
                     },
                     skip: {
@@ -143,12 +137,12 @@ module.exports = rest_api({
                         type: 'object',
                         required: [],
                         properties: {
+                            tier: {
+                                type: 'boolean'
+                            },
                             geolocation: {
                                 type: 'boolean'
                             },
-                            vendor: {
-                                type: 'boolean'
-                            }
                         }
                     },
                 }
@@ -163,10 +157,10 @@ module.exports = rest_api({
                             type: 'object',
                             required: ['count'],
                             properties: {
-                                geolocation: {
+                                tier: {
                                     type: 'string'
                                 },
-                                vendor: {
+                                geolocation: {
                                     type: 'string'
                                 },
                                 count: {
@@ -225,47 +219,10 @@ module.exports = rest_api({
         },
 
 
-        // TODO is this still needed as api method?
-        get_agents_status: {
-            method: 'GET',
-            path: '/agents/',
-            params: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string', // node name
-                        }
-                    }
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['status'],
-                            properties: {
-                                status: {
-                                    type: 'boolean',
-                                },
-                            },
-                        }
-                    }
-                }
-            },
-        },
 
-
-
-        /////////////////////
-        // apis for agents //
-        /////////////////////
+        ///////////////
+        // HEARTBEAT //
+        ///////////////
 
         heartbeat: {
             method: 'PUT',
@@ -277,50 +234,6 @@ module.exports = rest_api({
                 $ref: '/node_api/definitions/node_info'
             },
         },
-
-        ///////////////////////////
-        // apis for node vendors //
-        ///////////////////////////
-
-        connect_node_vendor: {
-            method: 'POST',
-            path: '/node_vendor',
-            params: {
-                type: 'object',
-                required: ['name', 'category', 'kind', 'details'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    // TODO revise this func and params
-                    category: {
-                        type: 'string',
-                    },
-                    kind: {
-                        type: 'string',
-                    },
-                    details: {
-                        type: 'object',
-                        additionalProperties: true,
-                    },
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['id', 'name', 'kind'],
-                properties: {
-                    id: {
-                        type: 'string',
-                    },
-                    name: {
-                        type: 'string',
-                    },
-                    kind: {
-                        type: 'string',
-                    },
-                }
-            }
-        }
 
 
     },
@@ -374,12 +287,6 @@ module.exports = rest_api({
                 },
                 used_storage: {
                     type: 'integer'
-                },
-                vendor: {
-                    type: 'string'
-                },
-                vendor_node_id: {
-                    type: 'string'
                 },
                 device_info: {
                     type: 'object',

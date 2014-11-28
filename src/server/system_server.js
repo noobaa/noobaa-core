@@ -28,10 +28,6 @@ var system_server = new api.system_api.Server({
     add_role: add_role,
     remove_role: remove_role,
 
-    // VENDORS
-    add_vendor: add_vendor,
-    remove_vendor: remove_vendor,
-
     // TIERS
     add_tier: add_tier,
     remove_tier: remove_tier,
@@ -90,9 +86,6 @@ function read_system(req) {
             // roles
             db.Role.find(by_system_id).populate('account').exec(),
 
-            // vendors
-            db.Vendor.find(by_system_id_undeleted).exec(),
-
             // tiers
             db.Tier.find(by_system_id_undeleted).exec(),
 
@@ -112,23 +105,12 @@ function read_system(req) {
                     if (online) {
                         emit('online', 1);
                     }
-                    if (this.tier) {
-                        var tkey = 'tier/' + this.tier + '/';
-                        emit(tkey + 'alloc', this.allocated_storage);
-                        emit(tkey + 'used', this.used_storage);
-                        emit(tkey + 'count', 1);
-                        if (online) {
-                            emit(tkey + 'online', 1);
-                        }
-                    }
-                    if (this.vendor) {
-                        var vkey = 'vendor/' + this.vendor + '/';
-                        emit(vkey + 'alloc', this.allocated_storage);
-                        emit(vkey + 'used', this.used_storage);
-                        emit(vkey + 'count', 1);
-                        if (online) {
-                            emit(vkey + 'online', 1);
-                        }
+                    var tkey = 'tier/' + this.tier + '/';
+                    emit(tkey + 'alloc', this.allocated_storage);
+                    emit(tkey + 'used', this.used_storage);
+                    emit(tkey + 'count', 1);
+                    if (online) {
+                        emit(tkey + 'online', 1);
                     }
                 },
                 reduce: size_utils.reduce_sum
@@ -159,7 +141,7 @@ function read_system(req) {
             db.Bucket.count(by_system_id).exec(),
         ]);
 
-    }).spread(function(roles, vendors, tiers, nodes, objects, blocks, buckets) {
+    }).spread(function(roles, tiers, nodes, objects, blocks, buckets) {
         nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
         objects = _.mapValues(_.indexBy(objects, '_id'), 'value');
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
@@ -169,18 +151,6 @@ function read_system(req) {
                 role = _.pick(role, 'role', 'account');
                 role.account = _.pick(role.account, 'name', 'email');
                 return role;
-            }),
-            vendors: _.map(vendors, function(vendor) {
-                var v = _.pick(vendor, 'name', 'category', 'kind', 'details');
-                v.storage = {
-                    alloc: nodes['vendor/' + v.name + '/alloc'] || 0,
-                    used: nodes['vendor/' + v.name + '/used'] || 0,
-                };
-                v.nodes = {
-                    count: nodes['vendor/' + v.name + '/count'] || 0,
-                    online: nodes['vendor/' + v.name + '/online'] || 0,
-                };
-                return v;
             }),
             tiers: _.map(tiers, function(tier) {
                 var t = _.pick(tier, 'name');
@@ -290,36 +260,6 @@ function remove_role(req) {
                 system: req.system.id,
             }).exec();
         })
-        .thenResolve();
-}
-
-
-////////////
-// VENDOR //
-////////////
-
-function add_vendor(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            var info = _.pick(req.rest_params, 'name', 'category', 'kind', 'details');
-            info.system = req.system.id;
-            return db.Vendor.create(info);
-        })
-        .then(null, db.check_already_exists(req, 'vendor'))
-        .thenResolve();
-}
-
-function remove_vendor(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            return db.Vendor.findOneAndUpdate({
-                system: req.system.id,
-                name: req.rest_params.name,
-            }, {
-                deleted: new Date()
-            }).exec();
-        })
-        .then(db.check_not_found(req, 'vendor'))
         .thenResolve();
 }
 

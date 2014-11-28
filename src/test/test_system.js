@@ -44,19 +44,6 @@ describe('system', function() {
                 email: 'role@test.er',
             });
         }).then(function() {
-            return system_client.add_vendor({
-                name: 'me',
-                category: 'vm',
-                kind: 'agent_host',
-                details: {
-                    email: 'me@me.me'
-                },
-            });
-        }).then(function() {
-            return system_client.remove_vendor({
-                name: 'me',
-            });
-        }).then(function() {
             return system_client.add_tier({
                 name: 'tier',
             });

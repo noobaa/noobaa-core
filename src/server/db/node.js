@@ -107,12 +107,4 @@ node_schema.index({
     unique: true
 });
 
-node_schema.index({
-    vendor: 1,
-    deleted: 1, // allow to filter deleted
-}, {
-    unique: false
-});
-
-
 var Node = module.exports = mongoose.model('Node', node_schema);

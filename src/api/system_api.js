@@ -116,50 +116,6 @@ module.exports = rest_api({
             },
         },
 
-        /////////////
-        // VENDORS //
-        /////////////
-
-        add_vendor: {
-            doc: 'Add vendor',
-            method: 'POST',
-            path: '/vendor',
-            params: {
-                type: 'object',
-                required: ['name', 'category', 'kind', 'details'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    category: {
-                        $ref: '/system_api/definitions/vendor_category'
-                    },
-                    kind: {
-                        $ref: '/system_api/definitions/vendor_kind'
-                    },
-                    details: {
-                        type: 'object',
-                        // vendor specific properties
-                        additionalProperties: true,
-                    },
-                }
-            },
-        },
-
-        remove_vendor: {
-            doc: 'Remove vendor',
-            method: 'DELETE',
-            path: '/vendor/:name',
-            params: {
-                type: 'object',
-                requires: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
 
         ///////////
         // TIERS //
@@ -221,7 +177,6 @@ module.exports = rest_api({
             required: [
                 'name',
                 'roles',
-                'vendors',
                 'tiers',
                 'storage',
                 'nodes',
@@ -236,12 +191,6 @@ module.exports = rest_api({
                     type: 'array',
                     items: {
                         $ref: '/system_api/definitions/role_info'
-                    }
-                },
-                vendors: {
-                    type: 'array',
-                    items: {
-                        $ref: '/system_api/definitions/vendor_info'
                     }
                 },
                 tiers: {
@@ -289,40 +238,20 @@ module.exports = rest_api({
         },
 
 
-        vendor_info: {
+        tier_info: {
             type: 'object',
-            required: ['name', 'category', 'kind', 'details', 'storage', 'nodes'],
+            required: ['name', 'kind', 'storage', 'nodes'],
             properties: {
                 name: {
                     type: 'string',
                 },
-                category: {
-                    $ref: '/system_api/definitions/vendor_category'
-                },
                 kind: {
-                    $ref: '/system_api/definitions/vendor_kind'
+                    $ref: '/system_api/definitions/tier_kind'
                 },
-                details: {
+                cloud_details: {
                     type: 'object',
                     // vendor specific properties
                     additionalProperties: true,
-                },
-                storage: {
-                    $ref: '/system_api/definitions/storage_info'
-                },
-                nodes: {
-                    $ref: '/system_api/definitions/nodes_info'
-                },
-            }
-        },
-
-
-        tier_info: {
-            type: 'object',
-            required: ['name', 'storage', 'nodes'],
-            properties: {
-                name: {
-                    type: 'string',
                 },
                 storage: {
                     $ref: '/system_api/definitions/storage_info'
@@ -339,13 +268,8 @@ module.exports = rest_api({
             type: 'string',
         },
 
-        vendor_category: {
-            enum: ['vm', 'storage'],
-            type: 'string',
-        },
-
-        vendor_kind: {
-            enum: ['agent_host', 'aws.ec2', 'aws.s3'],
+        tier_kind: {
+            enum: ['edge', 'cloud'],
             type: 'string',
         },
 

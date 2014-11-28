@@ -37,7 +37,7 @@ var account_schema = new Schema({
 
 account_schema.index({
     email: 1,
-    deleted: 1, // delete time part of the unique index
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true
 });

@@ -6,7 +6,9 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
-
+/**
+ * edge node DB model
+ */
 var node_schema = new Schema({
 
     system: {
@@ -98,14 +100,14 @@ var node_schema = new Schema({
 node_schema.index({
     system: 1,
     name: 1,
-    deleted: 1, // delete time part of the unique index
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true
 });
 
 node_schema.index({
     vendor: 1,
-    deleted: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: false
 });

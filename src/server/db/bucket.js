@@ -29,6 +29,15 @@ var bucket_schema = new Schema({
         type: String,
     },
 
+    // the bucket's tiering policy - list of tiers to use
+    tiering: [{
+        tier: {
+            ref: 'Tier',
+            type: types.ObjectId,
+            required: true,
+        },
+    }],
+
     // on delete set deletion time
     deleted: {
         type: Date,
@@ -40,7 +49,7 @@ var bucket_schema = new Schema({
 bucket_schema.index({
     system: 1,
     name: 1,
-    deleted: 1, // delete time part of the unique index
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true
 });
@@ -48,7 +57,7 @@ bucket_schema.index({
 
 bucket_schema.index({
     subdomain: 1,
-    deleted: 1, // delete time part of the unique index
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true,
     // subdomain is not required so we have to define the index as sparse

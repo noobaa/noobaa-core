@@ -33,7 +33,7 @@ var system_schema = new Schema({
 
 system_schema.index({
     name: 1,
-    deleted: 1, // delete time part of the unique index
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true
 });

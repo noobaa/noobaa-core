@@ -6,12 +6,22 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
-// data chunk is a logical chunk of data stored persistently.
-// chunks are refered by object parts.
-// chunks are mapped by partitioning to k data blocks.
-
+/**
+ * data chunk DB model.
+ * is a logical chunk of data stored persistently.
+ * chunks are refered by object parts.
+ * chunks are mapped by partitioning to k data blocks.
+ */
 var data_chunk_schema = new Schema({
 
+    // the storage tier of this chunk
+    tier: {
+        ref: 'Tier',
+        type: types.ObjectId,
+        required: true,
+    },
+
+    // system - pulled from the tier
     system: {
         ref: 'System',
         type: types.ObjectId,
@@ -24,28 +34,33 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
-    // for mapping to storage nodes, the logical range is divided
-    // into k blocks of equal size.
+    md5sum: {
+        type: String,
+    },
+
+    // for mapping to edge nodes, the logical range is divided
+    // into k fragments of equal size.
     // in order to support copies and/or erasure coded blocks,
     // the schema contains a list of blocks such that each one has a fragment number.
     // - blocks with (fragment < kfrag) contain real data fragment.
     // - blocks with (fragment >= kfrag) contain a computed erasure coded fragment.
-    // different blocks can appear with the same fragment - which means
-    // they are keeping copies of the same data block.
+    // different blocks appearing with the same fragment - means they are copies
+    // of the same data fragment.
     kfrag: {
         type: Number,
-        required: true,
     },
 
-    md5sum: {
-        type: String,
-        required: true,
-    }
+    // on delete set deletion time
+    deleted: {
+        type: Date
+    },
 
 });
 
 data_chunk_schema.index({
     system: 1,
+    tier: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: false
 });

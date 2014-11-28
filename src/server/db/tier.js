@@ -7,6 +7,9 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
+/**
+ * storage tier DB model
+ */
 var tier_schema = new Schema({
 
     system: {
@@ -20,6 +23,17 @@ var tier_schema = new Schema({
         required: true,
     },
 
+    kind: {
+        enum: ['edge', 'cloud'],
+        type: String,
+        required: true,
+    },
+
+    // details needed to access the cloud storage
+    cloud_details: {
+        type: Object,
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date,
@@ -30,7 +44,7 @@ var tier_schema = new Schema({
 tier_schema.index({
     system: 1,
     name: 1,
-    deleted: 1, // delete time part of the unique index
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true
 });

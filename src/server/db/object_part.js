@@ -6,9 +6,11 @@ var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
-// object parts connect between an object and it's data chunks
-// and allow to share data chunks between objects.
-
+/**
+ * object part DB model.
+ * connects between an object and it's data chunks.
+ * allows to share data chunks between objects.
+ */
 var object_part_schema = new Schema({
 
     system: {
@@ -38,18 +40,22 @@ var object_part_schema = new Schema({
         required: true,
     },
 
-    // link to the data chunk, which might be shared by
-    // several parts by different objects for dedup.
-    chunk: {
-        type: types.ObjectId,
-        ref: 'DataChunk',
-        required: true,
-    },
+    // list of chunks (copies)
+    chunks: [{
 
-    // optional offset inside the chunk, used for small files sharing the chunk
-    chunk_offset: {
-        type: Number,
-    },
+        // link to the data chunk, which might be shared by
+        // several parts by different objects for dedup.
+        chunk: {
+            type: types.ObjectId,
+            ref: 'DataChunk',
+            required: true,
+        },
+
+        // optional offset inside the chunk, used for small files sharing the chunk
+        chunk_offset: {
+            type: Number,
+        },
+    }]
 
 });
 

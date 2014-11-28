@@ -55,7 +55,7 @@ var vendor_schema = new Schema({
 vendor_schema.index({
     system: 1,
     name: 1,
-    deleted: 1, // delete time part of the unique index
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true
 });

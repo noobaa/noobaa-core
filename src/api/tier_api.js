@@ -20,13 +20,19 @@ module.exports = rest_api({
             path: '/tier',
             params: {
                 type: 'object',
-                requires: ['name', 'kind'],
+                requires: ['name', 'kind', 'edge_details', 'cloud_details'],
                 properties: {
                     name: {
                         type: 'string',
                     },
                     kind: {
                         type: 'string',
+                    },
+                    edge_details: {
+                        $ref: '/tier_api/definitions/edge_details'
+                    },
+                    cloud_details: {
+                        $ref: '/tier_api/definitions/cloud_details'
                     },
                 }
             },
@@ -64,10 +70,11 @@ module.exports = rest_api({
                     new_name: {
                         type: 'string',
                     },
+                    edge_details: {
+                        $ref: '/tier_api/definitions/edge_details'
+                    },
                     cloud_details: {
-                        type: 'object',
-                        // vendor specific properties
-                        additionalProperties: true,
+                        $ref: '/tier_api/definitions/cloud_details'
                     },
                 }
             },
@@ -108,10 +115,11 @@ module.exports = rest_api({
                 kind: {
                     $ref: '/tier_api/definitions/tier_kind'
                 },
+                edge_details: {
+                    $ref: '/tier_api/definitions/edge_details'
+                },
                 cloud_details: {
-                    type: 'object',
-                    // vendor specific properties
-                    additionalProperties: true,
+                    $ref: '/tier_api/definitions/cloud_details'
                 },
                 storage: {
                     $ref: '/system_api/definitions/storage_info'
@@ -122,10 +130,31 @@ module.exports = rest_api({
             }
         },
 
-
         tier_kind: {
             enum: ['edge', 'cloud'],
             type: 'string',
+        },
+
+        edge_details: {
+            type: 'object',
+            required: ['replicas', 'data_fragments', 'parity_fragments'],
+            properties: {
+                replicas: {
+                    type: 'integer',
+                },
+                data_fragments: {
+                    type: 'integer',
+                },
+                parity_fragments: {
+                    type: 'integer',
+                },
+            }
+        },
+
+        cloud_details: {
+            type: 'object',
+            // vendor specific properties
+            additionalProperties: true,
         },
 
     }

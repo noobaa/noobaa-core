@@ -45,12 +45,12 @@ describe('system', function() {
             });
         }).then(function() {
             return coretest.tier_client.create_tier({
-                name: 'tier',
+                name: 'edge',
                 kind: 'edge',
             });
         }).then(function() {
             return coretest.tier_client.delete_tier({
-                name: 'tier',
+                name: 'edge',
             });
         }).then(function() {
             return system_client.read_system();

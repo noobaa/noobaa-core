@@ -29,17 +29,24 @@ var tier_schema = new Schema({
         required: true,
     },
 
-    // see kfrag in data_chunk.js
-    kfrag: {
-        type: Number,
+    edge_details: {
+        replicas: {
+            type: Number,
+        },
+        // see kfrag in data_chunk.js
+        data_fragments: {
+            type: Number,
+        },
+        parity_fragments: {
+            type: Number,
+        },
     },
 
     // details needed to access the cloud storage
     // for example for AWS S3 the details should contain:
     //     access_key, secret, region, etc.
-    cloud_details: {
-        type: Object,
-    },
+    // TODO define schema for cloud_details?
+    cloud_details: {},
 
     // on delete set deletion time
     deleted: {

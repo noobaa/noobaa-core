@@ -78,7 +78,7 @@ module.exports = {
 };
 
 
-function check_not_found(req, entity, allow_deleted) {
+function check_not_found(req, entity) {
     return function(doc) {
         if (!doc) throw req.rest_error(entity + ' not found');
         return doc;

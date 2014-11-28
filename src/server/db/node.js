@@ -87,9 +87,7 @@ var node_schema = new Schema({
 
     // device information sent by the agent.
     // TODO define schema for device_info
-    device_info: {
-        type: Object
-    },
+    device_info: {},
 
     // on delete set deletion time
     deleted: {

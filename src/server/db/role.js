@@ -25,7 +25,7 @@ var role_schema = new Schema({
     },
 
     role: {
-        enum: ['admin', 'agent'],
+        enum: ['admin', 'agent', 'user', 'viewer'],
         type: String,
         required: true,
     },

@@ -22,47 +22,29 @@ module.exports = rest_api({
             path: '/auth',
             params: {
                 type: 'object',
-                required: ['email', 'password'],
+                required: [],
                 properties: {
                     email: {
+                        doc: 'If email is provided the new authorization will refer to it. ' +
+                            'If no email, the currently authorized account will be used.',
                         type: 'string',
                     },
                     password: {
+                        doc: 'If password is supplied then the email will be verified using it. ' +
+                            'If no password then the currently authorized account ' +
+                            'should be permitted to delegate such authorization (e.g. admin).',
                         type: 'string',
                     },
                     system: {
                         type: 'string',
                     },
-                    expires: {
-                        type: 'integer',
-                        doc: 'Number of seconds before the authentication expires',
-                    },
-                },
-            },
-            reply: {
-                type: 'object',
-                required: ['token'],
-                properties: {
-                    token: {
+                    bucket: {
                         type: 'string',
                     },
-                }
-            }
-        },
-
-        update_auth: {
-            doc: 'Authenticate based on previous token, to get a different token ' +
-                'for example in order to use different system.',
-            method: 'PUT',
-            path: '/auth',
-            params: {
-                type: 'object',
-                required: [],
-                properties: {
-                    system: {
+                    object: {
                         type: 'string',
                     },
-                    expires: {
+                    expiry: {
                         type: 'integer',
                         doc: 'Number of seconds before the authentication expires',
                     },
@@ -109,6 +91,12 @@ module.exports = rest_api({
                         }
                     },
                     role: {
+                        type: 'string',
+                    },
+                    bucket: {
+                        type: 'string',
+                    },
+                    object: {
                         type: 'string',
                     },
                 }

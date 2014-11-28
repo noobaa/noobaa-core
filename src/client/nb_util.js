@@ -41,7 +41,6 @@ nb_util.factory('nbAuth', [
         $scope.init_token = init_token;
         $scope.logout = logout;
         $scope.create_auth = create_auth;
-        $scope.update_auth = update_auth;
         $scope.init_promise = init_token();
 
         function set_token(token) {
@@ -86,19 +85,6 @@ nb_util.factory('nbAuth', [
             return $q.when().then(
                 function() {
                     return auth_client.create_auth(params);
-                }
-            ).then(
-                function(res) {
-                    set_token(res.token);
-                    return init_token();
-                }
-            );
-        }
-
-        function update_auth(params) {
-            return $q.when().then(
-                function() {
-                    return auth_client.update_auth(params);
                 }
             ).then(
                 function(res) {

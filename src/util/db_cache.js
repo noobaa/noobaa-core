@@ -29,16 +29,16 @@ function DBCache(options) {
 /**
  * get from cache, will load on cache miss, returns a promise.
  *
- * force_miss (String) - pass the literal string 'force_miss' to force fetching.
+ * cache_miss (String) - pass the literal string 'cache_miss' to force fetching.
  *
  */
-DBCache.prototype.get = function(key, force_miss) {
+DBCache.prototype.get = function(key, cache_miss) {
     var self = this;
     return Q.fcall(function() {
         var item = self.lru.find_or_add_item(self.key_stringify(key));
 
-        // use cached item when not expired
-        if (force_miss !== 'force_miss') {
+        // use cached item when not forcing cache_miss and still not expired by lru
+        if (cache_miss !== 'cache_miss') {
             if (item.missing) {
                 return;
             }

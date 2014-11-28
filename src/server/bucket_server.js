@@ -62,7 +62,7 @@ function read_bucket(req) {
     return db.BucketCache.get({
             system: req.system.id,
             name: bucket_name,
-        }, 'force_miss')
+        }, 'cache_miss')
         .then(function(bucket) {
             return _.pick(bucket, 'name');
         });

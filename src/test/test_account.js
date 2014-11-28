@@ -47,9 +47,10 @@ describe('account', function() {
                     email: EMAIL,
                     password: PASSWORD + '!',
                 }).then(function(res) {
-                    throw new Error('expected error: incorrect email and password');
+                    throw new Error('expected error: unauthorized');
                 }, function(err) {
-                    assert.strictEqual(err.data, 'incorrect email and password');
+                    assert.strictEqual(err.data, 'unauthorized');
+                    assert.strictEqual(err.status, 401);
                 });
             }).then(function() {
                 return auth_client.create_auth({

@@ -39,7 +39,9 @@ function create_account(req) {
 
 
 function read_account(req) {
-    return req.load_account('force_miss')
+    return req.load_account({
+            cache_miss: true
+        })
         .then(function() {
             return _.pick(req.account, 'name', 'email');
         });
@@ -47,7 +49,9 @@ function read_account(req) {
 
 
 function update_account(req) {
-    return req.load_account('force_miss')
+    return req.load_account({
+            cache_miss: true
+        })
         .then(function() {
 
             // invalidate the local cache
@@ -63,7 +67,9 @@ function update_account(req) {
 
 
 function delete_account(req) {
-    return req.load_account('force_miss')
+    return req.load_account({
+            cache_miss: true
+        })
         .then(function() {
 
             // invalidate the local cache

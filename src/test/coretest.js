@@ -59,7 +59,7 @@ before(function(done) {
         account_params.name = 'coretest';
         return account_client.create_account(account_params);
     }).then(function() {
-        return create_auth();
+        return create_auth(account_credentials);
     }).nodeify(done);
 });
 
@@ -74,8 +74,7 @@ after(function() {
 });
 
 function create_auth(options) {
-    var params = _.extend({}, account_credentials, options);
-    return auth_client.create_auth(params)
+    return auth_client.create_auth(options)
         .then(function(res) {
             auth_client.set_global_authorization(res.token);
         });

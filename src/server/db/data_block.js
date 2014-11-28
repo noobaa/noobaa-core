@@ -53,6 +53,11 @@ var data_block_schema = new Schema({
         required: true,
     },
 
+    // uploading state
+    uploading: {
+        type: Boolean,
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date,

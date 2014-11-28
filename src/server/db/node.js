@@ -11,12 +11,6 @@ var types = mongoose.Schema.Types;
  */
 var node_schema = new Schema({
 
-    system: {
-        ref: 'System',
-        type: types.ObjectId,
-        required: true,
-    },
-
     name: {
         type: String,
         required: true,
@@ -28,6 +22,14 @@ var node_schema = new Schema({
         required: true,
     },
 
+    // system - pulled from the tier
+    system: {
+        ref: 'System',
+        type: types.ObjectId,
+        required: true,
+    },
+
+    // a manual flag for admin to mark it's servers from the rest
     is_server: {
         type: Boolean,
     },
@@ -43,28 +45,28 @@ var node_schema = new Schema({
         required: true,
     },
 
-    // the used storage
-    // computed from the data blocks owned by this node
+    // the used storage computed from the data blocks owned by this node
     used_storage: {
         type: Number,
         required: true,
     },
 
-    // the vendor that operates this node.
-    // if not specificed it means that this node is a noobaa distributed node.
-    vendor: {
-        ref: 'Vendor',
-        type: types.ObjectId,
+    // ready state
+    ready: {
+        enum: ['verifying', 'impotent', 'sleeping', 'coma'],
+        type: String,
     },
 
-    // optional vendor specific resource identifier
-    vendor_node_id: {
-        type: String
+    // decomission state
+    decomission: {
+        enum: ['running', 'done'],
+        type: String,
     },
 
-    // started/stopped state for the node agent
-    started: {
-        type: Boolean,
+    // malicious state
+    malicious: {
+        enum: ['suspected', 'malicious'],
+        type: String,
     },
 
     // the public ip of the node

@@ -34,6 +34,11 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
+    // uploading state
+    uploading: {
+        type: Boolean,
+    },
+
     md5sum: {
         type: String,
     },

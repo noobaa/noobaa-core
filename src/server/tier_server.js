@@ -33,27 +33,59 @@ module.exports = tier_server;
 
 function create_tier(req) {
     return Q.fcall(function() {
-            var info = _.pick(req.rest_params, 'name', 'kind');
+            var info = _.pick(req.rest_params, 'name', 'kind', 'cloud_details');
             info.system = req.system.id;
             return db.Tier.create(info);
         })
         .then(null, db.check_already_exists(req, 'tier'))
         .thenResolve();
-
 }
 
 function read_tier(req) {
-    // TODO
+    return Q.fcall(function() {
+            return db.Tier.findOne({
+                system: req.system.id,
+                name: req.rest_params.name,
+                deleted: null,
+            });
+        })
+        .then(db.check_not_found(req, 'tier'))
+        .then(function(tier) {
+            tier = _.pick(tier, 'name', 'kind', 'cloud_details');
+            // TODO read tier's storage and nodes
+            tier.storage = {
+                alloc: 0,
+                used: 0,
+            };
+            tier.nodes = {
+                count: 0,
+                online: 0,
+            };
+            return tier;
+        });
 }
 
 function update_tier(req) {
-    // TODO
+    return Q.fcall(function() {
+            var updates = _.pick(req.rest_params, 'kind', 'cloud_details');
+            if (req.rest_params.new_name) {
+                updates.name = req.rest_params.new_name;
+            }
+            return db.Tier.findOneAndUpdate({
+                system: req.system.id,
+                name: req.rest_params.name,
+                deleted: null,
+            }, updates);
+        })
+        .then(db.check_not_found(req, 'tier'))
+        .thenResolve();
 }
 
 function delete_tier(req) {
     return Q.when(db.Tier.findOneAndUpdate({
             system: req.system.id,
             name: req.rest_params.name,
+            deleted: null,
         }, {
             deleted: new Date()
         }).exec())

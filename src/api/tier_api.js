@@ -61,6 +61,14 @@ module.exports = rest_api({
                     name: {
                         type: 'string',
                     },
+                    new_name: {
+                        type: 'string',
+                    },
+                    cloud_details: {
+                        type: 'object',
+                        // vendor specific properties
+                        additionalProperties: true,
+                    },
                 }
             },
         },

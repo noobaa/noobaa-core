@@ -29,6 +29,11 @@ var tier_schema = new Schema({
         required: true,
     },
 
+    // see kfrag in data_chunk.js
+    kfrag: {
+        type: Number,
+    },
+
     // details needed to access the cloud storage
     // for example for AWS S3 the details should contain:
     //     access_key, secret, region, etc.

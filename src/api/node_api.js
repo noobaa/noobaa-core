@@ -40,7 +40,7 @@ module.exports = rest_api({
 
 
         update_node: {
-            method: 'DELETE',
+            method: 'PUT',
             path: '/node/:name',
             params: {
                 $ref: '/node_api/definitions/node_config'
@@ -215,7 +215,7 @@ module.exports = rest_api({
 
         heartbeat: {
             method: 'PUT',
-            path: '/node/:name',
+            path: '/heartbeat/:name',
             params: {
                 $ref: '/node_api/definitions/node_info'
             },

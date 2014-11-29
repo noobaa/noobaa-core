@@ -41,15 +41,13 @@ module.exports = rest_api({
                     role: {
                         type: 'string',
                     },
-                    bucket: {
-                        type: 'string',
-                    },
-                    object: {
-                        type: 'string',
-                    },
                     expiry: {
                         type: 'integer',
                         doc: 'Number of seconds before the authentication expires',
+                    },
+                    extended: {
+                        type: 'object',
+                        additionalProperties: true
                     },
                 },
             },

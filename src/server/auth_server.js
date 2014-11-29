@@ -146,8 +146,10 @@ function create_auth(req) {
             jwt_payload.role = role_name;
         }
 
-        var more_auth = _.pick(req.rest_params, 'bucket', 'object');
-        _.extend(jwt_payload, more_auth);
+        // insert extended info
+        if (req.rest_params.extended) {
+            jwt_payload.extended = req.rest_params.extended;
+        }
 
         // set expiry if provided
         var jwt_options = {};
@@ -172,7 +174,7 @@ function read_auth(req) {
             allow_missing: true
         })
         .then(function() {
-            var reply = _.pick(req.auth, 'role', 'bucket', 'object');
+            var reply = _.pick(req.auth, 'role', 'extended');
             if (req.account) {
                 reply.account = _.pick(req.account, 'name', 'email');
             }

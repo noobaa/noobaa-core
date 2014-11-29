@@ -201,7 +201,7 @@ module.exports = rest_api({
 
 
         role_enum: {
-            enum: ['admin', 'agent', 'user', 'viewer'],
+            enum: ['admin', 'user', 'viewer'],
             type: 'string',
         },
 

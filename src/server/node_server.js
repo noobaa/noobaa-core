@@ -54,8 +54,8 @@ module.exports = new api.node_api.Server({
 function create_node(req) {
     var info;
 
-    // admin or agent roles allowed
-    return req.load_system(['admin', 'agent'])
+    // admin or create_node roles allowed
+    return req.load_system(['admin', 'create_node'])
         .then(function() {
             info = _.pick(req.rest_params,
                 'name',
@@ -89,7 +89,18 @@ function create_node(req) {
             return db.Node.create(info);
         })
         .then(null, db.check_already_exists(req, 'node'))
-        .thenResolve();
+        .then(function(node) {
+            var reply = {};
+            if (req.role === 'create_node') {
+                reply.token = req.make_auth_token({
+                    role: 'agent',
+                    ext: {
+                        node_id: node.id,
+                    }
+                });
+            }
+            return reply;
+        });
 }
 
 
@@ -337,7 +348,7 @@ function heartbeat(req) {
     var agent_storage_used = req.rest_params.storage_used;
     var node;
 
-    return req.load_system(['admin'])
+    return req.load_system(['admin', 'agent'])
         .then(function() {
             return find_node_by_name(req);
         })

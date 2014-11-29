@@ -156,9 +156,9 @@ function create_auth(req) {
             jwt_payload.role = role_name;
         }
 
-        // insert extended info
-        if (req.rest_params.extended) {
-            jwt_payload.extended = req.rest_params.extended;
+        // insert ext info
+        if (req.rest_params.ext) {
+            jwt_payload.ext = req.rest_params.ext;
         }
 
         // set expiry if provided
@@ -184,7 +184,7 @@ function read_auth(req) {
             allow_missing: true
         })
         .then(function() {
-            var reply = _.pick(req.auth, 'role', 'extended');
+            var reply = _.pick(req.auth, 'role', 'ext');
             if (req.account) {
                 reply.account = _.pick(req.account, 'name', 'email');
             }
@@ -320,6 +320,38 @@ function _prepare_auth_request(req) {
                 });
         });
     };
+
+
+    /**
+     * make auth token based on the existing auth with the given modifications.
+     *
+     * @param <Object> options:
+     *      - system_id
+     *      - role
+     *      - ext
+     *      - expiry
+     * @return <String> token
+     */
+    req.make_auth_token = function(options) {
+        var jwt_payload = _.pick(req.auth, 'account_id', 'system_id', 'role', 'ext');
+        if (options.system_id) {
+            jwt_payload.system_id = options.system_id;
+        }
+        if (options.role) {
+            jwt_payload.role = options.role;
+        }
+        if (options.ext) {
+            jwt_payload.ext = options.ext;
+        }
+
+        // set expiry if provided
+        var jwt_options = {};
+        if (options.expiry) jwt_options.expiresInMinutes = options.expiry / 60;
+
+        // create and return the signed token
+        return jwt.sign(jwt_payload, process.env.JWT_SECRET, jwt_options);
+    };
+
 }
 
 function is_role_valid(role, valid_roles) {

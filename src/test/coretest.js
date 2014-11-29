@@ -85,22 +85,20 @@ var agent_storage_dir = path.resolve(__dirname, '../../test_data/coretest');
 
 
 // create some test nodes named 0, 1, 2, ..., count
-function init_test_nodes(count, storage_alloc) {
+function init_test_nodes(count, system, tier, storage_alloc) {
     var sem = new Semaphore(3);
+    var create_node_client = new api.node_api.Client();
 
     function init_test_node(i) {
-        return Q.fcall(function() {
-                return node_client.create_node({
-                    name: '' + i,
-                    geolocation: 'test',
-                    storage_alloc: storage_alloc,
-                });
+        return create_node_client.create_node({
+                name: '' + i,
+                tier: tier,
+                geolocation: 'test',
+                storage_alloc: storage_alloc,
             })
-            .then(function() {
+            .then(function(res) {
                 var agent = new Agent({
-                    account_client: account_client,
-                    node_client: node_client,
-                    account_credentials: account_credentials,
+                    token: res.token,
                     node_name: '' + i,
                     node_geolocation: 'test',
                     storage_path: agent_storage_dir,
@@ -109,8 +107,19 @@ function init_test_nodes(count, storage_alloc) {
             });
     }
 
+
     return clear_test_nodes()
         .then(function() {
+            return auth_client.create_auth({
+                role: 'create_node',
+                system: system,
+                ext: {
+                    tier: tier
+                }
+            });
+        })
+        .then(function(res) {
+            create_node_client.set_authorization(res.token);
             return Q.all(_.times(count, function(i) {
                 return sem.surround(function() {
                     return init_test_node(i);

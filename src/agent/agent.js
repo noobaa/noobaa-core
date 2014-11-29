@@ -18,6 +18,7 @@ var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var os = require('os');
+var api = require('../api');
 
 module.exports = Agent;
 
@@ -26,16 +27,14 @@ module.exports = Agent;
  */
 function Agent(params) {
     var self = this;
-    assert(params.account_client, 'missing params.account_client');
-    assert(params.node_client, 'missing params.node_client');
-    assert(params.account_credentials, 'missing params.account_credentials');
+    assert(params.token, 'missing params.token');
     assert(params.node_name, 'missing params.node_name');
     assert(params.node_geolocation, 'missing params.node_geolocation');
-    self.account_client = params.account_client;
-    self.node_client = params.node_client;
-    self.account_credentials = params.account_credentials;
+    self.token = params.token;
     self.node_name = params.node_name;
     self.node_geolocation = params.node_geolocation;
+    self.node_client = new api.node_api.Client();
+    self.node_client.set_authorization(self.token);
 
     self.storage_path = params.storage_path;
     var lru_options = {};
@@ -53,7 +52,8 @@ function Agent(params) {
     app.use(express_morgan_logger('dev'));
     app.use(express_body_parser.json());
     app.use(express_body_parser.raw({
-        limit: 16 * size_utils.MEGABYTE // size limit on raw requests
+        // size limit on raw requests
+        limit: 16 * size_utils.MEGABYTE
     }));
     app.use(express_body_parser.text());
     app.use(express_body_parser.urlencoded({
@@ -71,6 +71,7 @@ function Agent(params) {
         res.header('Access-Control-Allow-Credentials', true);
         next();
     });
+
     var agent_server = new api.agent_api.Server({
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
@@ -102,10 +103,6 @@ Agent.prototype.start = function() {
     console.log('start agent', self.node_name);
 
     return Q.fcall(
-        function() {
-            return self.account_client.login_account(self.account_credentials);
-        }
-    ).then(
         function() {
             return self.mkdirs();
         }
@@ -220,22 +217,22 @@ Agent.prototype.send_heartbeat = function() {
         port: self.http_port,
         online: true,
         heartbeat: new Date().toString(),
-        storage_alloc: self.storage_alloc,
-        storage_used: self.storage_used,
-        system_info: {
-            os: {
-                hostname: os.hostname(),
-                type: os.type(),
-                platform: os.platform(),
-                arch: os.arch(),
-                release: os.release(),
-                uptime: os.uptime(),
-                loadavg: os.loadavg(),
-                totalmem: os.totalmem(),
-                freemem: os.freemem(),
-                cpus: os.cpus(),
-                networkInterfaces: os.networkInterfaces(),
-            }
+        storage: {
+            alloc: self.storage_alloc,
+            used: self.storage_used
+        },
+        device_info: {
+            hostname: os.hostname(),
+            type: os.type(),
+            platform: os.platform(),
+            arch: os.arch(),
+            release: os.release(),
+            uptime: os.uptime(),
+            loadavg: os.loadavg(),
+            totalmem: os.totalmem(),
+            freemem: os.freemem(),
+            cpus: os.cpus(),
+            networkInterfaces: os.networkInterfaces(),
         }
     });
 };

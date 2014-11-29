@@ -19,6 +19,15 @@ module.exports = rest_api({
             params: {
                 $ref: '/node_api/definitions/node_config'
             },
+            reply: {
+                type: 'object',
+                required: [],
+                properties: {
+                    token: {
+                        type: 'string'
+                    }
+                }
+            }
         },
 
         read_node: {

@@ -254,8 +254,7 @@ module.exports = rest_api({
                 'port',
                 'online',
                 'heartbeat',
-                'allocated_storage',
-                'used_storage',
+                'storage',
                 'device_info',
             ],
             properties: {
@@ -278,11 +277,8 @@ module.exports = rest_api({
                     type: 'string',
                     format: 'date',
                 },
-                allocated_storage: {
-                    type: 'integer'
-                },
-                used_storage: {
-                    type: 'integer'
+                storage: {
+                    $ref: '/system_api/definitions/storage_info'                    
                 },
                 device_info: {
                     type: 'object',

@@ -87,31 +87,7 @@ function read_system(req) {
             db.Tier.find(by_system_id_undeleted).exec(),
 
             // nodes - count, online count, allocated/used storage
-            db.Node.mapReduce({
-                query: by_system_id_undeleted,
-                scope: {
-                    // have to pass variables to map/reduce with a scope
-                    minimum_online_heartbeat: minimum_online_heartbeat,
-                },
-                map: function() {
-                    /* global emit */
-                    emit('alloc', this.allocated_storage);
-                    emit('used', this.used_storage);
-                    emit('count', 1);
-                    var online = (this.started && this.heartbeat >= minimum_online_heartbeat);
-                    if (online) {
-                        emit('online', 1);
-                    }
-                    var tkey = 'tier/' + this.tier + '/';
-                    emit(tkey + 'alloc', this.allocated_storage);
-                    emit(tkey + 'used', this.used_storage);
-                    emit(tkey + 'count', 1);
-                    if (online) {
-                        emit(tkey + 'online', 1);
-                    }
-                },
-                reduce: size_utils.reduce_sum
-            }),
+            db.Node.aggregate_nodes(by_system_id_undeleted, minimum_online_heartbeat),
 
             // objects
             db.ObjectMD.mapReduce({
@@ -138,10 +114,10 @@ function read_system(req) {
             db.Bucket.count(by_system_id).exec(),
         ]);
 
-    }).spread(function(roles, tiers, nodes, objects, blocks, buckets) {
-        nodes = _.mapValues(_.indexBy(nodes, '_id'), 'value');
+    }).spread(function(roles, tiers, nodes_aggregate, objects, blocks, buckets) {
         objects = _.mapValues(_.indexBy(objects, '_id'), 'value');
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
+        var nodes_sys = nodes_aggregate[''] || {};
         return {
             name: req.system.name,
             roles: _.map(roles, function(role) {
@@ -151,24 +127,19 @@ function read_system(req) {
             }),
             tiers: _.map(tiers, function(tier) {
                 var t = _.pick(tier, 'name');
-                t.storage = {
-                    alloc: nodes['tier/' + t.name + '/alloc'] || 0,
-                    used: nodes['tier/' + t.name + '/used'] || 0,
-                };
-                t.nodes = {
-                    count: nodes['tier/' + t.name + '/count'] || 0,
-                    online: nodes['tier/' + t.name + '/online'] || 0,
-                };
+                var a = nodes_aggregate[tier.id];
+                t.storage = _.pick(a, 'alloc', 'used');
+                t.nodes = _.pick(a, 'count', 'online');
                 return t;
             }),
             storage: {
-                alloc: nodes.alloc || 0,
+                alloc: nodes_sys.alloc || 0,
                 used: objects.size || 0,
                 real: blocks.size || 0,
             },
             nodes: {
-                count: nodes.count || 0,
-                online: nodes.online || 0,
+                count: nodes_sys.count || 0,
+                online: nodes_sys.online || 0,
             },
             buckets: buckets || 0,
             objects: objects.count || 0,

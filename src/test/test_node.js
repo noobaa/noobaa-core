@@ -37,8 +37,10 @@ describe('node', function() {
             return coretest.node_client.heartbeat({
                 name: 'haha',
                 geolocation: 'home',
-                allocated_storage: 10 * size_utils.GIGABYTE,
-                used_storage: size_utils.GIGABYTE,
+                storage: {
+                    alloc: 10 * size_utils.GIGABYTE,
+                    used: size_utils.GIGABYTE,
+                },
                 online: true,
                 heartbeat: new Date().toString(),
                 ip: '0.0.0.0',

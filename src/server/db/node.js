@@ -5,6 +5,7 @@ var _ = require('lodash');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
+var size_utils = require('../../util/size_utils');
 
 /**
  * edge node DB model
@@ -39,16 +40,22 @@ var node_schema = new Schema({
         type: String,
     },
 
-    // the allocated storage space
-    allocated_storage: {
-        type: Number,
-        required: true,
+    storage: {
+        // the allocated storage space
+        alloc: {
+            type: Number,
+            required: true,
+        },
+
+        // the used storage computed from the data blocks owned by this node
+        used: {
+            type: Number,
+            required: true,
+        },
     },
 
-    // the used storage computed from the data blocks owned by this node
-    used_storage: {
-        type: Number,
-        required: true,
+    disabled: {
+        type: Boolean,
     },
 
     // ready state
@@ -104,5 +111,46 @@ node_schema.index({
 }, {
     unique: true
 });
+
+
+/**
+ * aggregate_nodes counts the number of nodes and online nodes
+ * and sum of storage (allocated, used) for the entire query, and per tier.
+ * @return <Object> tiers - the '' key represents the entire query and others are tier ids.
+ *      each tier value is an object with properties: alloc, used, count, online.
+ */
+node_schema.statics.aggregate_nodes = function(query, minimum_online_heartbeat) {
+    return this.mapReduce({
+        query: query,
+        scope: {
+            // have to pass variables to map/reduce with a scope
+            minimum_online_heartbeat: minimum_online_heartbeat,
+        },
+        map: function() {
+            /* global emit */
+            emit(['', 'alloc'], this.storage.alloc);
+            emit(['', 'used'], this.storage.used);
+            emit(['', 'count'], 1);
+            var online = (!this.disabled && this.heartbeat >= minimum_online_heartbeat);
+            if (online) {
+                emit(['', 'online'], 1);
+            }
+            emit([this.tier, 'alloc'], this.storage.alloc);
+            emit([this.tier, 'used'], this.storage.used);
+            emit([this.tier, 'count'], 1);
+            if (online) {
+                emit([this.tier, 'online'], 1);
+            }
+        },
+        reduce: size_utils.reduce_sum
+    }).then(function(res) {
+        var tiers = {};
+        _.each(res, function(r) {
+            var t = tiers[r._id[0]] = tiers[r._id[0]] || {};
+            t[r._id[1]] = r.value;
+        });
+        return tiers;
+    });
+};
 
 var Node = module.exports = mongoose.model('Node', node_schema);

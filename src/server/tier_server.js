@@ -40,7 +40,7 @@ function create_tier(req) {
 }
 
 function read_tier(req) {
-    return Q.when(db.Tier.findOne(query_tier(req)).exec())
+    return Q.when(db.Tier.findOne(get_tier_query(req)).exec())
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
             var reply = _.pick(tier, 'name', 'kind');
@@ -67,7 +67,7 @@ function update_tier(req) {
     if (req.rest_params.new_name) {
         updates.name = req.rest_params.new_name;
     }
-    return Q.when(db.Tier.findOneAndUpdate(query_tier(req), updates).exec())
+    return Q.when(db.Tier.findOneAndUpdate(get_tier_query(req), updates).exec())
         .then(db.check_not_deleted(req, 'tier'))
         .thenResolve();
 }
@@ -76,13 +76,13 @@ function delete_tier(req) {
     var updates = {
         deleted: new Date()
     };
-    return Q.when(db.Tier.findOneAndUpdate(query_tier(req), updates).exec())
+    return Q.when(db.Tier.findOneAndUpdate(get_tier_query(req), updates).exec())
         .then(db.check_not_found(req, 'tier'))
         .thenResolve();
 }
 
 
-function query_tier(req) {
+function get_tier_query(req) {
     return {
         system: req.system.id,
         name: req.rest_params.name,

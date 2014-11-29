@@ -43,14 +43,19 @@ var data_chunk_schema = new Schema({
         type: String,
     },
 
-    // for mapping to edge nodes, the logical range is divided
-    // into k fragments of equal size.
-    // in order to support copies and/or erasure coded blocks,
-    // the schema contains a list of blocks such that each one has a fragment number.
-    // - blocks with (fragment < kfrag) contain real data fragment.
-    // - blocks with (fragment >= kfrag) contain a computed erasure coded fragment.
-    // different blocks appearing with the same fragment - means they are copies
-    // of the same data fragment.
+    /* for mapping to edge nodes, the logical range is divided
+     * into k fragments of equal size.
+     * this number is configured by the tier's data_fragments but is saved
+     * in the chunk to allow future changes to the tier's configuration without
+     * breaking the chunk's encoding.
+     *
+     * to support copies and/or erasure coded blocks, chunks are composed of blocks
+     * such that each block has a fragment number.
+     * - blocks with (fragment < kfrag) contain real data fragment.
+     * - blocks with (fragment >= kfrag) contain a computed erasure coded fragment.
+     * different blocks appearing with the same fragment - means they are copies
+     * of the same data fragment.
+     */
     kfrag: {
         type: Number,
     },

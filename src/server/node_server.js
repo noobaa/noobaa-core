@@ -39,7 +39,7 @@ module.exports = new api.node_api.Server({
     connect_node_vendor: connect_node_vendor,
 }, {
     before: function(req) {
-        return req.load_system(['admin']);
+        return req.load_account();
     }
 });
 
@@ -51,67 +51,52 @@ module.exports = new api.node_api.Server({
 
 
 function create_node(req) {
-    var info = _.pick(req.rest_params,
-        'name',
-        'is_server',
-        'geolocation',
-        'allocated_storage',
-        'vendor_node_id'
-    );
-    info.system = req.system.id;
-    info.heartbeat = new Date();
-    info.used_storage = 0;
+    var info;
+    return req.load_system(['admin', 'agent'])
+        .then(function() {
+            info = _.pick(req.rest_params,
+                'name',
+                'is_server',
+                'geolocation'
+            );
+            info.system = req.system.id;
+            info.heartbeat = new Date();
+            info.storage = {
+                alloc: req.rest_params.allocated_storage,
+                used: 0,
+            };
 
-    return Q.fcall(function() {
-        return Q.all([
-            db.Tier.findOne({
+            var tier_query = {
                 system: req.system.id,
                 name: req.rest_params.tier,
                 deleted: null,
-            }).exec(),
-            req.rest_params.vendor && db.Vendor.findOne({
-                system: req.system.id,
-                name: req.rest_params.vendor,
-                deleted: null,
-            }).exec(),
-        ]);
-    }).then(function(res) {
-        info.tier = res[0];
-        info.vendor = res[1];
-        if (!info.tier || String(info.tier.system) !== String(info.system) || info.tier.deleted) {
-            console.error('BAD TIER', info);
-            throw req.rest_error('tier not found');
-        }
-        if (req.rest_params.vendor && (!info.vendor ||
-                String(info.vendor.system) !== String(info.system) ||
-                info.vendor.deleted)) {
-            console.error('BAD VENDOR', info);
-            throw req.rest_error('vendor not found');
-        }
+            };
 
-        return db.Node.create(info);
+            return db.Tier.findOne(tier_query).exec();
+        })
+        .then(db.check_not_deleted(req, 'tier'))
+        .then(function(tier) {
+            info.tier = tier;
 
-    }).then(
-        null, db.check_already_exists(req, 'node')
-    ).then(function(node) {
-        if (!info.vendor) return;
-        return agent_host_caller(info.vendor).start_agent({
-            name: node.name,
-            geolocation: node.geolocation,
-        });
-    }).thenResolve();
+            if (String(info.tier.system) !== String(info.system)) {
+                console.error('TIER SYSTEM MISMATCH', info);
+                throw req.rest_error('tier not found');
+            }
+
+            return db.Node.create(info);
+        })
+        .then(null, db.check_already_exists(req, 'node'))
+        .thenResolve();
 }
 
 
 function delete_node(req) {
-    return Q.fcall(function() {
-            return db.Node.findOneAndUpdate({
-                system: req.system.id,
-                name: req.rest_params.name,
-                deleted: null,
-            }, {
+    return req.load_system(['admin'])
+        .then(function() {
+            var updates = {
                 deleted: new Date()
-            }).exec();
+            };
+            return db.Node.findOneAndUpdate(get_node_query(req), updates).exec();
         })
         .then(db.check_not_found(req, 'node'))
         .then(function(node) {
@@ -122,7 +107,10 @@ function delete_node(req) {
 
 
 function read_node(req) {
-    return find_node_by_name(req, req.rest_params.name)
+    return req.load_system(['admin'])
+        .then(function() {
+            return find_node_by_name(req);
+        })
         .then(function(node) {
             return get_node_info(node);
         });
@@ -135,34 +123,35 @@ function read_node(req) {
 //////////
 
 function list_nodes(req) {
-    var info = {
-        system: req.system.id,
-        deleted: null,
-    };
-    var query = req.rest_params.query;
-    var skip = req.rest_params.skip;
-    var limit = req.rest_params.limit;
-    if (query) {
-        if (query.name) {
-            info.name = new RegExp(query.name);
-        }
-        if (query.geolocation) {
-            info.geolocation = new RegExp(query.geolocation);
-        }
-        if (query.vendor) {
-            info.vendor = query.vendor;
-        }
-    }
+    return req.load_system(['admin'])
+        .then(function() {
+            var info = {
+                system: req.system.id,
+                deleted: null,
+            };
+            var query = req.rest_params.query;
+            var skip = req.rest_params.skip;
+            var limit = req.rest_params.limit;
+            if (query) {
+                if (query.name) {
+                    info.name = new RegExp(query.name);
+                }
+                if (query.tier) {
+                    info.tier = query.tier;
+                }
+                if (query.geolocation) {
+                    info.geolocation = new RegExp(query.geolocation);
+                }
+            }
 
-    return Q.fcall(function() {
-            var q = db.Node.find(info).sort('-_id');
+            var find = db.Node.find(info).sort('-_id');
             if (skip) {
-                q.skip(skip);
+                find.skip(skip);
             }
             if (limit) {
-                q.limit(limit);
+                find.limit(limit);
             }
-            return q.exec();
+            return find.exec();
         })
         .then(function(nodes) {
             return {
@@ -178,75 +167,76 @@ function list_nodes(req) {
 ///////////
 
 function group_nodes(req) {
-    var by_system = {
-        system: req.system.id,
-        deleted: null,
-    };
-    var group_by = req.rest_params.group_by;
+    return req.load_system(['admin'])
+        .then(function() {
+            var reduce_sum = size_utils.reduce_sum;
+            var group_by = req.rest_params.group_by;
+            var by_system = {
+                system: req.system.id,
+                deleted: null,
+            };
 
-    return Q.fcall(function() {
-        var reduce_sum = size_utils.reduce_sum;
-        return db.Node.mapReduce({
-            query: by_system,
-            scope: {
-                group_by: group_by,
-                reduce_sum: reduce_sum,
-            },
-            map: function() {
-                var key = {};
-                if (group_by.geolocation) {
-                    key.g = this.geolocation;
+            return db.Node.mapReduce({
+                query: by_system,
+                scope: {
+                    group_by: group_by,
+                    reduce_sum: reduce_sum,
+                },
+                map: function() {
+                    var key = {};
+                    if (group_by.tier) {
+                        key.t = this.tier;
+                    }
+                    if (group_by.geolocation) {
+                        key.g = this.geolocation;
+                    }
+                    var val = {
+                        // count
+                        c: 1,
+                        // allocated
+                        a: this.storage.alloc,
+                        // used
+                        u: this.storage.used,
+                    };
+                    /* global emit */
+                    emit(key, val);
+                },
+                reduce: function(key, values) {
+                    var c = []; // count
+                    var a = []; // allocated
+                    var u = []; // used
+                    values.forEach(function(v) {
+                        c.push(v.c);
+                        a.push(v.a);
+                        u.push(v.u);
+                    });
+                    return {
+                        c: reduce_sum(key, c),
+                        a: reduce_sum(key, a),
+                        u: reduce_sum(key, u),
+                    };
                 }
-                if (group_by.vendor) {
-                    key.v = this.vendor;
-                }
-                var val = {
-                    // count
-                    c: 1,
-                    // allocated
-                    a: this.allocated_storage,
-                    // used
-                    u: this.used_storage,
-                };
-                /* global emit */
-                emit(key, val);
-            },
-            reduce: function(key, values) {
-                var c = []; // count
-                var a = []; // allocated
-                var u = []; // used
-                values.forEach(function(v) {
-                    c.push(v.c);
-                    a.push(v.a);
-                    u.push(v.u);
-                });
-                return {
-                    c: reduce_sum(key, c),
-                    a: reduce_sum(key, a),
-                    u: reduce_sum(key, u),
-                };
-            }
+            });
+        })
+        .then(function(res) {
+            console.log('GROUP NODES', res);
+            return {
+                groups: _.map(res, function(r) {
+                    var group = {
+                        count: r.value.c,
+                        allocated_storage: r.value.a,
+                        used_storage: r.value.u,
+                    };
+                    if (r._id.v) {
+                        group.vendor = r._id.v;
+                    }
+                    if (r._id.g) {
+                        group.geolocation = r._id.g;
+                    }
+                    return group;
+                })
+            };
         });
-
-    }).then(function(res) {
-        console.log('GROUP NODES', res);
-        return {
-            groups: _.map(res, function(r) {
-                var group = {
-                    count: r.value.c,
-                    allocated_storage: r.value.a,
-                    used_storage: r.value.u,
-                };
-                if (r._id.g) {
-                    group.geolocation = r._id.g;
-                }
-                if (r._id.v) {
-                    group.vendor = r._id.v;
-                }
-                return group;
-            })
-        };
-    });
 }
 
 
@@ -309,26 +299,32 @@ function heartbeat(req) {
         'geolocation',
         'ip',
         'port',
-        'allocated_storage',
         'device_info'
     );
     updates.ip = (updates.ip && updates.ip !== '0.0.0.0' && updates.ip) ||
         req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress;
     updates.heartbeat = new Date();
+    updates.storage = {};
+    if (req.rest_params.allocated_storage) {
+        updates.storage.alloc = req.rest_params.allocated_storage;
+    }
 
     var agent_used_storage = req.rest_params.used_storage;
     var node;
 
-    return find_node_by_name(req, req.rest_params.name)
+    return req.load_system(['admin'])
+        .then(function() {
+            return find_node_by_name(req);
+        })
         .then(function(node_arg) {
             node = node_arg;
             // TODO CRITICAL need to optimize - we count blocks on every heartbeat...
             return count_node_used_storage(node.id);
         })
         .then(function(used_storage) {
-            if (node.used_storage !== used_storage) {
-                updates.used_storage = used_storage;
+            if (node.storage.used !== used_storage) {
+                updates.storage.used = used_storage;
             }
             // the agent's used storage is verified but not updated
             if (agent_used_storage !== used_storage) {
@@ -337,12 +333,12 @@ function heartbeat(req) {
                 // TODO trigger a usage check
             }
 
-            if (updates.allocated_storage !== node.allocated_storage) {
+            if (updates.storage.alloc !== node.storage.alloc) {
                 console.log('NODE change allocated storage from',
-                    node.allocated_storage, 'to', updates.allocated_storage);
+                    node.storage.alloc, 'to', updates.storage.alloc);
                 // TODO agent sends allocated_storage but never reads it so it always overrides it...
                 //      so for now we just ignore this change from the agent.
-                delete updates.allocated_storage;
+                delete updates.storage.alloc;
             }
 
             // we log the ip and location updates,
@@ -433,15 +429,6 @@ function count_node_used_storage(node_id) {
         });
 }
 
-function find_node_by_name(req, name) {
-    return Q.when(db.Node.findOne({
-            system: req.system.id,
-            name: name,
-            deleted: null,
-        }).exec())
-        .then(db.check_not_deleted(req, 'node'));
-}
-
 function find_nodes_with_vendors(req, node_names) {
     return Q.when(db.Node.find({
             system: req.system.id,
@@ -512,15 +499,14 @@ function agent_host_caller(vendor) {
 }
 
 function get_node_info(node) {
-    var info = _.pick(node,
-        'name',
-        'geolocation',
-        'allocated_storage',
-        'used_storage'
-    );
+    var info = _.pick(node, 'name', 'geolocation');
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
+    info.storage = {
+        alloc: node.storage.alloc || 0,
+        used: node.storage.used || 0,
+    };
     info.online = node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
     var vendor_id = node.populated('vendor');
     if (!vendor_id) {
@@ -537,4 +523,17 @@ function get_node_info(node) {
         node.device_info.toObject &&
         node.device_info.toObject() || {};
     return info;
+}
+
+function find_node_by_name(req) {
+    return Q.when(db.Node.findOne(get_node_query(req)).exec())
+        .then(db.check_not_deleted(req, 'node'));
+}
+
+function get_node_query(req) {
+    return {
+        system: req.system.id,
+        name: req.rest_params.name,
+        deleted: null,
+    };
 }

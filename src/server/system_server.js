@@ -13,7 +13,7 @@ var api = require('../api');
 var node_monitor = require('./node_monitor');
 
 
-var system_server = new api.system_api.Server({
+module.exports = new api.system_api.Server({
 
     // CRUD
     create_system: create_system,
@@ -33,8 +33,6 @@ var system_server = new api.system_api.Server({
         return req.load_account();
     }
 });
-
-module.exports = system_server;
 
 
 

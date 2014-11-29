@@ -41,7 +41,7 @@ module.exports = rest_api({
                     role: {
                         type: 'string',
                     },
-                    ext: {
+                    extra: {
                         type: 'object',
                         additionalProperties: true
                     },

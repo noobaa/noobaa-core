@@ -10,16 +10,17 @@ var size_utils = require('../util/size_utils');
 describe('node', function() {
 
     var coretest = require('./coretest');
+    var SYS = 'test-node-system';
 
     it('works', function(done) {
         Q.fcall(function() {
             return coretest.system_client.create_system({
-                name: 'sys'
+                name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
             return coretest.create_auth({
-                system: 'sys'
+                system: SYS
             });
         }).then(function() {
             return coretest.tier_client.create_tier({

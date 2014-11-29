@@ -12,15 +12,13 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 
 
-var account_server = new api.account_api.Server({
+module.exports = new api.account_api.Server({
     // CRUD
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
     delete_account: delete_account,
 });
-
-module.exports = account_server;
 
 
 

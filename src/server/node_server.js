@@ -94,7 +94,7 @@ function create_node(req) {
             if (req.role === 'create_node') {
                 reply.token = req.make_auth_token({
                     role: 'agent',
-                    ext: {
+                    extra: {
                         node_id: node.id,
                     }
                 });

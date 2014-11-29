@@ -113,7 +113,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
             return auth_client.create_auth({
                 role: 'create_node',
                 system: system,
-                ext: {
+                extra: {
                     tier: tier
                 }
             });

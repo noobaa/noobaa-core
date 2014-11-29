@@ -11,15 +11,17 @@ var size_utils = require('../util/size_utils');
 
 describe('agent', function() {
 
+    var SYS = 'test-agent-system';
+
     before(function(done) {
         Q.fcall(function() {
             return coretest.system_client.create_system({
-                name: 'sys'
+                name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
             return coretest.create_auth({
-                system: 'sys'
+                system: SYS
             });
         }).then(function() {
             return coretest.tier_client.create_tier({
@@ -27,7 +29,7 @@ describe('agent', function() {
                 kind: 'edge',
             });
         }).then(function() {
-            return coretest.init_test_nodes(10, 'sys', 'edge', size_utils.GIGABYTE);
+            return coretest.init_test_nodes(10, SYS, 'edge', size_utils.GIGABYTE);
         }).nodeify(done);
     });
 

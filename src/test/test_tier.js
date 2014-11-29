@@ -9,16 +9,18 @@ var coretest = require('./coretest');
 
 describe('tier', function() {
 
+    var SYS = 'test-tier-system';
+    
     it('crud', function(done) {
         var system_id;
         Q.fcall(function() {
             return coretest.system_client.create_system({
-                name: 'sys1'
+                name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
             return coretest.create_auth({
-                system: 'sys1'
+                system: SYS
             });
         }).then(function() {
             return coretest.tier_client.create_tier({

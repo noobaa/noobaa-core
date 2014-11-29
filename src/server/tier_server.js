@@ -10,7 +10,7 @@ var api = require('../api');
 var db = require('./db');
 
 
-var tier_server = new api.tier_api.Server({
+module.exports = new api.tier_api.Server({
 
     // CRUD
     create_tier: create_tier,
@@ -22,8 +22,6 @@ var tier_server = new api.tier_api.Server({
         return req.load_system(['admin']);
     }
 });
-
-module.exports = tier_server;
 
 
 

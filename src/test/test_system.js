@@ -10,38 +10,42 @@ var coretest = require('./coretest');
 describe('system', function() {
 
     var system_client = coretest.system_client;
+    var SYS1 = 'test-system-1';
+    var SYS2 = 'test-system-2';
+    var EMAIL = 'test-system@test.test';
+    var PASSWORD = 'test-system-password';
 
     it('crud', function(done) {
         var system_id;
         Q.fcall(function() {
             return system_client.create_system({
-                name: 'sys1',
+                name: SYS1,
             });
         }).then(function() {
             // authenticate now with the new system
             return coretest.create_auth({
-                system: 'sys1'
+                system: SYS1
             });
         }).then(function() {
             return system_client.read_system();
         }).then(function() {
             return system_client.update_system({
-                name: 'sys2',
+                name: SYS2,
             });
         }).then(function() {
             return coretest.account_client.create_account({
-                name: 'role tester',
-                email: 'role@test.er',
-                password: 'roletester',
+                name: EMAIL,
+                email: EMAIL,
+                password: PASSWORD,
             });
         }).then(function() {
             return system_client.add_role({
-                email: 'role@test.er',
+                email: EMAIL,
                 role: 'admin',
             });
         }).then(function() {
             return system_client.remove_role({
-                email: 'role@test.er',
+                email: EMAIL,
             });
         }).then(function() {
             return coretest.tier_client.create_tier({

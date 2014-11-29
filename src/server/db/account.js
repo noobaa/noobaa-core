@@ -28,6 +28,11 @@ var account_schema = new Schema({
         required: true,
     },
 
+    // account mark for support ppl
+    is_support: {
+        type: Boolean,
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date

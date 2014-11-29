@@ -42,7 +42,13 @@ function create_auth(req) {
     var authorizing_account;
     var account_to_authorize;
     var system;
-    var role;
+    var role_name;
+
+    // return the same error to all auth failures
+    // this is to avoid attacks of querying with different params to peek into our db.
+    var auth_fail = function() {
+        return req.rest_error('unauthorized', 401);
+    };
 
     return req.load_account({
         allow_missing: true
@@ -70,19 +76,19 @@ function create_auth(req) {
 
         if (!email) {
             // when email is not provided it is to re-authorize the current account
-            if (!req.account) throw req.rest_error('unauthorized', 401);
+            if (!req.account) throw auth_fail();
             authorizing_account = req.account;
             account_to_authorize = req.account;
         } else if (!password) {
             // email is provided but not password -
             // it is to give authorization by current account to the email account
-            if (!req.account || !email_account) throw req.rest_error('unauthorized', 401);
+            if (!req.account || !email_account) throw auth_fail();
             authorizing_account = req.account;
             account_to_authorize = email_account;
         } else {
             // email and password provided to authenticate with credentials
             // if not verified - either account missing or bad password
-            if (!password_verified) throw req.rest_error('unauthorized', 401);
+            if (!password_verified) throw auth_fail();
             authorizing_account = email_account;
             account_to_authorize = email_account;
         }
@@ -96,16 +102,26 @@ function create_auth(req) {
             }).exec())
             .then(function(system_arg) {
                 system = system_arg;
-                if (!system || system.deleted) throw req.rest_error('system not found');
+                if (!system || system.deleted) throw auth_fail();
 
                 // find the role of authorizing_account and system
                 return db.Role.findOne({
                     account: authorizing_account.id,
                     system: system.id,
                 }).exec();
-            }).then(function(role_arg) {
-                role = role_arg;
-                if (!role) throw req.rest_error('role not found');
+            })
+            .then(function(role) {
+                // support accounts can give other accounts any permission
+                if (authorizing_account.is_support) {
+                    role_name = req.rest_params.role || 'admin';
+                    return;
+                }
+
+                if (!role) throw auth_fail();
+                role_name = req.rest_params.role || role.role;
+
+                // only admin can give other accounts any permission
+                if (role_name !== role.role && role.role !== 'admin') throw auth_fail();
             });
 
     }).then(function() {
@@ -116,10 +132,9 @@ function create_auth(req) {
         };
 
         // add the system and role if provided
-        // TODO when giving auth to different account, which role to set?
         if (system_name) {
             jwt_payload.system_id = system.id;
-            jwt_payload.role = role.role;
+            jwt_payload.role = role_name;
         }
 
         var more_auth = _.pick(req.rest_params, 'bucket', 'object');
@@ -267,8 +282,8 @@ function _prepare_auth_request(req) {
             }
 
             // check that auth contains valid role
-            if ((!options.roles && !req.auth.role) ||
-                (options.roles && !_.contains(options.roles, req.auth.role))) {
+
+            if (!is_role_valid(req, options.roles)) {
                 if (options.allow_missing) return;
                 throw req.rest_error('forbidden role', 403);
             }
@@ -282,4 +297,15 @@ function _prepare_auth_request(req) {
                 });
         });
     };
+}
+
+function is_role_valid(req, roles) {
+    if (req.account && req.account.is_support) {
+        // allow support accounts to work on any system
+        return true;
+    } else if (!roles) {
+        return !!req.auth.role;
+    } else {
+        return _.contains(roles, req.auth.role);
+    }
 }

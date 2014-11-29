@@ -38,6 +38,9 @@ module.exports = rest_api({
                     system: {
                         type: 'string',
                     },
+                    role: {
+                        type: 'string',
+                    },
                     bucket: {
                         type: 'string',
                     },

@@ -175,15 +175,28 @@ function delete_system(req) {
 
 
 function list_systems(req) {
-    return Q.fcall(function() {
-            return db.Role.find({
-                account: req.account.id
-            }).populate('system').exec();
-        })
-        .then(function(roles) {
-            return _.map(roles, function(role) {
-                return get_system_info(role.system);
+
+    // special case for support accounts - list all systems
+    if (req.account.is_support) {
+        return Q.when(db.System.find({
+                deleted: null
+            }).exec())
+            .then(function(systems) {
+                return _.map(systems, function(system) {
+                    return get_system_info(system);
+                });
             });
+    }
+
+    // for normal accounts, get list from roles
+    return Q.when(db.Role.find({
+            account: req.account.id
+        }).populate('system').exec())
+        .then(function(roles) {
+            return _.compact(_.map(roles, function(role) {
+                if (role.system.deleted) return null;
+                return get_system_info(role.system);
+            }));
         });
 }
 

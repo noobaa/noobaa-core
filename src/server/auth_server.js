@@ -111,17 +111,26 @@ function create_auth(req) {
                 }).exec();
             })
             .then(function(role) {
-                // support accounts can give other accounts any permission
+                // support accounts or system owners can give other accounts any permission
+                var authorizing_role;
                 if (authorizing_account.is_support) {
-                    role_name = req.rest_params.role || 'admin';
-                    return;
+                    authorizing_role = 'admin';
+                } else if (String(system.owner) === String(authorizing_account.id)) {
+                    authorizing_role = 'admin';
+                } else if (role) {
+                    authorizing_role = role.role;
                 }
+                if (!authorizing_role) throw auth_fail();
 
-                if (!role) throw auth_fail();
-                role_name = req.rest_params.role || role.role;
+                role_name = req.rest_params.role || authorizing_role;
 
-                // only admin can give other accounts any permission
-                if (role_name !== role.role && role.role !== 'admin') throw auth_fail();
+                // admin can give permission to any role
+                if (authorizing_role === 'admin') return;
+
+                // non admin is only allowed to use its role on himself
+                if (authorizing_role === role_name &&
+                    String(account_to_authorize.id) === String(authorizing_account.id)) return;
+                throw auth_fail();
             });
 
     }).then(function() {
@@ -283,13 +292,15 @@ function _prepare_auth_request(req) {
 
             // check that auth contains valid role
 
-            if (!is_role_valid(req, options.roles)) {
+            if (!is_role_valid(req.auth.role, options.roles)) {
                 if (options.allow_missing) return;
                 throw req.rest_error('forbidden role', 403);
             }
 
             // use a cache because this is called on every authorized api
-            return db.SystemCache.get(req.auth.system_id, options.cache_miss && 'cache_miss')
+            return db.SystemCache.get(
+                    req.auth.system_id,
+                    options.cache_miss && 'cache_miss')
                 .then(function(system) {
                     if (!system) throw new Error('system missing');
                     req.system = system;
@@ -299,13 +310,10 @@ function _prepare_auth_request(req) {
     };
 }
 
-function is_role_valid(req, roles) {
-    if (req.account && req.account.is_support) {
-        // allow support accounts to work on any system
-        return true;
-    } else if (!roles) {
-        return !!req.auth.role;
+function is_role_valid(role, valid_roles) {
+    if (!valid_roles) {
+        return !!role;
     } else {
-        return _.contains(roles, req.auth.role);
+        return _.contains(valid_roles, role);
     }
 }

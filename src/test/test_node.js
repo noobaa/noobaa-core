@@ -34,18 +34,16 @@ describe('node', function() {
                 geolocation: 'home',
                 storage_alloc: 10 * size_utils.GIGABYTE,
             });
-        }).then(function() {
+        }).then(function(res) {
             return coretest.node_client.heartbeat({
-                name: 'haha',
+                id: res.id,
                 geolocation: 'home',
+                ip: '0.0.0.0',
+                port: 0,
                 storage: {
                     alloc: 10 * size_utils.GIGABYTE,
                     used: size_utils.GIGABYTE,
                 },
-                online: true,
-                heartbeat: new Date().toString(),
-                ip: '0.0.0.0',
-                port: 0,
                 device_info: {
                     os: 'os'
                 },

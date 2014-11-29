@@ -83,7 +83,7 @@ module.exports = rest_api({
             },
         },
 
-        remove_block: {
+        delete_block: {
             method: 'DELETE',
             path: '/block/:block_id',
             params: {

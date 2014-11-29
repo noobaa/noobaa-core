@@ -22,8 +22,11 @@ module.exports = rest_api({
             },
             reply: {
                 type: 'object',
-                required: ['token'],
+                required: ['id', 'token'],
                 properties: {
+                    id: {
+                        type: 'string'
+                    },
                     token: {
                         type: 'string'
                     }
@@ -47,7 +50,7 @@ module.exports = rest_api({
                 }
             },
             reply: {
-                $ref: '/node_api/definitions/node_info'
+                $ref: '/node_api/definitions/node_full_info'
             },
             auth: {
                 system: 'admin'
@@ -122,7 +125,7 @@ module.exports = rest_api({
                     nodes: {
                         type: 'array',
                         items: {
-                            $ref: '/node_api/definitions/node_info'
+                            $ref: '/node_api/definitions/node_full_info'
                         }
                     }
                 }
@@ -231,12 +234,45 @@ module.exports = rest_api({
 
         heartbeat: {
             method: 'PUT',
-            path: '/heartbeat/:name',
+            path: '/heartbeat/:id',
             params: {
-                $ref: '/node_api/definitions/node_info'
+                type: 'object',
+                required: [
+                    'id',
+                    'port',
+                    'storage',
+                    'device_info',
+                ],
+                properties: {
+                    id: {
+                        type: 'string'
+                    },
+                    geolocation: {
+                        type: 'string'
+                    },
+                    ip: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'integer'
+                    },
+                    storage: {
+                        $ref: '/system_api/definitions/storage_info'
+                    },
+                    device_info: {
+                        type: 'object',
+                        additionalProperties: true,
+                    },
+                }
             },
             reply: {
-                $ref: '/node_api/definitions/node_info'
+                type: 'object',
+                required: ['storage'],
+                properties: {
+                    storage: {
+                        $ref: '/system_api/definitions/storage_info'
+                    },
+                }
             },
             auth: {
                 system: ['admin', 'agent']
@@ -251,7 +287,7 @@ module.exports = rest_api({
 
         node_config: {
             type: 'object',
-            required: ['name', 'tier', 'geolocation', 'storage_alloc'],
+            required: ['name', 'tier'],
             properties: {
                 name: {
                     type: 'string',
@@ -272,9 +308,10 @@ module.exports = rest_api({
         },
 
 
-        node_info: {
+        node_full_info: {
             type: 'object',
             required: [
+                'id',
                 'name',
                 'geolocation',
                 'ip',
@@ -285,6 +322,9 @@ module.exports = rest_api({
                 'device_info',
             ],
             properties: {
+                id: {
+                    type: 'string'
+                },
                 name: {
                     type: 'string'
                 },

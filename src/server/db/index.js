@@ -4,7 +4,7 @@ var _ = require('lodash');
 var Q = require('q');
 var mongoose = require('mongoose');
 
-var DBCache = require('../../util/db_cache');
+var LRUCache = require('../../util/lru_cache');
 var Account = require('./account');
 var Role = require('./role');
 var System = require('./system');
@@ -41,7 +41,7 @@ module.exports = {
     check_not_deleted: check_not_deleted,
     check_already_exists: check_already_exists,
 
-    AccountCache: new DBCache({
+    AccountCache: new LRUCache({
         name: 'AccountCache',
         load: function(account_id) {
             // load the account and its roles per system
@@ -53,7 +53,7 @@ module.exports = {
         }
     }),
 
-    SystemCache: new DBCache({
+    SystemCache: new LRUCache({
         name: 'SystemCache',
         load: function(system_id) {
             // load the system
@@ -65,7 +65,7 @@ module.exports = {
         }
     }),
 
-    BucketCache: new DBCache({
+    BucketCache: new LRUCache({
         name: 'BucketCache',
         key_stringify: function(key) {
             return key.system + ':' + key.name;

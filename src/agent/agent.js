@@ -10,7 +10,7 @@ var http = require('http');
 var mkdirp = require('mkdirp');
 var express = require('express');
 var Q = require('q');
-var LRU = require('noobaa-util/lru');
+var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var express_morgan_logger = require('morgan');
@@ -19,34 +19,46 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var os = require('os');
 var api = require('../api');
+var AgentStore = require('./agent_store');
 
 module.exports = Agent;
 
+
 /**
- * The inglorious noobaa agent.
+ *
+ * AGENT
+ *
+ * the glorious noobaa agent.
+ *
  */
 function Agent(params) {
     var self = this;
     assert(params.token, 'missing params.token');
-    assert(params.node_name, 'missing params.node_name');
-    assert(params.node_geolocation, 'missing params.node_geolocation');
+    assert(params.node_id, 'missing params.node_id');
+    assert(params.geolocation, 'missing params.geolocation');
     self.token = params.token;
-    self.node_name = params.node_name;
-    self.node_geolocation = params.node_geolocation;
+    self.node_id = params.node_id;
+    self.geolocation = params.geolocation;
     self.node_client = new api.node_api.Client();
     self.node_client.set_authorization(self.token);
 
     self.storage_path = params.storage_path;
     var lru_options = {};
     if (self.storage_path) {
-        self.storage_path_node = path.join(self.storage_path, self.node_name);
+        self.storage_path_node = path.join(self.storage_path, self.node_id);
         self.storage_path_blocks = path.join(self.storage_path_node, 'blocks');
-        lru_options.max_length = 10;
+        self.store = new AgentStore(self.storage_path_blocks);
+        self.store_cache = new LRUCache({
+            load: self.store.read_block.bind(self.store),
+            max_length: 10,
+        });
     } else {
-        // use lru as memory storage
-        lru_options.max_length = 1000000;
+        this.store = new AgentStore.MemoryStore();
+        self.store_cache = new LRUCache({
+            load: self.store.read_block.bind(self.store),
+            max_length: 1,
+        });
     }
-    self.blocks_lru = new LRU(lru_options);
 
     var app = express();
     app.use(express_morgan_logger('dev'));
@@ -76,39 +88,40 @@ function Agent(params) {
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
         check_block: self.check_block.bind(self),
-        remove_block: self.remove_block.bind(self),
+        delete_block: self.delete_block.bind(self),
     });
     agent_server.install_rest(app);
 
     var http_server = http.createServer(app);
-    http_server.on('listening', self.server_listening_handler.bind(self));
-    http_server.on('close', self.server_close_handler.bind(self));
-    http_server.on('error', self.server_error_handler.bind(self));
+    http_server.on('listening', self._server_listening_handler.bind(self));
+    http_server.on('close', self._server_close_handler.bind(self));
+    http_server.on('error', self._server_error_handler.bind(self));
 
     self.agent_app = app;
     self.agent_server = agent_server;
     self.http_server = http_server;
     self.http_port = 0;
-
-    // TODO maintain persistent storage_alloc
-    self.storage_alloc = size_utils.GIGABYTE;
-    self.storage_used = 0;
-    self.num_blocks = 0;
 }
 
+
+/**
+ *
+ * START
+ *
+ */
 Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
-    console.log('start agent', self.node_name);
+    console.log('start agent', self.node_id);
 
     return Q.fcall(
         function() {
-            return self.mkdirs();
+            return self._mkdirs();
         }
     ).then(
         function() {
-            return self.start_stop_http_server();
+            return self._start_stop_http_server();
         }
     ).then(
         function() {
@@ -116,7 +129,7 @@ Agent.prototype.start = function() {
         }
     ).then(
         function() {
-            self.start_stop_heartbeats();
+            self._start_stop_heartbeats();
         }
     ).then(null,
         function(err) {
@@ -127,15 +140,27 @@ Agent.prototype.start = function() {
     );
 };
 
+
+/**
+ *
+ * STOP
+ *
+ */
 Agent.prototype.stop = function() {
     var self = this;
-    console.log('stop agent', self.node_name);
+    console.log('stop agent', self.node_id);
     self.is_started = false;
-    self.start_stop_http_server();
-    self.start_stop_heartbeats();
+    self._start_stop_http_server();
+    self._start_stop_heartbeats();
 };
 
-Agent.prototype.mkdirs = function() {
+
+/**
+ *
+ * _mkdirs
+ *
+ */
+Agent.prototype._mkdirs = function() {
     var self = this;
     if (!self.storage_path) {
         return;
@@ -150,11 +175,17 @@ Agent.prototype.mkdirs = function() {
     return _.reduce(mkdir_funcs, Q.when, Q.when());
 };
 
-/////////////////
-// HTTP SERVER //
-/////////////////
 
-Agent.prototype.start_stop_http_server = function() {
+
+// HTTP SERVER ////////////////////////////////////////////////////////////////
+
+
+/**
+ *
+ * _start_stop_http_server
+ *
+ */
+Agent.prototype._start_stop_http_server = function() {
     var self = this;
     if (self.is_started) {
         // using port to determine if the server is already listening
@@ -171,30 +202,110 @@ Agent.prototype.start_stop_http_server = function() {
     }
 };
 
-Agent.prototype.server_listening_handler = function() {
+
+/**
+ *
+ * _server_listening_handler
+ *
+ */
+Agent.prototype._server_listening_handler = function() {
     this.http_port = this.http_server.address().port;
     console.log('AGENT server listening on port', this.http_port);
 };
 
-Agent.prototype.server_close_handler = function() {
+
+/**
+ *
+ * _server_close_handler
+ *
+ */
+Agent.prototype._server_close_handler = function() {
     console.log('AGENT server closed');
     this.http_port = 0;
     // set timer to check the state and react by restarting or not
-    setTimeout(this.start_stop_http_server.bind(this), 1000);
+    setTimeout(this._start_stop_http_server.bind(this), 1000);
 };
 
-Agent.prototype.server_error_handler = function(err) {
+
+/**
+ *
+ * _server_error_handler
+ *
+ */
+Agent.prototype._server_error_handler = function(err) {
     // the server will also trigger close event after
     console.error('AGENT server error', err);
 };
 
 
 
-////////////////
-// HEARTBEATS //
-////////////////
 
-Agent.prototype.start_stop_heartbeats = function() {
+// HEARTBEATS /////////////////////////////////////////////////////////////////
+
+
+
+/**
+ *
+ * send_heartbeat
+ *
+ */
+Agent.prototype.send_heartbeat = function() {
+    var self = this;
+    var store_stats;
+    console.log('send heartbeat by agent', self.node_id);
+
+    return Q.when(self.store.get_stats())
+        .then(function(store_stats_arg) {
+            store_stats = store_stats_arg;
+            return self.node_client.heartbeat({
+                id: self.node_id,
+                geolocation: self.geolocation,
+                // ip: '',
+                port: self.http_port,
+                storage: {
+                    alloc: store_stats.alloc,
+                    used: store_stats.used,
+                },
+                device_info: {
+                    hostname: os.hostname(),
+                    type: os.type(),
+                    platform: os.platform(),
+                    arch: os.arch(),
+                    release: os.release(),
+                    uptime: os.uptime(),
+                    loadavg: os.loadavg(),
+                    totalmem: os.totalmem(),
+                    freemem: os.freemem(),
+                    cpus: os.cpus(),
+                    networkInterfaces: os.networkInterfaces(),
+                }
+            });
+        })
+        .then(function(res) {
+
+            // report only if used storage mismatch
+            // TODO compare with some accepted error and handle
+            if (store_stats.used !== res.storage.used) {
+                console.log('AGENT used storage not in sync',
+                    store_stats.used, 'expected', res.storage.used);
+            }
+
+            // update the store when allocated size change
+            if (store_stats.alloc !== res.storage.alloc) {
+                console.log('AGENT update alloc storage from',
+                    store_stats.alloc, 'to', res.storage.alloc);
+                self.store.set_alloc(res.storage.alloc);
+            }
+        });
+};
+
+
+/**
+ *
+ * _start_stop_heartbeats
+ *
+ */
+Agent.prototype._start_stop_heartbeats = function() {
     var self = this;
     // first clear the timer
     clearInterval(self.heartbeat_interval);
@@ -207,135 +318,38 @@ Agent.prototype.start_stop_heartbeats = function() {
 };
 
 
-Agent.prototype.send_heartbeat = function() {
+
+// AGENT API //////////////////////////////////////////////////////////////////
+
+
+
+Agent.prototype.read_block = function(req) {
     var self = this;
-    console.log('send heartbeat by agent', self.node_name);
-    return this.node_client.heartbeat({
-        name: self.node_name,
-        geolocation: self.node_geolocation,
-        ip: '',
-        port: self.http_port,
-        online: true,
-        heartbeat: new Date().toString(),
-        storage: {
-            alloc: self.storage_alloc,
-            used: self.storage_used
-        },
-        device_info: {
-            hostname: os.hostname(),
-            type: os.type(),
-            platform: os.platform(),
-            arch: os.arch(),
-            release: os.release(),
-            uptime: os.uptime(),
-            loadavg: os.loadavg(),
-            totalmem: os.totalmem(),
-            freemem: os.freemem(),
-            cpus: os.cpus(),
-            networkInterfaces: os.networkInterfaces(),
-        }
-    });
-};
-
-
-
-///////////////
-// AGENT API //
-///////////////
-
-
-
-Agent.prototype._block_path = function(block_id) {
-    return !this.storage_path_blocks ? '' :
-        path.join(this.storage_path_blocks, block_id);
-};
-
-Agent.prototype._read_block = function(block_id) {
-    var self = this;
-    var lru_block = self.blocks_lru.find_or_add_item(block_id);
-    if (lru_block && lru_block.data) {
-        // console.log('read block from cache', block_id,
-        // lru_block.data.length, typeof(lru_block.data), self.node_name);
-        return lru_block.data;
-    }
-    var block_path = self._block_path(block_id);
-    if (!block_path) {
-        throw new Error('NO BLOCK STORAGE');
-    }
-    return Q.nfcall(fs.readFile, block_path).then(
-        function(data) {
-            // console.log('read block from disk', block_id,
-            // data.length, typeof(data), self.node_name);
-            lru_block.data = data;
-            return data;
-        },
-        function(err) {
-            console.error('FAILED READ BLOCK', block_id, err);
-            self.blocks_lru.remove_item(block_id);
-            throw err;
-        }
-    );
+    var block_id = req.rest_params.block_id;
+    return self.store_cache.get(block_id);
 };
 
 Agent.prototype.write_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
     var data = req.rest_params.data;
-    var block_path = self._block_path(block_id);
-    var old_size = 0;
-
-    console.log('write block', block_id, data.length, typeof(data), self.node_name);
-
-    return Q.fcall(
-        function() {
-            // remove block data from lru
-            var lru_block = self.blocks_lru.remove_item(block_id);
-            // using the size from lru data if was cached before
-            if (lru_block && lru_block.data) {
-                old_size = lru_block.data.length;
-                return;
-            }
-            if (!block_path) {
-                throw new Error('NO BLOCK STORAGE');
-            }
-            // when not in lru we check if the block already exists on fs
-            return Q.nfcall(fs.stat, block_path).then(
-                function(stats) {
-                    old_size = stats.size;
-                },
-                function(err) {
-                    old_size = 0;
-                }
-            );
-        }
-    ).then(
-        function() {
-            // replace the block on fs
-            return Q.nfcall(fs.writeFile, block_path, data);
-        }
-    ).then(
-        function() {
-            var lru_block = self.blocks_lru.find_or_add_item(block_id);
-            lru_block.data = data;
-            self.num_blocks += 1;
-            self.storage_used += data.length - old_size;
-        }
-    );
+    self.store_cache.invalidate(block_id);
+    return self.store.write_block(block_id);
 };
 
-Agent.prototype.read_block = function(req) {
+Agent.prototype.delete_block = function(req) {
+    var self = this;
     var block_id = req.rest_params.block_id;
-    return this._read_block(block_id);
+    self.store_cache.invalidate(block_id);
+    return self.store.delete_block(block_id);
 };
-
-
 
 Agent.prototype.check_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
     var slices = req.rest_params.slices;
-    return self._read_block(block_id).then(
-        function(data) {
+    return self.store_cache.get(block_id)
+        .then(function(data) {
             // calculate the md5 of the requested slices
             var md5_hash = crypto.createHash('md5');
             _.each(slices, function(slice) {
@@ -346,16 +360,5 @@ Agent.prototype.check_block = function(req) {
             return {
                 checksum: md5_sum
             };
-        }
-    );
-};
-
-Agent.prototype.remove_block = function(req) {
-    var self = this;
-    var block_id = req.rest_params.block_id;
-    self.blocks_lru.remove_item(block_id);
-    var block_path = self._block_path(block_id);
-    if (block_path) {
-        return Q.nfcall(fs.unlink(block_path));
-    }
+        });
 };

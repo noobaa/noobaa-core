@@ -141,7 +141,7 @@ AgentHost.prototype.start_agent = function(req) {
                 node_client: self.node_client,
                 account_credentials: self.account_credentials,
                 node_name: node_name,
-                node_geolocation: geolocation,
+                geolocation: geolocation,
                 storage_path: self.agent_storage_dir,
             });
             return agent.start();

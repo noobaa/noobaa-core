@@ -96,6 +96,7 @@ function create_node(req) {
             });
 
             return {
+                id: node.id,
                 token: token
             };
         });
@@ -111,7 +112,7 @@ function create_node(req) {
 function read_node(req) {
     return find_node_by_name(req)
         .then(function(node) {
-            return get_node_info(node);
+            return get_node_full_info(node);
         });
 }
 
@@ -195,7 +196,7 @@ function list_nodes(req) {
         })
         .then(function(nodes) {
             return {
-                nodes: _.map(nodes, get_node_info)
+                nodes: _.map(nodes, get_node_full_info)
             };
         });
 }
@@ -350,6 +351,13 @@ function get_agents_status(req) {
  *
  */
 function heartbeat(req) {
+    var node_id = req.rest_params.id;
+
+    // verify the authorization to use this node for non admin roles
+    if (req.role !== 'admin') {
+        if (node_id !== req.auth.extra.node_id) throw req.forbidden();
+    }
+
     var updates = _.pick(req.rest_params,
         'geolocation',
         'ip',
@@ -360,43 +368,35 @@ function heartbeat(req) {
         req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress;
     updates.heartbeat = new Date();
-    updates.storage = {};
-    if (req.rest_params.storage_alloc) {
-        updates.storage.alloc = req.rest_params.storage_alloc;
-    }
-
-    var agent_storage_used = req.rest_params.storage_used;
+    var agent_storage = req.rest_params.storage;
     var node;
 
-    return find_node_by_name(req)
+    return Q.when(db.Node.findById(node_id).exec())
+        .then(db.check_not_deleted())
         .then(function(node_arg) {
             node = node_arg;
-
-            // verify the authorization to use this node for non admin roles
-            if (req.role !== 'admin') {
-                if (String(node.id) !== req.auth.extra.node_id) throw req.forbidden();
-            }
-
             // TODO CRITICAL need to optimize - we count blocks on every heartbeat...
-            return count_node_storage_used(node.id);
+            return count_node_storage_used(node_id);
         })
         .then(function(storage_used) {
+            console.log('heartbeat', node, storage_used);
+
+            // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {
+                updates.storage = updates.storage || {};
                 updates.storage.used = storage_used;
             }
-            // the agent's used storage is verified but not updated
-            if (agent_storage_used !== storage_used) {
+
+            // verify the agent's storage numbers
+            if (agent_storage.used !== storage_used) {
                 console.log('NODE agent used storage not in sync',
-                    agent_storage_used, 'real', storage_used);
+                    agent_storage.used, 'counted used', storage_used);
                 // TODO trigger a usage check
             }
-
-            if (updates.storage.alloc !== node.storage.alloc) {
+            if (agent_storage.alloc !== node.storage.alloc) {
                 console.log('NODE change allocated storage from',
-                    node.storage.alloc, 'to', updates.storage.alloc);
-                // TODO agent sends storage_alloc but never reads it so it always overrides it...
-                //      so for now we just ignore this change from the agent.
-                delete updates.storage.alloc;
+                    agent_storage.alloc, 'to', node.storage.alloc);
+                // TODO trigger agent re-allocation
             }
 
             // we log the ip and location updates,
@@ -412,10 +412,15 @@ function heartbeat(req) {
                     updates.ip + ':' + updates.port);
             }
 
-            return db.Node.findByIdAndUpdate(node.id, updates).exec();
+            return db.Node.findByIdAndUpdate(node_id, updates).exec();
         })
         .then(function(node) {
-            return get_node_info(node);
+            return {
+                storage: {
+                    alloc: node.storage.alloc || 0,
+                    used: node.storage.used || 0,
+                }
+            };
         });
 }
 
@@ -552,8 +557,8 @@ function agent_host_caller(vendor) {
     return client;
 }
 
-function get_node_info(node) {
-    var info = _.pick(node, 'name', 'geolocation');
+function get_node_full_info(node) {
+    var info = _.pick(node, 'id', 'name', 'geolocation');
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();

@@ -89,25 +89,6 @@ function init_test_nodes(count, system, tier, storage_alloc) {
     var sem = new Semaphore(3);
     var create_node_client = new api.node_api.Client();
 
-    function init_test_node(i) {
-        return create_node_client.create_node({
-                name: '' + i,
-                tier: tier,
-                geolocation: 'test',
-                storage_alloc: storage_alloc,
-            })
-            .then(function(res) {
-                var agent = new Agent({
-                    token: res.token,
-                    node_name: '' + i,
-                    node_geolocation: 'test',
-                    storage_path: agent_storage_dir,
-                });
-                return agent.start().thenResolve(agent);
-            });
-    }
-
-
     return clear_test_nodes()
         .then(function() {
             return auth_client.create_auth({
@@ -129,6 +110,25 @@ function init_test_nodes(count, system, tier, storage_alloc) {
         .then(function(agents) {
             test_agents = agents;
         });
+
+
+    function init_test_node(i) {
+        return create_node_client.create_node({
+                name: '' + i,
+                tier: tier,
+                geolocation: 'test',
+                storage_alloc: storage_alloc,
+            })
+            .then(function(res) {
+                var agent = new Agent({
+                    token: res.token,
+                    node_id: res.id,
+                    geolocation: 'test',
+                    storage_path: agent_storage_dir,
+                });
+                return agent.start().thenResolve(agent);
+            });
+    }
 }
 
 // delete all edge nodes directly from the db
@@ -152,7 +152,7 @@ function clear_test_nodes() {
         var sem = new Semaphore(3);
         return Q.all(_.map(test_agents, function(agent) {
             return sem.surround(function() {
-                console.log('agent stop', agent.node_name);
+                console.log('agent stop', agent.node_id);
                 return agent.stop();
             });
         })).then(function() {

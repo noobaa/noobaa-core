@@ -60,6 +60,10 @@ module.exports = rest_api({
                         type: 'string',
                     },
                 }
+            },
+            auth: {
+                account: false,
+                system: false,
             }
         },
 
@@ -102,6 +106,10 @@ module.exports = rest_api({
                         type: 'string',
                     },
                 }
+            },
+            auth: {
+                account: false,
+                system: false,
             }
         }
 

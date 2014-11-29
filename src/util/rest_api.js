@@ -117,7 +117,6 @@ function rest_api(api) {
      * methods (Object): map of function names to function(params).
      *
      * options (Object):
-     * - before (Function): called before each server function
      * - allow_missing_methods (String):
      *    call with allow_missing_methods==='allow_missing_methods' to make the server
      *    accept missing functions, the handler for missing functions will fail on runtime.
@@ -129,7 +128,6 @@ function rest_api(api) {
         if (options.allow_missing_methods) {
             assert.strictEqual(options.allow_missing_methods, 'allow_missing_methods');
         }
-        self._before = options.before || function() {};
         self._impl = {};
         self._handlers = {};
         self._log = console.log.bind(console);
@@ -244,7 +242,9 @@ function rest_api(api) {
                     if (func_info.param_raw) {
                         req.rest_params[func_info.param_raw] = req.body;
                     }
-                    return self._before(req);
+                    if (func_info.auth !== false) {
+                        return req.load_auth(func_info.auth);
+                    }
                 })
                 .then(function() {
                     // server functions are expected to return a promise

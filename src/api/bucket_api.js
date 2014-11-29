@@ -35,6 +35,9 @@ module.exports = rest_api({
                         }
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -49,6 +52,9 @@ module.exports = rest_api({
                         type: 'string',
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -72,6 +78,9 @@ module.exports = rest_api({
                         type: 'string'
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -87,6 +96,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
         delete_bucket: {
@@ -101,6 +113,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
         list_bucket_objects: {
@@ -135,6 +150,9 @@ module.exports = rest_api({
                         }
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 

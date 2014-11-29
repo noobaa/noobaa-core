@@ -28,10 +28,6 @@ module.exports = new api.object_api.Server({
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
-}, {
-    before: function(req) {
-        return req.load_system(['admin']);
-    }
 });
 
 

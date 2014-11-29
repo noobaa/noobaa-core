@@ -59,11 +59,6 @@ function create_auth(req) {
     var system;
     var role;
 
-    // return the same error to all auth failures to prevent phishing attacks.
-    var auth_fail = function() {
-        return req.rest_error('unauthorized', 401);
-    };
-
     return Q.fcall(function() {
 
         // if email is not provided we skip finding account by email
@@ -78,7 +73,7 @@ function create_auth(req) {
 
             // consider email not found the same as bad password to avoid phishing attacks.
             account = account_arg;
-            if (!account) throw auth_fail();
+            if (!account) throw req.unauthorized();
 
             // when password is not provided it means we want to give authorization
             // by the currently authorized to another specific account instead of
@@ -88,7 +83,7 @@ function create_auth(req) {
             // use bcrypt to verify password
             return Q.npost(account, 'verify_password', [password])
                 .then(function(match) {
-                    if (!match) throw auth_fail();
+                    if (!match) throw req.unauthorized();
                     // authentication passed!
                     // so this account is the authenticated_account
                     authenticated_account = account;
@@ -102,7 +97,7 @@ function create_auth(req) {
         if (authenticated_account && account) return;
 
         // find the current authorized account and assign
-        if (!req.auth.account_id) throw auth_fail();
+        if (!req.auth.account_id) throw req.unauthorized();
         return db.Account.findById(req.auth.account_id).exec()
             .then(function(account_arg) {
                 account = account || account_arg;
@@ -112,8 +107,8 @@ function create_auth(req) {
     }).then(function() {
 
         // check the accounts are valid
-        if (!authenticated_account || authenticated_account.deleted) throw auth_fail();
-        if (!account || account.deleted) throw auth_fail();
+        if (!authenticated_account || authenticated_account.deleted) throw req.unauthorized();
+        if (!account || account.deleted) throw req.unauthorized();
 
         // system is optional, and will not be included in the token if not provided
         if (!system_name) return;
@@ -125,7 +120,7 @@ function create_auth(req) {
         }).exec()).then(function(system_arg) {
 
             system = system_arg;
-            if (!system || system.deleted) throw auth_fail();
+            if (!system || system.deleted) throw req.unauthorized();
 
             // now we need to approve the role.
             // "support accounts" or "system owners" can use any role the ask for.
@@ -141,7 +136,7 @@ function create_auth(req) {
                 system: system.id,
             }).exec().then(function(role) {
 
-                if (!role) throw auth_fail();
+                if (!role) throw req.unauthorized();
 
                 // "system admin" can use any role
                 if (role.role === 'admin') {
@@ -153,7 +148,7 @@ function create_auth(req) {
                 // and only allowed to use its formal role
                 if (String(account.id) === String(authenticated_account.id) ||
                     role_name !== role.role) {
-                    throw auth_fail();
+                    throw req.unauthorized();
                 }
             });
         });
@@ -200,19 +195,14 @@ function create_auth(req) {
 function read_auth(req) {
     if (!req.auth) return {};
 
-    return req.load_system({
-            allow_missing: true
-        })
-        .then(function() {
-            var reply = _.pick(req.auth, 'role', 'extra');
-            if (req.account) {
-                reply.account = _.pick(req.account, 'name', 'email');
-            }
-            if (req.system) {
-                reply.system = _.pick(req.system, 'name');
-            }
-            return reply;
-        });
+    var reply = _.pick(req.auth, 'role', 'extra');
+    if (req.account) {
+        reply.account = _.pick(req.account, 'name', 'email');
+    }
+    if (req.system) {
+        reply.system = _.pick(req.system, 'name');
+    }
+    return reply;
 }
 
 
@@ -239,21 +229,17 @@ function authorize() {
 
     // return an express middleware
     return function(req, res, next) {
+        _prepare_auth_request(req);
         jwt_middleware(req, res, function(err) {
-            if (err) {
-                // if the verification of the token failed it might be because of expiration
-                // in any case return http code 401 (Unauthorized)
-                // hoping the client will do authenticate() again.
+            // if the verification of the token failed it might be because of expiration
+            // in any case return http code 401 (Unauthorized)
+            // hoping the client will do authenticate() again.
+            if (err && err.name === 'UnauthorizedError') {
                 console.log('AUTH ERROR', err);
-                if (err.name === 'UnauthorizedError') {
-                    res.status(401).send('unauthorized token');
-                } else {
-                    next(err);
-                }
-            } else {
-                _prepare_auth_request(req);
-                next();
+                res.status(401).send('unauthorized');
+                return;
             }
+            next(err);
         });
     };
 }
@@ -271,81 +257,54 @@ function _prepare_auth_request(req) {
 
     /**
      *
-     * req.load_account()
+     * req.load_auth()
      *
      * verifies that the request auth has a valid account and sets req.account.
-     *
-     * @param <Object> options:
-     *      - <Boolean> allow_missing don't fail if there is no system in req.auth
-     *      - <Boolean> cache_miss bypass the cache.
-     */
-    req.load_account = function(options) {
-        return Q.fcall(function() {
-
-            // check if already loaded
-            if (req.account) return;
-
-            options = options || {};
-
-            // check that auth contains account
-            if (!req.auth || !req.auth.account_id) {
-                if (options.allow_missing) return;
-                throw req.rest_error('unauthorized', 401);
-            }
-
-            // use a cache because this is called on every authorized api
-            return db.AccountCache.get(req.auth.account_id, options.cache_miss && 'cache_miss')
-                .then(function(account) {
-                    if (!account) throw new Error('account missing');
-                    req.account = account;
-                });
-        });
-    };
-
-    /**
-     *
-     * req.load_system()
-     *
      * verifies that the request auth has a valid system
      * and sets req.system and req.role.
-     * it implicitly calls load_account.
      *
-     * @param <Object|Array> options, if array assumed is array of roles, if object:
-     *      - <Array> roles acceptable roles
-     *      - <Boolean> allow_missing don't fail if there is no system in req.auth
-     *      - <Boolean> cache_miss bypass the cache
+     * @param <Object> options:
+     *      - <Boolean> account: if false don't fail if there is no account in req.auth
+     *      - <Boolean> system: if false don't fail if there is no system in req.auth
+     *      - <Array> roles: acceptable roles
      */
-    req.load_system = function(options) {
-        if (_.isArray(options)) {
-            options = {
-                roles: options
-            };
-        } else {
-            options = options || {};
-        }
+    req.load_auth = function(options) {
+        options = options || {};
 
-        return req.load_account(options).then(function() {
+        return Q.fcall(function() {
 
-            // check if already loaded
-            if (req.system) return;
-
-            // check that auth contains system
-            if (!req.auth || !req.auth.system_id) {
-                if (options.allow_missing) return;
-                throw req.rest_error('unauthorized system', 401);
-            }
-
-            // check that auth contains valid role
-
-            if (!is_role_valid(req.auth.role, options.roles)) {
-                if (options.allow_missing) return;
-                throw req.rest_error('forbidden role', 403);
+            // check that auth has account_id
+            var ignore_missing_account = (options.account === false);
+            if (!req.auth || !req.auth.account_id) {
+                if (!ignore_missing_account) throw req.unauthorized();
+                return;
             }
 
             // use a cache because this is called on every authorized api
-            return db.SystemCache.get(
-                    req.auth.system_id,
-                    options.cache_miss && 'cache_miss')
+            return db.AccountCache.get(req.auth.account_id)
+                .then(function(account) {
+                    if (!account) throw req.unauthorized();
+                    req.account = account;
+                });
+
+        }).then(function() {
+
+            // check that auth contains system
+            var ignore_missing_system = (options.system === false);
+            if (!req.auth || !req.auth.system_id) {
+                if (!ignore_missing_system) throw req.unauthorized();
+                return;
+            }
+
+            // check that auth contains valid system role
+
+            if (!_.contains(options.system, req.auth.role)) {
+                if (!ignore_missing_system) throw req.unauthorized();
+                return;
+            }
+
+            // use a cache because this is called on every authorized api
+            return db.SystemCache.get(req.auth.system_id)
                 .then(function(system) {
                     if (!system) throw new Error('system missing');
                     req.system = system;
@@ -388,18 +347,35 @@ function _prepare_auth_request(req) {
         return jwt.sign(jwt_payload, process.env.JWT_SECRET, jwt_options);
     };
 
+
+    /**
+     *
+     * req.unauthorized()
+     *
+     * the auth server uses only 401-unauthorized error to all auth failures
+     * to prevent phishing attacks.
+     * TODO should auth server use 403-forbidden errors as well as 401-unauthorized?
+     *
+     */
+    req.unauthorized = function() {
+        return req.rest_error('unauthorized', 401);
+    };
+
+
+    /**
+     *
+     * req.forbidden()
+     *
+     * reply that the request is not permitted.
+     *
+     */
+    req.forbidden = function() {
+        return req.rest_error('forbidden', 403);
+    };
+
 }
 
 
 
 
 // UTILS //////////////////////////////////////////////////////////
-
-
-function is_role_valid(role, valid_roles) {
-    if (!valid_roles) {
-        return !!role;
-    } else {
-        return _.contains(valid_roles, role);
-    }
-}

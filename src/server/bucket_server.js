@@ -23,10 +23,6 @@ module.exports = new api.bucket_api.Server({
     update_bucket: update_bucket,
     delete_bucket: delete_bucket,
     list_bucket_objects: list_bucket_objects,
-}, {
-    before: function(req) {
-        return req.load_system(['admin']);
-    }
 });
 
 

@@ -37,6 +37,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
         read_tier: {
@@ -55,6 +58,9 @@ module.exports = rest_api({
             reply: {
                 $ref: '/tier_api/definitions/tier_info'
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
         update_tier: {
@@ -79,6 +85,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
         delete_tier: {
@@ -94,6 +103,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
     },

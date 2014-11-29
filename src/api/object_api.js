@@ -33,6 +33,9 @@ module.exports = rest_api({
                     }
                 }
             },
+            auth: {
+                system: ['admin', 'user']
+            }
         },
 
         complete_multipart_upload: {
@@ -50,6 +53,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: ['admin', 'user']
+            }
         },
 
         abort_multipart_upload: {
@@ -67,6 +73,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: ['admin', 'user']
+            }
         },
 
         allocate_object_part: {
@@ -95,6 +104,9 @@ module.exports = rest_api({
             },
             reply: {
                 $ref: '/object_api/definitions/object_part_info'
+            },
+            auth: {
+                system: ['admin', 'user']
             }
         },
 
@@ -107,6 +119,9 @@ module.exports = rest_api({
             },
             reply: {
                 $ref: '/object_api/definitions/object_info'
+            },
+            auth: {
+                system: ['admin', 'user', 'viewer']
             }
         },
 
@@ -125,6 +140,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: ['admin', 'user']
+            }
         },
 
         delete_object: {
@@ -133,6 +151,9 @@ module.exports = rest_api({
             params: {
                 $ref: '/object_api/definitions/object_path'
             },
+            auth: {
+                system: ['admin', 'user']
+            }
         },
 
 
@@ -171,6 +192,9 @@ module.exports = rest_api({
                         },
                     },
                 }
+            },
+            auth: {
+                system: ['admin', 'user', 'viewer']
             }
         },
 

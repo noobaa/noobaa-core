@@ -20,10 +20,6 @@ module.exports = new api.tier_api.Server({
     read_tier: read_tier,
     update_tier: update_tier,
     delete_tier: delete_tier,
-}, {
-    before: function(req) {
-        return req.load_system(['admin']);
-    }
 });
 
 

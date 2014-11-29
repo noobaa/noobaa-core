@@ -32,6 +32,10 @@ module.exports = rest_api({
                         type: 'string',
                     },
                 },
+            },
+            auth: {
+                account: false,
+                system: false,
             }
         },
 
@@ -51,6 +55,9 @@ module.exports = rest_api({
                     },
                 },
             },
+            auth: {
+                system: false,
+            }
         },
 
         update_account: {
@@ -72,12 +79,18 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: false,
+            }
         },
 
         delete_account: {
             doc: 'Delete the authorized account',
             method: 'DELETE',
             path: '/account',
+            auth: {
+                system: false,
+            }
         },
 
     },

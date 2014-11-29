@@ -61,6 +61,7 @@ describe('rest_api', function() {
                     $ref: '/test_api/definitions/reply_schema'
                 },
                 doc: 'get doc',
+                auth: false,
             },
             post: {
                 method: 'POST',
@@ -72,6 +73,7 @@ describe('rest_api', function() {
                     $ref: '/test_api/definitions/reply_schema'
                 },
                 doc: 'post doc',
+                auth: false,
             },
             put: {
                 method: 'PUT',
@@ -83,6 +85,7 @@ describe('rest_api', function() {
                     $ref: '/test_api/definitions/reply_schema'
                 },
                 doc: 'put doc',
+                auth: false,
             },
             delete: {
                 method: 'DELETE',
@@ -94,6 +97,7 @@ describe('rest_api', function() {
                     $ref: '/test_api/definitions/reply_schema'
                 },
                 doc: 'del doc',
+                auth: false,
             },
         }
     });

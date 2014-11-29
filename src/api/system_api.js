@@ -30,6 +30,9 @@ module.exports = rest_api({
             reply: {
                 $ref: '/system_api/definitions/system_info'
             },
+            auth: {
+                system: false,
+            }
         },
 
         read_system: {
@@ -39,6 +42,9 @@ module.exports = rest_api({
             reply: {
                 $ref: '/system_api/definitions/system_full_info'
             },
+            auth: {
+                system: 'admin',
+            }
         },
 
         update_system: {
@@ -54,12 +60,18 @@ module.exports = rest_api({
                     },
                 },
             },
+            auth: {
+                system: 'admin',
+            }
         },
 
         delete_system: {
             doc: 'Delete the authorized system',
             method: 'DELETE',
             path: '/system',
+            auth: {
+                system: 'admin',
+            }
         },
 
 
@@ -73,6 +85,9 @@ module.exports = rest_api({
                     $ref: '/system_api/definitions/system_info'
                 }
             },
+            auth: {
+                system: false,
+            }
         },
 
 
@@ -92,6 +107,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin',
+            }
         },
 
         remove_role: {
@@ -107,6 +125,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin',
+            }
         },
     },
 

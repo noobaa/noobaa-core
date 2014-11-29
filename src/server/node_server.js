@@ -35,10 +35,6 @@ module.exports = new api.node_api.Server({
 
     heartbeat: heartbeat,
     connect_node_vendor: connect_node_vendor,
-}, {
-    before: function(req) {
-        return req.load_account();
-    }
 });
 
 
@@ -50,46 +46,38 @@ module.exports = new api.node_api.Server({
  *
  */
 function create_node(req) {
-    var info;
+    var info = _.pick(req.rest_params,
+        'name',
+        'is_server',
+        'geolocation'
+    );
+    info.system = req.system.id;
+    info.heartbeat = new Date();
+    info.storage = {
+        alloc: req.rest_params.storage_alloc,
+        used: 0,
+    };
 
-    // this function allows role: admin or create_node
-    return req.load_system(['admin', 'create_node'])
-        .then(function() {
-            info = _.pick(req.rest_params,
-                'name',
-                'is_server',
-                'geolocation'
-            );
-            info.system = req.system.id;
-            info.heartbeat = new Date();
-            info.storage = {
-                alloc: req.rest_params.storage_alloc,
-                used: 0,
-            };
+    // when the request role is admin it can provide any of the system tiers.
+    // when the role was authorized only for create_node the athorization
+    // must include the allowed tier.
+    var tier_name = req.rest_params.tier;
+    if (req.role !== 'admin') {
+        if (req.auth.extra.tier !== tier_name) throw req.forbidden();
+    }
 
-            // when the request role is admin it can provide any of the system tiers.
-            // when the role was authorized only for create_node the athorization
-            // must include the allowed tier.
-            var tier_name = req.rest_params.tier;
-            if (req.role === 'create_node') {
-                if (req.auth.extra.tier !== tier_name) {
-                    throw req.rest_error('tier not found');
-                }
-            }
+    var tier_query = {
+        system: req.system.id,
+        name: tier_name,
+        deleted: null,
+    };
 
-            var tier_query = {
-                system: req.system.id,
-                name: tier_name,
-                deleted: null,
-            };
-
-            return db.Tier.findOne(tier_query).exec();
-        })
+    return Q.when(db.Tier.findOne(tier_query).exec())
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
             info.tier = tier;
 
-            if (String(info.tier.system) !== String(info.system)) {
+            if (String(tier.system) !== String(info.system)) {
                 console.error('TIER SYSTEM MISMATCH', info);
                 throw req.rest_error('tier not found');
             }
@@ -98,16 +86,18 @@ function create_node(req) {
         })
         .then(null, db.check_already_exists(req, 'node'))
         .then(function(node) {
-            var reply = {};
-            if (req.role === 'create_node') {
-                reply.token = req.make_auth_token({
-                    role: 'agent',
-                    extra: {
-                        node_id: node.id,
-                    }
-                });
-            }
-            return reply;
+
+            // make a new token for the agent authorized to use the new node id.
+            var token = req.make_auth_token({
+                role: 'agent',
+                extra: {
+                    node_id: node.id,
+                }
+            });
+
+            return {
+                token: token
+            };
         });
 }
 
@@ -119,10 +109,7 @@ function create_node(req) {
  *
  */
 function read_node(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            return find_node_by_name(req);
-        })
+    return find_node_by_name(req)
         .then(function(node) {
             return get_node_info(node);
         });
@@ -136,18 +123,15 @@ function read_node(req) {
  *
  */
 function update_node(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            var updates = _.pick(req.rest_params, 'is_server', 'geolocation');
-            updates.storage = {
-                alloc: req.rest_params.storage_alloc,
-            };
+    var updates = _.pick(req.rest_params, 'is_server', 'geolocation');
+    updates.storage = {
+        alloc: req.rest_params.storage_alloc,
+    };
 
-            // TODO move node between tiers - requires decomission
-            if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
+    // TODO move node between tiers - requires decomission
+    if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
 
-            return db.Node.findOneAndUpdate(get_node_query(req), updates).exec();
-        })
+    return Q.when(db.Node.findOneAndUpdate(get_node_query(req), updates).exec())
         .then(db.check_not_deleted(req, 'node'))
         .thenResolve();
 }
@@ -160,13 +144,10 @@ function update_node(req) {
  *
  */
 function delete_node(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            var updates = {
-                deleted: new Date()
-            };
-            return db.Node.findOneAndUpdate(get_node_query(req), updates).exec();
-        })
+    var updates = {
+        deleted: new Date()
+    };
+    return Q.when(db.Node.findOneAndUpdate(get_node_query(req), updates).exec())
         .then(db.check_not_found(req, 'node'))
         .then(function(node) {
             // TODO notify to initiate rebuild of blocks
@@ -183,8 +164,7 @@ function delete_node(req) {
  *
  */
 function list_nodes(req) {
-    return req.load_system(['admin'])
-        .then(function() {
+    return Q.fcall(function() {
             var info = {
                 system: req.system.id,
                 deleted: null,
@@ -228,8 +208,7 @@ function list_nodes(req) {
  *
  */
 function group_nodes(req) {
-    return req.load_system(['admin'])
-        .then(function() {
+    return Q.fcall(function() {
             var reduce_sum = size_utils.reduce_sum;
             var group_by = req.rest_params.group_by;
             var by_system = {
@@ -389,12 +368,15 @@ function heartbeat(req) {
     var agent_storage_used = req.rest_params.storage_used;
     var node;
 
-    return req.load_system(['admin', 'agent'])
-        .then(function() {
-            return find_node_by_name(req);
-        })
+    return find_node_by_name(req)
         .then(function(node_arg) {
             node = node_arg;
+
+            // verify the authorization to use this node for non admin roles
+            if (req.role !== 'admin') {
+                if (String(node.id) !== req.auth.extra.node_id) throw req.forbidden();
+            }
+
             // TODO CRITICAL need to optimize - we count blocks on every heartbeat...
             return count_node_storage_used(node.id);
         })

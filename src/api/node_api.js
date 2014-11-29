@@ -22,12 +22,15 @@ module.exports = rest_api({
             },
             reply: {
                 type: 'object',
-                required: [],
+                required: ['token'],
                 properties: {
                     token: {
                         type: 'string'
                     }
                 }
+            },
+            auth: {
+                system: ['admin', 'create_node']
             }
         },
 
@@ -45,6 +48,9 @@ module.exports = rest_api({
             },
             reply: {
                 $ref: '/node_api/definitions/node_info'
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -54,6 +60,9 @@ module.exports = rest_api({
             params: {
                 $ref: '/node_api/definitions/node_config'
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
         delete_node: {
@@ -68,6 +77,9 @@ module.exports = rest_api({
                     },
                 }
             },
+            auth: {
+                system: 'admin'
+            }
         },
 
 
@@ -114,6 +126,9 @@ module.exports = rest_api({
                         }
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -165,6 +180,9 @@ module.exports = rest_api({
                         }
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -183,6 +201,9 @@ module.exports = rest_api({
                         }
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -200,6 +221,9 @@ module.exports = rest_api({
                         }
                     }
                 }
+            },
+            auth: {
+                system: 'admin'
             }
         },
 
@@ -214,6 +238,9 @@ module.exports = rest_api({
             reply: {
                 $ref: '/node_api/definitions/node_info'
             },
+            auth: {
+                system: ['admin', 'agent']
+            }
         },
 
 

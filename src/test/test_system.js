@@ -48,15 +48,6 @@ describe('system', function() {
                 email: EMAIL,
             });
         }).then(function() {
-            return coretest.tier_client.create_tier({
-                name: 'edge',
-                kind: 'edge',
-            });
-        }).then(function() {
-            return coretest.tier_client.delete_tier({
-                name: 'edge',
-            });
-        }).then(function() {
             return system_client.read_system();
         }).then(function() {
             return system_client.list_systems();

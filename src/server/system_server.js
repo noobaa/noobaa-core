@@ -14,10 +14,10 @@ var node_monitor = require('./node_monitor');
 
 
 /**
-*
-* SYSTEM SERVER (REST)
-*
-*/
+ *
+ * SYSTEM SERVER (REST)
+ *
+ */
 module.exports = new api.system_api.Server({
 
     create_system: create_system,
@@ -29,20 +29,15 @@ module.exports = new api.system_api.Server({
 
     add_role: add_role,
     remove_role: remove_role,
-
-}, {
-    before: function(req) {
-        return req.load_account();
-    }
 });
 
 
 
 /**
-*
-* CREATE_SYSTEM
-*
-*/
+ *
+ * CREATE_SYSTEM
+ *
+ */
 function create_system(req) {
     var system;
 
@@ -70,12 +65,12 @@ function create_system(req) {
 
 
 /**
-*
-* READ_SYSTEM
-*
-*/
+ *
+ * READ_SYSTEM
+ *
+ */
 function read_system(req) {
-    return req.load_system(['admin']).then(function() {
+    return Q.fcall(function() {
         var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
         var by_system_id = {
             system: req.system.id
@@ -155,37 +150,31 @@ function read_system(req) {
 
 
 function update_system(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            var info = _.pick(req.rest_params, 'name');
-            return db.System.findByIdAndUpdate(req.system.id, info).exec();
-        })
+    var info = _.pick(req.rest_params, 'name');
+    return Q.when(db.System.findByIdAndUpdate(req.system.id, info).exec())
         .thenResolve();
 }
 
 
 /**
-*
-* DELETE_SYSTEM
-*
-*/
+ *
+ * DELETE_SYSTEM
+ *
+ */
 function delete_system(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            return db.System.findByIdAndUpdate(req.system.id, {
-                deleted: new Date()
-            }).exec();
-        })
+    return Q.when(db.System.findByIdAndUpdate(req.system.id, {
+            deleted: new Date()
+        }).exec())
         .thenResolve();
 }
 
 
 
 /**
-*
-* LIST_SYSTEMS
-*
-*/
+ *
+ * LIST_SYSTEMS
+ *
+ */
 function list_systems(req) {
 
     // special case for support accounts - list all systems
@@ -215,18 +204,15 @@ function list_systems(req) {
 
 
 /**
-*
-* ADD_ROLE
-*
-*/
+ *
+ * ADD_ROLE
+ *
+ */
 function add_role(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            return db.Account.findOne({
-                email: req.rest_params.email,
-                deleted: null,
-            }).exec();
-        })
+    return Q.when(db.Account.findOne({
+            email: req.rest_params.email,
+            deleted: null,
+        }).exec())
         .then(db.check_not_deleted(req, 'account'))
         .then(function(account) {
             return db.Role.create({
@@ -242,18 +228,15 @@ function add_role(req) {
 
 
 /**
-*
-* REMOVE_ROLE
-*
-*/
+ *
+ * REMOVE_ROLE
+ *
+ */
 function remove_role(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            return db.Account.findOne({
-                email: req.rest_params.email,
-                deleted: null,
-            }).exec();
-        })
+    return Q.when(db.Account.findOne({
+            email: req.rest_params.email,
+            deleted: null,
+        }).exec())
         .then(db.check_not_deleted(req, 'account'))
         .then(function(account) {
             return db.Role.findOneAndRemove({

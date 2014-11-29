@@ -81,9 +81,6 @@ describe('account', function() {
                 });
             }).then(function() {
                 return account_client.delete_account();
-            }).then(function() {
-                auth_client.set_authorization(null);
-                account_client.set_authorization(null);
             }).nodeify(done);
         });
 

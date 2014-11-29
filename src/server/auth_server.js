@@ -30,19 +30,21 @@ module.exports = auth_server;
 // CRUD //
 //////////
 
+
 /**
  * create_auth()
  */
 function create_auth(req) {
+
+    var authorizing_account;
+    var account;
     var email = req.rest_params.email;
     var password = req.rest_params.password;
     var system_name = req.rest_params.system;
+    var role_name = req.rest_params.role;
     var expiry = req.rest_params.expiry;
-    var email_account;
-    var authorizing_account;
-    var account_to_authorize;
+    var role;
     var system;
-    var role_name;
 
     // return the same error to all auth failures
     // this is to avoid attacks of querying with different params to peek into our db.
@@ -50,99 +52,107 @@ function create_auth(req) {
         return req.rest_error('unauthorized', 401);
     };
 
-    return req.load_account({
-        allow_missing: true
-    }).then(function() {
+    return Q.fcall(function() {
+
+        // find account by email
 
         if (!email) return;
 
-        // find account by email
         return db.Account.findOne({
             email: email,
             deleted: null,
-        }).exec();
+        }).exec().then(function(account_arg) {
 
-    }).then(function(account_arg) {
-        email_account = account_arg;
+            // consider email not found the same as bad password to avoid phishing attacks.
+            // when password is not provided it means we want to give authorization
+            // by the currently authorized to another specific account instead of
+            // using credentials.
 
-        // consider email not found the same as bad password
-        // this is to avoid attacks of querying emails to detect which exist in our db.
-        if (!email_account || !password) return;
+            account = account_arg;
+            if (!account) throw auth_fail();
+            if (!password) return;
 
-        // verify the password
-        return Q.npost(email_account, 'verify_password', [password]);
+            return Q.npost(account, 'verify_password', [password])
+                .then(function(match) {
+                    if (!match) throw auth_fail();
+                    // after authenticating use this account as the authorizing
+                    authorizing_account = account;
+                });
+        });
 
-    }).then(function(password_verified) {
+    }).then(function() {
 
-        if (!email) {
-            // when email is not provided it is to re-authorize the current account
-            if (!req.account) throw auth_fail();
-            authorizing_account = req.account;
-            account_to_authorize = req.account;
-        } else if (!password) {
-            // email is provided but not password -
-            // it is to give authorization by current account to the email account
-            if (!req.account || !email_account) throw auth_fail();
-            authorizing_account = req.account;
-            account_to_authorize = email_account;
-        } else {
-            // email and password provided to authenticate with credentials
-            // if not verified - either account missing or bad password
-            if (!password_verified) throw auth_fail();
-            authorizing_account = email_account;
-            account_to_authorize = email_account;
-        }
+        // if email is not provided, or email is provided without password
+        // we load the currently authorized account to use instead
 
-        if (!system_name) return;
+        if (authorizing_account && account) return;
+        if (!req.auth.account_id) throw auth_fail();
+
+        return db.Account.findById(req.auth.account_id).exec()
+            .then(function(account_arg) {
+                account = account || account_arg;
+                authorizing_account = authorizing_account || account_arg;
+            });
+
+    }).then(function() {
 
         // find system
+
+        if (!authorizing_account || authorizing_account.deleted) throw auth_fail();
+        if (!account || account.deleted) throw auth_fail();
+        if (!system_name) return;
+
         return Q.when(db.System.findOne({
-                name: system_name,
-                deleted: null,
-            }).exec())
-            .then(function(system_arg) {
-                system = system_arg;
-                if (!system || system.deleted) throw auth_fail();
+            name: system_name,
+            deleted: null,
+        }).exec()).then(function(system_arg) {
 
-                // find the role of authorizing_account and system
-                return db.Role.findOne({
-                    account: authorizing_account.id,
-                    system: system.id,
-                }).exec();
-            })
-            .then(function(role) {
-                // support accounts or system owners can give other accounts any permission
-                var authorizing_role;
-                if (authorizing_account.is_support) {
-                    authorizing_role = 'admin';
-                } else if (String(system.owner) === String(authorizing_account.id)) {
-                    authorizing_role = 'admin';
-                } else if (role) {
-                    authorizing_role = role.role;
+            system = system_arg;
+            if (!system || system.deleted) throw auth_fail();
+
+            // support or owner can use any role
+            if (authorizing_account.is_support ||
+                String(system.owner) === String(authorizing_account.id)) {
+                role_name = role_name || 'admin';
+                return;
+            }
+
+            // find the role of authorizing_account and system
+
+            return db.Role.findOne({
+                account: authorizing_account.id,
+                system: system.id,
+            }).exec().then(function(role) {
+
+                if (!role) throw auth_fail();
+
+                // admin can use any role
+                if (role.role === 'admin') {
+                    role_name = role_name || 'admin';
+                    return;
                 }
-                if (!authorizing_role) throw auth_fail();
 
-                role_name = req.rest_params.role || authorizing_role;
-
-                // admin can give permission to any role
-                if (authorizing_role === 'admin') return;
-
-                // non admin is only allowed to use its role on himself
-                if (authorizing_role === role_name &&
-                    String(account_to_authorize.id) === String(authorizing_account.id)) return;
-                throw auth_fail();
+                // if non admin only allow to use its role on himself
+                if (String(account.id) === String(authorizing_account.id) ||
+                    role_name !== role.role) {
+                    throw auth_fail();
+                }
             });
+        });
 
     }).then(function() {
 
         // use jwt (json web token) to create a signed token
         var jwt_payload = {
-            account_id: account_to_authorize.id
+            account_id: account.id
         };
 
         // add the system and role if provided
-        if (system_name) {
+        if (system) {
             jwt_payload.system_id = system.id;
+        }
+
+        if (role_name) {
             jwt_payload.role = role_name;
         }
 

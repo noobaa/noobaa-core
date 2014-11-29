@@ -36,18 +36,17 @@ module.exports = auth_server;
  */
 function create_auth(req) {
 
-    var authorizing_account;
-    var account;
     var email = req.rest_params.email;
     var password = req.rest_params.password;
     var system_name = req.rest_params.system;
     var role_name = req.rest_params.role;
     var expiry = req.rest_params.expiry;
-    var role;
+    var authorizing_account;
+    var account;
     var system;
+    var role;
 
-    // return the same error to all auth failures
-    // this is to avoid attacks of querying with different params to peek into our db.
+    // return the same error to all auth failures to prevent phishing attacks.
     var auth_fail = function() {
         return req.rest_error('unauthorized', 401);
     };
@@ -75,15 +74,16 @@ function create_auth(req) {
             return Q.npost(account, 'verify_password', [password])
                 .then(function(match) {
                     if (!match) throw auth_fail();
-                    // after authenticating use this account as the authorizing
+                    // authenticated, so use this account as the authorizing one
                     authorizing_account = account;
                 });
         });
 
     }).then(function() {
 
-        // if email is not provided, or email is provided without password
-        // we load the currently authorized account to use instead
+        // we support modes where email is not provided,
+        // and also email is provided but without password,
+        // in these cases we load the authorized account to use it as authorizing_account
 
         if (authorizing_account && account) return;
         if (!req.auth.account_id) throw auth_fail();
@@ -197,9 +197,11 @@ function read_auth(req) {
 
 
 
+
 //////////////////////////
 // AUTHORIZE MIDDLEWARE //
 //////////////////////////
+
 
 /**
  * authorize()
@@ -235,6 +237,7 @@ function authorize() {
         });
     };
 }
+
 
 /**
  * _prepare_auth_request() hang calls on the request to be able to use in other api's.

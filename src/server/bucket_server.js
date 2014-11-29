@@ -11,8 +11,12 @@ var object_mapper = require('./object_mapper');
 var db = require('./db');
 
 
+/**
+ *
+ * BUCKET SERVER (REST)
+ *
+ */
 module.exports = new api.bucket_api.Server({
-    // bucket actions
     list_buckets: list_buckets,
     create_bucket: create_bucket,
     read_bucket: read_bucket,
@@ -20,15 +24,18 @@ module.exports = new api.bucket_api.Server({
     delete_bucket: delete_bucket,
     list_bucket_objects: list_bucket_objects,
 }, {
-    before: before
+    before: function(req) {
+        return req.load_system(['admin']);
+    }
 });
 
 
-function before(req) {
-    return req.load_system(['admin']);
-}
 
-
+/**
+ *
+ * LIST_BUCKETS
+ *
+ */
 function list_buckets(req) {
     return Q.when(db.Bucket.find({
             account: req.account.id
@@ -43,6 +50,12 @@ function list_buckets(req) {
 }
 
 
+
+/**
+ *
+ * CREATE_BUCKET
+ *
+ */
 function create_bucket(req) {
     var bucket_name = req.rest_params.bucket;
 
@@ -56,6 +69,12 @@ function create_bucket(req) {
 }
 
 
+
+/**
+ *
+ * READ_BUCKET
+ *
+ */
 function read_bucket(req) {
     var bucket_name = req.rest_params.bucket;
 
@@ -69,6 +88,12 @@ function read_bucket(req) {
 }
 
 
+
+/**
+ *
+ * UPDATE_BUCKET
+ *
+ */
 function update_bucket(req) {
     var bucket_name = req.rest_params.bucket;
 
@@ -84,6 +109,12 @@ function update_bucket(req) {
 }
 
 
+
+/**
+ *
+ * DELETE_BUCKET
+ *
+ */
 function delete_bucket(req) {
     var bucket_name = req.rest_params.bucket;
     // TODO mark deleted on objects and reclaim data blocks
@@ -98,6 +129,12 @@ function delete_bucket(req) {
 }
 
 
+
+/**
+ *
+ * LIST_BUCKET_OBJECTS
+ *
+ */
 function list_bucket_objects(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -125,6 +162,10 @@ function list_bucket_objects(req) {
         };
     });
 }
+
+
+
+// UTILS //////////////////////////////////////////////////////////
 
 
 function get_object_info(md) {

@@ -3,16 +3,16 @@
 
 var rest_api = require('../util/rest_api');
 
-
+/**
+ *
+ * ACCOUNT API
+ *
+ */
 module.exports = rest_api({
 
     name: 'account_api',
 
     methods: {
-
-        //////////
-        // CRUD //
-        //////////
 
         create_account: {
             doc: 'Create a new account',

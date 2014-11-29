@@ -7,9 +7,12 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * object part DB model.
+ *
+ * OBJECT_PART SCHEMA
+ *
  * connects between an object and it's data chunks.
  * allows to share data chunks between objects.
+ *
  */
 var object_part_schema = new Schema({
 

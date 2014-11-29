@@ -14,29 +14,26 @@ var Agent = require('../agent/agent');
 var db = require('./db');
 
 
+/**
+ *
+ * NODE SERVER (REST)
+ *
+ */
 module.exports = new api.node_api.Server({
 
-    // CRUD
     create_node: create_node,
     read_node: read_node,
     update_node: update_node,
     delete_node: delete_node,
 
-    // LIST
     list_nodes: list_nodes,
-
-    // GROUP
     group_nodes: group_nodes,
 
-    // START STOP
     start_nodes: start_nodes,
     stop_nodes: stop_nodes,
     get_agents_status: get_agents_status,
 
-    // AGENT
     heartbeat: heartbeat,
-
-    // NODE VENDOR
     connect_node_vendor: connect_node_vendor,
 }, {
     before: function(req) {
@@ -46,15 +43,16 @@ module.exports = new api.node_api.Server({
 
 
 
-//////////
-// CRUD //
-//////////
 
-
+/**
+ *
+ * CREATE_NODE
+ *
+ */
 function create_node(req) {
     var info;
 
-    // admin or create_node roles allowed
+    // this function allows role: admin or create_node
     return req.load_system(['admin', 'create_node'])
         .then(function() {
             info = _.pick(req.rest_params,
@@ -69,9 +67,19 @@ function create_node(req) {
                 used: 0,
             };
 
+            // when the request role is admin it can provide any of the system tiers.
+            // when the role was authorized only for create_node the athorization
+            // must include the allowed tier.
+            var tier_name = req.rest_params.tier;
+            if (req.role === 'create_node') {
+                if (req.auth.extra.tier !== tier_name) {
+                    throw req.rest_error('tier not found');
+                }
+            }
+
             var tier_query = {
                 system: req.system.id,
-                name: req.rest_params.tier,
+                name: tier_name,
                 deleted: null,
             };
 
@@ -104,6 +112,12 @@ function create_node(req) {
 }
 
 
+
+/**
+ *
+ * READ_NODE
+ *
+ */
 function read_node(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -115,6 +129,12 @@ function read_node(req) {
 }
 
 
+
+/**
+ *
+ * UPDATE_NODE
+ *
+ */
 function update_node(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -133,6 +153,12 @@ function update_node(req) {
 }
 
 
+
+/**
+ *
+ * DELETE_NODE
+ *
+ */
 function delete_node(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -151,10 +177,11 @@ function delete_node(req) {
 
 
 
-//////////
-// LIST //
-//////////
-
+/**
+ *
+ * LIST_NODES
+ *
+ */
 function list_nodes(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -195,10 +222,11 @@ function list_nodes(req) {
 
 
 
-///////////
-// GROUP //
-///////////
-
+/**
+ *
+ * GROUP_NODES
+ *
+ */
 function group_nodes(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -276,10 +304,11 @@ function group_nodes(req) {
 
 
 
-////////////////
-// START STOP //
-////////////////
-
+/**
+ *
+ * START_NODES
+ *
+ */
 function start_nodes(req) {
     var node_names = req.rest_params.nodes;
     return Q.fcall(update_nodes_started_state, req, node_names, true)
@@ -289,6 +318,13 @@ function start_nodes(req) {
         .thenResolve();
 }
 
+
+
+/**
+ *
+ * STOP_NODES
+ *
+ */
 function stop_nodes(req) {
     var node_names = req.rest_params.nodes;
     return Q.fcall(update_nodes_started_state, req, node_names, false)
@@ -299,7 +335,11 @@ function stop_nodes(req) {
 }
 
 
-
+/**
+ *
+ * get_agents_status
+ *
+ */
 // TODO is this still needed as api method?
 function get_agents_status(req) {
     var node_names = req.rest_params.nodes;
@@ -325,10 +365,11 @@ function get_agents_status(req) {
 
 
 
-///////////////
-// HEARTBEAT //
-///////////////
-
+/**
+ *
+ * HEARTBEAT
+ *
+ */
 function heartbeat(req) {
     var updates = _.pick(req.rest_params,
         'geolocation',
@@ -398,10 +439,7 @@ function heartbeat(req) {
 
 
 
-/////////////////
-// NODE VENDOR //
-/////////////////
-
+// TODO remove connect_node_vendor?
 function connect_node_vendor(req) {
     var vendor_info = _.pick(req.rest_params, 'name', 'category', 'kind', 'details');
     vendor_info.system = req.system.id;
@@ -444,9 +482,8 @@ function connect_node_vendor(req) {
 
 
 
-///////////
-// UTILS //
-///////////
+// UTILS //////////////////////////////////////////////////////////
+
 
 
 function count_node_storage_used(node_id) {

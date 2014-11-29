@@ -12,11 +12,17 @@ var express_jwt = require('express-jwt');
 var jwt = require('jsonwebtoken');
 
 
+/**
+ *
+ * AUTH SERVER (REST)
+ *
+ */
 module.exports = new api.auth_api.Server({
-    // CRUD
     create_auth: create_auth,
     read_auth: read_auth,
 });
+
+
 
 /**
  * authorize is exported to be used as an express middleware
@@ -26,13 +32,11 @@ module.exports.authorize = authorize;
 
 
 
-//////////
-// CRUD //
-//////////
-
-
 /**
- * create_auth() - authenticate and return an authorized token.
+ *
+ * CREATE_AUTH
+ *
+ * authenticate and return an authorized token.
  *
  * the simplest usage is to send email & password, which will be verified
  * to match the existing account, and will return an authorized token containing the account.
@@ -41,6 +45,7 @@ module.exports.authorize = authorize;
  * one option is to combine with email & password, and another is to call without
  * email and password but with existing authorization token which contains
  * a previously authenticated account.
+ *
  */
 function create_auth(req) {
 
@@ -186,8 +191,11 @@ function create_auth(req) {
 }
 
 
+
 /**
- * read_auth()
+ *
+ * READ_AUTH
+ *
  */
 function read_auth(req) {
     if (!req.auth) return {};
@@ -210,13 +218,13 @@ function read_auth(req) {
 
 
 
-//////////////////////////
-// AUTHORIZE MIDDLEWARE //
-//////////////////////////
-
-
 /**
- * authorize()
+ *
+ * AUTHORIZE
+ *
+ * middleware for express to parse and verify the auth token
+ * and assign the info in req.auth.
+ *
  */
 function authorize() {
 
@@ -252,13 +260,20 @@ function authorize() {
 
 
 /**
- * _prepare_auth_request() hang calls on the request to be able to use in other api's.
+ *
+ * _prepare_auth_request()
+ *
+ * on valid token, set utility functions on the request to be able to use in other api's.
+ * see the function docs below.
+ *
  */
 function _prepare_auth_request(req) {
 
     /**
-     * req.load_account verifies that the request auth has a valid account
-     * and sets req.account.
+     *
+     * req.load_account()
+     *
+     * verifies that the request auth has a valid account and sets req.account.
      *
      * @param <Object> options:
      *      - <Boolean> allow_missing don't fail if there is no system in req.auth
@@ -288,7 +303,10 @@ function _prepare_auth_request(req) {
     };
 
     /**
-     * req.load_system() verifies that the request auth has a valid system
+     *
+     * req.load_system()
+     *
+     * verifies that the request auth has a valid system
      * and sets req.system and req.role.
      * it implicitly calls load_account.
      *
@@ -338,6 +356,9 @@ function _prepare_auth_request(req) {
 
 
     /**
+     *
+     * req.make_auth_token()
+     *
      * make auth token based on the existing auth with the given modifications.
      *
      * @param <Object> options:
@@ -368,6 +389,12 @@ function _prepare_auth_request(req) {
     };
 
 }
+
+
+
+
+// UTILS //////////////////////////////////////////////////////////
+
 
 function is_role_valid(role, valid_roles) {
     if (!valid_roles) {

@@ -7,8 +7,11 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * data block DB model.
- * is a part of a data chunk, and defines storage node.
+ *
+ * DATA_BLOCK SCHEMA
+ *
+ * block is a part of a data chunk, and defines storage node.
+ *
  */
 var data_block_schema = new Schema({
 

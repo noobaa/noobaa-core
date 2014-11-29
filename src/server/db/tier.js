@@ -8,7 +8,11 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * storage tier DB model
+ *
+ * TIER SCHEMA
+ *
+ * storage tier - either edge or cloud.
+ *
  */
 var tier_schema = new Schema({
 

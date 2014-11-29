@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ *
+ * API FOLDER INDEX
+ *
+ */
 module.exports = {
     rest_api: require('../util/rest_api'),
 

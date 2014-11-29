@@ -10,9 +10,12 @@ var api = require('../api');
 var db = require('./db');
 
 
+/**
+ *
+ * TIER SERVER (REST)
+ *
+ */
 module.exports = new api.tier_api.Server({
-
-    // CRUD
     create_tier: create_tier,
     read_tier: read_tier,
     update_tier: update_tier,
@@ -25,10 +28,11 @@ module.exports = new api.tier_api.Server({
 
 
 
-//////////
-// CRUD //
-//////////
-
+/**
+ *
+ * CREATE_TIER
+ *
+ */
 function create_tier(req) {
     var info = _.pick(req.rest_params, 'name', 'kind', 'edge_details', 'cloud_details');
     info.system = req.system.id;
@@ -37,6 +41,13 @@ function create_tier(req) {
         .thenResolve();
 }
 
+
+
+/**
+*
+* READ_TIER
+*
+*/
 function read_tier(req) {
     return Q.when(db.Tier.findOne(get_tier_query(req)).exec())
         .then(db.check_not_deleted(req, 'tier'))
@@ -60,6 +71,13 @@ function read_tier(req) {
         });
 }
 
+
+
+/**
+*
+* UPDATE_TIER
+*
+*/
 function update_tier(req) {
     var updates = _.pick(req.rest_params, 'edge_details', 'cloud_details');
     if (req.rest_params.new_name) {
@@ -70,6 +88,13 @@ function update_tier(req) {
         .thenResolve();
 }
 
+
+
+/**
+*
+* DELETE_TIER
+*
+*/
 function delete_tier(req) {
     var updates = {
         deleted: new Date()
@@ -78,6 +103,11 @@ function delete_tier(req) {
         .then(db.check_not_found(req, 'tier'))
         .thenResolve();
 }
+
+
+
+
+// UTILS //////////////////////////////////////////////////////////
 
 
 function get_tier_query(req) {

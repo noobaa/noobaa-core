@@ -11,6 +11,11 @@ var object_mapper = require('./object_mapper');
 var db = require('./db');
 
 
+/**
+ *
+ * OBJECT SERVER (REST)
+ *
+ */
 module.exports = new api.object_api.Server({
     // object upload
     create_multipart_upload: create_multipart_upload,
@@ -24,16 +29,18 @@ module.exports = new api.object_api.Server({
     update_object_md: update_object_md,
     delete_object: delete_object,
 }, {
-    before: before
+    before: function(req) {
+        return req.load_system(['admin']);
+    }
 });
 
 
-function before(req) {
-    return req.load_system(['admin']);
-}
 
-
-
+/**
+ *
+ * CREATE_MULTIPART_UPLOAD
+ *
+ */
 function create_multipart_upload(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -55,6 +62,13 @@ function create_multipart_upload(req) {
         }).thenResolve();
 }
 
+
+
+/**
+ *
+ * COMPLETE_MULTIPART_UPLOAD
+ *
+ */
 function complete_multipart_upload(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -78,6 +92,13 @@ function complete_multipart_upload(req) {
         }).thenResolve();
 }
 
+
+
+/**
+ *
+ * ABORT_MULTIPART_UPLOAD
+ *
+ */
 function abort_multipart_upload(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -99,6 +120,13 @@ function abort_multipart_upload(req) {
         }).thenResolve();
 }
 
+
+
+/**
+ *
+ * ALLOCATE_OBJECT_PART
+ *
+ */
 function allocate_object_part(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -130,6 +158,12 @@ function allocate_object_part(req) {
 }
 
 
+
+/**
+ *
+ * READ_OBJECT_MAPPING
+ *
+ */
 function read_object_mappings(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -160,10 +194,12 @@ function read_object_mappings(req) {
 }
 
 
-//////////////////////
-// object meta-data //
-//////////////////////
 
+/**
+ *
+ * READ_OBJECT_MD
+ *
+ */
 function read_object_md(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -185,6 +221,12 @@ function read_object_md(req) {
 }
 
 
+
+/**
+ *
+ * UPDATE_OBJECT_MD
+ *
+ */
 function update_object_md(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -206,6 +248,12 @@ function update_object_md(req) {
 }
 
 
+
+/**
+ *
+ * DELETE_OBJECT
+ *
+ */
 function delete_object(req) {
     var bucket_name = req.rest_params.bucket;
     var key = req.rest_params.key;
@@ -224,6 +272,9 @@ function delete_object(req) {
         }).thenResolve();
 }
 
+
+
+// UTILS //////////////////////////////////////////////////////////
 
 
 function get_object_info(md) {

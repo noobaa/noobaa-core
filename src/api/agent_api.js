@@ -4,6 +4,11 @@
 var rest_api = require('../util/rest_api');
 
 
+/**
+ *
+ * AGENT API
+ *
+ */
 module.exports = rest_api({
 
     name: 'agent_api',

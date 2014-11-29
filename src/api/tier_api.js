@@ -4,15 +4,16 @@
 var rest_api = require('../util/rest_api');
 
 
+/**
+ *
+ * TIER API
+ *
+ */
 module.exports = rest_api({
 
     name: 'tier_api',
 
     methods: {
-
-        //////////
-        // CRUD //
-        //////////
 
         create_tier: {
             doc: 'Create tier',
@@ -95,13 +96,8 @@ module.exports = rest_api({
             },
         },
 
-
     },
 
-
-    ////////////////////////////////
-    // general schema definitions //
-    ////////////////////////////////
 
     definitions: {
 

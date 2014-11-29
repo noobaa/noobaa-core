@@ -8,7 +8,11 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * Account represents a user with its credentials to authenticate.
+ *
+ * ACCOUNT SCHEMA
+ *
+ * represents a user with its credentials to authenticate.
+ *
  */
 var account_schema = new Schema({
 
@@ -48,10 +52,17 @@ account_schema.index({
 });
 
 
-// password verification - callback is function(err,is_matching)
+/**
+ *
+ * verify_password()
+ *
+ * password verification - callback is function(err,is_matching)
+ *
+ */
 account_schema.methods.verify_password = function(password, callback) {
     bcrypt.compare(password, this.password, callback);
 };
+
 
 // bcrypt middleware - replace passwords with hash before saving account
 account_schema.pre('save', function(callback) {

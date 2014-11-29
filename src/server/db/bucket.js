@@ -7,6 +7,11 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 
+/**
+ *
+ * BUCKET SCHEMA
+ *
+ */
 var bucket_schema = new Schema({
 
     system: {

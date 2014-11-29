@@ -8,7 +8,11 @@ var types = mongoose.Schema.Types;
 var size_utils = require('../../util/size_utils');
 
 /**
- * edge node DB model
+ *
+ * NODE SCHEMA
+ *
+ * an edge node.
+ *
  */
 var node_schema = new Schema({
 
@@ -114,10 +118,15 @@ node_schema.index({
 
 
 /**
- * aggregate_nodes counts the number of nodes and online nodes
+ *
+ * aggregate_nodes
+ *
+ * counts the number of nodes and online nodes
  * and sum of storage (allocated, used) for the entire query, and per tier.
+ *
  * @return <Object> tiers - the '' key represents the entire query and others are tier ids.
  *      each tier value is an object with properties: alloc, used, count, online.
+ *
  */
 node_schema.statics.aggregate_nodes = function(query, minimum_online_heartbeat) {
     return this.mapReduce({

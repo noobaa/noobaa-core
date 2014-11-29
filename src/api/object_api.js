@@ -4,15 +4,16 @@
 var rest_api = require('../util/rest_api');
 
 
+/**
+ *
+ * OBJECT API
+ *
+ */
 module.exports = rest_api({
 
     name: 'object_api',
 
     methods: {
-
-        ///////////////////
-        // object upload //
-        ///////////////////
 
         create_multipart_upload: {
             method: 'POST',
@@ -98,10 +99,6 @@ module.exports = rest_api({
         },
 
 
-        //////////////////////
-        // object meta-data //
-        //////////////////////
-
         read_object_md: {
             method: 'GET',
             path: '/:bucket/:key',
@@ -180,10 +177,6 @@ module.exports = rest_api({
     },
 
 
-
-    ////////////////////////////////
-    // general schema definitions //
-    ////////////////////////////////
 
     definitions: {
 

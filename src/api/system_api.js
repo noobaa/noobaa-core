@@ -4,15 +4,16 @@
 var rest_api = require('../util/rest_api');
 
 
+/**
+ *
+ * SYSTEM API
+ *
+ */
 module.exports = rest_api({
 
     name: 'system_api',
 
     methods: {
-
-        //////////
-        // CRUD //
-        //////////
 
         create_system: {
             method: 'POST',
@@ -62,10 +63,6 @@ module.exports = rest_api({
         },
 
 
-        //////////
-        // LIST //
-        //////////
-
         list_systems: {
             doc: 'List the systems that the authorized account can access',
             method: 'GET',
@@ -78,10 +75,6 @@ module.exports = rest_api({
             },
         },
 
-
-        ///////////
-        // ROLES //
-        ///////////
 
         add_role: {
             doc: 'Add role',
@@ -117,9 +110,6 @@ module.exports = rest_api({
         },
     },
 
-    ////////////////////////////////
-    // general schema definitions //
-    ////////////////////////////////
 
     definitions: {
 

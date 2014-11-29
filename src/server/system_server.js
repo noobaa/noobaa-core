@@ -13,18 +13,20 @@ var api = require('../api');
 var node_monitor = require('./node_monitor');
 
 
+/**
+*
+* SYSTEM SERVER (REST)
+*
+*/
 module.exports = new api.system_api.Server({
 
-    // CRUD
     create_system: create_system,
     read_system: read_system,
     update_system: update_system,
     delete_system: delete_system,
 
-    // LIST
     list_systems: list_systems,
 
-    // ROLES
     add_role: add_role,
     remove_role: remove_role,
 
@@ -36,11 +38,11 @@ module.exports = new api.system_api.Server({
 
 
 
-//////////
-// CRUD //
-//////////
-
-
+/**
+*
+* CREATE_SYSTEM
+*
+*/
 function create_system(req) {
     var system;
 
@@ -66,6 +68,12 @@ function create_system(req) {
 }
 
 
+
+/**
+*
+* READ_SYSTEM
+*
+*/
 function read_system(req) {
     return req.load_system(['admin']).then(function() {
         var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
@@ -156,6 +164,11 @@ function update_system(req) {
 }
 
 
+/**
+*
+* DELETE_SYSTEM
+*
+*/
 function delete_system(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -167,11 +180,12 @@ function delete_system(req) {
 }
 
 
-//////////
-// LIST //
-//////////
 
-
+/**
+*
+* LIST_SYSTEMS
+*
+*/
 function list_systems(req) {
 
     // special case for support accounts - list all systems
@@ -200,10 +214,11 @@ function list_systems(req) {
 
 
 
-//////////
-// ROLE //
-//////////
-
+/**
+*
+* ADD_ROLE
+*
+*/
 function add_role(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -224,6 +239,13 @@ function add_role(req) {
         .thenResolve();
 }
 
+
+
+/**
+*
+* REMOVE_ROLE
+*
+*/
 function remove_role(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -243,9 +265,9 @@ function remove_role(req) {
 }
 
 
-//////////
-// UTIL //
-//////////
+
+// UTILS //////////////////////////////////////////////////////////
+
 
 function get_system_info(system) {
     return _.pick(system, 'name');

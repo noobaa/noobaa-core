@@ -8,7 +8,11 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * A role for account to act on a system.
+ *
+ * ROLE SCHEMA
+ *
+ * A role allows an account to act on a system.
+ *
  */
 var role_schema = new Schema({
 

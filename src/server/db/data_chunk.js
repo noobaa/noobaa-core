@@ -7,10 +7,13 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
- * data chunk DB model.
- * is a logical chunk of data stored persistently.
+ *
+ * DATA_CHUNK SCHEMA
+ *
+ * chunk is a logical chunk of data stored persistently.
  * chunks are refered by object parts.
  * chunks are mapped by partitioning to k data blocks.
+ *
  */
 var data_chunk_schema = new Schema({
 

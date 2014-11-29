@@ -4,13 +4,16 @@
 var rest_api = require('../util/rest_api');
 
 
+/**
+ *
+ * BUCKET API
+ *
+ */
 module.exports = rest_api({
 
     name: 'bucket_api',
 
     methods: {
-
-        // bucket functions
 
         list_buckets: {
             method: 'GET',
@@ -137,11 +140,6 @@ module.exports = rest_api({
 
     },
 
-
-
-    ////////////////////////////////
-    // general schema definitions //
-    ////////////////////////////////
 
     definitions: {},
 

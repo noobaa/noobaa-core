@@ -7,6 +7,13 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 
+/**
+ *
+ * OBJECT_MD SCHEMA
+ *
+ * the object meta-data (aka inode).
+ *
+ */
 var objmd_schema = new Schema({
 
     system: {

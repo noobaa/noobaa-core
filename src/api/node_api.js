@@ -2,16 +2,17 @@
 
 var rest_api = require('../util/rest_api');
 
+
+/**
+ *
+ * NODE API
+ *
+ */
 module.exports = rest_api({
 
     name: 'node_api',
 
     methods: {
-
-
-        //////////
-        // CRUD //
-        //////////
 
         create_node: {
             method: 'POST',
@@ -47,7 +48,6 @@ module.exports = rest_api({
             }
         },
 
-
         update_node: {
             method: 'PUT',
             path: '/node/:name',
@@ -55,7 +55,6 @@ module.exports = rest_api({
                 $ref: '/node_api/definitions/node_config'
             },
         },
-
 
         delete_node: {
             method: 'DELETE',
@@ -71,10 +70,6 @@ module.exports = rest_api({
             },
         },
 
-
-        //////////
-        // LIST //
-        //////////
 
         list_nodes: {
             method: 'GET',
@@ -122,10 +117,6 @@ module.exports = rest_api({
             }
         },
 
-
-        ///////////
-        // GROUP //
-        ///////////
 
         group_nodes: {
             method: 'GET',
@@ -178,10 +169,6 @@ module.exports = rest_api({
         },
 
 
-        ////////////////
-        // START STOP //
-        ////////////////
-
         start_nodes: {
             method: 'POST',
             path: '/start',
@@ -218,10 +205,6 @@ module.exports = rest_api({
 
 
 
-        ///////////////
-        // HEARTBEAT //
-        ///////////////
-
         heartbeat: {
             method: 'PUT',
             path: '/heartbeat/:name',
@@ -236,10 +219,6 @@ module.exports = rest_api({
 
     },
 
-
-    ////////////////////////////////
-    // general schema definitions //
-    ////////////////////////////////
 
     definitions: {
 

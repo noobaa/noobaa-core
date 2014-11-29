@@ -4,15 +4,16 @@
 var rest_api = require('../util/rest_api');
 
 
+/**
+ *
+ * AUTH API
+ *
+ */
 module.exports = rest_api({
 
     name: 'auth_api',
 
     methods: {
-
-        //////////
-        // CRUD //
-        //////////
 
         create_auth: {
             doc: 'Authenticate account with credentials, ' +

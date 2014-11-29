@@ -8,8 +8,12 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 
 /**
+ *
+ * SYSTEM SCHEMA
+ *
  * System defines an infrastructure entity.
  * Allows to create several separated systems on the same domain.
+ *
  */
 var system_schema = new Schema({
 

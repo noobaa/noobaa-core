@@ -12,8 +12,12 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 
 
+/**
+ *
+ * ACCOUNT SERVER (REST)
+ *
+ */
 module.exports = new api.account_api.Server({
-    // CRUD
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
@@ -22,11 +26,12 @@ module.exports = new api.account_api.Server({
 
 
 
-//////////
-// CRUD //
-//////////
 
-
+/**
+ *
+ * CREATE_ACCOUNT
+ *
+ */
 function create_account(req) {
     var info = _.pick(req.rest_params, 'name', 'email', 'password');
 
@@ -36,6 +41,12 @@ function create_account(req) {
 }
 
 
+
+/**
+ *
+ * READ_ACCOUNT
+ *
+ */
 function read_account(req) {
     return req.load_account({
             cache_miss: true
@@ -46,6 +57,12 @@ function read_account(req) {
 }
 
 
+
+/**
+ *
+ * UPDATE_ACCOUNT
+ *
+ */
 function update_account(req) {
     return req.load_account({
             cache_miss: true
@@ -64,6 +81,12 @@ function update_account(req) {
 }
 
 
+
+/**
+ *
+ * DELETE_ACCOUNT
+ *
+ */
 function delete_account(req) {
     return req.load_account({
             cache_miss: true

@@ -16,6 +16,13 @@ var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 
+/**
+ *
+ * DB FOLDER INDEX
+ *
+ * fast require of all the db related functionality.
+ *
+ */
 module.exports = {
     ObjectID: mongoose.Schema.Types.ObjectID,
 

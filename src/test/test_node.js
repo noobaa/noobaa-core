@@ -31,7 +31,7 @@ describe('node', function() {
                 name: 'haha',
                 tier: 'tier',
                 geolocation: 'home',
-                allocated_storage: 10 * size_utils.GIGABYTE,
+                storage_alloc: 10 * size_utils.GIGABYTE,
             });
         }).then(function() {
             return coretest.node_client.heartbeat({

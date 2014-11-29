@@ -85,7 +85,7 @@ var agent_storage_dir = path.resolve(__dirname, '../../test_data/coretest');
 
 
 // create some test nodes named 0, 1, 2, ..., count
-function init_test_nodes(count, allocated_storage) {
+function init_test_nodes(count, storage_alloc) {
     var sem = new Semaphore(3);
 
     function init_test_node(i) {
@@ -93,7 +93,7 @@ function init_test_nodes(count, allocated_storage) {
                 return node_client.create_node({
                     name: '' + i,
                     geolocation: 'test',
-                    allocated_storage: allocated_storage,
+                    storage_alloc: storage_alloc,
                 });
             })
             .then(function() {

@@ -89,9 +89,9 @@ function Agent(params) {
     self.http_server = http_server;
     self.http_port = 0;
 
-    // TODO maintain persistent allocated_storage
-    self.allocated_storage = size_utils.GIGABYTE;
-    self.used_storage = 0;
+    // TODO maintain persistent storage_alloc
+    self.storage_alloc = size_utils.GIGABYTE;
+    self.storage_used = 0;
     self.num_blocks = 0;
 }
 
@@ -220,8 +220,8 @@ Agent.prototype.send_heartbeat = function() {
         port: self.http_port,
         online: true,
         heartbeat: new Date().toString(),
-        allocated_storage: self.allocated_storage,
-        used_storage: self.used_storage,
+        storage_alloc: self.storage_alloc,
+        storage_used: self.storage_used,
         system_info: {
             os: {
                 hostname: os.hostname(),
@@ -321,7 +321,7 @@ Agent.prototype.write_block = function(req) {
             var lru_block = self.blocks_lru.find_or_add_item(block_id);
             lru_block.data = data;
             self.num_blocks += 1;
-            self.used_storage += data.length - old_size;
+            self.storage_used += data.length - old_size;
         }
     );
 };

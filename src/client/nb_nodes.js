@@ -235,7 +235,7 @@ nb_app.factory('nbNodes', [
 
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
-            node.usage_percent = 100 * node.used_storage / node.allocated_storage;
+            node.usage_percent = 100 * node.storage_used / node.storage_alloc;
             // TODO resolve vendor id to name by client or server?
             // node.vendor = $scope.node_vendors_by_id[node.vendor];
         }
@@ -299,7 +299,7 @@ nb_app.factory('nbNodes', [
                             'Israel', 'Romania', 'Russia',
                             'Germany', 'England', 'France', 'Spain',
                         ]),
-                        allocated_storage: scope.allocate_gb * size_utils.GIGABYTE,
+                        storage_alloc: scope.allocate_gb * size_utils.GIGABYTE,
                         vendor: scope.selected_vendor.id,
                     })).then(function() {
                         num_created += 1;
@@ -386,11 +386,11 @@ nb_app.factory('nbNodes', [
                 if (stat.geolocation === selected_geo) {
                     selected_row = index;
                 }
-                if (stat.allocated_storage > max_alloc) {
-                    max_alloc = stat.allocated_storage;
+                if (stat.storage_alloc > max_alloc) {
+                    max_alloc = stat.storage_alloc;
                 }
-                if (stat.allocated_storage < min_alloc) {
-                    min_alloc = stat.allocated_storage;
+                if (stat.storage_alloc < min_alloc) {
+                    min_alloc = stat.storage_alloc;
                 }
                 if (stat.count > max_num_nodes) {
                     max_num_nodes = stat.count;
@@ -399,8 +399,8 @@ nb_app.factory('nbNodes', [
                     min_num_nodes = stat.count;
                 }
                 data.addRow([stat.geolocation, {
-                    v: stat.allocated_storage,
-                    f: $rootScope.human_size(stat.allocated_storage)
+                    v: stat.storage_alloc,
+                    f: $rootScope.human_size(stat.storage_alloc)
                 }, stat.count]);
             });
             var options = {

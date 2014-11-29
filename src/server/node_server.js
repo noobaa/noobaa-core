@@ -18,8 +18,9 @@ module.exports = new api.node_api.Server({
 
     // CRUD
     create_node: create_node,
-    delete_node: delete_node,
     read_node: read_node,
+    update_node: update_node,
+    delete_node: delete_node,
 
     // LIST
     list_nodes: list_nodes,
@@ -52,6 +53,8 @@ module.exports = new api.node_api.Server({
 
 function create_node(req) {
     var info;
+
+    // admin or agent roles allowed
     return req.load_system(['admin', 'agent'])
         .then(function() {
             info = _.pick(req.rest_params,
@@ -62,7 +65,7 @@ function create_node(req) {
             info.system = req.system.id;
             info.heartbeat = new Date();
             info.storage = {
-                alloc: req.rest_params.allocated_storage,
+                alloc: req.rest_params.storage_alloc,
                 used: 0,
             };
 
@@ -90,6 +93,35 @@ function create_node(req) {
 }
 
 
+function read_node(req) {
+    return req.load_system(['admin'])
+        .then(function() {
+            return find_node_by_name(req);
+        })
+        .then(function(node) {
+            return get_node_info(node);
+        });
+}
+
+
+function update_node(req) {
+    return req.load_system(['admin'])
+        .then(function() {
+            var updates = _.pick(req.rest_params, 'is_server', 'geolocation');
+            updates.storage = {
+                alloc: req.rest_params.storage_alloc,
+            };
+
+            // TODO move node between tiers - requires decomission
+            if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
+
+            return db.Node.findOneAndUpdate(get_node_query(req), updates).exec();
+        })
+        .then(db.check_not_deleted(req, 'node'))
+        .thenResolve();
+}
+
+
 function delete_node(req) {
     return req.load_system(['admin'])
         .then(function() {
@@ -105,16 +137,6 @@ function delete_node(req) {
         .thenResolve();
 }
 
-
-function read_node(req) {
-    return req.load_system(['admin'])
-        .then(function() {
-            return find_node_by_name(req);
-        })
-        .then(function(node) {
-            return get_node_info(node);
-        });
-}
 
 
 
@@ -224,8 +246,10 @@ function group_nodes(req) {
                 groups: _.map(res, function(r) {
                     var group = {
                         count: r.value.c,
-                        allocated_storage: r.value.a,
-                        used_storage: r.value.u,
+                        storage: {
+                            alloc: r.value.a,
+                            used: r.value.u,
+                        }
                     };
                     if (r._id.v) {
                         group.vendor = r._id.v;
@@ -306,11 +330,11 @@ function heartbeat(req) {
         req.connection.remoteAddress;
     updates.heartbeat = new Date();
     updates.storage = {};
-    if (req.rest_params.allocated_storage) {
-        updates.storage.alloc = req.rest_params.allocated_storage;
+    if (req.rest_params.storage_alloc) {
+        updates.storage.alloc = req.rest_params.storage_alloc;
     }
 
-    var agent_used_storage = req.rest_params.used_storage;
+    var agent_storage_used = req.rest_params.storage_used;
     var node;
 
     return req.load_system(['admin'])
@@ -320,23 +344,23 @@ function heartbeat(req) {
         .then(function(node_arg) {
             node = node_arg;
             // TODO CRITICAL need to optimize - we count blocks on every heartbeat...
-            return count_node_used_storage(node.id);
+            return count_node_storage_used(node.id);
         })
-        .then(function(used_storage) {
-            if (node.storage.used !== used_storage) {
-                updates.storage.used = used_storage;
+        .then(function(storage_used) {
+            if (node.storage.used !== storage_used) {
+                updates.storage.used = storage_used;
             }
             // the agent's used storage is verified but not updated
-            if (agent_used_storage !== used_storage) {
+            if (agent_storage_used !== storage_used) {
                 console.log('NODE agent used storage not in sync',
-                    agent_used_storage, 'real', used_storage);
+                    agent_storage_used, 'real', storage_used);
                 // TODO trigger a usage check
             }
 
             if (updates.storage.alloc !== node.storage.alloc) {
                 console.log('NODE change allocated storage from',
                     node.storage.alloc, 'to', updates.storage.alloc);
-                // TODO agent sends allocated_storage but never reads it so it always overrides it...
+                // TODO agent sends storage_alloc but never reads it so it always overrides it...
                 //      so for now we just ignore this change from the agent.
                 delete updates.storage.alloc;
             }
@@ -414,7 +438,7 @@ function connect_node_vendor(req) {
 ///////////
 
 
-function count_node_used_storage(node_id) {
+function count_node_storage_used(node_id) {
     return Q.when(db.DataBlock.mapReduce({
             query: {
                 node: node_id

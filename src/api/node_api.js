@@ -17,39 +17,7 @@ module.exports = rest_api({
             method: 'POST',
             path: '/node',
             params: {
-                type: 'object',
-                required: ['name', 'tier', 'geolocation', 'allocated_storage'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    tier: {
-                        type: 'string',
-                    },
-                    is_server: {
-                        type: 'boolean',
-                    },
-                    geolocation: {
-                        type: 'string',
-                    },
-                    allocated_storage: {
-                        type: 'integer'
-                    },
-                }
-            },
-        },
-
-        delete_node: {
-            method: 'DELETE',
-            path: '/node/:name',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
+                $ref: '/node_api/definitions/node_config'
             },
         },
 
@@ -68,6 +36,30 @@ module.exports = rest_api({
             reply: {
                 $ref: '/node_api/definitions/node_info'
             }
+        },
+
+
+        update_node: {
+            method: 'DELETE',
+            path: '/node/:name',
+            params: {
+                $ref: '/node_api/definitions/node_config'
+            },
+        },
+
+
+        delete_node: {
+            method: 'DELETE',
+            path: '/node/:name',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
         },
 
 
@@ -166,11 +158,8 @@ module.exports = rest_api({
                                 count: {
                                     type: 'integer'
                                 },
-                                allocated_storage: {
-                                    $ref: '/system_api/definitions/bigint'
-                                },
-                                used_storage: {
-                                    $ref: '/system_api/definitions/bigint'
+                                storage: {
+                                    $ref: '/system_api/definitions/storage_info'
                                 },
                             }
                         }
@@ -245,6 +234,29 @@ module.exports = rest_api({
 
     definitions: {
 
+        node_config: {
+            type: 'object',
+            required: ['name', 'tier', 'geolocation', 'storage_alloc'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                tier: {
+                    type: 'string',
+                },
+                is_server: {
+                    type: 'boolean',
+                },
+                geolocation: {
+                    type: 'string',
+                },
+                storage_alloc: {
+                    type: 'integer'
+                },
+            }
+        },
+
+
         node_info: {
             type: 'object',
             required: [
@@ -278,7 +290,7 @@ module.exports = rest_api({
                     format: 'date',
                 },
                 storage: {
-                    $ref: '/system_api/definitions/storage_info'                    
+                    $ref: '/system_api/definitions/storage_info'
                 },
                 device_info: {
                     type: 'object',

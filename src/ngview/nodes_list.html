@@ -50,8 +50,8 @@
                             <td>
                                 {{node.name}}
                             </td>
-                            <td>{{human_size(node.allocated_storage)}}</td>
-                            <td>{{human_size(node.used_storage)}}</td>
+                            <td>{{human_size(node.storage_alloc)}}</td>
+                            <td>{{human_size(node.storage_used)}}</td>
                             <td class="noselect">
                                 <div class="progress" style="margin: 0">
                                     <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{node.usage_percent}}" style="width: {{node.usage_percent}}%;">

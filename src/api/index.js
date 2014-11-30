@@ -43,7 +43,7 @@ module.exports = {
  *
  * @param base - optional client instance to copy options and headers.
  */
- function Client(base) {
+function Client(base) {
     var self = this;
     // using prototype dependency on base
     self.options = base && base.options && Object.create(base.options) || {};
@@ -72,12 +72,14 @@ module.exports = {
     self.clear_header = function(key) {
         delete self.headers[key];
     };
-    self.set_auth_header = function(token) {
+    self.set_auth_token = function(token) {
+        self.token = token;
         rest_api.set_auth_header(token, self.headers);
     };
-    self.create_auth = function(params) {
+    self.create_auth_token = function(params) {
         return self.auth.create_auth(params).then(function(res) {
-            self.set_auth_header(res.token);
+            self.set_auth_token(res.token);
+            return res.token;
         });
     };
 }

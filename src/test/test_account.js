@@ -35,23 +35,23 @@ describe('account', function() {
                     name: NAME,
                     email: EMAIL,
                     password: PASSWORD,
-                }).then(function(res) {
+                }).then(function() {
                     throw new Error('expected error: account already exists');
                 }, function(err) {
                     assert.strictEqual(err.data, 'account already exists');
                 });
             }).then(function() {
-                return client.create_auth({
+                return client.create_auth_token({
                     email: EMAIL,
                     password: PASSWORD + '!',
-                }).then(function(res) {
+                }).then(function() {
                     throw new Error('expected error: unauthorized');
                 }, function(err) {
                     assert.strictEqual(err.data, 'unauthorized');
                     assert.strictEqual(err.status, 401);
                 });
             }).then(function() {
-                return client.create_auth({
+                return client.create_auth_token({
                     email: EMAIL,
                     password: PASSWORD,
                 });

@@ -45,9 +45,9 @@ module.exports = {
         name: 'AccountCache',
         load: function(account_id) {
             // load the account and its roles per system
-            return Account.findById(account_id).exec()
+            return Q.when(Account.findById(account_id).exec())
                 .then(function(account) {
-                    if (account.deleted) return;
+                    if (!account || account.deleted) return;
                     return account;
                 });
         }
@@ -57,9 +57,9 @@ module.exports = {
         name: 'SystemCache',
         load: function(system_id) {
             // load the system
-            return System.findById(system_id).exec()
+            return Q.when(System.findById(system_id).exec())
                 .then(function(system) {
-                    if (system.deleted) return;
+                    if (!system || system.deleted) return;
                     return system;
                 });
         }
@@ -72,14 +72,11 @@ module.exports = {
         },
         load: function(key) {
             // load the system
-            return Bucket.findOne({
+            return Q.when(Bucket.findOne({
                     system: key.system,
                     name: key.name,
                     deleted: null,
-                }).exec()
-                .then(function(bucket) {
-                    return bucket;
-                });
+                }).exec());
         }
     }),
 };

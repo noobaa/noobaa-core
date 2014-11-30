@@ -23,7 +23,7 @@ describe('system', function() {
             });
         }).then(function() {
             // authenticate now with the new system
-            return client.create_auth({
+            return client.create_auth_token({
                 system: SYS1
             });
         }).then(function() {

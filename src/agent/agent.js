@@ -34,7 +34,6 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
-    assert(params.hostname, 'missing param: hostname');
     assert(params.port, 'missing param: port');
     self.hostname = params.hostname;
     self.port = params.port;
@@ -177,8 +176,7 @@ Agent.prototype._init_node = function() {
         .then(function(token) {
 
             // use the token as authorization and read the auth info
-            self.token = token;
-            self.client.set_auth_header(self.token);
+            self.client.set_auth_token(token);
             return self.client.auth.read_auth();
         })
         .then(function(res) {
@@ -203,8 +201,7 @@ Agent.prototype._init_node = function() {
                     storage_alloc: 0,
                 }).then(function(node) {
                     self.node_id = node.id;
-                    self.token = node.token;
-                    self.client.set_auth_header(self.token);
+                    self.client.set_auth_token(node.token);
                 });
             }
 

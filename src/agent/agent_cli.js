@@ -18,6 +18,7 @@ var argv = require('minimist')(process.argv);
 
 Q.longStackSupport = true;
 
+
 /**
  *
  * AgentCLI
@@ -28,35 +29,115 @@ Q.longStackSupport = true;
  * when running local testing where it's easier to run all the agents inside the same process.
  *
  */
-function AgentCLI() {
+function AgentCLI(params) {
     var self = this;
     self.agents = {};
+    self.params = params;
+    self.root_path = params.root_path || '.';
+    self.client = new api.Client();
+    self.client.set_option('hostname', params.hostname);
+    self.client.set_option('port', params.port);
 }
 
 
-AgentCLI.prototype.load = function(params) {
+/**
+ *
+ * INIT
+ *
+ *
+ *
+ */
+AgentCLI.prototype.init = function() {
     var self = this;
 
-    if (!_.isEmpty(self.agents)) {
-        throw new Error('cannot load while agents are started');
-    }
+    return Q.fcall(function() {
+            if (self.params.setup) {
+                return self.setup();
+            }
+        })
+        .then(function() {
+            return self.load();
+        });
+};
 
-    self.params = params;
-    self.root_path = params.root_path || '.';
-    self.auth_client = new api.auth_api.Client();
-    self.auth_client.set_global_option('hostname', params.hostname || 'localhost');
-    self.auth_client.set_global_option('port', params.port);
+
+
+/**
+ *
+ * SETUP
+ *
+ * create account, system, tier, bucket.
+ *
+ */
+AgentCLI.prototype.setup = function() {
+    var self = this;
+    var p = _.defaults(self.params, {
+        email: 'a@a.a',
+        password: 'aaa',
+        system: 'sys',
+        tier: 'tier',
+        bucket: 'bucket',
+    });
+    console.log(p);
 
     return Q.fcall(function() {
-            var auth_params = _.pick(self.params, 'email', 'password', 'system', 'role');
+        return self.client.account.create_account({
+            name: p.email,
+            email: p.email,
+            password: p.password,
+        });
+    }).then(function() {
+        return self.client.create_auth_token({
+            email: p.email,
+            password: p.password,
+        });
+    }).then(function() {
+        return self.client.system.create_system({
+            name: p.system,
+        });
+    }).then(function() {
+        return self.client.create_auth_token({
+            system: p.system,
+        });
+    }).then(function(token) {
+        return self.client.tier.create_tier({
+            name: p.tier,
+            kind: 'edge',
+            edge_details: {
+                replicas: 2,
+                data_fragments: 200,
+                parity_fragments: 100,
+            }
+        });
+    }).then(function() {
+        return self.client.bucket.create_bucket({
+            name: p.bucket,
+        });
+    });
+};
+
+
+
+/**
+ *
+ * LOAD
+ *
+ * create account, system, tier, bucket.
+ *
+ */
+AgentCLI.prototype.load = function() {
+    var self = this;
+
+    return Q.fcall(function() {
+            var auth_params = _.pick(self.params,
+                'email', 'password', 'system', 'role');
             if (self.params.tier) {
                 auth_params.extra = {
                     tier: self.params.tier
                 };
             }
-            return self.auth_client.create_auth(auth_params);
+            return self.client.create_auth_token(auth_params);
         }).then(function(token) {
-            self.auth_client.set_global_authorization(token);
             return Q.nfcall(mkdirp, self.root_path);
         })
         .then(function() {
@@ -75,75 +156,53 @@ AgentCLI.prototype.load = function(params) {
         }).thenResolve();
 };
 
-AgentCLI.prototype.list = function() {
+
+
+/**
+ *
+ * CREATE
+ *
+ * create new node agent
+ *
+ */
+AgentCLI.prototype.create = function() {
     var self = this;
 
-    _.each(self.agents, function(agent, node_id) {
-        console.log(node_id, agent.is_started && 'started');
-    });
-};
+    // TODO can we make more relevant dir name?
+    var node_dir = '' + Date.now();
+    var node_path = path.join(self.root_path, node_dir);
+    var token_path = path.join(node_path, 'token');
 
-AgentCLI.prototype.create = function(params) {
-    var self = this;
-    var node_id;
-    var token;
-    var node_path;
-    var token_path;
-    params = params || {};
-
-    return Q.fcall(function() {
-            if (params.node_id) return;
-            var node_client = new api.node_api.Client();
-            return node_client.create_node({
-                name: '' + Date.now(),
-                tier: params.tier || self.params.tier,
-                geolocation: 'home',
-                storage_alloc: size_utils.GB,
-            });
-        })
-        .then(function(res) {
-            node_id = params.node_id || res.id;
-            token = params.token || res.token;
-            if (!node_id || !token) {
-                throw new Error('node_id & token must be provided');
-            }
-            node_path = path.join(self.root_path, node_id);
-            token_path = path.join(node_path, 'token');
-            return Q.all([
-                file_must_not_exist(node_path),
-                file_must_not_exist(token_path)
-            ]);
-        })
+    return Q.all([
+            file_must_not_exist(node_path),
+            file_must_not_exist(token_path)
+        ])
         .then(function() {
             return Q.nfcall(mkdirp, node_path);
         })
         .then(function() {
-            return Q.nfcall(fs.writeFile, token_path, token);
+            return Q.nfcall(fs.writeFile, token_path, self.client.token);
         })
         .then(function() {
-            return self.start(node_id);
+            return self.start(node_dir);
         }).then(function(res) {
-            console.log('created', node_id);
+            console.log('created', node_dir);
             return res;
         }, function(err) {
-            console.error('create failed', node_id, err, err.stack);
+            console.error('create failed', node_dir, err, err.stack);
             throw err;
         });
 };
 
-function file_must_not_exist(path) {
-    return Q.nfcall(fs.stat, path)
-        .then(function() {
-            throw new Error('exists');
-        }, function(err) {
-            if (err.code !== 'ENOENT') throw err;
-        });
-}
 
-function file_must_exist(path) {
-    return Q.nfcall(fs.stat, path).thenResolve();
-}
 
+/**
+ *
+ * START
+ *
+ * start agent
+ *
+ */
 AgentCLI.prototype.start = function(node_id) {
     var self = this;
     var agent = self.agents[node_id];
@@ -155,26 +214,31 @@ AgentCLI.prototype.start = function(node_id) {
         return;
     }
 
-    return Q.nfcall(fs.readFile, token_path)
-        .then(function(token) {
-            agent = self.agents[node_id] = new Agent({
-                token: token,
-                node_id: node_id,
-                hostname: self.hostname,
-                port: self.port,
-                geolocation: 'home',
-                storage_path: node_path,
-            });
-            return agent.start();
-        }).then(function(res) {
-            console.log('started', node_id);
-            return res;
-        }, function(err) {
-            console.error('start failed', node_id, err);
-            throw err;
+    return Q.fcall(function() {
+        agent = self.agents[node_id] = new Agent({
+            hostname: self.params.hostname,
+            port: self.params.port,
+            storage_path: node_path,
         });
+        return agent.start();
+    }).then(function(res) {
+        console.log('started', node_id);
+        return res;
+    }, function(err) {
+        console.error('start failed', node_id, err);
+        throw err;
+    });
 };
 
+
+
+/**
+ *
+ * STOP
+ *
+ * stop agent
+ *
+ */
 AgentCLI.prototype.stop = function(node_id) {
     var self = this;
     var agent = self.agents[node_id];
@@ -191,9 +255,40 @@ AgentCLI.prototype.stop = function(node_id) {
 
 
 
+/**
+ *
+ * LIST
+ *
+ * list agents status
+ *
+ */
+AgentCLI.prototype.list = function() {
+    var self = this;
+
+    _.each(self.agents, function(agent, node_id) {
+        console.log(node_id, agent.is_started && 'started');
+    });
+};
+
+
+
+function file_must_not_exist(path) {
+    return Q.nfcall(fs.stat, path)
+        .then(function() {
+            throw new Error('exists');
+        }, function(err) {
+            if (err.code !== 'ENOENT') throw err;
+        });
+}
+
+function file_must_exist(path) {
+    return Q.nfcall(fs.stat, path).thenResolve();
+}
+
+
 function main() {
-    var cli = new AgentCLI();
-    cli.load(argv).then(function() {
+    var cli = new AgentCLI(argv);
+    cli.init().done(function() {
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
             prompt: 'agent_host > '

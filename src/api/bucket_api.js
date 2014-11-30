@@ -17,7 +17,7 @@ module.exports = rest_api({
 
         list_buckets: {
             method: 'GET',
-            path: '/',
+            path: '/buckets',
             reply: {
                 type: 'object',
                 required: ['buckets'],
@@ -43,12 +43,12 @@ module.exports = rest_api({
 
         create_bucket: {
             method: 'POST',
-            path: '/',
+            path: '/bucket',
             params: {
                 type: 'object',
-                required: ['bucket'],
+                required: ['name'],
                 properties: {
-                    bucket: {
+                    name: {
                         type: 'string',
                     }
                 }
@@ -60,12 +60,12 @@ module.exports = rest_api({
 
         read_bucket: {
             method: 'GET',
-            path: '/:bucket',
+            path: '/bucket/:name',
             params: {
                 type: 'object',
-                required: ['bucket'],
+                required: ['name'],
                 properties: {
-                    bucket: {
+                    name: {
                         type: 'string',
                     },
                 }
@@ -86,12 +86,12 @@ module.exports = rest_api({
 
         update_bucket: {
             method: 'PUT',
-            path: '/:bucket',
+            path: '/bucket/:name',
             params: {
                 type: 'object',
-                required: ['bucket'],
+                required: ['name'],
                 properties: {
-                    bucket: {
+                    name: {
                         type: 'string',
                     },
                 }
@@ -103,12 +103,12 @@ module.exports = rest_api({
 
         delete_bucket: {
             method: 'DELETE',
-            path: '/:bucket',
+            path: '/bucket/:name',
             params: {
                 type: 'object',
-                required: ['bucket'],
+                required: ['name'],
                 properties: {
-                    bucket: {
+                    name: {
                         type: 'string',
                     },
                 }
@@ -120,12 +120,12 @@ module.exports = rest_api({
 
         list_bucket_objects: {
             method: 'GET',
-            path: '/:bucket/list',
+            path: '/bucket/:name/list',
             params: {
                 type: 'object',
-                required: ['bucket'],
+                required: ['name'],
                 properties: {
-                    bucket: {
+                    name: {
                         type: 'string',
                     },
                 }

@@ -54,7 +54,7 @@ before(function(done) {
         account_params.name = 'coretest';
         return client.account.create_account(account_params);
     }).then(function() {
-        return client.create_auth(account_credentials);
+        return client.create_auth_token(account_credentials);
     }).nodeify(done);
 });
 

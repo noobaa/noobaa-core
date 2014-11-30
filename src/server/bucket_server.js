@@ -34,15 +34,15 @@ module.exports = new api.bucket_api.Server({
  */
 function list_buckets(req) {
     return Q.when(db.Bucket.find({
-            account: req.account.id
-        }).exec())
-        .then(function(buckets) {
-            return {
-                buckets: _.map(buckets, function(bucket) {
-                    return _.pick(bucket, 'name');
-                })
-            };
-        });
+        system: req.system.id,
+        deleted: null,
+    }).exec()).then(function(buckets) {
+        return {
+            buckets: _.map(buckets, function(bucket) {
+                return _.pick(bucket, 'name');
+            })
+        };
+    });
 }
 
 
@@ -53,13 +53,11 @@ function list_buckets(req) {
  *
  */
 function create_bucket(req) {
-    var bucket_name = req.rest_params.bucket;
+    var name = req.rest_params.name;
 
     return Q.fcall(function() {
-        var info = {
-            account: req.account.id,
-            name: bucket_name,
-        };
+        var info = _.pick(req.rest_params, 'name');
+        info.system = req.system.id;
         return db.Bucket.create(info);
     }).thenResolve();
 }
@@ -72,12 +70,7 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
-    var bucket_name = req.rest_params.bucket;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        }, 'cache_miss')
+    return Q.when(db.Bucket.findOne(get_bucket_query(req)).exec())
         .then(function(bucket) {
             return _.pick(bucket, 'name');
         });
@@ -91,16 +84,10 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
-    var bucket_name = req.rest_params.bucket;
-
     return Q.fcall(function() {
         // TODO no fields can be updated for now
         var updates = _.pick(req.rest_params);
-        var info = {
-            account: req.account.id,
-            name: bucket_name,
-        };
-        return db.Bucket.findOneAndUpdate(info, updates).exec();
+        return db.Bucket.findOneAndUpdate(get_bucket_query(req), updates).exec();
     }).thenResolve();
 }
 
@@ -112,15 +99,11 @@ function update_bucket(req) {
  *
  */
 function delete_bucket(req) {
-    var bucket_name = req.rest_params.bucket;
-    // TODO mark deleted on objects and reclaim data blocks
-
     return Q.fcall(function() {
-        var info = {
-            account: req.account.id,
-            name: bucket_name,
+        var updates = {
+            deleted: new Date()
         };
-        return db.Bucket.findOneAndRemove(info).exec();
+        return db.Bucket.findOneAndUpdate(get_bucket_query(req), updates).exec();
     }).thenResolve();
 }
 
@@ -132,31 +115,31 @@ function delete_bucket(req) {
  *
  */
 function list_bucket_objects(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-
-    return db.BucketCache.get({
+    var bucket_cache_key = {
         system: req.system.id,
-        name: bucket_name,
-    }).then(function(bucket) {
-        var info = {
-            account: req.account.id,
-            bucket: bucket.id,
-        };
-        if (key) {
-            info.key = new RegExp(key);
-        }
-        return db.ObjectMD.find(info).exec();
-    }).then(function(objects) {
-        return {
-            objects: _.map(objects, function(obj) {
-                return {
-                    key: obj.key,
-                    info: get_object_info(obj),
-                };
-            })
-        };
-    });
+        name: req.rest_params.name,
+    };
+    return db.BucketCache.get(bucket_cache_key)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+            };
+            if (req.rest_params.key) {
+                info.key = new RegExp(req.rest_params.key);
+            }
+            return db.ObjectMD.find(info).exec();
+        })
+        .then(function(objects) {
+            return {
+                objects: _.map(objects, function(obj) {
+                    return {
+                        key: obj.key,
+                        info: get_object_info(obj),
+                    };
+                })
+            };
+        });
 }
 
 
@@ -173,4 +156,13 @@ function get_object_info(md) {
         info.upload_mode = md.upload_mode;
     }
     return info;
+}
+
+
+function get_bucket_query(req) {
+    return {
+        system: req.system.id,
+        name: req.rest_params.name,
+        deleted: null,
+    };
 }

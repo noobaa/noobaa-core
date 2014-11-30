@@ -34,13 +34,14 @@ Q.longStackSupport = true;
 function AgentCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
+        root_path: './test_data/agent_cli/',
+        port: 5001,
         email: 'a@a.a',
         password: 'aaa',
         system: 'sys',
         tier: 'tier',
         bucket: 'bucket',
     });
-    self.root_path = self.params.root_path || '.';
     self.client = new api.Client();
     self.client.options.set_host(self.params.hostname, self.params.port);
     self.agents = {};
@@ -139,10 +140,10 @@ AgentCLI.prototype.load = function() {
             }
             return self.client.create_auth_token(auth_params);
         }).then(function(token) {
-            return Q.nfcall(mkdirp, self.root_path);
+            return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
-            return Q.nfcall(fs.readdir, self.root_path);
+            return Q.nfcall(fs.readdir, self.params.root_path);
         })
         .then(function(names) {
             return Q.all(_.map(names, function(node_name) {
@@ -170,7 +171,7 @@ AgentCLI.prototype.create = function() {
     var self = this;
 
     var node_name = os.hostname() + '-' + Date.now();
-    var node_path = path.join(self.root_path, node_name);
+    var node_path = path.join(self.params.root_path, node_name);
     var token_path = path.join(node_path, 'token');
 
     return file_must_not_exist(token_path)
@@ -227,7 +228,7 @@ AgentCLI.prototype.start = function(node_name) {
             hostname: self.params.hostname,
             port: self.params.port,
             node_name: node_name,
-            storage_path: path.join(self.root_path, node_name),
+            storage_path: path.join(self.params.root_path, node_name),
         });
         console.log('agent inited', node_name);
     }

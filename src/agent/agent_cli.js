@@ -312,7 +312,7 @@ function main() {
     cli.init().done(function() {
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
-            prompt: 'agent_host > '
+            prompt: 'agent-cli > '
         });
         var help = 'try typing "nb." and then TAB ...';
         repl_srv.context.help = help;

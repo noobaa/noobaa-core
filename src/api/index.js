@@ -11,7 +11,6 @@ var bucket_api = require('./bucket_api');
 var object_api = require('./object_api');
 var ObjectClient = require('./object_client');
 var agent_api = require('./agent_api');
-var agent_host_api = require('./agent_host_api');
 
 /**
  *
@@ -19,6 +18,9 @@ var agent_host_api = require('./agent_host_api');
  *
  */
 module.exports = {
+    // Client is a master client (like a master key) for all apis
+    Client: Client,
+
     rest_api: rest_api,
     auth_api: auth_api,
     account_api: account_api,
@@ -29,9 +31,6 @@ module.exports = {
     object_api: object_api,
     ObjectClient: ObjectClient,
     agent_api: agent_api,
-    agent_host_api: agent_host_api,
-
-    Client: Client
 };
 
 /**

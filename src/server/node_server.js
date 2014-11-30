@@ -266,8 +266,8 @@ function group_nodes(req) {
                             used: r.value.u,
                         }
                     };
-                    if (r._id.v) {
-                        group.vendor = r._id.v;
+                    if (r._id.t) {
+                        group.tier = r._id.t;
                     }
                     if (r._id.g) {
                         group.geolocation = r._id.g;

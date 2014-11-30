@@ -9,7 +9,7 @@ var coretest = require('./coretest');
 
 describe('tier', function() {
 
-    var client = coretest.client();
+    var client = coretest.new_client();
     var SYS = 'test-tier-system';
 
     it('crud', function(done) {

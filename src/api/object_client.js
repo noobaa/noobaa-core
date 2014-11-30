@@ -240,8 +240,8 @@ function combine_parts_buffers_in_range(parts, start, end) {
  */
 function write_block(block, buffer) {
     var agent = new agent_api.Client();
-    agent.set_option('hostname', block.node.ip);
-    agent.set_option('port', block.node.port);
+    agent.options.set_host(block.node.ip, block.node.port);
+
     // console.log('write_block', buffer.length, block, agent);
     return agent.write_block({
         block_id: block.id,
@@ -255,8 +255,8 @@ function write_block(block, buffer) {
  */
 function read_block(block, block_size) {
     var agent = new agent_api.Client();
-    agent.set_option('hostname', block.node.ip);
-    agent.set_option('port', block.node.port);
+    agent.options.set_host(block.node.ip, block.node.port);
+
     // console.log('read_block', block_size, block, agent);
     return agent.read_block({
         block_id: block.id

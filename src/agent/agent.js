@@ -41,8 +41,7 @@ function Agent(params) {
     self.node_name = params.node_name;
 
     self.client = new api.Client();
-    self.client.set_option('hostname', self.hostname);
-    self.client.set_option('port', self.port);
+    self.client.options.set_host(self.hostname, self.port);
 
     self.token = params.token;
     self.storage_path = params.storage_path;
@@ -178,7 +177,7 @@ Agent.prototype._init_node = function() {
         .then(function(token) {
 
             // use the token as authorization and read the auth info
-            self.client.set_auth_token(token);
+            self.client.headers.set_auth_token(token);
             return self.client.auth.read_auth();
         })
         .then(function(res) {
@@ -203,8 +202,10 @@ Agent.prototype._init_node = function() {
                     storage_alloc: 0,
                 }).then(function(node) {
                     self.node_id = node.id;
-                    self.client.set_auth_token(node.token);
+                    self.client.headers.set_auth_token(node.token);
+                    console.log('created node', node.id);
                     if (self.storage_path) {
+                        console.log('save node token', node.id);
                         var token_path = path.join(self.storage_path, 'token');
                         return Q.nfcall(fs.writeFile, token_path, node.token);
                     }

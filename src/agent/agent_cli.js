@@ -42,8 +42,7 @@ function AgentCLI(params) {
     });
     self.root_path = self.params.root_path || '.';
     self.client = new api.Client();
-    self.client.set_option('hostname', self.params.hostname);
-    self.client.set_option('port', self.params.port);
+    self.client.options.set_host(self.params.hostname, self.params.port);
     self.agents = {};
 }
 

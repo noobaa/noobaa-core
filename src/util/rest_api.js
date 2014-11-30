@@ -14,34 +14,13 @@ var tv4 = require('tv4').freshApi();
 
 module.exports = rest_api;
 
+var PATH_ITEM_RE = /^\S*$/;
 var VALID_METHODS = {
     GET: 1,
     PUT: 1,
     POST: 1,
     DELETE: 1
 };
-var PATH_ITEM_RE = /^\S*$/;
-
-rest_api.global_client_options = {
-    // cookie jars are needed to maintain cookie sessions.
-    // in nodes.js we save set-cookie replies only in memory.
-    // in a the browser then browserify http module already saves the cookies persistently.
-    // the default cookie jar is global for all api's which is convinient, and suitable unless
-    // need to maintain multiple separated sessions between the same client and host.
-    cookie_jars: {},
-};
-
-rest_api.global_client_headers = {
-    accept: '*/*',
-};
-
-/**
- * static method to properly set Bearer autorization header in a headers object
- */
-rest_api.set_auth_header = function(token, headers) {
-    headers.authorization = 'Bearer ' + token;
-};
-
 
 
 /**
@@ -306,15 +285,14 @@ function rest_api(api) {
      *
      * client class for the api.
      *
+     * for docs on options & headers see rest_api.global_client_options/headers.
+     *
      */
-    function Client(shared_options, shared_headers) {
-        // allow to set both shared and owned settings
-        this._shared_options = shared_options || {};
-        this._shared_headers = shared_headers || {};
-        this._options = {};
-        this._headers = {};
+    function Client(base) {
+        // allow to inherit settings from a base (as prototype) and set owned on top
+        rest_api.inherit_options_and_headers(this, base);
         // default path uses the api name
-        this._options.path = api_path;
+        this.options.path = api_path;
     }
 
     // set the client class prototype functions
@@ -323,50 +301,6 @@ function rest_api(api) {
             return this._client_request(func_info, params);
         };
     });
-
-    /*
-     * available options (either global or per client):
-     * - hostname (String)
-     * - port (Number)
-     * - path (String) - optional base path for the host (default to the api name)
-     * - cookie_jars (Object) - optional object map from host to cookie jar (default to global object)
-     */
-    Client.prototype.set_option = function(key, val) {
-        this._options[key] = val;
-    };
-    Client.prototype.clear_option = function(key) {
-        delete this._options[key];
-    };
-    Client.prototype.get_option = function(key) {
-        if (key in this._options) {
-            return this._options[key];
-        } else if (key in this._shared_options) {
-            return this._shared_options[key];
-        } else {
-            return rest_api.global_client_options[key];
-        }
-    };
-    Client.prototype.get_host = function() {
-        return this.get_option('host') ||
-            (this.get_option('hostname') + ':' + this.get_option('port'));
-    };
-
-    /**
-     * set http headers
-     */
-    Client.prototype.set_header = function(key, val) {
-        this._headers[key] = val;
-    };
-    Client.prototype.clear_header = function(key) {
-        delete this._headers[key];
-    };
-
-    /**
-     * method to set autorization header in client headers
-     */
-    Client.prototype.set_auth_header = function(token) {
-        rest_api.set_auth_header(token, this._headers);
-    };
 
     // call a specific REST api function over http request.
     Client.prototype._client_request = function(func_info, params) {
@@ -388,21 +322,18 @@ function rest_api(api) {
     Client.prototype._http_request = function(func_info, params) {
         var self = this;
         var method = func_info.method;
-        var path = self.get_option('path') || '/';
+        var path = self.options.path || '/';
         var data = _.clone(params);
-        var host = self.get_host();
-        var jar = self.get_option('cookie_jars')[host];
+        var host = self.options.get_host();
+        var jar = self.options.cookie_jars[host];
         var headers = {};
         var body;
 
-        // using forIn to take also properties inherited from prototype
-        // specifically needed for _shared_headers
-        var set_header = function(val, key) {
+        // using forIn to enumerate headers that may be inherited from base headers (see Client ctor).
+        _.forIn(self.headers, function(val, key) {
+            if (typeof(val) === 'function') return;
             headers[key] = val;
-        };
-        _.forIn(rest_api.global_client_headers, set_header);
-        _.forIn(self._shared_headers, set_header);
-        _.forIn(self._headers, set_header);
+        });
 
         if (func_info.param_raw) {
             body = data[func_info.param_raw];
@@ -456,8 +387,8 @@ function rest_api(api) {
         }
 
         var options = {
-            hostname: self.get_option('hostname'),
-            port: self.get_option('port'),
+            hostname: self.options.hostname,
+            port: self.options.port,
             method: method,
             path: path,
             headers: headers,
@@ -469,7 +400,7 @@ function rest_api(api) {
         };
 
         // console.log('HTTP request', options);
-        var req = self.get_option('protocol') === 'https' ?
+        var req = self.options.protocol === 'https' ?
             https.request(options) :
             http.request(options);
 
@@ -487,8 +418,8 @@ function rest_api(api) {
         var self = this;
         var cookies = res.response.headers['set-cookie'];
         if (cookies) {
-            var host = self.get_host();
-            var jars = self.get_option('cookie_jars');
+            var host = self.options.get_host();
+            var jars = self.options.cookie_jars;
             var jar = jars[host] = jars[host] || new Cookie.Jar();
             _.each(cookies, function(cookie_str) {
                 jar.add(new Cookie(cookie_str));
@@ -506,6 +437,85 @@ function rest_api(api) {
     return api;
 }
 
+
+
+/**
+ *
+ * rest_api.global_client_options
+ *
+ * global object with client options.
+ * used in options inheritance (see rest_api.inherit_options_and_headers).
+ * one may also use to set global options in the process (see coretest setting server port).
+ *
+ * available options (inherited or owned):
+ * - hostname (String)
+ * - port (Number)
+ * - path (String) - optional base path for the host (default to the api name)
+ * - cookie_jars (Object) - optional object map from host to cookie jar (default to global object)
+ */
+rest_api.global_client_options = {
+
+    /**
+     * get/set hostname and port
+     */
+    get_host: function() {
+        return this.hostname + ':' + this.port;
+    },
+    set_host: function(hostname, port) {
+        this.hostname = hostname;
+        this.port = port;
+    },
+
+    /**
+     * cookie jars are needed to maintain cookie sessions.
+     * in nodes.js we save set-cookie replies only in memory.
+     * in a the browser then browserify http module already saves the cookies persistently.
+     * the default cookie jar is global for all api's which is convinient, and suitable unless
+     * need to maintain multiple separated sessions between the same client and host.
+     */
+    cookie_jars: {},
+};
+
+
+/**
+ *
+ * rest_api.global_client_headers
+ *
+ * global object with client headers.
+ * used in headers inheritance (see rest_api.inherit_options_and_headers).
+ * one may also use to set global headers in the process.
+ *
+ */
+rest_api.global_client_headers = {
+
+    /**
+     * get/set a token in Bearer autorization header
+     */
+    get_auth_token: function() {
+        return this.authorization.slice('Bearer '.length);
+    },
+    set_auth_token: function(token) {
+        this.authorization = 'Bearer ' + token;
+    },
+
+    /**
+     * common headers
+     */
+    accept: '*/*',
+};
+
+
+/**
+ *
+ * rest_api.inherit_options_and_headers
+ *
+ * in order to allow inherited options and headers we use prototype inheritance
+ *
+ */
+rest_api.inherit_options_and_headers = function(target, base) {
+    target.options = Object.create(base && base.options || rest_api.global_client_options);
+    target.headers = Object.create(base && base.headers || rest_api.global_client_headers);
+};
 
 
 

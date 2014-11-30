@@ -9,7 +9,7 @@ var coretest = require('./coretest');
 
 describe('system', function() {
 
-    var client = coretest.client();
+    var client = coretest.new_client();
     var SYS1 = 'test-system-1';
     var SYS2 = 'test-system-2';
     var EMAIL = 'test-system@test.test';

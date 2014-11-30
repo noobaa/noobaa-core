@@ -10,7 +10,7 @@ var coretest = require('./coretest');
 
 describe('node', function() {
 
-    var client = coretest.client();
+    var client = coretest.new_client();
     var SYS = 'test-node-system';
 
     it('works', function(done) {

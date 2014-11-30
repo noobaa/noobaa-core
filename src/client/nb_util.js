@@ -33,29 +33,35 @@ nb_util.factory('nbAuth', [
     function($q, $window, $location) {
         var $scope = {};
 
-        var client = new api.Client();
-        var account_client = new api.account_api.Client();
         var win_storage = $window.sessionStorage;
 
-        $scope.set_token = set_token;
+        $scope._client = new api.Client();
+
+        // return a new client based on mine - inherits auth token unless overriden
+        $scope.client = function() {
+            return new api.Client($scope._client);
+        };
+
+        $scope.save_token = save_token;
         $scope.init_token = init_token;
         $scope.logout = logout;
         $scope.create_auth = create_auth;
         $scope.init_promise = init_token();
 
-        function set_token(token) {
+        function save_token(token) {
             win_storage.nb_token = token;
         }
 
         function init_token() {
             var token = win_storage.nb_token;
             // TODO get rid of this global headers?
-            api.rest_api.set_auth_header(token, api.rest_api.global_client_headers);
+            // api.rest_api.global_client_headers.set_auth_token(token);
+            $scope._client.headers.set_auth_token(token);
 
             return $q.when().then(
                 function() {
                     if (token) {
-                        return client.auth.read_auth();
+                        return $scope._client.auth.read_auth();
                     }
                 }
             ).then(
@@ -64,6 +70,7 @@ nb_util.factory('nbAuth', [
                         $scope.account = res.account;
                         $scope.system = res.system;
                         $scope.role = res.role;
+                        $scope.extra = res.extra;
                     }
                     $scope.inited = true;
                 },
@@ -76,7 +83,7 @@ nb_util.factory('nbAuth', [
         }
 
         function logout() {
-            set_token('');
+            save_token('');
             if ($window.location.pathname.search(/^\/login/) < 0) {
                 $window.location.href = '/login';
             }
@@ -85,11 +92,11 @@ nb_util.factory('nbAuth', [
         function create_auth(params) {
             return $q.when().then(
                 function() {
-                    return client.auth.create_auth(params);
+                    return $scope._client.create_auth_token(params);
                 }
             ).then(
                 function(res) {
-                    set_token(res.token);
+                    save_token(res.token);
                     return init_token();
                 }
             );

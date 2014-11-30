@@ -11,7 +11,7 @@ var size_utils = require('../util/size_utils');
 
 describe('agent', function() {
 
-    var client = coretest.client();
+    var client = coretest.new_client();
     var SYS = 'test-agent-system';
 
     before(function(done) {

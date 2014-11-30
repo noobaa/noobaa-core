@@ -44,40 +44,26 @@ module.exports = {
  */
 function Client(base) {
     var self = this;
-    // using prototype dependency on base
-    self.options = base && base.options && Object.create(base.options) || {};
-    self.headers = base && base.headers && Object.create(base.headers) || {};
 
-    self.auth = new auth_api.Client(self.options, self.headers);
-    self.account = new account_api.Client(self.options, self.headers);
-    self.system = new system_api.Client(self.options, self.headers);
-    self.tier = new tier_api.Client(self.options, self.headers);
-    self.node = new node_api.Client(self.options, self.headers);
-    self.bucket = new bucket_api.Client(self.options, self.headers);
-    self.object = new ObjectClient(self.options, self.headers);
-    self.agent = new agent_api.Client(self.options, self.headers);
+    // using prototype dependency on base options and headers
+    rest_api.inherit_options_and_headers(self, base);
 
-    // helper functions to set options and headers
+    self.auth = new auth_api.Client(self);
+    self.account = new account_api.Client(self);
+    self.system = new system_api.Client(self);
+    self.tier = new tier_api.Client(self);
+    self.node = new node_api.Client(self);
+    self.bucket = new bucket_api.Client(self);
+    self.object = new ObjectClient(self);
+    self.agent = new agent_api.Client(self);
 
-    self.set_option = function(key, val) {
-        self.options[key] = val;
-    };
-    self.clear_option = function(key) {
-        delete self.options[key];
-    };
-    self.set_header = function(key, val) {
-        self.headers[key] = val;
-    };
-    self.clear_header = function(key) {
-        delete self.headers[key];
-    };
-    self.set_auth_token = function(token) {
-        self.token = token;
-        rest_api.set_auth_header(token, self.headers);
-    };
+    /**
+     * authenticate using the provided params,
+     * and save the token in headers for next calls.
+     */
     self.create_auth_token = function(params) {
         return self.auth.create_auth(params).then(function(res) {
-            self.set_auth_token(res.token);
+            self.headers.set_auth_token(res.token);
             return res.token;
         });
     };

@@ -46,9 +46,8 @@ before(function(done) {
         bucket_server.install_rest(utilitest.router);
         object_server.install_rest(utilitest.router);
 
-        // setting the port globally for all the clients
+        // setting the port globally for all the clients while testing
         api.rest_api.global_client_options.port = utilitest.http_port();
-        // client.set_option('port', utilitest.http_port());
 
         var account_params = _.clone(account_credentials);
         account_params.name = 'coretest';
@@ -78,7 +77,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
     var sem = new Semaphore(3);
 
     // create temp client to set token
-    var create_node_client = new api.node_api.Client();
+    var create_node_client = new api.node_api.Client(client);
 
     return clear_test_nodes()
         .then(function() {
@@ -91,7 +90,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
             });
         })
         .then(function(res) {
-            create_node_client.set_auth_header(res.token);
+            create_node_client.headers.set_auth_token(res.token);
             return Q.all(_.times(count, function(i) {
                 return sem.surround(function() {
                     return init_test_node(i);
@@ -163,10 +162,12 @@ module.exports = {
     utilitest: utilitest,
     router: utilitest.router,
     http_port: utilitest.http_port, // function
-    client: function() {
+    account_credentials: account_credentials,
+
+    client: client,
+    new_client: function() {
         return new api.Client(client);
     },
-    account_credentials: account_credentials,
 
     init_test_nodes: init_test_nodes,
     clear_test_nodes: clear_test_nodes,

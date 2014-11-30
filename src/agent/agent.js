@@ -35,8 +35,10 @@ function Agent(params) {
     var self = this;
 
     assert(params.port, 'missing param: port');
+    assert(params.port, 'missing param: node_name');
     self.hostname = params.hostname;
     self.port = params.port;
+    self.node_name = params.node_name;
 
     self.client = new api.Client();
     self.client.set_option('hostname', self.hostname);
@@ -195,13 +197,17 @@ Agent.prototype._init_node = function() {
                 res.extra && res.extra.tier) {
                 console.log('create node', res);
                 return self.client.node.create_node({
-                    name: os.hostname(),
+                    name: self.node_name,
                     tier: res.extra.tier,
                     geolocation: self.geolocation,
                     storage_alloc: 0,
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.client.set_auth_token(node.token);
+                    if (self.storage_path) {
+                        var token_path = path.join(self.storage_path, 'token');
+                        return Q.nfcall(fs.writeFile, token_path, node.token);
+                    }
                 });
             }
 

@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
+var os = require('os');
 var http = require('http');
 var path = require('path');
 var util = require('util');
@@ -15,6 +16,7 @@ var Agent = require('./agent');
 var api = require('../api');
 var size_utils = require('../util/size_utils');
 var argv = require('minimist')(process.argv);
+var Semaphore = require('noobaa-util/semaphore');
 
 Q.longStackSupport = true;
 
@@ -31,12 +33,18 @@ Q.longStackSupport = true;
  */
 function AgentCLI(params) {
     var self = this;
-    self.agents = {};
-    self.params = params;
-    self.root_path = params.root_path || '.';
+    self.params = _.defaults(params, {
+        email: 'a@a.a',
+        password: 'aaa',
+        system: 'sys',
+        tier: 'tier',
+        bucket: 'bucket',
+    });
+    self.root_path = self.params.root_path || '.';
     self.client = new api.Client();
-    self.client.set_option('hostname', params.hostname);
-    self.client.set_option('port', params.port);
+    self.client.set_option('hostname', self.params.hostname);
+    self.client.set_option('port', self.params.port);
+    self.agents = {};
 }
 
 
@@ -71,13 +79,7 @@ AgentCLI.prototype.init = function() {
  */
 AgentCLI.prototype.setup = function() {
     var self = this;
-    var p = _.defaults(self.params, {
-        email: 'a@a.a',
-        password: 'aaa',
-        system: 'sys',
-        tier: 'tier',
-        bucket: 'bucket',
-    });
+    var p = self.params;
     console.log(p);
 
     return Q.fcall(function() {
@@ -169,8 +171,8 @@ AgentCLI.prototype.create = function() {
     var self = this;
 
     // TODO can we make more relevant dir name?
-    var node_dir = '' + Date.now();
-    var node_path = path.join(self.root_path, node_dir);
+    var node_name = os.hostname() + '-' + Date.now();
+    var node_path = path.join(self.root_path, node_name);
     var token_path = path.join(node_path, 'token');
 
     return Q.all([
@@ -184,14 +186,32 @@ AgentCLI.prototype.create = function() {
             return Q.nfcall(fs.writeFile, token_path, self.client.token);
         })
         .then(function() {
-            return self.start(node_dir);
+            return self.start(node_name);
         }).then(function(res) {
-            console.log('created', node_dir);
+            console.log('created', node_name);
             return res;
         }, function(err) {
-            console.error('create failed', node_dir, err, err.stack);
+            console.error('create failed', node_name, err, err.stack);
             throw err;
         });
+};
+
+
+/**
+ *
+ * CREATE_SOME
+ *
+ * create new node agent
+ *
+ */
+AgentCLI.prototype.create_some = function(n) {
+    var self = this;
+    var sem = new Semaphore(5);
+    return Q.all(_.times(n, function() {
+        return sem.surround(function() {
+            return self.create();
+        });
+    }));
 };
 
 
@@ -203,29 +223,30 @@ AgentCLI.prototype.create = function() {
  * start agent
  *
  */
-AgentCLI.prototype.start = function(node_id) {
+AgentCLI.prototype.start = function(node_name) {
     var self = this;
-    var agent = self.agents[node_id];
-    var node_path = path.join(self.root_path, node_id);
+    var agent = self.agents[node_name];
+    var node_path = path.join(self.root_path, node_name);
     var token_path = path.join(node_path, 'token');
 
     if (agent) {
-        console.log('agent already started', node_id);
+        console.log('agent already started', node_name);
         return;
     }
 
     return Q.fcall(function() {
-        agent = self.agents[node_id] = new Agent({
+        agent = self.agents[node_name] = new Agent({
             hostname: self.params.hostname,
             port: self.params.port,
+            node_name: node_name,
             storage_path: node_path,
         });
         return agent.start();
     }).then(function(res) {
-        console.log('started', node_id);
+        console.log('started', node_name);
         return res;
     }, function(err) {
-        console.error('start failed', node_id, err);
+        console.error('start failed', node_name, err);
         throw err;
     });
 };

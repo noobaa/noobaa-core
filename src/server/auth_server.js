@@ -298,9 +298,8 @@ function _prepare_auth_request(req) {
 
             // check that auth contains valid system role
 
-            if (!_.contains(options.system, req.auth.role)) {
-                if (!ignore_missing_system) throw req.unauthorized();
-                return;
+            if (!ignore_missing_system && !_.contains(options.system, req.auth.role)) {
+                throw req.unauthorized();
             }
 
             // use a cache because this is called on every authorized api

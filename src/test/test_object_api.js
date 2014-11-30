@@ -6,11 +6,11 @@ var _ = require('lodash');
 var Q = require('q');
 var path = require('path');
 var assert = require('assert');
-var optimist = require('optimist');
+var argv = require('minimist')(process.argv);
 var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 
-var chance_seed = optimist.argv.seed || Date.now();
+var chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
 

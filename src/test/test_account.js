@@ -10,8 +10,7 @@ var api = require('../api');
 
 describe('account', function() {
 
-    var auth_client;
-    var account_client;
+    var client;
     var NAME = 'bla bla';
     var EMAIL = 'bla@bla.blabla';
     var PASSWORD = 'shhhhhhh';
@@ -19,21 +18,20 @@ describe('account', function() {
     beforeEach(function() {
         // create my own account client on each test
         // to prevent contaminating the headers
-        auth_client = new api.auth_api.Client();
-        account_client = new api.account_api.Client();
+        client = new api.Client();
     });
 
     describe('account full flow', function() {
 
         it('works', function(done) {
             Q.fcall(function() {
-                return account_client.create_account({
+                return client.account.create_account({
                     name: NAME,
                     email: EMAIL,
                     password: PASSWORD,
                 });
             }).then(function() {
-                return account_client.create_account({
+                return client.account.create_account({
                     name: NAME,
                     email: EMAIL,
                     password: PASSWORD,
@@ -43,7 +41,7 @@ describe('account', function() {
                     assert.strictEqual(err.data, 'account already exists');
                 });
             }).then(function() {
-                return auth_client.create_auth({
+                return client.create_auth({
                     email: EMAIL,
                     password: PASSWORD + '!',
                 }).then(function(res) {
@@ -53,34 +51,31 @@ describe('account', function() {
                     assert.strictEqual(err.status, 401);
                 });
             }).then(function() {
-                return auth_client.create_auth({
+                return client.create_auth({
                     email: EMAIL,
                     password: PASSWORD,
-                }).then(function(res) {
-                    auth_client.set_authorization(res.token);
-                    account_client.set_authorization(res.token);
                 });
             }).then(function() {
-                return auth_client.read_auth().then(function(res) {
+                return client.auth.read_auth().then(function(res) {
                     assert.strictEqual(res.account.name, NAME);
                     assert.strictEqual(res.account.email, EMAIL);
                 });
             }).then(function() {
-                return account_client.read_account().then(function(res) {
+                return client.account.read_account().then(function(res) {
                     assert.strictEqual(res.email, EMAIL);
                 });
             }).then(function() {
-                return account_client.update_account({
+                return client.account.update_account({
                     name: NAME + ' blahhh',
                     email: EMAIL + '123',
                 });
             }).then(function() {
-                return account_client.read_account().then(function(res) {
+                return client.account.read_account().then(function(res) {
                     assert.strictEqual(res.name, NAME + ' blahhh');
                     assert.strictEqual(res.email, EMAIL + '123');
                 });
             }).then(function() {
-                return account_client.delete_account();
+                return client.account.delete_account();
             }).nodeify(done);
         });
 

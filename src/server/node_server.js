@@ -29,12 +29,7 @@ module.exports = new api.node_api.Server({
     list_nodes: list_nodes,
     group_nodes: group_nodes,
 
-    start_nodes: start_nodes,
-    stop_nodes: stop_nodes,
-    get_agents_status: get_agents_status,
-
     heartbeat: heartbeat,
-    connect_node_vendor: connect_node_vendor,
 });
 
 
@@ -90,6 +85,7 @@ function create_node(req) {
             // make a new token for the agent authorized to use the new node id.
             var token = req.make_auth_token({
                 role: 'agent',
+                system_id: req.system.id,
                 extra: {
                     node_id: node.id,
                 }
@@ -286,67 +282,6 @@ function group_nodes(req) {
 
 /**
  *
- * START_NODES
- *
- */
-function start_nodes(req) {
-    var node_names = req.rest_params.nodes;
-    return Q.fcall(update_nodes_started_state, req, node_names, true)
-        .then(function(nodes) {
-            return agent_host_action(nodes, 'start_agent');
-        })
-        .thenResolve();
-}
-
-
-
-/**
- *
- * STOP_NODES
- *
- */
-function stop_nodes(req) {
-    var node_names = req.rest_params.nodes;
-    return Q.fcall(update_nodes_started_state, req, node_names, false)
-        .then(function(nodes) {
-            return agent_host_action(nodes, 'stop_agent');
-        })
-        .thenResolve();
-}
-
-
-/**
- *
- * get_agents_status
- *
- */
-// TODO is this still needed as api method?
-function get_agents_status(req) {
-    var node_names = req.rest_params.nodes;
-    return find_nodes_with_vendors(req, node_names)
-        .then(function(nodes) {
-            return agent_host_action(nodes, 'get_agent_status');
-        })
-        .then(function(res) {
-            return {
-                nodes: _.map(res, function(node_res) {
-                    var status = false;
-                    if (node_res.state === 'fulfilled' &&
-                        node_res.value && node_res.value.status) {
-                        status = true;
-                    }
-                    return {
-                        status: status
-                    };
-                })
-            };
-        });
-}
-
-
-
-/**
- *
  * HEARTBEAT
  *
  */
@@ -426,47 +361,6 @@ function heartbeat(req) {
 
 
 
-// TODO remove connect_node_vendor?
-function connect_node_vendor(req) {
-    var vendor_info = _.pick(req.rest_params, 'name', 'category', 'kind', 'details');
-    vendor_info.system = req.system.id;
-    var vendor;
-
-    return Q.fcall(function() {
-            if (!vendor_info.name) return;
-            return db.Vendor.findOne({
-                account: req.account.id,
-                name: vendor_info.name,
-                deleted: null,
-            }).exec();
-        })
-        .then(function(vendor_arg) {
-            if (vendor_arg) {
-                return vendor_arg;
-            } else {
-                return db.Vendor.create(vendor_info);
-            }
-        })
-        .then(null, db.check_already_exists(req, 'vendor'))
-        .then(function(vendor_arg) {
-            vendor = vendor_arg;
-
-            // find all nodes hosted by this vendor
-            return db.Node.find({
-                vendor: vendor.id,
-                deleted: null,
-            }).select('name').exec();
-        })
-        .then(function(nodes) {
-            var node_names = _.pluck(nodes, 'name');
-            return agent_host_action(req.account, node_names, 'start_agent');
-        })
-        .then(function() {
-            return _.pick(vendor, 'id', 'name', 'category', 'kind', 'details');
-        });
-}
-
-
 
 
 // UTILS //////////////////////////////////////////////////////////
@@ -488,74 +382,6 @@ function count_node_storage_used(node_id) {
         });
 }
 
-function find_nodes_with_vendors(req, node_names) {
-    return Q.when(db.Node.find({
-            system: req.system.id,
-            name: {
-                $in: node_names
-            },
-            deleted: null,
-        })
-        .populate('vendor')
-        .exec());
-}
-
-
-function update_nodes_started_state(req, node_names, started) {
-    var nodes;
-    return find_nodes_with_vendors(req, node_names)
-        .then(function(nodes_arg) {
-            nodes = nodes_arg;
-            var nodes_to_update = _.compact(_.map(nodes, function(node) {
-                if (node.started !== started) {
-                    return node;
-                }
-            }));
-            var sem = new Semaphore(3);
-            return Q.all(_.map(nodes_to_update, function(node) {
-                return sem.surround(function() {
-                    var updates = {
-                        started: started
-                    };
-                    return node.update({
-                        $set: updates
-                    }).exec();
-                });
-            }));
-        })
-        .then(function() {
-            return agent_host_action(nodes, started ? 'start_agent' : 'stop_agent');
-        })
-        .thenResolve();
-}
-
-function agent_host_action(nodes, func_name) {
-    var sem = new Semaphore(3);
-    return Q.allSettled(_.map(nodes,
-        function(node) {
-            return sem.surround(function() {
-                var params = {
-                    name: node.name,
-                };
-                if (func_name === 'start_agent') {
-                    params.geolocation = node.geolocation;
-                }
-                return agent_host_caller(node.vendor)[func_name](params);
-            });
-        }
-    ));
-}
-
-function agent_host_caller(vendor) {
-    if (vendor.kind !== 'agent_host') {
-        throw new Error('NODE VENDOR KIND UNIMPLEMENTED - ' + vendor.kind);
-    }
-    var client = new api.agent_host_api.Client();
-    _.each(vendor.info, function(val, key) {
-        client.set_option(key, val);
-    });
-    return client;
-}
 
 function get_node_full_info(node) {
     var info = _.pick(node, 'id', 'name', 'geolocation');
@@ -567,16 +393,6 @@ function get_node_full_info(node) {
         used: node.storage.used || 0,
     };
     info.online = node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
-    var vendor_id = node.populated('vendor');
-    if (!vendor_id) {
-        vendor_id = node.vendor;
-    }
-    if (vendor_id) {
-        info.vendor = vendor_id.toString();
-    }
-    if (node.vendor_node_id) {
-        info.vendor_node_id = node.vendor_node_id;
-    }
     info.device_info =
         node.device_info &&
         node.device_info.toObject &&

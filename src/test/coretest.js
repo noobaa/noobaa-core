@@ -32,13 +32,7 @@ var node_server = require('../server/node_server');
 var bucket_server = require('../server/bucket_server');
 var object_server = require('../server/object_server');
 
-var auth_client = new api.auth_api.Client();
-var account_client = new api.account_api.Client();
-var system_client = new api.system_api.Client();
-var tier_client = new api.tier_api.Client();
-var node_client = new api.node_api.Client();
-var bucket_client = new api.bucket_api.Client();
-var object_client = new api.ObjectClient();
+var client = new api.Client();
 
 
 before(function(done) {
@@ -53,13 +47,14 @@ before(function(done) {
         object_server.install_rest(utilitest.router);
 
         // setting the port globally for all the clients
-        auth_client.set_global_option('port', utilitest.http_port());
+        api.rest_api.global_client_options.port = utilitest.http_port();
+        // client.set_option('port', utilitest.http_port());
 
         var account_params = _.clone(account_credentials);
         account_params.name = 'coretest';
-        return account_client.create_account(account_params);
+        return client.account.create_account(account_params);
     }).then(function() {
-        return create_auth(account_credentials);
+        return client.create_auth(account_credentials);
     }).nodeify(done);
 });
 
@@ -73,12 +68,6 @@ after(function() {
     object_server.disable_rest();
 });
 
-function create_auth(options) {
-    return auth_client.create_auth(options)
-        .then(function(res) {
-            auth_client.set_global_authorization(res.token);
-        });
-}
 
 var test_agents;
 var agent_storage_dir = path.resolve(__dirname, '../../test_data/coretest');
@@ -87,11 +76,13 @@ var agent_storage_dir = path.resolve(__dirname, '../../test_data/coretest');
 // create some test nodes named 0, 1, 2, ..., count
 function init_test_nodes(count, system, tier, storage_alloc) {
     var sem = new Semaphore(3);
+
+    // create temp client to set token
     var create_node_client = new api.node_api.Client();
 
     return clear_test_nodes()
         .then(function() {
-            return auth_client.create_auth({
+            return client.auth.create_auth({
                 role: 'create_node',
                 system: system,
                 extra: {
@@ -100,7 +91,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
             });
         })
         .then(function(res) {
-            create_node_client.set_authorization(res.token);
+            create_node_client.set_auth_header(res.token);
             return Q.all(_.times(count, function(i) {
                 return sem.surround(function() {
                     return init_test_node(i);
@@ -121,10 +112,12 @@ function init_test_nodes(count, system, tier, storage_alloc) {
             })
             .then(function(res) {
                 var agent = new Agent({
+                    hostname: 'localhost',
+                    port: utilitest.http_port(),
                     token: res.token,
                     node_id: res.id,
                     geolocation: 'test',
-                    storage_path: agent_storage_dir,
+                    // storage_path: agent_storage_dir,
                 });
                 return agent.start().thenResolve(agent);
             });
@@ -170,17 +163,10 @@ module.exports = {
     utilitest: utilitest,
     router: utilitest.router,
     http_port: utilitest.http_port, // function
-
-    auth_client: auth_client,
+    client: function() {
+        return new api.Client(client);
+    },
     account_credentials: account_credentials,
-    create_auth: create_auth,
-
-    account_client: account_client,
-    system_client: system_client,
-    tier_client: tier_client,
-    node_client: node_client,
-    bucket_client: bucket_client,
-    object_client: object_client,
 
     init_test_nodes: init_test_nodes,
     clear_test_nodes: clear_test_nodes,

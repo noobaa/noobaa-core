@@ -99,11 +99,9 @@ module.exports = rest_api({
                     role: {
                         type: 'string',
                     },
-                    bucket: {
-                        type: 'string',
-                    },
-                    object: {
-                        type: 'string',
+                    extra: {
+                        type: 'object',
+                        additionalProperties: true
                     },
                 }
             },

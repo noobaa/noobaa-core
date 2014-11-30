@@ -33,7 +33,7 @@ nb_util.factory('nbAuth', [
     function($q, $window, $location) {
         var $scope = {};
 
-        var auth_client = new api.auth_api.Client();
+        var client = new api.Client();
         var account_client = new api.account_api.Client();
         var win_storage = $window.sessionStorage;
 
@@ -49,12 +49,13 @@ nb_util.factory('nbAuth', [
 
         function init_token() {
             var token = win_storage.nb_token;
-            auth_client.set_global_authorization(token);
+            // TODO get rid of this global headers?
+            api.rest_api.set_auth_header(token, api.rest_api.global_client_headers);
 
             return $q.when().then(
                 function() {
                     if (token) {
-                        return auth_client.read_auth();
+                        return client.auth.read_auth();
                     }
                 }
             ).then(
@@ -84,7 +85,7 @@ nb_util.factory('nbAuth', [
         function create_auth(params) {
             return $q.when().then(
                 function() {
-                    return auth_client.create_auth(params);
+                    return client.auth.create_auth(params);
                 }
             ).then(
                 function(res) {

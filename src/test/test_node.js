@@ -6,36 +6,37 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var size_utils = require('../util/size_utils');
+var coretest = require('./coretest');
 
 describe('node', function() {
 
-    var coretest = require('./coretest');
+    var client = coretest.client();
     var SYS = 'test-node-system';
 
     it('works', function(done) {
         Q.fcall(function() {
-            return coretest.system_client.create_system({
+            return client.system.create_system({
                 name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
-            return coretest.create_auth({
+            return client.create_auth({
                 system: SYS
             });
         }).then(function() {
-            return coretest.tier_client.create_tier({
+            return client.tier.create_tier({
                 name: 'tier',
                 kind: 'edge',
             });
         }).then(function() {
-            return coretest.node_client.create_node({
+            return client.node.create_node({
                 name: 'haha',
                 tier: 'tier',
                 geolocation: 'home',
                 storage_alloc: 10 * size_utils.GIGABYTE,
             });
         }).then(function(res) {
-            return coretest.node_client.heartbeat({
+            return client.node.heartbeat({
                 id: res.id,
                 geolocation: 'home',
                 ip: '0.0.0.0',
@@ -49,13 +50,13 @@ describe('node', function() {
                 },
             });
         }).then(function() {
-            return coretest.node_client.read_node({
+            return client.node.read_node({
                 name: 'haha',
             });
         }).then(function() {
-            return coretest.node_client.list_nodes({});
+            return client.node.list_nodes({});
         }).then(function() {
-            return coretest.node_client.delete_node({
+            return client.node.delete_node({
                 name: 'haha',
             });
         }).nodeify(done);

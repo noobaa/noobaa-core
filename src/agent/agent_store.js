@@ -2,10 +2,11 @@
 'use strict';
 
 var _ = require('lodash');
-var assert = require('assert');
+var Q = require('q');
 var fs = require('fs');
 var path = require('path');
-var Q = require('q');
+var assert = require('assert');
+var mkdirp = require('mkdirp');
 var size_utils = require('../util/size_utils');
 var Semaphore = require('noobaa-util/semaphore');
 
@@ -19,6 +20,7 @@ module.exports = AgentStore;
  */
 function AgentStore(root_path) {
     this.root_path = root_path;
+    mkdirp.sync(root_path);
 }
 
 

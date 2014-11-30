@@ -33,26 +33,33 @@ module.exports = Agent;
  */
 function Agent(params) {
     var self = this;
-    assert(params.token, 'missing params.token');
-    assert(params.node_id, 'missing params.node_id');
-    assert(params.geolocation, 'missing params.geolocation');
-    self.token = params.token;
-    self.node_id = params.node_id;
-    self.geolocation = params.geolocation;
-    self.node_client = new api.node_api.Client();
-    self.node_client.set_authorization(self.token);
 
+    assert(params.hostname, 'missing param: hostname');
+    assert(params.port, 'missing param: port');
+    self.hostname = params.hostname;
+    self.port = params.port;
+
+    self.client = new api.Client();
+    self.client.set_option('hostname', self.hostname);
+    self.client.set_option('port', self.port);
+
+    self.token = params.token;
     self.storage_path = params.storage_path;
-    var lru_options = {};
+
     if (self.storage_path) {
-        self.storage_path_node = path.join(self.storage_path, self.node_id);
-        self.storage_path_blocks = path.join(self.storage_path_node, 'blocks');
+        assert(!self.token, 'unexpected param: token. ' +
+            'with storage_path the token is expected in the file <storage_path>/token');
+
+        self.storage_path_blocks = path.join(self.storage_path, 'blocks');
         self.store = new AgentStore(self.storage_path_blocks);
         self.store_cache = new LRUCache({
             load: self.store.read_block.bind(self.store),
             max_length: 10,
         });
     } else {
+        assert(self.token, 'missing param: token. ' +
+            'without storage_path the token must be provided as agent param');
+
         this.store = new AgentStore.MemoryStore();
         self.store_cache = new LRUCache({
             load: self.store.read_block.bind(self.store),
@@ -101,6 +108,7 @@ function Agent(params) {
     self.agent_server = agent_server;
     self.http_server = http_server;
     self.http_port = 0;
+    self.geolocation = '';
 }
 
 
@@ -115,29 +123,22 @@ Agent.prototype.start = function() {
     self.is_started = true;
     console.log('start agent', self.node_id);
 
-    return Q.fcall(
-        function() {
-            return self._mkdirs();
-        }
-    ).then(
-        function() {
+    return Q.fcall(function() {
+            return self._init_node();
+        })
+        .then(function() {
             return self._start_stop_http_server();
-        }
-    ).then(
-        function() {
+        })
+        .then(function() {
             return self.send_heartbeat();
-        }
-    ).then(
-        function() {
+        }).then(function() {
             self._start_stop_heartbeats();
-        }
-    ).then(null,
-        function(err) {
+        })
+        .then(null, function(err) {
             console.error('AGENT server failed to start', err);
             self.stop();
             throw err;
-        }
-    );
+        });
 };
 
 
@@ -155,24 +156,61 @@ Agent.prototype.stop = function() {
 };
 
 
+
 /**
  *
- * _mkdirs
+ * _init_node
  *
  */
-Agent.prototype._mkdirs = function() {
+Agent.prototype._init_node = function() {
     var self = this;
-    if (!self.storage_path) {
-        return;
-    }
-    var dir_paths = [self.storage_path_blocks];
-    var mkdir_funcs = _.map(dir_paths, function(dir_path) {
-        return function() {
-            return Q.nfcall(mkdirp, dir_path);
-        };
-    });
-    // run all funcs serially by chaining their promises
-    return _.reduce(mkdir_funcs, Q.when, Q.when());
+
+    return Q.fcall(function() {
+
+            // if not using storage_path, a token should be provided
+            if (!self.storage_path) return self.token;
+
+            // load the token file
+            var token_path = path.join(self.storage_path, 'token');
+            return Q.nfcall(fs.readFile, token_path);
+        })
+        .then(function(token) {
+
+            // use the token as authorization and read the auth info
+            self.token = token;
+            self.client.set_auth_header(self.token);
+            return self.client.auth.read_auth();
+        })
+        .then(function(res) {
+
+            // if we are already authorized with our specific node_id, use it
+            if (res.account && res.system &&
+                res.extra && res.extra.node_id) {
+                console.log('authorized node', res);
+                self.node_id = res.extra.node_id;
+                return;
+            }
+
+            // if we have authorization to create a node, do it
+            if (res.account && res.system &&
+                _.contains(['admin', 'create_node'], res.role) &&
+                res.extra && res.extra.tier) {
+                console.log('create node', res);
+                return self.client.node.create_node({
+                    name: os.hostname(),
+                    tier: res.extra.tier,
+                    geolocation: self.geolocation,
+                    storage_alloc: 0,
+                }).then(function(node) {
+                    self.node_id = node.id;
+                    self.token = node.token;
+                    self.client.set_auth_header(self.token);
+                });
+            }
+
+            console.error('bad token', res);
+            throw new Error('bad token');
+        });
 };
 
 
@@ -257,7 +295,7 @@ Agent.prototype.send_heartbeat = function() {
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
-            return self.node_client.heartbeat({
+            return self.client.node.heartbeat({
                 id: self.node_id,
                 geolocation: self.geolocation,
                 // ip: '',

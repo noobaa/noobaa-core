@@ -190,47 +190,6 @@ module.exports = rest_api({
         },
 
 
-        start_nodes: {
-            method: 'POST',
-            path: '/start',
-            params: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string', // node name
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        stop_nodes: {
-            method: 'POST',
-            path: '/stop',
-            params: {
-                type: 'object',
-                required: ['nodes'],
-                properties: {
-                    nodes: {
-                        type: 'array',
-                        items: {
-                            type: 'string', // node name
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-
 
         heartbeat: {
             method: 'PUT',

@@ -22,7 +22,7 @@ var VALID_METHODS = {
 };
 var PATH_ITEM_RE = /^\S*$/;
 
-var global_client_options = {
+rest_api.global_client_options = {
     // cookie jars are needed to maintain cookie sessions.
     // in nodes.js we save set-cookie replies only in memory.
     // in a the browser then browserify http module already saves the cookies persistently.
@@ -30,12 +30,25 @@ var global_client_options = {
     // need to maintain multiple separated sessions between the same client and host.
     cookie_jars: {},
 };
-var global_client_headers = {
+
+rest_api.global_client_headers = {
     accept: '*/*',
 };
 
 /**
- * Check and initialize the api structure.
+ * static method to properly set Bearer autorization header in a headers object
+ */
+rest_api.set_auth_header = function(token, headers) {
+    headers.authorization = 'Bearer ' + token;
+};
+
+
+
+/**
+ *
+ * REST_API
+ *
+ * initialize the api structure.
  *
  * api (Object):
  * - each key is func_name (String)
@@ -43,6 +56,7 @@ var global_client_headers = {
  *   - method (String) - http method GET/POST/...
  *   - path (Function) - function(params) that returns the path (String) for the call
  *   - data (Function) - function(params) that returns the data (String|Buffer) for the call
+ *
  */
 function rest_api(api) {
     var api_path = PATH.join('/api', api.name);
@@ -106,12 +120,13 @@ function rest_api(api) {
 
 
 
-    ////////////
-    // SERVER //
-    ////////////
+    // SERVER /////////////////////////////////////////////////////////////////
 
 
     /**
+     *
+     * SERVER
+     *
      * server class for the api.
      *
      * methods (Object): map of function names to function(params).
@@ -282,16 +297,20 @@ function rest_api(api) {
 
 
 
-    ////////////
-    // CLIENT //
-    ////////////
+    // CLIENT /////////////////////////////////////////////////////////////////
 
 
     /**
+     *
+     * CLIENT
+     *
      * client class for the api.
+     *
      */
-    function Client() {
-        // allow to set global values or per client values.
+    function Client(shared_options, shared_headers) {
+        // allow to set both shared and owned settings
+        this._shared_options = shared_options || {};
+        this._shared_headers = shared_headers || {};
         this._options = {};
         this._headers = {};
         // default path uses the api name
@@ -305,14 +324,6 @@ function rest_api(api) {
         };
     });
 
-    function set_property(obj, key, val) {
-        if (val) {
-            obj[key] = val;
-        } else {
-            delete obj[key];
-        }
-    }
-
     /*
      * available options (either global or per client):
      * - hostname (String)
@@ -321,16 +332,18 @@ function rest_api(api) {
      * - cookie_jars (Object) - optional object map from host to cookie jar (default to global object)
      */
     Client.prototype.set_option = function(key, val) {
-        return set_property(this._options, key, val);
+        this._options[key] = val;
     };
-    Client.prototype.set_global_option = function(key, val) {
-        return set_property(global_client_options, key, val);
+    Client.prototype.clear_option = function(key) {
+        delete this._options[key];
     };
     Client.prototype.get_option = function(key) {
-        if (this._options.hasOwnProperty(key)) {
+        if (key in this._options) {
             return this._options[key];
+        } else if (key in this._shared_options) {
+            return this._shared_options[key];
         } else {
-            return global_client_options[key];
+            return rest_api.global_client_options[key];
         }
     };
     Client.prototype.get_host = function() {
@@ -339,21 +352,20 @@ function rest_api(api) {
     };
 
     /**
-     * set http headers (either global or per client)
+     * set http headers
      */
     Client.prototype.set_header = function(key, val) {
-        return set_property(this._headers, key, val);
+        this._headers[key] = val;
     };
-    Client.prototype.set_global_header = function(key, val) {
-        return set_property(global_client_headers, key, val);
+    Client.prototype.clear_header = function(key) {
+        delete this._headers[key];
     };
-    Client.prototype.set_authorization = function(token) {
-        var auth = token && ('Bearer ' + token);
-        this.set_header('authorization', auth);
-    };
-    Client.prototype.set_global_authorization = function(token) {
-        var auth = token && ('Bearer ' + token);
-        this.set_global_header('authorization', auth);
+
+    /**
+     * method to set autorization header in client headers
+     */
+    Client.prototype.set_auth_header = function(token) {
+        rest_api.set_auth_header(token, this._headers);
     };
 
     // call a specific REST api function over http request.
@@ -378,10 +390,19 @@ function rest_api(api) {
         var method = func_info.method;
         var path = self.get_option('path') || '/';
         var data = _.clone(params);
-        var headers = _.extend({}, global_client_headers, self._headers);
         var host = self.get_host();
         var jar = self.get_option('cookie_jars')[host];
+        var headers = {};
         var body;
+
+        // using forIn to take also properties inherited from prototype
+        // specifically needed for _shared_headers
+        var set_header = function(val, key) {
+            headers[key] = val;
+        };
+        _.forIn(rest_api.global_client_headers, set_header);
+        _.forIn(self._shared_headers, set_header);
+        _.forIn(self._headers, set_header);
 
         if (func_info.param_raw) {
             body = data[func_info.param_raw];

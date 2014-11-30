@@ -11,20 +11,21 @@ var size_utils = require('../util/size_utils');
 
 describe('agent', function() {
 
+    var client = coretest.client();
     var SYS = 'test-agent-system';
 
     before(function(done) {
         Q.fcall(function() {
-            return coretest.system_client.create_system({
+            return client.system.create_system({
                 name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
-            return coretest.create_auth({
+            return client.create_auth({
                 system: SYS
             });
         }).then(function() {
-            return coretest.tier_client.create_tier({
+            return client.tier.create_tier({
                 name: 'edge',
                 kind: 'edge',
             });

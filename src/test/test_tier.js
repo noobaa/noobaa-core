@@ -9,21 +9,22 @@ var coretest = require('./coretest');
 
 describe('tier', function() {
 
+    var client = coretest.client();
     var SYS = 'test-tier-system';
-    
+
     it('crud', function(done) {
         var system_id;
         Q.fcall(function() {
-            return coretest.system_client.create_system({
+            return client.system.create_system({
                 name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
-            return coretest.create_auth({
+            return client.create_auth({
                 system: SYS
             });
         }).then(function() {
-            return coretest.tier_client.create_tier({
+            return client.tier.create_tier({
                 name: 'edge',
                 kind: 'edge',
                 edge_details: {
@@ -33,7 +34,7 @@ describe('tier', function() {
                 }
             });
         }).then(function() {
-            return coretest.tier_client.create_tier({
+            return client.tier.create_tier({
                 name: 'cloud',
                 kind: 'cloud',
                 cloud_details: {
@@ -43,15 +44,15 @@ describe('tier', function() {
                 }
             });
         }).then(function() {
-            return coretest.tier_client.read_tier({
+            return client.tier.read_tier({
                 name: 'edge',
             });
         }).then(function() {
-            return coretest.tier_client.read_tier({
+            return client.tier.read_tier({
                 name: 'cloud',
             });
         }).then(function() {
-            return coretest.tier_client.update_tier({
+            return client.tier.update_tier({
                 name: 'cloud',
                 new_name: 'cloudy',
                 cloud_details: {
@@ -61,11 +62,11 @@ describe('tier', function() {
                 }
             });
         }).then(function() {
-            return coretest.tier_client.delete_tier({
+            return client.tier.delete_tier({
                 name: 'edge',
             });
         }).then(function() {
-            return coretest.tier_client.delete_tier({
+            return client.tier.delete_tier({
                 name: 'cloud',
             }).then(function() {
                 throw new Error('expected not found error');
@@ -74,11 +75,11 @@ describe('tier', function() {
                 assert.strictEqual(err.data, 'tier not found');
             });
         }).then(function() {
-            return coretest.tier_client.delete_tier({
+            return client.tier.delete_tier({
                 name: 'cloudy',
             });
         }).then(function() {
-            return coretest.system_client.read_system();
+            return client.system.read_system();
         }).nodeify(done);
     });
 

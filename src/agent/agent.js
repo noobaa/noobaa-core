@@ -185,8 +185,8 @@ Agent.prototype._init_node = function() {
             // if we are already authorized with our specific node_id, use it
             if (res.account && res.system &&
                 res.extra && res.extra.node_id) {
-                console.log('authorized node', res);
                 self.node_id = res.extra.node_id;
+                console.log('authorized node', self.node_name, 'id', self.node_id);
                 return;
             }
 
@@ -194,7 +194,7 @@ Agent.prototype._init_node = function() {
             if (res.account && res.system &&
                 _.contains(['admin', 'create_node'], res.role) &&
                 res.extra && res.extra.tier) {
-                console.log('create node', res);
+                console.log('create node', self.node_name, 'tier', res.extra.tier);
                 return self.client.node.create_node({
                     name: self.node_name,
                     tier: res.extra.tier,
@@ -203,9 +203,9 @@ Agent.prototype._init_node = function() {
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.client.headers.set_auth_token(node.token);
-                    console.log('created node', node.id);
+                    console.log('created node', self.node_name, 'id', node.id);
                     if (self.storage_path) {
-                        console.log('save node token', node.id);
+                        console.log('save node token', self.node_name, 'id', node.id);
                         var token_path = path.join(self.storage_path, 'token');
                         return Q.nfcall(fs.writeFile, token_path, node.token);
                     }

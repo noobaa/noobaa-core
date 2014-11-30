@@ -144,9 +144,9 @@ AgentCLI.prototype.load = function() {
         .then(function() {
             return Q.nfcall(fs.readdir, self.root_path);
         })
-        .then(function(node_ids) {
-            return Q.all(_.map(node_ids, function(node_id) {
-                return self.start(node_id);
+        .then(function(names) {
+            return Q.all(_.map(names, function(node_name) {
+                return self.start(node_name);
             }));
         }).then(function(res) {
             console.log('loaded', res.length, 'agents. show details with: nb.list()');
@@ -169,15 +169,11 @@ AgentCLI.prototype.load = function() {
 AgentCLI.prototype.create = function() {
     var self = this;
 
-    // TODO can we make more relevant dir name?
     var node_name = os.hostname() + '-' + Date.now();
     var node_path = path.join(self.root_path, node_name);
     var token_path = path.join(node_path, 'token');
 
-    return Q.all([
-            file_must_not_exist(node_path),
-            file_must_not_exist(token_path)
-        ])
+    return file_must_not_exist(token_path)
         .then(function() {
             return Q.nfcall(mkdirp, node_path);
         })
@@ -224,28 +220,25 @@ AgentCLI.prototype.create_some = function(n) {
  */
 AgentCLI.prototype.start = function(node_name) {
     var self = this;
+
     var agent = self.agents[node_name];
-    var node_path = path.join(self.root_path, node_name);
-    var token_path = path.join(node_path, 'token');
-
-    if (agent) {
-        console.log('agent already started', node_name);
-        return;
-    }
-
-    return Q.fcall(function() {
+    if (!agent) {
         agent = self.agents[node_name] = new Agent({
             hostname: self.params.hostname,
             port: self.params.port,
             node_name: node_name,
-            storage_path: node_path,
+            storage_path: path.join(self.root_path, node_name),
         });
+        console.log('agent inited', node_name);
+    }
+
+    return Q.fcall(function() {
         return agent.start();
     }).then(function(res) {
-        console.log('started', node_name);
+        console.log('agent started', node_name);
         return res;
     }, function(err) {
-        console.error('start failed', node_name, err);
+        console.error('FAILED TO START AGENT', node_name, err);
         throw err;
     });
 };
@@ -259,18 +252,17 @@ AgentCLI.prototype.start = function(node_name) {
  * stop agent
  *
  */
-AgentCLI.prototype.stop = function(node_id) {
+AgentCLI.prototype.stop = function(node_name) {
     var self = this;
-    var agent = self.agents[node_id];
 
+    var agent = self.agents[node_name];
     if (!agent) {
-        console.log('agent not started', node_id);
+        console.log('agent not found', node_name);
         return;
     }
 
-    delete self.agents[node_id];
     agent.stop();
-    console.log('stopped', node_id);
+    console.log('agent stopped', node_name);
 };
 
 
@@ -285,8 +277,10 @@ AgentCLI.prototype.stop = function(node_id) {
 AgentCLI.prototype.list = function() {
     var self = this;
 
+    var i = 1;
     _.each(self.agents, function(agent, node_id) {
-        console.log(node_id, agent.is_started && 'started');
+        console.log('#' + i, agent.is_started ? '<ok>' : '<STOPPED>', node_id);
+        i++;
     });
 };
 

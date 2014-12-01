@@ -110,6 +110,7 @@ var node_schema = new Schema({
 
 node_schema.index({
     system: 1,
+    tier: 1,
     name: 1,
     deleted: 1, // allow to filter deleted
 }, {

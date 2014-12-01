@@ -13,9 +13,11 @@ var assert = require('assert');
 var crypto = require('crypto');
 var mkdirp = require('mkdirp');
 var argv = require('minimist')(process.argv);
+var BlockStream = require('block-stream');
 var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
+var client_streamer = require('./client_streamer');
 
 Q.longStackSupport = true;
 
@@ -29,6 +31,7 @@ function ClientCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
         port: 5001,
+        streamer: 5005,
         email: 'a@a.a',
         password: 'aaa',
         system: 'sys',
@@ -71,16 +74,22 @@ ClientCLI.prototype.load = function() {
     var self = this;
 
     return Q.fcall(function() {
-        var auth_params = _.pick(self.params,
-            'email', 'password', 'system', 'role');
-        if (self.params.bucket) {
-            auth_params.extra = {
-                bucket: self.params.bucket
-            };
-        }
-        console.log('create auth', auth_params);
-        return self.client.create_auth_token(auth_params);
-    });
+            var auth_params = _.pick(self.params,
+                'email', 'password', 'system', 'role');
+            if (self.params.bucket) {
+                auth_params.extra = {
+                    bucket: self.params.bucket
+                };
+            }
+            console.log('create auth', auth_params);
+            return self.client.create_auth_token(auth_params);
+        })
+        .then(function() {
+            return client_streamer(self.client, self.params.streamer);
+        })
+        .then(function(streamer) {
+            self.streamer = streamer;
+        });
 };
 
 
@@ -108,16 +117,18 @@ ClientCLI.prototype.upload = function(file_path) {
         })
         .then(function() {
             return Q.Promise(function(resolve, reject) {
-                var source_stream = fs.createReadStream(file_path);
-                var target_stream = self.client.object.open_write_stream({
-                    bucket: self.params.bucket,
-                    key: key,
-                }).once('error', function(err) {
-                    reject(err);
-                }).once('finish', function() {
-                    resolve();
-                });
-                source_stream.pipe(target_stream);
+                fs.createReadStream(file_path)
+                    .pipe(new BlockStream(size_utils.MEGABYTE, {
+                        nopad: true
+                    }))
+                    .pipe(self.client.object.open_write_stream({
+                        bucket: self.params.bucket,
+                        key: key,
+                    }).once('error', function(err) {
+                        reject(err);
+                    }).once('finish', function() {
+                        resolve();
+                    }));
             });
         })
         .then(function() {
@@ -155,6 +166,7 @@ ClientCLI.prototype.download = function(key) {
 };
 
 
+
 /**
  *
  * DELETE
@@ -185,10 +197,17 @@ ClientCLI.prototype.list = function(key) {
     var self = this;
 
     return Q.fcall(function() {
-            // ...
+            return self.client.object.list_objects({
+                bucket: self.params.bucket
+            });
         })
-        .then(function() {
-            // ...
+        .then(function(res) {
+            console.log('objects in bucket', self.params.bucket, ':');
+            var i = 1;
+            _.each(res.objects, function(obj) {
+                console.log('#' + i, obj.key, '\t', obj.info.size, 'bytes');
+                i++;
+            });
         });
 };
 

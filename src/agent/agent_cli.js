@@ -34,7 +34,7 @@ Q.longStackSupport = true;
 function AgentCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
-        root_path: './test_data/agent_cli/',
+        root_path: './agent_storage/',
         port: 5001,
         email: 'a@a.a',
         password: 'aaa',

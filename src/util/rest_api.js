@@ -546,6 +546,8 @@ function validate_schema(obj, schema, info, desc) {
 function param_to_component(param, type) {
     if (type === 'array' || type === 'object') {
         return encodeURIComponent(JSON.stringify(param));
+    } else if (type === 'string') {
+        return encodeURIComponent(param.toString());
     } else {
         return param.toString();
     }
@@ -558,14 +560,14 @@ function component_to_param(component, type) {
         } else {
             return JSON.parse(decodeURIComponent(component));
         }
+    } else if (type === 'string') {
+        return decodeURIComponent(String(component));
     } else if (type === 'integer') {
         return Number(component) | 0;
     } else if (type === 'number') {
         return Number(component);
     } else if (type === 'boolean') {
         return Boolean(component);
-    } else if (type === 'string') {
-        return String(component);
     } else {
         return component;
     }

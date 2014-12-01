@@ -233,13 +233,13 @@ function combine_parts_buffers_in_range(parts, start, end) {
 
 
 /**
- * read a block to the storage node
+ * write a block to the storage node
  */
 function write_block(block, buffer) {
     var agent = new agent_api.Client();
     agent.options.set_host(block.node.ip, block.node.port);
 
-    // console.log('write_block', buffer.length, block, agent);
+    console.log('write_block', buffer.length, block, agent);
     return agent.write_block({
         block_id: block.id,
         data: buffer,
@@ -254,7 +254,7 @@ function read_block(block, block_size) {
     var agent = new agent_api.Client();
     agent.options.set_host(block.node.ip, block.node.port);
 
-    // console.log('read_block', block_size, block, agent);
+    console.log('read_block', block_size, block, agent);
     return agent.read_block({
             block_id: block.id
         })

@@ -20,6 +20,7 @@ describe('object', function() {
 
     var client = coretest.new_client();
     var SYS = 'test-object-system';
+    var TIER = 'edge';
 
     before(function(done) {
         this.timeout(20000);
@@ -34,11 +35,11 @@ describe('object', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: 'edge',
+                name: TIER,
                 kind: 'edge',
             });
         }).then(function() {
-            return coretest.init_test_nodes(10, SYS, 'edge', size_utils.GIGABYTE);
+            return coretest.init_test_nodes(10, SYS, TIER, size_utils.GIGABYTE);
         }).nodeify(done);
     });
 
@@ -56,6 +57,7 @@ describe('object', function() {
         Q.fcall(function() {
             return client.bucket.create_bucket({
                 name: BKT,
+                tiering: [TIER],
             });
         }).then(function() {
             return client.object.create_multipart_upload({
@@ -100,6 +102,7 @@ describe('object', function() {
             Q.fcall(function() {
                 return client.bucket.create_bucket({
                     name: BKT,
+                    tiering: [TIER],
                 });
             }).nodeify(done);
         });

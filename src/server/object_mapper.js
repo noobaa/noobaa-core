@@ -18,15 +18,20 @@ var CHUNK_KFRAG_BITWISE = 0; // TODO: pick kfrag?
 var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
 
 
-function allocate_object_part(obj, start, end, md5sum) {
+function allocate_object_part(bucket, obj, start, end, md5sum) {
     // chunk size is aligned up to be an integer multiple of kfrag*block_size
     var chunk_size = range_utils.align_up_bitwise(
         end - start,
         CHUNK_KFRAG_BITWISE
     );
+
+    if (!bucket.tiering || bucket.tiering.length !== 1) {
+        throw new Error('only single tier supported per bucket/chunk');
+    }
+
     var new_chunk = new db.DataChunk({
         system: obj.system,
-        tier: null, // TODO fill chunk tiers
+        tier: bucket.tiering[0].tier,
         size: chunk_size,
         kfrag: CHUNK_KFRAG,
         md5sum: md5sum,
@@ -36,8 +41,10 @@ function allocate_object_part(obj, start, end, md5sum) {
         obj: obj.id,
         start: start,
         end: end,
-        chunk: new_chunk,
-        // chunk_offset: 0, // not required
+        chunks: [{
+            chunk: new_chunk,
+            // chunk_offset: 0, // not required
+        }]
     });
     var part_info;
 
@@ -59,7 +66,7 @@ function allocate_object_part(obj, start, end, md5sum) {
             return db.ObjectPart.create(new_part);
         })
         .then(function() {
-            // console.log('part info', part_info);
+            console.log('part info', part_info);
             return part_info;
         });
 
@@ -81,31 +88,46 @@ function read_object_mappings(obj, start, end) {
     return Q.fcall(function() {
 
             // find parts intersecting the [start,end) range
-            return db.ObjectPart.find({
-                obj: obj.id,
-                start: {
-                    $lt: end
-                },
-                end: {
-                    $gt: start
-                },
-            }).sort('start').populate('chunk').exec();
+            return db.ObjectPart
+                .find({
+                    obj: obj.id,
+                    start: {
+                        $lt: end
+                    },
+                    end: {
+                        $gt: start
+                    },
+                })
+                .sort('start')
+                .populate('chunks.chunk')
+                .exec();
         })
         .then(function(parts_arg) {
             parts = parts_arg;
 
+            var chunks = _.pluck(_.flatten(_.map(parts, 'chunks')), 'chunk');
+            var chunk_ids = _.pluck(chunks, 'id');
+
             // find all blocks of the resulting parts
-            return db.DataBlock.find({
-                chunk: {
-                    $in: _.pluck(parts, 'chunk')
-                }
-            }).sort('fragment').populate('node').exec();
+            return db.DataBlock
+                .find({
+                    chunk: {
+                        $in: chunk_ids
+                    }
+                })
+                .sort('fragment')
+                .populate('node')
+                .exec();
         })
         .then(function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             var parts_reply = _.map(parts, function(part) {
-                var blocks = blocks_by_chunk[part.chunk.id];
-                return get_part_info(part, part.chunk, blocks);
+                if (!part.chunks || part.chunks.length !== 1) {
+                    throw new Error('only single tier supported per bucket/chunk');
+                }
+                var chunk = part.chunks[0].chunk;
+                var blocks = blocks_by_chunk[chunk.id];
+                return get_part_info(part, chunk, blocks);
             });
             // console.log('get_existing_parts', parts_reply);
             return parts_reply;

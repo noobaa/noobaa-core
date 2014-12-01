@@ -49,7 +49,7 @@ LRUCache.prototype.get = function(key, cache_miss) {
 
         // load from the database
         console.log('CACHE MISS', self.name, key);
-        return self.load(key).then(function(doc) {
+        return Q.when(self.load(key)).then(function(doc) {
             if (doc) {
                 // update the cache item
                 item.doc = doc;

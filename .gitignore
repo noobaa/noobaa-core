@@ -9,7 +9,7 @@ build/
 ## istanbul coverage
 coverage/
 
-## testing storage
-test_data/
+## testing agent storage
+agent_storage/
 
 ionic-app/

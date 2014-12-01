@@ -109,8 +109,10 @@ function abort_multipart_upload(req) {
  *
  */
 function allocate_object_part(req) {
+    var bucket;
     return get_bucket_from_cache(req)
-        .then(function(bucket) {
+        .then(function(bucket_arg) {
+            bucket = bucket_arg;
             var info = {
                 system: req.system.id,
                 bucket: bucket.id,
@@ -128,7 +130,7 @@ function allocate_object_part(req) {
             var start = Number(req.rest_params.start);
             var end = Number(req.rest_params.end);
             var md5sum = req.rest_params.md5sum;
-            return object_mapper.allocate_object_part(obj, start, end, md5sum);
+            return object_mapper.allocate_object_part(bucket, obj, start, end, md5sum);
         });
 }
 
@@ -281,7 +283,8 @@ function get_object_info(md) {
 
 function get_bucket_from_cache(req) {
     return db.BucketCache.get({
-        system: req.system.id,
-        name: req.rest_params.bucket,
-    });
+            system: req.system.id,
+            name: req.rest_params.bucket,
+        })
+        .then(db.check_not_deleted(req, 'bucket'));
 }

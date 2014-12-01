@@ -2,23 +2,22 @@
 'use strict';
 
 var _ = require('lodash');
-var assert = require('assert');
+var Q = require('q');
 var fs = require('fs');
+var os = require('os');
 var path = require('path');
-var crypto = require('crypto');
 var http = require('http');
+var assert = require('assert');
+var crypto = require('crypto');
 var mkdirp = require('mkdirp');
 var express = require('express');
-var Q = require('q');
-var LRUCache = require('../util/lru_cache');
-var size_utils = require('../util/size_utils');
-var api = require('../api');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
-var os = require('os');
 var api = require('../api');
+var LRUCache = require('../util/lru_cache');
+var size_utils = require('../util/size_utils');
 var AgentStore = require('./agent_store');
 
 module.exports = Agent;
@@ -39,10 +38,6 @@ function Agent(params) {
     self.hostname = params.hostname;
     self.port = params.port;
     self.node_name = params.node_name;
-
-    self.client = new api.Client();
-    self.client.options.set_host(self.hostname, self.port);
-
     self.token = params.token;
     self.storage_path = params.storage_path;
 
@@ -67,6 +62,9 @@ function Agent(params) {
         });
     }
 
+    self.client = new api.Client();
+    self.client.options.set_host(self.hostname, self.port);
+
     var app = express();
     app.use(express_morgan_logger('dev'));
     app.use(express_body_parser.json());
@@ -80,6 +78,13 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
+
+    // TODO verify aithorized tokens in agent?
+    app.use(function(req, res, next) {
+        req.load_auth = function() {};
+        next();
+    });
+
     // enable CORS for agent api
     app.use('/api', function(req, res, next) {
         res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
@@ -368,6 +373,7 @@ Agent.prototype._start_stop_heartbeats = function() {
 Agent.prototype.read_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
+    console.log('AGENT read_block', block_id);
     return self.store_cache.get(block_id);
 };
 
@@ -375,13 +381,15 @@ Agent.prototype.write_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
     var data = req.rest_params.data;
+    console.log('AGENT write_block', block_id, data.length);
     self.store_cache.invalidate(block_id);
-    return self.store.write_block(block_id);
+    return self.store.write_block(block_id, data);
 };
 
 Agent.prototype.delete_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
+    console.log('AGENT delete_block', block_id);
     self.store_cache.invalidate(block_id);
     return self.store.delete_block(block_id);
 };
@@ -389,6 +397,7 @@ Agent.prototype.delete_block = function(req) {
 Agent.prototype.check_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
+    console.log('AGENT check_block', block_id);
     var slices = req.rest_params.slices;
     return self.store_cache.get(block_id)
         .then(function(data) {

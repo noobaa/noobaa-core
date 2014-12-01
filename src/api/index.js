@@ -101,6 +101,7 @@ function Client(base) {
         }).then(function() {
             return self.bucket.create_bucket({
                 name: params.bucket,
+                tiering: [params.tier]
             });
         });
     };

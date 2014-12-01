@@ -214,7 +214,7 @@ describe('rest_api', function() {
                             assert.deepEqual(param, req.rest_params[name]);
                         });
                         if (reply_error) {
-                            throw req.rest_error(ERROR_REPLY, ERROR_STATUS);
+                            throw req.rest_error(ERROR_STATUS, ERROR_REPLY);
                         } else {
                             return Q.resolve(REPLY);
                         }

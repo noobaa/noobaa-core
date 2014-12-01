@@ -207,16 +207,29 @@ function rest_api(api) {
                 return next();
             }
             Q.fcall(function() {
-                    req.rest_error = function(data, status) {
-                        if (!req._rest_error_data) {
-                            req._rest_error_data = data;
-                            req._rest_error_status = status;
+                    /**
+                     * mark the request to respond with error
+                     * @param status <Number> optional status code.
+                     * @param data <String> the error response data to send
+                     * @param reason <Any> a reason for logging only
+                     */
+                    req.rest_error = function(status, data, reason) {
+                        if (typeof(status) === 'string') {
+                            reason = data;
+                            data = status;
+                            status = 500;
                         }
-                        return new Error('throw rest error');
+                        if (!req._rest_error_data) {
+                            req._rest_error_status = status;
+                            req._rest_error_data = data;
+                            req._rest_error_reason = reason;
+                        }
+                        return new Error('rest_error');
                     };
                     req.rest_clear_error = function() {
-                        req._rest_error_data = undefined;
                         req._rest_error_status = undefined;
+                        req._rest_error_data = undefined;
+                        req._rest_error_reason = undefined;
                     };
                     req.rest_params = {};
                     _.each(req.query, function(v, k) {
@@ -246,7 +259,7 @@ function rest_api(api) {
                 })
                 .then(function(reply) {
                     if (req._rest_error_data) {
-                        throw new Error('rethrow rest error');
+                        throw new Error('rethrow_rest_error');
                     }
                     self._log('SERVER COMPLETED', func_info.name);
                     if (func_info.reply_raw) {
@@ -257,9 +270,10 @@ function rest_api(api) {
                     }
                 })
                 .then(null, function(err) {
-                    self._log('SERVER ERROR', func_info.name, ':',
-                        'REST ERROR', req._rest_error_data,
-                        'EXCEPTION', err, err.stack);
+                    self._log('SERVER ERROR', func_info.name,
+                        ':', req._rest_error_status, req._rest_error_data,
+                        '-', req._rest_error_reason);
+                    self._log(err.stack || err);
                     var status = req._rest_error_status || err.status || err.statusCode;
                     if (typeof status !== 'number' || status < 100 || status >= 600) {
                         status = 500;

@@ -354,8 +354,7 @@ function _prepare_auth_request(req) {
      *
      */
     req.unauthorized = function(reason) {
-        console.error('UNAUTHORIZED', reason);
-        return req.rest_error('unauthorized', 401);
+        return req.rest_error(401, 'unauthorized', reason);
     };
 
 
@@ -367,8 +366,7 @@ function _prepare_auth_request(req) {
      *
      */
     req.forbidden = function(reason) {
-        console.error('FORBIDDEN', reason);
-        return req.rest_error('forbidden', 403);
+        return req.rest_error(403, 'forbidden', reason);
     };
 
 }

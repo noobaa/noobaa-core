@@ -73,8 +73,7 @@ function create_node(req) {
             info.tier = tier;
 
             if (String(tier.system) !== String(info.system)) {
-                console.error('TIER SYSTEM MISMATCH', info);
-                throw req.rest_error('tier not found');
+                throw req.rest_error('tier not found', ['TIER SYSTEM MISMATCH', info]);
             }
 
             return db.Node.create(info);

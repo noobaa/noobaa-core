@@ -74,9 +74,9 @@ AgentStore.prototype.get_usage = function() {
  */
 AgentStore.prototype.get_alloc = function() {
     var self = this;
-    return self._read_variables()
-        .then(function(variables) {
-            return variables && variables.alloc || 0;
+    return self._read_config()
+        .then(function(config) {
+            return config && config.alloc || 0;
         });
 };
 
@@ -88,11 +88,11 @@ AgentStore.prototype.get_alloc = function() {
  */
 AgentStore.prototype.set_alloc = function(size) {
     var self = this;
-    return self._read_variables()
-        .then(function(variables) {
-            variables = variables || {};
-            variables.alloc = size;
-            return self._write_variables(variables);
+    return self._read_config()
+        .then(function(config) {
+            config = config || {};
+            config.alloc = size;
+            return self._write_config(config);
         });
 };
 
@@ -208,13 +208,13 @@ AgentStore.prototype._stat_block_path = function(block_path, resolve_missing) {
 
 /**
  *
- * _read_variables
+ * _read_config
  *
  */
-AgentStore.prototype._read_variables = function() {
+AgentStore.prototype._read_config = function() {
     var self = this;
-    var variables_file = path.join(self.root_path, '_var');
-    return Q.nfcall(fs.readFile, variables_file)
+    var config_file = path.join(self.root_path, 'config');
+    return Q.nfcall(fs.readFile, config_file)
         .then(function(data) {
             return JSON.parse(data);
         }, function(err) {
@@ -225,14 +225,14 @@ AgentStore.prototype._read_variables = function() {
 
 /**
  *
- * _write_variables
+ * _write_config
  *
  */
-AgentStore.prototype._write_variables = function(variables) {
+AgentStore.prototype._write_config = function(config) {
     var self = this;
-    var variables_file = path.join(self.root_path, '_var');
-    var data = JSON.stringify(variables);
-    return Q.nfcall(fs.writeFile, variables_file, data);
+    var config_file = path.join(self.root_path, 'config');
+    var data = JSON.stringify(config);
+    return Q.nfcall(fs.writeFile, config_file, data);
 };
 
 

@@ -34,19 +34,18 @@ nb_util.factory('nbAuth', [
         var $scope = {};
 
         var win_storage = $window.sessionStorage;
-
-        $scope._client = new api.Client();
-
-        // return a new client based on mine - inherits auth token unless overriden
-        $scope.client = function() {
-            return new api.Client($scope._client);
-        };
-
+        $scope.client = new api.Client();
         $scope.save_token = save_token;
         $scope.init_token = init_token;
         $scope.logout = logout;
         $scope.create_auth = create_auth;
-        $scope.init_promise = init_token();
+        $scope.init_promise = $q.when().then(init_token);
+        $scope.new_client = new_client;
+
+        // return a new client based on mine - inherits auth token unless overriden
+        function new_client() {
+            return new api.Client($scope.client);
+        }
 
         function save_token(token) {
             win_storage.nb_token = token;
@@ -54,32 +53,38 @@ nb_util.factory('nbAuth', [
 
         function init_token() {
             var token = win_storage.nb_token;
-            // TODO get rid of this global headers?
-            // api.rest_api.global_client_headers.set_auth_token(token);
-            $scope._client.headers.set_auth_token(token);
 
-            return $q.when().then(
-                function() {
-                    if (token) {
-                        return $scope._client.auth.read_auth();
-                    }
-                }
-            ).then(
-                function(res) {
-                    if (res) {
-                        $scope.account = res.account;
-                        $scope.system = res.system;
-                        $scope.role = res.role;
-                        $scope.extra = res.extra;
-                    }
-                    $scope.inited = true;
-                },
-                function(err) {
-                    if (err.status === 401) { // unauthorized
-                        logout();
-                    }
-                }
-            );
+            // TODO get rid of this global headers?
+            api.rest_api.global_client_headers.set_auth_token(token);
+            // $scope.client.headers.set_auth_token(token);
+
+            if (!token) return logout();
+
+            return $q.when()
+                .then(function() {
+                    return $scope.client.auth.read_auth();
+                })
+                .then(function(res) {
+                    if (!res) return;
+                    $scope.account = res.account;
+                    $scope.system = res.system;
+                    $scope.role = res.role;
+                    $scope.extra = res.extra;
+                }, function(err) {
+                    // handle unauthorized response
+                    if (err.status === 401) return logout();
+                });
+        }
+
+        function create_auth(params) {
+            return $q.when()
+                .then(function() {
+                    return $scope.client.create_auth_token(params);
+                })
+                .then(function(res) {
+                    save_token(res.token);
+                    return init_token();
+                });
         }
 
         function logout() {
@@ -87,19 +92,6 @@ nb_util.factory('nbAuth', [
             if ($window.location.pathname.search(/^\/login/) < 0) {
                 $window.location.href = '/login';
             }
-        }
-
-        function create_auth(params) {
-            return $q.when().then(
-                function() {
-                    return $scope._client.create_auth_token(params);
-                }
-            ).then(
-                function(res) {
-                    save_token(res.token);
-                    return init_token();
-                }
-            );
         }
 
         return $scope;

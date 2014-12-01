@@ -492,10 +492,14 @@ rest_api.global_client_headers = {
      * get/set a token in Bearer autorization header
      */
     get_auth_token: function() {
-        return this.authorization.slice('Bearer '.length);
+        return this.authorization && this.authorization.slice('Bearer '.length);
     },
     set_auth_token: function(token) {
-        this.authorization = 'Bearer ' + token;
+        if (token) {
+            this.authorization = 'Bearer ' + token;
+        } else {
+            delete this.authorization;
+        }
     },
 
     /**

@@ -33,6 +33,15 @@ module.exports = rest_api({
                     },
                 },
             },
+            reply: {
+                type: 'object',
+                required: ['token'],
+                properties: {
+                    token: {
+                        type: 'string'
+                    }
+                }
+            },
             auth: {
                 account: false,
                 system: false,

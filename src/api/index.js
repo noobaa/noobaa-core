@@ -1,6 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
+var Q = require('q');
 var rest_api = require('../util/rest_api');
 var auth_api = require('./auth_api');
 var account_api = require('./account_api');
@@ -18,6 +19,7 @@ var agent_api = require('./agent_api');
  *
  */
 module.exports = {
+
     // Client is a master client (like a master key) for all apis
     Client: Client,
 
@@ -67,4 +69,40 @@ function Client(base) {
             return res.token;
         });
     };
+
+    /**
+     * easy setup of account, system, tier, bucket
+     */
+    self.setup = function setup(params) {
+        return Q.fcall(function() {
+            return self.account.create_account({
+                name: params.email,
+                email: params.email,
+                password: params.password,
+            });
+        }).then(function() {
+            return self.create_auth_token({
+                email: params.email,
+                password: params.password,
+            });
+        }).then(function() {
+            return self.system.create_system({
+                name: params.system,
+            });
+        }).then(function() {
+            return self.create_auth_token({
+                system: params.system,
+            });
+        }).then(function() {
+            return self.tier.create_tier({
+                name: params.tier,
+                kind: 'edge',
+            });
+        }).then(function() {
+            return self.bucket.create_bucket({
+                name: params.bucket,
+            });
+        });
+    };
+
 }

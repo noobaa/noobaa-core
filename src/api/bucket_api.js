@@ -15,32 +15,6 @@ module.exports = rest_api({
 
     methods: {
 
-        list_buckets: {
-            method: 'GET',
-            path: '/buckets',
-            reply: {
-                type: 'object',
-                required: ['buckets'],
-                properties: {
-                    buckets: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['name'],
-                            properties: {
-                                name: {
-                                    type: 'string'
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         create_bucket: {
             method: 'POST',
             path: '/bucket',
@@ -118,6 +92,32 @@ module.exports = rest_api({
             }
         },
 
+        list_buckets: {
+            method: 'GET',
+            path: '/buckets',
+            reply: {
+                type: 'object',
+                required: ['buckets'],
+                properties: {
+                    buckets: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['name'],
+                            properties: {
+                                name: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+        
         list_bucket_objects: {
             method: 'GET',
             path: '/bucket/:name/list',

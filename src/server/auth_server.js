@@ -159,30 +159,13 @@ function create_auth(req) {
 
     }).then(function() {
 
-        // use jwt (json web token) to create a signed token
-        var jwt_payload = {
-            account_id: account.id
-        };
+        var token = req.make_auth_token({
+            account_id: account.id,
+            system_id: system && system.id,
+            role: role_name,
+            extra: req.rest_params.extra,
+        });
 
-        // add the system and role if provided
-        if (system) {
-            jwt_payload.system_id = system.id;
-        }
-        if (role_name) {
-            jwt_payload.role = role_name;
-        }
-
-        // add extra info
-        if (req.rest_params.extra) {
-            jwt_payload.extra = req.rest_params.extra;
-        }
-
-        // set expiry if provided
-        var jwt_options = {};
-        if (expiry) jwt_options.expiresInMinutes = expiry / 60;
-
-        // create and return the signed token
-        var token = jwt.sign(jwt_payload, process.env.JWT_SECRET, jwt_options);
         return {
             token: token
         };
@@ -321,9 +304,10 @@ function _prepare_auth_request(req) {
      *
      * req.make_auth_token()
      *
-     * make auth token based on the existing auth with the given modifications.
+     * make jwt token (json web token) used for authorization.
      *
      * @param <Object> options:
+     *      - account_id
      *      - system_id
      *      - role
      *      - extra
@@ -331,23 +315,21 @@ function _prepare_auth_request(req) {
      * @return <String> token
      */
     req.make_auth_token = function(options) {
-        var jwt_payload = _.pick(req.auth, 'account_id', 'system_id', 'role', 'extra');
-        if (options.system_id) {
-            jwt_payload.system_id = options.system_id;
-        }
-        if (options.role) {
-            jwt_payload.role = options.role;
-        }
-        if (options.extra) {
-            jwt_payload.extra = options.extra;
-        }
+        var auth = _.pick(options, 'account_id', 'system_id', 'role', 'extra');
+
+        // don't incude keys if value is falsy, to minimize the token size
+        auth = _.omit(auth, function(value) {
+            return !value;
+        });
 
         // set expiry if provided
         var jwt_options = {};
-        if (options.expiry) jwt_options.expiresInMinutes = options.expiry / 60;
+        if (options.expiry) {
+            jwt_options.expiresInMinutes = options.expiry / 60;
+        }
 
         // create and return the signed token
-        return jwt.sign(jwt_payload, process.env.JWT_SECRET, jwt_options);
+        return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
     };
 
 

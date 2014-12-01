@@ -56,8 +56,8 @@ var data_block_schema = new Schema({
         required: true,
     },
 
-    // uploading state
-    uploading: {
+    // upload_mode state
+    upload_mode: {
         type: Boolean,
     },
 

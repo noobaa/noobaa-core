@@ -38,20 +38,13 @@ module.exports = new api.object_api.Server({
  *
  */
 function create_multipart_upload(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-    var size = req.rest_params.size;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
-                size: size,
+                key: req.rest_params.key,
+                size: req.rest_params.size,
                 upload_mode: true,
             };
             return db.ObjectMD.create(info);
@@ -66,18 +59,12 @@ function create_multipart_upload(req) {
  *
  */
 function complete_multipart_upload(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
             };
             var updates = {
                 $unset: {
@@ -96,18 +83,12 @@ function complete_multipart_upload(req) {
  *
  */
 function abort_multipart_upload(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
             };
             var updates = {
                 upload_mode: true
@@ -124,21 +105,12 @@ function abort_multipart_upload(req) {
  *
  */
 function allocate_object_part(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-    var start = Number(req.rest_params.start);
-    var end = Number(req.rest_params.end);
-    var md5sum = req.rest_params.md5sum;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
             };
             return db.ObjectMD.findOne(info).exec();
         }).then(function(obj) {
@@ -149,6 +121,9 @@ function allocate_object_part(req) {
                 // TODO handle the upload_mode state
                 // throw new Error('object not in upload mode');
             }
+            var start = Number(req.rest_params.start);
+            var end = Number(req.rest_params.end);
+            var md5sum = req.rest_params.md5sum;
             return object_mapper.allocate_object_part(obj, start, end, md5sum);
         });
 }
@@ -161,25 +136,20 @@ function allocate_object_part(req) {
  *
  */
 function read_object_mappings(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-    var start = Number(req.rest_params.start);
-    var end = Number(req.rest_params.end);
     var obj;
 
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
             };
             return db.ObjectMD.findOne(info).exec();
         }).then(function(obj_arg) {
             obj = obj_arg;
+            var start = Number(req.rest_params.start);
+            var end = Number(req.rest_params.end);
             return object_mapper.read_object_mappings(obj, start, end);
         }).then(function(parts) {
             return {
@@ -197,18 +167,12 @@ function read_object_mappings(req) {
  *
  */
 function read_object_md(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
             };
             return db.ObjectMD.findOne(info).exec();
         }).then(function(obj) {
@@ -224,18 +188,12 @@ function read_object_md(req) {
  *
  */
 function update_object_md(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
             };
             // TODO no fields can be updated for now
             var updates = _.pick(req.rest_params);
@@ -251,18 +209,12 @@ function update_object_md(req) {
  *
  */
 function delete_object(req) {
-    var bucket_name = req.rest_params.bucket;
-    var key = req.rest_params.key;
-
-    return db.BucketCache.get({
-            system: req.system.id,
-            name: bucket_name,
-        })
+    return get_bucket_from_cache(req)
         .then(function(bucket) {
             var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
             };
             return db.ObjectMD.findOneAndRemove(info).exec();
         }).thenResolve();
@@ -282,4 +234,11 @@ function get_object_info(md) {
         info.upload_mode = md.upload_mode;
     }
     return info;
+}
+
+function get_bucket_from_cache(req) {
+    return db.BucketCache.get({
+        system: req.system.id,
+        name: req.rest_params.bucket,
+    });
 }

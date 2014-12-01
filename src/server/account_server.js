@@ -37,7 +37,17 @@ function create_account(req) {
 
     return Q.when(db.Account.create(info))
         .then(null, db.check_already_exists(req, 'account'))
-        .thenResolve();
+        .then(function(account) {
+
+            // a token for the new account
+            var token = req.make_auth_token({
+                account_id: account.id,
+            });
+
+            return {
+                token: token
+            };
+        });
 }
 
 

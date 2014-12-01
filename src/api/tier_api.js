@@ -21,7 +21,7 @@ module.exports = rest_api({
             path: '/tier',
             params: {
                 type: 'object',
-                requires: ['name', 'kind', 'edge_details', 'cloud_details'],
+                requires: ['name', 'kind'],
                 properties: {
                     name: {
                         type: 'string',

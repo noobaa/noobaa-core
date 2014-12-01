@@ -82,10 +82,11 @@ function create_node(req) {
         .then(null, db.check_already_exists(req, 'node'))
         .then(function(node) {
 
-            // make a new token for the agent authorized to use the new node id.
+            // a token for the agent authorized to use the new node id.
             var token = req.make_auth_token({
-                role: 'agent',
+                account_id: req.account.id,
                 system_id: req.system.id,
+                role: 'agent',
                 extra: {
                     node_id: node.id,
                 }

@@ -23,8 +23,8 @@ module.exports = ObjectClient;
  * the client provides api access to remote object storage.
  * the client API functions have the signature function(params), and return a promise.
  */
-function ObjectClient() {
-    object_api.Client.call(this);
+function ObjectClient(base) {
+    object_api.Client.call(this, base);
     this.read_sem = new Semaphore(16);
     this.write_sem = new Semaphore(16);
 }

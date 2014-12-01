@@ -12,11 +12,11 @@ var repl = require('repl');
 var assert = require('assert');
 var crypto = require('crypto');
 var mkdirp = require('mkdirp');
-var Agent = require('./agent');
-var api = require('../api');
-var size_utils = require('../util/size_utils');
 var argv = require('minimist')(process.argv);
 var Semaphore = require('noobaa-util/semaphore');
+var size_utils = require('../util/size_utils');
+var api = require('../api');
+var Agent = require('./agent');
 
 Q.longStackSupport = true;
 
@@ -39,7 +39,7 @@ function AgentCLI(params) {
         email: 'a@a.a',
         password: 'aaa',
         system: 'sys',
-        tier: 'tier',
+        tier: 'edge',
         bucket: 'bucket',
     });
     self.client = new api.Client();
@@ -60,62 +60,12 @@ AgentCLI.prototype.init = function() {
 
     return Q.fcall(function() {
             if (self.params.setup) {
-                return self.setup();
+                return self.client.setup(self.params);
             }
         })
         .then(function() {
             return self.load();
         });
-};
-
-
-
-/**
- *
- * SETUP
- *
- * create account, system, tier, bucket.
- *
- */
-AgentCLI.prototype.setup = function() {
-    var self = this;
-    var p = self.params;
-    console.log(p);
-
-    return Q.fcall(function() {
-        return self.client.account.create_account({
-            name: p.email,
-            email: p.email,
-            password: p.password,
-        });
-    }).then(function() {
-        return self.client.create_auth_token({
-            email: p.email,
-            password: p.password,
-        });
-    }).then(function() {
-        return self.client.system.create_system({
-            name: p.system,
-        });
-    }).then(function() {
-        return self.client.create_auth_token({
-            system: p.system,
-        });
-    }).then(function(token) {
-        return self.client.tier.create_tier({
-            name: p.tier,
-            kind: 'edge',
-            edge_details: {
-                replicas: 2,
-                data_fragments: 200,
-                parity_fragments: 100,
-            }
-        });
-    }).then(function() {
-        return self.client.bucket.create_bucket({
-            name: p.bucket,
-        });
-    });
 };
 
 
@@ -139,7 +89,9 @@ AgentCLI.prototype.load = function() {
                 };
             }
             return self.client.create_auth_token(auth_params);
-        }).then(function(token) {
+        })
+        .then(function(token) {
+            self.create_node_token = token;
             return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
@@ -149,13 +101,13 @@ AgentCLI.prototype.load = function() {
             return Q.all(_.map(names, function(node_name) {
                 return self.start(node_name);
             }));
-        }).then(function(res) {
+        })
+        .then(function(res) {
             console.log('loaded', res.length, 'agents. show details with: nb.list()');
-            return res;
         }, function(err) {
             console.error('load failed');
             throw err;
-        }).thenResolve();
+        });
 };
 
 
@@ -179,7 +131,7 @@ AgentCLI.prototype.create = function() {
             return Q.nfcall(mkdirp, node_path);
         })
         .then(function() {
-            return Q.nfcall(fs.writeFile, token_path, self.client.token);
+            return Q.nfcall(fs.writeFile, token_path, self.create_node_token);
         })
         .then(function() {
             return self.start(node_name);
@@ -311,6 +263,8 @@ function main() {
         var help = 'try typing "nb." and then TAB ...';
         repl_srv.context.help = help;
         repl_srv.context.nb = cli;
+    }, function(err) {
+        console.error(err);
     });
 }
 

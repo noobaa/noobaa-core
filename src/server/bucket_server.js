@@ -17,33 +17,13 @@ var db = require('./db');
  *
  */
 module.exports = new api.bucket_api.Server({
-    list_buckets: list_buckets,
     create_bucket: create_bucket,
     read_bucket: read_bucket,
     update_bucket: update_bucket,
     delete_bucket: delete_bucket,
+    list_buckets: list_buckets,
     list_bucket_objects: list_bucket_objects,
 });
-
-
-
-/**
- *
- * LIST_BUCKETS
- *
- */
-function list_buckets(req) {
-    return Q.when(db.Bucket.find({
-        system: req.system.id,
-        deleted: null,
-    }).exec()).then(function(buckets) {
-        return {
-            buckets: _.map(buckets, function(bucket) {
-                return _.pick(bucket, 'name');
-            })
-        };
-    });
-}
 
 
 
@@ -105,6 +85,26 @@ function delete_bucket(req) {
         };
         return db.Bucket.findOneAndUpdate(get_bucket_query(req), updates).exec();
     }).thenResolve();
+}
+
+
+
+/**
+*
+* LIST_BUCKETS
+*
+*/
+function list_buckets(req) {
+    return Q.when(db.Bucket.find({
+        system: req.system.id,
+        deleted: null,
+    }).exec()).then(function(buckets) {
+        return {
+            buckets: _.map(buckets, function(bucket) {
+                return _.pick(bucket, 'name');
+            })
+        };
+    });
 }
 
 

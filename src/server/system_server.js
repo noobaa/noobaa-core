@@ -58,6 +58,16 @@ function create_system(req) {
         })
         .then(null, db.check_already_exists(req, 'role'))
         .then(function() {
+
+            // a token for the new system
+            /* TODO add the token to the response
+            var token = req.make_auth_token({
+                account_id: req.account.id,
+                system_id: system.id,
+                role: 'admin',
+            });
+            */
+
             return get_system_info(system);
         });
 }

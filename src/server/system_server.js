@@ -161,7 +161,9 @@ function read_system(req) {
 
 function update_system(req) {
     var info = _.pick(req.rest_params, 'name');
-    return Q.when(db.System.findByIdAndUpdate(req.system.id, info).exec())
+    return Q.when(db.System
+            .findByIdAndUpdate(req.system.id, info)
+            .exec())
         .thenResolve();
 }
 
@@ -172,9 +174,11 @@ function update_system(req) {
  *
  */
 function delete_system(req) {
-    return Q.when(db.System.findByIdAndUpdate(req.system.id, {
-            deleted: new Date()
-        }).exec())
+    return Q.when(db.System
+            .findByIdAndUpdate(req.system.id, {
+                deleted: new Date()
+            })
+            .exec())
         .thenResolve();
 }
 
@@ -189,9 +193,11 @@ function list_systems(req) {
 
     // special case for support accounts - list all systems
     if (req.account.is_support) {
-        return Q.when(db.System.find({
-                deleted: null
-            }).exec())
+        return Q.when(db.System
+                .find({
+                    deleted: null
+                })
+                .exec())
             .then(function(systems) {
                 return _.map(systems, function(system) {
                     return get_system_info(system);
@@ -200,9 +206,12 @@ function list_systems(req) {
     }
 
     // for normal accounts, get list from roles
-    return Q.when(db.Role.find({
-            account: req.account.id
-        }).populate('system').exec())
+    return Q.when(db.Role
+            .find({
+                account: req.account.id
+            })
+            .populate('system')
+            .exec())
         .then(function(roles) {
             return _.compact(_.map(roles, function(role) {
                 if (role.system.deleted) return null;
@@ -219,10 +228,12 @@ function list_systems(req) {
  *
  */
 function add_role(req) {
-    return Q.when(db.Account.findOne({
-            email: req.rest_params.email,
-            deleted: null,
-        }).exec())
+    return Q.when(db.Account
+            .findOne({
+                email: req.rest_params.email,
+                deleted: null,
+            })
+            .exec())
         .then(db.check_not_deleted(req, 'account'))
         .then(function(account) {
             return db.Role.create({
@@ -243,16 +254,20 @@ function add_role(req) {
  *
  */
 function remove_role(req) {
-    return Q.when(db.Account.findOne({
-            email: req.rest_params.email,
-            deleted: null,
-        }).exec())
+    return Q.when(db.Account
+            .findOne({
+                email: req.rest_params.email,
+                deleted: null,
+            })
+            .exec())
         .then(db.check_not_deleted(req, 'account'))
         .then(function(account) {
-            return db.Role.findOneAndRemove({
-                account: account.id,
-                system: req.system.id,
-            }).exec();
+            return db.Role
+                .findOneAndRemove({
+                    account: account.id,
+                    system: req.system.id,
+                })
+                .exec();
         })
         .thenResolve();
 }

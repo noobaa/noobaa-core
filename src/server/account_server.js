@@ -74,7 +74,9 @@ function update_account(req) {
 
     // pick and send the updates
     var info = _.pick(req.rest_params, 'name', 'email', 'password');
-    return Q.when(db.Account.findByIdAndUpdate(req.account.id, info).exec())
+    return Q.when(db.Account
+            .findByIdAndUpdate(req.account.id, info)
+            .exec())
         .thenResolve();
 }
 
@@ -91,8 +93,10 @@ function delete_account(req) {
 
     // we just mark the deletion time to make it easy to regret
     // and to avoid stale refs side effects of actually removing from the db.
-    return Q.when(db.Account.findByIdAndUpdate(req.account.id, {
-            deleted: new Date()
-        }).exec())
+    return Q.when(db.Account
+            .findByIdAndUpdate(req.account.id, {
+                deleted: new Date()
+            })
+            .exec())
         .thenResolve();
 }

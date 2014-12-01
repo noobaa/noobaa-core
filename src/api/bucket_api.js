@@ -24,6 +24,12 @@ module.exports = rest_api({
                 properties: {
                     name: {
                         type: 'string',
+                    },
+                    tiering: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
                     }
                 }
             },
@@ -46,10 +52,16 @@ module.exports = rest_api({
             },
             reply: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'tiering'],
                 properties: {
                     name: {
                         type: 'string'
+                    },
+                    tiering: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
                     }
                 }
             },
@@ -68,6 +80,15 @@ module.exports = rest_api({
                     name: {
                         type: 'string',
                     },
+                    new_name: {
+                        type: 'string',
+                    },
+                    tiering: {
+                        type: 'array',
+                        items: {
+                            type: 'string',
+                        }
+                    }
                 }
             },
             auth: {
@@ -103,10 +124,16 @@ module.exports = rest_api({
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['name'],
+                            required: ['name', 'tiering'],
                             properties: {
                                 name: {
                                     type: 'string'
+                                },
+                                tiering: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'string',
+                                    }
                                 }
                             }
                         }

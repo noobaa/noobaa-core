@@ -34,11 +34,17 @@ module.exports = new api.bucket_api.Server({
 function create_bucket(req) {
     var name = req.rest_params.name;
 
-    return Q.fcall(function() {
-        var info = _.pick(req.rest_params, 'name');
-        info.system = req.system.id;
-        return db.Bucket.create(info);
-    }).thenResolve();
+    return resolve_tiering(req.rest_params.tiering)
+        .then(function(tiering) {
+            var info = _.pick(req.rest_params, 'name');
+            info.system = req.system.id;
+            if (tiering) {
+                info.tiering = tiering;
+            }
+            return db.Bucket.create(info);
+        })
+        .then(null, db.check_already_exists(req, 'bucket'))
+        .thenResolve();
 }
 
 
@@ -49,9 +55,13 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
-    return Q.when(db.Bucket.findOne(get_bucket_query(req)).exec())
+    return Q.when(db.Bucket
+            .findOne(get_bucket_query(req))
+            .populate('tiering.tier')
+            .exec())
+        .then(db.check_not_deleted(req, 'bucket'))
         .then(function(bucket) {
-            return _.pick(bucket, 'name');
+            return get_bucket_info(bucket);
         });
 }
 
@@ -63,11 +73,21 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
-    return Q.fcall(function() {
-        // TODO no fields can be updated for now
-        var updates = _.pick(req.rest_params);
-        return db.Bucket.findOneAndUpdate(get_bucket_query(req), updates).exec();
-    }).thenResolve();
+    return resolve_tiering(req.rest_params.tiering)
+        .then(function(tiering) {
+            var updates = {};
+            if (req.rest_params.new_name) {
+                updates.name = req.rest_params.new_name;
+            }
+            if (tiering) {
+                updates.tiering = tiering;
+            }
+            return db.Bucket
+                .findOneAndUpdate(get_bucket_query(req), updates)
+                .exec();
+        })
+        .then(db.check_not_deleted(req, 'bucket'))
+        .thenResolve();
 }
 
 
@@ -78,32 +98,38 @@ function update_bucket(req) {
  *
  */
 function delete_bucket(req) {
-    return Q.fcall(function() {
-        var updates = {
-            deleted: new Date()
-        };
-        return db.Bucket.findOneAndUpdate(get_bucket_query(req), updates).exec();
-    }).thenResolve();
+    var updates = {
+        deleted: new Date()
+    };
+    return Q.when(db.Bucket
+            .findOneAndUpdate(get_bucket_query(req), updates)
+            .exec())
+        .then(db.check_not_found(req, 'bucket'))
+        .thenResolve();
 }
 
 
 
 /**
-*
-* LIST_BUCKETS
-*
-*/
+ *
+ * LIST_BUCKETS
+ *
+ */
 function list_buckets(req) {
-    return Q.when(db.Bucket.find({
-        system: req.system.id,
-        deleted: null,
-    }).exec()).then(function(buckets) {
-        return {
-            buckets: _.map(buckets, function(bucket) {
-                return _.pick(bucket, 'name');
+    return Q.when(db.Bucket
+            .find({
+                system: req.system.id,
+                deleted: null,
             })
-        };
-    });
+            .populate('tiering.tier')
+            .exec())
+        .then(function(buckets) {
+            return {
+                buckets: _.map(buckets, function(bucket) {
+                    return get_bucket_info(bucket);
+                })
+            };
+        });
 }
 
 
@@ -117,4 +143,39 @@ function get_bucket_query(req) {
         name: req.rest_params.name,
         deleted: null,
     };
+}
+
+function get_bucket_info(bucket) {
+    var reply = _.pick(bucket, 'name');
+    if (bucket.tiering) {
+        reply.tiering = _.map(bucket.tiering, function(t) {
+            return t.tier.name;
+        });
+    }
+    return reply;
+}
+
+function resolve_tiering(tiering) {
+    if (!tiering) return Q.resolve();
+    return Q.when(db.Tier
+            .find({
+                name: {
+                    $in: tiering
+                },
+                deleted: null,
+            })
+            .exec())
+        .then(function(tiers) {
+            var tiers_by_name = _.indexBy(tiers, 'name');
+            return _.map(tiering, function(name) {
+                var tier = tiers_by_name[name];
+                if (!tier) {
+                    console.log('TIER NOT FOUND', name);
+                    throw new Error('missing tier');
+                }
+                return {
+                    tier: tier
+                };
+            });
+        });
 }

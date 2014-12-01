@@ -52,12 +52,18 @@ var objmd_schema = new Schema({
         required: true,
     },
 
+    // on delete set deletion time
+    deleted: {
+        type: Date,
+    },
+
 });
 
 // the combination (bucket,key) is unique
 objmd_schema.index({
     bucket: 1,
     key: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: true
 });

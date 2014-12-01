@@ -17,16 +17,16 @@ var types = mongoose.Schema.Types;
  */
 var data_chunk_schema = new Schema({
 
-    // the storage tier of this chunk
-    tier: {
-        ref: 'Tier',
+    // system is copied from the tier
+    system: {
+        ref: 'System',
         type: types.ObjectId,
         required: true,
     },
 
-    // system - pulled from the tier
-    system: {
-        ref: 'System',
+    // the storage tier of this chunk
+    tier: {
+        ref: 'Tier',
         type: types.ObjectId,
         required: true,
     },

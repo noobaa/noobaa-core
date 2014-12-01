@@ -17,7 +17,7 @@ module.exports = rest_api({
 
         create_multipart_upload: {
             method: 'POST',
-            path: '/:bucket/:key/upload',
+            path: '/obj/:bucket/:key/upload',
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'size'],
@@ -40,7 +40,7 @@ module.exports = rest_api({
 
         complete_multipart_upload: {
             method: 'PUT',
-            path: '/:bucket/:key/upload',
+            path: '/obj/:bucket/:key/upload',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -60,7 +60,7 @@ module.exports = rest_api({
 
         abort_multipart_upload: {
             method: 'DELETE',
-            path: '/:bucket/:key/upload',
+            path: '/obj/:bucket/:key/upload',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -80,7 +80,7 @@ module.exports = rest_api({
 
         allocate_object_part: {
             method: 'POST',
-            path: '/:bucket/:key/part',
+            path: '/obj/:bucket/:key/part',
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'start', 'end', 'md5sum'],
@@ -112,7 +112,7 @@ module.exports = rest_api({
 
         read_object_mappings: {
             method: 'GET',
-            path: '/:bucket/:key/map',
+            path: '/obj/:bucket/:key/map',
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'start', 'end'],
@@ -153,7 +153,7 @@ module.exports = rest_api({
 
         read_object_md: {
             method: 'GET',
-            path: '/:bucket/:key',
+            path: '/obj/:bucket/:key',
             params: {
                 $ref: '/object_api/definitions/object_path'
             },
@@ -167,7 +167,7 @@ module.exports = rest_api({
 
         update_object_md: {
             method: 'PUT',
-            path: '/:bucket/:key',
+            path: '/obj/:bucket/:key',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -187,7 +187,7 @@ module.exports = rest_api({
 
         delete_object: {
             method: 'DELETE',
-            path: '/:bucket/:key',
+            path: '/obj/:bucket/:key',
             params: {
                 $ref: '/object_api/definitions/object_path'
             },
@@ -198,7 +198,7 @@ module.exports = rest_api({
 
         list_objects: {
             method: 'GET',
-            path: '/:bucket/:key/list',
+            path: '/objs/:bucket/:key',
             params: {
                 $ref: '/object_api/definitions/object_path'
             },

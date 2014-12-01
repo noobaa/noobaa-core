@@ -129,7 +129,9 @@ function update_node(req) {
     // TODO move node between tiers - requires decomission
     if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
 
-    return Q.when(db.Node.findOneAndUpdate(get_node_query(req), updates).exec())
+    return Q.when(db.Node
+            .findOneAndUpdate(get_node_query(req), updates)
+            .exec())
         .then(db.check_not_deleted(req, 'node'))
         .thenResolve();
 }
@@ -145,7 +147,9 @@ function delete_node(req) {
     var updates = {
         deleted: new Date()
     };
-    return Q.when(db.Node.findOneAndUpdate(get_node_query(req), updates).exec())
+    return Q.when(db.Node
+            .findOneAndUpdate(get_node_query(req), updates)
+            .exec())
         .then(db.check_not_found(req, 'node'))
         .then(function(node) {
             // TODO notify to initiate rebuild of blocks
@@ -308,7 +312,7 @@ function heartbeat(req) {
     var node;
 
     return Q.when(db.Node.findById(node_id).exec())
-        .then(db.check_not_deleted())
+        .then(db.check_not_deleted(req, 'node'))
         .then(function(node_arg) {
             node = node_arg;
             // TODO CRITICAL need to optimize - we count blocks on every heartbeat...

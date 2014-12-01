@@ -34,7 +34,7 @@ var bucket_schema = new Schema({
         type: String,
     },
 
-    // the bucket's tiering policy - list of tiers to use
+    // the bucket's tiering policy - ordered list of tiers to use
     tiering: [{
         tier: {
             ref: 'Tier',

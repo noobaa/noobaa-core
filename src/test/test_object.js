@@ -16,20 +16,21 @@ console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
 
 
-describe('object_api', function() {
+describe('object', function() {
 
     var client = coretest.new_client();
+    var SYS = 'test-object-system';
 
     before(function(done) {
         this.timeout(20000);
         Q.fcall(function() {
             return client.system.create_system({
-                name: 'sys'
+                name: SYS
             });
         }).then(function() {
             // authenticate now with the new system
             return client.create_auth_token({
-                system: 'sys'
+                system: SYS
             });
         }).then(function() {
             return client.tier.create_tier({
@@ -37,7 +38,7 @@ describe('object_api', function() {
                 kind: 'edge',
             });
         }).then(function() {
-            return coretest.init_test_nodes(10, 'sys', 'edge', size_utils.GIGABYTE);
+            return coretest.init_test_nodes(10, SYS, 'edge', size_utils.GIGABYTE);
         }).nodeify(done);
     });
 
@@ -53,19 +54,7 @@ describe('object_api', function() {
         var BKT = '1_bucket';
         var KEY = '1_key';
         Q.fcall(function() {
-            return client.bucket.list_buckets();
-        }).then(function() {
             return client.bucket.create_bucket({
-                name: BKT,
-            });
-        }).then(function() {
-            return client.bucket.list_buckets();
-        }).then(function() {
-            return client.bucket.read_bucket({
-                name: BKT,
-            });
-        }).then(function() {
-            return client.bucket.update_bucket({
                 name: BKT,
             });
         }).then(function() {
@@ -98,10 +87,6 @@ describe('object_api', function() {
             return client.object.delete_object({
                 bucket: BKT,
                 key: KEY,
-            });
-        }).then(function() {
-            return client.bucket.delete_bucket({
-                name: BKT,
             });
         }).nodeify(done);
     });

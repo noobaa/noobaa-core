@@ -25,12 +25,14 @@ function allocate_object_part(obj, start, end, md5sum) {
         CHUNK_KFRAG_BITWISE
     );
     var new_chunk = new db.DataChunk({
+        system: obj.system,
+        tier: null, // TODO fill chunk tiers
         size: chunk_size,
         kfrag: CHUNK_KFRAG,
         md5sum: md5sum,
     });
     var new_part = new db.ObjectPart({
-        account: obj.account,
+        system: obj.system,
         obj: obj.id,
         start: start,
         end: end,

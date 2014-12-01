@@ -69,11 +69,12 @@ function update_alloc_nodes() {
 
         // refresh the alloc_nodes
         return db.Node.find({
-            started: true,
-            heartbeat: {
-                $gt: minimum_alloc_heartbeat
-            }
-        }).exec();
+                started: true,
+                heartbeat: {
+                    $gt: minimum_alloc_heartbeat
+                }
+            })
+            .exec();
 
     }).then(function(nodes) {
         alloc_nodes = nodes;

@@ -179,7 +179,9 @@ function read_object_md(req) {
                 key: req.rest_params.key,
             };
             return db.ObjectMD.findOne(info).exec();
-        }).then(function(obj) {
+        })
+        .then(db.check_not_deleted(req, 'object'))
+        .then(function(obj) {
             return get_object_info(obj);
         });
 }
@@ -202,7 +204,9 @@ function update_object_md(req) {
             // TODO no fields can be updated for now
             var updates = _.pick(req.rest_params);
             return db.ObjectMD.findOneAndUpdate(info, updates).exec();
-        }).thenResolve();
+        })
+        .then(db.check_not_deleted(req, 'object'))
+        .thenResolve();
 }
 
 
@@ -221,7 +225,9 @@ function delete_object(req) {
                 key: req.rest_params.key,
             };
             return db.ObjectMD.findOneAndRemove(info).exec();
-        }).thenResolve();
+        })
+        .then(db.check_not_found(req, 'object'))
+        .thenResolve();
 }
 
 

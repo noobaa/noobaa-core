@@ -66,29 +66,32 @@ function create_auth(req) {
         if (!email) return;
 
         // find account by email
-        return db.Account.findOne({
-            email: email,
-            deleted: null,
-        }).exec().then(function(account_arg) {
+        return db.Account
+            .findOne({
+                email: email,
+                deleted: null,
+            })
+            .exec()
+            .then(function(account_arg) {
 
-            // consider email not found the same as bad password to avoid phishing attacks.
-            account = account_arg;
-            if (!account) throw req.unauthorized('credentials account not found');
+                // consider email not found the same as bad password to avoid phishing attacks.
+                account = account_arg;
+                if (!account) throw req.unauthorized('credentials account not found');
 
-            // when password is not provided it means we want to give authorization
-            // by the currently authorized to another specific account instead of
-            // using credentials.
-            if (!password) return;
+                // when password is not provided it means we want to give authorization
+                // by the currently authorized to another specific account instead of
+                // using credentials.
+                if (!password) return;
 
-            // use bcrypt to verify password
-            return Q.npost(account, 'verify_password', [password])
-                .then(function(match) {
-                    if (!match) throw req.unauthorized('password mismatch');
-                    // authentication passed!
-                    // so this account is the authenticated_account
-                    authenticated_account = account;
-                });
-        });
+                // use bcrypt to verify password
+                return Q.npost(account, 'verify_password', [password])
+                    .then(function(match) {
+                        if (!match) throw req.unauthorized('password mismatch');
+                        // authentication passed!
+                        // so this account is the authenticated_account
+                        authenticated_account = account;
+                    });
+            });
 
     }).then(function() {
 
@@ -100,7 +103,9 @@ function create_auth(req) {
         if (!req.auth || !req.auth.account_id) {
             throw req.unauthorized('no account_id in auth and no credetials');
         }
-        return db.Account.findById(req.auth.account_id).exec()
+        return db.Account
+            .findById(req.auth.account_id)
+            .exec()
             .then(function(account_arg) {
                 account = account || account_arg;
                 authenticated_account = authenticated_account || account_arg;
@@ -118,44 +123,50 @@ function create_auth(req) {
         if (!system_name) return;
 
         // find system by name
-        return Q.when(db.System.findOne({
-            name: system_name,
-            deleted: null,
-        }).exec()).then(function(system_arg) {
+        return db.System
+            .findOne({
+                name: system_name,
+                deleted: null,
+            })
+            .exec()
+            .then(function(system_arg) {
 
-            system = system_arg;
-            if (!system || system.deleted) throw req.unauthorized('system not found');
+                system = system_arg;
+                if (!system || system.deleted) throw req.unauthorized('system not found');
 
-            // now we need to approve the role.
-            // "support accounts" or "system owners" can use any role the ask for.
-            if (authenticated_account.is_support ||
-                String(system.owner) === String(authenticated_account.id)) {
-                role_name = role_name || 'admin';
-                return;
-            }
-
-            // find the role of authenticated_account and system
-            return db.Role.findOne({
-                account: authenticated_account.id,
-                system: system.id,
-            }).exec().then(function(role) {
-
-                if (!role) throw req.unauthorized('account has no role in system');
-
-                // "system admin" can use any role
-                if (role.role === 'admin') {
+                // now we need to approve the role.
+                // "support accounts" or "system owners" can use any role the ask for.
+                if (authenticated_account.is_support ||
+                    String(system.owner) === String(authenticated_account.id)) {
                     role_name = role_name || 'admin';
                     return;
                 }
 
-                // non admin is not allowed to delegate to other accounts
-                // and only allowed to use its formal role
-                if (String(account.id) === String(authenticated_account.id) ||
-                    role_name !== role.role) {
-                    throw req.unauthorized('non admin cannot delegate');
-                }
+                // find the role of authenticated_account and system
+                return db.Role
+                    .findOne({
+                        account: authenticated_account.id,
+                        system: system.id,
+                    })
+                    .exec()
+                    .then(function(role) {
+
+                        if (!role) throw req.unauthorized('account has no role in system');
+
+                        // "system admin" can use any role
+                        if (role.role === 'admin') {
+                            role_name = role_name || 'admin';
+                            return;
+                        }
+
+                        // non admin is not allowed to delegate to other accounts
+                        // and only allowed to use its formal role
+                        if (String(account.id) === String(authenticated_account.id) ||
+                            role_name !== role.role) {
+                            throw req.unauthorized('non admin cannot delegate');
+                        }
+                    });
             });
-        });
 
     }).then(function() {
 

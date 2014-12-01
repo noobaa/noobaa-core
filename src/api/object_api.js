@@ -110,6 +110,46 @@ module.exports = rest_api({
             }
         },
 
+        read_object_mappings: {
+            method: 'GET',
+            path: '/:bucket/:key/map',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key', 'start', 'end'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    start: {
+                        type: 'integer',
+                    },
+                    end: {
+                        type: 'integer',
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['size', 'parts'],
+                properties: {
+                    size: {
+                        type: 'integer'
+                    },
+                    parts: {
+                        type: 'array',
+                        items: {
+                            $ref: '/object_api/definitions/object_part_info'
+                        },
+                    },
+                }
+            },
+            auth: {
+                system: ['admin', 'user', 'viewer']
+            }
+        },
 
         read_object_md: {
             method: 'GET',
@@ -156,45 +196,35 @@ module.exports = rest_api({
             }
         },
 
-
-        read_object_mappings: {
+        list_objects: {
             method: 'GET',
-            path: '/:bucket/:key/map',
+            path: '/:bucket/:key/list',
             params: {
-                type: 'object',
-                required: ['bucket', 'key', 'start', 'end'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    start: {
-                        type: 'integer',
-                    },
-                    end: {
-                        type: 'integer',
-                    },
-                },
+                $ref: '/object_api/definitions/object_path'
             },
             reply: {
                 type: 'object',
-                required: ['size', 'parts'],
+                required: ['objects'],
                 properties: {
-                    size: {
-                        type: 'integer'
-                    },
-                    parts: {
+                    objects: {
                         type: 'array',
                         items: {
-                            $ref: '/object_api/definitions/object_part_info'
-                        },
-                    },
+                            type: 'object',
+                            required: ['key', 'info'],
+                            properties: {
+                                key: {
+                                    type: 'string',
+                                },
+                                info: {
+                                    $ref: '/object_api/definitions/object_info'
+                                }
+                            }
+                        }
+                    }
                 }
             },
             auth: {
-                system: ['admin', 'user', 'viewer']
+                system: 'admin'
             }
         },
 

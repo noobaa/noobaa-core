@@ -15,6 +15,7 @@ describe('agent', function() {
     var SYS = 'test-agent-system';
 
     before(function(done) {
+        this.timeout(20000);
         Q.fcall(function() {
             return client.system.create_system({
                 name: SYS
@@ -35,6 +36,7 @@ describe('agent', function() {
     });
 
     after(function(done) {
+        this.timeout(20000);
         Q.fcall(function() {
             return coretest.clear_test_nodes();
         }).nodeify(done);

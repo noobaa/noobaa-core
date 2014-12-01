@@ -315,7 +315,7 @@ function heartbeat(req) {
             return count_node_storage_used(node_id);
         })
         .then(function(storage_used) {
-            console.log('heartbeat', node, storage_used);
+            // console.log('heartbeat', node, storage_used);
 
             // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {

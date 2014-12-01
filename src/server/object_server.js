@@ -17,17 +17,21 @@ var db = require('./db');
  *
  */
 module.exports = new api.object_api.Server({
+
     // object upload
     create_multipart_upload: create_multipart_upload,
     complete_multipart_upload: complete_multipart_upload,
     abort_multipart_upload: abort_multipart_upload,
     allocate_object_part: allocate_object_part,
+
     // read
     read_object_mappings: read_object_mappings,
+
     // object meta-data
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
+    list_objects: list_objects,
 });
 
 
@@ -219,6 +223,39 @@ function delete_object(req) {
             return db.ObjectMD.findOneAndRemove(info).exec();
         }).thenResolve();
 }
+
+
+
+/**
+ *
+ * LIST_OBJECTS
+ *
+ */
+function list_objects(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+            };
+            if (req.rest_params.key) {
+                info.key = new RegExp(req.rest_params.key);
+            }
+            return db.ObjectMD.find(info).exec();
+        })
+        .then(function(objects) {
+            return {
+                objects: _.map(objects, function(obj) {
+                    return {
+                        key: obj.key,
+                        info: get_object_info(obj),
+                    };
+                })
+            };
+        });
+}
+
+
 
 
 

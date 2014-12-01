@@ -117,44 +117,6 @@ module.exports = rest_api({
                 system: 'admin'
             }
         },
-        
-        list_bucket_objects: {
-            method: 'GET',
-            path: '/bucket/:name/list',
-            params: {
-                type: 'object',
-                required: ['name'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                }
-            },
-            reply: {
-                type: 'object',
-                required: ['objects'],
-                properties: {
-                    objects: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['key', 'info'],
-                            properties: {
-                                key: {
-                                    type: 'string',
-                                },
-                                info: {
-                                    $ref: '/object_api/definitions/object_info'
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
 
     },
 

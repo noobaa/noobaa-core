@@ -9,24 +9,35 @@ var assert = require('assert');
 var argv = require('minimist')(process.argv);
 var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
+var coretest = require('./coretest');
 
 var chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 var chance = require('chance').Chance(chance_seed);
 
 
-describe.skip('object_api', function() {
+describe('object_api', function() {
 
-    var coretest = require('./coretest');
-    var object_client = coretest.object_client;
-    var Agent = require('../agent/agent');
-    var agents;
-
+    var client = coretest.new_client();
 
     before(function(done) {
         this.timeout(20000);
         Q.fcall(function() {
-            return coretest.init_test_nodes(10, size_utils.GIGABYTE);
+            return client.system.create_system({
+                name: 'sys'
+            });
+        }).then(function() {
+            // authenticate now with the new system
+            return client.create_auth_token({
+                system: 'sys'
+            });
+        }).then(function() {
+            return client.tier.create_tier({
+                name: 'edge',
+                kind: 'edge',
+            });
+        }).then(function() {
+            return coretest.init_test_nodes(10, 'sys', 'edge', size_utils.GIGABYTE);
         }).nodeify(done);
     });
 
@@ -42,54 +53,55 @@ describe.skip('object_api', function() {
         var BKT = '1_bucket';
         var KEY = '1_key';
         Q.fcall(function() {
-            return coretest.object_client.list_buckets();
+            return client.bucket.list_buckets();
         }).then(function() {
-            return coretest.object_client.create_bucket({
-                bucket: BKT,
+            return client.bucket.create_bucket({
+                name: BKT,
             });
         }).then(function() {
-            return coretest.object_client.list_buckets();
+            return client.bucket.list_buckets();
         }).then(function() {
-            return coretest.object_client.read_bucket({
-                bucket: BKT,
+            return client.bucket.read_bucket({
+                name: BKT,
             });
         }).then(function() {
-            return coretest.object_client.update_bucket({
-                bucket: BKT,
+            return client.bucket.update_bucket({
+                name: BKT,
             });
         }).then(function() {
-            return coretest.object_client.create_multipart_upload({
+            return client.object.create_multipart_upload({
                 bucket: BKT,
                 key: KEY,
                 size: 0,
             });
         }).then(function() {
-            return coretest.object_client.complete_multipart_upload({
+            return client.object.complete_multipart_upload({
                 bucket: BKT,
                 key: KEY,
             });
         }).then(function() {
-            return coretest.object_client.read_object_md({
+            return client.object.read_object_md({
                 bucket: BKT,
                 key: KEY,
             });
         }).then(function() {
-            return coretest.object_client.update_object_md({
+            return client.object.update_object_md({
                 bucket: BKT,
                 key: KEY,
             });
         }).then(function() {
-            return coretest.object_client.list_bucket_objects({
+            return client.object.list_objects({
                 bucket: BKT,
+                key: '',
             });
         }).then(function() {
-            return coretest.object_client.delete_object({
+            return client.object.delete_object({
                 bucket: BKT,
                 key: KEY,
             });
         }).then(function() {
-            return coretest.object_client.delete_bucket({
-                bucket: BKT,
+            return client.bucket.delete_bucket({
+                name: BKT,
             });
         }).nodeify(done);
     });
@@ -101,8 +113,8 @@ describe.skip('object_api', function() {
 
         before(function(done) {
             Q.fcall(function() {
-                return coretest.object_client.create_bucket({
-                    bucket: BKT,
+                return client.bucket.create_bucket({
+                    name: BKT,
                 });
             }).nodeify(done);
         });
@@ -135,14 +147,14 @@ describe.skip('object_api', function() {
                 for (var i = 0; i < size; i++) {
                     data[i] = chance.integer(CHANCE_BYTE);
                 }
-                return coretest.object_client.create_multipart_upload({
+                return client.object.create_multipart_upload({
                     bucket: BKT,
                     key: KEY,
                     size: size,
                 });
             }).then(function() {
                 return Q.Promise(function(resolve, reject) {
-                    coretest.object_client.open_write_stream({
+                    client.object.open_write_stream({
                         bucket: BKT,
                         key: KEY,
                     }).once('error', function(err) {
@@ -152,14 +164,14 @@ describe.skip('object_api', function() {
                     }).end(data);
                 });
             }).then(function() {
-                return coretest.object_client.complete_multipart_upload({
+                return client.object.complete_multipart_upload({
                     bucket: BKT,
                     key: KEY,
                 });
             }).then(function() {
                 return Q.Promise(function(resolve, reject) {
                     var buffers = [];
-                    coretest.object_client.open_read_stream({
+                    client.object.open_read_stream({
                         bucket: BKT,
                         key: KEY,
                         start: 0,

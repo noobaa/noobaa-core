@@ -14,6 +14,7 @@ describe('node', function() {
     var SYS = 'test-node-system';
 
     it('works', function(done) {
+        this.timeout(20000);
         Q.fcall(function() {
             return client.system.create_system({
                 name: SYS

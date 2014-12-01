@@ -13,6 +13,7 @@ describe('tier', function() {
     var SYS = 'test-tier-system';
 
     it('crud', function(done) {
+        this.timeout(20000);
         var system_id;
         Q.fcall(function() {
             return client.system.create_system({

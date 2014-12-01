@@ -24,6 +24,7 @@ describe('account', function() {
     describe('account full flow', function() {
 
         it('works', function(done) {
+            this.timeout(20000);
             Q.fcall(function() {
                 return client.account.create_account({
                     name: NAME,

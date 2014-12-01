@@ -198,9 +198,18 @@ module.exports = rest_api({
 
         list_objects: {
             method: 'GET',
-            path: '/objs/:bucket/:key',
+            path: '/objs/:bucket',
             params: {
-                $ref: '/object_api/definitions/object_path'
+                type: 'object',
+                required: ['bucket'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
             },
             reply: {
                 type: 'object',

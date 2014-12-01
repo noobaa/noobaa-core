@@ -11,8 +11,12 @@ module.exports = ObjectReader;
 
 
 /**
- * ObjectReader is a Readable stream for the specified object and range.
+ *
+ * OBJECT READER
+ *
+ * a Readable stream for the specified object and range.
  * params is also used for stream.Readable highWaterMark
+ *
  */
 function ObjectReader(client, params) {
     var self = this;
@@ -45,8 +49,7 @@ util.inherits(ObjectReader, stream.Readable);
  */
 ObjectReader.prototype._read = function(requested_size) {
     var self = this;
-    Q.fcall(
-        function() {
+    Q.fcall(function() {
             var end = Math.min(self._end, self._pos + requested_size);
             return self._client.read_object_range({
                 bucket: self._bucket,
@@ -54,16 +57,13 @@ ObjectReader.prototype._read = function(requested_size) {
                 start: self._pos,
                 end: end,
             });
-        }
-    ).done(
-        function(buffer) {
+        })
+        .done(function(buffer) {
             if (buffer) {
                 self._pos += buffer.length;
             }
             self.push(buffer);
-        },
-        function(err) {
+        }, function(err) {
             self.emit('error', err || 'unknown error');
-        }
-    );
+        });
 };

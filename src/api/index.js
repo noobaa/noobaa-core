@@ -55,9 +55,9 @@ function Client(base) {
     self.system = new system_api.Client(self);
     self.tier = new tier_api.Client(self);
     self.node = new node_api.Client(self);
+    self.agent = new agent_api.Client(self);
     self.bucket = new bucket_api.Client(self);
     self.object = new ObjectClient(self);
-    self.agent = new agent_api.Client(self);
 
     /**
      * authenticate using the provided params,
@@ -73,7 +73,7 @@ function Client(base) {
     /**
      * easy setup of account, system, tier, bucket
      */
-    self.setup = function setup(params) {
+    self.setup = function(params) {
         return Q.fcall(function() {
             return self.account.create_account({
                 name: params.email,

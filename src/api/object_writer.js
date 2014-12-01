@@ -11,8 +11,12 @@ module.exports = ObjectWriter;
 
 
 /**
- * ObjectWriter is a Writable stream for the specified object and range.
+ *
+ * OBJECT WRITER
+ *
+ * a Writable stream for the specified object and range.
  * params is also used for stream.Writable highWaterMark
+ *
  */
 function ObjectWriter(client, params) {
     var self = this;
@@ -40,8 +44,7 @@ util.inherits(ObjectWriter, stream.Writable);
  */
 ObjectWriter.prototype._write = function(chunk, encoding, callback) {
     var self = this;
-    Q.fcall(
-        function() {
+    Q.fcall(function() {
             return self._client.write_object_part({
                 bucket: self._bucket,
                 key: self._key,
@@ -49,10 +52,9 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
                 end: self._pos + chunk.length,
                 buffer: chunk,
             });
-        }
-    ).then(
-        function() {
+        })
+        .then(function() {
             self._pos += chunk.length;
-        }
-    ).nodeify(callback);
+        })
+        .nodeify(callback);
 };

@@ -19,9 +19,13 @@ module.exports = ObjectClient;
 
 
 /**
- * ctor of the object client.
- * the client provides api access to remote object storage.
- * the client API functions have the signature function(params), and return a promise.
+ *
+ * OBJECT CLIENT
+ *
+ * extends object_api with logic to provide access to remote object storage.
+ * does the necessary distributed io.
+ * the client functions have the signature function(params), and return a promise.
+ *
  */
 function ObjectClient(base) {
     object_api.Client.call(this, base);
@@ -53,7 +57,8 @@ ObjectClient.prototype.open_write_stream = function(params) {
 
 
 /**
- * write_object_part (API)
+ *
+ * WRITE_OBJECT_PART
  *
  * @param {Object} params:
  *   - bucket (String)
@@ -73,8 +78,8 @@ ObjectClient.prototype.write_object_part = function(params) {
     md5.update(params.buffer); // TODO PERF
     upload_params.md5sum = md5.digest('hex');
 
-    return self.allocate_object_part(upload_params).then(
-        function(part) {
+    return self.allocate_object_part(upload_params)
+        .then(function(part) {
             if (self._events) {
                 self._events.emit('part', part);
             }
@@ -91,13 +96,13 @@ ObjectClient.prototype.write_object_part = function(params) {
                     });
                 }));
             }));
-        }
-    );
+        });
 };
 
 
 /**
- * read_object_range (API)
+ *
+ * READ_OBJECT_RANGE
  *
  * @param {Object} params:
  *   - bucket (String)
@@ -106,23 +111,23 @@ ObjectClient.prototype.write_object_part = function(params) {
  *   - end (Number) - object end offset
  *
  * @return {Promise} buffer - the data. can be shorter than requested if EOF.
+ *
  */
 ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
-    // console.log('read_object_range', params);
     var obj_size;
-    return self.read_object_mappings(params).then(
-        function(mappings) {
+
+    // console.log('read_object_range', params);
+    return self.read_object_mappings(params)
+        .then(function(mappings) {
             obj_size = mappings.size;
             return Q.all(_.map(mappings.parts, self.read_object_part, self));
-        }
-    ).then(
-        function(parts) {
+        })
+        .then(function(parts) {
             // once all parts finish we can construct the complete buffer.
             var end = Math.min(obj_size, params.end);
             return combine_parts_buffers_in_range(parts, params.start, end);
-        }
-    );
+        });
 };
 
 /**
@@ -158,45 +163,37 @@ ObjectClient.prototype.read_object_part = function(part) {
         // this fragment will read and if fails it's promise rejection handler will go
         // to read the next block of the fragment.
         var add_block_promise_to_chain = function(promise, block) {
-            return promise.then(null,
-                function(err) {
-                    if (err !== chain_init_err) {
-                        console.error('READ FAILED BLOCK', err);
-                    }
-                    // use semaphore to surround the IO
-                    return self.read_sem.surround(function() {
-                        return read_block(block, block_size);
-                    });
+            return promise.then(null, function(err) {
+                if (err !== chain_init_err) {
+                    console.error('READ FAILED BLOCK', err);
                 }
-            );
+                // use semaphore to surround the IO
+                return self.read_sem.surround(function() {
+                    return read_block(block, block_size);
+                });
+            });
         };
+
         // chain_initiator is used to fire the first rejection handler for the head of the chain.
         var chain_init_err = {};
         var chain_initiator = Q.reject(chain_init_err);
+
         // reduce the blocks array to create the chain and feed it with the initial promise
-        return _.reduce(
-            blocks,
-            add_block_promise_to_chain,
-            chain_initiator
-        ).then(
-            function(buffer) {
+        return _.reduce(blocks, add_block_promise_to_chain, chain_initiator)
+            .then(function(buffer) {
                 // when done, just keep the buffer and finish this promise chain
                 buffer_per_fragment[fragment] = buffer;
-            }
-        ).then(null,
-            function(err) {
+            })
+            .then(null, function(err) {
                 // failed to read this fragment, try another.
                 console.error('READ FAILED FRAGMENT', fragment, err);
                 return read_the_next_fragment();
-            }
-        );
+            });
     }
 
     // start reading by queueing the first kfrag
-    return Q.all(
-        _.times(part.kfrag, read_the_next_fragment)
-    ).then(
-        function() {
+    return Q.all(_.times(part.kfrag, read_the_next_fragment))
+        .then(function() {
             // TODO cache decoded chunks with lru client
             // cut only the part's relevant range from the chunk
 
@@ -206,14 +203,14 @@ ObjectClient.prototype.read_object_part = function(part) {
             var md5 = crypto.createHash('md5');
             md5.update(part.buffer); // TODO PERF
             var md5sum = md5.digest('hex');
+
             if (md5sum !== part.md5sum) {
                 console.error('MD5 CHECKSUM FAILED', md5sum, part);
                 throw new Error('md5 checksum failed');
             }
 
             return part;
-        }
-    );
+        });
 };
 
 
@@ -259,9 +256,9 @@ function read_block(block, block_size) {
 
     // console.log('read_block', block_size, block, agent);
     return agent.read_block({
-        block_id: block.id
-    }).then(
-        function(buffer) {
+            block_id: block.id
+        })
+        .then(function(buffer) {
             // verify the received buffer length must be full size
             if (!Buffer.isBuffer(buffer)) {
                 throw new Error('NOT A BUFFER ' + typeof(buffer));
@@ -270,8 +267,7 @@ function read_block(block, block_size) {
                 throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
             }
             return buffer;
-        }
-    );
+        });
 }
 
 

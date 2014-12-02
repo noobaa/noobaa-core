@@ -405,12 +405,12 @@ nb_api.factory('nbNodes', [
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
                 keepAspectRatio: false,
-                backgroundColor: '#6a6a6a',
-                datalessRegionColor: '#505050',
+                backgroundColor: '#EEE',
+                datalessRegionColor: '#CCC',
                 // backgroundColor: '#3a455f', // grey blue
                 // datalessRegionColor: '#272e3f', // darker grey blue
                 colorAxis: {
-                    colors: ['#009688', '#009688'], // teal
+                    colors: ['#909688', '#009688'], // teal
                     // colors: ['#F9FFF4', '#76FF00'], // greens
                     minValue: min_alloc,
                     maxValue: max_alloc,

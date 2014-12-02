@@ -2,10 +2,8 @@
 'use strict';
 
 var _ = require('lodash');
-var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var api = require('../api');
 
 // include the generated templates from ngview
 // require('../../build/templates');
@@ -25,78 +23,6 @@ nb_util.run(['$rootScope', function($rootScope) {
     $rootScope.moment = moment;
     $.material.init();
 }]);
-
-
-
-nb_util.factory('nbAuth', [
-    '$q', '$window', '$location',
-    function($q, $window, $location) {
-        var $scope = {};
-
-        var win_storage = $window.sessionStorage;
-        $scope.client = new api.Client();
-        $scope.save_token = save_token;
-        $scope.init_token = init_token;
-        $scope.logout = logout;
-        $scope.create_auth = create_auth;
-        $scope.init_promise = $q.when().then(init_token);
-        $scope.new_client = new_client;
-
-        // return a new client based on mine - inherits auth token unless overriden
-        function new_client() {
-            return new api.Client($scope.client);
-        }
-
-        function save_token(token) {
-            win_storage.nb_token = token;
-        }
-
-        function init_token() {
-            var token = win_storage.nb_token;
-
-            // TODO get rid of this global headers?
-            api.rest_api.global_client_headers.set_auth_token(token);
-            // $scope.client.headers.set_auth_token(token);
-
-            if (!token) return logout();
-
-            return $q.when()
-                .then(function() {
-                    return $scope.client.auth.read_auth();
-                })
-                .then(function(res) {
-                    if (!res) return;
-                    $scope.account = res.account;
-                    $scope.system = res.system;
-                    $scope.role = res.role;
-                    $scope.extra = res.extra;
-                }, function(err) {
-                    // handle unauthorized response
-                    if (err.status === 401) return logout();
-                });
-        }
-
-        function create_auth(params) {
-            return $q.when()
-                .then(function() {
-                    return $scope.client.create_auth_token(params);
-                })
-                .then(function(res) {
-                    save_token(res.token);
-                    return init_token();
-                });
-        }
-
-        function logout() {
-            save_token('');
-            if ($window.location.pathname.search(/^\/login/) < 0) {
-                $window.location.href = '/login';
-            }
-        }
-
-        return $scope;
-    }
-]);
 
 
 nb_util.factory('nbNetworkMonitor', [
@@ -276,8 +202,8 @@ nb_util.factory('nbModal', [
             e.on('shown.bs.modal', function() {
                 back_unsubscribe = scope.$on('$locationChangeStart', function(event) {
                     e.modal('hide');
-                    event.preventDefault();
-                    event.stopPropagation();
+                    if (event.preventDefault) event.preventDefault();
+                    if (event.stopPropagation) event.stopPropagation();
                     return false;
                 });
             });

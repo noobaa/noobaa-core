@@ -88,9 +88,10 @@ var PATHS = {
 
     server_main: './src/server/web_server.js',
     client_bundle: './src/client/index.js',
-    agent_bundle: './src/agent/index.js',
+    // agent_bundle: './src/agent/index.js',
     client_externals: [
         './node_modules/bootstrap/dist/js/bootstrap.js',
+        './vendor/arrive-2.0.0.min.js',
         './bower_components/bootstrap-material-design/scripts/material.js',
         './bower_components/bootstrap-material-design/scripts/ripples.js',
         './bower_components/ladda/js/spin.js',
@@ -229,7 +230,10 @@ gulp.task('client', ['bower', 'ng'], function() {
     var NAME = 'index.js';
     var NAME_MIN = 'index.min.js';
     var bundler = browserify({
-        entries: [PATHS.client_bundle, PATHS.agent_bundle],
+        entries: [
+            PATHS.client_bundle,
+            PATHS.agent_bundle
+        ],
         debug: (process.env.DEBUG_MODE === 'true'),
 
         // TODO this browserify config will not work in node-webkit....

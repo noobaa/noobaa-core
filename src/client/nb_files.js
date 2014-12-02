@@ -11,12 +11,12 @@ var concat_stream = require('concat-stream');
 var EventEmitter = require('events').EventEmitter;
 var object_client = new api.ObjectClient();
 
-var nb_app = angular.module('nb_app');
+var nb_api = angular.module('nb_api');
 
 
 
 
-nb_app.controller('UploadCtrl', [
+nb_api.controller('UploadCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     'nbAlertify', '$sce', 'nbFiles', 'nbNetworkMonitor',
     function($scope, $http, $q, $window, $timeout,
@@ -104,7 +104,7 @@ nb_app.controller('UploadCtrl', [
 
 
 
-nb_app.controller('DownloadCtrl', [
+nb_api.controller('DownloadCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout', 'nbAlertify', '$sce', 'nbFiles',
     function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
 
@@ -145,7 +145,7 @@ nb_app.controller('DownloadCtrl', [
 
 
 
-nb_app.factory('nbFiles', [
+nb_api.factory('nbFiles', [
     '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope',
     function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope) {
         var $scope = {};

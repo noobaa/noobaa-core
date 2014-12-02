@@ -131,29 +131,15 @@ function page_context(req) {
     };
 }
 
-app.all('/agent/*', function(req, res) {
-    return res.render('agent.html', page_context(req));
+app.all('/sudo/*', function(req, res) {
+    return res.render('sudo.html', page_context(req));
 });
-app.all('/agent', function(req, res) {
-    return res.redirect('/agent/');
-});
-
-app.all('/app/*', function(req, res) {
-    return res.render('app.html', page_context(req));
-});
-app.all('/app', function(req, res) {
-    return res.redirect('/app/');
-});
-
-app.all('/login/*', function(req, res) {
-    return res.render('login.html', page_context(req));
-});
-app.all('/login', function(req, res) {
-    return res.redirect('/login/');
+app.all('/sudo', function(req, res) {
+    return res.redirect('/sudo/');
 });
 
 app.all('/', function(req, res) {
-    return res.redirect('/app/');
+    return res.redirect('/sudo/');
 });
 
 

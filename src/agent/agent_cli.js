@@ -90,8 +90,8 @@ AgentCLI.prototype.load = function() {
             }
             return self.client.create_auth_token(auth_params);
         })
-        .then(function(token) {
-            self.create_node_token = token;
+        .then(function(res) {
+            self.create_node_token = res.token;
             return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {

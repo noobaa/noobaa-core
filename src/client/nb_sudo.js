@@ -7,8 +7,12 @@ var moment = require('moment');
 var api = require('../api');
 var system_client = new api.system_api.Client();
 
-var nb_app = angular.module('nb_app', [
+require('./nb_util');
+require('./nb_api');
+
+var nb_sudo = angular.module('nb_sudo', [
     'nb_util',
+    'nb_api',
     'ngRoute',
     'ngCookies',
     'ngAnimate',
@@ -20,7 +24,7 @@ require('./nb_nodes');
 require('./nb_files');
 
 
-nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
+nb_sudo.config(['$routeProvider', '$locationProvider', '$compileProvider',
     function($routeProvider, $locationProvider, $compileProvider) {
         // allow blob urls
         $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
@@ -47,7 +51,7 @@ nb_app.config(['$routeProvider', '$locationProvider', '$compileProvider',
 ]);
 
 
-nb_app.controller('AppCtrl', [
+nb_sudo.controller('SudoCtrl', [
     '$scope', '$http', '$q', '$window',
     'nbSystem', 'nbNodes', 'nbFiles',
     'nbAlertify', '$location', 'nbAuth',
@@ -91,7 +95,7 @@ nb_app.controller('AppCtrl', [
 ]);
 
 
-nb_app.controller('DashboardCtrl', [
+nb_sudo.controller('DashboardCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
@@ -99,8 +103,8 @@ nb_app.controller('DashboardCtrl', [
 
         $scope.refresh_view = function() {
             return $q.all([
-                $scope.nbSystem.refresh_system(),
-                $scope.nbNodes.refresh_node_groups()
+                // $scope.nbSystem.refresh_system(),
+                // $scope.nbNodes.refresh_node_groups()
             ]);
         };
 
@@ -109,7 +113,7 @@ nb_app.controller('DashboardCtrl', [
 ]);
 
 
-nb_app.controller('StatsCtrl', [
+nb_sudo.controller('StatsCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
@@ -124,7 +128,7 @@ nb_app.controller('StatsCtrl', [
 ]);
 
 
-nb_app.factory('nbSystem', [
+nb_sudo.factory('nbSystem', [
     '$q', '$timeout', '$rootScope', 'nbAlertify', 'nbAuth',
     function($q, $timeout, $rootScope, nbAlertify, nbAuth) {
         var $scope = {};
@@ -135,7 +139,7 @@ nb_app.factory('nbSystem', [
         $scope.connect_system = connect_system;
         $scope.refresh_system = refresh_system;
 
-        nbAuth.init_promise.then(refresh_systems);
+        // refresh_systems();
 
         function refresh_systems() {
             return nbAuth.init_promise.then(

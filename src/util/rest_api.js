@@ -512,8 +512,14 @@ rest_api.global_client_headers = {
         if (token) {
             this.authorization = 'Bearer ' + token;
         } else {
-            delete this.authorization;
+            this.authorization = '';
+
+            // deleting the field causes a 'Bearer undefined' value to appear,
+            // probably in another inherited headers object. not sure how/why...
+            // delete this.authorization;
         }
+        console.log('set_auth_token', typeof(token),
+            token ? token.slice(0, 20) + '...' : '\'\'');
     },
 
     /**

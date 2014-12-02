@@ -8,10 +8,10 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 var node_client = new api.node_api.Client();
 
-var nb_app = angular.module('nb_app');
+var nb_api = angular.module('nb_api');
 
 
-nb_app.controller('NodesListCtrl', [
+nb_api.controller('NodesListCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams', '$location',
     function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams, $location) {
 
@@ -113,7 +113,7 @@ nb_app.controller('NodesListCtrl', [
 
 
 
-nb_app.controller('NodeDetailsCtrl', [
+nb_api.controller('NodeDetailsCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     'nbNodes', '$routeParams', '$location', 'nbAlertify',
     function($scope, $http, $q, $window, $timeout,
@@ -155,7 +155,7 @@ nb_app.controller('NodeDetailsCtrl', [
 
 
 
-nb_app.factory('nbNodes', [
+nb_api.factory('nbNodes', [
     '$q', '$timeout', 'nbGoogle', '$window', '$rootScope',
     '$location', 'nbAlertify', 'nbModal', 'nbSystem',
     function($q, $timeout, nbGoogle, $window, $rootScope,

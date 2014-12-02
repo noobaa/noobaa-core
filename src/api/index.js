@@ -66,7 +66,7 @@ function Client(base) {
     self.create_auth_token = function(params) {
         return self.auth.create_auth(params).then(function(res) {
             self.headers.set_auth_token(res.token);
-            return res.token;
+            return res;
         });
     };
 

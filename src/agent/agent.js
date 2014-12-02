@@ -113,7 +113,14 @@ function Agent(params) {
     self.agent_server = agent_server;
     self.http_server = http_server;
     self.http_port = 0;
-    self.geolocation = '';
+
+    // TODO these sample geolocations are just for testing
+    self.geolocation = _.sample([
+        'United States', 'Canada', 'Brazil', 'Mexico',
+        'China', 'Japan', 'Korea', 'India', 'Australia',
+        'Israel', 'Romania', 'Russia',
+        'Germany', 'England', 'France', 'Spain',
+    ]);
 }
 
 

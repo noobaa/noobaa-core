@@ -10,28 +10,32 @@
 
             <div class="row">
 
-                <div class="col-sm-2">
-                    <button class="btn btn-info btn-fab btn-raised pull-right mdi-content-add" ng-click="nbNodes.add_tier()">
-                    </button>
-                    <h4 class="text-white">Tiers</h4>
-                    <div class="card" style="margin: 10px 0" ng-repeat="tier in [1,2,3,4,5]">
-                        <h5 class="checkbox">
-                        <label>
-                            <input type="checkbox" />
-                            tier - {{tier}}
-                        </label>
-                    </h5>
-                        <small>edge</small>
+                <div class="col-xs-4 col-sm-3 col-md-2">
+                    <h4 class="text-white">
+                        <button class="btn btn-primary btn-fab btn-raised mdi-content-add" ng-click="nbNodes.add_tier()"></button>
+                        Tiers
+                    </h4>
+                    <div ng-repeat="tier in nbSystem.system.tiers">
+                        <button class="btn btn-lg btn-default btn-raised" ng-click="selected=!selected">
+                            <span class="checkbox pull-left" style="Xmargin-top: 0; margin-left: -20px">
+                                <label><input type="checkbox" ng-model="selected" /></label>
+                            </span>
+                            <div class="Xhflow">
+                                <p>{{tier.name}}</p>
+                                <span class="badge">{{tier.kind}}</span>
+                            </div>
+                        </button>
                     </div>
                 </div>
 
-                <div class="col-sm-2">
-                    <button class="btn btn-success btn-fab btn-raised pull-right mdi-content-add" ng-click="nbNodes.add_nodes()">
-                    </button>
-                    <h4 class="text-white">Nodes</h4>
+                <div class="col-xs-4 col-sm-3 col-md-2">
+                    <h4 class="text-white">
+                        <button class="btn btn-success btn-fab btn-raised mdi-content-add" ng-click="nbNodes.add_nodes()"></button>
+                        Nodes
+                    </h4>
                 </div>
 
-                <div class="col-sm-5">
+                <div class="col-xs-12 col-sm-3 col-md-5">
 
                 </div>
 

@@ -410,7 +410,8 @@ nb_api.factory('nbNodes', [
                 // backgroundColor: '#3a455f', // grey blue
                 // datalessRegionColor: '#272e3f', // darker grey blue
                 colorAxis: {
-                    colors: ['#F9FFF4', '76FF00'], // greens
+                    colors: ['#009688', '#009688'], // teal
+                    // colors: ['#F9FFF4', '#76FF00'], // greens
                     minValue: min_alloc,
                     maxValue: max_alloc,
                 },

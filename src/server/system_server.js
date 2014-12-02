@@ -137,7 +137,7 @@ function read_system(req) {
                 return role;
             }),
             tiers: _.map(tiers, function(tier) {
-                var t = _.pick(tier, 'name');
+                var t = _.pick(tier, 'name', 'kind');
                 var a = nodes_aggregate[tier.id];
                 t.storage = _.pick(a, 'alloc', 'used');
                 t.nodes = _.pick(a, 'count', 'online');

@@ -3,8 +3,8 @@
  ******************************************************************************/
 
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
-@import (less)"../../bower_components/bootstrap-material-design/less/material.less";
-/* @import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less"; */
+/* @import (less)"../../bower_components/bootstrap-material-design/less/material.less"; */
+@import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
 @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
 @import (less)"../../bower_components/alertify.js/themes/alertify.core.css";
@@ -18,13 +18,14 @@
 // bootstrap //
 ///////////////
 
-@primary: @teal;
-@success: @lightgreen;
-@brand-primary: @primary;
-@brand-success: @success;
-@brand-danger: @danger;
-@brand-warning: @warning;
-@brand-info: @info;
+/* @primary: @teal; */
+/* @success: @lightgreen; */
+/* @brand-primary: @primary; */
+/* @brand-success: @success; */
+/* @brand-danger: @danger; */
+/* @brand-warning: @warning; */
+/* @brand-info: @info; */
+
 /* @brand-primary: hsl(223,24%,30%); */
 /* @brand-info: hsl(190,70%,60%); */
 /* @brand-success: hsl(120,70%,60%); */
@@ -111,6 +112,9 @@ table th {
     }
 }
 */
+.navbar {
+    margin: 0;
+}
 .close {
     outline: none;
 }
@@ -120,7 +124,6 @@ table th {
 }
 .modal-footer {
     .text-center;
-
 }
 .modal-backdrop.in {
     display: block;

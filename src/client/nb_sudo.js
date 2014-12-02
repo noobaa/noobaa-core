@@ -2,10 +2,6 @@
 'use strict';
 
 var _ = require('lodash');
-var util = require('util');
-var moment = require('moment');
-var api = require('../api');
-var system_client = new api.system_api.Client();
 
 require('./nb_util');
 require('./nb_api');
@@ -54,12 +50,12 @@ nb_sudo.config(['$routeProvider', '$locationProvider', '$compileProvider',
 nb_sudo.controller('SudoCtrl', [
     '$scope', '$http', '$q', '$window',
     'nbSystem', 'nbNodes', 'nbFiles',
-    'nbAlertify', '$location', 'nbAuth',
+    'nbAlertify', '$location', 'nbClient',
     function($scope, $http, $q, $window,
         nbSystem, nbNodes, nbFiles,
-        nbAlertify, $location, nbAuth) {
+        nbAlertify, $location, nbClient) {
 
-        $scope.nbAuth = nbAuth;
+        $scope.nbClient = nbClient;
         $scope.nbSystem = nbSystem;
         $scope.nbNodes = nbNodes;
         $scope.nbFiles = nbFiles;
@@ -103,8 +99,8 @@ nb_sudo.controller('DashboardCtrl', [
 
         $scope.refresh_view = function() {
             return $q.all([
-                // $scope.nbSystem.refresh_system(),
-                // $scope.nbNodes.refresh_node_groups()
+                $scope.nbSystem.refresh_system(),
+                $scope.nbNodes.refresh_node_groups()
             ]);
         };
 
@@ -124,82 +120,5 @@ nb_sudo.controller('StatsCtrl', [
         };
 
         $scope.refresh_view();
-    }
-]);
-
-
-nb_sudo.factory('nbSystem', [
-    '$q', '$timeout', '$rootScope', 'nbAlertify', 'nbAuth',
-    function($q, $timeout, $rootScope, nbAlertify, nbAuth) {
-        var $scope = {};
-
-        $scope.refresh_systems = refresh_systems;
-        $scope.new_system = new_system;
-        $scope.create_system = create_system;
-        $scope.connect_system = connect_system;
-        $scope.refresh_system = refresh_system;
-
-        // refresh_systems();
-
-        function refresh_systems() {
-            return nbAuth.init_promise.then(
-                function() {
-                    return system_client.list_systems();
-                }
-            ).then(
-                function(res) {
-                    console.log('SYSTEMS', res);
-                    $scope.systems = res;
-                }
-            );
-        }
-
-        function refresh_system() {
-            return nbAuth.init_promise.then(
-                function() {
-                    return system_client.read_system();
-                }
-            ).then(
-                function(res) {
-                    console.log('STATS', res);
-                    $scope.system = res;
-                    // TODO handle bigint type (defined at system_api) for sizes > petabyte
-                    var s = $scope.system.storage;
-                    s.free = s.alloc - s.used;
-                    s.free_percent = !s.alloc ? 0 : 100 * (s.free / s.alloc);
-                },
-                function(err) {
-                    console.error('STATS FAILED', err);
-                }
-            );
-        }
-
-        function new_system() {
-            nbAlertify.prompt('Enter name for new system').then(
-                function(str) {
-                    if (str) {
-                        return create_system(str);
-                    }
-                }
-            );
-        }
-
-        function create_system(name) {
-            return $q.when().then(
-                function() {
-                    return system_client.create_system({
-                        name: name
-                    });
-                }
-            ).then(refresh_systems);
-        }
-
-        function connect_system(system_name) {
-            return nbAuth.create_auth({
-                system: system_name
-            }).then(refresh_system);
-        }
-
-        return $scope;
     }
 ]);

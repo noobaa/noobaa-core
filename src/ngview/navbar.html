@@ -1,4 +1,4 @@
-<nav class="navbar navbar-default">
+<nav class="navbar navbar-inverse navbar-fixed-top">
     <div class="container-fluid">
 
         <div class="navbar-header">
@@ -8,7 +8,7 @@
                 <span class="icon-bar"></span>
                 <span class="icon-bar"></span>
             </button>
-            <a class="navbar-brand" href="/">NooBaa</a>
+            <a class="navbar-brand" href="/sudo">NooBaa</a>
         </div>
 
         <div class="collapse navbar-collapse" id="navbar-collapse-1">
@@ -22,7 +22,7 @@
                         <i class="fa fa-repeat fa-lg"></i>
                     </a>
                 </li>
-                <li class="dropdown" ng-if="nbAuth.account">
+                <li class="dropdown" ng-if="nbClient.account">
                     <a class="dropdown-toggle" data-toggle="dropdown">
                         <span style="visibility: hidden; width: 0; margin-right: -15px">
                             O<!-- needed some text for navbar height align -->
@@ -35,11 +35,10 @@
                             <a>
                                 <h4 class="text-muted" style="margin:0">
                                     <i class="fa fa-envelope fa-fw"></i>
-                                    {{nbAuth.account.email}}
+                                    {{nbClient.account.email}}
                                 </h4>
                             </a>
                         </li>
-                        <li class="divider"></li>
                         <li class="divider"></li>
                         <li ng-repeat="sys in nbSystem.systems">
                             <a ng-click="nbSystem.connect_system(sys.name)">
@@ -52,7 +51,7 @@
                         </li>
                         <li class="divider"></li>
                         <li>
-                            <a ng-click="nbAuth.logout()">Logout</a>
+                            <a ng-click="nbClient.logout()">Logout</a>
                         </li>
                     </ul>
                 </li>

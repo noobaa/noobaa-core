@@ -2,11 +2,9 @@
 'use strict';
 
 var _ = require('lodash');
-var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
-var node_client = new api.node_api.Client();
 
 var nb_api = angular.module('nb_api');
 
@@ -157,9 +155,9 @@ nb_api.controller('NodeDetailsCtrl', [
 
 nb_api.factory('nbNodes', [
     '$q', '$timeout', 'nbGoogle', '$window', '$rootScope',
-    '$location', 'nbAlertify', 'nbModal', 'nbSystem',
+    '$location', 'nbAlertify', 'nbModal', 'nbClient', 'nbSystem',
     function($q, $timeout, nbGoogle, $window, $rootScope,
-        $location, nbAlertify, nbModal, nbSystem) {
+        $location, nbAlertify, nbModal, nbClient, nbSystem) {
         var $scope = {};
         $scope.refresh_node_groups = refresh_node_groups;
         $scope.list_nodes = list_nodes;
@@ -173,7 +171,7 @@ nb_api.factory('nbNodes', [
         function refresh_node_groups(selected_geo) {
             return $q.when().then(
                 function() {
-                    return node_client.group_nodes({
+                    return nbClient.client.node.group_nodes({
                         group_by: {
                             geolocation: true
                         }
@@ -204,7 +202,7 @@ nb_api.factory('nbNodes', [
         function list_nodes(params) {
             return $q.when().then(
                 function() {
-                    return node_client.list_nodes(params);
+                    return nbClient.client.node.list_nodes(params);
                 }
             ).then(
                 function(res) {
@@ -219,7 +217,7 @@ nb_api.factory('nbNodes', [
         function read_node(name) {
             return $q.when().then(
                 function() {
-                    return node_client.read_node({
+                    return nbClient.client.node.read_node({
                         name: name
                     });
                 }
@@ -241,10 +239,10 @@ nb_api.factory('nbNodes', [
         }
 
         function add_nodes() {
-            var node_vendors = _.filter(nbSystem.system.vendors, {
-                category: 'vm'
+            var edge_tiers = _.filter(nbSystem.system.tiers, {
+                kind: 'edge'
             });
-            if (!node_vendors || !node_vendors.length) {
+            if (!edge_tiers || !edge_tiers.length) {
                 nbAlertify.alert(
                     'In order to add nodes you will need to ' +
                     'setup node-vendors for your account. ' +
@@ -255,8 +253,8 @@ nb_api.factory('nbNodes', [
             // make a scope for the modal
             var scope = $rootScope.$new();
             scope.count = 1;
-            scope.node_vendors = node_vendors;
-            scope.selected_vendor = node_vendors[0];
+            scope.edge_tiers = edge_tiers;
+            scope.selected_tier = edge_tiers[0];
             scope.allocate_gb = 1;
 
             // in order to allow input[type=range] and input[type=number]
@@ -282,7 +280,7 @@ nb_api.factory('nbNodes', [
                     scope.allocate_gb < 1 || scope.allocate_gb > 100) {
                     throw 'Gigabyte per node should be a number in range 1-100';
                 }
-                if (!scope.selected_vendor.id) {
+                if (!scope.selected_tier.id) {
                     throw 'Missing selection where to run on';
                 }
                 var next_node_name = $scope.nodes_count + 1;
@@ -290,7 +288,7 @@ nb_api.factory('nbNodes', [
                 // using manual defer in order to report progress to the ladda button
                 var defer = $q.defer();
                 $q.all(_.times(scope.count, function(i) {
-                    return $q.when(node_client.create_node({
+                    return $q.when(nbClient.client.node.create_node({
                         name: '' + (next_node_name + i),
                         // TODO these sample geolocations are just for testing
                         geolocation: _.sample([
@@ -300,7 +298,7 @@ nb_api.factory('nbNodes', [
                             'Germany', 'England', 'France', 'Spain',
                         ]),
                         storage_alloc: scope.allocate_gb * size_utils.GIGABYTE,
-                        vendor: scope.selected_vendor.id,
+                        tier: scope.selected_tier.name,
                     })).then(function() {
                         num_created += 1;
                         defer.notify(num_created / scope.count);
@@ -347,7 +345,7 @@ nb_api.factory('nbNodes', [
             return nbAlertify.confirm('Really remove node ' +
                 node.name + ' @ ' + node.geolocation + ' ?').then(
                 function() {
-                    return $q.when(node_client.delete_node({
+                    return $q.when(nbClient.client.node.delete_node({
                         name: node.name
                     })).then(refresh_node_groups);
                 }
@@ -356,13 +354,13 @@ nb_api.factory('nbNodes', [
 
 
         function start_node(node) {
-            return $q.when(node_client.start_nodes({
+            return $q.when(nbClient.client.node.start_nodes({
                 nodes: [node.name]
             }));
         }
 
         function stop_node(node) {
-            return $q.when(node_client.stop_nodes({
+            return $q.when(nbClient.client.node.stop_nodes({
                 nodes: [node.name]
             }));
         }
@@ -407,10 +405,12 @@ nb_api.factory('nbNodes', [
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
                 keepAspectRatio: false,
-                backgroundColor: '#3a455f',
-                datalessRegionColor: '#272e3f',
+                backgroundColor: '#6a6a6a',
+                datalessRegionColor: '#505050',
+                // backgroundColor: '#3a455f', // grey blue
+                // datalessRegionColor: '#272e3f', // darker grey blue
                 colorAxis: {
-                    colors: ['#F9FFF4', '76FF00'],
+                    colors: ['#F9FFF4', '76FF00'], // greens
                     minValue: min_alloc,
                     maxValue: max_alloc,
                 },

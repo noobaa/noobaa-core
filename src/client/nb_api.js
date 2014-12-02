@@ -14,14 +14,15 @@ var nb_api = angular.module('nb_api', [
 ]);
 
 
-nb_api.factory('nbAuth', [
+nb_api.factory('nbClient', [
     '$q', '$timeout', '$window', '$location', '$rootScope', 'nbModal', 'nbAlertify',
     function($q, $timeout, $window, $location, $rootScope, nbModal, nbAlertify) {
         var $scope = {};
 
-        var win_storage = $window.sessionStorage;
+        var win_storage = $window.sessionStorage; // or localStorage ?
         $scope.client = new api.Client();
         $scope.new_client = new_client;
+        $scope.refresh = refresh;
         $scope.save_token = save_token;
         $scope.init_token = init_token;
         $scope.create_auth = create_auth;
@@ -34,27 +35,13 @@ nb_api.factory('nbAuth', [
             return new api.Client($scope.client);
         }
 
-        function save_token(token) {
-            console.log('save_token', token ? token.slice(0, 15) + '...' : '\'\'');
-            win_storage.nb_token = token || '';
-        }
-
-        function init_token() {
-            var token = win_storage.nb_token;
-            console.log('init_token', token ? token.slice(0, 15) + '...' : '\'\'');
-
-            // TODO get rid of this global headers?
-            api.rest_api.global_client_headers.set_auth_token(token);
-            // $scope.client.headers.set_auth_token(token);
-
-            if (!token) return $timeout(login, 10);
-
+        function refresh() {
             return $q.when()
                 .then(function() {
                     return $scope.client.auth.read_auth();
                 })
                 .then(function(res) {
-                    if (!res) return;
+                    res = res || {};
                     $scope.account = res.account;
                     $scope.system = res.system;
                     $scope.role = res.role;
@@ -64,8 +51,27 @@ nb_api.factory('nbAuth', [
                     console.error(err);
                     if (err.status === 401) return $timeout(login, 10);
                     var q = 'Oy, there\'s a problem. Would you like to reload?';
-                    nbAlertify.confirm(q).then(logout);
+                    return nbAlertify.confirm(q).then(logout);
+                })
+                .then(function() {
+                    if ($scope.system) {
+                        $scope.client.system.read_system().then(function(res) {
+                            _.merge($scope.system, res);
+                        });
+                    }
                 });
+        }
+
+        function save_token(token) {
+            win_storage.nb_token = token || '';
+            api.rest_api.global_client_headers.set_auth_token(token);
+        }
+
+        function init_token() {
+            var token = win_storage.nb_token;
+            api.rest_api.global_client_headers.set_auth_token(token);
+            if (!token) return $timeout(login, 10);
+            return refresh();
         }
 
         function create_auth(params) {
@@ -97,9 +103,83 @@ nb_api.factory('nbAuth', [
 ]);
 
 
+
+
+nb_api.factory('nbSystem', [
+    '$q', '$timeout', '$rootScope', 'nbAlertify', 'nbClient',
+    function($q, $timeout, $rootScope, nbAlertify, nbClient) {
+        var $scope = {};
+
+        $scope.refresh_systems = refresh_systems;
+        $scope.new_system = new_system;
+        $scope.create_system = create_system;
+        $scope.connect_system = connect_system;
+        $scope.refresh_system = refresh_system;
+
+        refresh_systems();
+
+        function refresh_systems() {
+            return nbClient.init_promise
+                .then(function() {
+                    return nbClient.client.system.list_systems();
+                })
+                .then(function(res) {
+                    console.log('SYSTEMS', res);
+                    $scope.systems = res;
+                });
+        }
+
+        function refresh_system() {
+            return nbClient.init_promise
+                .then(function() {
+                    return nbClient.client.system.read_system();
+                })
+                .then(function(res) {
+                    console.log('READ SYSTEM', res);
+                    $scope.system = res;
+                    // TODO handle bigint type (defined at system_api) for sizes > petabyte
+                    var s = $scope.system.storage;
+                    s.free = s.alloc - s.used;
+                    s.free_percent = !s.alloc ? 0 : 100 * (s.free / s.alloc);
+                }, function(err) {
+                    console.error('READ SYSTEM FAILED', err);
+                });
+        }
+
+        function new_system() {
+            nbAlertify.prompt('Enter name for new system')
+                .then(function(str) {
+                    if (str) {
+                        return create_system(str);
+                    }
+                });
+        }
+
+        function create_system(name) {
+            return $q.when()
+                .then(function() {
+                    return nbClient.client.system.create_system({
+                        name: name
+                    });
+                })
+                .then(refresh_systems);
+        }
+
+        function connect_system(system_name) {
+            return nbClient.create_auth({
+                    system: system_name
+                })
+                .then(refresh_system);
+        }
+
+        return $scope;
+    }
+]);
+
+
 nb_api.controller('LoginCtrl', [
-    '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify', 'nbAuth',
-    function($scope, $http, $q, $timeout, $window, nbAlertify, nbAuth) {
+    '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify', 'nbClient',
+    function($scope, $http, $q, $timeout, $window, nbAlertify, nbClient) {
         var alert_class_rotate = ['alert-warning', 'alert-danger'];
 
         $scope.login = function() {
@@ -107,7 +187,8 @@ nb_api.controller('LoginCtrl', [
             $scope.alert_text = '';
             $scope.alert_class = '';
             $scope.form_disabled = true;
-            return nbAuth.create_auth({
+
+            return nbClient.create_auth({
                     email: $scope.email,
                     password: $scope.password,
                 })
@@ -128,24 +209,27 @@ nb_api.controller('LoginCtrl', [
             $scope.alert_text = '';
             $scope.alert_class = '';
             $scope.form_disabled = true;
+
             return nbAlertify.prompt_password('Verify your password')
                 .then(function(str) {
                     if (str !== $scope.password) {
                         throw 'the passwords don\'t match  :O';
                     }
+
                     // to simplify the form, we just use the email as a name
                     // and will allow to update it later from the account settings.
-                    return nbAuth.client.account.create_account({
-                        name: $scope.email,
-                        email: $scope.email,
-                        password: $scope.password,
-                    }).then(null, function(err) {
-                        // server errors in this case are descriptive enough to show in ui
-                        throw err.data;
-                    });
+                    return nbClient.client.account.create_account({
+                            name: $scope.email,
+                            email: $scope.email,
+                            password: $scope.password,
+                        })
+                        .then(null, function(err) {
+                            // server errors in this case are descriptive enough to show in ui
+                            throw err.data;
+                        });
                 })
                 .then(function(res) {
-                    nbAuth.save_token(res.token);
+                    nbClient.save_token(res.token);
                     $scope.alert_text = '';
                     $scope.alert_class = '';
                     $window.location.href = '/';

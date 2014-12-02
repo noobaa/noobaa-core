@@ -1,14 +1,14 @@
 <div class="modal fade" ng-controller="LoginCtrl">
-    <div class="modal-dialog modal-sm">
+    <div class="modal-dialog">
         <div class="modal-content">
 
             <div class="modal-header">
                 <button class="close" type="button" data-dismiss="modal">&times;</button>
-                <h3 class="modal-title">Login</h3>
+                <h3 class="modal-title">Sudo Login</h3>
             </div>
 
             <div class="modal-body">
-                <form role="form" autocomplete="on">
+                <form role="form" autocomplete="on" style="padding: 0 30px">
                     <div class="form-control-wrapper" style="margin: 40px 0">
                         <input class="form-control floating-label" type="email" id="input_email" placeholder="EMAIL" required ng-model="email" ng-disabled="form_disabled" />
                     </div>
@@ -29,7 +29,7 @@
                         </button>
                     </div>
 
-                    <div class="form-control-wrapper alert alert-warning" role="alert" ng-show="alert_text">
+                    <div class="form-control-wrapper alert {{alert_class || 'alert-warning'}}" role="alert" ng-show="alert_text">
                         <button type="button" class="close" ng-click="alert_text=''">
                             <span aria-hidden="true">&times;</span>
                             <span class="sr-only">Close</span>

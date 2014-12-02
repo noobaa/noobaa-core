@@ -100,10 +100,12 @@ nb_api.factory('nbAuth', [
 nb_api.controller('LoginCtrl', [
     '$scope', '$http', '$q', '$timeout', '$window', 'nbAlertify', 'nbAuth',
     function($scope, $http, $q, $timeout, $window, nbAlertify, nbAuth) {
+        var alert_class_rotate = ['alert-warning', 'alert-danger'];
 
         $scope.login = function() {
             if (!$scope.email || !$scope.password) return;
             $scope.alert_text = '';
+            $scope.alert_class = '';
             $scope.form_disabled = true;
             return nbAuth.create_auth({
                     email: $scope.email,
@@ -111,9 +113,12 @@ nb_api.controller('LoginCtrl', [
                 })
                 .then(function(res) {
                     $scope.alert_text = '';
+                    $scope.alert_class = '';
                     $window.location.href = '/';
                 }, function(err) {
-                    $scope.alert_text = err.data || 'failed. hard to say why.';
+                    $scope.alert_text = err.data || 'failed. hard to say why';
+                    $scope.alert_class = alert_class_rotate.shift();
+                    alert_class_rotate.push($scope.alert_class);
                     $scope.form_disabled = false;
                 });
         };
@@ -121,11 +126,12 @@ nb_api.controller('LoginCtrl', [
         $scope.create = function() {
             if (!$scope.email || !$scope.password) return;
             $scope.alert_text = '';
+            $scope.alert_class = '';
             $scope.form_disabled = true;
             return nbAlertify.prompt_password('Verify your password')
                 .then(function(str) {
                     if (str !== $scope.password) {
-                        throw 'the passwords don\'t match :O';
+                        throw 'the passwords don\'t match  :O';
                     }
                     // to simplify the form, we just use the email as a name
                     // and will allow to update it later from the account settings.
@@ -141,9 +147,12 @@ nb_api.controller('LoginCtrl', [
                 .then(function(res) {
                     nbAuth.save_token(res.token);
                     $scope.alert_text = '';
+                    $scope.alert_class = '';
                     $window.location.href = '/';
                 }, function(err) {
-                    $scope.alert_text = err || '';
+                    $scope.alert_text = err || 'failed. hard to say why';
+                    $scope.alert_class = alert_class_rotate.shift();
+                    alert_class_rotate.push($scope.alert_class);
                     $scope.form_disabled = false;
                 });
         };

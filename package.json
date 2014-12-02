@@ -89,7 +89,9 @@
     "font-awesome": "~4.2.0",
     "bootstrap": "~3.3.1",
     "animate.css": "~3.1.1",
-    "video.js": "~4.10.2"
+    "video.js": "~4.10.2",
+    "aws-sdk": "~2.0.29",
+    "async": "~0.9.0"
   },
   "devDependencies": {
     "node-inspector": "~0.7.4"

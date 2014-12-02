@@ -1,0 +1,72 @@
+<div ng-controller="DashboardCtrl">
+
+    <div ng-include="'navbar.html'"></div>
+
+    <div class="relpos" style="height: 100%; padding-top: 80px">
+
+        <div id="nodes_map" class="absfill"></div>
+
+        <div class="container-fluid">
+
+            <div class="row">
+
+                <div class="col-xs-4 col-sm-3 col-md-2">
+                    <h4>
+                        <button class="btn btn-primary btn-fab btn-raised mdi-content-add" ng-click="nbNodes.add_tier()"></button>
+                        Tiers
+                    </h4>
+                    <div ng-repeat="tier in nbSystem.system.tiers">
+                        <button class="btn btn-lg btn-default btn-raised" ng-click="selected=!selected">
+                            <span class="checkbox pull-left" style="Xmargin-top: 0; margin-left: -20px">
+                                <label><input type="checkbox" ng-model="selected" /></label>
+                            </span>
+                            <div class="Xhflow">
+                                <p>{{tier.name}}</p>
+                                <span class="badge">{{tier.kind}}</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="col-xs-4 col-sm-3 col-md-2">
+                    <h4>
+                        <button class="btn btn-success btn-fab btn-raised mdi-content-add" ng-click="nbNodes.add_nodes()"></button>
+                        Nodes
+                    </h4>
+                </div>
+
+                <div class="col-xs-12 col-sm-3 col-md-5">
+
+                </div>
+
+                <div class="col-sm-3 text-right">
+                    <div Xclass="col-sm-6 col-md-3">
+                        <h1 style="font-size: 4em">{{human_size(nbSystem.system.storage.alloc)}}</h1>
+                        <p>
+                            <small>storage</small>
+                        </p>
+                    </div>
+                    <div Xclass="col-sm-6 col-md-3">
+                        <h1 style="font-size: 4em">{{human_percent(nbSystem.system.storage.free_percent)}}</h1>
+                        <p>
+                            <small>free storage</small>
+                        </p>
+                    </div>
+                    <div Xclass="col-sm-6 col-md-3">
+                        <h1 style="font-size: 4em">{{nbSystem.system.nodes.count}}</h1>
+                        <p>
+                            <small>nodes</small>
+                        </p>
+                    </div>
+                    <div Xclass="col-sm-6 col-md-3">
+                        <h1 style="font-size: 4em">{{nbSystem.system.nodes.online}}</h1>
+                        <p>
+                            <small>online nodes</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>

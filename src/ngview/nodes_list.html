@@ -1,0 +1,99 @@
+<div ng-controller="NodesListCtrl">
+
+    <div ng-include="'navbar.html'"></div>
+
+    <div class="container-fluid">
+
+        <div class="clearfix">
+            <h1 ng-show="geo">
+                <a href="nodes" class="text-muted">All Nodes</a>
+                <span class="text-muted">/</span>
+                {{geo}}
+            </h1>
+            <h1 ng-hide="geo">
+                All Nodes
+            </h1>
+        </div>
+
+        <br/>
+
+        <div class="clearfix">
+            <div class="btn-group noselect">
+                <button class="btn btn-default btn-sm" ng-class="{disabled: skip<=0}" ng-click="prev_page()">&nbsp;<i class="fa fa-caret-left"></i>&nbsp;
+                </button>
+                <button class="btn btn-default btn-sm" ng-class="{disabled: skip+limit>=nodes_count}" ng-click="next_page()">&nbsp;<i class="fa fa-caret-right"></i>&nbsp;
+                </button>
+            </div>
+            <small class="text-muted">{{skip+1}}-{{skip+limit}} of {{nodes_count}}</small> &nbsp;
+            <button class="btn btn-default pull-right" ng-click="nbNodes.add_nodes()">
+                Add Nodes
+            </button>
+        </div>
+
+        <br/>
+
+        <div class="row">
+
+            <div class="col-sm-6">
+
+                <div class="table-responsive" ng-if="nodes.length">
+                    <table class="table table-hover">
+                        <tr>
+                            <th>Node</th>
+                            <th>Storage</th>
+                            <th>Usage</th>
+                            <th style="width:1px"></th>
+                            <th style="width:1px"></th>
+                            <th style="width:1px"></th>
+                        </tr>
+                        <tr ng-repeat="node in nodes" ng-click="select_node(node)" ng-dblclick="open_node(node)" Xng-class="{active:is_selected_node(node)}" style="cursor:default">
+                            <td>
+                                {{node.name}}
+                            </td>
+                            <td>{{human_size(node.storage_alloc)}}</td>
+                            <td>{{human_size(node.storage_used)}}</td>
+                            <td class="noselect">
+                                <div class="progress" style="margin: 0">
+                                    <div class="progress-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{node.usage_percent}}" style="width: {{node.usage_percent}}%;">
+                                        {{node.usage_percent.toFixed(0)}}%
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="noselect" style="width:1px">
+                                <button class="btn btn-default btn-sm" style="outline:none" nb-click-ladda="toggle_node_started(node)">
+                                    <i class="fa fa-rss text-green fa-lg" ng-show="node.started"></i>
+                                    <i class="fa fa-plug text-muted fa-lg" ng-hide="node.started"></i>
+                                </button>
+                            </td>
+                            <td class="noselect" style="width:1px">
+                                <button class="btn btn-link btn-sm" style="outline:none" ng-click="open_node(node)">
+                                    <i class="fa fa-ellipsis-h text-muted fa-lg"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <p ng-show="skip+limit>=nodes_count" class="text-center text-muted">
+                    -FIN-
+                </p>
+
+            </div>
+
+
+            <div class="col-sm-6" style="overflow: hidden">
+                <div class="relpos">
+                    <div id="nodes_map" class="img-responsive"></div>
+                    <div ng-if="nbNodes.has_no_nodes" class="abscenter text-center" style="margin-top: -30px; margin-left: -50px">
+                        <a class="btn btn-success btn-lg animated fadeInUp" ng-click="add_nodes()">
+                        Add nodes
+                    </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>

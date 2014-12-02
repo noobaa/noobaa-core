@@ -1,83 +1,85 @@
 // this module is written for both nodejs, or for client with browserify.
 'use strict';
 
-var restful_api = require('../util/restful_api');
+var rest_api = require('../util/rest_api');
 
-
-module.exports = restful_api({
+/**
+ *
+ * ACCOUNT API
+ *
+ */
+module.exports = rest_api({
 
     name: 'account_api',
 
     methods: {
 
-        login_account: {
-            method: 'POST',
-            path: '/login',
-            params: {
-                type: 'object',
-                required: ['email', 'password'],
-                properties: {
-                    email: {
-                        type: 'string',
-                    },
-                    password: {
-                        type: 'string',
-                    },
-                },
-            },
-            doc: 'login into account',
-        },
-
-        logout_account: {
-            method: 'POST',
-            path: '/logout',
-            doc: 'logout current account',
-        },
-
         create_account: {
+            doc: 'Create a new account',
             method: 'POST',
-            path: '/',
+            path: '/account',
             params: {
                 type: 'object',
-                required: ['email', 'password'],
+                required: ['name', 'email', 'password'],
                 properties: {
+                    name: {
+                        type: 'string',
+                    },
                     email: {
                         type: 'string',
-                        doc: [
-                            'email is used to identify the account. ',
-                            'an email can be used for one account only.',
-                        ].join(''),
                     },
                     password: {
                         type: 'string',
-                        doc: 'password for account authentication',
                     },
                 },
             },
-            doc: 'create a new account',
+            reply: {
+                type: 'object',
+                required: ['token'],
+                properties: {
+                    token: {
+                        type: 'string'
+                    }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
         },
 
         read_account: {
+            doc: 'Read the info of the authorized account',
             method: 'GET',
-            path: '/',
+            path: '/account',
             reply: {
                 type: 'object',
-                required: ['email'],
+                required: ['name', 'email'],
                 properties: {
+                    name: {
+                        type: 'string',
+                    },
                     email: {
                         type: 'string',
                     },
                 },
             },
-            doc: 'return the current logged in account info',
+            auth: {
+                system: false,
+            }
         },
 
         update_account: {
+            doc: 'Update the info of the authorized account',
             method: 'PUT',
-            path: '/',
+            path: '/account',
             params: {
                 type: 'object',
+                required: [],
                 properties: {
+                    name: {
+                        type: 'string',
+                    },
                     email: {
                         type: 'string',
                     },
@@ -86,15 +88,20 @@ module.exports = restful_api({
                     },
                 }
             },
-            doc: 'update the current logged in account info',
+            auth: {
+                system: false,
+            }
         },
 
         delete_account: {
+            doc: 'Delete the authorized account',
             method: 'DELETE',
-            path: '/',
-            doc: 'delete the current logged in account',
+            path: '/account',
+            auth: {
+                system: false,
+            }
         },
 
-    }
+    },
 
 });

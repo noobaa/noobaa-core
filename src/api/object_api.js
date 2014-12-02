@@ -1,90 +1,212 @@
 // this module is written for both nodejs, or for client with browserify.
 'use strict';
 
-var restful_api = require('../util/restful_api');
+var rest_api = require('../util/rest_api');
 
 
-module.exports = restful_api({
+/**
+ *
+ * OBJECT API
+ *
+ */
+module.exports = rest_api({
 
     name: 'object_api',
 
     methods: {
 
-        // bucket functions
-
-        create_bucket: {
+        create_multipart_upload: {
             method: 'POST',
-            path: '/',
+            path: '/obj/:bucket/:key/upload',
             params: {
                 type: 'object',
-                required: ['bucket'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    }
-                }
-            }
-        },
-
-        read_bucket: {
-            method: 'GET',
-            path: '/:bucket',
-            params: {
-                type: 'object',
-                required: ['bucket'],
+                required: ['bucket', 'key', 'size'],
                 properties: {
                     bucket: {
                         type: 'string',
                     },
+                    key: {
+                        type: 'string',
+                    },
+                    size: {
+                        type: 'integer',
+                    }
                 }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        complete_multipart_upload: {
+            method: 'PUT',
+            path: '/obj/:bucket/:key/upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        abort_multipart_upload: {
+            method: 'DELETE',
+            path: '/obj/:bucket/:key/upload',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        allocate_object_part: {
+            method: 'POST',
+            path: '/obj/:bucket/:key/part',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key', 'start', 'end', 'md5sum'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    start: {
+                        type: 'integer',
+                    },
+                    end: {
+                        type: 'integer',
+                    },
+                    md5sum: {
+                        type: 'string',
+                    },
+                },
+            },
+            reply: {
+                $ref: '/object_api/definitions/object_part_info'
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        read_object_mappings: {
+            method: 'GET',
+            path: '/obj/:bucket/:key/map',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key', 'start', 'end'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    start: {
+                        type: 'integer',
+                    },
+                    end: {
+                        type: 'integer',
+                    },
+                },
             },
             reply: {
                 type: 'object',
-                required: ['name'],
+                required: ['size', 'parts'],
                 properties: {
-                    name: {
-                        type: 'string'
-                    }
+                    size: {
+                        type: 'integer'
+                    },
+                    parts: {
+                        type: 'array',
+                        items: {
+                            $ref: '/object_api/definitions/object_part_info'
+                        },
+                    },
                 }
+            },
+            auth: {
+                system: ['admin', 'user', 'viewer']
             }
         },
 
-        update_bucket: {
-            method: 'PUT',
-            path: '/:bucket',
-            params: {
-                type: 'object',
-                required: ['bucket'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        delete_bucket: {
-            method: 'DELETE',
-            path: '/:bucket',
-            params: {
-                type: 'object',
-                required: ['bucket'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        list_bucket_objects: {
+        read_object_md: {
             method: 'GET',
-            path: '/:bucket/list',
+            path: '/obj/:bucket/:key',
+            params: {
+                $ref: '/object_api/definitions/object_path'
+            },
+            reply: {
+                $ref: '/object_api/definitions/object_info'
+            },
+            auth: {
+                system: ['admin', 'user', 'viewer']
+            }
+        },
+
+        update_object_md: {
+            method: 'PUT',
+            path: '/obj/:bucket/:key',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        delete_object: {
+            method: 'DELETE',
+            path: '/obj/:bucket/:key',
+            params: {
+                $ref: '/object_api/definitions/object_path'
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        list_objects: {
+            method: 'GET',
+            path: '/objs/:bucket',
             params: {
                 type: 'object',
                 required: ['bucket'],
                 properties: {
                     bucket: {
+                        type: 'string',
+                    },
+                    key: {
                         type: 'string',
                     },
                 }
@@ -109,178 +231,15 @@ module.exports = restful_api({
                         }
                     }
                 }
-            }
-        },
-
-
-        ///////////////////
-        // object upload //
-        ///////////////////
-
-        create_multipart_upload: {
-            method: 'POST',
-            path: '/:bucket/:key/upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
             },
-        },
-
-        complete_multipart_upload: {
-            method: 'PUT',
-            path: '/:bucket/:key/upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key', 'size'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    size: {
-                        type: 'integer',
-                    }
-                }
-            },
-        },
-
-        abort_multipart_upload: {
-            method: 'DELETE',
-            path: '/:bucket/:key/upload',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        allocate_object_part: {
-            method: 'POST',
-            path: '/:bucket/:key/part',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key', 'start', 'end'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    start: {
-                        type: 'integer',
-                    },
-                    end: {
-                        type: 'integer',
-                    },
-                },
-            },
-            reply: {
-                $ref: '/object_api/definitions/object_part_info'
-            }
-        },
-
-
-        //////////////////////
-        // object meta-data //
-        //////////////////////
-
-        read_object_md: {
-            method: 'GET',
-            path: '/:bucket/:key',
-            params: {
-                $ref: '/object_api/definitions/object_path'
-            },
-            reply: {
-                $ref: '/object_api/definitions/object_info'
-            }
-        },
-
-        update_object_md: {
-            method: 'PUT',
-            path: '/:bucket/:key',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                }
-            },
-        },
-
-        delete_object: {
-            method: 'DELETE',
-            path: '/:bucket/:key',
-            params: {
-                $ref: '/object_api/definitions/object_path'
-            },
-        },
-
-
-        read_object_mappings: {
-            method: 'GET',
-            path: '/:bucket/:key/map',
-            params: {
-                type: 'object',
-                required: ['bucket', 'key', 'start', 'end'],
-                properties: {
-                    bucket: {
-                        type: 'string',
-                    },
-                    key: {
-                        type: 'string',
-                    },
-                    start: {
-                        type: 'integer',
-                    },
-                    end: {
-                        type: 'integer',
-                    },
-                },
-            },
-            reply: {
-                type: 'object',
-                required: ['parts'],
-                properties: {
-                    parts: {
-                        type: 'array',
-                        items: {
-                            $ref: '/object_api/definitions/object_part_info'
-                        },
-                    },
-                }
+            auth: {
+                system: 'admin'
             }
         },
 
     },
 
 
-
-    ////////////////////////////////
-    // general schema definitions //
-    ////////////////////////////////
 
     definitions: {
 
@@ -316,7 +275,12 @@ module.exports = restful_api({
 
         object_part_info: {
             type: 'object',
-            required: ['start', 'end', 'kblocks', 'chunk_size', 'chunk_offset', 'indexes'],
+            required: [
+                'start', 'end',
+                'kfrag', 'md5sum',
+                'chunk_size', 'chunk_offset',
+                'fragments'
+            ],
             properties: {
                 start: {
                     type: 'integer',
@@ -324,8 +288,11 @@ module.exports = restful_api({
                 end: {
                     type: 'integer',
                 },
-                kblocks: {
+                kfrag: {
                     type: 'integer',
+                },
+                md5sum: {
+                    type: 'string',
                 },
                 chunk_size: {
                     type: 'integer',
@@ -333,11 +300,11 @@ module.exports = restful_api({
                 chunk_offset: {
                     type: 'integer',
                 },
-                indexes: {
-                    // the indexes composing the data chunk
+                fragments: {
+                    // the fragments composing the data chunk
                     type: 'array',
                     items: {
-                        // each index contains an array of blocks
+                        // each fragment contains an array of blocks
                         type: 'array',
                         items: {
                             type: 'object',

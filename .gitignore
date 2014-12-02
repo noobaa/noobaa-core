@@ -9,5 +9,7 @@ build/
 ## istanbul coverage
 coverage/
 
-## testing storage
-test_storage_for_agents/
+## testing agent storage
+agent_storage/
+
+ionic-app/

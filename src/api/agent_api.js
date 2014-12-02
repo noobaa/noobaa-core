@@ -1,10 +1,15 @@
 // this module is written for both nodejs, or for client with browserify.
 'use strict';
 
-var restful_api = require('../util/restful_api');
+var rest_api = require('../util/rest_api');
 
 
-module.exports = restful_api({
+/**
+ *
+ * AGENT API
+ *
+ */
+module.exports = rest_api({
 
     name: 'agent_api',
 
@@ -78,7 +83,7 @@ module.exports = restful_api({
             },
         },
 
-        remove_block: {
+        delete_block: {
             method: 'DELETE',
             path: '/block/:block_id',
             params: {

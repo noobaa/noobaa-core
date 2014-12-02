@@ -3,116 +3,255 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var restful_api = require('../util/restful_api');
-var object_api = require('../api/object_api');
-var account_server = require('./account_server');
+var rest_api = require('../util/rest_api');
+var api = require('../api');
+var system_server = require('./system_server');
 var LRU = require('noobaa-util/lru');
 var object_mapper = require('./object_mapper');
-// db models
-var Account = require('./models/account');
-var Bucket = require('./models/bucket');
-var ObjectMD = require('./models/object_md');
-var EdgeNode = require('./models/edge_node');
+var db = require('./db');
 
 
-module.exports = new object_api.Server({
-    // bucket actions
-    create_bucket: create_bucket,
-    read_bucket: read_bucket,
-    update_bucket: update_bucket,
-    delete_bucket: delete_bucket,
-    list_bucket_objects: list_bucket_objects,
+/**
+ *
+ * OBJECT SERVER (REST)
+ *
+ */
+module.exports = new api.object_api.Server({
+
     // object upload
     create_multipart_upload: create_multipart_upload,
     complete_multipart_upload: complete_multipart_upload,
     abort_multipart_upload: abort_multipart_upload,
     allocate_object_part: allocate_object_part,
+
     // read
     read_object_mappings: read_object_mappings,
+
     // object meta-data
     read_object_md: read_object_md,
     update_object_md: update_object_md,
     delete_object: delete_object,
-}, [
-    // middleware to verify the account session
-    account_server.account_session
-]);
+    list_objects: list_objects,
+});
 
 
-function create_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
 
-    return Q.fcall(
-        function() {
+/**
+ *
+ * CREATE_MULTIPART_UPLOAD
+ *
+ */
+function create_multipart_upload(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
             var info = {
-                account: req.account.id,
-                name: bucket_name,
-            };
-            return Bucket.create(info);
-        }
-    ).then(reply_undefined);
-}
-
-
-function read_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
-
-    return find_bucket(req.account.id, bucket_name, 'force').then(
-        function(bucket) {
-            return _.pick(bucket, 'name');
-        }
-    );
-}
-
-
-function update_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
-
-    return Q.fcall(
-        function() {
-            // TODO no fields can be updated for now
-            var updates = _.pick(req.restful_params);
-            var info = {
-                account: req.account.id,
-                name: bucket_name,
-            };
-            return Bucket.findOneAndUpdate(info, updates).exec();
-        }
-    ).then(reply_undefined);
-}
-
-
-function delete_bucket(req) {
-    var bucket_name = req.restful_params.bucket;
-    // TODO mark deleted on objects and reclaim data blocks
-
-    return Q.fcall(
-        function() {
-            var info = {
-                account: req.account.id,
-                name: bucket_name,
-            };
-            return Bucket.findOneAndRemove(info).exec();
-        }
-    ).then(reply_undefined);
-}
-
-
-function list_bucket_objects(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
+                system: req.system.id,
                 bucket: bucket.id,
-                key: key,
+                key: req.rest_params.key,
+                size: req.rest_params.size,
+                upload_mode: true,
             };
-            return ObjectMD.find(info).exec();
-        }
-    ).then(
-        function(objects) {
+            return db.ObjectMD.create(info);
+        }).thenResolve();
+}
+
+
+
+/**
+ *
+ * COMPLETE_MULTIPART_UPLOAD
+ *
+ */
+function complete_multipart_upload(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            var updates = {
+                $unset: {
+                    upload_mode: 1
+                }
+            };
+            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
+        }).thenResolve();
+}
+
+
+
+/**
+ *
+ * ABORT_MULTIPART_UPLOAD
+ *
+ */
+function abort_multipart_upload(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            var updates = {
+                upload_mode: true
+            };
+            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
+        }).thenResolve();
+}
+
+
+
+/**
+ *
+ * ALLOCATE_OBJECT_PART
+ *
+ */
+function allocate_object_part(req) {
+    var bucket;
+    return get_bucket_from_cache(req)
+        .then(function(bucket_arg) {
+            bucket = bucket_arg;
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            return db.ObjectMD.findOne(info).exec();
+        }).then(function(obj) {
+            if (!obj) {
+                throw new Error('object not found');
+            }
+            if (!obj.upload_mode) {
+                // TODO handle the upload_mode state
+                // throw new Error('object not in upload mode');
+            }
+            var start = Number(req.rest_params.start);
+            var end = Number(req.rest_params.end);
+            var md5sum = req.rest_params.md5sum;
+            return object_mapper.allocate_object_part(bucket, obj, start, end, md5sum);
+        });
+}
+
+
+
+/**
+ *
+ * READ_OBJECT_MAPPING
+ *
+ */
+function read_object_mappings(req) {
+    var obj;
+
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            return db.ObjectMD.findOne(info).exec();
+        }).then(function(obj_arg) {
+            obj = obj_arg;
+            var start = Number(req.rest_params.start);
+            var end = Number(req.rest_params.end);
+            return object_mapper.read_object_mappings(obj, start, end);
+        }).then(function(parts) {
+            return {
+                size: obj.size,
+                parts: parts,
+            };
+        });
+}
+
+
+
+/**
+ *
+ * READ_OBJECT_MD
+ *
+ */
+function read_object_md(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            return db.ObjectMD.findOne(info).exec();
+        })
+        .then(db.check_not_deleted(req, 'object'))
+        .then(function(obj) {
+            return get_object_info(obj);
+        });
+}
+
+
+
+/**
+ *
+ * UPDATE_OBJECT_MD
+ *
+ */
+function update_object_md(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            // TODO no fields can be updated for now
+            var updates = _.pick(req.rest_params);
+            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
+        })
+        .then(db.check_not_deleted(req, 'object'))
+        .thenResolve();
+}
+
+
+
+/**
+ *
+ * DELETE_OBJECT
+ *
+ */
+function delete_object(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            return db.ObjectMD.findOneAndRemove(info).exec();
+        })
+        .then(db.check_not_found(req, 'object'))
+        .thenResolve();
+}
+
+
+
+/**
+ *
+ * LIST_OBJECTS
+ *
+ */
+function list_objects(req) {
+    return get_bucket_from_cache(req)
+        .then(function(bucket) {
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+            };
+            if (req.rest_params.key) {
+                info.key = new RegExp(req.rest_params.key);
+            }
+            return db.ObjectMD.find(info).exec();
+        })
+        .then(function(objects) {
             return {
                 objects: _.map(objects, function(obj) {
                     return {
@@ -121,224 +260,19 @@ function list_bucket_objects(req) {
                     };
                 })
             };
-        }
-    );
-}
-
-
-function create_multipart_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var size = req.restful_params.size;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-                upload_mode: true,
-            };
-            return ObjectMD.create(info);
-        }
-    ).then(reply_undefined);
-}
-
-function complete_multipart_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var size = req.restful_params.size;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            var updates = {
-                size: size,
-                $unset: {
-                    upload_mode: 1
-                }
-            };
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
-        }
-    ).then(reply_undefined);
-}
-
-function abort_multipart_upload(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            var updates = {
-                upload_mode: true
-            };
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
-        }
-    ).then(reply_undefined);
-}
-
-function allocate_object_part(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var start = Number(req.restful_params.start);
-    var end = Number(req.restful_params.end);
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            return ObjectMD.findOne(info).exec();
-        }
-    ).then(
-        function(obj) {
-            if (!obj.upload_mode) {
-                // TODO handle the upload_mode state
-                // throw new Error('object not in upload mode');
-            }
-            return object_mapper.allocate_object_part(obj, start, end);
-        }
-    );
-}
-
-
-function read_object_mappings(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-    var start = Number(req.restful_params.start);
-    var end = Number(req.restful_params.end);
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            return ObjectMD.findOne(info).exec();
-        }
-    ).then(
-        function(obj) {
-            return object_mapper.read_object_mappings(obj, start, end);
-        }
-    );
-}
-
-
-//////////////////////
-// object meta-data //
-//////////////////////
-
-function read_object_md(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            return ObjectMD.findOne(info).exec();
-        }
-    ).then(
-        function(obj) {
-            return get_object_info(obj);
-        }
-    );
-}
-
-
-function update_object_md(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            // TODO no fields can be updated for now
-            var updates = _.pick(req.restful_params);
-            return ObjectMD.findOneAndUpdate(info, updates).exec();
-        }
-    ).then(reply_undefined);
-}
-
-
-function delete_object(req) {
-    var bucket_name = req.restful_params.bucket;
-    var key = req.restful_params.key;
-
-    return find_bucket(req.account.id, bucket_name).then(
-        function(bucket) {
-            var info = {
-                account: req.account.id,
-                bucket: bucket.id,
-                key: key,
-            };
-            return ObjectMD.findOneAndRemove(info).exec();
-        }
-    ).then(reply_undefined);
+        });
 }
 
 
 
-// 10 minutes expiry
-var buckets_lru = new LRU({
-    max_length: 200,
-    expiry_ms: 600000,
-    name: 'buckets_lru'
-});
 
-function find_bucket(account_id, bucket_name, force) {
-    return Q.fcall(
-        function() {
-            var item = buckets_lru.find_or_add_item(account_id + ':' + bucket_name);
-            // use cached bucket if not expired
-            if (item.bucket && force !== 'force') {
-                return item.bucket;
-            }
-            // fetch account from the database
-            var info = {
-                account: account_id,
-                name: bucket_name,
-            };
-            console.log('BUCKET MISS', info);
-            return Q.fcall(
-                function() {
-                    return Bucket.findOne(info).exec();
-                }
-            ).then(
-                function(bucket) {
-                    if (!bucket) {
-                        throw new Error('NO BUCKET ' + bucket_name);
-                    }
-                    item.bucket = bucket;
-                    return bucket;
-                }
-            );
-        }
-    );
-}
+
+// UTILS //////////////////////////////////////////////////////////
+
 
 function get_object_info(md) {
     var info = {
-        size: md.size,
+        size: md.size || 0,
         create_time: md.create_time.toString(),
     };
     if (md.upload_mode) {
@@ -347,4 +281,10 @@ function get_object_info(md) {
     return info;
 }
 
-function reply_undefined() {}
+function get_bucket_from_cache(req) {
+    return db.BucketCache.get({
+            system: req.system.id,
+            name: req.rest_params.bucket,
+        })
+        .then(db.check_not_deleted(req, 'bucket'));
+}

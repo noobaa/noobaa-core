@@ -8,6 +8,7 @@ process.on('uncaughtException', function(err) {
 // or else the it will get mess up (like the email.js code)
 var dot_engine = require('noobaa-util/dot_engine');
 var _ = require('lodash');
+var Q = require('q');
 var fs = require('fs');
 var path = require('path');
 var URL = require('url');
@@ -22,6 +23,13 @@ var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var auth_server = require('./auth_server');
+var account_server = require('./account_server');
+var system_server = require('./system_server');
+var tier_server = require('./tier_server');
+var node_server = require('./node_server');
+var bucket_server = require('./bucket_server');
+var object_server = require('./object_server');
 
 
 if (!process.env.PORT) {
@@ -56,7 +64,7 @@ app.engine('html', dot_engine(views_path));
 // configure app middleware handlers in the order to use them
 
 app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon_bgblack.ico')));
-app.use(express_morgan_logger('combined'));
+app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:
     // since we want to provide secure and certified connections
@@ -93,7 +101,7 @@ app.use(express_cookie_session({
     maxage: 356 * 24 * 60 * 60 * 1000 // 1 year
 }));
 app.use(express_compress());
-
+app.use(auth_server.authorize());
 
 ////////////
 // ROUTES //
@@ -104,51 +112,34 @@ app.use(express_compress());
 // setup apis
 
 var api_router = express.Router();
-app.use('/api', api_router);
-
-var account_server = require('./account_server');
-account_server.set_logging();
-account_server.install_routes(api_router, '/account_api/');
-
-var mgmt_server = require('./mgmt_server');
-mgmt_server.set_logging();
-mgmt_server.install_routes(api_router, '/mgmt_api/');
-
-var edge_node_server = require('./edge_node_server');
-edge_node_server.set_logging();
-edge_node_server.install_routes(api_router, '/edge_node_api/');
-
-var object_server = require('./object_server');
-object_server.set_logging();
-object_server.install_routes(api_router, '/object_api/');
+auth_server.install_rest(api_router);
+account_server.install_rest(api_router);
+system_server.install_rest(api_router);
+tier_server.install_rest(api_router);
+node_server.install_rest(api_router);
+bucket_server.install_rest(api_router);
+object_server.install_rest(api_router);
+app.use(api_router);
 
 
 // setup pages
 
-app.all('/agent/*', function(req, res) {
-    var ctx = { //common_api.common_server_data(req);
-        data: {}
+function page_context(req) {
+    var data = {};
+    return {
+        data: data
     };
-    return res.render('agent.html', ctx);
-});
+}
 
-app.all('/agent', function(req, res) {
-    return res.redirect('/agent/');
+app.all('/sudo/*', function(req, res) {
+    return res.render('sudo.html', page_context(req));
 });
-
-app.all('/client/*', function(req, res) {
-    var ctx = { //common_api.common_server_data(req);
-        data: {}
-    };
-    return res.render('client.html', ctx);
-});
-
-app.all('/client', function(req, res) {
-    return res.redirect('/client/');
+app.all('/sudo', function(req, res) {
+    return res.redirect('/sudo/');
 });
 
 app.all('/', function(req, res) {
-    return res.redirect('/client/');
+    return res.redirect('/sudo/');
 });
 
 
@@ -221,7 +212,7 @@ function error_403(req, res, next) {
     console.log('NO USER', req.originalMethod, req.originalUrl);
     if (can_accept_html(req)) {
         return res.redirect(URL.format({
-            pathname: '/auth/facebook/login/',
+            pathname: '/login/',
             query: {
                 state: req.originalUrl
             }
@@ -232,13 +223,6 @@ function error_403(req, res, next) {
         message: 'NO USER',
         reload: true
     };
-    if (req.originalUrl.indexOf('/api/device') === 0) {
-        // TEMP FIX:
-        // when device api fails on no user, we send the error as success status (200)
-        // because old planet code was not reloading on error.
-        console.log('FORCE RELOAD DEVICE', req.originalUrl);
-        return res.json(200, err);
-    }
     return next(err);
 }
 

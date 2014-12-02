@@ -62,16 +62,22 @@ process.on("SIGTERM", leave_no_wounded);
 var PATHS = {
     css: './src/css/**/*',
     css_candidates: ['./src/css/styles.less'],
-    fonts: [
-        './bower_components/bootstrap/dist/fonts/*',
-        './bower_components/font-awesome/fonts/*',
-    ],
-    fonts2: [
-        './node_modules/video.js/dist/video-js/font/*',
-    ],
-    assets: [
-        './node_modules/video.js/dist/video-js/video-js.swf',
-    ],
+
+    assets: {
+        'build/public': [
+            './node_modules/video.js/dist/video-js/video-js.swf',
+        ],
+        'build/public/css': [
+        ],
+        'build/public/fonts': [
+            './node_modules/bootstrap/dist/fonts/*',
+            './node_modules/font-awesome/fonts/*',
+            './bower_components/bootstrap-material-design/fonts/*',
+        ],
+        'build/public/css/font': [
+            './node_modules/video.js/dist/video-js/font/*',
+        ],
+    },
 
     ngview: './src/ngview/**/*',
     scripts: ['./src/**/*.js', './*.js'],
@@ -81,12 +87,16 @@ var PATHS = {
     ],
 
     server_main: './src/server/web_server.js',
-    client_main: './src/client/ng_client.js',
-    agent_main: './src/agent/ng_agent.js',
+    client_bundle: './src/client/index.js',
+    // agent_bundle: './src/agent/index.js',
     client_externals: [
-        './bower_components/bootstrap/dist/js/bootstrap.min.js',
-        './node_modules/masonry.js/dist/masonry.pkgd.min.js',
-        './bower_components/alertify.js/lib/alertify.min.js',
+        './node_modules/bootstrap/dist/js/bootstrap.js',
+        './vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
+        './bower_components/bootstrap-material-design/scripts/material.js',
+        './bower_components/bootstrap-material-design/scripts/ripples.js',
+        './bower_components/ladda/js/spin.js',
+        './bower_components/ladda/js/ladda.js',
+        './bower_components/alertify.js/lib/alertify.js',
         './node_modules/video.js/dist/video-js/video.dev.js',
         // './vendor/flowplayer-5.4.6/flowplayer.js',
     ],
@@ -163,23 +173,14 @@ gulp.task('bower', function() {
 });
 
 gulp.task('assets', ['bower'], function() {
-    var DEST = 'build/public';
-    var FONTS_DEST = 'build/public/fonts';
-    var FONTS2_DEST = 'build/public/css/font';
-    return Q.all([
-        gulp.src(PATHS.assets)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(DEST))
-        .pipe(gulp.dest(DEST)),
-        gulp.src(PATHS.fonts)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(FONTS_DEST))
-        .pipe(gulp.dest(FONTS_DEST)),
-        gulp.src(PATHS.fonts2)
-        .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_newer(FONTS2_DEST))
-        .pipe(gulp.dest(FONTS2_DEST))
-    ]);
+    return Q.all(_.map(PATHS.assets,
+        function(src, target) {
+            return gulp.src(src)
+                .pipe(gulp_plumber(PLUMB_CONF))
+                .pipe(gulp_newer(target))
+                .pipe(gulp.dest(target));
+        }
+    ));
 });
 
 gulp.task('css', ['bower'], function() {
@@ -201,7 +202,7 @@ gulp.task('css', ['bower'], function() {
 });
 
 gulp.task('ng', function() {
-    var DEST = 'build/';
+    var DEST = 'build/public/js';
     var NAME = 'templates.js';
     return gulp.src(PATHS.ngview)
         .pipe(gulp_plumber(PLUMB_CONF))
@@ -226,10 +227,13 @@ gulp.task('jshint', function() {
 
 gulp.task('client', ['bower', 'ng'], function() {
     var DEST = 'build/public/js';
-    var NAME = 'bundle.js';
-    var NAME_MIN = 'bundle.min.js';
+    var NAME = 'index.js';
+    var NAME_MIN = 'index.min.js';
     var bundler = browserify({
-        entries: [PATHS.client_main, PATHS.agent_main],
+        entries: [
+            PATHS.client_bundle,
+            PATHS.agent_bundle
+        ],
         debug: (process.env.DEBUG_MODE === 'true'),
 
         // TODO this browserify config will not work in node-webkit....
@@ -325,13 +329,22 @@ function serve() {
 gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client']);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_client_and_serve', ['jshint', 'client'], serve);
 gulp.task('install_server_and_serve', ['jshint'], serve);
+gulp.task('install_client_and_serve', ['jshint', 'client'], serve);
 
 gulp.task('start_dev', ['install_and_serve'], function() {
     gulp.watch('src/css/**/*', ['install_css_and_serve']);
-    gulp.watch(['src/client/**/*', 'src/ngview/**/*', 'src/utils/**/*'], ['install_client_and_serve']);
-    gulp.watch(['src/server/**/*', 'src/views/**/*'], ['install_server_and_serve']);
+    gulp.watch([
+        'src/server/**/*',
+        'src/views/**/*'
+    ], ['install_server_and_serve']);
+    gulp.watch([
+        'src/client/**/*',
+        'src/agent/**/*',
+        'src/api/**/*',
+        'src/util/**/*',
+        'src/ngview/**/*',
+    ], ['install_client_and_serve']);
 });
 
 gulp.task('start_prod', function() {

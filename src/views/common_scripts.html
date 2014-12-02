@@ -1,11 +1,16 @@
 <!-- SCRIPTS -->
 
+<!-- server data is safely embedded in a JSON type script -->
+<script id="server_data" type="application/json">
+    {{{= JSON.stringify(it.data) }}}
+</script>
+
+<!-- google loader -->
+<script src="http://www.google.com/jsapi" type="text/javascript"></script>
+
 <!-- jquery -->
 <script src="//ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
-<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.1/jquery-ui.min.js"></script>
-
-<!-- bootstrap -->
-<script src="//maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+<script src="//ajax.googleapis.com/ajax/libs/jqueryui/1.11.2/jquery-ui.min.js"></script>
 
 <!-- angular -->
 <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular.min.js"></script>
@@ -16,12 +21,9 @@
 <script src="//ajax.googleapis.com/ajax/libs/angularjs/1.2.26/angular-cookies.min.js"></script>
 
 
-<script src="/public/js/bundle.js" type="text/javascript"></script>
+<script src="/public/js/templates.js" type="text/javascript"></script>
+<script src="/public/js/index.js" type="text/javascript"></script>
 
-<!-- server data is safely embedded in a JSON type script -->
-<script id="server_data" type="application/json">
-    {{{= JSON.stringify(it.data) }}}
-</script>
 
 <script type="text/javascript">
     (function(window) {

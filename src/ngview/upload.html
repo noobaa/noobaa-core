@@ -1,0 +1,102 @@
+<div ng-controller="UploadCtrl">
+
+    <div ng-include="'navbar.html'"></div>
+
+    <div class="container-fluid">
+
+        <h1 class="text-muted">Upload</h1>
+
+        <br/>
+
+        <div class="clearfix">
+            <button class="btn btn-default pull-right" nb-click-ladda="nbFiles.create_bucket()" title="New Bucket" rel="tooltip">
+                New Bucket
+            </button>
+        </div>
+
+        <hr />
+
+        <div class="row">
+
+            <div class="col-md-8">
+                <form class="form-horizontal" role="form">
+
+                    <div class="form-group form-group-lg">
+                        <label class="col-sm-3 control-label">Choose file</label>
+                        <div class="col-sm-7">
+                            <button ng-if="!file" class="btn btn-primary btn-lg btn-block" ng-click="click_browse()" ng-disabled="uploading">
+                                Browse...
+                            </button>
+
+                            <div ng-if="file" class="input-group input-group-lg">
+                                <span class="input-group-btn" ng-if="!uploading">
+                                    <button  class="btn btn-default btn-lg pull-right" ng-click="click_browse()">
+                                        <i class="fa fa-folder-open-o fa-fw"></i>
+                                    </button>
+                                </span>
+                                <input type="text" class="form-control" readonly style="cursor:default" value="{{file.name}}">
+                                <span class="input-group-addon">
+                                    <small><small>{{human_size(file.size)}}</small></small>
+                                </span>
+                            </div>
+                            <br/>
+                        </div>
+                    </div>
+
+                    <div class="form-group form-group-lg">
+                        <label class="col-sm-3 control-label">Select bucket</label>
+                        <div class="col-sm-7">
+                            <div class="form-control">
+                                <select ng-model="nbFiles.bucket" ng-options="bucket.name for bucket in nbFiles.buckets" ng-disabled="uploading"></select>
+                            </div>
+                            <br/>
+                        </div>
+                    </div>
+
+
+                    <div class="form-group form-group-lg" ng-if="nbFiles.bucket && file">
+                        <div class="col-sm-offset-3 col-sm-7">
+                            <button type="submit" nb-click-ladda="click_upload()" class="btn btn-primary btn-lg btn-block">
+                                Start uploading
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+
+            <div class="col-md-4" style="border-left: 1px solid hsl(0,0%,90%); position: relative">
+
+                <h4>Network</h4>
+                <div nb-network-chart></div>
+                <hr />
+
+                <h4>Peers</h4>
+                <div class="table-responsive">
+                    <table class="table">
+                        <tr>
+                            <th>Node</th>
+                            <th>Parts</th>
+                        </tr>
+                        <tr ng-repeat="node in nodes">
+                            <td>{{node.ip}}:{{node.port}}</td>
+                            <td>
+                                <canvas nb-progress-canvas="node.blocks" progress-max="file.size" progress-color="'lime'" style="width: 100%; height: 25px; border: 1px solid gray; background-color: hsl(0,0%,65%)"></canvas>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div ng-show="!uploading" class="absfill" style="background-color: white; opacity: 0.8"></div>
+
+            </div>
+
+        </div>
+
+
+        <!-- <img ng-src="{{object_src}}" ng-if="object_src" class="img-responsive" /> -->
+        <!-- <video controls autoplay ng-src="{{video_src}}" ng-if="video_src" class="img-responsive"></video> -->
+        <!-- <object ng-src="{{object_src}}" ng-if="object_src" class="img-responsive"></object> -->
+
+    </div>
+</div>

@@ -5,81 +5,147 @@
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
+var path = require('path');
 var utilitest = require('noobaa-util/utilitest');
+var rimraf = require('rimraf');
+var Semaphore = require('noobaa-util/semaphore');
+var api = require('../api');
+var db = require('../server/db');
+var Agent = require('../agent/agent');
 
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
-Q.longStackSupport = true;
+// Q.longStackSupport = true;
 
-var account_api = require('../api/account_api');
-var account_server = require('../server/account_server');
-var account_client = new account_api.Client({
-    path: '/account_api/',
-});
-
-var mgmt_api = require('../api/mgmt_api');
-var mgmt_server = require('../server/mgmt_server');
-var mgmt_client = new mgmt_api.Client({
-    path: '/mgmt_api/',
-});
-
-var edge_node_api = require('../api/edge_node_api');
-var edge_node_server = require('../server/edge_node_server');
-var edge_node_client = new edge_node_api.Client({
-    path: '/edge_node_api/',
-});
-
-var object_api = require('../api/object_api');
-var object_server = require('../server/object_server');
-var ObjectClient = require('../client/object_client');
-var object_client = new ObjectClient({
-    path: '/object_api/',
-});
+process.env.JWT_SECRET = 'coretest';
 
 var account_credentials = {
     email: 'coretest@core.test',
     password: 'coretest',
 };
 
+var auth_server = require('../server/auth_server');
+var account_server = require('../server/account_server');
+var system_server = require('../server/system_server');
+var tier_server = require('../server/tier_server');
+var node_server = require('../server/node_server');
+var bucket_server = require('../server/bucket_server');
+var object_server = require('../server/object_server');
+
+var client = new api.Client();
+
+
 before(function(done) {
-    Q.fcall(
-        function() {
-            account_server.set_logging();
-            account_server.install_routes(utilitest.router, '/account_api/');
-            account_client.set_param('port', utilitest.http_port());
+    Q.fcall(function() {
+        utilitest.router.use(auth_server.authorize());
+        auth_server.install_rest(utilitest.router);
+        account_server.install_rest(utilitest.router);
+        system_server.install_rest(utilitest.router);
+        tier_server.install_rest(utilitest.router);
+        node_server.install_rest(utilitest.router);
+        bucket_server.install_rest(utilitest.router);
+        object_server.install_rest(utilitest.router);
 
-            mgmt_server.set_logging();
-            mgmt_server.install_routes(utilitest.router, '/mgmt_api/');
-            mgmt_client.set_param('port', utilitest.http_port());
+        // setting the port globally for all the clients while testing
+        api.rest_api.global_client_options.port = utilitest.http_port();
 
-            edge_node_server.set_logging();
-            edge_node_server.install_routes(utilitest.router, '/edge_node_api/');
-            edge_node_client.set_param('port', utilitest.http_port());
-
-            object_server.set_logging();
-            object_server.install_routes(utilitest.router, '/object_api/');
-            object_client.set_param('port', utilitest.http_port());
-
-            return account_client.create_account(account_credentials);
-        }
-    ).nodeify(done);
+        var account_params = _.clone(account_credentials);
+        account_params.name = 'coretest';
+        return client.account.create_account(account_params);
+    }).then(function() {
+        return client.create_auth_token(account_credentials);
+    }).nodeify(done);
 });
 
 after(function() {
-    mgmt_server.disable_routes();
-    account_server.disable_routes();
-    edge_node_server.disable_routes();
+    auth_server.disable_rest();
+    account_server.disable_rest();
+    system_server.disable_rest();
+    tier_server.disable_rest();
+    node_server.disable_rest();
+    bucket_server.disable_rest();
+    object_server.disable_rest();
 });
 
-function login_default_account() {
-    return account_client.login_account(account_credentials);
+
+var test_agents;
+
+
+// create some test nodes named 0, 1, 2, ..., count
+function init_test_nodes(count, system, tier, storage_alloc) {
+    return clear_test_nodes()
+        .then(function() {
+            return client.auth.create_auth({
+                role: 'create_node',
+                system: system,
+                extra: {
+                    tier: tier
+                }
+            });
+        })
+        .then(function(res) {
+            var create_node_token = res.token;
+            var sem = new Semaphore(3);
+            return Q.all(_.times(count, function(i) {
+                return sem.surround(function() {
+                    var agent = new Agent({
+                        port: utilitest.http_port(),
+                        node_name: '' + Date.now(),
+                        // passing token instead of storage_path to use memory storage
+                        token: create_node_token,
+                    });
+                    return agent.start().thenResolve(agent);
+                });
+            }));
+        })
+        .then(function(agents) {
+            test_agents = agents;
+        });
 }
 
+// delete all edge nodes directly from the db
+function clear_test_nodes() {
+    return Q.fcall(function() {
+        console.log('REMOVE NODES');
+        var warning_timeout = setTimeout(function() {
+            console.log(
+                '\n\n\nWaiting too long?\n\n',
+                'the test got stuck on db.Node.remove().',
+                'this is known when running in mocha standalone (root cause unknown).',
+                'it does work fine when running with gulp, so we let it be.\n\n');
+            process.exit(1);
+        }, 3000);
+        return Q.when(db.Node.remove().exec())['finally'](function() {
+            clearTimeout(warning_timeout);
+        });
+    }).then(function() {
+        if (!test_agents) return;
+        console.log('STOPING AGENTS');
+        var sem = new Semaphore(3);
+        return Q.all(_.map(test_agents, function(agent) {
+            return sem.surround(function() {
+                console.log('agent stop', agent.node_id);
+                return agent.stop();
+            });
+        })).then(function() {
+            test_agents = null;
+        });
+    });
+}
+
+
+
 module.exports = {
+    utilitest: utilitest,
+    router: utilitest.router,
+    http_port: utilitest.http_port, // function
     account_credentials: account_credentials,
-    login_default_account: login_default_account,
-    account_client: account_client,
-    mgmt_client: mgmt_client,
-    edge_node_client: edge_node_client,
-    object_client: object_client,
+
+    client: client,
+    new_client: function() {
+        return new api.Client(client);
+    },
+
+    init_test_nodes: init_test_nodes,
+    clear_test_nodes: clear_test_nodes,
 };

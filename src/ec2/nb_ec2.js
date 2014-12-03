@@ -127,7 +127,7 @@ function describe_instance(instance_id) {
  * scale_instances
  *
  */
-function scale_instances(count) {
+function scale_instances(count, allow_terminate) {
 
     return get_regions().then(function(data) {
 
@@ -170,7 +170,7 @@ function scale_instances(count) {
                 new_count += region_count;
             }
 
-            return scale_region(region.RegionName, region_count);
+            return scale_region(region.RegionName, region_count, allow_terminate);
         }));
     });
 }
@@ -181,7 +181,7 @@ function scale_instances(count) {
  * scale_region
  *
  */
-function scale_region(region_name, count) {
+function scale_region(region_name, count, allow_terminate) {
     return create_security_group(region_name)
         .then(function() {
             return import_key_pair_to_region(region_name);
@@ -199,22 +199,26 @@ function scale_region(region_name, count) {
 
             // need to create
             if (count > instances.length) {
-                console.log('ScaleRegion:', region_name,
-                    'has', instances.length, 'add', count - instances.length);
+                console.log('ScaleRegion:', region_name, 'has', instances.length,
+                    ' +++ adding', count - instances.length);
                 return add_region_instances(region_name, count - instances.length);
             }
 
             // need to terminate
             if (count < instances.length) {
-                console.log('ScaleRegion:', region_name,
-                    'has', instances.length, 'remove', count);
+                if (!allow_terminate) {
+                    console.log('ScaleRegion:', region_name, 'has', instances.length,
+                        ' ??? should remove', instances.length - count);
+                    throw new Error('allow_terminate');
+                }
+                console.log('ScaleRegion:', region_name, 'has', instances.length,
+                    ' --- removing', instances.length - count);
                 var death_row = _.first(instances, instances.length - count);
                 var ids = _.pluck(death_row, 'InstanceId');
                 return terminate_instances(region_name, ids);
             }
 
-            console.log('ScaleRegion:', region_name,
-                'has', instances.length, 'unchanged :)');
+            console.log('ScaleRegion:', region_name, 'has', instances.length, ' ... unchanged');
         });
 }
 
@@ -411,23 +415,34 @@ function print_instances(instances) {
 function main() {
 
     if (!_.isUndefined(argv.scale)) {
-        scale_instances(argv.scale)
+
+        // add a --term flag to allow removing nodes
+        scale_instances(argv.scale, argv.term)
+            .then(null, function(err) {
+                if (err.message === 'allow_terminate') {
+                    console.error('Use --term flag to allow terminating nodes');
+                } else {
+                    throw err;
+                }
+            })
             .then(function(res) {
-                console_inspect('Scale ' + argv.scale + ':', res);
+                console_inspect('Scale: completed to ' + argv.scale, res);
                 return describe_instances().then(print_instances);
             })
             .done();
-    }
 
-    if (!_.isUndefined(argv.instance)) {
+    } else if (!_.isUndefined(argv.instance)) {
+
         describe_instance(argv.instance)
             .then(function(instance) {
                 console_inspect('Instance ' + argv.instance + ':', instance);
             })
             .done();
-    }
 
-    return describe_instances().then(print_instances).done();
+    } else {
+
+        describe_instances().then(print_instances).done();
+    }
 }
 
 if (require.main === module) {

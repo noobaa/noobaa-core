@@ -3,17 +3,36 @@
 var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
+var util = require('util');
 var async = require('async');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
 var AWS = require('aws-sdk');
+Q.longStackSupport = true;
+
+
+/**
+ *
+ * NB_EC2
+ *
+ * noobaa's ec2 wrapper
+ *
+ */
+var nb_ec2 = {
+    scale_instances: scale_instances,
+    describe_instances: describe_instances,
+    describe_instance: describe_instance,
+    terminate_instances: terminate_instances,
+    import_key_pair_to_region: import_key_pair_to_region,
+};
+
+module.exports = nb_ec2;
 
 
 /* load aws config from env */
-console.log('Loading configuration...');
 
 if (!process.env.AWS_ACCESS_KEY_ID) {
-    console.log('loading .env file ( no foreman ;)');
+    console.log('loading .env file...');
     dotenv.load();
 }
 
@@ -25,586 +44,362 @@ AWS.config.update({
     // region: process.env.AWS_REGION,
 });
 
-var PEM_FILE_PATH = __dirname + '/NooBaa.pub';
-
-
-/**
- *
- * NB_EC2
- *
- * noobaa's ec2 wrapper
- *
- */
-var nb_ec2 = {
-    init: init,
-    createSecurityGroup: createSecurityGroup,
-    importNooBaaKeys: importNooBaaKeys,
-    getSetupFullDetails: getSetupFullDetails,
-    getInstanceDataPerInstanceId: getInstanceDataPerInstanceId,
-    getPrivateIPAddressPerInstanceId: getPrivateIPAddressPerInstanceId,
-    getStatePerInstanceId: getStatePerInstanceId,
-    createInstancesInRegion: createInstancesInRegion,
-    createNewInstancesInRegion: createNewInstancesInRegion,
-    scaleInstances: scaleInstances,
-    terminateInstance: terminateInstance,
-    terminateInstancesInReservation: terminateInstancesInReservation,
-    terminateInstancesInRegion: terminateInstancesInRegion,
-    terminateInstances: terminateInstances,
+var KEY_PAIR_PARAMS = {
+    KeyName: 'noobaa-demo',
+    PublicKeyMaterial: fs.readFileSync(__dirname + '/noobaa-demo.pub')
 };
-
-module.exports = nb_ec2;
 
 // the run script to send to started instances
 var run_script = fs.readFileSync(__dirname + '/run_agent.sh');
 
 
+
 /**
  *
- *
+ * get_regions
  *
  */
-function init(callback) {
-    console.log('Loaded configuration...');
-    callback();
+function get_regions(func) {
+    return ec2_call('describeRegions');
 }
 
 
 /**
  *
+ * foreach_region
  *
- *
- */
-function createSecurityGroup(regionName, callback) {
-    var ec2 = new AWS.EC2({
-        region: regionName
-    });
-    var securityGroupParams = {
-        GroupNames: [
-            'ssh_and_http_v2',
-        ]
-    };
-    ec2.describeSecurityGroups(securityGroupParams, function(err, securityGroupData) {
-        if (err) {
-
-            console.log('Security Group is missing in ' + regionName);
-            var securityGroupCreationParams = {
-                Description: 'SSH and HTTP v2',
-                GroupName: 'ssh_and_http_v2'
-            };
-            ec2 = new AWS.EC2({
-                region: regionName
-            });
-            ec2.createSecurityGroup(securityGroupCreationParams, function(err, data) {
-                if (err) {
-                    console.log('Dup in ' + regionName);
-                } else {
-                    console.log('Created Security Group:' + JSON.stringify(data));
-                    var openPortsParam = {
-                        GroupId: data.GroupId,
-
-                        GroupName: securityGroupCreationParams.GroupName,
-                        IpPermissions: [{
-                                FromPort: 22,
-                                IpProtocol: 'tcp',
-                                ToPort: 22,
-                                IpRanges: [{
-                                    CidrIp: '0.0.0.0/0'
-                                }]
-                            }, {
-                                FromPort: 80,
-                                IpProtocol: 'tcp',
-                                ToPort: 80,
-                                IpRanges: [{
-                                    CidrIp: '0.0.0.0/0'
-                                }]
-                            },
-
-                            /* more items */
-                        ]
-
-                    };
-                    ec2.authorizeSecurityGroupIngress(openPortsParam, function(err, data) {
-                        if (err) console.log('Rules exist');
-                        else console.log('Opened port 22 and 80');
-                    });
-                    callback();
-                }
-            });
-
-        } else {
-            callback();
-        }
-    });
-}
-
-
-/**
- *
- *
+ * @param func is function(region) that can return a promise.
+ * @return promise for array of results per region func.
  *
  */
-function importNooBaaKeys(regionName, callback) {
-    fs.readFile(PEM_FILE_PATH, function(err, pemData) {
-        if (err) throw err;
-        else {
-            var params = {
-                KeyName: 'NooBaa',
-
-                PublicKeyMaterial: pemData
-            };
-            var ec2 = new AWS.EC2({
-                region: regionName
-            });
-            ec2.importKeyPair(params, function(err, importKey) {
-                if (err) {
-                    callback();
-                } else {
-                    console.log('Import (' + regionName + ')' + importKey);
-                    callback();
-                }
-            });
-        }
-    });
-}
-
-
-/**
- *
- * getSetupFullDetails
- *
- * @return setupInformation <Promise(Array)>
- *
- */
-function getSetupFullDetails(callback) {
-    var setupInformation = [];
-    var ec2 = new AWS.EC2();
-    return Q.nfcall(ec2.describeRegions.bind(ec2), {})
-        .then(function(data) {
-            return Q.all(_.map(data.Regions, function(currentRegion) {
-                var ec2_region = new AWS.EC2({
-                    region: currentRegion.RegionName
-                });
-                return Q.nfcall(ec2_region.describeInstances.bind(ec2_region), {})
-                    .then(function(data) {
-                        if (data.Reservations.length > 0) {
-                            setupInformation.push(data.Reservations[0].Instances);
-                        }
-                    });
-            }));
-        })
-        .then(function() {
-            return setupInformation;
-        }, function(err) {
-            console.error('ERROR getSetupFullDetails:', err);
-            throw err;
+function foreach_region(func) {
+    return get_regions()
+        .then(function(res) {
+            return Q.all(_.map(res.Regions, func));
         });
 }
 
 
 /**
  *
+ * describe_instances
  *
+ * @return instance array with entry per region,
+ *      each entry is array of instance info.
  *
  */
-function getInstanceDataPerInstanceId(instanceId, callback) {
-    var params = {};
-    var ec2 = new AWS.EC2();
-    ec2.describeRegions(params, function(err, data) {
-        if (err) {
-            callback(err, err.stack);
-        } else {
-
-            var instanceDataPromises = (data.Regions).map(function(currentRegion) {
-                var describeInstancesParams = {
-                    InstanceIds: [instanceId]
-                };
-
-                ec2 = new AWS.EC2({
-                    region: currentRegion.RegionName
+function describe_instances(params) {
+    return foreach_region(function(region) {
+            return ec2_region_call(region.RegionName, 'describeInstances', params)
+                .then(function(res) {
+                    // return a flat array of instances from res.Reservations[].Instances[]
+                    return _.flatten(res.Reservations, 'Instances');
                 });
-
-                ec2.describeInstances(describeInstancesParams, function(err, data) {
-                    if (err) {} else {
-                        if (data.Reservations.length > 0) {
-                            callback(err, data.Reservations[0].Instances[0]);
-                        }
-
-
-                    }
-                });
-
-            });
-
-        }
-    });
+        })
+        .then(function(res) {
+            // flatten again for all regions
+            return _.flatten(res);
+        });
 }
+
 
 
 /**
  *
+ * describe_instance
  *
+ * @return info of single instance
  *
  */
-function getPrivateIPAddressPerInstanceId(instanceId, callback) {
-    getInstanceDataPerInstanceId(instanceId, function(err, data) {
-        if (err) {
-            console.log('Error while getting instance private address', err);
-        } else {
-            callback(err, data.PrivateIpAddress);
-        }
-
-    });
+function describe_instance(instance_id) {
+    return describe_instances({
+            InstanceIds: [instance_id]
+        })
+        .then(function(res) {
+            return res[0];
+        });
 }
+
 
 
 /**
  *
- *
- *
- */
-function getStatePerInstanceId(instanceId, callback) {
-    getInstanceDataPerInstanceId(instanceId, function(err, data) {
-        if (err) {
-            console.log('Error while getting instance private address', err);
-            return callback(err);
-        }
-        return callback(err, data.State.Name);
-    });
-}
-
-
-/**
- *
- *
+ * scale_instances
  *
  */
-function createInstancesInRegion(instancesInRegion, callback) {
-    var numberOfInstances = instancesInRegion.numberOfInstances;
-    var regionName = instancesInRegion.regionName;
-    var ec2 = new AWS.EC2({
-        region: regionName
-    });
-    var describeInstancesParams = {
-        Filters: [{
-            Name: 'instance-state-name',
-            Values: ['running', 'pending']
-        }]
-    };
-    ec2.describeInstances(describeInstancesParams, function(err, data) {
-        var createdInstanceData = [];
-        if (err) console.log(err, err.stack);
-        else {
-            var instancesInRegion = [];
-            _(data.Reservations).forEach(function(reservation) {
-                instancesInRegion = instancesInRegion.concat(reservation.Instances);
-            });
-            console.log('Region ' + regionName + ' has ' + instancesInRegion.length + ' instances');
+function scale_instances(count) {
 
-            if (numberOfInstances > instancesInRegion.length) {
-                numberOfInstances = numberOfInstances - instancesInRegion.length;
-                var newInstancesParams = {
-                    numberOfInstances: numberOfInstances,
-                    regionName: regionName
-                };
-                createNewInstancesInRegion(newInstancesParams, function(err, newInstancesData) {
-                    if (err) console.log(err, err.stack);
-                    else {
-                        callback(err, newInstancesData);
-                    }
-                });
+    return get_regions().then(function(data) {
+
+        var target_region_count = 0;
+        var first_region_extra_count = 0;
+        if (count < data.Regions.length) {
+            // if number of instances is smaller than the number of regions,
+            // we will add one instance per region until we have enough instances.
+            if (count === 0) {
+                target_region_count = 0;
             } else {
-                //need to terminate
-                if (numberOfInstances < instancesInRegion.length) {
-                    var numberOfinstancesToTerminate = instancesInRegion.length - numberOfInstances;
-                    var terminateParams = {
-                        InstanceIds: []
-                    };
-                    _(instancesInRegion).forEach(function(instanceItem) {
-                        if (numberOfinstancesToTerminate > terminateParams.InstanceIds.length) {
-                            terminateParams.InstanceIds.push(instanceItem.InstanceId);
-                        }
+                target_region_count = 1;
+            }
+        } else {
+            // divide instances equally per region.
+            // the first region will get the redundant instances
+            target_region_count = Math.floor(count / data.Regions.length);
+            first_region_extra_count = (count % data.Regions.length);
+            if (target_region_count > 20) {
+                target_region_count = 20;
+                first_region_extra_count = 0;
+                console.log('Cannot scale to over 20 instances per region. will scale to 20');
+            }
+        }
 
-                    });
-                    ec2 = new AWS.EC2({
-                        region: regionName
-                    });
-                    ec2.terminateInstances(terminateParams, function(err, data) {
-                        if (err) console.log(err, err.stack);
-                        else {
-                            callback(err, null);
-                        }
-                    });
+        console.log('Scale:', target_region_count, 'per region');
+        console.log('Scale:', first_region_extra_count, 'extra in first region');
+
+        var new_count = 0;
+        return Q.all(_.map(data.Regions, function(region) {
+            var region_count = 0;
+            if (new_count < count) {
+                if (first_region_extra_count > 0 &&
+                    region.RegionName === data.Regions[0].RegionName) {
+                    region_count = target_region_count +
+                        first_region_extra_count;
                 } else {
-                    callback(err, null);
+                    region_count = target_region_count;
                 }
+                new_count += region_count;
             }
 
-        }
+            return scale_region(region.RegionName, region_count);
+        }));
     });
 }
 
 
 /**
  *
- *
+ * scale_region
  *
  */
-function createNewInstancesInRegion(instancesInRegion, callback) {
-    var numberOfInstances = instancesInRegion.numberOfInstances;
-    var regionName = instancesInRegion.regionName;
-    createSecurityGroup(regionName, function() {
+function scale_region(region_name, count) {
+    return create_security_group(region_name)
+        .then(function() {
+            return import_key_pair_to_region(region_name);
+        })
+        .then(function() {
+            return ec2_region_call(region_name, 'describeInstances', {
+                Filters: [{
+                    Name: 'instance-state-name',
+                    Values: ['running', 'pending']
+                }]
+            });
+        })
+        .then(function(res) {
+            var instances = _.flatten(res.Reservations, 'Instances');
 
-        var amiParams = {
+            // need to create
+            if (count > instances.length) {
+                console.log('ScaleRegion:', region_name,
+                    'has', instances.length, 'add', count - instances.length);
+                return add_region_instances(region_name, count - instances.length);
+            }
 
+            // need to terminate
+            if (count < instances.length) {
+                console.log('ScaleRegion:', region_name,
+                    'has', instances.length, 'remove', count);
+                var death_row = _.first(instances, instances.length - count);
+                var ids = _.pluck(death_row, 'InstanceId');
+                return terminate_instances(region_name, ids);
+            }
+
+            console.log('ScaleRegion:', region_name,
+                'has', instances.length, 'unchanged :)');
+        });
+}
+
+
+/**
+ *
+ * add_region_instances
+ *
+ */
+function add_region_instances(region_name, count) {
+    return Q
+        .fcall(get_ami_image_id, region_name)
+        .then(function(ami_image_id) {
+            console.log('AddInstance:', region_name, count, ami_image_id);
+            return ec2_region_call(region_name, 'runInstances', {
+                ImageId: ami_image_id,
+                MaxCount: count,
+                MinCount: count,
+                InstanceType: 't2.micro',
+                KeyName: KEY_PAIR_PARAMS.KeyName,
+                SecurityGroups: ['ssh_and_http_v2'],
+                UserData: new Buffer(run_script).toString('base64'),
+            });
+        });
+}
+
+
+var _cached_ami_image_id;
+
+/**
+ *
+ * get_ami_image_id
+ *
+ * @return the image id and save in memory for next calls
+ *
+ */
+function get_ami_image_id(region_name) {
+    // if (_cached_ami_image_id) return _cached_ami_image_id;
+
+    return ec2_region_call(region_name, 'describeImages', {
             Filters: [{
                 Name: 'name',
                 Values: [
                     'ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-20140927',
                 ]
-            }, ]
-        };
-        var ec2 = new AWS.EC2({
-            region: regionName
+            }]
+        })
+        .then(function(res) {
+            _cached_ami_image_id = res.Images[0].ImageId;
+            return _cached_ami_image_id;
         });
-        ec2.describeImages(amiParams, function(err, amiData) {
-            if (err) console.log(err, err.stack);
-            else {
-                importNooBaaKeys(regionName, function() {
-                    var params = {
-                        ImageId: amiData.Images[0].ImageId,
-                        MaxCount: numberOfInstances,
-                        MinCount: numberOfInstances,
-                        InstanceType: 't2.micro',
-                        KeyName: 'NooBaa',
-                        SecurityGroups: ['ssh_and_http_v2'],
-                        UserData: new Buffer(run_script).toString('base64'),
-                    };
-                    ec2 = new AWS.EC2({
-                        region: regionName
-                    });
-                    ec2.runInstances(params, function(err, instanceData) {
-                        if (err) console.log(err, err.stack);
-                        else {
-                            callback(err, instanceData);
-                        }
-                    });
-
-                });
-            }
-        });
-
-    });
 }
+
 
 
 /**
  *
+ * terminate_instance
  *
- *
+ * @param instance_ids array of ids.
  */
-function scaleInstances(numberOfInstances, callback) {
-    var params = {};
-    var ec2 = new AWS.EC2();
-    ec2.describeRegions(params, function(err, data) {
-        if (err) console.log(err, err.stack);
-        else {
-            //console.log(JSON.stringify(data));
-            var targetNumberOfInstancesPerRegion = 0;
-            var numberOfAdditionalInstancesInTheFirstRegion = 0;
-
-            //if number of instances is smaller than the number of regions,
-            //We will add one instance per region until we have enough instances.
-            if (numberOfInstances < data.Regions.length) {
-                if (numberOfInstances === 0) {
-                    targetNumberOfInstancesPerRegion = 0;
-                } else {
-                    targetNumberOfInstancesPerRegion = 1;
-                }
-
-            } else {
-                //Div instances equally per region.
-                //The first region will get the redundant instances
-                targetNumberOfInstancesPerRegion = Math.floor(numberOfInstances / data.Regions.length);
-                numberOfAdditionalInstancesInTheFirstRegion = (numberOfInstances % data.Regions.length);
-                if (targetNumberOfInstancesPerRegion > 20) {
-                    targetNumberOfInstancesPerRegion = 20;
-                    numberOfAdditionalInstancesInTheFirstRegion = 0;
-                    console.log('Cannot scale to over 20 instances per region. will scale to 20');
-                }
-            }
-
-            console.log('Scale to ' + targetNumberOfInstancesPerRegion + ' instances per region.(' + data.Regions.length + ' regions)');
-            console.log('Scale to ' + (targetNumberOfInstancesPerRegion + numberOfAdditionalInstancesInTheFirstRegion) + ' instances in the first region.');
-
-            var numberOfNewInstances = 0;
-            var createdInstanceData = [];
-
-            var promises = (data.Regions).map(function(currentRegion) {
-                var instanceCreationParams = {
-                    numberOfInstances: 0,
-                    regionName: currentRegion.RegionName
-                };
-                if (numberOfNewInstances < numberOfInstances) {
-
-                    if (numberOfAdditionalInstancesInTheFirstRegion > 0 &&
-                        currentRegion.RegionName === data.Regions[0].RegionName) {
-
-                        instanceCreationParams = {
-                            numberOfInstances: targetNumberOfInstancesPerRegion + numberOfAdditionalInstancesInTheFirstRegion,
-                            regionName: currentRegion.RegionName
-                        };
-                    } else {
-                        instanceCreationParams = {
-                            numberOfInstances: targetNumberOfInstancesPerRegion,
-                            regionName: currentRegion.RegionName
-                        };
-                    }
-                    numberOfNewInstances = numberOfNewInstances + instanceCreationParams.numberOfInstances;
-
-                }
-                return Q.nfcall(createInstancesInRegion, instanceCreationParams).then(
-                    function(mydata) {
-                        if (mydata !== null) {
-                            createdInstanceData = createdInstanceData.concat(mydata.Instances);
-                        }
-
-                    });
-            });
-
-            Q.all(promises).then(function(err, data) {
-                callback(null, createdInstanceData);
-            }).fail(
-                function(error) {
-                    console.log('ERROR3:' + JSON.stringify(error));
-                }
-            );
-
+function terminate_instances(region_name, instance_ids) {
+    console.log('Terminate:', region_name, 'terminating',
+        instance_ids.length, 'instances -', instance_ids);
+    return ec2_region_call(region_name, 'terminateInstances', {
+        InstanceIds: instance_ids,
+    }).then(null, function(err) {
+        if (err.code === 'InvalidInstanceID.NotFound') {
+            console.error(err);
+            return;
         }
+        throw err;
     });
 }
 
 
-/**
- *
- *
- *
- */
-function terminateInstance(instanceId, callback) {
-    var terminateParams = {
-        InstanceIds: [instanceId],
-    };
-    var ec2 = new AWS.EC2();
-    ec2.terminateInstances(terminateParams, function(err, data) {
-        if (err) console.log(err, err.stack);
-        else callback(err, data);
-    });
-}
-
 
 /**
  *
- *
+ * import_key_pair_to_region
  *
  */
-function terminateInstancesInReservation(reservationParams, callback) {
-    var instancedInReservationData = [];
-    var instancesPromises = (reservationParams.reservation.Instances).map(function(currentInstance) {
-        var ec2 = new AWS.EC2({
-            region: reservationParams.regionName
+function import_key_pair_to_region(region_name) {
+    return ec2_region_call(region_name, 'importKeyPair', KEY_PAIR_PARAMS)
+        .then(function(res) {
+            console.log('KeyPair: imported', res.KeyName);
+        }, function(err) {
+            if (err.code === 'InvalidKeyPair.Duplicate') return;
+            throw err;
         });
-        return Q.nfcall(terminateInstance, currentInstance.InstanceId).then(
-            function(err, terminatedInstanceData) {
-                instancedInReservationData = instancedInReservationData.concat(terminatedInstanceData);
-            });
-    });
-    Q.all(instancesPromises).then(function() {
-        callback(null, instancedInReservationData);
-    }).fail(
-        function(error) {
-            console.log('ERROR:' + JSON.stringify(error));
-        }
-    );
 }
+
 
 
 /**
  *
- *
+ * create_security_group
  *
  */
-function terminateInstancesInRegion(regionName, callback) {
-
-    var ec2 = new AWS.EC2({
-        region: regionName
-    });
-    var describeInstancesParams = {
-        Filters: [{
-            Name: 'instance-state-name',
-            Values: ['running', 'pending']
-        }]
-    };
-    ec2.describeInstances(describeInstancesParams, function(err, data) {
-        var createdInstanceData = [];
-        if (err) console.log(err, err.stack);
-        else {
-
-            if (data.Reservations.length > 0) {
-                var reservationPromises = (data.Reservations).map(function(currentReservation) {
-                    var reservationParam = {
-                        reservation: currentReservation,
-                        regionName: regionName
-                    };
-                    return Q.nfcall(terminateInstancesInReservation, reservationParam).then(
-                        function(err, terminatedInstancesInReservationData) {
-                            createdInstanceData = createdInstanceData.concat(terminatedInstancesInReservationData);
+function create_security_group(region_name) {
+    var ssh_and_http_v2 = 'ssh_and_http_v2';
+    return ec2_region_call(region_name, 'describeSecurityGroups', {
+            GroupNames: [ssh_and_http_v2]
+        })
+        .then(function(securityGroupData) {
+            // console.log('SecurityGroup: already exists');
+        })
+        .then(null, function(err) {
+            console.log('SecurityGroup: will create for region', region_name);
+            return ec2_region_call(region_name, 'createSecurityGroup', {
+                    Description: ssh_and_http_v2,
+                    GroupName: ssh_and_http_v2
+                })
+                .then(function(data) {
+                    console.log('SecurityGroup: created');
+                    return ec2_region_call(region_name, 'authorizeSecurityGroupIngress', {
+                            GroupId: data.GroupId,
+                            GroupName: ssh_and_http_v2,
+                            IpPermissions: [{
+                                    FromPort: 22,
+                                    IpProtocol: 'tcp',
+                                    ToPort: 22,
+                                    IpRanges: [{
+                                        CidrIp: '0.0.0.0/0'
+                                    }]
+                                }, {
+                                    FromPort: 80,
+                                    IpProtocol: 'tcp',
+                                    ToPort: 80,
+                                    IpRanges: [{
+                                        CidrIp: '0.0.0.0/0'
+                                    }]
+                                },
+                                /* more items */
+                            ]
+                        })
+                        .then(function(data) {
+                            console.log('SecurityGroup: Opened port 22 and 80');
+                        }, function(err) {
+                            console.log('SecurityGroup: Rules exist');
                         });
+                }, function(err) {
+                    console.log('SecurityGroup: create failed', region_name, err);
                 });
-
-                Q.all(reservationPromises).then(function() {
-                    callback(createdInstanceData);
-                }).fail(
-                    function(error) {
-                        console.log('ERROR:' + error);
-                    }
-                );
-            } else {
-                console.log('No reservations for region:' + regionName);
-                callback(err, null);
-            }
-        }
-
-    });
+        });
 }
 
 
-/**
- *
- *
- *
- */
-function terminateInstances() {
-    var params = {};
-    var ec2 = new AWS.EC2();
-    ec2.describeRegions(params, function(err, data) {
-        if (err) console.log(err, err.stack);
-        else {
+var _ec2 = new AWS.EC2();
+var _ec2_per_region = {};
 
-            //loop all instances and delete
-            async.forEachSeries(data.Regions, function(currentRegion, regionCallback) {
-                console.log('Termnating all instances in region:' + currentRegion.RegionName);
-                terminateInstancesInRegion(currentRegion.RegionName, function(err, data) {
-                    regionCallback();
-                });
-
-            }, function() {
-                //After we created all instances
-                console.log('Terminated all instances in all regions');
-            });
-        }
-    });
+function ec2_call(func_name, params) {
+    return Q.nfcall(_ec2[func_name].bind(_ec2), params);
 }
 
 
+function ec2_region_call(region_name, func_name, params) {
+    var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
+        region: region_name
+    });
+    return Q.nfcall(ec2[func_name].bind(ec2), params);
+}
+
+
+// print object with deep levels
+function console_inspect(desc, obj) {
+    console.log(desc);
+    console.log(util.inspect(obj, {
+        depth: null
+    }));
+}
+
+function print_instances(instances) {
+    if (argv.long) {
+        console_inspect('Instances:', instances);
+    } else {
+        _.each(instances, function(instance) {
+            console.log('Instance:',
+                instance.InstanceId,
+                instance.PublicIpAddress,
+                instance.State && instance.State.Name || '?');
+        });
+    }
+
+}
 
 /**
  *
@@ -612,26 +407,25 @@ function terminateInstances() {
  *
  */
 function main() {
-    if (argv.scale) {
-        nb_ec2.scaleInstances(argv.scale, function(err, data) {
-            console.log("Scale:", argv.scale);
-            console.log(err || data);
-            getSetupFullDetails().done(function(data) {
-                console.log('Details:');
-                console.log(data);
-            });
-        });
-    } else if (argv.instance) {
-        nb_ec2.getStatePerInstanceId(argv.instance, function(err, data) {
-            console.log("Instance:", argv.instance);
-            console.log(err || data);
-        });
-    } else {
-        getSetupFullDetails().done(function(data) {
-            console.log('Details:');
-            console.log(data);
-        });
+
+    if (!_.isUndefined(argv.scale)) {
+        scale_instances(argv.scale)
+            .then(function(res) {
+                console_inspect('Scale ' + argv.scale + ':', res);
+                return describe_instances().then(print_instances);
+            })
+            .done();
     }
+
+    if (!_.isUndefined(argv.instance)) {
+        describe_instance(argv.instance)
+            .then(function(instance) {
+                console_inspect('Instance ' + argv.instance + ':', instance);
+            })
+            .done();
+    }
+
+    return describe_instances().then(print_instances).done();
 }
 
 if (require.main === module) {

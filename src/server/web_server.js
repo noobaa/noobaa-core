@@ -122,6 +122,21 @@ object_server.install_rest(api_router);
 app.use(api_router);
 
 
+// agent package json
+
+app.get('/agent/package.json', function(req, res) {
+    res.status(200).send({
+        name: 'agent',
+        scripts: {
+            start: 'node node_modules/.bin/noobaa-agent'
+        },
+        dependencies: {
+            'noobaa-agent': process.env.ADDRESS + '/public/noobaa-agent.tar.gz'
+        }
+    });
+});
+
+
 // setup pages
 
 function page_context(req) {
@@ -131,14 +146,14 @@ function page_context(req) {
     };
 }
 
-app.all('/sudo/*', function(req, res) {
+app.get('/sudo/*', function(req, res) {
     return res.render('sudo.html', page_context(req));
 });
-app.all('/sudo', function(req, res) {
+app.get('/sudo', function(req, res) {
     return res.redirect('/sudo/');
 });
 
-app.all('/', function(req, res) {
+app.get('/', function(req, res) {
     return res.redirect('/sudo/');
 });
 

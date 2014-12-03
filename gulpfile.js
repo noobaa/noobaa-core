@@ -15,6 +15,9 @@ var gulp_less = require('gulp-less');
 var gulp_uglify = require('gulp-uglify');
 var gulp_minify_css = require('gulp-minify-css');
 var gulp_rename = require('gulp-rename');
+var gulp_tar = require('gulp-tar');
+var gulp_gzip = require('gulp-gzip');
+var gulp_json_editor = require('gulp-json-editor');
 var gulp_ng_template = require('gulp-angular-templatecache');
 var gulp_jshint = require('gulp-jshint');
 var jshint_stylish = require('jshint-stylish');
@@ -60,45 +63,50 @@ process.on("SIGTERM", leave_no_wounded);
 
 
 var PATHS = {
-    css: './src/css/**/*',
-    css_candidates: ['./src/css/styles.less'],
+    css: 'src/css/**/*',
+    css_candidates: ['src/css/styles.less'],
 
     assets: {
         'build/public': [
-            './node_modules/video.js/dist/video-js/video-js.swf',
+            'node_modules/video.js/dist/video-js/video-js.swf',
         ],
-        'build/public/css': [
-        ],
+        'build/public/css': [],
         'build/public/fonts': [
-            './node_modules/bootstrap/dist/fonts/*',
-            './node_modules/font-awesome/fonts/*',
-            './bower_components/bootstrap-material-design/fonts/*',
+            'node_modules/bootstrap/dist/fonts/*',
+            'node_modules/font-awesome/fonts/*',
+            'bower_components/bootstrap-material-design/fonts/*',
         ],
         'build/public/css/font': [
-            './node_modules/video.js/dist/video-js/font/*',
+            'node_modules/video.js/dist/video-js/font/*',
         ],
     },
 
-    ngview: './src/ngview/**/*',
-    scripts: ['./src/**/*.js', './*.js'],
-    test_scripts: './src/**/test*.js',
+    ngview: 'src/ngview/**/*',
+    scripts: ['src/**/*.js', '*.js'],
+    test_scripts: 'src/**/test*.js',
     html_scripts: [
-        // './src/views/adminoobaa.html'
+        // 'src/views/adminoobaa.html'
     ],
 
-    server_main: './src/server/web_server.js',
-    client_bundle: './src/client/index.js',
-    // agent_bundle: './src/agent/index.js',
+    server_main: 'src/server/web_server.js',
+    client_bundle: 'src/client/index.js',
+    // agent_bundle: 'src/agent/index.js',
     client_externals: [
-        './node_modules/bootstrap/dist/js/bootstrap.js',
-        './vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
-        './bower_components/bootstrap-material-design/scripts/material.js',
-        './bower_components/bootstrap-material-design/scripts/ripples.js',
-        './bower_components/ladda/js/spin.js',
-        './bower_components/ladda/js/ladda.js',
-        './bower_components/alertify.js/lib/alertify.js',
-        './node_modules/video.js/dist/video-js/video.dev.js',
-        // './vendor/flowplayer-5.4.6/flowplayer.js',
+        'node_modules/bootstrap/dist/js/bootstrap.js',
+        'vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
+        'bower_components/bootstrap-material-design/scripts/material.js',
+        'bower_components/bootstrap-material-design/scripts/ripples.js',
+        'bower_components/ladda/js/spin.js',
+        'bower_components/ladda/js/ladda.js',
+        'bower_components/alertify.js/lib/alertify.js',
+        'node_modules/video.js/dist/video-js/video.dev.js',
+        // 'vendor/flowplayer-5.4.6/flowplayer.js',
+    ],
+
+    agent_sources: [
+        'src/agent/**/*.js',
+        'src/api/**/*.js',
+        'src/util/**/*.js',
     ],
 };
 
@@ -123,19 +131,23 @@ function simple_bower() {
             return;
         }
         done = true;
-        bower.commands.install([], {}, {
-            directory: './bower_components'
-        }).on('log', function(result) {
-            gutil.log('bower', gutil.colors.cyan(result.id), result.message);
-        }).on('error', function(error) {
-            stream.emit('error', new gutil.PluginError('simple_bower', error));
-            stream.end();
-            callback();
-        }).on('end', function() {
-            self.push(file);
-            stream.end();
-            callback();
-        });
+        bower.commands
+            .install([], {}, {
+                directory: './bower_components'
+            })
+            .on('log', function(result) {
+                gutil.log('bower', gutil.colors.cyan(result.id), result.message);
+            })
+            .on('error', function(error) {
+                stream.emit('error', new gutil.PluginError('simple_bower', error));
+                stream.end();
+                callback();
+            })
+            .on('end', function() {
+                self.push(file);
+                stream.end();
+                callback();
+            });
     });
     return stream;
 }
@@ -148,12 +160,13 @@ function candidate(candidate_src) {
             return callback();
         }
         done = true;
-        gulp.src(candidate_src).pipe(through2.obj(function(c_file, c_enc, c_callback) {
-            self.push(c_file);
-            c_callback();
-        }, function() {
-            callback();
-        }));
+        gulp.src(candidate_src)
+            .pipe(through2.obj(function(c_file, c_enc, c_callback) {
+                self.push(c_file);
+                c_callback();
+            }, function() {
+                callback();
+            }));
     });
     return stream;
 }
@@ -165,7 +178,8 @@ var PLUMB_CONF = {
 gulp.task('bower', function() {
     var DEST = 'build';
     var NAME = 'bower.json';
-    return gulp.src(NAME)
+    return gulp
+        .src(NAME)
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_newer(path.join(DEST, NAME)))
         .pipe(simple_bower())
@@ -187,7 +201,8 @@ gulp.task('css', ['bower'], function() {
     var DEST = 'build/public/css';
     var NAME = 'styles.css';
     var NAME_MIN = 'styles.min.css';
-    return gulp.src(PATHS.css, SRC_DONT_READ)
+    return gulp
+        .src(PATHS.css, SRC_DONT_READ)
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_newer(path.join(DEST, NAME)))
         .pipe(candidate(PATHS.css_candidates))
@@ -204,7 +219,8 @@ gulp.task('css', ['bower'], function() {
 gulp.task('ng', function() {
     var DEST = 'build/public/js';
     var NAME = 'templates.js';
-    return gulp.src(PATHS.ngview)
+    return gulp
+        .src(PATHS.ngview)
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_newer(path.join(DEST, NAME)))
         .pipe(gulp_ng_template({
@@ -215,7 +231,8 @@ gulp.task('ng', function() {
 });
 
 gulp.task('jshint', function() {
-    return gulp.src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
+    return gulp
+        .src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_cached('jshint'))
         .pipe(gulp_jshint.extract('always'))
@@ -225,14 +242,64 @@ gulp.task('jshint', function() {
     // .pipe(gulp_jshint.reporter('fail'));
 });
 
+gulp.task('agent', ['jshint'], function() {
+    var DEST = 'build/public';
+    var NAME = 'noobaa-agent.tar';
+
+    var pkg_stream = gulp
+        .src('package.json')
+        .pipe(gulp_json_editor(function(json) {
+            var deps = _.omit(json.dependencies, function(val, key) {
+                return /^gulp/.test(key) ||
+                    /^vinyl/.test(key) ||
+                    /^jshint/.test(key) ||
+                    /^browserify/.test(key) ||
+                    _.contains([
+                        'bower',
+                        'mocha',
+                        'mongoose',
+                        'bcrypt',
+                        'font-awesome',
+                        'bootstrap',
+                        'animate.css',
+                        'video.js'
+                    ], key);
+            });
+            return {
+                name: 'noobaa-agent',
+                version: '0.0.0',
+                private: true,
+                bin: 'agent/agent_cli.js',
+                main: 'agent/agent_cli.js',
+                dependencies: deps,
+            };
+        })).on('error', gutil.log);
+
+    var src_stream = gulp
+        .src(PATHS.agent_sources, {
+            base: 'src'
+        })
+        .pipe(gulp_uglify());
+
+    return event_stream
+        .merge(pkg_stream, src_stream)
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('package', p.dirname);
+        }))
+        .pipe(gulp_tar(NAME))
+        .pipe(gulp_gzip())
+        // .pipe(gulp_size_log(NAME))
+        .pipe(gulp.dest(DEST));
+});
+
 gulp.task('client', ['bower', 'ng'], function() {
     var DEST = 'build/public/js';
     var NAME = 'index.js';
     var NAME_MIN = 'index.min.js';
     var bundler = browserify({
         entries: [
-            PATHS.client_bundle,
-            PATHS.agent_bundle
+            './' + PATHS.client_bundle,
+            // './' + PATHS.agent_bundle
         ],
         debug: (process.env.DEBUG_MODE === 'true'),
 
@@ -248,9 +315,9 @@ gulp.task('client', ['bower', 'ng'], function() {
     // using gulp_replace to fix collision of requires
     var client_bundle_stream = bundler.bundle()
         .pipe(vinyl_source_stream(NAME))
-        .pipe(vinyl_buffer())
-        .pipe(gulp_replace(/\brequire\b/g, 'require_browserify'))
-        .pipe(gulp_replace(/\brequire_node\b/g, 'require'));
+        .pipe(vinyl_buffer());
+    // .pipe(gulp_replace(/\brequire\b/g, 'require_browserify'))
+    // .pipe(gulp_replace(/\brequire_node\b/g, 'require'));
     var client_merged_stream = event_stream.merge(
         client_bundle_stream,
         gulp.src(PATHS.client_externals)
@@ -272,7 +339,8 @@ gulp.task('mocha', function() {
     var mocha_options = {
         reporter: 'spec'
     };
-    return gulp.src(PATHS.scripts)
+    return gulp
+        .src(PATHS.scripts)
         .pipe(gulp_istanbul())
         .on('finish', function() {
             return gulp.src(PATHS.test_scripts, SRC_DONT_READ)
@@ -326,25 +394,31 @@ function serve() {
     gulp_notify('noobaa serving...').end('stam');
 }
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client']);
+gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent']);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
 gulp.task('install_server_and_serve', ['jshint'], serve);
 gulp.task('install_client_and_serve', ['jshint', 'client'], serve);
+gulp.task('install_agent_and_serve', ['jshint', 'agent'], serve);
 
 gulp.task('start_dev', ['install_and_serve'], function() {
     gulp.watch('src/css/**/*', ['install_css_and_serve']);
     gulp.watch([
         'src/server/**/*',
+        'src/util/**/*',
         'src/views/**/*'
     ], ['install_server_and_serve']);
     gulp.watch([
         'src/client/**/*',
-        'src/agent/**/*',
         'src/api/**/*',
         'src/util/**/*',
         'src/ngview/**/*',
     ], ['install_client_and_serve']);
+    gulp.watch([
+        'src/agent/**/*',
+        'src/api/**/*',
+        'src/util/**/*',
+    ], ['install_agent_and_serve']);
 });
 
 gulp.task('start_prod', function() {

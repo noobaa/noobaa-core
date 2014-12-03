@@ -55,7 +55,7 @@ function reduce_sum(key, values) {
     values.forEach(function(v) {
         if (typeof(v) === 'number') {
             n += v;
-        } else {
+        } else if (v) {
             n += v.n;
             peta += v.peta;
         }

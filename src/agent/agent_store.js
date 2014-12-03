@@ -119,6 +119,10 @@ AgentStore.prototype.write_block = function(block_id, data) {
     var block_path = self._get_block_path(block_id);
     var file_stats;
 
+    if (!Buffer.isBuffer(data)) {
+        throw new Error('data is not a buffer');
+    }
+
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;
@@ -246,6 +250,7 @@ AgentStore.prototype._count_usage = function() {
     var sem = new Semaphore(10);
     return disk_usage(self.root_path, sem, true)
         .then(function(usage) {
+            console.log('counted disk usage', usage);
             self._usage = usage; // object with properties size and count
             return usage;
         });
@@ -263,49 +268,46 @@ AgentStore.prototype._count_usage = function() {
  * DISK_USAGE
  *
  */
-function disk_usage(path, semaphore, recurse) {
-    return Q.nfcall(fs.readdir, path)
-        .then(function(files) {
-            return q_all_semaphore(semaphore, files, function(file) {
-                return Q.nfcall(fs.stat, file).then(function(stats) {
-                    if (stats.isDirectory() && recurse) {
-                        return disk_usage(path.join(path, file), semaphore, recurse);
-                    }
-                    if (stats.isFile()) {
-                        return {
-                            size: stats.size,
-                            count: 1,
-                        };
-                    }
-                });
-            });
-        }).then(function(res) {
-            var size = 0;
-            var count = 0;
-            for (var i = 0; i < res.length; i++) {
-                if (!res[i]) continue;
-                size += res[i].size;
-                count += res[i].count;
+function disk_usage(file_path, semaphore, recurse) {
+    // surround fs io with semaphore
+    return semaphore.surround(function() {
+            return Q.nfcall(fs.stat, file_path);
+        })
+        .then(function(stats) {
+
+            if (stats.isFile()) {
+                return {
+                    size: stats.size,
+                    count: 1,
+                };
             }
-            return {
-                size: size,
-                count: count,
-            };
-        });
-}
 
-
-/**
- *
- * Q_ALL_SEMAPHORE
- *
- */
-function q_all_semaphore(semaphore, arr, func) {
-    return Q.all(_.map(arr, function(item) {
-        return semaphore.surround(function() {
-            return func(item);
+            if (stats.isDirectory() && recurse) {
+                // surround fs io with semaphore
+                return semaphore.surround(function() {
+                        return Q.nfcall(fs.readdir, file_path);
+                    })
+                    .then(function(entries) {
+                        return Q.all(_.map(entries, function(entry) {
+                            var entry_path = path.join(file_path, entry);
+                            return disk_usage(entry_path, semaphore, recurse);
+                        }));
+                    })
+                    .then(function(res) {
+                        var size = 0;
+                        var count = 0;
+                        for (var i = 0; i < res.length; i++) {
+                            if (!res[i]) continue;
+                            size += res[i].size;
+                            count += res[i].count;
+                        }
+                        return {
+                            size: size,
+                            count: count,
+                        };
+                    });
+            }
         });
-    }));
 }
 
 

@@ -246,8 +246,9 @@ AgentCLI.prototype.list = function() {
     var self = this;
 
     var i = 1;
-    _.each(self.agents, function(agent, node_id) {
-        console.log('#' + i, agent.is_started ? '<ok>' : '<STOPPED>', node_id);
+    _.each(self.agents, function(agent, node_name) {
+        console.log('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
+            'node', node_name, 'port', agent.http_port);
         i++;
     });
 };

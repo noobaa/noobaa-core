@@ -33,10 +33,11 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
-    assert(params.port, 'missing param: port');
-    assert(params.port, 'missing param: node_name');
-    self.hostname = params.hostname;
-    self.port = params.port;
+    self.client = new api.Client();
+    assert(params.address, 'missing param: address');
+    self.client.options.set_address(params.address);
+
+    assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
     self.token = params.token;
     self.storage_path = params.storage_path;
@@ -61,9 +62,6 @@ function Agent(params) {
             max_length: 1,
         });
     }
-
-    self.client = new api.Client();
-    self.client.options.set_host(self.hostname, self.port);
 
     var app = express();
     app.use(express_morgan_logger('dev'));

@@ -35,7 +35,7 @@ function AgentCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
         root_path: './agent_storage/',
-        port: 5001,
+        address: 'http://localhost:5001',
         email: 'a@a.a',
         password: 'aaa',
         system: 'sys',
@@ -43,7 +43,7 @@ function AgentCLI(params) {
         bucket: 'bucket',
     });
     self.client = new api.Client();
-    self.client.options.set_host(self.params.hostname, self.params.port);
+    self.client.options.set_address(self.params.address);
     self.agents = {};
 }
 
@@ -177,8 +177,7 @@ AgentCLI.prototype.start = function(node_name) {
     var agent = self.agents[node_name];
     if (!agent) {
         agent = self.agents[node_name] = new Agent({
-            hostname: self.params.hostname,
-            port: self.params.port,
+            address: self.params.address,
             node_name: node_name,
             storage_path: path.join(self.params.root_path, node_name),
         });

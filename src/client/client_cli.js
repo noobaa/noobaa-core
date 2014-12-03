@@ -30,7 +30,7 @@ Q.longStackSupport = true;
 function ClientCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
-        port: 5001,
+        address: 'http://localhost:5001',
         streamer: 5005,
         email: 'a@a.a',
         password: 'aaa',
@@ -39,7 +39,7 @@ function ClientCLI(params) {
         bucket: 'bucket',
     });
     self.client = new api.Client();
-    self.client.options.set_host(self.params.hostname, self.params.port);
+    self.client.options.set_address(self.params.address);
 }
 
 

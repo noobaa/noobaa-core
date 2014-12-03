@@ -420,10 +420,11 @@ function main() {
         scale_instances(argv.scale, argv.term)
             .then(null, function(err) {
                 if (err.message === 'allow_terminate') {
+                    console.error('******************************************');
                     console.error('Use --term flag to allow terminating nodes');
-                } else {
-                    throw err;
+                    console.error('******************************************');
                 }
+                throw err;
             })
             .then(function(res) {
                 console_inspect('Scale: completed to ' + argv.scale, res);

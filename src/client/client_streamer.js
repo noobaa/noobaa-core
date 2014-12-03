@@ -80,10 +80,23 @@ function client_streamer(client, port) {
         var bucket = req.params.bucket;
         var key = req.params.key;
         console.log('read', bucket, key);
-        client.object.open_read_stream({
+
+        // res.header('Content-Type', content_type);
+        var object_key = {
             bucket: bucket,
             key: key,
-        }).pipe(res);
+        };
+        client.object
+            .read_object_md(object_key)
+            .then(function(res_md) {
+                var file_size = res_md.size;
+                serve_content(req, res, file_size, function(options) {
+                    var params = _.extend({}, options, object_key);
+                    return client.object.open_read_stream(params);
+                });
+            }).then(null, function(err) {
+                res.status(500).send(err);
+            });
     });
 
     var defer = Q.defer();
@@ -94,4 +107,60 @@ function client_streamer(client, port) {
         defer.resolve(server);
     });
     return defer.promise;
+}
+
+
+/**
+ *
+ * serve_content
+ *
+ */
+function serve_content(req, res, file_size, open_read_stream) {
+    var range_header = req.header('ranger');
+
+    if (!range_header) {
+        res.header('Content-Length', file_size);
+        res.header('Accept-Ranges', 'bytes');
+        open_read_stream().pipe(res);
+        return;
+    }
+
+    /*
+     * split regexp examples:
+     *
+     * input: bytes=100-200
+     * output: [null, 100, 200, null]
+     *
+     * input: bytes=-200
+     * output: [null, null, 200, null]
+     */
+    var range_array = range_header.split(/bytes=([0-9]*)-([0-9]*)/);
+    var start_arg = range_array[1];
+    var end_arg = range_array[2];
+    var start = parseInt(start_arg) || 0;
+    var end = (parseInt(end_arg) + 1) || file_size;
+    if (!start_arg && end_arg) {
+        start = file_size - end;
+    }
+
+    // If the range can't be fulfilled.
+    if (start >= file_size || end > file_size) {
+        // indicate the acceptable range.
+        res.header('Content-Range', 'bytes */' + file_size);
+        // return the 416 'Requested Range Not Satisfiable'.
+        res.status(416);
+        return;
+    }
+
+    res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + file_size);
+    res.header('Content-Length', start === end ? 0 : (end - start));
+    res.header('Accept-Ranges', 'bytes');
+    res.header('Cache-Control', 'no-cache');
+
+    // return the 206 'Partial Content'.
+    res.status(206);
+    open_read_stream({
+        start: start,
+        end: end,
+    }).pipe(res);
 }

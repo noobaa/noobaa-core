@@ -278,8 +278,8 @@ gulp.task('agent', ['jshint'], function() {
     var src_stream = gulp
         .src(PATHS.agent_sources, {
             base: 'src'
-        })
-        .pipe(gulp_uglify());
+        });
+        // TODO bring back uglify .pipe(gulp_uglify());
 
     return event_stream
         .merge(pkg_stream, src_stream)

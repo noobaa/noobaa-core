@@ -119,8 +119,8 @@ AgentStore.prototype.write_block = function(block_id, data) {
     var block_path = self._get_block_path(block_id);
     var file_stats;
 
-    if (!Buffer.isBuffer(data)) {
-        throw new Error('data is not a buffer');
+    if (!Buffer.isBuffer(data) && typeof(data) !== 'string') {
+        throw new Error('data is not a buffer/string');
     }
 
     return self._stat_block_path(block_path, true)

@@ -69,13 +69,13 @@ function Agent(params) {
     app.use(express_body_parser.json());
     app.use(express_body_parser.raw({
         // size limit on raw requests
-        limit: 16 * size_utils.MEGABYTE
+        limit: 1 * size_utils.MEGABYTE
     }));
     app.use(express_body_parser.text());
     app.use(express_body_parser.urlencoded({
         // size limit on raw requests
-        limit: 16 * size_utils.MEGABYTE,
-        extended: false
+        limit: 1 * size_utils.MEGABYTE,
+        extended: true
     }));
     app.use(express_method_override());
     app.use(express_compress());

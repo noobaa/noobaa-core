@@ -414,7 +414,7 @@ function rest_api(api) {
         };
 
         // console.log('HTTP request', options);
-        var req = self.options.protocol === 'https' ?
+        var req = self.options.protocol === 'https:' ?
             https.request(options) :
             http.request(options);
 

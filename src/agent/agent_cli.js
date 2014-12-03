@@ -60,7 +60,11 @@ AgentCLI.prototype.init = function() {
 
     return Q.fcall(function() {
             if (self.params.setup) {
-                return self.client.setup(self.params);
+                return self.client.setup(self.params)
+                    .then(function() {
+                        console.log('SETUP COMPLETED');
+                        process.exit();
+                    });
             }
         })
         .then(function() {
@@ -104,7 +108,11 @@ AgentCLI.prototype.load = function() {
         })
         .then(function(res) {
             console.log('loaded', res.length, 'agents. show details with: nb.list()');
-        }, function(err) {
+            if (self.params.auto && !res.length) {
+                return self.create();
+            }
+        })
+        .then(null, function(err) {
             console.error('load failed');
             throw err;
         });

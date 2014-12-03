@@ -40,6 +40,7 @@ function Agent(params) {
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
     self.token = params.token;
+    self.prefered_port = params.prefered_port;
     self.storage_path = params.storage_path;
 
     if (self.storage_path) {
@@ -244,7 +245,7 @@ Agent.prototype._start_stop_http_server = function() {
         if (!self.http_port) {
             return Q.Promise(function(resolve, reject) {
                 self.http_server.once('listening', resolve);
-                self.http_server.listen();
+                self.http_server.listen(self.prefered_port);
             });
         }
     } else {

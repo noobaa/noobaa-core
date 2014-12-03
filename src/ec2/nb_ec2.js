@@ -50,8 +50,7 @@ var KEY_PAIR_PARAMS = {
 };
 
 // the run script to send to started instances
-var run_script = fs.readFileSync(__dirname + '/run_agent.sh')
-    .toString().replace('$ADDRESS', process.env.ADDRESS);
+var run_script = fs.readFileSync(__dirname + '/run_agent.sh');
 
 
 
@@ -396,6 +395,7 @@ function print_instances(instances) {
             console.log('Instance:',
                 instance.InstanceId,
                 instance.PublicIpAddress,
+                '(private ' + instance.PrivateIpAddress + ')',
                 instance.State && instance.State.Name || '?');
         });
     }

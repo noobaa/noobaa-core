@@ -128,7 +128,10 @@ app.get('/agent/package.json', function(req, res) {
     res.status(200).send({
         name: 'agent',
         scripts: {
-            start: 'node node_modules/.bin/noobaa-agent'
+            start: [
+                'node node_modules/noobaa-agent/agent/agent_cli.js',
+                '--address ' + process.env.ADDRESS,
+            ].join(' ')
         },
         dependencies: {
             'noobaa-agent': process.env.ADDRESS + '/public/noobaa-agent.tar.gz'

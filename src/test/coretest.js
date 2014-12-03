@@ -89,7 +89,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
             return Q.all(_.times(count, function(i) {
                 return sem.surround(function() {
                     var agent = new Agent({
-                        port: utilitest.http_port(),
+                        address: 'http://localhost:' + utilitest.http_port(),
                         node_name: '' + Date.now(),
                         // passing token instead of storage_path to use memory storage
                         token: create_node_token,

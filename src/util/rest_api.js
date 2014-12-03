@@ -338,7 +338,7 @@ function rest_api(api) {
         var method = func_info.method;
         var path = self.options.path || '/';
         var data = _.clone(params);
-        var host = self.options.get_host();
+        var host = self.options.get_address();
         var jar = self.options.cookie_jars[host];
         var headers = {};
         var body;
@@ -432,7 +432,7 @@ function rest_api(api) {
         var self = this;
         var cookies = res.response.headers['set-cookie'];
         if (cookies) {
-            var host = self.options.get_host();
+            var host = self.options.get_address();
             var jars = self.options.cookie_jars;
             var jar = jars[host] = jars[host] || new Cookie.Jar();
             _.each(cookies, function(cookie_str) {
@@ -462,6 +462,7 @@ function rest_api(api) {
  * one may also use to set global options in the process (see coretest setting server port).
  *
  * available options (inherited or owned):
+ * - protocol (String)
  * - hostname (String)
  * - port (Number)
  * - path (String) - optional base path for the host (default to the api name)
@@ -472,12 +473,18 @@ rest_api.global_client_options = {
     /**
      * get/set hostname and port
      */
-    get_host: function() {
-        return this.hostname + ':' + this.port;
+    get_address: function() {
+        return URL.format({
+            protocol: this.protocol,
+            hostname: this.hostname,
+            port: this.port
+        });
     },
-    set_host: function(hostname, port) {
-        this.hostname = hostname;
-        this.port = port;
+    set_address: function(address) {
+        var u = URL.parse(address);
+        this.protocol = u.protocol;
+        this.hostname = u.hostname;
+        this.port = u.port;
     },
 
     /**

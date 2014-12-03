@@ -53,13 +53,24 @@ function ClientCLI(params) {
 ClientCLI.prototype.init = function() {
     var self = this;
 
-    return Q.fcall(function() {
-            if (self.params.setup) {
-                return self.client.setup(self.params);
-            }
-        })
+    if (self.params.setup) {
+        return self.client.setup(self.params)
+            .then(function() {
+                console.log('COMPLETED: setup', self.params);
+            }, function(err) {
+                console.log('ERROR: setup', self.params, err);
+            })
+            .then(function() {
+                process.exit();
+            });
+    }
+
+    return self.load()
         .then(function() {
-            return self.load();
+            console.log('COMPLETED: load');
+        }, function(err) {
+            console.log('ERROR: load', self.params, err);
+
         });
 };
 
@@ -137,14 +148,13 @@ ClientCLI.prototype.upload = function(file_path) {
                 key: key,
             });
         })
-        .then(function(res) {
-            console.log('uploaded', file_path);
-            return res;
+        .then(function() {
+            console.log('COMPLETED: upload', file_path);
         }, function(err) {
-            console.error('create failed', file_path, err, err.stack);
-            throw err;
+            console.log('ERROR: upload', file_path, err);
         });
 };
+
 
 
 /**
@@ -162,6 +172,11 @@ ClientCLI.prototype.download = function(key) {
         })
         .then(function() {
             // ...
+        })
+        .then(function() {
+            console.log('COMPLETED: download');
+        }, function(err) {
+            console.log('ERROR: download', err);
         });
 };
 
@@ -182,6 +197,11 @@ ClientCLI.prototype.delete = function(key) {
         })
         .then(function() {
             // ...
+        })
+        .then(function() {
+            console.log('COMPLETED: delete');
+        }, function(err) {
+            console.log('ERROR: delete', err);
         });
 };
 
@@ -208,9 +228,76 @@ ClientCLI.prototype.list = function(key) {
                 console.log('#' + i, obj.key, '\t', obj.info.size, 'bytes');
                 i++;
             });
+        })
+        .then(function() {
+            console.log('COMPLETED: list');
+        }, function(err) {
+            console.log('ERROR: list', err);
         });
 };
 
+
+
+/**
+ *
+ * WRITE_BLOCK
+ *
+ */
+ClientCLI.prototype.write_block = function(ip, port, file_name) {
+    var self = this;
+
+    return Q
+        .nfcall(fs.readFile, file_name)
+        .then(function(buffer) {
+            var agent = new api.agent_api.Client();
+            agent.options.set_address('http://' + ip + ':' + port);
+
+            var block_id = 'TEST-' + path.basename(file_name);
+            console.log('write_block', buffer.length, block_id, agent);
+
+            return agent.write_block({
+                block_id: block_id,
+                data: buffer,
+            });
+        })
+        .then(function() {
+            console.log('COMPLETED: write_block');
+        }, function(err) {
+            console.log('ERROR: write_block', err);
+        });
+};
+
+
+/**
+ *
+ * READ_BLOCK
+ *
+ */
+ClientCLI.prototype.read_block = function(ip, port, file_name) {
+    var self = this;
+
+    return Q
+        .fcall(function() {
+            var agent = new api.agent_api.Client();
+            agent.options.set_address('http://' + ip + ':' + port);
+
+            var block_id = 'TEST-' + path.basename(file_name);
+            console.log('read_block', block_id, agent);
+
+            return agent.read_block({
+                block_id: block_id,
+            });
+        })
+        .then(function(buffer) {
+            var out = buffer.slice(0, 1024 * 1024);
+            console.log(out.toString());
+        })
+        .then(function() {
+            console.log('COMPLETED: read_block');
+        }, function(err) {
+            console.log('ERROR: read_block', err);
+        });
+};
 
 
 

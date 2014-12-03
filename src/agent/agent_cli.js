@@ -58,17 +58,24 @@ function AgentCLI(params) {
 AgentCLI.prototype.init = function() {
     var self = this;
 
-    return Q.fcall(function() {
-            if (self.params.setup) {
-                return self.client.setup(self.params)
-                    .then(function() {
-                        console.log('SETUP COMPLETED');
-                        process.exit();
-                    });
-            }
-        })
+    if (self.params.setup) {
+        return self.client.setup(self.params)
+            .then(function() {
+                console.log('COMPLETED: setup', self.params);
+            }, function(err) {
+                console.log('ERROR: setup', self.params, err);
+            })
+            .then(function() {
+                process.exit();
+            });
+    }
+
+    return self.load()
         .then(function() {
-            return self.load();
+            console.log('COMPLETED: load');
+        }, function(err) {
+            console.log('ERROR: load', self.params, err);
+
         });
 };
 

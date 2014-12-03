@@ -73,6 +73,8 @@ function Agent(params) {
     }));
     app.use(express_body_parser.text());
     app.use(express_body_parser.urlencoded({
+        // size limit on raw requests
+        limit: 16 * size_utils.MEGABYTE,
         extended: false
     }));
     app.use(express_method_override());

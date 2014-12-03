@@ -243,6 +243,9 @@ function write_block(block, buffer) {
     return agent.write_block({
         block_id: block.id,
         data: buffer,
+    }).then(null, function(err) {
+        console.error('FAILED write_block', block.node.ip + ':' + block.node.port);
+        throw err;
     });
 }
 
@@ -267,6 +270,9 @@ function read_block(block, block_size) {
                 throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
             }
             return buffer;
+        }, function(err) {
+            console.error('FAILED read_block', block.node.ip + ':' + block.node.port);
+            throw err;
         });
 }
 

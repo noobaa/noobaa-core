@@ -68,14 +68,12 @@ function Agent(params) {
     app.use(express_morgan_logger('dev'));
     app.use(express_body_parser.json());
     app.use(express_body_parser.raw({
-        // size limit on raw requests
-        limit: 1 * size_utils.MEGABYTE
+        // increase size limit on raw requests to allow serving data blocks
+        limit: 4 * size_utils.MEGABYTE
     }));
     app.use(express_body_parser.text());
     app.use(express_body_parser.urlencoded({
-        // size limit on raw requests
-        limit: 1 * size_utils.MEGABYTE,
-        extended: true
+        extended: false
     }));
     app.use(express_method_override());
     app.use(express_compress());

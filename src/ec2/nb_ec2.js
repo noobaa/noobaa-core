@@ -89,7 +89,9 @@ function foreach_region(func) {
  *
  */
 function describe_instances(params) {
+    var regions = [];
     return foreach_region(function(region) {
+            regions.push(region);
             return ec2_region_call(region.RegionName, 'describeInstances', params)
                 .then(function(res) {
                     // return a flat array of instances from res.Reservations[].Instances[]
@@ -109,7 +111,10 @@ function describe_instances(params) {
         })
         .then(function(res) {
             // flatten again for all regions
-            return _.flatten(res);
+            var instances = _.flatten(res);
+            // also put the regions list as a "secret" property of the array
+            instances.regions = regions;
+            return instances;
         });
 }
 
@@ -148,7 +153,8 @@ function scale_instances(count, allow_terminate) {
     }).then(function(instances) {
 
         var instances_per_region = _.groupBy(instances, 'region_name');
-        var region_names = _.keys(instances_per_region);
+        var region_names = _.pluck(instances.regions, 'RegionName');
+        console.log('region_names:', region_names);
 
         var target_region_count = 0;
         var first_region_extra_count = 0;
@@ -176,7 +182,8 @@ function scale_instances(count, allow_terminate) {
         console.log('Scale:', first_region_extra_count, 'extra in first region');
 
         var new_count = 0;
-        return Q.all(_.map(instances_per_region, function(instances, region_name) {
+        return Q.all(_.map(region_names, function(region_name) {
+            var instances = instances_per_region[region_name] || [];
             var region_count = 0;
             if (new_count < count) {
                 if (first_region_extra_count > 0 && region_name === region_names[0]) {
@@ -196,6 +203,9 @@ function scale_instances(count, allow_terminate) {
 /**
  *
  * scale_region
+ *
+ * @param count - the desired new count of instances
+ * @param instances - array of existing instances
  *
  */
 function scale_region(region_name, count, instances, allow_terminate) {

@@ -194,7 +194,7 @@ AgentCLI.prototype.start = function(node_name) {
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             node_name: node_name,
-            prefered_port: self.params.auto && 80,
+            prefered_port: self.params.auto && 5050,
             storage_path: path.join(self.params.root_path, node_name),
         });
         console.log('agent inited', node_name);

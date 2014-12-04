@@ -381,7 +381,7 @@ function create_security_group(region_name) {
         })
         .then(function(group_data) {
 
-            // set the port rules of the group to open ports ssh(22) and http(80)
+            // set the port rules of the group to open ports ssh(22) and nb-http(5050)
             // console.log('SecurityGroup: setting ssh/http rules for group',
             // group_data.GroupId, region_name);
             return ec2_region_call(region_name, 'authorizeSecurityGroupIngress', {
@@ -395,9 +395,9 @@ function create_security_group(region_name) {
                                 CidrIp: '0.0.0.0/0'
                             }]
                         }, {
-                            FromPort: 80,
+                            FromPort: 5050,
                             IpProtocol: 'tcp',
-                            ToPort: 80,
+                            ToPort: 5050,
                             IpRanges: [{
                                 CidrIp: '0.0.0.0/0'
                             }]
@@ -406,7 +406,7 @@ function create_security_group(region_name) {
                     ]
                 })
                 .then(function(data) {
-                    console.log('SecurityGroup: Opened ports 22 and 80');
+                    console.log('SecurityGroup: Opened ports 22 and 5050');
                 }, function(err) {
 
                     // if failed because the rules exist - it's a good thing

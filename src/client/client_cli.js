@@ -116,11 +116,13 @@ ClientCLI.prototype.load = function() {
 ClientCLI.prototype.upload = function(file_path) {
     var self = this;
     var key = file_path + '-' + Date.now();
+    var stats;
 
     return Q.fcall(function() {
             return Q.nfcall(fs.stat, file_path);
         })
-        .then(function(stats) {
+        .then(function(stats_arg) {
+            stats = stats_arg;
             return self.client.object.create_multipart_upload({
                 bucket: self.params.bucket,
                 key: key,
@@ -129,6 +131,12 @@ ClientCLI.prototype.upload = function(file_path) {
             });
         })
         .then(function() {
+            var total_write_size = 3 * stats.size;
+            var pos = 0;
+            self.client.object.events().on('send', function(len) {
+                pos += len;
+                console.log('progress', (100 * pos / total_write_size).toFixed(0) + '%');
+            });
             return Q.Promise(function(resolve, reject) {
                 fs.createReadStream(file_path)
                     .pipe(new BlockStream(512 * size_utils.KILOBYTE, {

@@ -13,6 +13,7 @@ var ObjectWriter = require('./object_writer');
 var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
+var size_utils = require('../util/size_utils');
 
 
 module.exports = ObjectClient;
@@ -239,8 +240,8 @@ function write_block(block, buffer) {
     var agent = new agent_api.Client();
     agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
 
-    console.log('write_block', buffer.length, block.id,
-        'from', block.node.ip + ':' + block.node.port);
+    console.log('write_block', size_utils.human_size(buffer.length), block.id,
+        'to', block.node.ip + ':' + block.node.port);
 
     return agent.write_block({
         block_id: block.id,
@@ -260,7 +261,7 @@ function read_block(block, block_size) {
     var agent = new agent_api.Client();
     agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
 
-    console.log('read_block', block_size, block.id,
+    console.log('read_block', size_utils.human_size(block_size), block.id,
         'from', block.node.ip + ':' + block.node.port);
 
     return agent.read_block({

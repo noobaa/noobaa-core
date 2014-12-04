@@ -237,8 +237,14 @@ function add_region_instances(region_name, count) {
                 ImageId: ami_image_id,
                 MaxCount: count,
                 MinCount: count,
-                InstanceType: 'm3.large',
-                // InstanceType: 't2.micro',
+                // InstanceType: 'm3.large',
+                InstanceType: 't2.micro',
+                BlockDeviceMappings: [{
+                    DeviceName: '/dev/sda1',
+                    Ebs: {
+                        VolumeSize: 200,
+                    },
+                }],
                 KeyName: KEY_PAIR_PARAMS.KeyName,
                 SecurityGroups: ['ssh_and_http_v2'],
                 UserData: new Buffer(run_script).toString('base64'),
@@ -321,48 +327,73 @@ function import_key_pair_to_region(region_name) {
  */
 function create_security_group(region_name) {
     var ssh_and_http_v2 = 'ssh_and_http_v2';
+
+    // first find if the group exists
     return ec2_region_call(region_name, 'describeSecurityGroups', {
             GroupNames: [ssh_and_http_v2]
         })
-        .then(function(securityGroupData) {
-            // console.log('SecurityGroup: already exists');
-        })
-        .then(null, function(err) {
+        .then(function(group_data) {
+
+            // yeah! exists. return it to check if port rules exists
+            // console.log('SecurityGroup: Found on region', region_name);
+            return group_data;
+        }, function(err) {
+
+            // if failed because of some really bad thing then bail
+            if (err.code !== 'InvalidSecurityGroup.NotFound') {
+                console.error('SecurityGroup: describe failed', region_name, err);
+                throw err;
+            }
+
+            // if failed because the group doesn't exists - create it.
             console.log('SecurityGroup: will create for region', region_name);
             return ec2_region_call(region_name, 'createSecurityGroup', {
                     Description: ssh_and_http_v2,
                     GroupName: ssh_and_http_v2
                 })
+                .then(null, function(err) {
+                    console.error('SecurityGroup: create failed', region_name, err);
+                    throw err;
+                });
+        })
+        .then(function(group_data) {
+
+            // set the port rules of the group to open ports ssh(22) and http(80)
+            // console.log('SecurityGroup: setting ssh/http rules for group',
+                // group_data.GroupId, region_name);
+            return ec2_region_call(region_name, 'authorizeSecurityGroupIngress', {
+                    GroupId: group_data.GroupId,
+                    GroupName: ssh_and_http_v2,
+                    IpPermissions: [{
+                            FromPort: 22,
+                            IpProtocol: 'tcp',
+                            ToPort: 22,
+                            IpRanges: [{
+                                CidrIp: '0.0.0.0/0'
+                            }]
+                        }, {
+                            FromPort: 80,
+                            IpProtocol: 'tcp',
+                            ToPort: 80,
+                            IpRanges: [{
+                                CidrIp: '0.0.0.0/0'
+                            }]
+                        },
+                        /* more items */
+                    ]
+                })
                 .then(function(data) {
-                    console.log('SecurityGroup: created');
-                    return ec2_region_call(region_name, 'authorizeSecurityGroupIngress', {
-                            GroupId: data.GroupId,
-                            GroupName: ssh_and_http_v2,
-                            IpPermissions: [{
-                                    FromPort: 22,
-                                    IpProtocol: 'tcp',
-                                    ToPort: 22,
-                                    IpRanges: [{
-                                        CidrIp: '0.0.0.0/0'
-                                    }]
-                                }, {
-                                    FromPort: 80,
-                                    IpProtocol: 'tcp',
-                                    ToPort: 80,
-                                    IpRanges: [{
-                                        CidrIp: '0.0.0.0/0'
-                                    }]
-                                },
-                                /* more items */
-                            ]
-                        })
-                        .then(function(data) {
-                            console.log('SecurityGroup: Opened port 22 and 80');
-                        }, function(err) {
-                            console.log('SecurityGroup: Rules exist');
-                        });
+                    console.log('SecurityGroup: Opened ports 22 and 80');
                 }, function(err) {
-                    console.log('SecurityGroup: create failed', region_name, err);
+
+                    // if failed because the rules exist - it's a good thing
+                    if (err.code === 'InvalidPermission.Duplicate') {
+                        // console.log('SecurityGroup: Rules exist for region', region_name);
+                        return;
+                    }
+                    console.error('SecurityGroup: authorize failed',
+                        region_name, group_data.GroupId, err);
+                    throw err;
                 });
         });
 }
@@ -418,17 +449,18 @@ function main() {
 
         // add a --term flag to allow removing nodes
         scale_instances(argv.scale, argv.term)
-            .then(null, function(err) {
-                if (err.message === 'allow_terminate') {
-                    console.error('******************************************');
-                    console.error('Use --term flag to allow terminating nodes');
-                    console.error('******************************************');
-                }
-                throw err;
-            })
             .then(function(res) {
                 console_inspect('Scale: completed to ' + argv.scale, res);
                 return describe_instances().then(print_instances);
+            }, function(err) {
+                if (err.message === 'allow_terminate') {
+                    console.error('\n\n******************************************');
+                    console.error('SCALE DOWN REJECTED');
+                    console.error('Use --term flag to allow terminating nodes');
+                    console.error('******************************************\n\n');
+                    return;
+                }
+                throw err;
             })
             .done();
 

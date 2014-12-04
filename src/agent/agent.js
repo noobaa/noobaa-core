@@ -210,7 +210,7 @@ Agent.prototype._init_node = function() {
                     name: self.node_name,
                     tier: res.extra.tier,
                     geolocation: self.geolocation,
-                    storage_alloc: 0,
+                    storage_alloc: 100 * size_utils.GIGABYTE,
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.client.headers.set_auth_token(node.token);

@@ -79,13 +79,14 @@ function client_streamer(client, port) {
     app.get('/bucket/:bucket/object/:key', function(req, res) {
         var bucket = req.params.bucket;
         var key = req.params.key;
-        console.log('read', bucket, key);
+        console.log('read', req.path);
 
         // res.header('Content-Type', content_type);
         var object_key = {
             bucket: bucket,
             key: key,
         };
+
         client.object
             .read_object_md(object_key)
             .then(function(res_md) {
@@ -98,6 +99,7 @@ function client_streamer(client, port) {
                 res.status(500).send(err);
             });
     });
+
 
     var defer = Q.defer();
     var server = http.createServer(app);
@@ -116,11 +118,12 @@ function client_streamer(client, port) {
  *
  */
 function serve_content(req, res, file_size, open_read_stream) {
-    var range_header = req.header('ranger');
+    var range_header = req.header('Range');
+    res.header('Accept-Ranges', 'bytes');
+    res.header('Content-Length', file_size);
 
     if (!range_header) {
-        res.header('Content-Length', file_size);
-        res.header('Accept-Ranges', 'bytes');
+        console.log('serve_content: send all');
         open_read_stream().pipe(res);
         return;
     }
@@ -139,23 +142,22 @@ function serve_content(req, res, file_size, open_read_stream) {
     var end_arg = range_array[2];
     var start = parseInt(start_arg) || 0;
     var end = (parseInt(end_arg) + 1) || file_size;
-    if (!start_arg && end_arg) {
-        start = file_size - end;
-    }
+    if (!start_arg && end_arg) start = file_size - end;
+    var valid_range = (start >= 0) && (end <= file_size) && (start <= end);
 
-    // If the range can't be fulfilled.
-    if (start >= file_size || end > file_size) {
+    if (!valid_range) {
         // indicate the acceptable range.
         res.header('Content-Range', 'bytes */' + file_size);
         // return the 416 'Requested Range Not Satisfiable'.
+        console.log('serve_content: invalid range, send all', start, end, range_header);
         res.status(416);
         return;
     }
 
     res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + file_size);
-    res.header('Content-Length', start === end ? 0 : (end - start));
-    res.header('Accept-Ranges', 'bytes');
+    res.header('Content-Length', end - start);
     res.header('Cache-Control', 'no-cache');
+    console.log('serve_content: send range', '[', start, ',', end, ']', range_header);
 
     // return the 206 'Partial Content'.
     res.status(206);

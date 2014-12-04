@@ -93,7 +93,18 @@ function describe_instances(params) {
             return ec2_region_call(region.RegionName, 'describeInstances', params)
                 .then(function(res) {
                     // return a flat array of instances from res.Reservations[].Instances[]
-                    return _.flatten(res.Reservations, 'Instances');
+                    var instances = _.flatten(res.Reservations, 'Instances');
+                    // prepare instance extra fields and filter out irrelevant instances
+                    return _.filter(instances, function(instance) {
+                        instance.region = region;
+                        instance.region_name = region.RegionName;
+                        instance.tags_map = _.mapValues(_.indexBy(instance.Tags, 'Key'), 'Value');
+                        if (instance.tags_map.Name !== argv.tag) {
+                            console.log('FILTERED', instance.InstanceId, instance.tags_map.Name);
+                            return false;
+                        }
+                        return true;
+                    });
                 });
         })
         .then(function(res) {
@@ -129,11 +140,19 @@ function describe_instance(instance_id) {
  */
 function scale_instances(count, allow_terminate) {
 
-    return get_regions().then(function(data) {
+    return describe_instances({
+        Filters: [{
+            Name: 'instance-state-name',
+            Values: ['running', 'pending']
+        }]
+    }).then(function(instances) {
+
+        var instances_per_region = _.groupBy(instances, 'region_name');
+        var region_names = _.keys(instances_per_region);
 
         var target_region_count = 0;
         var first_region_extra_count = 0;
-        if (count < data.Regions.length) {
+        if (count < region_names.length) {
             // if number of instances is smaller than the number of regions,
             // we will add one instance per region until we have enough instances.
             if (count === 0) {
@@ -144,8 +163,8 @@ function scale_instances(count, allow_terminate) {
         } else {
             // divide instances equally per region.
             // the first region will get the redundant instances
-            target_region_count = Math.floor(count / data.Regions.length);
-            first_region_extra_count = (count % data.Regions.length);
+            target_region_count = Math.floor(count / region_names.length);
+            first_region_extra_count = (count % region_names.length);
             if (target_region_count > 20) {
                 target_region_count = 20;
                 first_region_extra_count = 0;
@@ -157,20 +176,18 @@ function scale_instances(count, allow_terminate) {
         console.log('Scale:', first_region_extra_count, 'extra in first region');
 
         var new_count = 0;
-        return Q.all(_.map(data.Regions, function(region) {
+        return Q.all(_.map(instances_per_region, function(instances, region_name) {
             var region_count = 0;
             if (new_count < count) {
-                if (first_region_extra_count > 0 &&
-                    region.RegionName === data.Regions[0].RegionName) {
-                    region_count = target_region_count +
-                        first_region_extra_count;
+                if (first_region_extra_count > 0 && region_name === region_names[0]) {
+                    region_count = target_region_count + first_region_extra_count;
                 } else {
                     region_count = target_region_count;
                 }
                 new_count += region_count;
             }
 
-            return scale_region(region.RegionName, region_count, allow_terminate);
+            return scale_region(region_name, region_count, instances, allow_terminate);
         }));
     });
 }
@@ -181,21 +198,17 @@ function scale_instances(count, allow_terminate) {
  * scale_region
  *
  */
-function scale_region(region_name, count, allow_terminate) {
-    return create_security_group(region_name)
+function scale_region(region_name, count, instances, allow_terminate) {
+
+    // always make sure the region has the security group and key pair
+    return Q
+        .fcall(function() {
+            return create_security_group(region_name);
+        })
         .then(function() {
             return import_key_pair_to_region(region_name);
         })
         .then(function() {
-            return ec2_region_call(region_name, 'describeInstances', {
-                Filters: [{
-                    Name: 'instance-state-name',
-                    Values: ['running', 'pending']
-                }]
-            });
-        })
-        .then(function(res) {
-            var instances = _.flatten(res.Reservations, 'Instances');
 
             // need to create
             if (count > instances.length) {
@@ -360,7 +373,7 @@ function create_security_group(region_name) {
 
             // set the port rules of the group to open ports ssh(22) and http(80)
             // console.log('SecurityGroup: setting ssh/http rules for group',
-                // group_data.GroupId, region_name);
+            // group_data.GroupId, region_name);
             return ec2_region_call(region_name, 'authorizeSecurityGroupIngress', {
                     GroupId: group_data.GroupId,
                     GroupName: ssh_and_http_v2,
@@ -430,9 +443,12 @@ function print_instances(instances) {
         _.each(instances, function(instance) {
             console.log('Instance:',
                 instance.InstanceId,
+                instance.State && instance.State.Name || '[no-state]',
                 instance.PublicIpAddress,
-                '(private ' + instance.PrivateIpAddress + ')',
-                instance.State && instance.State.Name || '?');
+                instance.region_name,
+                instance.tags_map.Name || '[no-name]',
+                '[private ip ' + instance.PrivateIpAddress + ']'
+            );
         });
     }
 

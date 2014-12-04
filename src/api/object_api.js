@@ -20,7 +20,7 @@ module.exports = rest_api({
             path: '/obj/:bucket/:key/upload',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'size'],
+                required: ['bucket', 'key', 'size', 'content_type'],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -30,7 +30,10 @@ module.exports = rest_api({
                     },
                     size: {
                         type: 'integer',
-                    }
+                    },
+                    content_type: {
+                        type: 'string',
+                    },
                 }
             },
             auth: {
@@ -178,6 +181,9 @@ module.exports = rest_api({
                     key: {
                         type: 'string',
                     },
+                    content_type: {
+                        type: 'string',
+                    },
                 }
             },
             auth: {
@@ -258,10 +264,13 @@ module.exports = rest_api({
 
         object_info: {
             type: 'object',
-            required: ['size', 'create_time'],
+            required: ['size', 'content_type', 'create_time'],
             properties: {
                 size: {
                     type: 'integer',
+                },
+                content_type: {
+                    type: 'string',
                 },
                 create_time: {
                     type: 'string',

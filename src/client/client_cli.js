@@ -12,6 +12,7 @@ var repl = require('repl');
 var assert = require('assert');
 var crypto = require('crypto');
 var mkdirp = require('mkdirp');
+var mime = require('mime');
 var argv = require('minimist')(process.argv);
 var BlockStream = require('block-stream');
 var Semaphore = require('noobaa-util/semaphore');
@@ -124,12 +125,13 @@ ClientCLI.prototype.upload = function(file_path) {
                 bucket: self.params.bucket,
                 key: key,
                 size: stats.size,
+                content_type: mime.lookup(file_path),
             });
         })
         .then(function() {
             return Q.Promise(function(resolve, reject) {
                 fs.createReadStream(file_path)
-                    .pipe(new BlockStream(size_utils.MEGABYTE, {
+                    .pipe(new BlockStream(512 * size_utils.KILOBYTE, {
                         nopad: true
                     }))
                     .pipe(self.client.object.open_write_stream({

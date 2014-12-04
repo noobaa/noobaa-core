@@ -64,6 +64,7 @@ describe('object', function() {
                 bucket: BKT,
                 key: KEY,
                 size: 0,
+                content_type: 'application/octet-stream',
             });
         }).then(function() {
             return client.object.complete_multipart_upload({
@@ -139,6 +140,7 @@ describe('object', function() {
                     bucket: BKT,
                     key: KEY,
                     size: size,
+                    content_type: 'application/octet-stream',
                 });
             }).then(function() {
                 return Q.Promise(function(resolve, reject) {

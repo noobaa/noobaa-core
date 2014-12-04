@@ -81,7 +81,6 @@ function client_streamer(client, port) {
         var key = req.params.key;
         console.log('read', req.path);
 
-        // res.header('Content-Type', content_type);
         var object_key = {
             bucket: bucket,
             key: key,
@@ -90,8 +89,7 @@ function client_streamer(client, port) {
         client.object
             .read_object_md(object_key)
             .then(function(res_md) {
-                var file_size = res_md.size;
-                serve_content(req, res, file_size, function(options) {
+                serve_content(req, res, res_md.size, res_md.content_type, function(options) {
                     var params = _.extend({}, options, object_key);
                     return client.object.open_read_stream(params);
                 });
@@ -117,11 +115,12 @@ function client_streamer(client, port) {
  * serve_content
  *
  */
-function serve_content(req, res, file_size, open_read_stream) {
-    var range_header = req.header('Range');
-    res.header('Accept-Ranges', 'bytes');
+function serve_content(req, res, file_size, content_type, open_read_stream) {
     res.header('Content-Length', file_size);
+    res.header('Content-Type', content_type);
+    res.header('Accept-Ranges', 'bytes');
 
+    var range_header = req.header('Range');
     if (!range_header) {
         console.log('serve_content: send all');
         open_read_stream().pipe(res);

@@ -49,6 +49,7 @@ function create_multipart_upload(req) {
                 bucket: bucket.id,
                 key: req.rest_params.key,
                 size: req.rest_params.size,
+                content_type: req.rest_params.content_type,
                 upload_mode: true,
             };
             return db.ObjectMD.create(info);
@@ -203,8 +204,7 @@ function update_object_md(req) {
                 bucket: bucket.id,
                 key: req.rest_params.key,
             };
-            // TODO no fields can be updated for now
-            var updates = _.pick(req.rest_params);
+            var updates = _.pick(req.rest_params, 'content_type');
             return db.ObjectMD.findOneAndUpdate(info, updates).exec();
         })
         .then(db.check_not_deleted(req, 'object'))
@@ -271,10 +271,10 @@ function list_objects(req) {
 
 
 function get_object_info(md) {
-    var info = {
-        size: md.size || 0,
-        create_time: md.create_time.toString(),
-    };
+    var info = _.pick(md, 'size', 'content_type');
+    info.size = info.size || 0;
+    info.content_type = info.content_type || '';
+    info.create_time = md.create_time.toString();
     if (md.upload_mode) {
         info.upload_mode = md.upload_mode;
     }

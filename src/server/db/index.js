@@ -67,14 +67,14 @@ module.exports = {
 
     BucketCache: new LRUCache({
         name: 'BucketCache',
-        key_stringify: function(key) {
-            return key.system + ':' + key.name;
+        make_key: function(params) {
+            return params.system + ':' + params.name;
         },
-        load: function(key) {
+        load: function(params) {
             // load the system
             return Q.when(Bucket.findOne({
-                    system: key.system,
-                    name: key.name,
+                    system: params.system,
+                    name: params.name,
                     deleted: null,
                 }).exec());
         }

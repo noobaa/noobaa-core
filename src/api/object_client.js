@@ -14,10 +14,18 @@ var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
+var LRUCache = require('../util/lru_cache');
+var devnull = require('dev-null');
 
 
 module.exports = ObjectClient;
 
+
+var MAP_RANGE_ALIGN_NBITS = 24; // = log2( 16 MB )
+var MAP_RANGE_ALIGN = 1 << MAP_RANGE_ALIGN_NBITS; // 16 MB
+var OBJECT_RANGE_ALIGN_NBITS = 20; // = log2( 1 MB )
+var OBJECT_RANGE_ALIGN = 1 << OBJECT_RANGE_ALIGN_NBITS; // 1 MB
+var READAHEAD_RANGES = 4;
 
 /**
  *
@@ -29,9 +37,89 @@ module.exports = ObjectClient;
  *
  */
 function ObjectClient(base) {
-    object_api.Client.call(this, base);
-    this.read_sem = new Semaphore(16);
-    this.write_sem = new Semaphore(16);
+    var self = this;
+    object_api.Client.call(self, base);
+    self.read_sem = new Semaphore(16);
+    self.write_sem = new Semaphore(16);
+
+    self._object_md_cache = new LRUCache({
+        name: 'MDCache',
+        max_length: 1000,
+        expiry_ms: 600000, // 10 minutes
+        make_key: function(params) {
+            return params.bucket + ':' + params.key;
+        },
+        load: function(params) {
+            return self.read_object_md(params);
+        }
+    });
+
+    self._object_map_cache = new LRUCache({
+        name: 'MappingsCache',
+        max_length: 1000,
+        expiry_ms: 600000, // 10 minutes
+        make_key: function(params) {
+            var start = range_utils.align_down_bitwise(
+                params.start, MAP_RANGE_ALIGN_NBITS);
+            return params.bucket + ':' + params.key + ':' + start;
+        },
+        load: function(params) {
+            var map_params = _.clone(params);
+            map_params.start = range_utils.align_down_bitwise(
+                params.start, MAP_RANGE_ALIGN_NBITS);
+            map_params.end = map_params.start + MAP_RANGE_ALIGN;
+            return self.read_object_mappings(map_params);
+        },
+        make_val: function(val, params) {
+            var mappings = _.clone(val);
+            mappings.parts = _.filter(val.parts, function(part) {
+                var inter = range_utils.intersection(
+                    part.start, part.end, params.start, params.end);
+                if (!inter) {
+                    return false;
+                }
+                console.log('MappingsCache: part', part.start, part.end, 'inter', inter.start, inter.end);
+                return true;
+            });
+            return mappings;
+        },
+    });
+
+    self._object_range_cache = new LRUCache({
+        name: 'RangesCache',
+        max_length: 100,
+        expiry_ms: 600000, // 10 minutes
+        make_key: function(params) {
+            var start = range_utils.align_down_bitwise(
+                params.start, OBJECT_RANGE_ALIGN_NBITS);
+            var end = start + OBJECT_RANGE_ALIGN;
+            return params.bucket + ':' + params.key + ':' + start + ':' + end;
+        },
+        load: function(params) {
+            var range_params = _.clone(params);
+            range_params.start = range_utils.align_down_bitwise(
+                params.start, OBJECT_RANGE_ALIGN_NBITS);
+            range_params.end = range_params.start + OBJECT_RANGE_ALIGN;
+            return self._read_object_range(range_params);
+        },
+        make_val: function(val, params) {
+            if (!val) {
+                console.log('RangesCache: null', params.start, params.end);
+                return val;
+            }
+            var start = range_utils.align_down_bitwise(
+                params.start, OBJECT_RANGE_ALIGN_NBITS);
+            var end = start + OBJECT_RANGE_ALIGN;
+            var inter = range_utils.intersection(
+                start, end, params.start, params.end);
+            if (!inter) {
+                console.log('RangesCache: empty', params.start, params.end, 'align', start, end);
+                return null;
+            }
+            console.log('RangesCache: slice', params.start, params.end, 'inter', inter.start, inter.end);
+            return val.slice(inter.start - start, inter.end - start);
+        },
+    });
 }
 
 // proper inheritance
@@ -55,6 +143,79 @@ ObjectClient.prototype.open_write_stream = function(params) {
     return new ObjectWriter(this, params);
 };
 
+
+/**
+ *
+ * serve_http_stream
+ *
+ * @param params (Object):
+ *  - bucket (String)
+ *  - key (String)
+ */
+ObjectClient.prototype.serve_http_stream = function(req, res, params) {
+    var self = this;
+    self._object_md_cache.get(params).then(function(md) {
+        res.header('Content-Type', md.content_type);
+        res.header('Accept-Ranges', 'bytes');
+
+        var range_header = req.header('Range');
+        if (!range_header) {
+            // return 416 'Requested Range Not Satisfiable'.
+            console.log('+++ serve_http_stream: send all');
+            res.header('Content-Length', md.size);
+            res.status(200);
+            self.open_read_stream(params).pipe(res);
+            return;
+        }
+
+        // split regexp examples:
+        // input: bytes=100-200 output: [null, 100, 200, null]
+        // input: bytes=-200 output: [null, null, 200, null]
+        var range_array = range_header.split(/bytes=([0-9]*)-([0-9]*)/);
+        var start_arg = range_array[1];
+        var end_arg = range_array[2];
+        var start = parseInt(start_arg) || 0;
+        var end = (parseInt(end_arg) + 1) || md.size;
+        if (!start_arg && end_arg) start = md.size - end;
+        var valid_range = (start >= 0) && (end <= md.size) && (start <= end);
+
+        if (!valid_range) {
+            // return 416 'Requested Range Not Satisfiable'.
+            // indicate the acceptable range.
+            res.header('Content-Length', md.size);
+            res.header('Content-Range', 'bytes */' + md.size);
+            console.log('+++ serve_http_stream: invalid range, send all', start, end, range_header);
+            res.status(416);
+            return;
+        }
+
+        // return 206 'Partial Content'
+        if (end - start >= 4 * size_utils.MEGABYTE) {
+            end = start + 4 * size_utils.MEGABYTE;
+        }
+        res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + md.size);
+        // res.header('Content-Length', end - start);
+        // res.header('Cache-Control', 'no-cache');
+        console.log('+++ serve_http_stream: send range', '[', start, ',', end, ']', range_header);
+        res.status(206);
+        self.open_read_stream(_.extend({
+            start: start,
+            end: end,
+        }, params)).pipe(res);
+
+        if (start === 0) {
+            console.log('serve_http_stream: read end of file to devnull');
+            self.open_read_stream(_.extend({
+                start: md.size > 100 ? (md.size - 100) : 0,
+                end: md.size,
+            }, params)).pipe(devnull());
+        }
+
+    }, function(err) {
+        console.error('+++ serve_http_stream: ERROR', err);
+        res.status(500).send(err.message);
+    });
+};
 
 
 /**
@@ -116,13 +277,52 @@ ObjectClient.prototype.write_object_part = function(params) {
  */
 ObjectClient.prototype.read_object_range = function(params) {
     var self = this;
+    console.log('read_object_range', params.start, params.end);
+    if (params.end <= params.start) {
+        return null;
+    }
+    return self._object_range_cache.get(params)
+        .then(function(data) {
+            if (data && data.length) {
+                // submit a readahead
+                var pos = range_utils.align_up_bitwise(
+                    params.start + data.length, OBJECT_RANGE_ALIGN_NBITS);
+                _.times(READAHEAD_RANGES, function(i) {
+                    var readahead_params = _.clone(params);
+                    readahead_params.start = pos;
+                    pos += OBJECT_RANGE_ALIGN;
+                    readahead_params.end = pos;
+                    self._object_range_cache.get(readahead_params);
+                });
+            }
+            return data;
+        });
+};
+
+
+/**
+ *
+ * _read_object_range
+ *
+ * @param {Object} params:
+ *   - bucket (String)
+ *   - key (String)
+ *   - start (Number) - object start offset
+ *   - end (Number) - object end offset
+ *
+ * @return {Promise} buffer - the data. can be shorter than requested if EOF.
+ *
+ */
+ObjectClient.prototype._read_object_range = function(params) {
+    var self = this;
     var obj_size;
 
-    // console.log('read_object_range', params);
-    return self.read_object_mappings(params)
+    console.log('_read_object_range', params);
+
+    return self._object_map_cache.get(params)
         .then(function(mappings) {
             obj_size = mappings.size;
-            return Q.all(_.map(mappings.parts, self.read_object_part, self));
+            return Q.all(_.map(mappings.parts, self._read_object_part, self));
         })
         .then(function(parts) {
             // once all parts finish we can construct the complete buffer.
@@ -134,13 +334,13 @@ ObjectClient.prototype.read_object_range = function(params) {
 /**
  * read one part of the object.
  */
-ObjectClient.prototype.read_object_part = function(part) {
+ObjectClient.prototype._read_object_part = function(part) {
     var self = this;
     var block_size = (part.chunk_size / part.kfrag) | 0;
     var buffer_per_fragment = {};
     var next_fragment = 0;
 
-    // console.log('read_object_part', part);
+    // console.log('_read_object_part', part);
 
     // advancing the read by taking the next fragment and return promise to read it.
     // will fail if no more fragments remain, which means the part cannot be served.
@@ -170,7 +370,8 @@ ObjectClient.prototype.read_object_part = function(part) {
                 }
                 // use semaphore to surround the IO
                 return self.read_sem.surround(function() {
-                    return read_block(block, block_size);
+                    var offset = part.start + (fragment * block_size);
+                    return read_block(block, block_size, offset);
                 });
             });
         };
@@ -257,11 +458,11 @@ function write_block(block, buffer) {
 /**
  * read a block from the storage node
  */
-function read_block(block, block_size) {
+function read_block(block, block_size, offset) {
     var agent = new agent_api.Client();
     agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
 
-    console.log('read_block', size_utils.human_size(block_size), block.id,
+    console.log('read_block', offset, size_utils.human_size(block_size), block.id,
         'from', block.node.ip + ':' + block.node.port);
 
     return agent.read_block({

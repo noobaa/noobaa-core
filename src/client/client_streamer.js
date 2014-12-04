@@ -16,7 +16,6 @@ var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var size_utils = require('../util/size_utils');
-var LRUCache = require('../util/lru_cache');
 
 module.exports = client_streamer;
 
@@ -77,38 +76,10 @@ function client_streamer(client, port) {
             });
     });
 
-    var object_md_cache = new LRUCache({
-        name: 'BucketCache',
-        max_length: 10000,
-        expiry_ms: 3600000, // 1 hour
-        key_stringify: function(key) {
-            return key.system + ':' + key.name;
-        },
-        load: function(key) {
-            // load the system
-            return client.object.read_object_md(key);
-        }
-    });
 
     app.get('/bucket/:bucket/object/:key', function(req, res) {
-        var bucket = req.params.bucket;
-        var key = req.params.key;
         console.log('read', req.path);
-
-        var object_key = {
-            bucket: bucket,
-            key: key,
-        };
-
-        object_md_cache.get(object_key)
-            .then(function(res_md) {
-                serve_content(req, res, res_md.size, res_md.content_type, function(options) {
-                    var params = _.extend({}, options, object_key);
-                    return client.object.open_read_stream(params);
-                });
-            }).then(null, function(err) {
-                res.status(500).send(err);
-            });
+        client.object.serve_http_stream(req, res, _.pick(req.params, 'bucket', 'key'));
     });
 
 
@@ -120,61 +91,4 @@ function client_streamer(client, port) {
         defer.resolve(server);
     });
     return defer.promise;
-}
-
-
-/**
- *
- * serve_content
- *
- */
-function serve_content(req, res, file_size, content_type, open_read_stream) {
-    res.header('Content-Length', file_size);
-    res.header('Content-Type', content_type);
-    res.header('Accept-Ranges', 'bytes');
-
-    var range_header = req.header('Range');
-    if (!range_header) {
-        console.log('serve_content: send all');
-        open_read_stream().pipe(res);
-        return;
-    }
-
-    /*
-     * split regexp examples:
-     *
-     * input: bytes=100-200
-     * output: [null, 100, 200, null]
-     *
-     * input: bytes=-200
-     * output: [null, null, 200, null]
-     */
-    var range_array = range_header.split(/bytes=([0-9]*)-([0-9]*)/);
-    var start_arg = range_array[1];
-    var end_arg = range_array[2];
-    var start = parseInt(start_arg) || 0;
-    var end = (parseInt(end_arg) + 1) || file_size;
-    if (!start_arg && end_arg) start = file_size - end;
-    var valid_range = (start >= 0) && (end <= file_size) && (start <= end);
-
-    if (!valid_range) {
-        // indicate the acceptable range.
-        res.header('Content-Range', 'bytes */' + file_size);
-        // return the 416 'Requested Range Not Satisfiable'.
-        console.log('serve_content: invalid range, send all', start, end, range_header);
-        res.status(416);
-        return;
-    }
-
-    res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + file_size);
-    res.header('Content-Length', end - start);
-    res.header('Cache-Control', 'no-cache');
-    console.log('serve_content: send range', '[', start, ',', end, ']', range_header);
-
-    // return the 206 'Partial Content'.
-    res.status(206);
-    open_read_stream({
-        start: start,
-        end: end,
-    }).pipe(res);
 }

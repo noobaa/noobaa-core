@@ -15,11 +15,15 @@ module.exports = LRUCache;
 function LRUCache(options) {
     var self = this;
     options = options || {};
-    self.key_stringify = options.key_stringify || function(k) {
-        return k;
-    };
     self.load = options.load;
     self.name = options.name;
+    self.make_key = options.make_key || function(k) {
+        return k;
+    };
+    self.make_val = options.make_val || function(v, params) {
+        return v;
+    };
+    self.disable_negative_cache = options.disable_negative_cache;
     self.lru = new LRU({
         max_length: options.max_length || 100,
         expiry_ms: options.expiry_ms || 60000, // default 1 minute
@@ -32,34 +36,40 @@ function LRUCache(options) {
  * cache_miss (String) - pass the literal string 'cache_miss' to force fetching.
  *
  */
-LRUCache.prototype.get = function(key, cache_miss) {
+LRUCache.prototype.get = function(params, cache_miss) {
     var self = this;
     return Q.fcall(function() {
-        var item = self.lru.find_or_add_item(self.key_stringify(key));
+        var key = self.make_key(params);
+        var item = self.lru.find_or_add_item(key);
 
         // use cached item when not forcing cache_miss and still not expired by lru
         if (cache_miss !== 'cache_miss') {
-            if (item.missing) {
+            if (item.promise) {
+                return item.promise;
+            }
+            if (item.negative && !self.disable_negative_cache) {
                 return;
             }
             if (item.doc) {
-                return item.doc;
+                return self.make_val(item.doc, params);
             }
         }
 
         // load from the database
-        console.log('CACHE MISS', self.name, key);
-        return Q.when(self.load(key)).then(function(doc) {
+        console.log('CACHE MISS', self.name, key, params);
+        item.promise = self.load(params);
+        return Q.when(item.promise).then(function(doc) {
+            item.promise = null;
             if (doc) {
                 // update the cache item
                 item.doc = doc;
-                item.missing = null;
+                item.negative = false;
             } else {
-                // mark entry as missing - aka negative cache
-                item.missing = true;
+                // mark entry as negative - aka negative cache
+                item.negative = true;
                 item.doc = null;
             }
-            return doc;
+            return self.make_val(doc, params);
         });
     });
 };

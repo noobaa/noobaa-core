@@ -24,7 +24,7 @@ function ObjectReader(client, params) {
         // highWaterMark Number - The maximum number of bytes to store
         // in the internal buffer before ceasing to read
         // from the underlying resource. Default=16kb
-        highWaterMark: params.highWaterMark || (1024 * 1024),
+        highWaterMark: params.highWaterMark || (2 * 1024 * 1024),
         // encoding String - If specified, then buffers will be decoded to strings
         // using the specified encoding. Default=null
         encoding: null,

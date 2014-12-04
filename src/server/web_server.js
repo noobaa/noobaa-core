@@ -127,6 +127,9 @@ app.use(api_router);
 app.get('/agent/package.json', function(req, res) {
     res.status(200).send({
         name: 'agent',
+        engines: {
+            node: '0.10.33'
+        },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
                 ' --auto --address ' + process.env.ADDRESS

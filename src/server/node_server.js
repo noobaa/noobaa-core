@@ -235,9 +235,9 @@ function group_nodes(req) {
                         // count
                         c: 1,
                         // allocated
-                        a: this.storage.alloc,
+                        a: this.storage.alloc || 0,
                         // used
-                        u: this.storage.used,
+                        u: this.storage.used || 0,
                     };
                     /* global emit */
                     emit(key, val);

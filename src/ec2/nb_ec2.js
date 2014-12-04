@@ -50,7 +50,7 @@ var KEY_PAIR_PARAMS = {
 };
 
 // the run script to send to started instances
-var run_script = fs.readFileSync(__dirname + '/run_agent.sh');
+var run_script = fs.readFileSync(__dirname + '/init_agent.sh');
 
 
 

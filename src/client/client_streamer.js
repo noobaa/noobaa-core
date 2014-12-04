@@ -16,6 +16,7 @@ var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var size_utils = require('../util/size_utils');
+var LRUCache = require('../util/lru_cache');
 
 module.exports = client_streamer;
 
@@ -76,6 +77,19 @@ function client_streamer(client, port) {
             });
     });
 
+    var object_md_cache = new LRUCache({
+        name: 'BucketCache',
+        max_length: 10000,
+        expiry_ms: 3600000, // 1 hour
+        key_stringify: function(key) {
+            return key.system + ':' + key.name;
+        },
+        load: function(key) {
+            // load the system
+            return client.object.read_object_md(key);
+        }
+    });
+
     app.get('/bucket/:bucket/object/:key', function(req, res) {
         var bucket = req.params.bucket;
         var key = req.params.key;
@@ -86,8 +100,7 @@ function client_streamer(client, port) {
             key: key,
         };
 
-        client.object
-            .read_object_md(object_key)
+        object_md_cache.get(object_key)
             .then(function(res_md) {
                 serve_content(req, res, res_md.size, res_md.content_type, function(options) {
                     var params = _.extend({}, options, object_key);

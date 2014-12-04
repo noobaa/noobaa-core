@@ -308,11 +308,23 @@ function main() {
     cli.init().done(function() {
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
-            prompt: 'client-cli > '
+            prompt: 'client-cli > ',
+            useGlobal: false,
         });
-        var help = 'try typing "nb." and then TAB ...';
+        var help = {
+            functions: [],
+            variables: [],
+        };
+        _.forIn(cli, function(val, key) {
+            if (typeof(val) === 'function') {
+                repl_srv.context[key] = val.bind(cli);
+                help.functions.push(key);
+            } else {
+                repl_srv.context[key] = val;
+                help.variables.push(key);
+            }
+        });
         repl_srv.context.help = help;
-        repl_srv.context.nb = cli;
     });
 }
 

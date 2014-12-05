@@ -23,7 +23,7 @@ function LRUCache(options) {
     self.make_val = options.make_val || function(v, params) {
         return v;
     };
-    self.disable_negative_cache = options.disable_negative_cache;
+    self.use_negative_cache = options.use_negative_cache;
     self.lru = new LRU({
         max_length: options.max_length || 100,
         expiry_ms: options.expiry_ms || 60000, // default 1 minute
@@ -47,30 +47,34 @@ LRUCache.prototype.get = function(params, cache_miss) {
             if (item.promise) {
                 return item.promise;
             }
-            if (item.negative && !self.disable_negative_cache) {
+            if (item.neg && self.use_negative_cache) {
                 return;
             }
-            if (item.doc) {
-                return self.make_val(item.doc, params);
+            if (item.val) {
+                return self.make_val(item.val, params);
             }
         }
 
         // load from the database
         console.log('CACHE MISS', self.name, key, params);
-        item.promise = self.load(params);
-        return Q.when(item.promise).then(function(doc) {
-            item.promise = null;
-            if (doc) {
-                // update the cache item
-                item.doc = doc;
-                item.negative = false;
-            } else {
-                // mark entry as negative - aka negative cache
-                item.negative = true;
-                item.doc = null;
-            }
-            return self.make_val(doc, params);
-        });
+        item.promise = Q.when(self.load(params))
+            .then(function(val) {
+                item.promise = null;
+                if (val) {
+                    // update the cache item
+                    item.val = val;
+                    delete item.neg;
+                } else {
+                    // mark entry as negative - aka negative cache
+                    item.neg = true;
+                    item.val = null;
+                }
+                return self.make_val(val, params);
+            }, function(err) {
+                item.promise = null;
+                throw err;
+            });
+        return item.promise;
     });
 };
 
@@ -79,7 +83,7 @@ LRUCache.prototype.get = function(params, cache_miss) {
  */
 LRUCache.prototype.invalidate = function(key) {
     var item = this.lru.remove_item(key);
-    if (item && item.doc) {
-        return item.doc;
+    if (item && item.val) {
+        return item.val;
     }
 };

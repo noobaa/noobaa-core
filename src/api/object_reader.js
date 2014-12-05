@@ -51,14 +51,14 @@ ObjectReader.prototype._read = function(requested_size) {
     var self = this;
     Q.fcall(function() {
             var end = Math.min(self._end, self._pos + requested_size);
-            return self._client.read_object_range({
+            return self._client.read_object({
                 bucket: self._bucket,
                 key: self._key,
                 start: self._pos,
                 end: end,
             });
         })
-        .done(function(buffer) {
+        .then(function(buffer) {
             if (buffer) {
                 self._pos += buffer.length;
             }

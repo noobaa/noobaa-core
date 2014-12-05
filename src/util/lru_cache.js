@@ -56,7 +56,7 @@ LRUCache.prototype.get = function(params, cache_miss) {
         }
 
         // load from the database
-        console.log('CACHE MISS', self.name, key, params);
+        console.log('CACHE MISS', self.name, key);
         item.promise = Q.when(self.load(params))
             .then(function(val) {
                 item.promise = null;

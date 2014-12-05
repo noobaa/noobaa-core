@@ -50,8 +50,9 @@ function Agent(params) {
         self.storage_path_blocks = path.join(self.storage_path, 'blocks');
         self.store = new AgentStore(self.storage_path_blocks);
         self.store_cache = new LRUCache({
-            load: self.store.read_block.bind(self.store),
+            name: 'AgentBlocksCache',
             max_length: 10,
+            load: self.store.read_block.bind(self.store),
         });
     } else {
         assert(self.token, 'missing param: token. ' +
@@ -59,8 +60,9 @@ function Agent(params) {
 
         this.store = new AgentStore.MemoryStore();
         self.store_cache = new LRUCache({
-            load: self.store.read_block.bind(self.store),
+            name: 'AgentBlocksCache',
             max_length: 1,
+            load: self.store.read_block.bind(self.store),
         });
     }
 

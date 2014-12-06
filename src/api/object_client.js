@@ -34,9 +34,9 @@ function ObjectClient(base) {
     object_api.Client.call(self, base);
 
     // some constants that might be provided as options to the client one day
-    self.MAP_RANGE_ALIGN_NBITS = 24; // = log2( 16 MB )
+    self.MAP_RANGE_ALIGN_NBITS = 24; // log2( 16 MB )
     self.MAP_RANGE_ALIGN = 1 << self.MAP_RANGE_ALIGN_NBITS; // 16 MB
-    self.OBJECT_RANGE_ALIGN_NBITS = 20; // = log2( 1 MB )
+    self.OBJECT_RANGE_ALIGN_NBITS = 20; // log2( 1 MB )
     self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 1 MB
 
     self.READ_CONCURRENCY = 32;
@@ -45,7 +45,8 @@ function ObjectClient(base) {
     self.READAHEAD_MIN_TRIGGER = 512 * size_utils.KILOBYTE;
     self.READAHEAD_RANGES = 4;
 
-    self.HTTP_PART_SIZE = 4 * size_utils.MEGABYTE;
+    self.HTTP_PART_ALIGN_NBITS = 22; // log2( 4 MB )
+    self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 4 MB
 
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
@@ -126,7 +127,7 @@ ObjectClient.prototype.upload_stream = function(params) {
  *
  */
 ObjectClient.prototype.open_write_stream = function(params) {
-    return new ObjectWriter(this, params);
+    return new ObjectWriter(this, params, this.OBJECT_RANGE_ALIGN);
 };
 
 
@@ -139,11 +140,11 @@ ObjectClient.prototype.open_write_stream = function(params) {
  * params is also used for stream.Writable highWaterMark
  *
  */
-function ObjectWriter(client, params) {
+function ObjectWriter(client, params, watermark) {
     var self = this;
     stream.Writable.call(self, {
         // highWaterMark Number - Buffer level when write() starts returning false. Default=16kb
-        highWaterMark: params.highWaterMark || (1024 * 1024),
+        highWaterMark: watermark,
         // decodeStrings Boolean - Whether or not to decode strings into Buffers
         // before passing them to _write(). Default=true
         decodeStrings: true,
@@ -374,7 +375,7 @@ ObjectClient.prototype._init_object_md_cache = function() {
  *
  */
 ObjectClient.prototype.open_read_stream = function(params) {
-    return new ObjectReader(this, params);
+    return new ObjectReader(this, params, this.OBJECT_RANGE_ALIGN);
 };
 
 
@@ -386,13 +387,13 @@ ObjectClient.prototype.open_read_stream = function(params) {
  * params is also used for stream.Readable highWaterMark
  *
  */
-function ObjectReader(client, params) {
+function ObjectReader(client, params, watermark) {
     var self = this;
     stream.Readable.call(self, {
         // highWaterMark Number - The maximum number of bytes to store
         // in the internal buffer before ceasing to read
         // from the underlying resource. Default=16kb
-        highWaterMark: params.highWaterMark || (2 * 1024 * 1024),
+        highWaterMark: watermark,
         // encoding String - If specified, then buffers will be decoded to strings
         // using the specified encoding. Default=null
         encoding: null,
@@ -770,9 +771,14 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         res.header('Content-Type', md.content_type);
         res.header('Accept-Ranges', 'bytes');
 
-        var range_header = req.header('Range');
-        if (!range_header) {
-            // return 416 'Requested Range Not Satisfiable'.
+        // range-parser returns:
+        //      undefined (no range)
+        //      -2 (invalid syntax)
+        //      -1 (unsatisfiable)
+        //      array (ranges with type)
+        var range = req.range(md.size);
+
+        if (!range) {
             dbg.log0('+++ serve_http_stream: send all');
             res.header('Content-Length', md.size);
             res.status(200);
@@ -780,41 +786,44 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
             return;
         }
 
-        // split regexp examples:
-        // input: bytes=100-200 output: [null, 100, 200, null]
-        // input: bytes=-200 output: [null, null, 200, null]
-        var range_array = range_header.split(/bytes=([0-9]*)-([0-9]*)/);
-        var start_arg = range_array[1];
-        var end_arg = range_array[2];
-        var start = parseInt(start_arg) || 0;
-        var end = (parseInt(end_arg) + 1) || md.size;
-        if (!start_arg && end_arg) start = md.size - end;
-        var valid_range = (start >= 0) && (end <= md.size) && (start <= end);
+        // return http 400 Bad Request
+        if (range === -2) {
+            dbg.log0('+++ serve_http_stream: bad range request', range, req.get('range'));
+            res.status(400);
+            return;
+        }
 
-        if (!valid_range) {
-            // return 416 'Requested Range Not Satisfiable'.
-            // indicate the acceptable range.
+        // return http 416 Requested Range Not Satisfiable
+        if (range === -1 || range.type !== 'bytes' || range.length !== 1) {
+            dbg.log0('+++ serve_http_stream: invalid range', range, req.get('range'));
+            // let the client know of the relevant range
             res.header('Content-Length', md.size);
             res.header('Content-Range', 'bytes */' + md.size);
-            dbg.log0('+++ serve_http_stream: invalid range, send all', start, end, range_header);
             res.status(416);
             return;
         }
 
-        // return 206 'Partial Content'
+        // return http 206 Partial Content
+        var start = range[0].start;
+        var end = range[0].end + 1; // use exclusive end
 
-        // limit a single http request to 4 MB of data
+        // limit a single http request size
         // the reason is to make the browser fetch the next part of content
         // more quickly and only once it gets to play it,
-        // which makes it more stable than a long "inifinite" request stream.
-        if (self.HTTP_PART_SIZE && end >= start + self.HTTP_PART_SIZE) {
-            end = start + self.HTTP_PART_SIZE;
+        // which empirically seems more stable than a long "inifinite" stream.
+        if (self.HTTP_PART_ALIGN_NBITS) {
+            if (end > start + self.HTTP_PART_ALIGN) {
+                end = start + self.HTTP_PART_ALIGN;
+            }
+            // snap end to the alignment boundary, to make next requests aligned
+            end = range_utils.truncate_range_end_to_boundary_bitwise(
+                start, end, self.HTTP_PART_ALIGN_NBITS);
         }
 
+        dbg.log0('+++ serve_http_stream: send range', '[', start, ',', end, ']', range);
         res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + md.size);
         res.header('Content-Length', end - start);
-        res.header('Cache-Control', 'no-cache');
-        dbg.log0('+++ serve_http_stream: send range', '[', start, ',', end, ']', range_header);
+        // res.header('Cache-Control', 'max-age=0' || 'no-cache');
         res.status(206);
         self.open_read_stream(_.extend({
             start: start,

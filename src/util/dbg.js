@@ -3,6 +3,7 @@
 
 var _ = require('lodash');
 var path = require('path');
+var util = require('util');
 
 /**
  *
@@ -34,12 +35,16 @@ function DebugContext(module) {
     // take the relative path to the projects source dir
     var name = path.relative(path.resolve(__dirname, '..'), module.filename);
 
-    // replacing / with _ to make it a qualified js name
+    // replacing any non-word chars with _ to make it a qualified js name
     // to make it friendlier inside REPL context:
     // repl> dbg.ctx.server.log_level = 1
-    name = name.replace('/', ':');
+    name = name.replace(/\W/g, '_');
 
+    // link from context map to this context
     DebugContext.ctx[name] = this;
+    // link each context to the global to make it easily accessible
+    this.ctx = DebugContext.ctx;
+
     this.name = name;
     this.log_level = 0;
 }
@@ -71,5 +76,15 @@ DebugContext.prototype.log3 = function() {
 DebugContext.prototype.log4 = function() {
     if (this.log_level >= 4) {
         console.log.apply(console, arguments);
+    }
+};
+
+DebugContext.prototype.log_progress = function(fraction) {
+    var percents = (100 * fraction) | 0;
+    var msg = 'progress: ' + percents.toFixed(0) + ' %';
+    if (!process.stdout) {
+        console.log(msg);
+    } else {
+        process.stdout.write(msg + '\r');
     }
 };

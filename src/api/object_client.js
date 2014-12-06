@@ -8,8 +8,6 @@ var Q = require('q');
 var object_api = require('./object_api');
 var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
-var ObjectReader = require('./object_reader');
-var ObjectWriter = require('./object_writer');
 var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
@@ -89,7 +87,59 @@ ObjectClient.prototype.open_write_stream = function(params) {
 
 /**
  *
- * WRITE_OBJECT_PART
+ * ObjectWriter
+ *
+ * a Writable stream for the specified object and range.
+ * params is also used for stream.Writable highWaterMark
+ *
+ */
+function ObjectWriter(client, params) {
+    var self = this;
+    stream.Writable.call(self, {
+        // highWaterMark Number - Buffer level when write() starts returning false. Default=16kb
+        highWaterMark: params.highWaterMark || (1024 * 1024),
+        // decodeStrings Boolean - Whether or not to decode strings into Buffers
+        // before passing them to _write(). Default=true
+        decodeStrings: true,
+        // objectMode Boolean - Whether or not the write(anyObj) is a valid operation.
+        // If set you can write arbitrary data instead of only Buffer / String data. Default=false
+        objectMode: false,
+    });
+    self._client = client;
+    self._bucket = params.bucket;
+    self._key = params.key;
+    self._pos = 0;
+}
+
+// proper inheritance
+util.inherits(ObjectWriter, stream.Writable);
+
+/**
+ * implement the stream's inner Writable._write() function
+ */
+ObjectWriter.prototype._write = function(chunk, encoding, callback) {
+    var self = this;
+    Q.fcall(function() {
+            return self._client._write_object_part({
+                bucket: self._bucket,
+                key: self._key,
+                start: self._pos,
+                end: self._pos + chunk.length,
+                buffer: chunk,
+            });
+        })
+        .then(function() {
+            self._pos += chunk.length;
+            callback();
+        }, function(err) {
+            self.emit('error', err || 'write stream error');
+        });
+};
+
+
+/**
+ *
+ * _write_object_part
  *
  * write a single object part.
  * the boundary of object parts can decided by the caller,
@@ -105,10 +155,10 @@ ObjectClient.prototype.open_write_stream = function(params) {
  *
  * @return promise
  */
-ObjectClient.prototype.write_object_part = function(params) {
+ObjectClient.prototype._write_object_part = function(params) {
     var self = this;
     var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
-    dbg.log2('write_object_part', params);
+    dbg.log2('_write_object_part', params);
 
     var md5 = crypto.createHash('md5');
     md5.update(params.buffer); // TODO PERF
@@ -149,7 +199,7 @@ ObjectClient.prototype._write_block = function(block, buffer) {
         var agent = new agent_api.Client();
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
 
-        dbg.log0('write_block', size_utils.human_size(buffer.length), block.id,
+        dbg.log1('write_block', size_utils.human_size(buffer.length), block.id,
             'to', block.node.ip + ':' + block.node.port);
 
         return agent.write_block({
@@ -224,6 +274,65 @@ ObjectClient.prototype._init_object_md_cache = function() {
  */
 ObjectClient.prototype.open_read_stream = function(params) {
     return new ObjectReader(this, params);
+};
+
+
+/**
+ *
+ * ObjectReader
+ *
+ * a Readable stream for the specified object and range.
+ * params is also used for stream.Readable highWaterMark
+ *
+ */
+function ObjectReader(client, params) {
+    var self = this;
+    stream.Readable.call(self, {
+        // highWaterMark Number - The maximum number of bytes to store
+        // in the internal buffer before ceasing to read
+        // from the underlying resource. Default=16kb
+        highWaterMark: params.highWaterMark || (2 * 1024 * 1024),
+        // encoding String - If specified, then buffers will be decoded to strings
+        // using the specified encoding. Default=null
+        encoding: null,
+        // objectMode Boolean - Whether this stream should behave as a stream of objects.
+        // Meaning that stream.read(n) returns a single value
+        // instead of a Buffer of size n. Default=false
+        objectMode: false,
+    });
+    self._client = client;
+    self._bucket = params.bucket;
+    self._key = params.key;
+    self._pos = Number(params.start) || 0;
+    self._end = typeof(params.end) === 'undefined' ? Infinity : Number(params.end);
+}
+
+// proper inheritance
+util.inherits(ObjectReader, stream.Readable);
+
+
+/**
+ * implement the stream's Readable._read() function.
+ */
+ObjectReader.prototype._read = function(requested_size) {
+    var self = this;
+    Q.fcall(function() {
+            var end = Math.min(self._end, self._pos + requested_size);
+            return self._client.read_object({
+                bucket: self._bucket,
+                key: self._key,
+                start: self._pos,
+                end: end,
+            });
+        })
+        .then(function(buffer) {
+            if (buffer) {
+                self._pos += buffer.length;
+            }
+            self.push(buffer);
+        }, function(err) {
+            self.emit('error', err || 'read stream error');
+        });
 };
 
 
@@ -514,7 +623,7 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
         var agent = new agent_api.Client();
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
 
-        dbg.log0('read_block', offset, size_utils.human_size(block_size), block.id,
+        dbg.log1('read_block', offset, size_utils.human_size(block_size), block.id,
             'from', block.node.ip + ':' + block.node.port);
 
         return agent.read_block({

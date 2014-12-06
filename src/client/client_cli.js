@@ -19,6 +19,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
+var dbg = require('../util/dbg')(module);
 
 Q.longStackSupport = true;
 
@@ -133,9 +134,12 @@ ClientCLI.prototype.upload = function(file_path) {
         .then(function() {
             var total_write_size = 3 * stats.size;
             var pos = 0;
-            self.client.object.events().on('send', function(len) {
+            var client_events = self.client.object.events();
+            client_events.removeAllListeners('send');
+            client_events.on('send', function(len) {
+                if (!len) return;
                 pos += len;
-                console.log('progress', (100 * pos / total_write_size).toFixed(0) + '%');
+                dbg.log_progress(pos / total_write_size);
             });
             return Q.Promise(function(resolve, reject) {
                 fs.createReadStream(file_path)
@@ -332,6 +336,7 @@ function main() {
                 help.variables.push(key);
             }
         });
+        repl_srv.context.dbg = dbg;
         repl_srv.context.help = help;
     });
 }

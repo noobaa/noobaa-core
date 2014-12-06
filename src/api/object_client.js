@@ -8,6 +8,7 @@ var Q = require('q');
 var object_api = require('./object_api');
 var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
+var ChunkStream = require('../util/chunk_stream');
 var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
@@ -37,10 +38,14 @@ function ObjectClient(base) {
     self.MAP_RANGE_ALIGN = 1 << self.MAP_RANGE_ALIGN_NBITS; // 16 MB
     self.OBJECT_RANGE_ALIGN_NBITS = 20; // = log2( 1 MB )
     self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 1 MB
-    self.READAHEAD_RANGES = 4;
+
     self.READ_CONCURRENCY = 32;
     self.WRITE_CONCURRENCY = 16;
-    self.MAX_HTTP_PART_SIZE = 0; //4 * size_utils.MEGABYTE;
+
+    self.READAHEAD_MIN_TRIGGER = 512 * size_utils.KILOBYTE;
+    self.READAHEAD_RANGES = 4;
+
+    self.HTTP_PART_SIZE = 4 * size_utils.MEGABYTE;
 
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
@@ -69,6 +74,47 @@ ObjectClient.prototype.events = function() {
 
 
 // WRITE FLOW /////////////////////////////////////////////////////////////////
+
+
+/**
+ *
+ * UPLOAD_STREAM
+ *
+ */
+ObjectClient.prototype.upload_stream = function(params) {
+    var self = this;
+    var create_params = _.pick(params, 'bucket', 'key', 'size', 'content_type');
+    var bucket_key_params = _.pick(params, 'bucket', 'key');
+
+    dbg.log0('create multipart', params.key);
+    return self.create_multipart_upload(create_params)
+        .then(function() {
+            var pos = 0;
+            self.events().removeAllListeners('part:after');
+            self.events().on('part:after', function(part) {
+                var len = part.end - part.start;
+                pos += len;
+                dbg.log_progress(pos / params.size);
+            });
+            return Q.Promise(function(resolve, reject) {
+                params.source_stream
+                    .pipe(new ChunkStream(512 * size_utils.KILOBYTE))
+                    .pipe(self.open_write_stream(bucket_key_params))
+                    .once('error', function(err) {
+                        dbg.log0('error write stream', params.key, err);
+                        reject(err);
+                    })
+                    .once('finish', function() {
+                        dbg.log0('finish write stream', params.key);
+                        resolve();
+                    });
+            });
+        })
+        .then(function() {
+            dbg.log0('complete multipart', params.key);
+            return self.complete_multipart_upload(bucket_key_params);
+        });
+};
 
 
 /**
@@ -130,8 +176,10 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
         })
         .then(function() {
             self._pos += chunk.length;
+            dbg.log0('stream pos', self._pos);
             callback();
         }, function(err) {
+            dbg.log0('stream error', err);
             self.emit('error', err || 'write stream error');
         });
 };
@@ -157,6 +205,7 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
  */
 ObjectClient.prototype._write_object_part = function(params) {
     var self = this;
+    var part;
     var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
     dbg.log2('_write_object_part', params);
 
@@ -165,20 +214,28 @@ ObjectClient.prototype._write_object_part = function(params) {
     upload_params.md5sum = md5.digest('hex');
 
     return self.allocate_object_part(upload_params)
-        .then(function(part) {
+        .then(function(part_arg) {
+            part = part_arg;
             if (self._events) {
-                self._events.emit('part', part);
+                self._events.emit('part:before', part);
             }
+            dbg.log0('part before', part.start, part.end);
             var block_size = (part.chunk_size / part.kfrag) | 0;
             var buffer_per_fragment = encode_chunk(params.buffer, part.kfrag, block_size);
             return Q.all(_.map(part.fragments, function(blocks, fragment) {
                 return Q.all(_.map(blocks, function(block) {
                     if (self._events) {
-                        self._events.emit('send', buffer_per_fragment[fragment].length);
+                        self._events.emit('block:before', buffer_per_fragment[fragment].length);
                     }
-                    return self._write_block(block, buffer_per_fragment[fragment]);
+                    var offset = part.start + (fragment * block_size);
+                    return self._write_block(block, buffer_per_fragment[fragment], offset);
                 }));
             }));
+        }).then(function() {
+            dbg.log0('part after', part.start, part.end);
+            if (self._events) {
+                self._events.emit('part:after', part);
+            }
         });
 };
 
@@ -190,23 +247,30 @@ ObjectClient.prototype._write_object_part = function(params) {
  * write a block to the storage node
  *
  */
-ObjectClient.prototype._write_block = function(block, buffer) {
+ObjectClient.prototype._write_block = function(block, buffer, offset) {
     var self = this;
+
+    dbg.log0('block before sem', offset, size_utils.human_size(buffer.length));
 
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
 
         var agent = new agent_api.Client();
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
+        agent.options.set_timeout(30000);
 
-        dbg.log1('write_block', size_utils.human_size(buffer.length), block.id,
+        dbg.log0('write_block', offset,
+            size_utils.human_size(buffer.length), block.id,
             'to', block.node.ip + ':' + block.node.port);
 
         return agent.write_block({
             block_id: block.id,
             data: buffer,
-        }).then(null, function(err) {
-            console.error('FAILED write_block', buffer.length, block.id,
+        }).then(function() {
+            dbg.log0('block after', offset, size_utils.human_size(buffer.length));
+        }, function(err) {
+            console.error('FAILED write_block', offset,
+                size_utils.human_size(buffer.length), block.id,
                 'from', block.node.ip + ':' + block.node.port);
             throw err;
         });
@@ -362,7 +426,7 @@ ObjectClient.prototype.read_object = function(params) {
 
     return self._object_range_cache.get(params)
         .then(function(data) {
-            if (data && data.length) {
+            if (data && data.length >= self.READAHEAD_MIN_TRIGGER) {
                 // submit a readahead
                 var pos = range_utils.align_up_bitwise(
                     params.start + data.length, self.OBJECT_RANGE_ALIGN_NBITS);
@@ -622,7 +686,8 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
 
         var agent = new agent_api.Client();
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
-
+        agent.options.set_timeout(30000);
+        
         dbg.log1('read_block', offset, size_utils.human_size(block_size), block.id,
             'from', block.node.ip + ':' + block.node.port);
 
@@ -705,8 +770,8 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         // the reason is to make the browser fetch the next part of content
         // more quickly and only once it gets to play it,
         // which makes it more stable than a long "inifinite" request stream.
-        if (self.MAX_HTTP_PART_SIZE && end >= start + self.MAX_HTTP_PART_SIZE) {
-            end = start + self.MAX_HTTP_PART_SIZE;
+        if (self.HTTP_PART_SIZE && end >= start + self.HTTP_PART_SIZE) {
+            end = start + self.HTTP_PART_SIZE;
         }
 
         res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + md.size);

@@ -433,6 +433,12 @@ function rest_api(api) {
         } else {
             req.end();
         }
+        if (self.options.timeout) {
+            req.setTimeout(self.options.timeout, function() {
+                console.error('REQUEST TIMEOUT');
+                req.abort();
+            });
+        }
         return defer.promise;
     };
 
@@ -493,6 +499,10 @@ rest_api.global_client_options = {
         this.protocol = u.protocol;
         this.hostname = u.hostname;
         this.port = u.port;
+    },
+
+    set_timeout: function(ms) {
+        this.timeout = ms;
     },
 
     /**

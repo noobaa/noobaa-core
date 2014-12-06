@@ -14,7 +14,6 @@ var crypto = require('crypto');
 var mkdirp = require('mkdirp');
 var mime = require('mime');
 var argv = require('minimist')(process.argv);
-var BlockStream = require('block-stream');
 var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
@@ -71,7 +70,7 @@ ClientCLI.prototype.init = function() {
         .then(function() {
             console.log('COMPLETED: load');
         }, function(err) {
-            console.log('ERROR: load', self.params, err);
+            console.log('ERROR: load', self.params, err.stack);
 
         });
 };
@@ -116,50 +115,18 @@ ClientCLI.prototype.load = function() {
  */
 ClientCLI.prototype.upload = function(file_path) {
     var self = this;
-    var key = file_path + '-' + Date.now();
-    var stats;
+    var key = file_path + '_' + Date.now();
 
     return Q.fcall(function() {
             return Q.nfcall(fs.stat, file_path);
         })
-        .then(function(stats_arg) {
-            stats = stats_arg;
-            return self.client.object.create_multipart_upload({
+        .then(function(stats) {
+            return self.client.object.upload_stream({
                 bucket: self.params.bucket,
                 key: key,
                 size: stats.size,
                 content_type: mime.lookup(file_path),
-            });
-        })
-        .then(function() {
-            var total_write_size = 3 * stats.size;
-            var pos = 0;
-            var client_events = self.client.object.events();
-            client_events.removeAllListeners('send');
-            client_events.on('send', function(len) {
-                if (!len) return;
-                pos += len;
-                dbg.log_progress(pos / total_write_size);
-            });
-            return Q.Promise(function(resolve, reject) {
-                fs.createReadStream(file_path)
-                    .pipe(new BlockStream(512 * size_utils.KILOBYTE, {
-                        nopad: true
-                    }))
-                    .pipe(self.client.object.open_write_stream({
-                        bucket: self.params.bucket,
-                        key: key,
-                    }).once('error', function(err) {
-                        reject(err);
-                    }).once('finish', function() {
-                        resolve();
-                    }));
-            });
-        })
-        .then(function() {
-            return self.client.object.complete_multipart_upload({
-                bucket: self.params.bucket,
-                key: key,
+                source_stream: fs.createReadStream(file_path),
             });
         })
         .then(function() {

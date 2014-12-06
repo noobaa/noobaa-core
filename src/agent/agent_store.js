@@ -105,6 +105,7 @@ AgentStore.prototype.set_alloc = function(size) {
 AgentStore.prototype.read_block = function(block_id) {
     var self = this;
     var block_path = self._get_block_path(block_id);
+    console.log('fs read block', block_path);
     return Q.nfcall(fs.readFile, block_path);
 };
 
@@ -126,7 +127,7 @@ AgentStore.prototype.write_block = function(block_id, data) {
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;
-            console.log('write block', block_path, data.length, typeof(data), file_stats);
+            console.log('fs write block', block_path, data.length, typeof(data), file_stats);
 
             // create/replace the block on fs
             return Q.nfcall(fs.writeFile, block_path, data);

@@ -354,6 +354,7 @@ ObjectClient.prototype._init_object_md_cache = function() {
             return params.bucket + ':' + params.key;
         },
         load: function(params) {
+            dbg.log1('MDCache: load', params.key, 'bucket', params.bucket);
             return self.read_object_md(params);
         }
     });
@@ -430,6 +431,7 @@ ObjectReader.prototype._read = function(requested_size) {
         .then(function(buffer) {
             if (buffer) {
                 self._pos += buffer.length;
+                dbg.log0('object read offset', self._pos);
             }
             self.push(buffer);
         }, function(err) {
@@ -465,16 +467,18 @@ ObjectClient.prototype.read_object = function(params) {
     return self._object_range_cache.get(params)
         .then(function(data) {
             if (data && data.length >= self.READAHEAD_MIN_TRIGGER) {
-                // submit a readahead
-                var pos = range_utils.align_up_bitwise(
-                    params.start + data.length, self.OBJECT_RANGE_ALIGN_NBITS);
-                _.times(self.READAHEAD_RANGES, function(i) {
-                    var readahead_params = _.clone(params);
-                    readahead_params.start = pos;
-                    pos += self.OBJECT_RANGE_ALIGN;
-                    readahead_params.end = pos;
-                    self._object_range_cache.get(readahead_params);
-                });
+                // submit readahead
+                setTimeout(function() {
+                    var pos = range_utils.align_up_bitwise(
+                        params.start + data.length, self.OBJECT_RANGE_ALIGN_NBITS);
+                    _.times(self.READAHEAD_RANGES, function(i) {
+                        var readahead_params = _.clone(params);
+                        readahead_params.start = pos;
+                        pos += self.OBJECT_RANGE_ALIGN;
+                        readahead_params.end = pos;
+                        self._object_range_cache.get(readahead_params);
+                    });
+                }, 10);
             }
             return data;
         });
@@ -503,6 +507,7 @@ ObjectClient.prototype._init_object_range_cache = function() {
             range_params.start = range_utils.align_down_bitwise(
                 params.start, self.OBJECT_RANGE_ALIGN_NBITS);
             range_params.end = range_params.start + self.OBJECT_RANGE_ALIGN;
+            dbg.log1('RangesCache: load', params.key, 'start', range_params.start);
             return self._read_object_range(range_params);
         },
         make_val: function(val, params) {
@@ -580,6 +585,7 @@ ObjectClient.prototype._init_object_map_cache = function() {
             map_params.start = range_utils.align_down_bitwise(
                 params.start, self.MAP_RANGE_ALIGN_NBITS);
             map_params.end = map_params.start + self.MAP_RANGE_ALIGN;
+            dbg.log1('MappingsCache: load', params.key, 'start', map_params.start);
             return self.read_object_mappings(map_params);
         },
         make_val: function(val, params) {
@@ -702,6 +708,7 @@ ObjectClient.prototype._init_blocks_cache = function() {
             return params.block.id;
         },
         load: function(params) {
+            dbg.log1('BlocksCache: load', params.block.id);
             return self._read_block(params.block, params.block_size, params.offset);
         }
     });

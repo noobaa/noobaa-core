@@ -44,7 +44,7 @@ module.exports = {
     AccountCache: new LRUCache({
         name: 'AccountCache',
         load: function(account_id) {
-            // load the account and its roles per system
+            console.log('AccountCache: load', account_id);
             return Q.when(Account.findById(account_id).exec())
                 .then(function(account) {
                     if (!account || account.deleted) return;
@@ -56,7 +56,7 @@ module.exports = {
     SystemCache: new LRUCache({
         name: 'SystemCache',
         load: function(system_id) {
-            // load the system
+            console.log('SystemCache: load', system_id);
             return Q.when(System.findById(system_id).exec())
                 .then(function(system) {
                     if (!system || system.deleted) return;
@@ -71,7 +71,7 @@ module.exports = {
             return params.system + ':' + params.name;
         },
         load: function(params) {
-            // load the system
+            console.log('BucketCache: load', params.name);
             return Q.when(Bucket.findOne({
                     system: params.system,
                     name: params.name,

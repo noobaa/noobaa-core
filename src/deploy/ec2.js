@@ -13,20 +13,18 @@ Q.longStackSupport = true;
 
 /**
  *
- * NB_EC2
+ * EC2
  *
  * noobaa's ec2 wrapper
  *
  */
-var nb_ec2 = {
+module.exports = {
     scale_instances: scale_instances,
     describe_instances: describe_instances,
     describe_instance: describe_instance,
     terminate_instances: terminate_instances,
     import_key_pair_to_region: import_key_pair_to_region,
 };
-
-module.exports = nb_ec2;
 
 
 /* load aws config from env */

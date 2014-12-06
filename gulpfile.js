@@ -279,7 +279,7 @@ gulp.task('agent', ['jshint'], function() {
         .src(PATHS.agent_sources, {
             base: 'src'
         });
-        // TODO bring back uglify .pipe(gulp_uglify());
+    // TODO bring back uglify .pipe(gulp_uglify());
 
     return event_stream
         .merge(pkg_stream, src_stream)
@@ -422,8 +422,9 @@ gulp.task('start_dev', ['install_and_serve'], function() {
 });
 
 gulp.task('start_prod', function() {
-    console.log('~~~ START PROD ~~~');
-    require(PATHS.server_main);
+    var server_module = '.' + path.sep + PATHS.server_main;
+    console.log('~~~ START PROD ~~~', server_module);
+    require(server_module);
 });
 
 if (process.env.DEV_MODE === 'true') {

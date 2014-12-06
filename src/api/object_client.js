@@ -16,7 +16,7 @@ var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
-
+var dbg = require('../util/dbg')(module);
 
 module.exports = ObjectClient;
 
@@ -42,10 +42,7 @@ function ObjectClient(base) {
     self.READAHEAD_RANGES = 4;
     self.READ_CONCURRENCY = 32;
     self.WRITE_CONCURRENCY = 16;
-    self.MAX_HTTP_PART_SIZE = 4 * size_utils.MEGABYTE;
-
-    // for now always logging
-    self.log = console.log.bind(console);
+    self.MAX_HTTP_PART_SIZE = 0; //4 * size_utils.MEGABYTE;
 
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
@@ -111,7 +108,7 @@ ObjectClient.prototype.open_write_stream = function(params) {
 ObjectClient.prototype.write_object_part = function(params) {
     var self = this;
     var upload_params = _.pick(params, 'bucket', 'key', 'start', 'end');
-    // self.log('write_object_part', params);
+    dbg.log2('write_object_part', params);
 
     var md5 = crypto.createHash('md5');
     md5.update(params.buffer); // TODO PERF
@@ -152,7 +149,7 @@ ObjectClient.prototype._write_block = function(block, buffer) {
         var agent = new agent_api.Client();
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
 
-        self.log('write_block', size_utils.human_size(buffer.length), block.id,
+        dbg.log0('write_block', size_utils.human_size(buffer.length), block.id,
             'to', block.node.ip + ':' + block.node.port);
 
         return agent.write_block({
@@ -248,7 +245,7 @@ ObjectClient.prototype.open_read_stream = function(params) {
 ObjectClient.prototype.read_object = function(params) {
     var self = this;
 
-    self.log('read_object', params.start, params.end);
+    dbg.log1('read_object', params.start, params.end);
 
     if (params.end <= params.start) {
         return null;
@@ -299,7 +296,7 @@ ObjectClient.prototype._init_object_range_cache = function() {
         },
         make_val: function(val, params) {
             if (!val) {
-                self.log('RangesCache: null', params.start, params.end);
+                dbg.log3('RangesCache: null', params.start, params.end);
                 return val;
             }
             var start = range_utils.align_down_bitwise(
@@ -308,10 +305,10 @@ ObjectClient.prototype._init_object_range_cache = function() {
             var inter = range_utils.intersection(
                 start, end, params.start, params.end);
             if (!inter) {
-                self.log('RangesCache: empty', params.start, params.end, 'align', start, end);
+                dbg.log3('RangesCache: empty', params.start, params.end, 'align', start, end);
                 return null;
             }
-            self.log('RangesCache: slice', params.start, params.end, 'inter', inter.start, inter.end);
+            dbg.log3('RangesCache: slice', params.start, params.end, 'inter', inter.start, inter.end);
             return val.slice(inter.start - start, inter.end - start);
         },
     });
@@ -336,7 +333,7 @@ ObjectClient.prototype._read_object_range = function(params) {
     var self = this;
     var obj_size;
 
-    self.log('_read_object_range', params);
+    dbg.log2('_read_object_range', params);
 
     return self._object_map_cache.get(params)
         .then(function(mappings) {
@@ -380,10 +377,10 @@ ObjectClient.prototype._init_object_map_cache = function() {
                 var inter = range_utils.intersection(
                     part.start, part.end, params.start, params.end);
                 if (!inter) {
-                    // self.log('MappingsCache: filtered part', part.start, part.end);
+                    dbg.log4('MappingsCache: filtered part', part.start, part.end);
                     return false;
                 }
-                self.log('MappingsCache: part', part.start, part.end,
+                dbg.log3('MappingsCache: part', part.start, part.end,
                     'inter', inter.start, inter.end);
                 return true;
             }));
@@ -404,7 +401,7 @@ ObjectClient.prototype._read_object_part = function(part) {
     var buffer_per_fragment = {};
     var next_fragment = 0;
 
-    self.log('_read_object_part', _.omit(part, 'buffer'));
+    dbg.log2('_read_object_part', _.omit(part, 'buffer'));
 
     // advancing the read by taking the next fragment and return promise to read it.
     // will fail if no more fragments remain, which means the part cannot be served.
@@ -421,7 +418,7 @@ ObjectClient.prototype._read_object_part = function(part) {
     }
 
     function read_fragment_blocks_chain(blocks, fragment) {
-        self.log('read_fragment_blocks_chain', part.start, fragment);
+        dbg.log3('read_fragment_blocks_chain', part.start, fragment);
 
         // chain the blocks of the fragment with array reduce
         // to handle read failures we create a promise chain such that each block of
@@ -517,7 +514,7 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
         var agent = new agent_api.Client();
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
 
-        self.log('read_block', offset, size_utils.human_size(block_size), block.id,
+        dbg.log0('read_block', offset, size_utils.human_size(block_size), block.id,
             'from', block.node.ip + ':' + block.node.port);
 
         return agent.read_block({
@@ -565,7 +562,7 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         var range_header = req.header('Range');
         if (!range_header) {
             // return 416 'Requested Range Not Satisfiable'.
-            self.log('+++ serve_http_stream: send all');
+            dbg.log0('+++ serve_http_stream: send all');
             res.header('Content-Length', md.size);
             res.status(200);
             self.open_read_stream(params).pipe(res);
@@ -588,7 +585,7 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
             // indicate the acceptable range.
             res.header('Content-Length', md.size);
             res.header('Content-Range', 'bytes */' + md.size);
-            self.log('+++ serve_http_stream: invalid range, send all', start, end, range_header);
+            dbg.log0('+++ serve_http_stream: invalid range, send all', start, end, range_header);
             res.status(416);
             return;
         }
@@ -599,14 +596,14 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         // the reason is to make the browser fetch the next part of content
         // more quickly and only once it gets to play it,
         // which makes it more stable than a long "inifinite" request stream.
-        if (end >= start + self.MAX_HTTP_PART_SIZE) {
+        if (self.MAX_HTTP_PART_SIZE && end >= start + self.MAX_HTTP_PART_SIZE) {
             end = start + self.MAX_HTTP_PART_SIZE;
         }
 
         res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + md.size);
         res.header('Content-Length', end - start);
         res.header('Cache-Control', 'no-cache');
-        self.log('+++ serve_http_stream: send range', '[', start, ',', end, ']', range_header);
+        dbg.log0('+++ serve_http_stream: send range', '[', start, ',', end, ']', range_header);
         res.status(206);
         self.open_read_stream(_.extend({
             start: start,
@@ -618,7 +615,7 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         // and it is often requested once doing a video time seek.
         // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
         if (start === 0) {
-            self.log('serve_http_stream: read end of file to devnull');
+            dbg.log0('+++ serve_http_stream: prefetch end of file');
             self.open_read_stream(_.extend({
                 start: md.size > 100 ? (md.size - 100) : 0,
                 end: md.size,

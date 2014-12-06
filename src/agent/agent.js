@@ -102,6 +102,7 @@ function Agent(params) {
         read_block: self.read_block.bind(self),
         check_block: self.check_block.bind(self),
         delete_block: self.delete_block.bind(self),
+        kill_agent: self.kill_agent.bind(self),
     });
     agent_server.install_rest(app);
 
@@ -420,4 +421,9 @@ Agent.prototype.check_block = function(req) {
                 checksum: md5_sum
             };
         });
+};
+
+Agent.prototype.kill_agent = function(req) {
+    console.log('AGENT kill requested, exiting');
+    process.exit();
 };

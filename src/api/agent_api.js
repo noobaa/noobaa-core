@@ -97,6 +97,11 @@ module.exports = rest_api({
             },
         },
 
+        kill_agent: {
+            method: 'POST',
+            path: '/kill',
+        },
+
     }
 
 });

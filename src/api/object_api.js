@@ -113,6 +113,50 @@ module.exports = rest_api({
             }
         },
 
+        report_bad_block: {
+            method: 'POST',
+            path: '/obj/:bucket/:key/bad_block',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key', 'start', 'end', 'fragment', 'block_id', 'is_write'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    start: {
+                        type: 'integer',
+                    },
+                    end: {
+                        type: 'integer',
+                    },
+                    fragment: {
+                        type: 'integer',
+                    },
+                    block_id: {
+                        type: 'string',
+                    },
+                    is_write: {
+                        type: 'boolean',
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: [],
+                properties: {
+                    new_block: {
+                        $ref: '/object_api/definitions/block_info'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         read_object_mappings: {
             method: 'GET',
             path: '/obj/:bucket/:key/map',
@@ -316,29 +360,33 @@ module.exports = rest_api({
                         // each fragment contains an array of blocks
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['id', 'node'],
-                            properties: {
-                                id: {
-                                    type: 'string',
-                                },
-                                node: {
-                                    type: 'object',
-                                    required: ['id', 'ip', 'port'],
-                                    properties: {
-                                        id: {
-                                            type: 'string',
-                                        },
-                                        ip: {
-                                            type: 'string',
-                                        },
-                                        port: {
-                                            type: 'integer',
-                                        },
-                                    }
-                                }
-                            }
+                            $ref: '/object_api/definitions/block_info'
                         }
+                    }
+                }
+            }
+        },
+
+        block_info: {
+            type: 'object',
+            required: ['id', 'node'],
+            properties: {
+                id: {
+                    type: 'string',
+                },
+                node: {
+                    type: 'object',
+                    required: ['id', 'ip', 'port'],
+                    properties: {
+                        id: {
+                            type: 'string',
+                        },
+                        ip: {
+                            type: 'string',
+                        },
+                        port: {
+                            type: 'integer',
+                        },
                     }
                 }
             }

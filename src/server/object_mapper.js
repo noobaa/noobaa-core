@@ -11,6 +11,7 @@ var block_allocator = require('./block_allocator');
 module.exports = {
     allocate_object_part: allocate_object_part,
     read_object_mappings: read_object_mappings,
+    bad_block_in_part: bad_block_in_part,
 };
 
 // default split of chunks with kfrag
@@ -135,15 +136,55 @@ function read_object_mappings(obj, start, end) {
 }
 
 
+function bad_block_in_part(obj, start, end, fragment, block_id, is_write) {
+    return Q.all([
+            db.DataBlock.findById(block_id).exec(),
+            db.ObjectPart.findOne({
+                system: obj.system,
+                obj: obj.id,
+                start: start,
+                end: end,
+            })
+            .populate('chunks.chunk')
+            .exec(),
+        ])
+        .spread(function(block, part) {
+            if (!part || !part.chunks || !part.chunks[0] || !part.chunks[0].chunk) {
+                console.error('bad block - invalid part/chunk', block, part);
+                throw new Error('invalid bad block request');
+            }
+            var chunk = part.chunks[0].chunk;
+            if (!block || block.fragment !== fragment ||
+                String(block.chunk) !== String(chunk.id)) {
+                console.error('bad block - invalid block', block, part);
+                throw new Error('invalid bad block request');
+            }
+
+            if (is_write) {
+                var new_block;
+
+                return block_allocator.reallocate_bad_block(chunk, block)
+                    .then(function(new_block_arg) {
+                        new_block = new_block_arg;
+                        return db.DataBlock.create(new_block);
+                    })
+                    .then(function() {
+                        return get_block_info(new_block);
+                    });
+
+            } else {
+                // TODO mark the block as bad for next reads and decide when to trigger rebuild
+            }
+
+        });
+}
+
+
 // chunk is optional
 function get_part_info(part, chunk, blocks) {
     var fragments = [];
     _.each(_.groupBy(blocks, 'fragment'), function(fragment_blocks, fragment) {
-        fragments[fragment] = _.map(fragment_blocks, function(block) {
-            var b = _.pick(block, 'id');
-            b.node = _.pick(block.node, 'id', 'ip', 'port');
-            return b;
-        });
+        fragments[fragment] = _.map(fragment_blocks, get_block_info);
     });
     var p = _.pick(part, 'start', 'end', 'chunk_offset');
     p.fragments = fragments;
@@ -153,6 +194,13 @@ function get_part_info(part, chunk, blocks) {
     p.chunk_offset = p.chunk_offset || 0;
     return p;
 }
+
+function get_block_info(block) {
+    var b = _.pick(block, 'id');
+    b.node = _.pick(block.node, 'id', 'ip', 'port');
+    return b;
+}
+
 
 // sanitizing start & end: we want them to be integers, positive, up to obj.size.
 function sanitize_object_range(obj, start, end) {

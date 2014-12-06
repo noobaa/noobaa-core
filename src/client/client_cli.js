@@ -71,7 +71,11 @@ ClientCLI.prototype.init = function() {
             console.log('COMPLETED: load');
         }, function(err) {
             console.log('ERROR: load', self.params, err.stack);
-
+        }).then(function() {
+            if (argv.upload) {
+                // not returning the promise on purpose - to allow the repl to start
+                self.upload(argv.upload);
+            }
         });
 };
 

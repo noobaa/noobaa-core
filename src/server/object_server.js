@@ -23,6 +23,7 @@ module.exports = new api.object_api.Server({
     complete_multipart_upload: complete_multipart_upload,
     abort_multipart_upload: abort_multipart_upload,
     allocate_object_part: allocate_object_part,
+    report_bad_block: report_bad_block,
 
     // read
     read_object_mappings: read_object_mappings,
@@ -120,21 +121,55 @@ function allocate_object_part(req) {
                 key: req.rest_params.key,
             };
             return db.ObjectMD.findOne(info).exec();
-        }).then(function(obj) {
-            if (!obj) {
-                throw new Error('object not found');
-            }
+        })
+        .then(db.check_not_deleted(req, 'object'))
+        .then(function(obj) {
             if (!obj.upload_mode) {
                 // TODO handle the upload_mode state
                 // throw new Error('object not in upload mode');
             }
-            var start = Number(req.rest_params.start);
-            var end = Number(req.rest_params.end);
-            var md5sum = req.rest_params.md5sum;
-            return object_mapper.allocate_object_part(bucket, obj, start, end, md5sum);
+            return object_mapper.allocate_object_part(
+                bucket,
+                obj,
+                req.rest_params.start,
+                req.rest_params.end,
+                req.rest_params.md5sum);
         });
 }
 
+
+function report_bad_block(req) {
+    var bucket;
+    var obj;
+    return get_bucket_from_cache(req)
+        .then(function(bucket_arg) {
+            bucket = bucket_arg;
+            var info = {
+                system: req.system.id,
+                bucket: bucket.id,
+                key: req.rest_params.key,
+            };
+            return db.ObjectMD.findOne(info).exec();
+        })
+        .then(db.check_not_deleted(req, 'object'))
+        .then(function(obj_arg) {
+            obj = obj_arg;
+            return object_mapper.bad_block_in_part(
+                obj,
+                req.rest_params.start,
+                req.rest_params.end,
+                req.rest_params.fragment,
+                req.rest_params.block_id,
+                req.rest_params.is_write);
+        })
+        .then(function(new_block) {
+            if (new_block) {
+                return {
+                    new_block: new_block
+                };
+            }
+        });
+}
 
 
 /**
@@ -153,12 +188,15 @@ function read_object_mappings(req) {
                 key: req.rest_params.key,
             };
             return db.ObjectMD.findOne(info).exec();
-        }).then(function(obj_arg) {
+        })
+        .then(db.check_not_deleted(req, 'object'))
+        .then(function(obj_arg) {
             obj = obj_arg;
             var start = Number(req.rest_params.start);
             var end = Number(req.rest_params.end);
             return object_mapper.read_object_mappings(obj, start, end);
-        }).then(function(parts) {
+        })
+        .then(function(parts) {
             return {
                 size: obj.size,
                 parts: parts,

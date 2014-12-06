@@ -114,7 +114,8 @@ function read_object_mappings(obj, start, end) {
                 .find({
                     chunk: {
                         $in: chunk_ids
-                    }
+                    },
+                    deleted: null,
                 })
                 .sort('fragment')
                 .populate('node')

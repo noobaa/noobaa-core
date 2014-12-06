@@ -423,7 +423,7 @@ gulp.task('start_dev', ['install_and_serve'], function() {
 
 gulp.task('start_prod', function() {
     console.log('~~~ START PROD ~~~');
-    require(path.join('..', PATHS.server_main));
+    require(PATHS.server_main);
 });
 
 if (process.env.DEV_MODE === 'true') {

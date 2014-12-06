@@ -258,8 +258,8 @@ function add_region_instances(region_name, count) {
                 ImageId: ami_image_id,
                 MaxCount: count,
                 MinCount: count,
-                // InstanceType: 'm3.large',
-                InstanceType: 't2.micro',
+                // InstanceType: 't2.micro',
+                InstanceType: 'm3.medium',
                 BlockDeviceMappings: [{
                     DeviceName: '/dev/sda1',
                     Ebs: {

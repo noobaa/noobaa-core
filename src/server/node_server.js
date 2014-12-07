@@ -322,8 +322,7 @@ function heartbeat(req) {
 
             // check if need to update the node used storage count
             if (node.storage.used !== storage_used) {
-                updates.storage = updates.storage || {};
-                updates.storage.used = storage_used;
+                updates['storage.used'] = storage_used;
             }
 
             // verify the agent's storage numbers

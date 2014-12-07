@@ -42,8 +42,24 @@ var data_chunk_schema = new Schema({
         type: Boolean,
     },
 
-    md5sum: {
-        type: String,
+    // crypto info
+    crypt: {
+        hash_type: {
+            type: String,
+            required: true,
+        },
+        hash_val: {
+            type: String,
+            required: true,
+        },
+        cipher_type: {
+            type: String,
+            required: true,
+        },
+        cipher_val: {
+            type: String,
+            required: true,
+        },
     },
 
     /* for mapping to edge nodes, the logical range is divided

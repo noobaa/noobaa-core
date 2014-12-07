@@ -86,7 +86,7 @@ module.exports = rest_api({
             path: '/obj/:bucket/:key/part',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'start', 'end', 'md5sum'],
+                required: ['bucket', 'key', 'start', 'end', 'chunk_size', 'crypt'],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -100,8 +100,11 @@ module.exports = rest_api({
                     end: {
                         type: 'integer',
                     },
-                    md5sum: {
-                        type: 'string',
+                    chunk_size: {
+                        type: 'integer',
+                    },
+                    crypt: {
+                        $ref: '/object_api/definitions/crypt_info',
                     },
                 },
             },
@@ -330,8 +333,10 @@ module.exports = rest_api({
             type: 'object',
             required: [
                 'start', 'end',
-                'kfrag', 'md5sum',
-                'chunk_size', 'chunk_offset',
+                'kfrag',
+                'crypt',
+                'chunk_size',
+                'chunk_offset',
                 'fragments'
             ],
             properties: {
@@ -344,8 +349,8 @@ module.exports = rest_api({
                 kfrag: {
                     type: 'integer',
                 },
-                md5sum: {
-                    type: 'string',
+                crypt: {
+                    $ref: '/object_api/definitions/crypt_info',
                 },
                 chunk_size: {
                     type: 'integer',
@@ -391,6 +396,30 @@ module.exports = rest_api({
                 }
             }
         },
+
+        crypt_info: {
+            type: 'object',
+            required: [
+                'hash_type',
+                'hash_val',
+                'cipher_type',
+                'cipher_val'
+            ],
+            properties: {
+                hash_type: {
+                    type: 'string',
+                },
+                hash_val: {
+                    type: 'string',
+                },
+                cipher_type: {
+                    type: 'string',
+                },
+                cipher_val: {
+                    type: 'string',
+                },
+            }
+        }
 
     },
 

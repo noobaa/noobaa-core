@@ -133,7 +133,8 @@ function allocate_object_part(req) {
                 obj,
                 req.rest_params.start,
                 req.rest_params.end,
-                req.rest_params.md5sum);
+                req.rest_params.chunk_size,
+                req.rest_params.crypt);
         });
 }
 

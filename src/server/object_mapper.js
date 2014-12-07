@@ -19,12 +19,9 @@ var CHUNK_KFRAG_BITWISE = 0; // TODO: pick kfrag?
 var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
 
 
-function allocate_object_part(bucket, obj, start, end, md5sum) {
+function allocate_object_part(bucket, obj, start, end, chunk_size, crypt) {
     // chunk size is aligned up to be an integer multiple of kfrag*block_size
-    var chunk_size = range_utils.align_up_bitwise(
-        end - start,
-        CHUNK_KFRAG_BITWISE
-    );
+    chunk_size = range_utils.align_up_bitwise(chunk_size, CHUNK_KFRAG_BITWISE);
 
     if (!bucket.tiering || bucket.tiering.length !== 1) {
         throw new Error('only single tier supported per bucket/chunk');
@@ -35,7 +32,7 @@ function allocate_object_part(bucket, obj, start, end, md5sum) {
         tier: bucket.tiering[0].tier,
         size: chunk_size,
         kfrag: CHUNK_KFRAG,
-        md5sum: md5sum,
+        crypt: crypt,
     });
     var new_part = new db.ObjectPart({
         system: obj.system,
@@ -190,7 +187,7 @@ function get_part_info(part, chunk, blocks) {
     var p = _.pick(part, 'start', 'end', 'chunk_offset');
     p.fragments = fragments;
     p.kfrag = chunk.kfrag;
-    p.md5sum = chunk.md5sum;
+    p.crypt = _.pick(chunk.crypt, 'hash_type', 'hash_val', 'cipher_type', 'cipher_val');
     p.chunk_size = chunk.size;
     p.chunk_offset = p.chunk_offset || 0;
     return p;

@@ -19,7 +19,7 @@ var dbg = require('../util/dbg')(__filename);
 
 module.exports = ObjectClient;
 
-// dbg.log_level = 3;
+dbg.log_level = 3;
 
 /**
  *
@@ -181,7 +181,7 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
             dbg.log3('stream pos', size_utils.human_offset(self._pos));
             callback();
         }, function(err) {
-            dbg.log3('stream error', err);
+            console.error('write stream error', err);
             callback(err || 'write stream error');
         });
 };
@@ -210,11 +210,13 @@ ObjectClient.prototype._write_object_part = function(params) {
     var part;
     var part_params = _.pick(params, 'bucket', 'key', 'start', 'end');
     var create_part_params = _.clone(part_params);
-    dbg.log2('_write_object_part', params);
-
-    var md5 = crypto.createHash('md5');
-    md5.update(params.buffer); // TODO PERF
-    create_part_params.md5sum = md5.digest('hex');
+    create_part_params.crypt = {
+        hash_type: 'sha256',
+        cipher_type: 'aes256',
+    };
+    var encrypted_buffer = encrypt_chunk(params.buffer, create_part_params.crypt);
+    create_part_params.chunk_size = encrypted_buffer.length;
+    dbg.log2('_write_object_part', create_part_params, 'plain length', params.buffer.length);
 
     return self.allocate_object_part(create_part_params)
         .then(function(part_arg) {
@@ -222,9 +224,9 @@ ObjectClient.prototype._write_object_part = function(params) {
             if (self._events) {
                 self._events.emit('part:before', part);
             }
-            dbg.log2('part before', part.start, part.end);
+            dbg.log3('part before', range_utils.human_range(part));
             var block_size = (part.chunk_size / part.kfrag) | 0;
-            var buffer_per_fragment = encode_chunk(params.buffer, part.kfrag, block_size);
+            var buffer_per_fragment = encode_chunk(encrypted_buffer, part.kfrag, block_size);
             return Q.all(_.map(part.fragments, function(blocks, fragment) {
                 return Q.all(_.map(blocks, function(block) {
                     if (self._events) {
@@ -241,7 +243,7 @@ ObjectClient.prototype._write_object_part = function(params) {
                 }));
             }));
         }).then(function() {
-            dbg.log2('part after', range_utils.human_range(part));
+            dbg.log3('part after', range_utils.human_range(part));
             if (self._events) {
                 self._events.emit('part:after', part);
             }
@@ -430,12 +432,16 @@ ObjectReader.prototype._read = function(requested_size) {
             });
         })
         .then(function(buffer) {
-            if (buffer) {
+            if (buffer && buffer.length) {
                 self._pos += buffer.length;
                 dbg.log0('object read offset', size_utils.human_offset(self._pos));
+                self.push(buffer);
+            } else {
+                dbg.log0('object read finished', size_utils.human_offset(self._pos));
+                self.push(null);
             }
-            self.push(buffer);
         }, function(err) {
+            console.error('read stream error', err);
             self.emit('error', err || 'read stream error');
         });
 };
@@ -561,10 +567,6 @@ ObjectClient.prototype._read_object_range = function(params) {
     return self._object_map_cache.get(params)
         .then(function(mappings) {
             obj_size = mappings.size;
-            dbg.log2('REQUEST MAPPING RANGE', range_utils.human_range(params));
-            _.each(mappings.parts, function(part) {
-                dbg.log2('GOT MAPPING PART', range_utils.human_range(part));
-            });
             return Q.all(_.map(mappings.parts, self._read_object_part, self));
         })
         .then(function(parts) {
@@ -688,19 +690,10 @@ ObjectClient.prototype._read_object_part = function(part) {
     // start reading by queueing the first kfrag
     return Q.all(_.times(part.kfrag, read_the_next_fragment))
         .then(function() {
-
-            part.buffer = decode_chunk(part, buffer_per_fragment).slice(
-                part.chunk_offset, part.chunk_offset + part.end - part.start);
-
-            var md5 = crypto.createHash('md5');
-            md5.update(part.buffer); // TODO PERF
-            var md5sum = md5.digest('hex');
-
-            if (md5sum !== part.md5sum) {
-                console.error('MD5 CHECKSUM FAILED', md5sum, part);
-                throw new Error('md5 checksum failed');
-            }
-
+            var encrypted_buffer = decode_chunk(part, buffer_per_fragment);
+            dbg.log2('decrypt_chunk', encrypted_buffer.length, part);
+            var chunk = decrypt_chunk(encrypted_buffer, part.crypt);
+            part.buffer = chunk.slice(part.chunk_offset, part.chunk_offset + part.end - part.start);
             return part;
         });
 };
@@ -949,4 +942,54 @@ function decode_chunk(part, buffer_per_fragment) {
         }
     }
     return Buffer.concat(buffers, part.chunk_size);
+}
+
+
+/**
+ *
+ * encrypt_chunk
+ *
+ */
+function encrypt_chunk(plain_buffer, crypt_info) {
+    var hasher = crypto.createHash(crypt_info.hash_type);
+    hasher.update(plain_buffer);
+    crypt_info.hash_val = hasher.digest('base64');
+
+    // convergent encryption - use data hash as cipher key
+    crypt_info.cipher_val = crypt_info.hash_val;
+
+    var cipher = crypto.createCipher(crypt_info.cipher_type, crypt_info.cipher_val);
+    var encrypted_buffer = cipher.update(plain_buffer);
+    var cipher_final = cipher.final();
+    if (cipher_final && cipher_final.length) {
+        encrypted_buffer = Buffer.concat([encrypted_buffer, cipher_final]);
+    }
+
+    return encrypted_buffer;
+}
+
+
+/**
+ *
+ * decrypt_chunk
+ *
+ */
+function decrypt_chunk(encrypted_buffer, crypt_info) {
+    var decipher = crypto.createDecipher(crypt_info.cipher_type, crypt_info.cipher_val);
+    var plain_buffer = decipher.update(encrypted_buffer);
+    var decipher_final = decipher.final();
+    if (decipher_final && decipher_final.length) {
+        plain_buffer = Buffer.concat([plain_buffer, decipher_final]);
+    }
+
+    var hasher = crypto.createHash(crypt_info.hash_type);
+    hasher.update(plain_buffer);
+    var hash_val = hasher.digest('base64');
+
+    if (hash_val !== crypt_info.hash_val) {
+        console.error('HASH CHECKSUM FAILED', hash_val, crypt_info);
+        throw new Error('hash checksum failed');
+    }
+
+    return plain_buffer;
 }

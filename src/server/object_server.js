@@ -193,9 +193,10 @@ function read_object_mappings(req) {
         .then(db.check_not_deleted(req, 'object'))
         .then(function(obj_arg) {
             obj = obj_arg;
-            var start = Number(req.rest_params.start);
-            var end = Number(req.rest_params.end);
-            return object_mapper.read_object_mappings(obj, start, end);
+            return object_mapper.read_object_mappings(
+                obj,
+                req.rest_params.start,
+                req.rest_params.end);
         })
         .then(function(parts) {
             return {

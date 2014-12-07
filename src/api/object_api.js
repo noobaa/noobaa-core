@@ -165,7 +165,7 @@ module.exports = rest_api({
             path: '/obj/:bucket/:key/map',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'start', 'end'],
+                required: ['bucket', 'key'],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -381,9 +381,9 @@ module.exports = rest_api({
                 },
                 node: {
                     type: 'object',
-                    required: ['id', 'ip', 'port'],
+                    required: ['ip', 'port'],
                     properties: {
-                        id: {
+                        id: { // TODO remove this field
                             type: 'string',
                         },
                         ip: {

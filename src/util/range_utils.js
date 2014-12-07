@@ -55,5 +55,6 @@ function truncate_range_end_to_boundary_bitwise(start, end, nbits) {
 }
 
 function human_range(range) {
-    return size_utils.human_offset(range.start) + ' ... ' + size_utils.human_offset(range.end);
+    return '[ ' + size_utils.human_offset(range.start) +
+        ' .. ' + size_utils.human_offset(range.end) + ' ]';
 }

@@ -9,6 +9,7 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 var system_server = require('./system_server');
 var node_monitor = require('./node_monitor');
+var object_mapper = require('./object_mapper');
 var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
 var db = require('./db');
@@ -25,6 +26,7 @@ module.exports = new api.node_api.Server({
     read_node: read_node,
     update_node: update_node,
     delete_node: delete_node,
+    read_node_maps: read_node_maps,
 
     list_nodes: list_nodes,
     group_nodes: group_nodes,
@@ -156,6 +158,28 @@ function delete_node(req) {
         .thenResolve();
 }
 
+
+
+
+/**
+ *
+ * READ_NODE_MAPS
+ *
+ */
+function read_node_maps(req) {
+    var node;
+    return find_node_by_name(req)
+        .then(function(node_arg) {
+            node = node_arg;
+            return object_mapper.read_node_mappings(node);
+        })
+        .then(function(objects) {
+            return {
+                node: get_node_full_info(node),
+                objects: objects,
+            };
+        });
+}
 
 
 

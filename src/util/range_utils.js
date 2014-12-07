@@ -2,12 +2,14 @@
 'use strict';
 
 var _ = require('lodash');
+var size_utils = require('./size_utils');
 
 module.exports = {
     intersection: intersection,
     align_down_bitwise: align_down_bitwise,
     align_up_bitwise: align_up_bitwise,
     truncate_range_end_to_boundary_bitwise: truncate_range_end_to_boundary_bitwise,
+    human_range: human_range,
 };
 
 
@@ -25,7 +27,7 @@ function intersection(start1, end1, start2, end2) {
 
 
 /**
-* align the given offset down with boundary 1<<nbits
+ * align the given offset down with boundary 1<<nbits
  */
 function align_down_bitwise(offset, nbits) {
     var mask_up = ((~0) >>> nbits << nbits);
@@ -50,4 +52,8 @@ function align_up_bitwise(offset, nbits) {
 function truncate_range_end_to_boundary_bitwise(start, end, nbits) {
     var new_end = align_down_bitwise(end, nbits);
     return (new_end > start) ? new_end : end;
+}
+
+function human_range(range) {
+    return size_utils.human_offset(range.start) + ' ... ' + size_utils.human_offset(range.end);
 }

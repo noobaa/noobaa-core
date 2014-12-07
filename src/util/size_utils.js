@@ -34,6 +34,7 @@ var SIZE_UNITS = ['', 'K', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y'];
 module.exports = {
     reduce_sum: reduce_sum,
     human_size: human_size,
+    human_offset: human_offset,
     KILOBYTE: KILOBYTE,
     MEGABYTE: MEGABYTE,
     GIGABYTE: GIGABYTE,
@@ -101,4 +102,55 @@ function human_size(bytes) {
     } else {
         return x.toFixed(1) + ' ' + SIZE_UNITS[i] + 'B';
     }
+}
+
+
+/**
+ *
+ * human_offset
+ *
+ * @param offset - must be integer
+ *
+ */
+function human_offset(offset) {
+    var res;
+    var i;
+    var peta;
+    var n;
+    var sign;
+
+    if (typeof(offset) === 'object') {
+        peta = offset.peta;
+        n = offset.n;
+        sign = '';
+    } else {
+        peta = 0;
+        if (offset < 0) {
+            n = (-offset) | 0;
+            sign = '-';
+        } else {
+            n = offset | 0;
+            sign = '';
+        }
+    }
+
+    // always include the lowest offset unit
+    res = (n & 0x3FF) + '';
+    n >>>= 10;
+
+    i = 1;
+    while (n) {
+        res = (n & 0x3FF) + SIZE_UNITS[i] + '_' + res;
+        n >>>= 10;
+        i++;
+    }
+
+    i = 5;
+    while (peta) {
+        res = (peta & 0x3FF) + SIZE_UNITS[i] + '_' + res;
+        peta >>>= 10;
+        i++;
+    }
+
+    return sign + res;
 }

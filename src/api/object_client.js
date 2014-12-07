@@ -19,6 +19,7 @@ var dbg = require('../util/dbg')(__filename);
 
 module.exports = ObjectClient;
 
+// dbg.log_level = 3;
 
 /**
  *
@@ -177,7 +178,7 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
         })
         .then(function() {
             self._pos += chunk.length;
-            dbg.log3('stream pos', self._pos);
+            dbg.log3('stream pos', size_utils.human_offset(self._pos));
             callback();
         }, function(err) {
             dbg.log3('stream error', err);
@@ -240,7 +241,7 @@ ObjectClient.prototype._write_object_part = function(params) {
                 }));
             }));
         }).then(function() {
-            dbg.log2('part after', part.start, part.end);
+            dbg.log2('part after', range_utils.human_range(part));
             if (self._events) {
                 self._events.emit('part:after', part);
             }
@@ -261,7 +262,7 @@ ObjectClient.prototype._attempt_write_block = function(params) {
     return self._write_block(params.block, params.buffer, params.offset)
         .then(null, function(err) {
             if (params.remaining_attempts <= 0) {
-                throw new Error('EXHAUSTED WRITE BLOCK', params.offset);
+                throw new Error('EXHAUSTED WRITE BLOCK', size_utils.human_offset(params.offset));
             }
             params.remaining_attempts -= 1;
             var bad_block_params =
@@ -270,7 +271,7 @@ ObjectClient.prototype._attempt_write_block = function(params) {
                     is_write: true,
                 });
             dbg.log0('write block remaining attempts',
-                params.remaining_attempts, 'offset', params.offset);
+                params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
             return self.report_bad_block(bad_block_params)
                 .then(function(res) {
                     params.block = res.new_block;
@@ -297,7 +298,7 @@ ObjectClient.prototype._write_block = function(block, buffer, offset) {
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
         agent.options.set_timeout(30000);
 
-        dbg.log1('write_block', offset,
+        dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block.id,
             'to', block.node.ip + ':' + block.node.port);
 
@@ -307,7 +308,7 @@ ObjectClient.prototype._write_block = function(block, buffer, offset) {
             block_id: block.id,
             data: buffer,
         }).then(null, function(err) {
-            console.error('FAILED write_block', offset,
+            console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block.id,
                 'from', block.node.ip + ':' + block.node.port);
             throw err;
@@ -431,7 +432,7 @@ ObjectReader.prototype._read = function(requested_size) {
         .then(function(buffer) {
             if (buffer) {
                 self._pos += buffer.length;
-                dbg.log0('object read offset', self._pos);
+                dbg.log0('object read offset', size_utils.human_offset(self._pos));
             }
             self.push(buffer);
         }, function(err) {
@@ -458,9 +459,10 @@ ObjectReader.prototype._read = function(requested_size) {
 ObjectClient.prototype.read_object = function(params) {
     var self = this;
 
-    dbg.log1('read_object', params.start, params.end);
+    dbg.log0('read_object', range_utils.human_range(params));
 
     if (params.end <= params.start) {
+        // empty read range
         return null;
     }
 
@@ -507,12 +509,12 @@ ObjectClient.prototype._init_object_range_cache = function() {
             range_params.start = range_utils.align_down_bitwise(
                 params.start, self.OBJECT_RANGE_ALIGN_NBITS);
             range_params.end = range_params.start + self.OBJECT_RANGE_ALIGN;
-            dbg.log1('RangesCache: load', params.key, 'start', range_params.start);
+            dbg.log1('RangesCache: load', range_utils.human_range(range_params), params.key);
             return self._read_object_range(range_params);
         },
         make_val: function(val, params) {
             if (!val) {
-                dbg.log3('RangesCache: null', params.start, params.end);
+                dbg.log3('RangesCache: null', range_utils.human_range(params));
                 return val;
             }
             var start = range_utils.align_down_bitwise(
@@ -521,10 +523,15 @@ ObjectClient.prototype._init_object_range_cache = function() {
             var inter = range_utils.intersection(
                 start, end, params.start, params.end);
             if (!inter) {
-                dbg.log3('RangesCache: empty', params.start, params.end, 'align', start, end);
+                dbg.log3('RangesCache: empty', range_utils.human_range(params),
+                    'align', range_utils.human_range({
+                        start: start,
+                        end: end
+                    }));
                 return null;
             }
-            dbg.log3('RangesCache: slice', params.start, params.end, 'inter', inter.start, inter.end);
+            dbg.log3('RangesCache: slice', range_utils.human_range(params),
+                'inter', range_utils.human_range(inter));
             return val.slice(inter.start - start, inter.end - start);
         },
     });
@@ -549,11 +556,15 @@ ObjectClient.prototype._read_object_range = function(params) {
     var self = this;
     var obj_size;
 
-    dbg.log2('_read_object_range', params);
+    dbg.log2('_read_object_range', range_utils.human_range(params));
 
     return self._object_map_cache.get(params)
         .then(function(mappings) {
             obj_size = mappings.size;
+            dbg.log2('REQUEST MAPPING RANGE', range_utils.human_range(params));
+            _.each(mappings.parts, function(part) {
+                dbg.log2('GOT MAPPING PART', range_utils.human_range(part));
+            });
             return Q.all(_.map(mappings.parts, self._read_object_part, self));
         })
         .then(function(parts) {
@@ -585,7 +596,8 @@ ObjectClient.prototype._init_object_map_cache = function() {
             map_params.start = range_utils.align_down_bitwise(
                 params.start, self.MAP_RANGE_ALIGN_NBITS);
             map_params.end = map_params.start + self.MAP_RANGE_ALIGN;
-            dbg.log1('MappingsCache: load', params.key, 'start', map_params.start);
+            dbg.log1('MappingsCache: load', range_utils.human_range(params),
+                'aligned', range_utils.human_range(map_params));
             return self.read_object_mappings(map_params);
         },
         make_val: function(val, params) {
@@ -594,11 +606,12 @@ ObjectClient.prototype._init_object_map_cache = function() {
                 var inter = range_utils.intersection(
                     part.start, part.end, params.start, params.end);
                 if (!inter) {
-                    dbg.log4('MappingsCache: filtered part', part.start, part.end);
+                    dbg.log4('MappingsCache: filtered', range_utils.human_range(params),
+                        'part', range_utils.human_range(part));
                     return false;
                 }
-                dbg.log3('MappingsCache: part', part.start, part.end,
-                    'inter', inter.start, inter.end);
+                dbg.log3('MappingsCache: map', range_utils.human_range(params),
+                    'part', range_utils.human_range(part));
                 return true;
             }));
             return mappings;
@@ -618,7 +631,7 @@ ObjectClient.prototype._read_object_part = function(part) {
     var buffer_per_fragment = {};
     var next_fragment = 0;
 
-    dbg.log2('_read_object_part', _.omit(part, 'buffer'));
+    dbg.log2('_read_object_part', range_utils.human_range(part));
 
     // advancing the read by taking the next fragment and return promise to read it.
     // will fail if no more fragments remain, which means the part cannot be served.
@@ -635,7 +648,7 @@ ObjectClient.prototype._read_object_part = function(part) {
     }
 
     function read_fragment_blocks_chain(blocks, fragment) {
-        dbg.log3('read_fragment_blocks_chain', part.start, fragment);
+        dbg.log3('read_fragment_blocks_chain', range_utils.human_range(part), fragment);
 
         // chain the blocks of the fragment with array reduce
         // to handle read failures we create a promise chain such that each block of
@@ -708,7 +721,7 @@ ObjectClient.prototype._init_blocks_cache = function() {
             return params.block.id;
         },
         load: function(params) {
-            dbg.log1('BlocksCache: load', params.block.id);
+            dbg.log1('BlocksCache: load', size_utils.human_offset(params.offset), params.block.id);
             return self._read_block(params.block, params.block_size, params.offset);
         }
     });
@@ -733,7 +746,8 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
         agent.options.set_timeout(30000);
 
-        dbg.log1('read_block', offset, size_utils.human_size(block_size), block.id,
+        dbg.log1('read_block', size_utils.human_offset(offset),
+            size_utils.human_size(block_size), block.id,
             'from', block.node.ip + ':' + block.node.port);
 
         return agent.read_block({
@@ -749,7 +763,8 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
                 }
                 return buffer;
             }, function(err) {
-                console.error('FAILED read_block', block_size, block.id,
+                console.error('FAILED read_block', size_utils.human_offset(offset),
+                    size_utils.human_size(block_size), block.id,
                     'from', block.node.ip + ':' + block.node.port);
                 throw err;
             });
@@ -795,7 +810,7 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
 
         // return http 400 Bad Request
         if (range === -2) {
-            dbg.log0('+++ serve_http_stream: bad range request', range, req.get('range'));
+            dbg.log0('+++ serve_http_stream: bad range request', req.get('range'));
             res.status(400);
             return;
         }
@@ -827,7 +842,11 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
                 start, end, self.HTTP_PART_ALIGN_NBITS);
         }
 
-        dbg.log0('+++ serve_http_stream: send range', '[', start, ',', end, ']', range);
+        dbg.log0('+++ serve_http_stream: send range',
+            range_utils.human_range({
+                start: start,
+                end: end
+            }), range);
         res.header('Content-Range', 'bytes ' + start + '-' + (end - 1) + '/' + md.size);
         res.header('Content-Length', end - start);
         // res.header('Cache-Control', 'max-age=0' || 'no-cache');
@@ -864,8 +883,16 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
 
 
 function combine_parts_buffers_in_range(parts, start, end) {
-    if (!parts || !parts.length || end <= start) {
+    if (end <= start) {
+        // empty read range
         return null;
+    }
+    if (!parts || !parts.length) {
+        console.error('no parts for data', range_utils.human_range({
+            start: start,
+            end: end
+        }));
+        throw new Error('no parts for data');
     }
     var pos = start;
     var buffers = _.compact(_.map(parts, function(part) {
@@ -877,6 +904,14 @@ function combine_parts_buffers_in_range(parts, start, end) {
         pos = part_range.end;
         return part.buffer.slice(offset, pos);
     }));
+    if (pos !== end) {
+        console.error('missing parts for data',
+            range_utils.human_range({
+                start: start,
+                end: end
+            }), 'pos', size_utils.human_offset(pos), parts);
+        throw new Error('missing parts for data');
+    }
     return Buffer.concat(buffers, end - start);
 }
 

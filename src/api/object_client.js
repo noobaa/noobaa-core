@@ -19,7 +19,7 @@ var dbg = require('../util/dbg')(__filename);
 
 module.exports = ObjectClient;
 
-dbg.log_level = 3;
+// dbg.log_level = 3;
 
 /**
  *

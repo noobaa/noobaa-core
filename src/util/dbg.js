@@ -12,7 +12,7 @@ var util = require('util');
  * debugging tools which are available also in production.
  * use in your module as follows:
  *
- * var dbg = require('dbg')(module);
+ * var dbg = require('dbg')(__filename);
  * dbg.log_level = 1;
  * dbg.log0('this will print since log_level >= 0');
  * dbg.log1('this will print since log_level >= 1');
@@ -25,6 +25,7 @@ module.exports = DebugContext;
 // keep all contexes in global map
 DebugContext.ctx = {};
 
+
 function DebugContext(module) {
     // allow calling this ctor without new keyword
     if (!(this instanceof DebugContext)) {
@@ -33,7 +34,8 @@ function DebugContext(module) {
 
     // use the module's filename to detect a debug context name
     // take the relative path to the projects source dir
-    var name = path.relative(path.resolve(__dirname, '..'), module.filename);
+    console.log(__dirname, module);
+    var name = path.relative(path.resolve(__dirname, '..'), module);
 
     // replacing any non-word chars with _ to make it a qualified js name
     // to make it friendlier inside REPL context:

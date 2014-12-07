@@ -18,7 +18,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
-var dbg = require('../util/dbg')(module);
+var dbg = require('../util/dbg')(__filename);
 
 Q.longStackSupport = true;
 

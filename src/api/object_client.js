@@ -15,7 +15,7 @@ var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
-var dbg = require('../util/dbg')(module);
+var dbg = require('../util/dbg')(__filename);
 
 module.exports = ObjectClient;
 

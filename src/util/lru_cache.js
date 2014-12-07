@@ -20,8 +20,8 @@ function LRUCache(options) {
     self.make_key = options.make_key || function(k) {
         return k;
     };
-    self.make_val = options.make_val || function(v, params) {
-        return v;
+    self.make_val = options.make_val || function(data, params) {
+        return data;
     };
     self.use_negative_cache = options.use_negative_cache;
     self.lru = new LRU({
@@ -39,42 +39,35 @@ function LRUCache(options) {
 LRUCache.prototype.get = function(params, cache_miss) {
     var self = this;
     return Q.fcall(function() {
-        var key = self.make_key(params);
-        var item = self.lru.find_or_add_item(key);
+            var key = self.make_key(params);
+            var item = self.lru.find_or_add_item(key);
 
-        // use cached item when not forcing cache_miss and still not expired by lru
-        if (cache_miss !== 'cache_miss') {
-            if (item.promise) {
-                return item.promise;
+            // use cached item when not forcing cache_miss and still not expired by lru
+            // also go to load if data is falsy and negative caching is off
+            if ('d' in item &&
+                (cache_miss !== 'cache_miss') &&
+                (self.use_negative_cache || item.d)) {
+                return item;
             }
-            if (item.neg && self.use_negative_cache) {
-                return;
-            }
-            if (item.val) {
-                return self.make_val(item.val, params);
-            }
-        }
 
-        // load from the database
-        item.promise = Q.when(self.load(params))
-            .then(function(val) {
-                item.promise = null;
-                if (val) {
-                    // update the cache item
-                    item.val = val;
-                    delete item.neg;
-                } else {
-                    // mark entry as negative - aka negative cache
-                    item.neg = true;
-                    item.val = null;
-                }
-                return self.make_val(val, params);
-            }, function(err) {
-                item.promise = null;
-                throw err;
-            });
-        return item.promise;
-    });
+            // keep the promise in the item to synchronize when getting
+            // concurrent get requests that miss the cache
+            if (!item.p) {
+                item.p = Q.when(self.load(params))
+                    .then(function(data) {
+                        item.p = null;
+                        item.d = data;
+                        return item;
+                    }, function(err) {
+                        item.p = null;
+                        throw err;
+                    });
+            }
+            return item.p;
+        })
+        .then(function(item) {
+            return self.make_val(item.d, params);
+        });
 };
 
 /**

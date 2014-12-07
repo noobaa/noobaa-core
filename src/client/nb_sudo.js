@@ -5,6 +5,8 @@ var _ = require('lodash');
 
 require('./nb_util');
 require('./nb_api');
+require('./nb_nodes');
+require('./nb_files');
 
 var nb_sudo = angular.module('nb_sudo', [
     'nb_util',
@@ -15,9 +17,6 @@ var nb_sudo = angular.module('nb_sudo', [
     'ngSanitize',
     'ngTouch',
 ]);
-
-require('./nb_nodes');
-require('./nb_files');
 
 
 nb_sudo.config(['$routeProvider', '$locationProvider', '$compileProvider',

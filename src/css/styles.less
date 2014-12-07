@@ -5,7 +5,8 @@
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
 /* @import (less)"../../bower_components/bootstrap-material-design/less/material.less"; */
 @import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less";
-/* @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less"; */
+@import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
+@import (less)"../../bower_components/bootstrap-sidebar/dist/css/sidebar.css";
 @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
 @import (less)"../../bower_components/alertify.js/themes/alertify.core.css";
 /* @import (less)"../../bower_components/alertify.js/themes/alertify.default.css"; */
@@ -18,8 +19,8 @@
 // bootstrap //
 ///////////////
 
-@primary: @indigo;
-@success: @teal;
+/* @primary: @indigo; */
+/* @success: @teal; */
 @brand-primary: @primary;
 @brand-success: @success;
 @brand-danger: @danger;
@@ -47,7 +48,7 @@
 /* @border-radius-base: 20px; */
 /* @border-radius-large: 30px; */
 
-/* @grid-float-breakpoint: 0; */
+@grid-float-breakpoint: 0;
 
 /* @font-family-sans-serif: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif; */
 @font-size-base: 15px;
@@ -113,7 +114,25 @@ table th {
 }
 */
 .navbar {
+    color: white;
     margin: 0;
+    .navbar-brand {
+        height: 50px !important;
+    }
+
+}
+.sidebar {
+    /* fix sidebar's position to navbar's */
+    z-index: 1040;
+    top: 50px;
+    @media (min-width: @screen-lg) {
+        top: 61px;
+    }
+    &.sidebar-left {
+        background-color: hsl(0,0%,20%);
+        color: hsl(0,0%,90%);
+    }
+
 }
 .close {
     outline: none;

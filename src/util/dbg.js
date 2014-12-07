@@ -34,7 +34,6 @@ function DebugContext(module) {
 
     // use the module's filename to detect a debug context name
     // take the relative path to the projects source dir
-    console.log(__dirname, module);
     var name = path.relative(path.resolve(__dirname, '..'), module);
 
     // replacing any non-word chars with _ to make it a qualified js name

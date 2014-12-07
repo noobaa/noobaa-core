@@ -400,11 +400,6 @@ function rest_api(api) {
             }
         }
 
-        // request a continue from the server before sending the body
-        if (body) {
-            headers.expect = '100-continue';
-        }
-
         var options = {
             hostname: self.options.hostname,
             port: self.options.port,
@@ -427,9 +422,7 @@ function rest_api(api) {
         req.on('error', defer.reject);
         req.on('response', defer.resolve);
         if (body) {
-            req.on('continue', function() {
-                req.end(body);
-            });
+            req.end(body);
         } else {
             req.end();
         }

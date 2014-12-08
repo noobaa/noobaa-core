@@ -21,7 +21,7 @@ nb_util.run(['$rootScope', function($rootScope) {
     $rootScope.safe_apply = safe_apply;
     $rootScope.safe_callback = safe_callback;
     $rootScope.moment = moment;
-    $.material.init();
+    // $.material.init();
 }]);
 
 

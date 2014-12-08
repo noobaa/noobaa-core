@@ -4,8 +4,8 @@
 
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
 /* @import (less)"../../bower_components/bootstrap-material-design/less/material.less"; */
-@import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less";
-@import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
+/* @import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less"; */
+/* @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less"; */
 @import (less)"../../bower_components/bootstrap-sidebar/dist/css/sidebar.css";
 @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
 @import (less)"../../bower_components/alertify.js/themes/alertify.core.css";
@@ -21,11 +21,11 @@
 
 /* @primary: @indigo; */
 /* @success: @teal; */
-@brand-primary: @primary;
-@brand-success: @success;
-@brand-danger: @danger;
-@brand-warning: @warning;
-@brand-info: @info;
+/* @brand-primary: @primary; */
+/* @brand-success: @success; */
+/* @brand-danger: @danger; */
+/* @brand-warning: @warning; */
+/* @brand-info: @info; */
 
 /* @brand-primary: hsl(223,24%,30%); */
 /* @brand-info: hsl(190,70%,60%); */
@@ -60,7 +60,7 @@
 }
 .text-green {
     /* color: #76ff00; */
-    color: @success;
+    color: @brand-success;
 }
 .text-white {
     color: white;
@@ -89,6 +89,9 @@ table th {
     -moz-user-select: all;
     -ms-user-select: all;
     user-select: all;
+}
+.form-control-wrapper {
+
 }
 .form-control > select {
     display: block;
@@ -123,11 +126,11 @@ table th {
 }
 .sidebar {
     /* fix sidebar's position to navbar's */
-    z-index: 1040;
-    top: 50px;
-    @media (min-width: @screen-lg) {
+    /* z-index: 1040; */
+    /* top: 50px; */
+    /* @media (min-width: @screen-lg) {
         top: 61px;
-    }
+    } */
     &.sidebar-left {
         background-color: hsl(0,0%,20%);
         color: hsl(0,0%,90%);

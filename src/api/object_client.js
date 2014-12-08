@@ -233,7 +233,7 @@ ObjectClient.prototype._write_object_part = function(params) {
                     if (self._events) {
                         self._events.emit('block:before', buffer_per_fragment[fragment].length);
                     }
-                    return self._attempt_write_block(_.extend(part_params, {
+                    return self._attempt_write_block(_.extend({}, part_params, {
                         part: part,
                         fragment: fragment,
                         offset: part.start + (fragment * block_size),

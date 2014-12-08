@@ -55,9 +55,9 @@ var data_block_schema = new Schema({
         required: true,
     },
 
-    // upload_mode state
-    upload_mode: {
-        type: Boolean,
+    // on delete set deletion time
+    deleted: {
+        type: Date
     },
 
 });
@@ -65,6 +65,7 @@ var data_block_schema = new Schema({
 data_block_schema.index({
     chunk: 1,
     fragment: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: false
 });
@@ -73,6 +74,7 @@ data_block_schema.index({
     system: 1,
     tier: 1,
     node: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: false
 });

@@ -102,7 +102,7 @@ function read_system(req) {
 
             // objects
             db.ObjectMD.mapReduce({
-                query: by_system_id,
+                query: by_system_id_undeleted,
                 map: function() {
                     /* global emit */
                     emit('size', this.size);
@@ -113,7 +113,7 @@ function read_system(req) {
 
             // blocks
             db.DataBlock.mapReduce({
-                query: by_system_id,
+                query: by_system_id_undeleted,
                 map: function() {
                     /* global emit */
                     emit('size', this.size);
@@ -122,7 +122,7 @@ function read_system(req) {
             }),
 
             // buckets
-            db.Bucket.count(by_system_id).exec(),
+            db.Bucket.count(by_system_id_undeleted).exec(),
         ]);
 
     }).spread(function(roles, tiers, nodes_aggregate, objects, blocks, buckets) {

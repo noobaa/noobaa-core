@@ -171,24 +171,56 @@ ClientCLI.prototype.download = function(key) {
 
 /**
  *
- * DELETE
+ * DEL
  *
  * delete object by key
  *
  */
-ClientCLI.prototype.delete = function(key) {
+ClientCLI.prototype.del = function(key) {
     var self = this;
 
     return Q.fcall(function() {
-            // ...
+            return self.client.object.delete_object({
+                bucket: self.params.bucket,
+                key: key
+            });
         })
         .then(function() {
-            // ...
-        })
-        .then(function() {
-            console.log('COMPLETED: delete');
+            console.log('COMPLETED: del');
         }, function(err) {
-            console.log('ERROR: delete', err);
+            console.log('ERROR: del', err);
+        });
+};
+
+
+/**
+ *
+ * SYS
+ *
+ * show system info
+ *
+ */
+ClientCLI.prototype.sys = function() {
+    var self = this;
+
+    return Q.fcall(function() {
+            return self.client.system.read_system();
+        })
+        .then(function(res) {
+            console.log('\n\nSystem info:', res.name);
+            console.log('------------');
+            console.log('\nroles:\n', res.roles);
+            console.log('\ntiers:\n', res.tiers);
+            console.log('\nstorage:\n', res.storage);
+            console.log('\nnodes:\n', res.nodes);
+            console.log('\nbuckets:\n', res.buckets);
+            console.log('\nobjects:\n', res.objects);
+            console.log('\n\n');
+        })
+        .then(function() {
+            console.log('COMPLETED: sys');
+        }, function(err) {
+            console.log('ERROR: sys', err);
         });
 };
 
@@ -226,7 +258,7 @@ ClientCLI.prototype.list = function(key) {
 
 /**
  *
- * LIST
+ * LIST_NODES
  *
  * list objects in bucket
  *

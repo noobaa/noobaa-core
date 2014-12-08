@@ -12,6 +12,7 @@ module.exports = {
     allocate_object_part: allocate_object_part,
     read_object_mappings: read_object_mappings,
     read_node_mappings: read_node_mappings,
+    delete_object_mappings: delete_object_mappings,
     bad_block_in_part: bad_block_in_part,
 };
 
@@ -197,6 +198,41 @@ function read_parts_mappings(parts, set_obj) {
                 return get_part_info(part, chunk, blocks, set_obj);
             });
             return parts_reply;
+        });
+}
+
+
+
+/**
+ *
+ * delete_object_mappings
+ *
+ */
+function delete_object_mappings(obj) {
+    // find parts intersecting the [start,end) range
+    return Q.when(db.ObjectPart
+            .find({
+                obj: obj.id,
+            })
+            .populate('chunks.chunk')
+            .exec())
+        .then(function(parts) {
+            var chunks = _.pluck(_.flatten(_.map(parts, 'chunks')), 'chunk');
+            var chunk_ids = _.pluck(chunks, 'id');
+            var in_chunk_ids = {
+                $in: chunk_ids
+            };
+            var deleted_update = {
+                deleted: new Date()
+            };
+            return Q.all([
+                db.DataChunk.update({
+                    _id: in_chunk_ids
+                }, deleted_update).exec(),
+                db.DataBlock.update({
+                    chunk: in_chunk_ids
+                }, deleted_update).exec()
+            ]);
         });
 }
 

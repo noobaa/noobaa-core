@@ -19,7 +19,7 @@ var dbg = require('../util/dbg')(__filename);
 
 module.exports = ObjectClient;
 
-dbg.log_level = 3;
+// dbg.log_level = 3;
 
 /**
  *
@@ -35,19 +35,20 @@ function ObjectClient(base) {
     object_api.Client.call(self, base);
 
     // some constants that might be provided as options to the client one day
+    self.OBJECT_RANGE_ALIGN_NBITS = 19; // log2( 512 KB )
+    self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 512 KB
+
     self.MAP_RANGE_ALIGN_NBITS = 24; // log2( 16 MB )
     self.MAP_RANGE_ALIGN = 1 << self.MAP_RANGE_ALIGN_NBITS; // 16 MB
-    self.OBJECT_RANGE_ALIGN_NBITS = 20; // log2( 1 MB )
-    self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 1 MB
 
     self.READ_CONCURRENCY = 32;
     self.WRITE_CONCURRENCY = 16;
 
-    self.READAHEAD_MIN_TRIGGER = 512 * size_utils.KILOBYTE;
-    self.READAHEAD_RANGES = 4;
+    self.READAHEAD_MIN_TRIGGER = self.OBJECT_RANGE_ALIGN;
+    self.READAHEAD_RANGES = 16;
 
-    self.HTTP_PART_ALIGN_NBITS = 22; // log2( 4 MB )
-    self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 4 MB
+    self.HTTP_PART_ALIGN_NBITS = self.OBJECT_RANGE_ALIGN_NBITS + 4; // log2( 8 MB )
+    self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 8 MB
 
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
@@ -100,7 +101,7 @@ ObjectClient.prototype.upload_stream = function(params) {
             });
             return Q.Promise(function(resolve, reject) {
                 params.source_stream
-                    .pipe(new ChunkStream(512 * size_utils.KILOBYTE))
+                    .pipe(new ChunkStream(self.OBJECT_RANGE_ALIGN))
                     .pipe(self.open_write_stream(bucket_key_params))
                     .once('error', function(err) {
                         dbg.log0('error write stream', params.key, err);
@@ -127,8 +128,8 @@ ObjectClient.prototype.upload_stream = function(params) {
  * see ObjectWriter.
  *
  */
-ObjectClient.prototype.open_write_stream = function(params) {
-    return new ObjectWriter(this, params, this.OBJECT_RANGE_ALIGN);
+ObjectClient.prototype.open_write_stream = function(params, watermark) {
+    return new ObjectWriter(this, params, watermark || this.OBJECT_RANGE_ALIGN);
 };
 
 
@@ -178,11 +179,11 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
         })
         .then(function() {
             self._pos += chunk.length;
-            dbg.log3('stream pos', size_utils.human_offset(self._pos));
+            dbg.log3('writer pos', size_utils.human_offset(self._pos));
             callback();
         }, function(err) {
-            console.error('write stream error', err);
-            callback(err || 'write stream error');
+            console.error('writer error', err);
+            callback(err || 'writer error');
         });
 };
 
@@ -232,7 +233,7 @@ ObjectClient.prototype._write_object_part = function(params) {
                     if (self._events) {
                         self._events.emit('block:before', buffer_per_fragment[fragment].length);
                     }
-                    return self._attempt_write_block(_.extend(part_params, {
+                    return self._attempt_write_block(_.extend({}, part_params, {
                         part: part,
                         fragment: fragment,
                         offset: part.start + (fragment * block_size),
@@ -378,8 +379,8 @@ ObjectClient.prototype._init_object_md_cache = function() {
  * see ObjectReader.
  *
  */
-ObjectClient.prototype.open_read_stream = function(params) {
-    return new ObjectReader(this, params, this.OBJECT_RANGE_ALIGN);
+ObjectClient.prototype.open_read_stream = function(params, watermark) {
+    return new ObjectReader(this, params, watermark || this.OBJECT_RANGE_ALIGN);
 };
 
 
@@ -434,15 +435,15 @@ ObjectReader.prototype._read = function(requested_size) {
         .then(function(buffer) {
             if (buffer && buffer.length) {
                 self._pos += buffer.length;
-                dbg.log0('object read offset', size_utils.human_offset(self._pos));
+                dbg.log0('reader pos', size_utils.human_offset(self._pos));
                 self.push(buffer);
             } else {
-                dbg.log0('object read finished', size_utils.human_offset(self._pos));
+                dbg.log0('reader finished', size_utils.human_offset(self._pos));
                 self.push(null);
             }
         }, function(err) {
-            console.error('read stream error', err);
-            self.emit('error', err || 'read stream error');
+            console.error('reader error', err);
+            self.emit('error', err || 'reader error');
         });
 };
 
@@ -797,7 +798,7 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
             dbg.log0('+++ serve_http_stream: send all');
             res.header('Content-Length', md.size);
             res.status(200);
-            self.open_read_stream(params).pipe(res);
+            self.open_read_stream(params, self.HTTP_PART_ALIGN).pipe(res);
             return;
         }
 
@@ -847,7 +848,7 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         self.open_read_stream(_.extend({
             start: start,
             end: end,
-        }, params)).pipe(res);
+        }, params), end - start).pipe(res);
 
         // when starting to stream also prefrech the last part of the file
         // since some video encodings put a chunk of video metadata in the end
@@ -855,10 +856,11 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         // see https://trac.ffmpeg.org/wiki/Encode/H.264#faststartforwebvideo
         if (start === 0) {
             dbg.log0('+++ serve_http_stream: prefetch end of file');
+            var eof_len = 100;
             self.open_read_stream(_.extend({
-                start: md.size > 100 ? (md.size - 100) : 0,
+                start: md.size > eof_len ? (md.size - eof_len) : 0,
                 end: md.size,
-            }, params)).pipe(devnull());
+            }, params), eof_len).pipe(devnull());
         }
 
     }, function(err) {

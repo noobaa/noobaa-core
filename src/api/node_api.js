@@ -85,6 +85,49 @@ module.exports = rest_api({
             }
         },
 
+        read_node_maps: {
+            method: 'GET',
+            path: '/node_maps/:name',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: ['node', 'objects'],
+                properties: {
+                    node: {
+                        $ref: '/node_api/definitions/node_full_info'
+                    },
+                    objects: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: [],
+                            properties: {
+                                key: {
+                                    type: 'string'
+                                },
+                                parts: {
+                                    type: 'array',
+                                    items: {
+                                        $ref: '/object_api/definitions/object_part_info'
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
 
         list_nodes: {
             method: 'GET',

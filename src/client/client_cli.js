@@ -16,6 +16,7 @@ var mime = require('mime');
 var argv = require('minimist')(process.argv);
 var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
+var range_utils = require('../util/range_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
 var dbg = require('../util/dbg')(__filename);
@@ -71,6 +72,7 @@ ClientCLI.prototype.init = function() {
             console.log('COMPLETED: load');
         }, function(err) {
             console.log('ERROR: load', self.params, err.stack);
+            process.exit();
         }).then(function() {
             if (argv.upload) {
                 // not returning the promise on purpose - to allow the repl to start
@@ -119,7 +121,7 @@ ClientCLI.prototype.load = function() {
  */
 ClientCLI.prototype.upload = function(file_path) {
     var self = this;
-    var key = file_path + '_' + Date.now();
+    var key = path.basename(file_path) + '_' + Date.now();
 
     return Q.fcall(function() {
             return Q.nfcall(fs.stat, file_path);
@@ -169,24 +171,56 @@ ClientCLI.prototype.download = function(key) {
 
 /**
  *
- * DELETE
+ * DEL
  *
  * delete object by key
  *
  */
-ClientCLI.prototype.delete = function(key) {
+ClientCLI.prototype.del = function(key) {
     var self = this;
 
     return Q.fcall(function() {
-            // ...
+            return self.client.object.delete_object({
+                bucket: self.params.bucket,
+                key: key
+            });
         })
         .then(function() {
-            // ...
-        })
-        .then(function() {
-            console.log('COMPLETED: delete');
+            console.log('COMPLETED: del');
         }, function(err) {
-            console.log('ERROR: delete', err);
+            console.log('ERROR: del', err);
+        });
+};
+
+
+/**
+ *
+ * SYS
+ *
+ * show system info
+ *
+ */
+ClientCLI.prototype.sys = function() {
+    var self = this;
+
+    return Q.fcall(function() {
+            return self.client.system.read_system();
+        })
+        .then(function(res) {
+            console.log('\n\nSystem info:', res.name);
+            console.log('------------');
+            console.log('\nroles:\n', res.roles);
+            console.log('\ntiers:\n', res.tiers);
+            console.log('\nstorage:\n', res.storage);
+            console.log('\nnodes:\n', res.nodes);
+            console.log('\nbuckets:\n', res.buckets);
+            console.log('\nobjects:\n', res.objects);
+            console.log('\n\n');
+        })
+        .then(function() {
+            console.log('COMPLETED: sys');
+        }, function(err) {
+            console.log('ERROR: sys', err);
         });
 };
 
@@ -218,6 +252,112 @@ ClientCLI.prototype.list = function(key) {
             console.log('COMPLETED: list');
         }, function(err) {
             console.log('ERROR: list', err);
+        });
+};
+
+
+/**
+ *
+ * LIST_NODES
+ *
+ * list objects in bucket
+ *
+ */
+ClientCLI.prototype.list_nodes = function() {
+    var self = this;
+
+    return Q.fcall(function() {
+            return self.client.node.list_nodes({});
+        })
+        .then(function(res) {
+            var i = 1;
+            _.each(res.nodes, function(node) {
+                console.log('#' + i, node.name, node.ip + ':' + node.port);
+                i++;
+            });
+        })
+        .then(function() {
+            console.log('COMPLETED: list_nodes');
+        }, function(err) {
+            console.log('ERROR: list_nodes', err);
+        });
+};
+
+
+
+
+/**
+ *
+ * OBJECT_MAPS
+ *
+ */
+ClientCLI.prototype.object_maps = function(key) {
+    var self = this;
+
+    return self.client.object.read_object_mappings({
+            bucket: self.params.bucket,
+            key: key,
+        })
+        .then(function(mappings) {
+            console.log('\n\nListing object maps:', key);
+            console.log('-------------------\n');
+            var i = 1;
+            _.each(mappings.parts, function(part) {
+                var nodes_list = _.map(part.fragments[0], function(block) {
+                    return block.node.ip + ':' + block.node.port;
+                }).join(',\t');
+                console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);
+                i += 1;
+            });
+        })
+        .then(function() {
+            console.log('COMPLETED: object_maps');
+        }, function(err) {
+            console.log('ERROR: object_maps', err);
+        });
+};
+
+
+/**
+ *
+ * NODE_MAPS
+ *
+ */
+ClientCLI.prototype.node_maps = function(node_name) {
+    var self = this;
+
+    return Q.fcall(function() {
+            return self.client.node.read_node_maps({
+                name: node_name
+            });
+        })
+        .then(function(res) {
+            var node_ip_port = res.node.ip + ':' + res.node.port;
+            console.log('\n\nListing object blocks for node:', node_name);
+            console.log('------------------------------');
+            _.each(res.objects, function(object) {
+                console.log('\nObject:', object.key);
+                var i = 1;
+                _.each(object.parts, function(part) {
+                    _.each(part.fragments, function(fragment_blocks, fragment) {
+                        var nodes_list = _.map(fragment_blocks, function(block) {
+                            var block_ip_port = block.node.ip + ':' + block.node.port;
+                            if (block_ip_port === node_ip_port) {
+                                return '*' + block_ip_port;
+                            } else {
+                                return block_ip_port;
+                            }
+                        }).sort().join(',\t');
+                        console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);
+                        i += 1;
+                    });
+                });
+            });
+        })
+        .then(function() {
+            console.log('COMPLETED: node_maps');
+        }, function(err) {
+            console.log('ERROR: node_maps', err);
         });
 };
 
@@ -283,6 +423,7 @@ ClientCLI.prototype.read_block = function(ip, port, file_name) {
             console.log('ERROR: read_block', err);
         });
 };
+
 
 
 

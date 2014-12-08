@@ -37,11 +37,6 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
-    // upload_mode state
-    upload_mode: {
-        type: Boolean,
-    },
-
     // crypto info
     crypt: {
         hash_type: {

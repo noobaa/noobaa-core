@@ -43,11 +43,11 @@ module.exports = new api.object_api.Server({
  *
  */
 function create_multipart_upload(req) {
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
+    return load_bucket(req)
+        .then(function() {
             var info = {
                 system: req.system.id,
-                bucket: bucket.id,
+                bucket: req.bucket.id,
                 key: req.rest_params.key,
                 size: req.rest_params.size,
                 content_type: req.rest_params.content_type,
@@ -65,20 +65,17 @@ function create_multipart_upload(req) {
  *
  */
 function complete_multipart_upload(req) {
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
-            var updates = {
-                $unset: {
-                    upload_mode: 1
-                }
-            };
-            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
-        }).thenResolve();
+    return find_object_md(req)
+        .then(function(obj) {
+            return db.ObjectMD
+                .findByIdAndUpdate(obj.id, {
+                    $unset: {
+                        upload_mode: 1
+                    }
+                })
+                .exec();
+        })
+        .thenResolve();
 }
 
 
@@ -89,18 +86,7 @@ function complete_multipart_upload(req) {
  *
  */
 function abort_multipart_upload(req) {
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
-            var updates = {
-                upload_mode: true
-            };
-            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
-        }).thenResolve();
+    return delete_object(req);
 }
 
 
@@ -111,25 +97,14 @@ function abort_multipart_upload(req) {
  *
  */
 function allocate_object_part(req) {
-    var bucket;
-    return get_bucket_from_cache(req)
-        .then(function(bucket_arg) {
-            bucket = bucket_arg;
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
-            return db.ObjectMD.findOne(info).exec();
-        })
-        .then(db.check_not_deleted(req, 'object'))
+    return find_object_md(req)
         .then(function(obj) {
             if (!obj.upload_mode) {
                 // TODO handle the upload_mode state
                 // throw new Error('object not in upload mode');
             }
             return object_mapper.allocate_object_part(
-                bucket,
+                req.bucket,
                 obj,
                 req.rest_params.start,
                 req.rest_params.end,
@@ -140,21 +115,8 @@ function allocate_object_part(req) {
 
 
 function report_bad_block(req) {
-    var bucket;
-    var obj;
-    return get_bucket_from_cache(req)
-        .then(function(bucket_arg) {
-            bucket = bucket_arg;
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
-            return db.ObjectMD.findOne(info).exec();
-        })
-        .then(db.check_not_deleted(req, 'object'))
-        .then(function(obj_arg) {
-            obj = obj_arg;
+    return find_object_md(req)
+        .then(function(obj) {
             return object_mapper.bad_block_in_part(
                 obj,
                 req.rest_params.start,
@@ -181,21 +143,13 @@ function report_bad_block(req) {
 function read_object_mappings(req) {
     var obj;
 
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
-            return db.ObjectMD.findOne(info).exec();
-        })
-        .then(db.check_not_deleted(req, 'object'))
+    return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
-            var start = Number(req.rest_params.start);
-            var end = Number(req.rest_params.end);
-            return object_mapper.read_object_mappings(obj, start, end);
+            return object_mapper.read_object_mappings(
+                obj,
+                req.rest_params.start,
+                req.rest_params.end);
         })
         .then(function(parts) {
             return {
@@ -213,16 +167,7 @@ function read_object_mappings(req) {
  *
  */
 function read_object_md(req) {
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
-            return db.ObjectMD.findOne(info).exec();
-        })
-        .then(db.check_not_deleted(req, 'object'))
+    return find_object_md(req)
         .then(function(obj) {
             return get_object_info(obj);
         });
@@ -236,15 +181,10 @@ function read_object_md(req) {
  *
  */
 function update_object_md(req) {
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
+    return find_object_md(req)
+        .then(function(obj) {
             var updates = _.pick(req.rest_params, 'content_type');
-            return db.ObjectMD.findOneAndUpdate(info, updates).exec();
+            return db.ObjectMD.findByIdAndUpdate(obj.id, updates).exec();
         })
         .then(db.check_not_deleted(req, 'object'))
         .thenResolve();
@@ -258,16 +198,21 @@ function update_object_md(req) {
  *
  */
 function delete_object(req) {
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-                key: req.rest_params.key,
-            };
-            return db.ObjectMD.findOneAndRemove(info).exec();
+    return load_bucket(req)
+        .then(function() {
+            var query = _.omit(object_md_query(req), 'deleted');
+            return db.ObjectMD.findOne(query).exec();
         })
         .then(db.check_not_found(req, 'object'))
+        .then(function(obj) {
+            return db.ObjectMD.findByIdAndUpdate(obj.id, {
+                deleted: new Date()
+            }).exec();
+        })
+        .then(db.check_not_found(req, 'object'))
+        .then(function(obj) {
+            return object_mapper.delete_object_mappings(obj);
+        })
         .thenResolve();
 }
 
@@ -279,12 +224,9 @@ function delete_object(req) {
  *
  */
 function list_objects(req) {
-    return get_bucket_from_cache(req)
-        .then(function(bucket) {
-            var info = {
-                system: req.system.id,
-                bucket: bucket.id,
-            };
+    return load_bucket(req)
+        .then(function() {
+            var info = _.omit(object_md_query(req), 'key');
             if (req.rest_params.key) {
                 info.key = new RegExp(req.rest_params.key);
             }
@@ -320,10 +262,30 @@ function get_object_info(md) {
     return info;
 }
 
-function get_bucket_from_cache(req) {
+function load_bucket(req) {
     return db.BucketCache.get({
             system: req.system.id,
             name: req.rest_params.bucket,
         })
-        .then(db.check_not_deleted(req, 'bucket'));
+        .then(db.check_not_deleted(req, 'bucket'))
+        .then(function(bucket) {
+            req.bucket = bucket;
+        });
+}
+
+function object_md_query(req) {
+    return {
+        system: req.system.id,
+        bucket: req.bucket.id,
+        key: req.rest_params.key,
+        deleted: null
+    };
+}
+
+function find_object_md(req) {
+    return load_bucket(req)
+        .then(function() {
+            return db.ObjectMD.findOne(object_md_query(req)).exec();
+        })
+        .then(db.check_not_deleted(req, 'object'));
 }

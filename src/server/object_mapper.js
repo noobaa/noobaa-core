@@ -291,7 +291,8 @@ function bad_block_in_part(obj, start, end, fragment, block_id, is_write) {
 function get_part_info(part, chunk, blocks, set_obj) {
     var fragments = [];
     _.each(_.groupBy(blocks, 'fragment'), function(fragment_blocks, fragment) {
-        fragments[fragment] = _.map(fragment_blocks, get_block_info);
+        var sorted_blocks = _.sortBy(fragment_blocks, block_heartbeat_sort);
+        fragments[fragment] = _.map(sorted_blocks, get_block_info);
     });
     var p = _.pick(part, 'start', 'end', 'chunk_offset');
     p.fragments = fragments;
@@ -337,4 +338,11 @@ function sanitize_object_range(obj, start, end) {
         start: start,
         end: end,
     };
+}
+
+/**
+ * sorting function for sorting blocks with most recent heartbeat first
+ */
+function block_heartbeat_sort(block) {
+    return -block.node.heartbeat.getTime();
 }

@@ -29,7 +29,7 @@ Q.longStackSupport = true;
  * ClientCLI
  *
  */
-    function ClientCLI(params) {
+function ClientCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
         address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
@@ -211,19 +211,19 @@ ClientCLI.prototype.sys = function() {
             console.log('System info:');
             console.log('---------------------------');
             console.log('Name:', res.name);
-            console.log('Storage:', '\n\tAllocated: '+size_utils.human_size(res.storage.alloc)+'\n\tContent capacity: '+size_utils.human_size(res.storage.used));
+            console.log('Storage:', '\n\tAllocated: ' + size_utils.human_size(res.storage.alloc) + '\n\tContent capacity: ' + size_utils.human_size(res.storage.used));
             console.log('Users:');
-            _.each(res.roles,function(curr_user){
-                console.log('\tName:',curr_user.account.name);
-            }) ;
-            console.log('Tiers:');
-            _.each(res.tiers,function(curr_tier){
-                console.log ('\tName:'+curr_tier.name+'\n\tStorage:\n\tAllocated: '+ size_utils.human_size(curr_tier.storage.alloc) +'\n\tUsed: '+ size_utils.human_size(curr_tier.storage.used)); 
+            _.each(res.roles, function(curr_user) {
+                console.log('\tName:', curr_user.account.name);
             });
-            console.log('Nodes:', res.nodes );
+            console.log('Tiers:');
+            _.each(res.tiers, function(curr_tier) {
+                console.log('\tName:' + curr_tier.name + '\n\tStorage:\n\tAllocated: ' + size_utils.human_size(curr_tier.storage.alloc) + '\n\tUsed: ' + size_utils.human_size(curr_tier.storage.used));
+            });
+            console.log('Nodes:', res.nodes);
             console.log('Buckets:', res.buckets);
             console.log('\tObjects:', res.objects);
-            
+
         })
         .then(function() {
             console.log('\nCOMPLETED: sys');
@@ -280,7 +280,9 @@ ClientCLI.prototype.list_nodes = function() {
         .then(function(res) {
             var i = 1;
             _.each(res.nodes, function(node) {
-                console.log('#' + i, node.name, node.ip + ':' + node.port + ' online:'+node.online+ ' last heartbeat:'+node.heartbeat);
+                console.log('#' + i, node.name, node.ip + ':' + node.port,
+                    'online:', node.online, 'heartbeat:', node.heartbeat,
+                    'storage.used:', size_utils.human_size(node.storage.used));
                 i++;
             });
         })

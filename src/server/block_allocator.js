@@ -96,6 +96,10 @@ function update_tier_alloc_nodes(system, tier) {
                 $ne: true
             },
         })
+        .sort({
+            // sorting with lowest used storage nodes first
+            'storage.used': 1
+        })
         .exec()
         .then(function(nodes) {
             info.promise = null;

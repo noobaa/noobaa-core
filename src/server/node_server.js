@@ -397,7 +397,8 @@ function heartbeat(req) {
 function count_node_storage_used(node_id) {
     return Q.when(db.DataBlock.mapReduce({
             query: {
-                node: node_id
+                node: node_id,
+                deleted: null,
             },
             map: function() {
                 emit('size', this.size);

@@ -466,7 +466,7 @@ ObjectReader.prototype._read = function(requested_size) {
 ObjectClient.prototype.read_object = function(params) {
     var self = this;
 
-    dbg.log0('read_object', range_utils.human_range(params));
+    dbg.log1('read_object', range_utils.human_range(params));
 
     if (params.end <= params.start) {
         // empty read range

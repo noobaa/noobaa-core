@@ -99,7 +99,7 @@ ClientCLI.prototype.load = function() {
                     bucket: self.params.bucket
                 };
             }
-            console.log('create auth', auth_params);
+            dbg.log1('create auth', auth_params);
             return self.client.create_auth_token(auth_params);
         })
         .then(function() {

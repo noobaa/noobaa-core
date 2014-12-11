@@ -101,43 +101,49 @@ function client_streamer(client, port) {
                 });
                 h += '</tbody></table></body></html>';
                 res.status(200).send(h);
-            }).then(null, function(err) {
+            })
+            .then(null, function(err) {
                 console.error('ERROR objects page', err.stack);
                 res.status(500).send(err);
             });
     });
 
     app.get('/b/:bucket/video/:key', function(req, res) {
-        Q.fcall(function() {
-            var bucket = req.params.bucket;
-            var key = req.params.key;
-            var href = '/b/' + encodeURIComponent(bucket) + '/o/' + encodeURIComponent(key);
-            var h = '<html>';
-            h += '<head>';
-            h += ' <link href="/video.js/video-js.css" rel="stylesheet">';
-            h += ' <script src="/video.js/video.js"></script>';
-            h += ' <script>videojs.options.flash.swf = "/video.js/video-js.swf"</script>';
-            h += ' <style>';
-            h += '   html, body { width: 100%; height: 100%; margin: 0; padding: 0; }';
-            h += '   .video-js {';
-            h += '     position: relative !important;';
-            h += '     width: 100% !important;';
-            h += '     height: 100% !important; }';
-            h += ' </style>';
-            h += '</head>';
-            h += '<body>';
-            h += ' <video controls preload="auto"';
-            h += '   class="video-js vjs-default-skin vjs-big-play-centered"';
-            h += '   data-setup=\'{"example_option":true}\'>';
-            h += '   <source type="video/mp4" src="' + href + '" />';
-            h += ' </video>';
-            h += '</body>';
-            h += '</html>';
-            res.status(200).send(h);
-        }).then(null, function(err) {
-            console.error('ERROR video page', err.stack);
-            res.status(500).send(err);
-        });
+        var bucket = req.params.bucket;
+        var key = req.params.key;
+        client.object.get_object_md({
+                bucket: bucket,
+                key: key,
+            })
+            .then(function(md) {
+                var href = '/b/' + encodeURIComponent(bucket) + '/o/' + encodeURIComponent(key);
+                var h = '<html>';
+                h += '<head>';
+                h += ' <link href="/video.js/video-js.css" rel="stylesheet">';
+                h += ' <script src="/video.js/video.js"></script>';
+                h += ' <script>videojs.options.flash.swf = "/video.js/video-js.swf"</script>';
+                h += ' <style>';
+                h += '   html, body { width: 100%; height: 100%; margin: 0; padding: 0; }';
+                h += '   .video-js {';
+                h += '     position: relative !important;';
+                h += '     width: 100% !important;';
+                h += '     height: 100% !important; }';
+                h += ' </style>';
+                h += '</head>';
+                h += '<body>';
+                h += ' <video controls preload="auto"';
+                h += '   class="video-js vjs-default-skin vjs-big-play-centered"';
+                h += '   data-setup=\'{"example_option":true}\'>';
+                h += '   <source type="' + md.content_type + '" src="' + href + '" />';
+                h += ' </video>';
+                h += '</body>';
+                h += '</html>';
+                res.status(200).send(h);
+            })
+            .then(null, function(err) {
+                console.error('ERROR video page', err.stack);
+                res.status(500).send(err);
+            });
     });
 
     app.get('/b/:bucket/o/:key', function(req, res) {

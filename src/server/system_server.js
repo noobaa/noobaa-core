@@ -139,8 +139,14 @@ function read_system(req) {
             tiers: _.map(tiers, function(tier) {
                 var t = _.pick(tier, 'name', 'kind');
                 var a = nodes_aggregate[tier.id];
-                t.storage = _.pick(a, 'alloc', 'used');
-                t.nodes = _.pick(a, 'count', 'online');
+                t.storage = _.defaults(_.pick(a, 'alloc', 'used'), {
+                    alloc: 0,
+                    used: 0
+                });
+                t.nodes = _.defaults(_.pick(a, 'count', 'online'), {
+                    count: 0,
+                    online: 0
+                });
                 return t;
             }),
             storage: {

@@ -67,40 +67,48 @@ function client_streamer(client, port) {
             })
             .then(function(reply) {
                 console.log('list_objects', bucket, reply);
-                var h = '<html>';
-                h += '<head>';
-                h += ' <style>th, td { padding: 5px 10px; }</style>';
-                h += '</head>';
-                h += '<body>';
-                h += '<h1>' + bucket + '</h1>';
-                h += '<table>';
-                h += '<thead><tr>';
-                h += ' <th>File</th>';
-                h += ' <th>Size</th>';
-                h += ' <th>Type</th>';
-                h += ' <th>Created</th>';
-                h += ' <th></th>';
-                h += '</thead>';
-                h += '<tbody>';
-                _.each(reply.objects, function(o) {
-                    var href = '/b/' + encodeURIComponent(bucket);
-                    if (/^video\//.test(o.info.content_type)) {
-                        href += '/video/' + encodeURIComponent(o.key);
-                    } else {
-                        href += '/o/' + encodeURIComponent(o.key);
-                    }
-                    var create_time = new Date(o.info.create_time);
-                    h += '<tr>';
-                    h += ' <td><a href="' + href + '">' + o.key + '</a></td>';
-                    h += ' <td>' + size_utils.human_size(o.info.size) + '</td>';
-                    h += ' <td>' + o.info.content_type + '</td>';
-                    h += ' <td title="' + create_time.toLocaleString() + '">' +
-                        moment(create_time).fromNow() + '</td>';
-                    h += ' <td>' + (o.info.upload_mode ? 'uploading...' : '') + '</td>';
-                    h += '</tr>';
-                });
-                h += '</tbody></table></body></html>';
-                res.status(200).send(h);
+                var html_arrays = [
+                    '<html>',
+                    '<head>',
+                    ' <style>th, td { padding: 5px 10px; }</style>',
+                    '</head>',
+                    '<body>',
+                    ' <h1>' + bucket + '</h1>',
+                    ' <table>',
+                    '  <thead><tr>',
+                    '   <th>File</th>',
+                    '   <th>Size</th>',
+                    '   <th>Type</th>',
+                    '   <th>Created</th>',
+                    '   <th></th>',
+                    '  </thead>',
+                    '  <tbody>',
+                    _.map(reply.objects, function(o) {
+                        var href = '/b/' + encodeURIComponent(bucket);
+                        if (/^video\//.test(o.info.content_type)) {
+                            href += '/video/' + encodeURIComponent(o.key);
+                        } else {
+                            href += '/o/' + encodeURIComponent(o.key);
+                        }
+                        var create_time = new Date(o.info.create_time);
+                        return [
+                            '<tr>',
+                            ' <td><a href="' + href + '">' + o.key + '</a></td>',
+                            ' <td>' + size_utils.human_size(o.info.size) + '</td>',
+                            ' <td>' + o.info.content_type + '</td>',
+                            ' <td title="' + create_time.toLocaleString() + '">' +
+                            moment(create_time).fromNow() + '</td>',
+                            ' <td>' + (o.info.upload_mode ? 'uploading...' : '') + '</td>',
+                            '</tr>'
+                        ];
+                    }),
+                    '  </tbody>',
+                    ' </table>',
+                    '</body>',
+                    '</html>'
+                ];
+                var html = _.flatten(html_arrays).join('\n');
+                res.status(200).send(html);
             })
             .then(null, function(err) {
                 console.error('ERROR objects page', err.stack);
@@ -117,28 +125,34 @@ function client_streamer(client, port) {
             })
             .then(function(md) {
                 var href = '/b/' + encodeURIComponent(bucket) + '/o/' + encodeURIComponent(key);
-                var h = '<html>';
-                h += '<head>';
-                h += ' <link href="/video.js/video-js.css" rel="stylesheet">';
-                h += ' <script src="/video.js/video.js"></script>';
-                h += ' <script>videojs.options.flash.swf = "/video.js/video-js.swf"</script>';
-                h += ' <style>';
-                h += '   html, body { width: 100%; height: 100%; margin: 0; padding: 0; }';
-                h += '   .video-js {';
-                h += '     position: relative !important;';
-                h += '     width: 100% !important;';
-                h += '     height: 100% !important; }';
-                h += ' </style>';
-                h += '</head>';
-                h += '<body>';
-                h += ' <video controls preload="auto"';
-                h += '   class="video-js vjs-default-skin vjs-big-play-centered"';
-                h += '   data-setup=\'{"example_option":true}\'>';
-                h += '   <source type="' + md.content_type + '" src="' + href + '" />';
-                h += ' </video>';
-                h += '</body>';
-                h += '</html>';
-                res.status(200).send(h);
+                var html_arrays = [
+                    '<html>',
+                    '<head>',
+                    ' <link href="/video.js/video-js.css" rel="stylesheet" />',
+                    ' <script src="/video.js/video.js"></script>',
+                    ' <script' + '>', // hack to make jshint happy
+                    '  /* global videojs */',
+                    '  videojs.options.flash.swf = "/video.js/video-js.swf";',
+                    ' </script>',
+                    ' <style>',
+                    '   html, body { width: 100%; height: 100%; margin: 0; padding: 0; }',
+                    '   .video-js {',
+                    '     position: relative !important;',
+                    '     width: 100% !important;',
+                    '     height: 100% !important; }',
+                    ' </style>',
+                    '</head>',
+                    '<body>',
+                    ' <video controls preload="auto"',
+                    '   class="video-js vjs-default-skin vjs-big-play-centered"',
+                    '   data-setup=\'{"example_option":true}\'>',
+                    '   <source type="' + md.content_type + '" src="' + href + '" />',
+                    ' </video>',
+                    '</body>',
+                    '</html>'
+                ];
+                var html = _.flatten(html_arrays).join('\n');
+                res.status(200).send(html);
             })
             .then(null, function(err) {
                 console.error('ERROR video page', err.stack);

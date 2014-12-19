@@ -307,6 +307,9 @@ function group_nodes(req) {
 }
 
 
+var pending_heartbeats_by_node_id = {};
+var pending_heartbeats_timeout = null;
+
 
 /**
  *
@@ -331,61 +334,150 @@ function heartbeat(req) {
         req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress;
     updates.heartbeat = new Date();
-    var agent_storage = req.rest_params.storage;
-    var node;
 
-    return Q.when(db.Node.findById(node_id).exec())
-        .then(db.check_not_deleted(req, 'node'))
-        .then(function(node_arg) {
-            node = node_arg;
-            // TODO CRITICAL need to optimize - we count blocks on every heartbeat...
-            return count_node_storage_used(node_id);
-        })
-        .then(function(storage_used) {
-            // console.log('heartbeat', node, storage_used);
+    // add the heartbeat info as pending in memory
+    pending_heartbeats_by_node_id[node_id] = {
+        updates: updates,
+        storage: req.rest_params.storage,
+    };
 
-            // check if need to update the node used storage count
-            if (node.storage.used !== storage_used) {
-                updates['storage.used'] = storage_used;
-            }
+    // register a timeout to handle the pending heartbeats as a batch
+    if (!pending_heartbeats_timeout) {
+        set_heartbeat_timeout();
+    }
 
-            // verify the agent's storage numbers
-            if (agent_storage.used !== storage_used) {
-                console.log('NODE agent used storage not in sync',
-                    agent_storage.used, 'counted used', storage_used);
-                // TODO trigger a usage check
-            }
-            if (agent_storage.alloc !== node.storage.alloc) {
-                console.log('NODE change allocated storage from',
-                    agent_storage.alloc, 'to', node.storage.alloc);
-                // TODO trigger agent re-allocation
-            }
+    // TODO how to return the storage info to the agent?
+    return {
+        storage: {
+            alloc: 0, //node.storage.alloc || 0,
+            used: 0, //node.storage.used || 0,
+        }
+    };
+}
 
-            // we log the ip and location updates,
-            // probably need to detect nodes that change too rapidly
 
-            if (updates.geolocation !== node.geolocation) {
-                console.log('NODE change geolocation from',
-                    node.geolocation, 'to', updates.geolocation);
-            }
-            if (updates.ip !== node.ip || updates.port !== node.port) {
-                console.log('NODE change ip:port from',
-                    node.ip + ':' + node.port, 'to',
-                    updates.ip + ':' + updates.port);
-            }
+/**
+ *
+ * handle_pending_heartbeats
+ *
+ */
+function handle_pending_heartbeats() {
+    var pending = pending_heartbeats_by_node_id;
+    pending_heartbeats_by_node_id = {};
+    var node_ids = _.keys(pending);
+    var node_ids_query = {
+        $in: node_ids
+    };
+    console.log('handle_pending_heartbeats', node_ids);
 
-            return db.Node.findByIdAndUpdate(node_id, updates).exec();
-        })
-        .then(function(node) {
-            return {
-                storage: {
-                    alloc: node.storage.alloc || 0,
-                    used: node.storage.used || 0,
+    return Q.all([
+            db.Node.find({
+                _id: node_ids_query,
+                deleted: null,
+            }).exec(),
+            db.DataBlock.mapReduce({
+                query: {
+                    node: node_ids_query,
+                    deleted: null,
+                },
+                map: function() {
+                    emit(this.node, this.size);
+                },
+                reduce: size_utils.reduce_sum
+            })
+        ])
+        .spread(function(nodes, nodes_used_storage) {
+            // convert the map-reduce array to map of node_id -> sum of block sizes
+            nodes_used_storage = _.mapValues(_.indexBy(nodes_used_storage, '_id'), 'value');
+            nodes = _.indexBy(nodes, '_id');
+
+            // update each node with the updates sent by the agent and computed used storage
+            return Q.allSettled(_.map(node_ids, function(node_id) {
+                var node = nodes[node_id];
+                var params = pending[node_id];
+                var updates = params.updates;
+                var agent_storage = params.storage;
+                var storage_used = nodes_used_storage[node_id] || 0;
+
+                if (!node) {
+                    // we don't fail here because failures would keep retrying
+                    // to find this node, and the node is not in the db.
+                    console.error('IGNORE MISSING NODE FOR HEARTBEAT', node_id);
+                    return;
                 }
-            };
+
+                // check if need to update the node used storage count
+                if (node.storage.used !== storage_used) {
+                    updates['storage.used'] = storage_used;
+                }
+
+                // verify the agent's storage numbers
+                if (agent_storage.used !== storage_used) {
+                    console.log('NODE agent used storage not in sync',
+                        agent_storage.used, 'counted used', storage_used);
+                    // TODO trigger a usage check
+                }
+                if (agent_storage.alloc !== node.storage.alloc) {
+                    console.log('NODE change allocated storage from',
+                        agent_storage.alloc, 'to', node.storage.alloc);
+                    // TODO trigger agent re-allocation
+                }
+
+                // we log the ip and location updates,
+                // probably need to detect nodes that change too rapidly
+
+                if (updates.geolocation !== node.geolocation) {
+                    console.log('NODE change geolocation from',
+                        node.geolocation, 'to', updates.geolocation);
+                }
+                if (updates.ip !== node.ip || updates.port !== node.port) {
+                    console.log('NODE change ip:port from',
+                        node.ip + ':' + node.port, 'to',
+                        updates.ip + ':' + updates.port);
+                }
+
+                return db.Node.findByIdAndUpdate(node_id, updates).exec();
+            }));
+        })
+        .then(function(res) {
+
+            // check the state of the updates and collect the ones that did not succeed
+            var pending_to_retry = {};
+            _.each(node_ids, function(node_id, i) {
+                var settled = res[i];
+                if (settled.state !== 'fulfilled') {
+                    pending_to_retry[node_id] = pending[node_id];
+                }
+            });
+
+            // add retry items unless already got a new heartbeat for the same node
+            _.defaults(pending_heartbeats_by_node_id, pending_to_retry);
+
+            console.log('handle_pending_heartbeats finished, now pending',
+                _.keys(pending_heartbeats_by_node_id));
+
+            set_heartbeat_timeout();
+        })
+        .then(null, function(err) {
+            console.error('FAILED handle_pending_heartbeats', err, node_ids);
+
+            // add retry items unless already got a new heartbeat for the same node
+            _.defaults(pending_heartbeats_by_node_id, pending);
+
+            set_heartbeat_timeout();
         });
 }
 
+
+function set_heartbeat_timeout() {
+    // if no more pending we can reset the timeout and next hearbeat will set
+    if (_.isEmpty(pending_heartbeats_by_node_id)) {
+        clearTimeout(pending_heartbeats_timeout);
+        pending_heartbeats_timeout = null;
+    } else {
+        pending_heartbeats_timeout = setTimeout(handle_pending_heartbeats, 3000);
+    }
+}
 
 
 

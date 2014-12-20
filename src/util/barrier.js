@@ -89,6 +89,7 @@ Barrier.prototype.release = function() {
     // call the process function with the items list
     Q.fcall(self.process, barrier.items)
         .done(function(res) {
+            res = res || [];
             _.each(barrier.defers, function(defer, index) {
                 defer.resolve(res[index]);
             });

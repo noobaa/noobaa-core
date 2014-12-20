@@ -13,6 +13,7 @@ var object_mapper = require('./object_mapper');
 var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
 var db = require('./db');
+var Barrier = require('../util/barrier');
 
 
 /**
@@ -307,8 +308,88 @@ function group_nodes(req) {
 }
 
 
-var pending_heartbeats_by_node_id = {};
-var pending_heartbeats_timeout = null;
+
+/**
+ * finding node by id for heatbeat requests uses a barrier for merging DB calls.
+ * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
+ */
+var heartbeat_find_node_by_id_barrier = new Barrier({
+    max_length: 1000,
+    expiry_ms: 1000, // will wait 1 second for others to join
+    process: function(node_ids) {
+        return Q.when(db.Node
+                .find({
+                    deleted: null,
+                    _id: {
+                        $in: node_ids
+                    },
+                })
+                .exec())
+            .then(function(res) {
+                var nodes_by_id = _.indexBy(res, '_id');
+                return _.map(node_ids, function(node_id) {
+                    return nodes_by_id[node_id];
+                });
+            });
+    }
+});
+
+
+/**
+ * counting node used storage for heatbeat requests uses a barrier for merging DB calls.
+ * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
+ */
+var heartbeat_count_node_storage_barrier = new Barrier({
+    max_length: 1000,
+    expiry_ms: 1000, // will wait 1 second for others to join
+    process: function(node_ids) {
+        return Q.when(db.DataBlock.mapReduce({
+                query: {
+                    deleted: null,
+                    node: {
+                        $in: node_ids
+                    },
+                },
+                map: function() {
+                    emit(this.node, this.size);
+                },
+                reduce: size_utils.reduce_sum
+            }))
+            .then(function(res) {
+                // convert the map-reduce array to map of node_id -> sum of block sizes
+                var nodes_storage = _.mapValues(_.indexBy(res, '_id'), 'value');
+                return _.map(node_ids, function(node_id) {
+                    return nodes_storage[node_id] || 0;
+                });
+            });
+    }
+});
+
+
+/**
+ * updating node timestamp for heatbeat requests uses a barrier for merging DB calls.
+ * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
+ */
+var heartbeat_update_node_timestamp_barrier = new Barrier({
+    max_length: 1000,
+    expiry_ms: 1000, // will wait 1 second for others to join
+    process: function(node_ids) {
+        return Q.when(db.Node
+                .update({
+                    deleted: null,
+                    _id: {
+                        $in: node_ids
+                    },
+                }, {
+                    heartbeat: new Date()
+                }, {
+                    multi: true
+                })
+                .exec())
+            .thenResolve();
+    }
+});
+
 
 
 /**
@@ -318,165 +399,91 @@ var pending_heartbeats_timeout = null;
  */
 function heartbeat(req) {
     var node_id = req.rest_params.id;
+    var node;
 
     // verify the authorization to use this node for non admin roles
-    if (req.role !== 'admin') {
-        if (node_id !== req.auth.extra.node_id) throw req.forbidden();
+    if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
+        throw req.forbidden();
     }
 
-    var updates = _.pick(req.rest_params,
-        'geolocation',
-        'ip',
-        'port',
-        'device_info'
-    );
-    updates.ip = (updates.ip && updates.ip !== '0.0.0.0' && updates.ip) ||
-        req.headers['x-forwarded-for'] ||
-        req.connection.remoteAddress;
-    updates.heartbeat = new Date();
-
-    // add the heartbeat info as pending in memory
-    pending_heartbeats_by_node_id[node_id] = {
-        updates: updates,
-        storage: req.rest_params.storage,
-    };
-
-    // register a timeout to handle the pending heartbeats as a batch
-    if (!pending_heartbeats_timeout) {
-        set_heartbeat_timeout();
-    }
-
-    // TODO how to return the storage info to the agent?
-    return {
-        storage: {
-            alloc: 0, //node.storage.alloc || 0,
-            used: 0, //node.storage.used || 0,
-        }
-    };
-}
-
-
-/**
- *
- * handle_pending_heartbeats
- *
- */
-function handle_pending_heartbeats() {
-    var pending = pending_heartbeats_by_node_id;
-    pending_heartbeats_by_node_id = {};
-    var node_ids = _.keys(pending);
-    var node_ids_query = {
-        $in: node_ids
-    };
-    console.log('handle_pending_heartbeats', node_ids);
-
+    // the DB calls are optimized by merging concurrent requests to use a single query
+    // by using barriers that wait a bit for concurrent calls to join together.
     return Q.all([
-            db.Node.find({
-                _id: node_ids_query,
-                deleted: null,
-            }).exec(),
-            db.DataBlock.mapReduce({
-                query: {
-                    node: node_ids_query,
-                    deleted: null,
-                },
-                map: function() {
-                    emit(this.node, this.size);
-                },
-                reduce: size_utils.reduce_sum
-            })
+            heartbeat_find_node_by_id_barrier.call(node_id),
+            heartbeat_count_node_storage_barrier.call(node_id)
         ])
-        .spread(function(nodes, nodes_used_storage) {
-            // convert the map-reduce array to map of node_id -> sum of block sizes
-            nodes_used_storage = _.mapValues(_.indexBy(nodes_used_storage, '_id'), 'value');
-            nodes = _.indexBy(nodes, '_id');
+        .spread(function(node_arg, storage_used) {
+            node = node_arg;
 
-            // update each node with the updates sent by the agent and computed used storage
-            return Q.allSettled(_.map(node_ids, function(node_id) {
-                var node = nodes[node_id];
-                var params = pending[node_id];
-                var updates = params.updates;
-                var agent_storage = params.storage;
-                var storage_used = nodes_used_storage[node_id] || 0;
+            if (!node) {
+                // we don't fail here because failures would keep retrying
+                // to find this node, and the node is not in the db.
+                console.error('IGNORE MISSING NODE FOR HEARTBEAT', node_id);
+                return;
+            }
 
-                if (!node) {
-                    // we don't fail here because failures would keep retrying
-                    // to find this node, and the node is not in the db.
-                    console.error('IGNORE MISSING NODE FOR HEARTBEAT', node_id);
-                    return;
-                }
+            var agent_storage = req.rest_params.storage;
 
-                // check if need to update the node used storage count
-                if (node.storage.used !== storage_used) {
-                    updates['storage.used'] = storage_used;
-                }
+            // the heartbeat api returns the expected alloc to the agent
+            // in order for it to perform the necessary pre-allocation,
+            // so this check is here just for logging
+            if (agent_storage.alloc !== node.storage.alloc) {
+                console.log('NODE change allocated storage from',
+                    agent_storage.alloc, 'to', node.storage.alloc);
+            }
 
-                // verify the agent's storage numbers
-                if (agent_storage.used !== storage_used) {
-                    console.log('NODE agent used storage not in sync',
-                        agent_storage.used, 'counted used', storage_used);
-                    // TODO trigger a usage check
-                }
-                if (agent_storage.alloc !== node.storage.alloc) {
-                    console.log('NODE change allocated storage from',
-                        agent_storage.alloc, 'to', node.storage.alloc);
-                    // TODO trigger agent re-allocation
-                }
+            // verify the agent's reported usage
+            if (agent_storage.used !== storage_used) {
+                console.log('NODE agent used storage not in sync',
+                    agent_storage.used, 'counted used', storage_used);
+                // TODO trigger a detailed usage check / reclaiming
+            }
 
-                // we log the ip and location updates,
-                // probably need to detect nodes that change too rapidly
 
-                if (updates.geolocation !== node.geolocation) {
-                    console.log('NODE change geolocation from',
-                        node.geolocation, 'to', updates.geolocation);
-                }
-                if (updates.ip !== node.ip || updates.port !== node.port) {
-                    console.log('NODE change ip:port from',
-                        node.ip + ':' + node.port, 'to',
-                        updates.ip + ':' + updates.port);
-                }
+            var updates = {};
 
+            // check if need to update the node used storage count
+            if (node.storage.used !== storage_used) {
+                updates['storage.used'] = storage_used;
+            }
+
+            // TODO detect nodes that try to change ip, port too rapidly
+            if (req.rest_params.geolocation &&
+                req.rest_params.geolocation !== node.geolocation) {
+                updates.geolocation = req.rest_params.geolocation;
+            }
+            var ip = req.rest_params.ip ||
+                req.headers['x-forwarded-for'] ||
+                req.connection.remoteAddress;
+            if (ip && ip !== node.ip) {
+                updates.ip = ip;
+            }
+            if (req.rest_params.port && req.rest_params.port !== node.port) {
+                updates.port = req.rest_params.port;
+            }
+            if (req.rest_params.device_info) {
+                updates.device_info = req.rest_params.device_info;
+            }
+
+            console.log('NODE heartbeat', updates);
+
+            if (_.isEmpty(updates)) {
+                // when only timestamp is updated we optimize by merging DB calls with a barrier
+                return heartbeat_update_node_timestamp_barrier.call(node_id);
+            } else {
+                updates.heartbeat = new Date();
                 return db.Node.findByIdAndUpdate(node_id, updates).exec();
-            }));
-        })
-        .then(function(res) {
+            }
 
-            // check the state of the updates and collect the ones that did not succeed
-            var pending_to_retry = {};
-            _.each(node_ids, function(node_id, i) {
-                var settled = res[i];
-                if (settled.state !== 'fulfilled') {
-                    pending_to_retry[node_id] = pending[node_id];
+        }).then(function() {
+            // return the storage info to the agent
+            return {
+                storage: {
+                    alloc: node.storage.alloc || 0,
+                    used: node.storage.used || 0,
                 }
-            });
-
-            // add retry items unless already got a new heartbeat for the same node
-            _.defaults(pending_heartbeats_by_node_id, pending_to_retry);
-
-            console.log('handle_pending_heartbeats finished, now pending',
-                _.keys(pending_heartbeats_by_node_id));
-
-            set_heartbeat_timeout();
-        })
-        .then(null, function(err) {
-            console.error('FAILED handle_pending_heartbeats', err, node_ids);
-
-            // add retry items unless already got a new heartbeat for the same node
-            _.defaults(pending_heartbeats_by_node_id, pending);
-
-            set_heartbeat_timeout();
+            };
         });
-}
-
-
-function set_heartbeat_timeout() {
-    // if no more pending we can reset the timeout and next hearbeat will set
-    if (_.isEmpty(pending_heartbeats_by_node_id)) {
-        clearTimeout(pending_heartbeats_timeout);
-        pending_heartbeats_timeout = null;
-    } else {
-        pending_heartbeats_timeout = setTimeout(handle_pending_heartbeats, 3000);
-    }
 }
 
 

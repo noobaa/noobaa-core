@@ -243,7 +243,6 @@ module.exports = rest_api({
                     'id',
                     'port',
                     'storage',
-                    'device_info',
                 ],
                 properties: {
                     id: {

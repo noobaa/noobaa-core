@@ -10,6 +10,7 @@ var argv = require('minimist')(process.argv);
 var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var coretest = require('./coretest');
+var SliceReader = require('../util/slice_reader');
 
 var chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
@@ -136,27 +137,12 @@ describe('object', function() {
                 for (var i = 0; i < size; i++) {
                     data[i] = chance.integer(CHANCE_BYTE);
                 }
-                return client.object.create_multipart_upload({
+                return client.object.upload_stream({
                     bucket: BKT,
                     key: KEY,
                     size: size,
                     content_type: 'application/octet-stream',
-                });
-            }).then(function() {
-                return Q.Promise(function(resolve, reject) {
-                    client.object.open_write_stream({
-                        bucket: BKT,
-                        key: KEY,
-                    }).once('error', function(err) {
-                        reject(err);
-                    }).once('finish', function() {
-                        resolve();
-                    }).end(data);
-                });
-            }).then(function() {
-                return client.object.complete_multipart_upload({
-                    bucket: BKT,
-                    key: KEY,
+                    source_stream: new SliceReader(data),
                 });
             }).then(function() {
                 return Q.Promise(function(resolve, reject) {

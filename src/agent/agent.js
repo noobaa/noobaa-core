@@ -47,8 +47,7 @@ function Agent(params) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
 
-        self.storage_path_blocks = path.join(self.storage_path, 'blocks');
-        self.store = new AgentStore(self.storage_path_blocks);
+        self.store = new AgentStore(self.storage_path);
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 10,

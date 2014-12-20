@@ -38,6 +38,11 @@ var VALID_METHODS = {
  *
  */
 function rest_api(api) {
+    // increase the maximum sockets per host, the default is 5 which is very low
+    if (http.globalAgent.maxSockets < 100) {
+        http.globalAgent.maxSockets = 100;
+    }
+
     var api_path = PATH.join('/api', api.name);
 
     // add all definitions

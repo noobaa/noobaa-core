@@ -47,8 +47,7 @@ function Agent(params) {
         assert(!self.token, 'unexpected param: token. ' +
             'with storage_path the token is expected in the file <storage_path>/token');
 
-        self.storage_path_blocks = path.join(self.storage_path, 'blocks');
-        self.store = new AgentStore(self.storage_path_blocks);
+        self.store = new AgentStore(self.storage_path);
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 10,
@@ -308,12 +307,13 @@ Agent.prototype._server_error_handler = function(err) {
 Agent.prototype.send_heartbeat = function() {
     var self = this;
     var store_stats;
+    var device_info_send_time;
     console.log('send heartbeat by agent', self.node_id);
 
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
-            return self.client.node.heartbeat({
+            var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
                 // ip: '',
@@ -322,7 +322,11 @@ Agent.prototype.send_heartbeat = function() {
                     alloc: store_stats.alloc,
                     used: store_stats.used,
                 },
-                device_info: {
+            };
+            var now = new Date();
+            if (!self.device_info_send_time || now > self.device_info_send_time + 3600000) {
+                device_info_send_time = now;
+                params.device_info = {
                     hostname: os.hostname(),
                     type: os.type(),
                     platform: os.platform(),
@@ -334,10 +338,14 @@ Agent.prototype.send_heartbeat = function() {
                     freemem: os.freemem(),
                     cpus: os.cpus(),
                     networkInterfaces: os.networkInterfaces(),
-                }
-            });
+                };
+            }
+            return self.client.node.heartbeat(params);
         })
         .then(function(res) {
+            if (device_info_send_time) {
+                self.device_info_send_time = device_info_send_time;
+            }
 
             // report only if used storage mismatch
             // TODO compare with some accepted error and handle

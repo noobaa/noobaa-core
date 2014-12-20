@@ -14,6 +14,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
 var db = require('./db');
 var Barrier = require('../util/barrier');
+var dbg = require('../util/dbg')(__filename);
 
 
 /**
@@ -315,8 +316,9 @@ function group_nodes(req) {
  */
 var heartbeat_find_node_by_id_barrier = new Barrier({
     max_length: 1000,
-    expiry_ms: 1000, // will wait 1 second for others to join
+    expiry_ms: 1000, // milliseconds to wait for others to join
     process: function(node_ids) {
+        dbg.log1('heartbeat_find_node_by_id_barrier', node_ids.length);
         return Q.when(db.Node
                 .find({
                     deleted: null,
@@ -341,8 +343,9 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
  */
 var heartbeat_count_node_storage_barrier = new Barrier({
     max_length: 1000,
-    expiry_ms: 1000, // will wait 1 second for others to join
+    expiry_ms: 1000, // milliseconds to wait for others to join
     process: function(node_ids) {
+        dbg.log1('heartbeat_count_node_storage_barrier', node_ids.length);
         return Q.when(db.DataBlock.mapReduce({
                 query: {
                     deleted: null,
@@ -372,8 +375,9 @@ var heartbeat_count_node_storage_barrier = new Barrier({
  */
 var heartbeat_update_node_timestamp_barrier = new Barrier({
     max_length: 1000,
-    expiry_ms: 1000, // will wait 1 second for others to join
+    expiry_ms: 1000, // milliseconds to wait for others to join
     process: function(node_ids) {
+        dbg.log1('heartbeat_update_node_timestamp_barrier', node_ids.length);
         return Q.when(db.Node
                 .update({
                     deleted: null,
@@ -405,6 +409,8 @@ function heartbeat(req) {
     if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
         throw req.forbidden();
     }
+
+    dbg.log2('HEARTBEAT enter', node_id);
 
     // the DB calls are optimized by merging concurrent requests to use a single query
     // by using barriers that wait a bit for concurrent calls to join together.
@@ -465,7 +471,7 @@ function heartbeat(req) {
                 updates.device_info = req.rest_params.device_info;
             }
 
-            console.log('NODE heartbeat', updates);
+            dbg.log2('NODE heartbeat', node_id, ip + ':' + req.rest_params.port);
 
             if (_.isEmpty(updates)) {
                 // when only timestamp is updated we optimize by merging DB calls with a barrier

@@ -4,6 +4,11 @@ process.on('uncaughtException', function(err) {
     console.log(err.stack);
 });
 
+// newrelic monitoring should load first
+if (process.env.NEW_RELIC_LICENSE_KEY) {
+    require('newrelic');
+}
+
 // important - dot settings should run before any require() that might use dot
 // or else the it will get mess up (like the email.js code)
 var dot_engine = require('noobaa-util/dot_engine');

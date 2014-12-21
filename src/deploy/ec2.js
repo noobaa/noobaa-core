@@ -36,8 +36,8 @@ if (!process.env.AWS_ACCESS_KEY_ID) {
 
 // AWS.config.loadFromPath('./env.js');
 AWS.config.update({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    accessKeyId: 'AKIAIPZOGBP3B7I2THZQ',//process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: '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',//process.env.AWS_SECRET_ACCESS_KEY,
     region: 'us-east-1',
     // region: process.env.AWS_REGION,
 });

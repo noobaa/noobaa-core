@@ -32,8 +32,8 @@ Q.longStackSupport = true;
 function ClientCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
-        address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
-        streamer: params.prod ? 5005 : 5006,
+        address: params.address ? params.address : (params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001'),
+        streamer: params.streamer ? params.streamer : (params.prod ? 5005 : 5006),
         email: 'a@a.a',
         password: 'aaa',
         system: 'sys',

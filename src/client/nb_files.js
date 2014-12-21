@@ -225,25 +225,13 @@ nb_api.factory('nbFiles', [
             };
             var create_params = _.clone(object_path);
             create_params.size = file.size;
+            create_params.content_type = file.content_type;
+            create_params.source_stream = new SliceReader(file, {
+                highWaterMark: size_utils.MEGABYTE,
+                FileReader: $window.FileReader,
+            });
             var start_time = Date.now();
-            return $q.when(object_client.create_multipart_upload(create_params)).then(
-                function() {
-                    var defer = $q.defer();
-                    var reader = new SliceReader(file, {
-                        highWaterMark: size_utils.MEGABYTE,
-                        FileReader: $window.FileReader,
-                    });
-                    var writer = object_client.open_write_stream(object_path);
-                    var stream = reader.pipe(writer);
-                    stream.once('error', defer.reject);
-                    stream.once('finish', defer.resolve);
-                    return defer.promise;
-                }
-            ).then(
-                function() {
-                    return object_client.complete_multipart_upload(object_path);
-                }
-            ).then(
+            return $q.when(object_client.upload_stream(create_params)).then(
                 function() {
                     var duration = (Date.now() - start_time) / 1000;
                     var elapsed = duration.toFixed(1) + 'sec';

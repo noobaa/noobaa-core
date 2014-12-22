@@ -9,6 +9,9 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
     require('newrelic');
 }
 
+// dump heap with kill -USR2 <pid>
+require('heapdump');
+
 // important - dot settings should run before any require() that might use dot
 // or else the it will get mess up (like the email.js code)
 var dot_engine = require('noobaa-util/dot_engine');

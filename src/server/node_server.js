@@ -467,7 +467,12 @@ function heartbeat(req) {
             if (req.rest_params.port && req.rest_params.port !== node.port) {
                 updates.port = req.rest_params.port;
             }
-            if (req.rest_params.device_info) {
+
+            // to avoid frequest updates of the node check if the last update of
+            // device_info was less than 1 hour ago and if so drop the update.
+            // this will allow more batching by heartbeat_update_node_timestamp_barrier.
+            if (req.rest_params.device_info &&
+                should_update_device_info(node.device_info, req.rest_params.device_info)) {
                 updates.device_info = req.rest_params.device_info;
             }
 
@@ -492,6 +497,24 @@ function heartbeat(req) {
         });
 }
 
+
+// check if device_info should update only if the last update was more than an hour ago
+function should_update_device_info(node_device_info, new_device_info) {
+    var last = new Date(node_device_info && node_device_info.last_update || 0);
+    var last_time = last.getTime() || 0;
+    var now = new Date();
+    var now_time = now.getTime();
+    var skip_time = 3600000;
+
+    if (last_time > now_time - skip_time &&
+        last_time < now_time + skip_time) {
+        return false;
+    }
+
+    // add the current time to the info which will be saved
+    new_device_info.last_update = now;
+    return true;
+}
 
 
 

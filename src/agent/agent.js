@@ -323,9 +323,10 @@ Agent.prototype.send_heartbeat = function() {
                     used: store_stats.used,
                 },
             };
-            var now = new Date();
-            if (!self.device_info_send_time || now > self.device_info_send_time + 3600000) {
-                device_info_send_time = now;
+            var now_time = Date.now();
+            if (!self.device_info_send_time ||
+                now_time > self.device_info_send_time + 3600000) {
+                device_info_send_time = now_time;
                 params.device_info = {
                     hostname: os.hostname(),
                     type: os.type(),

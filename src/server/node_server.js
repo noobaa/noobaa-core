@@ -484,12 +484,18 @@ function heartbeat(req) {
             }
 
         }).then(function() {
-            // return the storage info to the agent
+            var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
+            hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
+            hb_delay_ms = hb_delay_ms | 0; // make integer
+            hb_delay_ms = Math.max(hb_delay_ms, 1000); // force above 1 second
+            hb_delay_ms = Math.min(hb_delay_ms, 300000); // force below 5 minutes
             return {
                 storage: {
                     alloc: node.storage.alloc || 0,
                     used: node.storage.used || 0,
-                }
+                },
+                version: process.env.AGENT_VERSION || '',
+                delay_ms: hb_delay_ms
             };
         });
 }

@@ -144,8 +144,6 @@ Agent.prototype.start = function() {
         })
         .then(function() {
             return self.send_heartbeat();
-        }).then(function() {
-            self._start_stop_heartbeats();
         })
         .then(null, function(err) {
             console.error('AGENT server failed to start', err);
@@ -361,8 +359,22 @@ Agent.prototype.send_heartbeat = function() {
                     store_stats.alloc, 'to', res.storage.alloc);
                 self.store.set_alloc(res.storage.alloc);
             }
-        })
-        ['finally'](function(){
+
+            if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
+                console.log('AGENT version changed, exiting');
+                process.exit();
+            }
+            self.heartbeat_version = res.version;
+            self.heartbeat_delay_ms = res.delay_ms;
+
+        }, function(err) {
+
+            console.error('HEARTBEAT FAILED', err);
+
+            // schedule retry in ~10 seconds
+            self.heartbeat_delay_ms = 10000 * (1 + Math.random());
+
+        })['finally'](function() {
             self._start_stop_heartbeats();
         });
 };
@@ -382,9 +394,11 @@ Agent.prototype._start_stop_heartbeats = function() {
 
     // set the timer when started
     if (self.is_started) {
-        var ms = 1000 * (1 + Math.random());
-        self.heartbeat_timeout =
-            setTimeout(self.send_heartbeat.bind(self), ms);
+        var ms = self.heartbeat_delay_ms;
+        ms = ms || (60000 * (1 + Math.random())); // default 1 minute
+        ms = Math.max(ms, 1000); // force above 1 second
+        ms = Math.min(ms, 300000); // force below 5 minutes
+        self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
     }
 };
 

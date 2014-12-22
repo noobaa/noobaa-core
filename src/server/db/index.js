@@ -79,6 +79,21 @@ module.exports = {
                 }).exec());
         }
     }),
+
+    TierCache: new LRUCache({
+        name: 'TierCache',
+        make_key: function(params) {
+            return params.system + ':' + params.name;
+        },
+        load: function(params) {
+            console.log('TierCache: load', params.name);
+            return Q.when(Tier.findOne({
+                    system: params.system,
+                    name: params.name,
+                    deleted: null,
+                }).exec());
+        }
+    }),
 };
 
 

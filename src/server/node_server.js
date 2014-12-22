@@ -65,13 +65,10 @@ function create_node(req) {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
 
-    var tier_query = {
-        system: req.system.id,
-        name: tier_name,
-        deleted: null,
-    };
-
-    return Q.when(db.Tier.findOne(tier_query).exec())
+    return db.TierCache.get({
+            system: req.system.id,
+            name: tier_name,
+        })
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
             info.tier = tier;

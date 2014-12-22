@@ -371,8 +371,8 @@ Agent.prototype.send_heartbeat = function() {
 
             console.error('HEARTBEAT FAILED', err);
 
-            // schedule retry in ~10 seconds
-            self.heartbeat_delay_ms = 10000 * (1 + Math.random());
+            // schedule delay to retry on error
+            self.heartbeat_delay_ms = 30000 * (1 + Math.random());
 
         })['finally'](function() {
             self._start_stop_heartbeats();

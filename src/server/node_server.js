@@ -312,7 +312,7 @@ function group_nodes(req) {
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_find_node_by_id_barrier = new Barrier({
-    max_length: 100,
+    max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log1('heartbeat_find_node_by_id_barrier', node_ids.length);
@@ -339,7 +339,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_count_node_storage_barrier = new Barrier({
-    max_length: 100,
+    max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log1('heartbeat_count_node_storage_barrier', node_ids.length);
@@ -371,7 +371,7 @@ var heartbeat_count_node_storage_barrier = new Barrier({
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_update_node_timestamp_barrier = new Barrier({
-    max_length: 100,
+    max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log1('heartbeat_update_node_timestamp_barrier', node_ids.length);

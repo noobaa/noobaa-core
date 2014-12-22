@@ -323,6 +323,8 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                         $in: node_ids
                     },
                 })
+                // we are very selective to reduce overhead
+                .select('ip port storage geolocation device_info.last_update')
                 .exec())
             .then(function(res) {
                 var nodes_by_id = _.indexBy(res, '_id');

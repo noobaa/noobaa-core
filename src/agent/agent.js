@@ -361,6 +361,9 @@ Agent.prototype.send_heartbeat = function() {
                     store_stats.alloc, 'to', res.storage.alloc);
                 self.store.set_alloc(res.storage.alloc);
             }
+        })
+        ['finally'](function(){
+            self._start_stop_heartbeats();
         });
 };
 
@@ -372,13 +375,16 @@ Agent.prototype.send_heartbeat = function() {
  */
 Agent.prototype._start_stop_heartbeats = function() {
     var self = this;
+
     // first clear the timer
-    clearInterval(self.heartbeat_interval);
-    self.heartbeat_interval = null;
+    clearTimeout(self.heartbeat_timeout);
+    self.heartbeat_timeout = null;
+
     // set the timer when started
     if (self.is_started) {
-        self.heartbeat_interval =
-            setInterval(self.send_heartbeat.bind(self), 60000);
+        var ms = 1000 * (1 + Math.random());
+        self.heartbeat_timeout =
+            setTimeout(self.send_heartbeat.bind(self), ms);
     }
 };
 

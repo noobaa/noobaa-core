@@ -65,13 +65,10 @@ function create_node(req) {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
 
-    var tier_query = {
-        system: req.system.id,
-        name: tier_name,
-        deleted: null,
-    };
-
-    return Q.when(db.Tier.findOne(tier_query).exec())
+    return db.TierCache.get({
+            system: req.system.id,
+            name: tier_name,
+        })
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
             info.tier = tier;
@@ -315,8 +312,8 @@ function group_nodes(req) {
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_find_node_by_id_barrier = new Barrier({
-    max_length: 1000,
-    expiry_ms: 1000, // milliseconds to wait for others to join
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log1('heartbeat_find_node_by_id_barrier', node_ids.length);
         return Q.when(db.Node
@@ -342,8 +339,8 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_count_node_storage_barrier = new Barrier({
-    max_length: 1000,
-    expiry_ms: 1000, // milliseconds to wait for others to join
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log1('heartbeat_count_node_storage_barrier', node_ids.length);
         return Q.when(db.DataBlock.mapReduce({
@@ -374,8 +371,8 @@ var heartbeat_count_node_storage_barrier = new Barrier({
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_update_node_timestamp_barrier = new Barrier({
-    max_length: 1000,
-    expiry_ms: 1000, // milliseconds to wait for others to join
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log1('heartbeat_update_node_timestamp_barrier', node_ids.length);
         return Q.when(db.Node
@@ -487,12 +484,18 @@ function heartbeat(req) {
             }
 
         }).then(function() {
-            // return the storage info to the agent
+            var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
+            hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
+            hb_delay_ms = hb_delay_ms | 0; // make integer
+            hb_delay_ms = Math.max(hb_delay_ms, 1000); // force above 1 second
+            hb_delay_ms = Math.min(hb_delay_ms, 300000); // force below 5 minutes
             return {
                 storage: {
                     alloc: node.storage.alloc || 0,
                     used: node.storage.used || 0,
-                }
+                },
+                version: process.env.AGENT_VERSION || '',
+                delay_ms: hb_delay_ms
             };
         });
 }

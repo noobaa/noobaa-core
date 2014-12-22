@@ -80,7 +80,11 @@ function update_tier_alloc_nodes(system, tier) {
         nodes: [],
     };
 
-    if (info.last_refresh >= min_heartbeat) return Q.resolve(info.nodes);
+    // cache the nodes for 1 minutes and then refresh
+    if (info.last_refresh >= moment().subtract(1, 'minute').toDate()) {
+        return Q.resolve(info.nodes);
+    }
+
     if (info.promise) return info.promise;
 
     // refresh
@@ -100,6 +104,7 @@ function update_tier_alloc_nodes(system, tier) {
             // sorting with lowest used storage nodes first
             'storage.used': 1
         })
+        .limit(100)
         .exec()
         .then(function(nodes) {
             info.promise = null;

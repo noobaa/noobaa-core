@@ -9,6 +9,12 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
     require('newrelic');
 }
 
+if (process.env.NODETIME_ACCOUNT_KEY) {
+    require('nodetime').profile({
+        accountKey: process.env.NODETIME_ACCOUNT_KEY
+    });
+}
+
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 
@@ -51,7 +57,7 @@ var debug_mode = (process.env.DEBUG_MODE === 'true');
 
 
 // connect to the database
-mongoose.connect(process.env.MONGOHQ_URL);
+mongoose.connect(process.env.MONGOHQ_URL || process.env.MONGOLAB_URI);
 mongoose.set('debug', debug_mode);
 
 // create express app

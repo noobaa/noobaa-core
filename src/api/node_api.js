@@ -268,17 +268,17 @@ module.exports = rest_api({
             },
             reply: {
                 type: 'object',
-                required: ['storage', 'version', 'delay_ms'],
+                required: ['version', 'delay_ms'],
                 properties: {
-                    storage: {
-                        $ref: '/system_api/definitions/storage_info'
-                    },
                     version: {
                         type: 'string'
                     },
                     delay_ms: {
                         type: 'integer'
-                    }
+                    },
+                    storage: {
+                        $ref: '/system_api/definitions/storage_info'
+                    },
                 }
             },
             auth: {

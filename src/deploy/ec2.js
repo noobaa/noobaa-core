@@ -36,10 +36,9 @@ if (!process.env.AWS_ACCESS_KEY_ID) {
 
 // AWS.config.loadFromPath('./env.js');
 AWS.config.update({
-    accessKeyId: 'AKIAIPZOGBP3B7I2THZQ',//process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: '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',//process.env.AWS_SECRET_ACCESS_KEY,
-    region: 'us-east-1',
-    // region: process.env.AWS_REGION,
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION,
 });
 
 var KEY_PAIR_PARAMS = {
@@ -469,6 +468,13 @@ function print_instances(instances) {
  */
 function main() {
 
+    if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
+            console.error('\n\n****************************************************');
+            console.error('You must provide google cloud env details in .env:');
+            console.error('AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION');
+            console.error('****************************************************\n\n');
+            return;
+    }
     if (!_.isUndefined(argv.scale)) {
 
         // add a --term flag to allow removing nodes

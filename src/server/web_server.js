@@ -9,6 +9,12 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
     require('newrelic');
 }
 
+if (process.env.NODETIME_ACCOUNT_KEY) {
+    require('nodetime').profile({
+        accountKey: process.env.NODETIME_ACCOUNT_KEY
+    });
+}
+
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 

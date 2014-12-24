@@ -15,7 +15,7 @@ var Agent = require('../agent/agent');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var dbg = require('../util/dbg')(__filename);
-dbg.log_level = process.env.LOG_LEVEL || 0;
+dbg.log_level = parseInt(process.env.LOG_LEVEL, 10) || 0;
 
 
 /**

@@ -15,6 +15,7 @@ var Agent = require('../agent/agent');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var dbg = require('../util/dbg')(__filename);
+dbg.log_level = process.env.LOG_LEVEL || 0;
 
 
 /**
@@ -315,7 +316,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log1('heartbeat_find_node_by_id_barrier', node_ids.length);
+        dbg.log2('heartbeat_find_node_by_id_barrier', node_ids.length);
         return Q.when(db.Node
                 .find({
                     deleted: null,
@@ -344,7 +345,7 @@ var heartbeat_count_node_storage_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log1('heartbeat_count_node_storage_barrier', node_ids.length);
+        dbg.log2('heartbeat_count_node_storage_barrier', node_ids.length);
         return Q.when(db.DataBlock.mapReduce({
                 query: {
                     deleted: null,
@@ -376,7 +377,7 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     max_length: 200,
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log1('heartbeat_update_node_timestamp_barrier', node_ids.length);
+        dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
         return Q.when(db.Node
                 .update({
                     deleted: null,
@@ -409,7 +410,7 @@ function heartbeat(req) {
         throw req.forbidden();
     }
 
-    dbg.log2('HEARTBEAT enter', node_id);
+    dbg.log1('HEARTBEAT enter', node_id);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max

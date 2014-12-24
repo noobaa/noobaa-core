@@ -51,7 +51,7 @@ var debug_mode = (process.env.DEBUG_MODE === 'true');
 
 
 // connect to the database
-mongoose.connect(process.env.MONGOHQ_URL);
+mongoose.connect(process.env.MONGOHQ_URL || process.env.MONGOLAB_URI);
 mongoose.set('debug', debug_mode);
 
 // create express app

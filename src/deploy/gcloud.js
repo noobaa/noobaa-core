@@ -18,14 +18,31 @@ Q.longStackSupport = true;
 //var SERVICE_ACCOUNT_KEY_FILE = './gcloud.pem';
 //openssl pkcs12 -in path.p12 -out newfile.crt.pem -nodes
 //pass is notasecret
-var SERVICE_ACCOUNT_EMAIL = '476295869076-4b782huoudktl6dtiqp6h44m92ifm6q6@developer.gserviceaccount.com';
-var SERVICE_ACCOUNT_KEY_FILE = './gcloud_test.pem';
+//test-env
+//var SERVICE_ACCOUNT_EMAIL = '476295869076-4b782huoudktl6dtiqp6h44m92ifm6q6@developer.gserviceaccount.com';
+//var SERVICE_ACCOUNT_KEY_FILE = './gcloud_test.pem';
+//var NooBaaProject = 'noobaa-test-1';
+//eran-env
+//var SERVICE_ACCOUNT_EMAIL = '577111042235-ettds6vsujjl7toi5s28l0utttol96qf@developer.gserviceaccount.com';
+//var SERVICE_ACCOUNT_KEY_FILE = './gcloud_eran.pem';
+//var NooBaaProject = 'noobaa-eran-1';
+//Generic
+/* load aws config from env */
+
+if (!process.env.SERVICE_ACCOUNT_EMAIL) {
+    console.log('loading .env file...');
+    dotenv.load();
+}
+
+var SERVICE_ACCOUNT_EMAIL = process.env.SERVICE_ACCOUNT_EMAIL;
+var SERVICE_ACCOUNT_KEY_FILE = process.env.SERVICE_ACCOUNT_KEY_FILE;
 var authClient = new google.auth.JWT(
     SERVICE_ACCOUNT_EMAIL,
     SERVICE_ACCOUNT_KEY_FILE,
     null, ['https://www.googleapis.com/auth/compute']);
 
-var NooBaaProject = 'noobaa-test-1';
+var NooBaaProject = process.env.NOOBAA_PROJECT_NAME;
+console.log('Noobaa Project: ',NooBaaProject," file:",SERVICE_ACCOUNT_KEY_FILE);
 
 /**
  *
@@ -78,7 +95,7 @@ function import_key_pair_to_region() {
 
 }
 
-function scale_instances(count, allow_terminate) {
+function scale_instances(count, allow_terminate,is_docker_host,number_of_dockers) {
 
     return describe_instances({
         filter: 'status ne STOPPING'
@@ -129,10 +146,13 @@ function scale_instances(count, allow_terminate) {
                 new_count += zone_count;
             }
 
-            return scale_region(zone_name, zone_count, instances, allow_terminate);
+            return scale_region(zone_name, zone_count, instances, allow_terminate,is_docker_host,number_of_dockers);
         }));
     }).fail(function(err) {
-        console.log('error222:', err.stack);
+        console.log('####');
+        console.log('#### Cannot scale. Reason:', err.message);
+        console.log('####');
+
     });
 }
 
@@ -180,13 +200,13 @@ function foreach_zone(func) {
 }
 
 
-function scale_region(region_name, count, instances, allow_terminate) {
+function scale_region(region_name, count, instances, allow_terminate,is_docker_host,number_of_dockers) {
     //console.log('scale region from ' + instances.length + ' to count ' + count);
     // need to create
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length)
+        return add_region_instances(region_name, count - instances.length,is_docker_host,number_of_dockers)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
                 instance_creation_error_handler,
@@ -384,14 +404,18 @@ function getInstanceDataPerInstanceId(instanceId) {
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count) {
+function add_region_instances(region_name, count,is_docker_host,number_of_dockers) {
     var deferred = Q.defer();
     console.log('adding to region ' + region_name + ' ' + count + ' instances');
     var index = 0;
     promiseWhile(function() {
             return index < count;
         }, function() {
-
+            var startup_script = 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/setupgc.sh'; 
+            if (is_docker_host){
+                startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/docker_setup.sh';
+            }
+            var noobaa_env_name = NooBaaProject.split("-")[1];
             var instanceResource = {
 
                 project: NooBaaProject,
@@ -401,12 +425,12 @@ function add_region_instances(region_name, count) {
                 resource: {
                     zone: region_name,
                     name: NooBaaProject + region_name + (new Date().getTime()),
-                    machineType: 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro',
+                    machineType: 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8',
                     disks: [{
                         initializeParams: {
+                            //diskSizeGb: 8000,
                             //sourceImage:'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-trusty-14.04-amd64-server-20140927'
-                            sourceImage: 'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141031a',
-                            autoDelete: true
+                            sourceImage: 'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141031a'
                         },
                         boot: true
                     }],
@@ -419,11 +443,19 @@ function add_region_instances(region_name, count) {
                         items: [{
                             key: 'startup-script-url',
                             //production
-                            //value: 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/init_agent.sh'
-                            value: 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/setupgc.sh'
+                            value: startup_script
+                            //value: 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/setupgc.sh'
                         }, {
                             key: 'sshKeys',
                             value: 'ubuntu:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCGk9U7fEXopJnBL1V4rXRzU580GRmUQVyivycKtUPplfjY3iIEU/DodqCCvn8Gb3rckVr7qd+haSE43IhNsB/zH9gGowUydTs3VwCHQT2pkziisr50EjQ0c6eBkcN5nWGZEPUGe4tGSQUR4agstJPyc3YDLJ96mC0ZOZVPtY+9tBUW0JsKqe45oLgCphSTuRP4cR4kiCv7HIzGLZd/ib6NgzlnLJqGBE74zJo0tgVv33Ixqdx8b0TyktNkGhYyjzweujEmkDX4/wVdX/qyWENDWWTb0D3jCAVgCyJBiuDHvtk0ehmcdYNucp0GuNTlO0Ld0NNsOjjAY9Au52lppYM1 ubuntu\n'
+                        },
+                        {
+                            key: 'dockers',
+                            value: number_of_dockers
+                        },
+                        {
+                            key: 'env',
+                            value: noobaa_env_name
                         }]
                     },
                     networkInterfaces: [{
@@ -443,8 +475,9 @@ function add_region_instances(region_name, count) {
                 .then(function(instanceInformation) {
                     var pieces_array = instanceInformation[0].targetLink.split('/');
                     var instanceName = pieces_array[pieces_array.length - 1];
-                    console.log('New insatnce name:' + JSON.stringify(instanceName));
-                    if (1 === 2) {
+                    console.log('New instance name:' + JSON.stringify(instanceName));
+                    
+                    if (1 === 1) {
                         //waiting until the instance is running. 
                         //Disk dependecy can be added only after the instance is up and running. 
                         var interval = setInterval(function() {
@@ -532,6 +565,8 @@ function terminate_instances(region_name, instance_ids) {
 }
 
 
+
+
 function init(callback) {
     if (authClient.hasOwnProperty('gapi')) {
         return;
@@ -547,10 +582,24 @@ function init(callback) {
 
 function main() {
     console.log('before init');
+     if (_.isUndefined(SERVICE_ACCOUNT_EMAIL)) {
+            console.error('\n\n****************************************************');
+            console.error('You must provide google cloud env details in .env:');
+            console.error('SERVICE_ACCOUNT_EMAIL SERVICE_ACCOUNT_KEY_FILE NOOBAA_PROJECT_NAME');
+            console.error('****************************************************\n\n');
+            return;
+    }
     init(function(data) {
+        var is_docker_host = false;
+        if (!_.isUndefined(argv.dockers)) {
+            is_docker_host = true;
+            console.log ('starting '+argv.dockers + ' dockers on each host');
+
+        }
+
         if (!_.isUndefined(argv.scale)) {
             // add a --term flag to allow removing nodes
-            scale_instances(argv.scale, argv.term)
+            scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers)
                 .then(function(res) {
                     console_inspect('Scale: completed to ' + argv.scale);
                     return describe_instances().then(print_instances);

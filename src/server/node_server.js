@@ -411,9 +411,30 @@ function heartbeat(req) {
 
     dbg.log2('HEARTBEAT enter', node_id);
 
+    var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
+    hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
+    hb_delay_ms = hb_delay_ms | 0; // make integer
+    hb_delay_ms = Math.max(hb_delay_ms, 1000); // force above 1 second
+    hb_delay_ms = Math.min(hb_delay_ms, 300000); // force below 5 minutes
+
+    var reply = {
+        // TODO avoid returning storage property unless filled - do that once agents are updated
+        storage: {
+            alloc: 0,
+            used: 0,
+        },
+        version: process.env.AGENT_VERSION || '',
+        delay_ms: hb_delay_ms
+    };
+
+    // code for testing performance of server with no heartbeat work
+    if (process.env.HEARTBEAT_MODE === 'ignore') {
+        return reply;
+    }
+
     // the DB calls are optimized by merging concurrent requests to use a single query
     // by using barriers that wait a bit for concurrent calls to join together.
-    return Q.all([
+    var promise = Q.all([
             heartbeat_find_node_by_id_barrier.call(node_id),
             heartbeat_count_node_storage_barrier.call(node_id)
         ])
@@ -486,20 +507,19 @@ function heartbeat(req) {
             }
 
         }).then(function() {
-            var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
-            hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
-            hb_delay_ms = hb_delay_ms | 0; // make integer
-            hb_delay_ms = Math.max(hb_delay_ms, 1000); // force above 1 second
-            hb_delay_ms = Math.min(hb_delay_ms, 300000); // force below 5 minutes
-            return {
-                storage: {
-                    alloc: node.storage.alloc || 0,
-                    used: node.storage.used || 0,
-                },
-                version: process.env.AGENT_VERSION || '',
-                delay_ms: hb_delay_ms
+            reply.storage = {
+                alloc: node.storage.alloc || 0,
+                used: node.storage.used || 0,
             };
+            return reply;
         });
+
+    if (process.env.HEARTBEAT_MODE === 'background') {
+        return reply;
+    } else {
+        return promise;
+    }
+
 }
 
 

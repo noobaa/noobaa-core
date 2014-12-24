@@ -346,18 +346,20 @@ Agent.prototype.send_heartbeat = function() {
                 self.device_info_send_time = device_info_send_time;
             }
 
-            // report only if used storage mismatch
-            // TODO compare with some accepted error and handle
-            if (store_stats.used !== res.storage.used) {
-                console.log('AGENT used storage not in sync',
-                    store_stats.used, 'expected', res.storage.used);
-            }
+            if (res.storage) {
+                // report only if used storage mismatch
+                // TODO compare with some accepted error and handle
+                if (store_stats.used !== res.storage.used) {
+                    console.log('AGENT used storage not in sync',
+                        store_stats.used, 'expected', res.storage.used);
+                }
 
-            // update the store when allocated size change
-            if (store_stats.alloc !== res.storage.alloc) {
-                console.log('AGENT update alloc storage from',
-                    store_stats.alloc, 'to', res.storage.alloc);
-                self.store.set_alloc(res.storage.alloc);
+                // update the store when allocated size change
+                if (store_stats.alloc !== res.storage.alloc) {
+                    console.log('AGENT update alloc storage from',
+                        store_stats.alloc, 'to', res.storage.alloc);
+                    self.store.set_alloc(res.storage.alloc);
+                }
             }
 
             if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {

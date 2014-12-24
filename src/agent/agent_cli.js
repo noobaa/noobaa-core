@@ -36,6 +36,7 @@ function AgentCLI(params) {
     self.params = _.defaults(params, {
         root_path: './agent_storage/',
         address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
+        port: params.prod ? 5050 : 0,
         email: 'a@a.a',
         password: 'aaa',
         system: 'sys',
@@ -194,7 +195,7 @@ AgentCLI.prototype.start = function(node_name) {
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             node_name: node_name,
-            prefered_port: self.params.prod ? 5050 : 0,
+            prefered_port: self.params.port,
             storage_path: path.join(self.params.root_path, node_name),
         });
         console.log('agent inited', node_name);

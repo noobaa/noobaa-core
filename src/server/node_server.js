@@ -15,6 +15,7 @@ var Agent = require('../agent/agent');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var dbg = require('../util/dbg')(__filename);
+dbg.log_level = parseInt(process.env.LOG_LEVEL, 10) || 0;
 
 
 /**
@@ -65,13 +66,10 @@ function create_node(req) {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
 
-    var tier_query = {
-        system: req.system.id,
-        name: tier_name,
-        deleted: null,
-    };
-
-    return Q.when(db.Tier.findOne(tier_query).exec())
+    return db.TierCache.get({
+            system: req.system.id,
+            name: tier_name,
+        })
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
             info.tier = tier;
@@ -315,10 +313,10 @@ function group_nodes(req) {
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_find_node_by_id_barrier = new Barrier({
-    max_length: 1000,
-    expiry_ms: 1000, // milliseconds to wait for others to join
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log1('heartbeat_find_node_by_id_barrier', node_ids.length);
+        dbg.log2('heartbeat_find_node_by_id_barrier', node_ids.length);
         return Q.when(db.Node
                 .find({
                     deleted: null,
@@ -326,6 +324,8 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                         $in: node_ids
                     },
                 })
+                // we are very selective to reduce overhead
+                .select('ip port storage geolocation device_info.last_update')
                 .exec())
             .then(function(res) {
                 var nodes_by_id = _.indexBy(res, '_id');
@@ -342,10 +342,10 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_count_node_storage_barrier = new Barrier({
-    max_length: 1000,
-    expiry_ms: 1000, // milliseconds to wait for others to join
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log1('heartbeat_count_node_storage_barrier', node_ids.length);
+        dbg.log2('heartbeat_count_node_storage_barrier', node_ids.length);
         return Q.when(db.DataBlock.mapReduce({
                 query: {
                     deleted: null,
@@ -374,10 +374,10 @@ var heartbeat_count_node_storage_barrier = new Barrier({
  * this is a DB query barrier to issue a single query for concurrent heartbeat requests.
  */
 var heartbeat_update_node_timestamp_barrier = new Barrier({
-    max_length: 1000,
-    expiry_ms: 1000, // milliseconds to wait for others to join
+    max_length: 200,
+    expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
-        dbg.log1('heartbeat_update_node_timestamp_barrier', node_ids.length);
+        dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
         return Q.when(db.Node
                 .update({
                     deleted: null,
@@ -410,11 +410,32 @@ function heartbeat(req) {
         throw req.forbidden();
     }
 
-    dbg.log2('HEARTBEAT enter', node_id);
+    dbg.log1('HEARTBEAT enter', node_id);
+
+    var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
+    hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
+    hb_delay_ms = hb_delay_ms | 0; // make integer
+    hb_delay_ms = Math.max(hb_delay_ms, 1000); // force above 1 second
+    hb_delay_ms = Math.min(hb_delay_ms, 300000); // force below 5 minutes
+
+    var reply = {
+        // TODO avoid returning storage property unless filled - do that once agents are updated
+        storage: {
+            alloc: 0,
+            used: 0,
+        },
+        version: process.env.AGENT_VERSION || '',
+        delay_ms: hb_delay_ms
+    };
+
+    // code for testing performance of server with no heartbeat work
+    if (process.env.HEARTBEAT_MODE === 'ignore') {
+        return reply;
+    }
 
     // the DB calls are optimized by merging concurrent requests to use a single query
     // by using barriers that wait a bit for concurrent calls to join together.
-    return Q.all([
+    var promise = Q.all([
             heartbeat_find_node_by_id_barrier.call(node_id),
             heartbeat_count_node_storage_barrier.call(node_id)
         ])
@@ -467,7 +488,12 @@ function heartbeat(req) {
             if (req.rest_params.port && req.rest_params.port !== node.port) {
                 updates.port = req.rest_params.port;
             }
-            if (req.rest_params.device_info) {
+
+            // to avoid frequest updates of the node check if the last update of
+            // device_info was less than 1 hour ago and if so drop the update.
+            // this will allow more batching by heartbeat_update_node_timestamp_barrier.
+            if (req.rest_params.device_info &&
+                should_update_device_info(node.device_info, req.rest_params.device_info)) {
                 updates.device_info = req.rest_params.device_info;
             }
 
@@ -482,16 +508,39 @@ function heartbeat(req) {
             }
 
         }).then(function() {
-            // return the storage info to the agent
-            return {
-                storage: {
-                    alloc: node.storage.alloc || 0,
-                    used: node.storage.used || 0,
-                }
+            reply.storage = {
+                alloc: node.storage.alloc || 0,
+                used: node.storage.used || 0,
             };
+            return reply;
         });
+
+    if (process.env.HEARTBEAT_MODE === 'background') {
+        return reply;
+    } else {
+        return promise;
+    }
+
 }
 
+
+// check if device_info should update only if the last update was more than an hour ago
+function should_update_device_info(node_device_info, new_device_info) {
+    var last = new Date(node_device_info && node_device_info.last_update || 0);
+    var last_time = last.getTime() || 0;
+    var now = new Date();
+    var now_time = now.getTime();
+    var skip_time = 3600000;
+
+    if (last_time > now_time - skip_time &&
+        last_time < now_time + skip_time) {
+        return false;
+    }
+
+    // add the current time to the info which will be saved
+    new_device_info.last_update = now;
+    return true;
+}
 
 
 

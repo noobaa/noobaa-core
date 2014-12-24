@@ -144,8 +144,6 @@ Agent.prototype.start = function() {
         })
         .then(function() {
             return self.send_heartbeat();
-        }).then(function() {
-            self._start_stop_heartbeats();
         })
         .then(null, function(err) {
             console.error('AGENT server failed to start', err);
@@ -323,9 +321,10 @@ Agent.prototype.send_heartbeat = function() {
                     used: store_stats.used,
                 },
             };
-            var now = new Date();
-            if (!self.device_info_send_time || now > self.device_info_send_time + 3600000) {
-                device_info_send_time = now;
+            var now_time = Date.now();
+            if (!self.device_info_send_time ||
+                now_time > self.device_info_send_time + 3600000) {
+                device_info_send_time = now_time;
                 params.device_info = {
                     hostname: os.hostname(),
                     type: os.type(),
@@ -347,19 +346,38 @@ Agent.prototype.send_heartbeat = function() {
                 self.device_info_send_time = device_info_send_time;
             }
 
-            // report only if used storage mismatch
-            // TODO compare with some accepted error and handle
-            if (store_stats.used !== res.storage.used) {
-                console.log('AGENT used storage not in sync',
-                    store_stats.used, 'expected', res.storage.used);
+            if (res.storage) {
+                // report only if used storage mismatch
+                // TODO compare with some accepted error and handle
+                if (store_stats.used !== res.storage.used) {
+                    console.log('AGENT used storage not in sync',
+                        store_stats.used, 'expected', res.storage.used);
+                }
+
+                // update the store when allocated size change
+                if (store_stats.alloc !== res.storage.alloc) {
+                    console.log('AGENT update alloc storage from',
+                        store_stats.alloc, 'to', res.storage.alloc);
+                    self.store.set_alloc(res.storage.alloc);
+                }
             }
 
-            // update the store when allocated size change
-            if (store_stats.alloc !== res.storage.alloc) {
-                console.log('AGENT update alloc storage from',
-                    store_stats.alloc, 'to', res.storage.alloc);
-                self.store.set_alloc(res.storage.alloc);
+            if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
+                console.log('AGENT version changed, exiting');
+                process.exit();
             }
+            self.heartbeat_version = res.version;
+            self.heartbeat_delay_ms = res.delay_ms;
+
+        }, function(err) {
+
+            console.error('HEARTBEAT FAILED', err);
+
+            // schedule delay to retry on error
+            self.heartbeat_delay_ms = 30000 * (1 + Math.random());
+
+        })['finally'](function() {
+            self._start_stop_heartbeats();
         });
 };
 
@@ -371,13 +389,18 @@ Agent.prototype.send_heartbeat = function() {
  */
 Agent.prototype._start_stop_heartbeats = function() {
     var self = this;
+
     // first clear the timer
-    clearInterval(self.heartbeat_interval);
-    self.heartbeat_interval = null;
+    clearTimeout(self.heartbeat_timeout);
+    self.heartbeat_timeout = null;
+
     // set the timer when started
     if (self.is_started) {
-        self.heartbeat_interval =
-            setInterval(self.send_heartbeat.bind(self), 60000);
+        var ms = self.heartbeat_delay_ms;
+        ms = ms || (60000 * (1 + Math.random())); // default 1 minute
+        ms = Math.max(ms, 1000); // force above 1 second
+        ms = Math.min(ms, 300000); // force below 5 minutes
+        self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
     }
 };
 

@@ -5,48 +5,43 @@
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
-var GF = require('../util/galois');
+var Poly = require('../util/poly');
 
 
-describe('galois', function() {
+describe('poly', function() {
 
-    _.each(GF.PRIMITIVE_POLYNOMS, function(p, w) {
-        w = parseInt(w, 10);
-        var name = 'GF(2^' + w + ')';
+    var test_degree = parseInt(process.env.POLY_TEST_DEGREE, 10);
+    var max_degree = parseInt(process.env.POLY_TEST_MAX_DEGREE, 10) || 8;
 
-        console.log(name, p.toString(16), p.toString(8), p.toString(2));
+    _.each(Poly.PRIMITIVES, function(p, degree) {
+        degree = parseInt(degree, 10);
 
-        if (w > (process.env.GF_TEST_MAX_W || 8)) {
-            it.skip(name, function() {});
+        var skip = false;
+        if (test_degree) {
+            skip = (degree !== test_degree);
+        } else {
+            skip = (degree > max_degree);
+        }
+        if (skip) {
+            it.skip(p.toString(), function() {});
             return;
         }
 
-        it(name, function(done) {
+        it(p.toString(), function(done) {
 
             this.timeout(1000000);
             console.log(' ');
-            console.log('******', w, '******');
-            var gf = new GF(w);
+            console.log('******', degree, '******');
 
             Q.fcall(function() {
-                    // test field with modulo calculations
-                    console.log(' ');
-                    console.log(' -- MODULO --');
-                    return run_steps(gf);
-                })
-                .then(function() {
-                    // test field with log tables if tables are not too big (max w=24)
-                    if (!gf.init_log_table()) return;
-                    console.log(' ');
-                    console.log(' -- LOG --');
-                    return run_steps(gf);
+                    return run_steps(p);
                 })
                 .nodeify(done);
         });
     });
 
 
-    function run_steps(gf, state) {
+    function run_steps(p, state) {
         state = state || {
             a: 0,
             b: 0,
@@ -55,27 +50,27 @@ describe('galois', function() {
             start_time: Date.now(),
             report_seconds: 0,
         };
-        var done = run_step(gf, state, 10000000);
+        var done = run_step(p, state, 10000000);
 
         // report progress
         var seconds = (Date.now() - state.start_time) / 1000;
         if (done || seconds >= state.report_seconds + 1) {
             state.report_seconds = seconds;
             var speed = state.count / seconds;
-            var completed = state.a * 100 / gf.max;
+            var completed = state.a * 100 / p.max;
             console.log(' ... completed', completed.toFixed(2), '%',
                 'speed', speed.toFixed(0), 'mult/sec');
             // don't run too long for big fields
-            if (seconds >= (process.env.GF_TEST_MAX_TIME || 1)) {
+            if (seconds >= (process.env.POLY_TEST_MAX_TIME || 1)) {
                 done = true;
             }
         }
 
-        return done ? true : Q.fcall(run_steps, gf, state);
+        return done ? true : Q.fcall(run_steps, p, state);
     }
 
 
-    function run_step(gf, state, cycles) {
+    function run_step(p, state, cycles) {
         // make vars local for performance
         var a = state.a;
         var b = state.b;
@@ -86,9 +81,9 @@ describe('galois', function() {
         for (var i = 0; i < cycles; ++i) {
 
             // check validity of result
-            var result = gf.mult(a, b);
+            var result = p.mult(a, b);
             count += 1;
-            if (typeof(result) !== 'number' || result > gf.max || result < 0) {
+            if (typeof(result) !== 'number' || result > p.max || result < 0) {
                 throw new Error('bad result not in range ' +
                     a.toString(2) + ' * ' + b.toString(2) +
                     ' = ' + (result && result.toString(2)));
@@ -105,7 +100,7 @@ describe('galois', function() {
             }
 
             // checking field commutativity - a*b = b*a
-            var result2 = gf.mult(b, a);
+            var result2 = p.mult(b, a);
             count += 1;
             if (result !== result2) {
                 throw new Error('not commutative ' +
@@ -113,11 +108,11 @@ describe('galois', function() {
                     ' = ' + result.toString(2) + ' or ' + result2.toString(2));
             }
 
-            if (b === gf.max) {
+            if (b === p.max) {
                 if (a && !a_inverse) {
                     throw new Error('inverse not found for ' + a.toString(2));
                 }
-                if (a === gf.max) {
+                if (a === p.max) {
                     done = true;
                     break;
                 }

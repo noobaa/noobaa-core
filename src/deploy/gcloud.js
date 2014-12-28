@@ -412,16 +412,17 @@ function add_region_instances(region_name, count,is_docker_host,number_of_docker
             return index < count;
         }, function() {
             var noobaa_env_name = NooBaaProject.split('-')[1];
-            var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
 
+            var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro'; 
             var startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/init_agent_'+noobaa_env_name+'.sh'; 
+            
             if (is_docker_host){
                 startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/docker_setup.sh';
-            }
+                machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
                 
+            }
             if (_.isUndefined(number_of_dockers)){
                 number_of_dockers = 0;
-                machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro'; 
             }
             
             console.log('env:',noobaa_env_name,NooBaaProject);

@@ -10,6 +10,12 @@ unzip DockerClient.zip
 #replace ENV_PLACEHOLDER in Dockerfile and run-agent with current env
 ENV_NAME=$(curl http://metadata/computeMetadata/v1/instance/attributes/env -H "Metadata-Flavor: Google")
 echo '+++++ENV::::' $ENV_NAME
+if [ ${#ENV_NAME} -eq 0 ]; then
+	ENV_NAME='test'
+else
+	echo 'EE' $ENV_NAME
+fi
+echo 'Current ENV:' $ENV_NAME
 sudo sed -i "s/<ENV_PLACEHOLDER>/$ENV_NAME/g" /noobaa/Dockerfile
 sudo sed -i "s/<ENV_PLACEHOLDER>/$ENV_NAME/g" /noobaa/start_noobaa_docker.sh
 sudo docker build -t noobaa .
@@ -19,7 +25,7 @@ number_of_dockers=$(curl http://metadata/computeMetadata/v1/instance/attributes/
 #in case of unexpected response, we will set 450 as default
 re='^[0-9]+$'
 if ! [[ $number_of_dockers =~ $re ]] ; then
-   number_of_dockers=450
+   number_of_dockers=400
 fi
 while [  $COUNTER -lt $number_of_dockers ]; do
    sudo ./start_noobaa_docker.sh

@@ -411,11 +411,26 @@ function add_region_instances(region_name, count,is_docker_host,number_of_docker
     promiseWhile(function() {
             return index < count;
         }, function() {
-            var startup_script = 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/setupgc.sh'; 
+            var noobaa_env_name = NooBaaProject.split('-')[1];
+            var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
+
+            var startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/init_agent_'+noobaa_env_name+'.sh'; 
             if (is_docker_host){
                 startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/docker_setup.sh';
             }
-            var noobaa_env_name = NooBaaProject.split("-")[1];
+                
+            if (_.isUndefined(number_of_dockers)){
+                number_of_dockers = 0;
+                machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro'; 
+            }
+            
+            console.log('env:',noobaa_env_name,NooBaaProject);
+            console.log('script:',startup_script);
+            
+            console.log('number_of_dockers',number_of_dockers);
+
+
+
             var instanceResource = {
 
                 project: NooBaaProject,
@@ -425,7 +440,7 @@ function add_region_instances(region_name, count,is_docker_host,number_of_docker
                 resource: {
                     zone: region_name,
                     name: NooBaaProject + region_name + (new Date().getTime()),
-                    machineType: 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8',
+                    machineType: machine_type,
                     disks: [{
                         initializeParams: {
                             //diskSizeGb: 8000,

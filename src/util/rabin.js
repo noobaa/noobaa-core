@@ -33,21 +33,6 @@ function Rabin(poly, window_length) {
         return out;
     });
 
-    /*
-        // calculate table for reduction mod Polynomial
-        this.in_table = _.times(256, function(b) {
-            // return A | B, where A = b(x) * x^w (mod p) and  B = b(x) * x^w
-            //
-            // The 8 bits above w determine what happens next and so
-            // these bits are used as a lookup to this table. The value is split in
-            // two parts: Part A contains the result of the modulus operation, part
-            // B is used to cancel out the 8 top bits so that one XOR operation is
-            // enough to reduce modulo Polynomial
-            var exp = gf.shift_left(1, gf.w);
-            var cancel = gf.shift_left(b, gf.w);
-            return gf.mult(b, exp) | cancel;
-        });
-    */
     this.reset();
 }
 
@@ -93,17 +78,21 @@ Rabin.prototype.append_byte = function(b) {
  *
  */
 Rabin.prototype.sanity = function() {
-    var d = 0;
+    var poly = this.poly;
+    var d = poly.zero();
+    var one = poly.mod(1);
     var i = this.wpos;
     do {
-        var b = this.window[i];
-        for (var j = 0; j < 8; ++j) {
-            d = this.poly.shift_left_mod(d, 1) ^ ((b & 0x80) >>> 7);
-            b <<= 1;
+        var byte = this.window[i];
+        for (var j = 7; j >= 0; --j) {
+            d = poly.shift_bit_mod(d);
+            if (byte & (1 << j)) {
+                d = poly.xor(d, one);
+            }
         }
         i = (i + 1) % this.wlen;
     } while (i !== this.wpos);
-    if (d !== this.digest) {
+    if (!_.isEqual(d, this.digest)) {
         console.log('*** INSANE ***', d, this.digest);
     }
 };
@@ -116,12 +105,13 @@ Rabin.prototype.sanity = function() {
  *
  * A transforming stream that chunks the input using rabin content chunking.
  *
- * @param params - rabin options: TODO
+ * @param params - rabin options: TODO describe options
  * @param options - stream options.
  *
  */
 function RabinChunkStream(params, options) {
     stream.Transform.call(this, options);
+
     var avg_bits = Math.floor(params.avg_chunk_bits / params.polys.length);
     var extra_bits = params.avg_chunk_bits % params.polys.length;
     this.rabins = _.map(_.sortBy(params.polys, 'degree'), function(poly) {
@@ -134,10 +124,11 @@ function RabinChunkStream(params, options) {
     _.each(this.rabins, function(rabin) {
         console.log('RABIN', rabin.poly, rabin.stream_mask.toString(16));
     });
+
     this.min_chunk_size = Math.max(params.min_chunk_size - params.window_length, 0);
     this.max_chunk_size = params.max_chunk_size;
     this.pending = new Buffer(0);
-    this._concat_arr = [null, null];
+    this.concat_arr = [null, null];
 }
 
 // proper inheritance
@@ -152,11 +143,11 @@ RabinChunkStream.prototype._transform = function(data, encoding, callback) {
 
     // add the new data to the pending
     // reusing the array to avoid unneeded garbage
-    this._concat_arr[0] = this.pending;
-    this._concat_arr[1] = data;
-    this.pending = Buffer.concat(this._concat_arr, pos + data.length);
-    this._concat_arr[0] = null;
-    this._concat_arr[1] = null;
+    this.concat_arr[0] = this.pending;
+    this.concat_arr[1] = data;
+    this.pending = Buffer.concat(this.concat_arr, pos + data.length);
+    this.concat_arr[0] = null;
+    this.concat_arr[1] = null;
 
     // process when enough ready data is accumulated
     while (pos < this.pending.length && this.pending.length >= this.min_chunk_size) {
@@ -209,8 +200,10 @@ function test() {
     require('fs')
         .createReadStream('/Users/gu/Movies/720p.webm')
         .pipe(new RabinChunkStream({
-            polys: [Poly.PRIMITIVES[63]],
-            window_length: 16,
+            polys: [
+                new Poly(Poly.PRIMITIVES[31])
+            ],
+            window_length: 32,
             avg_chunk_bits: 18, // 256 K
             min_chunk_size: 512 * 1024,
             max_chunk_size: 1024 * 1024,

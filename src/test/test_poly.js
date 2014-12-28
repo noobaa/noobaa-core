@@ -13,7 +13,7 @@ describe('poly', function() {
     var test_degree = parseInt(process.env.POLY_TEST_DEGREE, 10);
     var max_degree = parseInt(process.env.POLY_TEST_MAX_DEGREE, 10) || 8;
 
-    _.each(Poly.PRIMITIVES, function(p, degree) {
+    _.each(Poly.PRIMITIVES, function(degrees, degree) {
         degree = parseInt(degree, 10);
 
         var skip = false;
@@ -22,6 +22,7 @@ describe('poly', function() {
         } else {
             skip = (degree > max_degree);
         }
+        var p = new Poly(degrees);
         if (skip) {
             it.skip(p.toString(), function() {});
             return;

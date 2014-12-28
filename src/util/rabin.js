@@ -19,9 +19,14 @@ module.exports = {
  * compute rabin fingerprint as rolling hash.
  *
  */
-function Rabin(poly, window_length) {
+function Rabin(poly, window_length, hash_bits) {
     this.poly = poly;
     this.wlen = window_length;
+
+    if (hash_bits > 32) {
+        throw new Error('max hash_bits is 32');
+    }
+    this.hash_mask = ~0 << (32 - hash_bits) >>> (32 - hash_bits);
 
     var self = this;
     this.out_table = _.times(256, function(b) {
@@ -65,7 +70,7 @@ Rabin.prototype.append_byte = function(b) {
     this.wpos = (this.wpos + 1) % this.wlen;
     this.fingerprint = this.poly.push_byte_mod(this.fingerprint, out, b);
     this.sanity();
-    return this.fingerprint;
+    return this.poly.get_word(this.fingerprint, 0) & this.hash_mask;
 };
 
 
@@ -113,11 +118,11 @@ Rabin.prototype.sanity = function() {
 function RabinChunkStream(params, options) {
     stream.Transform.call(this, options);
 
-    this.rabins = _.map(params.hash_spaces, function(hspace) {
-        var rabin = new Rabin(hspace.poly, params.window_length);
-        rabin.stream_mask = (1 << hspace.mask_bits) - 1;
-        console.log('RABIN', rabin.poly.toString(), rabin.stream_mask.toString(16));
-        return rabin;
+    this.hash_spaces = params.hash_spaces;
+    _.each(params.hash_spaces, function(hspace) {
+        hspace.rabin = new Rabin(hspace.poly, params.window_length, hspace.hash_bits);
+        hspace.hash_val &= hspace.rabin.hash_mask;
+        console.log('RABIN', hspace.rabin.poly.toString(), hspace.rabin.hash_mask.toString(16));
     });
 
     this.min_chunk_size = Math.max(params.min_chunk_size - params.window_length, 0);
@@ -153,13 +158,17 @@ RabinChunkStream.prototype._transform = function(data, encoding, callback) {
         }
 
         var boundary = false;
+        var hspaces = this.hash_spaces;
         var stop_pos = Math.min(this.pending.length, this.max_chunk_size);
+
         while (!boundary && pos < stop_pos) {
-            boundary = true;
+
             var byte = this.pending.readUInt8(pos);
-            for (var i = 0; i < this.rabins.length; ++i) {
-                var h = this.rabins[i].append_byte(byte);
-                if (boundary && (h & this.rabins[i].stream_mask) !== 0) {
+
+            boundary = true;
+            for (var i = 0; i < hspaces.length; ++i) {
+                var h = hspaces[i].rabin.append_byte(byte);
+                if (boundary && (h !== hspaces[i].hash_val)) {
                     boundary = false;
                 }
             }
@@ -195,13 +204,13 @@ function test() {
     require('fs')
         .createReadStream('/Users/gu/Movies/720p.webm')
         .pipe(new RabinChunkStream({
-            window_length: 32,
-            min_chunk_size: 512 * 1024,
-            max_chunk_size: 1024 * 1024,
+            window_length: 8,
+            min_chunk_size: 3 * 128 * 1024,
+            max_chunk_size: 6 * 128 * 1024,
             hash_spaces: [{
                 poly: new Poly(Poly.PRIMITIVES[31]),
-                mask_bits: 18, // 256 K
-                mask_val: []
+                hash_bits: 18, // 2^18 = 256 KB average chunk
+                hash_val: 0x07071070
             }],
         }))
         .on('data', function(chunk) {

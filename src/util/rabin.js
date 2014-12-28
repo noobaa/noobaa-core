@@ -26,9 +26,9 @@ function Rabin(poly, window_length) {
     var self = this;
     this.out_table = _.times(256, function(b) {
         var out = poly.zero();
-        out = poly.shift_byte_mod(out, poly.zero(), b);
+        out = poly.push_byte_mod(out, poly.zero(), b);
         _.times(self.wlen - 1, function() {
-            out = poly.shift_byte_mod(out, poly.zero(), 0);
+            out = poly.push_byte_mod(out, poly.zero(), 0);
         });
         return out;
     });
@@ -45,9 +45,9 @@ function Rabin(poly, window_length) {
  *
  */
 Rabin.prototype.reset = function() {
-    this.window = new Uint8Array(this.wlen);
     this.wpos = 0;
-    this.digest = this.poly.zero();
+    this.window = new Uint8Array(this.wlen);
+    this.fingerprint = this.poly.zero();
 };
 
 
@@ -63,9 +63,9 @@ Rabin.prototype.append_byte = function(b) {
     var out = this.out_table[this.window[this.wpos]];
     this.window[this.wpos] = b;
     this.wpos = (this.wpos + 1) % this.wlen;
-    this.digest = this.poly.shift_byte_mod(this.digest, out, b);
+    this.fingerprint = this.poly.push_byte_mod(this.fingerprint, out, b);
     this.sanity();
-    return this.digest;
+    return this.fingerprint;
 };
 
 
@@ -79,21 +79,22 @@ Rabin.prototype.append_byte = function(b) {
  */
 Rabin.prototype.sanity = function() {
     var poly = this.poly;
-    var d = poly.zero();
+    var fp = poly.zero();
     var one = poly.mod(1);
     var i = this.wpos;
     do {
         var byte = this.window[i];
         for (var j = 7; j >= 0; --j) {
-            d = poly.shift_bit_mod(d);
+            fp = poly.shift_bit_mod(fp);
             if (byte & (1 << j)) {
-                d = poly.xor(d, one);
+                fp = poly.xor(fp, one);
             }
         }
         i = (i + 1) % this.wlen;
     } while (i !== this.wpos);
-    if (!_.isEqual(d, this.digest)) {
-        console.log('*** INSANE ***', d, this.digest);
+    if (!_.isEqual(fp, this.fingerprint)) {
+        console.log('*** INSANE ***', fp, this.fingerprint);
+        process.exit();
     }
 };
 
@@ -112,17 +113,11 @@ Rabin.prototype.sanity = function() {
 function RabinChunkStream(params, options) {
     stream.Transform.call(this, options);
 
-    var avg_bits = Math.floor(params.avg_chunk_bits / params.polys.length);
-    var extra_bits = params.avg_chunk_bits % params.polys.length;
-    this.rabins = _.map(_.sortBy(params.polys, 'degree'), function(poly) {
-        var rabin = new Rabin(poly, params.window_length);
-        rabin.stream_mask = (1 << avg_bits) - 1;
+    this.rabins = _.map(params.hash_spaces, function(hspace) {
+        var rabin = new Rabin(hspace.poly, params.window_length);
+        rabin.stream_mask = (1 << hspace.mask_bits) - 1;
+        console.log('RABIN', rabin.poly.toString(), rabin.stream_mask.toString(16));
         return rabin;
-    });
-    // add extra bits to biggest field
-    this.rabins[this.rabins.length - 1].stream_mask = (1 << (avg_bits + extra_bits)) - 1;
-    _.each(this.rabins, function(rabin) {
-        console.log('RABIN', rabin.poly, rabin.stream_mask.toString(16));
     });
 
     this.min_chunk_size = Math.max(params.min_chunk_size - params.window_length, 0);
@@ -200,13 +195,14 @@ function test() {
     require('fs')
         .createReadStream('/Users/gu/Movies/720p.webm')
         .pipe(new RabinChunkStream({
-            polys: [
-                new Poly(Poly.PRIMITIVES[31])
-            ],
             window_length: 32,
-            avg_chunk_bits: 18, // 256 K
             min_chunk_size: 512 * 1024,
             max_chunk_size: 1024 * 1024,
+            hash_spaces: [{
+                poly: new Poly(Poly.PRIMITIVES[31]),
+                mask_bits: 18, // 256 K
+                mask_val: []
+            }],
         }))
         .on('data', function(chunk) {
             console.log('RABIN CHUNK', chunk.length);

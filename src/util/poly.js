@@ -25,23 +25,33 @@ function Poly(degrees) {
         words[word] |= 1 << (d % 32);
         if (d > degree) degree = d;
     });
+    // treat aligned degrees as lower which makes left shifting easier to carry
+    if (degree % 32 === 0) {
+        words.pop();
+    }
 
     this.nwords = words.length;
     this.degree = degree;
-    this.high_bit = 1 << ((degree % 32) - 1);
+    this.carry_bit = 1 << ((degree - 1) % 32);
+    this.top_word = this.nwords - 1;
+    this.top_bits = (degree % 32) || 32;
+    this.top_mask = ~0 << (32 - this.top_bits) >>> (32 - this.top_bits);
+    this.shift_byte_mod_offset = this.top_bits - 8;
 
     if (this.nwords <= 1) {
         this.val = words[0];
         this.deg = deg_32bit;
-        this.mod = this.mod_32bit;
         this.xor = xor_32bit;
         this.orr = orr_32bit;
-        this.mult = this.mult_mod_32bit;
-        this.shift_bit_mod = this.shift_bit_mod_32bit;
-        this.shift_left_mod = this.shift_left_mod_32bit;
-        this.shift_byte_mod = this.shift_byte_mod_32bit;
         this.shift_left = shift_left_32bit;
         this.shift_right = shift_right_32bit;
+
+        // modulo
+        this.mod = this.mod_32bit;
+        this.mult_mod = this.mult_mod_32bit;
+        this.shift_bit_mod = this.shift_bit_mod_32bit;
+        this.shift_bits_mod = this.shift_bits_mod_32bit;
+        this.push_byte_mod = this.push_byte_mod_32bit;
 
         this.max = ~0 << (32 - degree) >>> (32 - degree);
         this.zero = function() {
@@ -50,26 +60,18 @@ function Poly(degrees) {
 
         // TODO test performance with log tables
         // if (this.init_log_table()) {
-        //     this.mult = this.mult_with_log;
+        //     this.mult_mod = this.mult_with_log;
         // }
 
     } else {
         this.val = words;
         this.deg = this.deg_nbit;
-        this.mod = this.mod_nbit;
         this.xor = this.xor_nbit;
         this.orr = this.orr_nbit;
-        this.mult = this.mult_nbit;
-        this.shift_bit_mod = this.shift_bit_mod_nbit;
-        this.shift_left_mod = this.shift_left_mod_nbit;
-        this.shift_byte_mod = this.shift_byte_mod_nbit;
         this.shift_left = this.shift_left_nbit;
         this.shift_right = this.shift_right_nbit;
 
         this.max = Math.pow(2, degree) - 1;
-        var lwm = 32 - (degree % 32);
-        this.last_word_mask = ~0 << lwm >>> lwm;
-        this.last_word = this.nwords - 1;
         var zero_nbit = _.times(this.nwords, function() {
             return 0;
         });
@@ -77,23 +79,32 @@ function Poly(degrees) {
             return _.clone(zero_nbit);
         };
 
+        // modulo
+        this.mod = this.mod_nbit;
+        this.mult_mod = this.mult_mod_nbit;
+        this.shift_bit_mod = this.shift_bit_mod_nbit;
+        this.shift_bits_mod = this.shift_bits_mod_nbit;
+        this.push_byte_mod = this.push_byte_mod_nbit;
+
+
         // optimized versions for 2 words
         if (this.nwords === 2) {
             this.deg = this.deg_64bit;
-            this.mod = this.mod_64bit;
             this.xor = this.xor_64bit;
             this.orr = this.orr_64bit;
-            this.shift_bit_mod = this.shift_bit_mod_64bit;
-            this.shift_left_mod = this.shift_left_mod_64bit;
-            this.shift_byte_mod = this.shift_byte_mod_64bit;
             this.zero = function() {
                 return [0, 0];
             };
+
+            // modulo
+            this.mod = this.mod_64bit;
+            this.shift_bit_mod = this.shift_bit_mod_64bit;
+            this.shift_bits_mod = this.shift_bits_mod_64bit;
+            this.push_byte_mod = this.push_byte_mod_64bit;
+
         }
     }
 
-
-    this.shift_byte_mod_offset = degree - 8;
 
     // this is a lookup table to speed up shifting by batching bytes
     // each entry is a value that will be xor'ed after shifting left 8 bits.
@@ -149,26 +160,28 @@ Poly.prototype.mod_32bit = function(a) {
 };
 
 Poly.prototype.shift_bit_mod_32bit = function(a) {
-    var high = a & this.high_bit;
+    var carry = a & this.carry_bit;
     a <<= 1;
-    if (high) {
+    if (carry) {
         a ^= this.val;
     }
     return a;
 };
 
-Poly.prototype.shift_left_mod_32bit = function(a, s) {
-    var high;
+Poly.prototype.shift_bits_mod_32bit = function(a, s) {
+    var carry;
+    var sbmo = this.shift_byte_mod_offset;
+    var sbmt = this.shift_byte_mod_table;
     while (s >= 8) {
-        high = (a >>> this.shift_byte_mod_offset) & 0xff;
+        carry = 0xFF & (a >>> sbmo);
         a <<= 8;
-        a ^= this.shift_byte_mod_table[high];
+        a ^= sbmt[carry];
         s -= 8;
     }
     while (s > 0) {
-        high = a & this.high_bit;
+        carry = a & this.carry_bit;
         a <<= 1;
-        if (high) {
+        if (carry) {
             a ^= this.val;
         }
         s -= 1;
@@ -176,9 +189,9 @@ Poly.prototype.shift_left_mod_32bit = function(a, s) {
     return a;
 };
 
-Poly.prototype.shift_byte_mod_32bit = function(a, add_before, byte) {
-    a ^= add_before;
-    a = this.shift_left_mod_32bit(a, 8);
+Poly.prototype.push_byte_mod_32bit = function(a, pop_out, byte) {
+    a ^= pop_out;
+    a = this.shift_bits_mod_32bit(a, 8);
     a ^= byte;
     if (this.degree < 8) {
         a = mod_32bit(a, this.val, this.degree);
@@ -200,8 +213,8 @@ Poly.prototype.shift_byte_mod_32bit = function(a, add_before, byte) {
  */
 Poly.prototype.mult_mod_32bit = function(a, b) {
     var result = 0;
-    var hb = this.high_bit;
-    var val = this.val;
+    var carry_bit = this.carry_bit;
+    var p = this.val;
 
     while (a && b) {
         // in every stage of the loop we add (which is xor in GF) a to
@@ -212,10 +225,10 @@ Poly.prototype.mult_mod_32bit = function(a, b) {
         }
         // in polynom notation we now do b=b/x a=a*x (mod p).
         b >>>= 1;
-        var carry = a & hb;
+        var carry = a & carry_bit;
         a <<= 1;
         if (carry) {
-            a ^= val;
+            a ^= p;
         }
     }
     return result;
@@ -231,7 +244,7 @@ Poly.prototype.mult_mod_32bit = function(a, b) {
  *
  * NOTE: this is a general case implementation and therefore not as optimized
  * as might be possible in specific cases. for example see how mult_mod_32bit handles
- * modulo with single xor by assuming only high_bit requires handling.
+ * modulo with single xor by assuming only carry_bit requires handling.
  *
  * here is a long division example:
  *  w = 2
@@ -359,28 +372,45 @@ Poly.prototype.mod_64bit = function(a) {
 };
 
 Poly.prototype.shift_bit_mod_64bit = function(a) {
-    var high = a[1] & this.high_bit;
-    var carry = a[0] >>> 31;
+    var carry0 = a[0] >>> 31;
+    var carry1 = a[1] & this.carry_bit;
     a[0] <<= 1;
-    a[1] <<= 1;
-    a[1] |= carry;
-    if (high) {
+    a[1] = (a[1] << 1) | carry0;
+    if (carry1) {
         a[0] ^= this.val[0];
         a[1] ^= this.val[1];
     }
     return a;
 };
 
-Poly.prototype.shift_left_mod_64bit = function(a, s) {
+Poly.prototype.shift_bits_mod_64bit = function(a, s) {
     var p = this.val;
-    var hb = this.high_bit;
+    var carry0;
+    var carry1;
+    var carry_bit = this.carry_bit;
+    /*
+    // TODO check why this optimization fails - deg 63 and 32
+    var sbmo = this.shift_byte_mod_offset;
+    var sbmt = this.shift_byte_mod_table;
+    while (s >= 8) {
+        if (sbmo >= 0) {
+            carry1 = 0xFF & (a[1] >>> sbmo);
+        } else {
+            carry1 = 0xFF & ((a[0] >>> (32 + sbmo)) | (a[1] << (-sbmo)));
+        }
+        var t = sbmt[carry1];
+        console.log('carry1', a, sbmo, carry1, t);
+        carry0 = a[0] >>> 24;
+        a[0] = (a[0] << 8) ^ t[0];
+        a[1] = ((a[1] << 8) | carry0) ^ t[1];
+        s -= 8;
+    }*/
     while (s > 0) {
-        var high = a[1] & hb;
-        var carry = a[0] >>> 31;
+        carry0 = a[0] >>> 31;
+        carry1 = a[1] & carry_bit;
         a[0] <<= 1;
-        a[1] <<= 1;
-        a[1] |= carry;
-        if (high) {
+        a[1] = (a[1] << 1) | carry0;
+        if (carry1) {
             a[0] ^= p[0];
             a[1] ^= p[1];
         }
@@ -389,10 +419,10 @@ Poly.prototype.shift_left_mod_64bit = function(a, s) {
     return a;
 };
 
-Poly.prototype.shift_byte_mod_64bit = function(a, add_before, byte) {
-    a[0] ^= add_before[0];
-    a[1] ^= add_before[1];
-    this.shift_left_mod_64bit(a, 8);
+Poly.prototype.push_byte_mod_64bit = function(a, pop_out, byte) {
+    a[0] ^= pop_out[0];
+    a[1] ^= pop_out[1];
+    this.shift_bits_mod_64bit(a, 8);
     a[0] ^= byte;
     return a;
 };
@@ -434,14 +464,14 @@ Poly.prototype.shift_left_nbit = function(a, s) {
 
 Poly.prototype.shift_right_nbit = function(a, s) {
     var ret = this.zero();
-    var i = this.last_word;
+    var i = this.top_word;
     while (s >= 32) {
         s -= 32;
         i -= 1;
     }
     var s_rem = 32 - s;
     var carry = 0;
-    var j = this.last_word;
+    var j = this.top_word;
     for (; i >= 0; --i, --j) {
         var curr = a[j] || 0;
         ret[i] = (curr >>> s) | carry;
@@ -453,53 +483,56 @@ Poly.prototype.shift_right_nbit = function(a, s) {
 
 Poly.prototype.truncate_nbit = function(a) {
     a.length = this.nwords;
-    a[this.last_word] = a[this.last_word] & this.last_word_mask;
+    a[this.top_word] = a[this.top_word] & this.top_mask;
     return a;
 };
 
 Poly.prototype.xor_nbit = function(a, b) {
-    for (var i = this.last_word; i >= 0; --i) {
+    for (var i = this.top_word; i >= 0; --i) {
         a[i] ^= b[i];
     }
     return a;
 };
 
 Poly.prototype.orr_nbit = function(a, b) {
-    for (var i = this.last_word; i >= 0; --i) {
+    for (var i = this.top_word; i >= 0; --i) {
         a[i] |= b[i];
     }
     return a;
 };
 
 Poly.prototype.deg_nbit = function(a) {
-    var i = this.last_word;
+    var i = this.top_word;
     while (!a[i] && i > 0) i -= 1;
     return i + deg_32bit(a[i]);
 };
 
 
-Poly.prototype.mod_nbit = function(a, p, w) {
+Poly.prototype.mod_nbit = function(a) {
     if (typeof(a) === 'number') {
         var a_nbit = this.zero();
         a_nbit[0] = a;
         a = a_nbit;
     }
-    var d = this.deg_nbit(a) - w;
+    var d = this.deg_nbit(a) - this.degree;
 
     // in each loop we subtract (xor) with p shifted exactly to cancel
     // the next highest bit of result, until the result degree is less than w.
+    var p = this.zero();
     while (d >= 0) {
-        var p_shifted = this.shift_left_nbit(p, d);
-        this.xor_nbit(a, p_shifted);
-        d = this.deg_nbit(a) - w;
+        for (var i = this.top_word; i >= 0; --i) {
+            p[i] ^= this.val[i];
+        }
+        p = this.shift_left_nbit(p, d);
+        a = this.xor_nbit(a, p);
+        d = this.deg_nbit(a) - this.degree;
     }
     return a;
 };
 
-Poly.prototype.mult_nbit = function(a, b) {
-    throw new Error('TODO implement');
+Poly.prototype.mult_mod_nbit = function(a, b) {
+    throw new Error('TODO mult_mod_nbit not implemented');
 };
-
 
 
 
@@ -511,7 +544,7 @@ Poly.prototype.mult_nbit = function(a, b) {
  * generate log and exp tables for the primitive polynom.
  *
  * requirements:
- * w <= 20 because it will require lots of memory.
+ * deg(p) <= 20 to limit the tables memory usage.
  * p must be a primitive polynom (and not just irreducible).
  *
  */
@@ -530,7 +563,7 @@ Poly.prototype.init_log_table = function() {
     // the process starts from the polynom a=1 and on each step it
     // multiplies a by the polynom x, which effectively means: a<<1 mod p.
     // when p is a primitive polynom this loop will iterate through all the
-    // elements of GF(2^w) in the order of exponents - 1, x, x^2, x^3, ...
+    // elements of GF(2^d) in the order of exponents - 1, x, x^2, x^3, ...
     var i = 0;
     var a = 1;
     do {
@@ -546,7 +579,7 @@ Poly.prototype.init_log_table = function() {
         log_table[a] = i;
         exp_table[i] = a;
         i += 1;
-        a = this.mult(a, 2);
+        a = this.mult_mod(a, 2);
     } while (a !== 1);
 
     this.log_table = log_table;
@@ -556,7 +589,7 @@ Poly.prototype.init_log_table = function() {
 
 
 /**
- * calculate a * b in GF(2^w) using the log and exp tables.
+ * calculate a * b in GF(2^d) using the log and exp tables.
  * using the formula: a * b = exp( log(a) + log(b) )
  */
 Poly.prototype.mult_with_log = function(a, b) {
@@ -572,7 +605,7 @@ Poly.prototype.mult_with_log = function(a, b) {
 
 
 /**
- * calculate a / b in GF(2^w) using the log and exp tables.
+ * calculate a / b in GF(2^d) using the log and exp tables.
  * using the formula: a / b = exp( log(a) - log(b) )
  */
 Poly.prototype.div_with_log = function(a, b) {

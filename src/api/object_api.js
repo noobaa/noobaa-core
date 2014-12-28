@@ -109,7 +109,16 @@ module.exports = rest_api({
                 },
             },
             reply: {
-                $ref: '/object_api/definitions/object_part_info'
+                type: 'object',
+                required: [],
+                properties: {
+                    dedup: {
+                        type: 'boolean'
+                    },
+                    part: {
+                        $ref: '/object_api/definitions/object_part_info'
+                    }
+                }
             },
             auth: {
                 system: ['admin', 'user']

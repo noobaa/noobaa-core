@@ -9,6 +9,8 @@ var object_api = require('./object_api');
 var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
 var ChunkStream = require('../util/chunk_stream');
+var rabin = require('../util/rabin');
+var Poly = require('../util/poly');
 var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
@@ -102,7 +104,16 @@ ObjectClient.prototype.upload_stream = function(params) {
             });
             return Q.Promise(function(resolve, reject) {
                 params.source_stream
-                    .pipe(new ChunkStream(self.OBJECT_RANGE_ALIGN))
+                    .pipe(new rabin.RabinChunkStream({
+                        window_length: 128,
+                        min_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 3,
+                        max_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 6,
+                        hash_spaces: [{
+                            poly: new Poly(Poly.PRIMITIVES[31]),
+                            hash_bits: self.OBJECT_RANGE_ALIGN_NBITS - 1, // 256 KB average chunk
+                            hash_val: 0x07071070 // hebrew calculator pimp
+                        }],
+                    }))
                     .pipe(self.open_write_stream(bucket_key_params))
                     .once('error', function(err) {
                         dbg.log0('error write stream', params.key, err);
@@ -221,8 +232,13 @@ ObjectClient.prototype._write_object_part = function(params) {
     dbg.log2('_write_object_part', create_part_params, 'plain length', params.buffer.length);
 
     return self.allocate_object_part(create_part_params)
-        .then(function(part_arg) {
-            part = part_arg;
+        .then(function(res) {
+            if (res.dedup) {
+                part = part_params;
+                console.log('DEDUP', part);
+                return;
+            }
+            part = res.part;
             if (self._events) {
                 self._events.emit('part:before', part);
             }

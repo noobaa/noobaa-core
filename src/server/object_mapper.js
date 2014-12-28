@@ -51,30 +51,40 @@ function allocate_object_part(bucket, obj, start, end, chunk_size, crypt) {
             // chunk_offset: 0, // not required
         }]
     });
-    var part_info;
+    var reply = {};
 
-    return Q.fcall(function() {
+    return Q.when(db.DataChunk.findOne({
+            system: obj.system,
+            tier: bucket.tiering[0].tier,
+            'crypt.hash_val': crypt.hash_val,
+            deleted: null,
+        }).exec())
+        .then(function(dup_chunk) {
+            if (dup_chunk) {
+                reply.dedup = true;
+                new_part.chunks[0].chunk = dup_chunk;
+                return;
+            }
             // console.log('create chunk', new_chunk);
-            return db.DataChunk.create(new_chunk);
-        })
-        .then(function() {
-            // console.log('allocate_blocks_for_new_chunk');
-            return block_allocator.allocate_blocks_for_new_chunk(new_chunk);
-        })
-        .then(function(new_blocks) {
-            // console.log('create blocks', new_blocks);
-            part_info = get_part_info(new_part, new_chunk, new_blocks);
-            return db.DataBlock.create(new_blocks);
+            return db.DataChunk.create(new_chunk)
+                .then(function() {
+                    // console.log('allocate_blocks_for_new_chunk');
+                    return block_allocator.allocate_blocks_for_new_chunk(new_chunk);
+                })
+                .then(function(new_blocks) {
+                    // console.log('create blocks', new_blocks);
+                    reply.part = get_part_info(new_part, new_chunk, new_blocks);
+                    return db.DataBlock.create(new_blocks);
+                });
         })
         .then(function() {
             // console.log('create part', new_part);
             return db.ObjectPart.create(new_part);
         })
         .then(function() {
-            console.log('part info', part_info);
-            return part_info;
+            console.log('part info', reply);
+            return reply;
         });
-
 }
 
 

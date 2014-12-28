@@ -69,7 +69,6 @@ Rabin.prototype.append_byte = function(b) {
     this.window[this.wpos] = b;
     this.wpos = (this.wpos + 1) % this.wlen;
     this.fingerprint = this.poly.push_byte_mod(this.fingerprint, out, b);
-    this.sanity();
     return this.poly.get_word(this.fingerprint, 0) & this.hash_mask;
 };
 
@@ -98,8 +97,8 @@ Rabin.prototype.sanity = function() {
         i = (i + 1) % this.wlen;
     } while (i !== this.wpos);
     if (!_.isEqual(fp, this.fingerprint)) {
-        console.log('*** INSANE ***', fp, this.fingerprint);
-        process.exit();
+        console.log('*** RABIN IS INSANE ***', fp, this.fingerprint);
+        throw new Error('RABIN IS INSANE');
     }
 };
 
@@ -129,6 +128,7 @@ function RabinChunkStream(params, options) {
     this.max_chunk_size = params.max_chunk_size;
     this.pending = new Buffer(0);
     this.concat_arr = [null, null];
+    this.sanity = params.sanity;
 }
 
 // proper inheritance
@@ -168,6 +168,9 @@ RabinChunkStream.prototype._transform = function(data, encoding, callback) {
             boundary = true;
             for (var i = 0; i < hspaces.length; ++i) {
                 var h = hspaces[i].rabin.append_byte(byte);
+                if (this.sanity) {
+                    hspaces[i].rabin.sanity();
+                }
                 if (boundary && (h !== hspaces[i].hash_val)) {
                     boundary = false;
                 }
@@ -195,34 +198,3 @@ RabinChunkStream.prototype._flush = function(callback) {
     }
     callback();
 };
-
-
-
-function test() {
-    var start_time = Date.now();
-    var size = 0;
-    require('fs')
-        .createReadStream('/Users/gu/Movies/720p.webm')
-        .pipe(new RabinChunkStream({
-            window_length: 8,
-            min_chunk_size: 3 * 128 * 1024,
-            max_chunk_size: 6 * 128 * 1024,
-            hash_spaces: [{
-                poly: new Poly(Poly.PRIMITIVES[31]),
-                hash_bits: 18, // 2^18 = 256 KB average chunk
-                hash_val: 0x07071070
-            }],
-        }))
-        .on('data', function(chunk) {
-            console.log('RABIN CHUNK', chunk.length);
-            size += chunk.length;
-        })
-        .once('error', function(err) {
-            console.error('error write stream', err);
-        })
-        .once('finish', function() {
-            var seconds = (Date.now() - start_time) / 1000;
-            console.log('speed', (size / 1024 / 1024 / seconds).toFixed(2), 'MB/sec');
-        });
-}
-test();

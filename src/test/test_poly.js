@@ -45,7 +45,7 @@ describe('poly', function() {
     function run_steps(p, state) {
         state = state || {
             a: 0,
-            b: 0,
+            b: p.max,
             a_inverse: 0,
             count: 0,
             start_time: Date.now(),
@@ -82,7 +82,7 @@ describe('poly', function() {
         for (var i = 0; i < cycles; ++i) {
 
             // check validity of result
-            var result = p.mult(a, b);
+            var result = p.mult_mod(a, b);
             count += 1;
             if (typeof(result) !== 'number' || result > p.max || result < 0) {
                 throw new Error('bad result not in range ' +
@@ -101,7 +101,7 @@ describe('poly', function() {
             }
 
             // checking field commutativity - a*b = b*a
-            var result2 = p.mult(b, a);
+            var result2 = p.mult_mod(b, a);
             count += 1;
             if (result !== result2) {
                 throw new Error('not commutative ' +
@@ -109,7 +109,7 @@ describe('poly', function() {
                     ' = ' + result.toString(2) + ' or ' + result2.toString(2));
             }
 
-            if (b === p.max) {
+            if (b === 0) {
                 if (a && !a_inverse) {
                     throw new Error('inverse not found for ' + a.toString(2));
                 }
@@ -119,9 +119,9 @@ describe('poly', function() {
                 }
                 a += 1;
                 a_inverse = 0;
-                b = 0;
+                b = p.max;
             } else {
-                b += 1;
+                b -= 1;
             }
         }
 

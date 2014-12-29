@@ -6,6 +6,7 @@ var Q = require('q');
 var fs = require('fs');
 var path = require('path');
 var assert = require('assert');
+var crypto = require('crypto');
 var mkdirp = require('mkdirp');
 var size_utils = require('../util/size_utils');
 var Semaphore = require('noobaa-util/semaphore');
@@ -21,7 +22,9 @@ module.exports = AgentStore;
 function AgentStore(root_path) {
     this.root_path = root_path;
     this.blocks_path = path.join(this.root_path, 'blocks');
+    this.hash_path = path.join(this.root_path, '.h');
     mkdirp.sync(this.blocks_path);
+    mkdirp.sync(this.hash_path);
 }
 
 
@@ -106,8 +109,28 @@ AgentStore.prototype.set_alloc = function(size) {
 AgentStore.prototype.read_block = function(block_id) {
     var self = this;
     var block_path = self._get_block_path(block_id);
+    var hash_path = path.join(self.hash_path, block_id);
     console.log('fs read block', block_path);
-    return Q.nfcall(fs.readFile, block_path);
+    return Q.all([
+            Q.nfcall(fs.readFile, block_path),
+            Q.nfcall(fs.readFile, hash_path)
+            .then(null, function(err) {
+                if (err.code === 'ENOENT') return;
+                throw err;
+            })
+        ])
+        .spread(function(data, hash_info) {
+            if (hash_info) {
+                var hash_val = crypto.createHash('sha256').update(data).digest('base64');
+                hash_info = hash_info.toString().split(' ');
+                var len = parseInt(hash_info[0], 10);
+                var val = hash_info[1];
+                if (len !== data.length || hash_val !== val) {
+                    throw 'tampered';
+                }
+            }
+            return data;
+        });
 };
 
 
@@ -119,11 +142,15 @@ AgentStore.prototype.read_block = function(block_id) {
 AgentStore.prototype.write_block = function(block_id, data) {
     var self = this;
     var block_path = self._get_block_path(block_id);
+    var hash_path = path.join(self.hash_path, block_id);
     var file_stats;
 
     if (!Buffer.isBuffer(data) && typeof(data) !== 'string') {
         throw new Error('data is not a buffer/string');
     }
+
+    var hash_val = crypto.createHash('sha256').update(data).digest('base64');
+    var hash_info = data.length.toString(10) + ' ' + hash_val;
 
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
@@ -131,7 +158,10 @@ AgentStore.prototype.write_block = function(block_id, data) {
             console.log('fs write block', block_path, data.length, typeof(data), file_stats);
 
             // create/replace the block on fs
-            return Q.nfcall(fs.writeFile, block_path, data);
+            return Q.all([
+                Q.nfcall(fs.writeFile, block_path, data),
+                Q.nfcall(fs.writeFile, hash_path, hash_info)
+            ]);
         })
         .then(function() {
             if (self._usage) {

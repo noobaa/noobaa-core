@@ -25,7 +25,7 @@ number_of_dockers=$(curl http://metadata/computeMetadata/v1/instance/attributes/
 #in case of unexpected response, we will set 450 as default
 re='^[0-9]+$'
 if ! [[ $number_of_dockers =~ $re ]] ; then
-   number_of_dockers=400
+   number_of_dockers=250
 fi
 while [  $COUNTER -lt $number_of_dockers ]; do
    sudo ./start_noobaa_docker.sh

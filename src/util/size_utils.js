@@ -14,7 +14,8 @@ var _ = require('lodash');
 var KILOBYTE = 1024;
 var MEGABYTE = 1024 * KILOBYTE;
 var GIGABYTE = 1024 * MEGABYTE;
-var PETABYTE = 1024 * GIGABYTE;
+var TERABYTE = 1024 * GIGABYTE;
+var PETABYTE = 1024 * TERABYTE;
 var EXABYTE = {
     peta: 1024
 };
@@ -38,6 +39,7 @@ module.exports = {
     KILOBYTE: KILOBYTE,
     MEGABYTE: MEGABYTE,
     GIGABYTE: GIGABYTE,
+    TERABYTE: TERABYTE,
     PETABYTE: PETABYTE,
     EXABYTE: EXABYTE,
     ZETABYTE: ZETABYTE,
@@ -82,7 +84,7 @@ function human_size(bytes) {
     var i = 0;
     if (typeof(bytes) === 'object') {
         if (bytes.peta) {
-            x = bytes.peta;
+            x = bytes.peta + (bytes.n / PETABYTE);
             i = 5;
         } else {
             x = bytes.n;

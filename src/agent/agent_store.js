@@ -20,7 +20,8 @@ module.exports = AgentStore;
  */
 function AgentStore(root_path) {
     this.root_path = root_path;
-    mkdirp.sync(root_path);
+    this.blocks_path = path.join(this.root_path, 'blocks');
+    mkdirp.sync(this.blocks_path);
 }
 
 
@@ -194,7 +195,7 @@ AgentStore.prototype.stat_block = function(block_id) {
  *
  */
 AgentStore.prototype._get_block_path = function(block_id) {
-    return path.join(this.root_path, block_id);
+    return path.join(this.blocks_path, block_id);
 };
 
 
@@ -249,7 +250,7 @@ AgentStore.prototype._write_config = function(config) {
 AgentStore.prototype._count_usage = function() {
     var self = this;
     var sem = new Semaphore(10);
-    return disk_usage(self.root_path, sem, true)
+    return disk_usage(self.blocks_path, sem, true)
         .then(function(usage) {
             console.log('counted disk usage', usage);
             self._usage = usage; // object with properties size and count

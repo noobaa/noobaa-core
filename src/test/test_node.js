@@ -40,7 +40,6 @@ describe('node', function() {
             return client.node.heartbeat({
                 id: res.id,
                 geolocation: 'home',
-                ip: '0.0.0.0',
                 port: 0,
                 storage: {
                     alloc: 10 * size_utils.GIGABYTE,

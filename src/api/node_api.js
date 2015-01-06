@@ -243,7 +243,6 @@ module.exports = rest_api({
                     'id',
                     'port',
                     'storage',
-                    'device_info',
                 ],
                 properties: {
                     id: {
@@ -269,8 +268,14 @@ module.exports = rest_api({
             },
             reply: {
                 type: 'object',
-                required: ['storage'],
+                required: ['version', 'delay_ms'],
                 properties: {
+                    version: {
+                        type: 'string'
+                    },
+                    delay_ms: {
+                        type: 'integer'
+                    },
                     storage: {
                         $ref: '/system_api/definitions/storage_info'
                     },

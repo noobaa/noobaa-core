@@ -16,6 +16,7 @@ module.exports = SliceReader;
  */
 function SliceReader(source, params) {
     var self = this;
+    params = params || {};
     stream.Readable.call(self, params);
     self._source = source;
     self._pos =
@@ -63,7 +64,7 @@ SliceReader.prototype._read = function(requested_size) {
         if (this._pos >= next || !slice.length) {
             this.push(null); // EOF
         } else {
-            this._pos += next;
+            this._pos = next;
             this.push(slice);
         }
     } catch (err) {

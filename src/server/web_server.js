@@ -4,6 +4,20 @@ process.on('uncaughtException', function(err) {
     console.log(err.stack);
 });
 
+// newrelic monitoring should load first
+if (process.env.NEW_RELIC_LICENSE_KEY) {
+    require('newrelic');
+}
+
+if (process.env.NODETIME_ACCOUNT_KEY) {
+    require('nodetime').profile({
+        accountKey: process.env.NODETIME_ACCOUNT_KEY
+    });
+}
+
+// dump heap with kill -USR2 <pid>
+require('heapdump');
+
 // important - dot settings should run before any require() that might use dot
 // or else the it will get mess up (like the email.js code)
 var dot_engine = require('noobaa-util/dot_engine');
@@ -43,7 +57,7 @@ var debug_mode = (process.env.DEBUG_MODE === 'true');
 
 
 // connect to the database
-mongoose.connect(process.env.MONGOHQ_URL);
+mongoose.connect(process.env.MONGOHQ_URL || process.env.MONGOLAB_URI);
 mongoose.set('debug', debug_mode);
 
 // create express app

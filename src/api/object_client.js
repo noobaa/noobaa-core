@@ -9,6 +9,8 @@ var object_api = require('./object_api');
 var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
 var ChunkStream = require('../util/chunk_stream');
+var rabin = require('../util/rabin');
+var Poly = require('../util/poly');
 var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
@@ -35,6 +37,7 @@ function ObjectClient(base) {
     object_api.Client.call(self, base);
 
     // some constants that might be provided as options to the client one day
+
     self.OBJECT_RANGE_ALIGN_NBITS = 19; // log2( 512 KB )
     self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 512 KB
 
@@ -44,11 +47,11 @@ function ObjectClient(base) {
     self.READ_CONCURRENCY = 32;
     self.WRITE_CONCURRENCY = 16;
 
-    self.READAHEAD_MIN_TRIGGER = self.OBJECT_RANGE_ALIGN;
-    self.READAHEAD_RANGES = 16;
+    self.READ_RANGE_CONCURRENCY = 8;
 
-    self.HTTP_PART_ALIGN_NBITS = self.OBJECT_RANGE_ALIGN_NBITS + 4; // log2( 8 MB )
-    self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 8 MB
+    self.HTTP_PART_ALIGN_NBITS = self.OBJECT_RANGE_ALIGN_NBITS + 6; // log2( 32 MB )
+    self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 32 MB
+    self.HTTP_TRUNCATE_PART_SIZE = false;
 
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
@@ -101,7 +104,16 @@ ObjectClient.prototype.upload_stream = function(params) {
             });
             return Q.Promise(function(resolve, reject) {
                 params.source_stream
-                    .pipe(new ChunkStream(self.OBJECT_RANGE_ALIGN))
+                    .pipe(new rabin.RabinChunkStream({
+                        window_length: 128,
+                        min_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 3,
+                        max_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 6,
+                        hash_spaces: [{
+                            poly: new Poly(Poly.PRIMITIVES[31]),
+                            hash_bits: self.OBJECT_RANGE_ALIGN_NBITS - 1, // 256 KB average chunk
+                            hash_val: 0x07071070 // hebrew calculator pimp
+                        }],
+                    }))
                     .pipe(self.open_write_stream(bucket_key_params))
                     .once('error', function(err) {
                         dbg.log0('error write stream', params.key, err);
@@ -220,8 +232,13 @@ ObjectClient.prototype._write_object_part = function(params) {
     dbg.log2('_write_object_part', create_part_params, 'plain length', params.buffer.length);
 
     return self.allocate_object_part(create_part_params)
-        .then(function(part_arg) {
-            part = part_arg;
+        .then(function(res) {
+            if (res.dedup) {
+                part = part_params;
+                console.log('DEDUP', part);
+                return;
+            }
+            part = res.part;
             if (self._events) {
                 self._events.emit('part:before', part);
             }
@@ -419,10 +436,24 @@ util.inherits(ObjectReader, stream.Readable);
 
 
 /**
+ * close the reader and stop returning anymore data
+ */
+ObjectReader.prototype.close = function() {
+    this._closed = true;
+    this.unpipe();
+    this.emit('close');
+};
+
+
+/**
  * implement the stream's Readable._read() function.
  */
 ObjectReader.prototype._read = function(requested_size) {
     var self = this;
+    if (self._closed) {
+        console.error('reader closed');
+        return;
+    }
     Q.fcall(function() {
             var end = Math.min(self._end, self._pos + requested_size);
             return self._client.read_object({
@@ -466,31 +497,31 @@ ObjectReader.prototype._read = function(requested_size) {
 ObjectClient.prototype.read_object = function(params) {
     var self = this;
 
-    dbg.log0('read_object', range_utils.human_range(params));
+    dbg.log1('read_object', range_utils.human_range(params));
 
     if (params.end <= params.start) {
         // empty read range
         return null;
     }
 
-    return self._object_range_cache.get(params)
-        .then(function(data) {
-            if (data && data.length >= self.READAHEAD_MIN_TRIGGER) {
-                // submit readahead
-                setTimeout(function() {
-                    var pos = range_utils.align_up_bitwise(
-                        params.start + data.length, self.OBJECT_RANGE_ALIGN_NBITS);
-                    _.times(self.READAHEAD_RANGES, function(i) {
-                        var readahead_params = _.clone(params);
-                        readahead_params.start = pos;
-                        pos += self.OBJECT_RANGE_ALIGN;
-                        readahead_params.end = pos;
-                        self._object_range_cache.get(readahead_params);
-                    });
-                }, 10);
-            }
-            return data;
-        });
+    var pos = params.start;
+    var promises = [];
+
+    while (pos < params.end && promises.length < self.READ_RANGE_CONCURRENCY) {
+        var range = _.clone(params);
+        range.start = pos;
+        range.end = Math.min(
+            params.end,
+            range_utils.align_up_bitwise(pos + 1, self.OBJECT_RANGE_ALIGN_NBITS)
+        );
+        dbg.log2('read_object', range_utils.human_range(range));
+        promises.push(self._object_range_cache.get(range));
+        pos = range.end;
+    }
+
+    return Q.all(promises).then(function(buffers) {
+        return Buffer.concat(_.compact(buffers));
+    });
 };
 
 
@@ -516,7 +547,7 @@ ObjectClient.prototype._init_object_range_cache = function() {
             range_params.start = range_utils.align_down_bitwise(
                 params.start, self.OBJECT_RANGE_ALIGN_NBITS);
             range_params.end = range_params.start + self.OBJECT_RANGE_ALIGN;
-            dbg.log1('RangesCache: load', range_utils.human_range(range_params), params.key);
+            dbg.log0('RangesCache: load', range_utils.human_range(range_params), params.key);
             return self._read_object_range(range_params);
         },
         make_val: function(val, params) {
@@ -783,6 +814,25 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
  */
 ObjectClient.prototype.serve_http_stream = function(req, res, params) {
     var self = this;
+    var read_stream;
+
+    // on disconnects close the read stream
+    req.on('close', read_closer('request closed'));
+    req.on('end', read_closer('request ended'));
+    res.on('close', read_closer('response closed'));
+    res.on('end', read_closer('response ended'));
+
+    function read_closer(reason) {
+        return function() {
+            console.log('+++ serve_http_stream:', reason);
+            if (read_stream) {
+                read_stream.close();
+                read_stream = null;
+            }
+        };
+    }
+
+
     self.get_object_md(params).then(function(md) {
         res.header('Content-Type', md.content_type);
         res.header('Accept-Ranges', 'bytes');
@@ -798,7 +848,8 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
             dbg.log0('+++ serve_http_stream: send all');
             res.header('Content-Length', md.size);
             res.status(200);
-            self.open_read_stream(params, self.HTTP_PART_ALIGN).pipe(res);
+            read_stream = self.open_read_stream(params, self.HTTP_PART_ALIGN);
+            read_stream.pipe(res);
             return;
         }
 
@@ -823,11 +874,11 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         var start = range[0].start;
         var end = range[0].end + 1; // use exclusive end
 
-        // limit a single http request size
-        // the reason is to make the browser fetch the next part of content
-        // more quickly and only once it gets to play it,
-        // which empirically seems more stable than a long "inifinite" stream.
-        if (self.HTTP_PART_ALIGN_NBITS) {
+        // [disabled] truncate a single http request to limited size.
+        // the idea was to make the browser fetch the next part of content
+        // more quickly and only once it gets to play it, but it actually seems
+        // to prevent it from properly keeping a video buffer, so disabled it.
+        if (self.HTTP_TRUNCATE_PART_SIZE) {
             if (end > start + self.HTTP_PART_ALIGN) {
                 end = start + self.HTTP_PART_ALIGN;
             }
@@ -845,10 +896,11 @@ ObjectClient.prototype.serve_http_stream = function(req, res, params) {
         res.header('Content-Length', end - start);
         // res.header('Cache-Control', 'max-age=0' || 'no-cache');
         res.status(206);
-        self.open_read_stream(_.extend({
+        read_stream = self.open_read_stream(_.extend({
             start: start,
             end: end,
-        }, params), end - start).pipe(res);
+        }, params), self.HTTP_PART_ALIGN);
+        read_stream.pipe(res);
 
         // when starting to stream also prefrech the last part of the file
         // since some video encodings put a chunk of video metadata in the end

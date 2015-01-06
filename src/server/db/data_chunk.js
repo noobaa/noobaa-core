@@ -84,6 +84,7 @@ var data_chunk_schema = new Schema({
 data_chunk_schema.index({
     system: 1,
     tier: 1,
+    'crypt.hash_val': 1,
     deleted: 1, // allow to filter deleted
 }, {
     unique: false

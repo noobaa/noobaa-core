@@ -9,6 +9,7 @@ var http = require('http');
 var path = require('path');
 var util = require('util');
 var repl = require('repl');
+var moment = require('moment');
 var assert = require('assert');
 var express = require('express');
 var express_morgan_logger = require('morgan');
@@ -46,41 +47,125 @@ function client_streamer(client, port) {
             .then(function(reply) {
                 console.log('list_buckets', reply);
                 var h = '<html><body>';
-                h += '<h1>Buckets</h1>';
+                h += '<h1>List of available buckets</h1>';
                 _.each(reply.buckets, function(b) {
-                    var href = '/bucket/' + encodeURIComponent(b.name);
+                    var href = '/b/' + encodeURIComponent(b.name);
                     h += '<h3><a href="' + href + '">' + b.name + '</a></h3>';
                 });
                 h += '</body></html>';
                 res.status(200).send(h);
+            }).then(null, function(err) {
+                console.error('ERROR buckets page', err.stack);
+                res.status(500).send(err);
             });
     });
 
-    app.get('/bucket/:bucket', function(req, res) {
+    app.get('/b/:bucket', function(req, res) {
         var bucket = req.params.bucket;
         client.object.list_objects({
                 bucket: bucket
             })
             .then(function(reply) {
                 console.log('list_objects', bucket, reply);
-                var h = '<html><body>';
-                h += '<h1>Bucket ' + bucket + '</h1>';
-                _.each(reply.objects, function(o) {
-                    var href = '/bucket/' + encodeURIComponent(bucket) +
-                        '/object/' + encodeURIComponent(o.key);
-                    h += '<h3><a href="' + href + '">' + o.key +
-                        ' <small>' + o.info.size + ' bytes</small></a></h3>';
-                });
-                h += '</body></html>';
-                res.status(200).send(h);
+                var html_arrays = [
+                    '<html>',
+                    '<head>',
+                    ' <style>th, td { padding: 5px 10px; }</style>',
+                    '</head>',
+                    '<body>',
+                    ' <h1>' + bucket + '</h1>',
+                    ' <table>',
+                    '  <thead><tr>',
+                    '   <th>File</th>',
+                    '   <th>Size</th>',
+                    '   <th>Type</th>',
+                    '   <th>Created</th>',
+                    '   <th></th>',
+                    '  </thead>',
+                    '  <tbody>',
+                    _.map(reply.objects, function(o) {
+                        var href = '/b/' + encodeURIComponent(bucket);
+                        if (/^video\//.test(o.info.content_type)) {
+                            href += '/video/' + encodeURIComponent(o.key);
+                        } else {
+                            href += '/o/' + encodeURIComponent(o.key);
+                        }
+                        var create_time = new Date(o.info.create_time);
+                        return [
+                            '<tr>',
+                            ' <td><a href="' + href + '">' + o.key + '</a></td>',
+                            ' <td>' + size_utils.human_size(o.info.size) + '</td>',
+                            ' <td>' + o.info.content_type + '</td>',
+                            ' <td title="' + create_time.toLocaleString() + '">' +
+                            moment(create_time).fromNow() + '</td>',
+                            ' <td>' + (o.info.upload_mode ? 'uploading...' : '') + '</td>',
+                            '</tr>'
+                        ];
+                    }),
+                    '  </tbody>',
+                    ' </table>',
+                    '</body>',
+                    '</html>'
+                ];
+                var html = _.flatten(html_arrays).join('\n');
+                res.status(200).send(html);
+            })
+            .then(null, function(err) {
+                console.error('ERROR objects page', err.stack);
+                res.status(500).send(err);
             });
     });
 
+    app.get('/b/:bucket/video/:key', function(req, res) {
+        var bucket = req.params.bucket;
+        var key = req.params.key;
+        client.object.get_object_md({
+                bucket: bucket,
+                key: key,
+            })
+            .then(function(md) {
+                var href = '/b/' + encodeURIComponent(bucket) + '/o/' + encodeURIComponent(key);
+                var html_arrays = [
+                    '<html>',
+                    '<head>',
+                    ' <link href="/video.js/video-js.css" rel="stylesheet" />',
+                    ' <script src="/video.js/video.js"></script>',
+                    ' <script' + '>', // hack to make jshint happy
+                    '  /* global videojs */',
+                    '  videojs.options.flash.swf = "/video.js/video-js.swf";',
+                    ' </script>',
+                    ' <style>',
+                    '   html, body { width: 100%; height: 100%; margin: 0; padding: 0; }',
+                    '   .video-js {',
+                    '     position: relative !important;',
+                    '     width: 100% !important;',
+                    '     height: 100% !important; }',
+                    ' </style>',
+                    '</head>',
+                    '<body>',
+                    ' <video controls preload="auto"',
+                    '   class="video-js vjs-default-skin vjs-big-play-centered"',
+                    '   data-setup=\'{"example_option":true}\'>',
+                    '   <source type="' + md.content_type + '" src="' + href + '" />',
+                    ' </video>',
+                    '</body>',
+                    '</html>'
+                ];
+                var html = _.flatten(html_arrays).join('\n');
+                res.status(200).send(html);
+            })
+            .then(null, function(err) {
+                console.error('ERROR video page', err.stack);
+                res.status(500).send(err);
+            });
+    });
 
-    app.get('/bucket/:bucket/object/:key', function(req, res) {
+    app.get('/b/:bucket/o/:key', function(req, res) {
         console.log('read', req.path);
         client.object.serve_http_stream(req, res, _.pick(req.params, 'bucket', 'key'));
     });
+
+    app.use('/video.js/', express.static('./node_modules/video.js/dist/video-js/'));
 
 
     var defer = Q.defer();

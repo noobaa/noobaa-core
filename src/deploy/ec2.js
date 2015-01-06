@@ -140,7 +140,7 @@ function describe_instance(instance_id) {
  * scale_instances
  *
  */
-function scale_instances(count, allow_terminate) {
+function scale_instances(count, allow_terminate,is_docker_host,number_of_dockers) {
 
     return describe_instances({
         Filters: [{
@@ -191,7 +191,7 @@ function scale_instances(count, allow_terminate) {
                 new_count += region_count;
             }
 
-            return scale_region(region_name, region_count, instances, allow_terminate);
+            return scale_region(region_name, region_count, instances, allow_terminate,is_docker_host,number_of_dockers);
         }));
     });
 }
@@ -205,7 +205,7 @@ function scale_instances(count, allow_terminate) {
  * @param instances - array of existing instances
  *
  */
-function scale_region(region_name, count, instances, allow_terminate) {
+function scale_region(region_name, count, instances, allow_terminate,is_docker_host,number_of_dockers) {
 
     // always make sure the region has the security group and key pair
     return Q
@@ -221,7 +221,7 @@ function scale_region(region_name, count, instances, allow_terminate) {
             if (count > instances.length) {
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
-                return add_region_instances(region_name, count - instances.length);
+                return add_region_instances(region_name, count - instances.length,is_docker_host,number_of_dockers);
             }
 
             // need to terminate
@@ -248,16 +248,25 @@ function scale_region(region_name, count, instances, allow_terminate) {
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count) {
+function add_region_instances(region_name, count,is_docker_host,number_of_dockers) {
     return Q
         .fcall(get_ami_image_id, region_name)
         .then(function(ami_image_id) {
+            var instance_type = 't2.micro';
+            if (is_docker_host){
+                instance_type = 'm3.2xlarge';
+//              var NooBaaProject = process.env.NOOBAA_PROJECT_NAME;
+//              var noobaa_env_name = NooBaaProject.split('-')[1];
+                run_script = fs.readFileSync(__dirname + '/docker_setup.sh');
+//                console.log('running:'+'/init_agent_'+noobaa_env_name+'.sh');
+//                return;
+            }
             console.log('AddInstance:', region_name, count, ami_image_id);
             return ec2_region_call(region_name, 'runInstances', {
                 ImageId: ami_image_id,
                 MaxCount: count,
                 MinCount: count,
-                InstanceType: 't2.micro',
+                InstanceType: instance_type,
                 // InstanceType: 'm3.medium',
                 BlockDeviceMappings: [{
                     DeviceName: '/dev/sda1',
@@ -470,15 +479,22 @@ function main() {
 
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
             console.error('\n\n****************************************************');
-            console.error('You must provide google cloud env details in .env:');
+            console.error('You must provide amazon cloud env details in .env:');
             console.error('AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION');
             console.error('****************************************************\n\n');
             return;
     }
     if (!_.isUndefined(argv.scale)) {
 
+        var is_docker_host = false;
+        if (!_.isUndefined(argv.dockers)) {
+            is_docker_host = true;
+            console.log ('starting '+argv.dockers + ' dockers on each host');
+
+        }
+
         // add a --term flag to allow removing nodes
-        scale_instances(argv.scale, argv.term)
+        scale_instances(argv.scale, argv.term,is_docker_host, argv.dockers)
             .then(function(res) {
                 console_inspect('Scale: completed to ' + argv.scale, res);
                 return describe_instances().then(print_instances);

@@ -126,7 +126,7 @@ AgentStore.prototype.read_block = function(block_id) {
                 var len = parseInt(hash_info[0], 10);
                 var val = hash_info[1];
                 if (len !== data.length || hash_val !== val) {
-                    throw 'tampered';
+                    throw 'TAMPERING DETECTED';
                 }
             }
             return data;

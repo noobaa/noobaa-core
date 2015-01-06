@@ -416,8 +416,8 @@ Agent.prototype.read_block = function(req) {
     console.log('AGENT read_block', block_id);
     return self.store_cache.get(block_id)
         .then(null, function(err) {
-            if (err === 'tampered') {
-                err = req.rest_error(500, 'TAMPERING detected');
+            if (err === 'TAMPERING DETECTED') {
+                err = req.rest_error(500, 'TAMPERING DETECTED');
             }
             throw err;
         });

@@ -32,7 +32,7 @@ function Poly(degrees) {
     this.carry_bit = 1 << ((degree - 1) % 32);
     this.top_word = this.nwords - 1;
     this.top_bits = (degree % 32) + 1;
-    this.top_mask = ~0 << (32 - this.top_bits) >>> (32 - this.top_bits);
+    this.top_mask = (~0) << (32 - this.top_bits) >>> (32 - this.top_bits);
     this.shift_byte_mod_offset = (degree % 32) - 8;
 
     if (this.nwords <= 1) {
@@ -51,7 +51,7 @@ function Poly(degrees) {
         this.shift_bits_mod = this.shift_bits_mod_32bit;
         this.push_byte_mod = this.push_byte_mod_32bit;
 
-        this.max = ~0 << (32 - degree) >>> (32 - degree);
+        this.max = (~0) << (32 - degree) >>> (32 - degree);
         this.zero = function() {
             return 0;
         };

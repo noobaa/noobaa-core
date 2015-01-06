@@ -414,7 +414,13 @@ Agent.prototype.read_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
     console.log('AGENT read_block', block_id);
-    return self.store_cache.get(block_id);
+    return self.store_cache.get(block_id)
+        .then(null, function(err) {
+            if (err === 'TAMPERING DETECTED') {
+                err = req.rest_error(500, 'TAMPERING DETECTED');
+            }
+            throw err;
+        });
 };
 
 Agent.prototype.write_block = function(req) {

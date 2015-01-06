@@ -235,7 +235,7 @@ ObjectClient.prototype._write_object_part = function(params) {
         .then(function(res) {
             if (res.dedup) {
                 part = part_params;
-                console.log('DEDUP', part);
+                dbg.log0('DEDUP', range_utils.human_range(part));
                 return;
             }
             part = res.part;

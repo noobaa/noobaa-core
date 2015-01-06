@@ -23,12 +23,29 @@ function Rabin(poly, window_length, hash_bits) {
     this.poly = poly;
     this.wlen = window_length;
 
+    // truncate hash bits to available polynom bits which is degree-1
+    if (hash_bits >= poly.degree) {
+        hash_bits = poly.degree - 1;
+    }
     if (hash_bits > 32) {
         throw new Error('max hash_bits is 32');
     }
-    this.hash_mask = ~0 << (32 - hash_bits) >>> (32 - hash_bits);
+    this.hash_mask = (~0) << (32 - hash_bits) >>> (32 - hash_bits);
 
     var self = this;
+
+    /**
+     * out_table is a byte lookup table that keeps the fingerprint
+     * factor to be applied for each byte that leaves the window.
+     *
+     * in polynom notation if the byte is represented by the polynom b(x)
+     * and w is the window length in bits, then the formula is:
+     *   out_table(b) = b(x) * x^(w-8) (mod p)
+     *
+     * by xor-ing this value and the fingerprint we pop out the effect
+     * that was created when the byte was pushed into the fingerprint
+     * and then shifted through when the rest of the window bytes pushed it forward.
+     */
     this.out_table = _.times(256, function(b) {
         var out = poly.zero();
         out = poly.push_byte_mod(out, poly.zero(), b);
@@ -121,7 +138,8 @@ function RabinChunkStream(params, options) {
     _.each(params.hash_spaces, function(hspace) {
         hspace.rabin = new Rabin(hspace.poly, params.window_length, hspace.hash_bits);
         hspace.hash_val &= hspace.rabin.hash_mask;
-        console.log('RABIN', hspace.rabin.poly.toString(), hspace.rabin.hash_mask.toString(16));
+        console.log('RABIN - mask', hspace.rabin.hash_mask.toString(16),
+            'average', hspace.rabin.hash_mask + 1, hspace.rabin.poly.toString());
     });
 
     this.min_chunk_size = Math.max(params.min_chunk_size - params.window_length, 0);
@@ -140,6 +158,7 @@ util.inherits(RabinChunkStream, stream.Transform);
  */
 RabinChunkStream.prototype._transform = function(data, encoding, callback) {
     var pos = this.pending.length;
+    // console.log(pos, data.length);
 
     // add the new data to the pending
     // reusing the array to avoid unneeded garbage
@@ -163,7 +182,7 @@ RabinChunkStream.prototype._transform = function(data, encoding, callback) {
 
         while (!boundary && pos < stop_pos) {
 
-            var byte = this.pending.readUInt8(pos);
+            var byte = this.pending[pos];
 
             boundary = true;
             for (var i = 0; i < hspaces.length; ++i) {

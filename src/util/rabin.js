@@ -68,7 +68,8 @@ function Rabin(poly, window_length, hash_bits) {
  */
 Rabin.prototype.reset = function() {
     this.wpos = 0;
-    this.window = new Uint8Array(this.wlen);
+    this.window = new Buffer(this.wlen);
+    this.window.fill(0);
     this.fingerprint = this.poly.zero();
 };
 
@@ -157,6 +158,7 @@ util.inherits(RabinChunkStream, stream.Transform);
  * implement the stream's Transform._transform() function.
  */
 RabinChunkStream.prototype._transform = function(data, encoding, callback) {
+    var hspaces = this.hash_spaces;
     var pos = this.pending.length;
     // console.log(pos, data.length);
 
@@ -168,6 +170,7 @@ RabinChunkStream.prototype._transform = function(data, encoding, callback) {
     this.concat_arr[0] = null;
     this.concat_arr[1] = null;
 
+
     // process when enough ready data is accumulated
     while (pos < this.pending.length && this.pending.length >= this.min_chunk_size) {
 
@@ -177,7 +180,6 @@ RabinChunkStream.prototype._transform = function(data, encoding, callback) {
         }
 
         var boundary = false;
-        var hspaces = this.hash_spaces;
         var stop_pos = Math.min(this.pending.length, this.max_chunk_size);
 
         while (!boundary && pos < stop_pos) {

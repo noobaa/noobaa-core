@@ -13,7 +13,7 @@ var RandStream = require('../util/rand_stream');
 
 describe('rabin', function() {
 
-    var LENGTH = 32 * 1024;
+    var PERF = process.env.RABIN_TEST_PERF;
 
     it('rabin deg=16 on random stream', function(done) {
         this.timeout(1000000);
@@ -41,12 +41,13 @@ describe('rabin', function() {
         var start_time = Date.now();
         var size = 0;
         var count = 0;
-        var part_len = Math.min(512 * 1024, (LENGTH / 32) | 0);
-        new RandStream(LENGTH, {
+        var len = PERF ? (32 * 1024 * 1024) : (1 * 1024);
+        var part_len = (len / 64) | 0;
+        new RandStream(len, {
                 highWaterMark: 1024 * 1024,
             })
             .pipe(new rabin.RabinChunkStream({
-                sanity: true,
+                sanity: !PERF,
                 window_length: 128,
                 min_chunk_size: ((part_len / 4) | 0) * 3,
                 max_chunk_size: ((part_len / 4) | 0) * 6,

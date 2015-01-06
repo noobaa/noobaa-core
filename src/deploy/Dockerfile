@@ -27,9 +27,9 @@ RUN chmod +x /noobaa/install-agent.sh
 ADD run-agent.sh /noobaa/run-agent.sh
 RUN /noobaa/install-agent.sh
 
-CMD rm -f /noobaa/node_modules/noobaa-agent/agent/agent_cli.js
-ADD agent_cli.js /noobaa/node_modules/noobaa-agent/agent/agent_cli.js
-ADD agent_cli.js /noobaa/agent_cli.js
+# CMD rm -f /noobaa/node_modules/noobaa-agent/agent/agent_cli.js
+# ADD agent_cli.js /noobaa/node_modules/noobaa-agent/agent/agent_cli.js
+# ADD agent_cli.js /noobaa/agent_cli.js
 RUN chmod +x /noobaa/run-agent.sh
 
 ADD init.sh /noobaa/init.sh

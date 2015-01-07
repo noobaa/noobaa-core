@@ -8,7 +8,7 @@ require('./nb_api');
 require('./nb_nodes');
 require('./nb_files');
 
-var nb_sudo = angular.module('nb_sudo', [
+var nb_console = angular.module('nb_console', [
     'nb_util',
     'nb_api',
     'ngRoute',
@@ -19,7 +19,7 @@ var nb_sudo = angular.module('nb_sudo', [
 ]);
 
 
-nb_sudo.config(['$routeProvider', '$locationProvider', '$compileProvider',
+nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
     function($routeProvider, $locationProvider, $compileProvider) {
         // allow blob urls
         $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
@@ -46,7 +46,7 @@ nb_sudo.config(['$routeProvider', '$locationProvider', '$compileProvider',
 ]);
 
 
-nb_sudo.controller('SudoCtrl', [
+nb_console.controller('ConsoleCtrl', [
     '$scope', '$http', '$q', '$window',
     'nbSystem', 'nbNodes', 'nbFiles',
     'nbAlertify', '$location', 'nbClient',
@@ -90,7 +90,7 @@ nb_sudo.controller('SudoCtrl', [
 ]);
 
 
-nb_sudo.controller('DashboardCtrl', [
+nb_console.controller('DashboardCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
@@ -108,7 +108,7 @@ nb_sudo.controller('DashboardCtrl', [
 ]);
 
 
-nb_sudo.controller('StatsCtrl', [
+nb_console.controller('StatsCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 

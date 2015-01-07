@@ -93,7 +93,7 @@ var PATHS = {
     // agent_bundle: 'src/agent/index.js',
     client_externals: [
         'node_modules/bootstrap/dist/js/bootstrap.js',
-        // 'vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
+        'vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
         'bower_components/bootstrap-material-design/scripts/material.js',
         'bower_components/bootstrap-material-design/scripts/ripples.js',
         'bower_components/bootstrap-sidebar/dist/js/sidebar.js',

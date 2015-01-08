@@ -233,7 +233,7 @@ nb_api.factory('nbNodes', [
 
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
-            node.usage_percent = 100 * node.storage_used / node.storage_alloc;
+            node.usage_percent = 100 * node.storage.used / node.storage.alloc;
             // TODO resolve vendor id to name by client or server?
             // node.vendor = $scope.node_vendors_by_id[node.vendor];
         }
@@ -377,18 +377,18 @@ nb_api.factory('nbNodes', [
             var max_num_nodes = -Infinity;
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Location');
-            data.addColumn('number', 'Storage Capacity');
-            data.addColumn('number', 'Number of Nodes');
+            data.addColumn('number', 'Capacity');
+            data.addColumn('number', 'Nodes');
             var selected_row = -1;
             _.each($scope.node_groups, function(stat, index) {
                 if (stat.geolocation === selected_geo) {
                     selected_row = index;
                 }
-                if (stat.storage_alloc > max_alloc) {
-                    max_alloc = stat.storage_alloc;
+                if (stat.storage.alloc > max_alloc) {
+                    max_alloc = stat.storage.alloc;
                 }
-                if (stat.storage_alloc < min_alloc) {
-                    min_alloc = stat.storage_alloc;
+                if (stat.storage.alloc < min_alloc) {
+                    min_alloc = stat.storage.alloc;
                 }
                 if (stat.count > max_num_nodes) {
                     max_num_nodes = stat.count;
@@ -397,31 +397,34 @@ nb_api.factory('nbNodes', [
                     min_num_nodes = stat.count;
                 }
                 data.addRow([stat.geolocation, {
-                    v: stat.storage_alloc,
-                    f: $rootScope.human_size(stat.storage_alloc)
+                    v: stat.storage.alloc,
+                    f: $rootScope.human_size(stat.storage.alloc)
                 }, stat.count]);
+                console.log(stat, min_alloc, max_alloc);
             });
             var options = {
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
                 keepAspectRatio: false,
-                backgroundColor: '#EEE',
-                datalessRegionColor: '#CCC',
-                // backgroundColor: '#3a455f', // grey blue
-                // datalessRegionColor: '#272e3f', // darker grey blue
+                backgroundColor: 'transparent',
+                datalessRegionColor: '#10312D', // ~teal
                 colorAxis: {
-                    colors: ['#909688', '#009688'], // teal
+                    // colors: ['#909688', '#009688'], // teal
                     // colors: ['#F9FFF4', '#76FF00'], // greens
+                    // colors: ['#EC407A', '#E91E63'], // pink 400-500
+                    // colors: ['#7e57c2', '#673ab7'], // deep-purple 400-500
+                    // colors: ['#00bcd4', '#00acc1'], // cyan 400-500
+                    colors: ['#fff176', '#ffee58'], // yellow 300-400
                     minValue: min_alloc,
                     maxValue: max_alloc,
                 },
                 sizeAxis: {
-                    minSize: 12,
-                    maxSize: 20,
+                    minSize: 10,
+                    maxSize: 12,
                     minValue: min_num_nodes,
                     maxValue: max_num_nodes,
                 },
-                legend: {
+                legend: 'none' || {
                     textStyle: {
                         color: 'black',
                         fontSize: 16

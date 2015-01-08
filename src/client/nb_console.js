@@ -25,22 +25,20 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
         $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
         // routes
         $locationProvider.html5Mode(true);
-        $routeProvider.when('/dashboard', {
-            templateUrl: 'dashboard.html',
-        }).when('/nodes', {
-            templateUrl: 'nodes_list.html',
-        }).when('/nodes/geo/:geo', {
-            templateUrl: 'nodes_list.html',
-        }).when('/nodes/n/:name', {
-            templateUrl: 'node_details.html',
-        }).when('/stats', {
-            templateUrl: 'stats.html',
-        }).when('/upload', {
-            templateUrl: 'upload.html',
-        }).when('/download', {
-            templateUrl: 'download.html',
+        $routeProvider.when('/overview', {
+            templateUrl: 'console/overview.html',
+        }).when('/tier', {
+            // templateUrl: 'console/tier_list.html',
+        }).when('/tier/:tier_name', {
+            // templateUrl: 'console/tier_view.html',
+        }).when('/tier/:tier_name/:node_id', {
+            templateUrl: 'console/node_view.html',
+        }).when('/bucket', {
+            // templateUrl: 'console/bucket_list.html',
+        }).when('/bucket/:bucket_name', {
+            // templateUrl: 'console/bucket_view.html',
         }).otherwise({
-            redirectTo: '/dashboard'
+            redirectTo: '/overview'
         });
     }
 ]);
@@ -61,49 +59,42 @@ nb_console.controller('ConsoleCtrl', [
         $scope.nbAlertify = nbAlertify;
 
         $scope.nav = {
-            active: 'dashboard',
-            order: ['dashboard', 'nodes', 'stats', 'upload', 'download'],
+            active: 'overview',
+            order: ['overview', 'tiers', 'buckets'],
             items: {
-                dashboard: {
-                    text: 'Dashboard',
-                    href: 'dashboard',
+                overview: {
+                    text: 'Overview',
+                    href: 'overview',
                 },
-                nodes: {
-                    text: 'Nodes',
-                    href: 'nodes',
+                tiers: {
+                    text: 'Tiers',
+                    href: 'tier',
                 },
-                stats: {
-                    text: 'Stats',
-                    href: 'stats',
-                },
-                upload: {
-                    text: 'Upload',
-                    href: 'upload',
-                },
-                download: {
-                    text: 'Download',
-                    href: 'download',
-                },
+                buckets: {
+                    text: 'Buckets',
+                    href: 'bucket',
+                }
             }
         };
     }
 ]);
 
 
-nb_console.controller('DashboardCtrl', [
+nb_console.controller('OverviewCtrl', [
     '$scope', '$http', '$q', '$window', '$timeout',
     function($scope, $http, $q, $window, $timeout) {
 
-        $scope.nav.active = 'dashboard';
+        $scope.nav.active = 'overview';
+        $scope.nav.refresh_view = refresh_view;
 
-        $scope.refresh_view = function() {
+        function refresh_view() {
             return $q.all([
                 $scope.nbSystem.refresh_system(),
                 $scope.nbNodes.refresh_node_groups()
             ]);
-        };
+        }
 
-        $scope.refresh_view();
+        refresh_view();
     }
 ]);
 
@@ -113,11 +104,12 @@ nb_console.controller('StatsCtrl', [
     function($scope, $http, $q, $window, $timeout) {
 
         $scope.nav.active = 'stats';
+        $scope.nav.refresh_view = refresh_view;
 
-        $scope.refresh_view = function() {
+        function refresh_view() {
             return $scope.nbSystem.refresh_system();
-        };
+        }
 
-        $scope.refresh_view();
+        refresh_view();
     }
 ]);

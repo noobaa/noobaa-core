@@ -405,7 +405,7 @@ nb_api.factory('nbNodes', [
             var options = {
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
-                keepAspectRatio: false,
+                keepAspectRatio: true,
                 backgroundColor: 'transparent',
                 datalessRegionColor: '#10312D', // ~teal
                 colorAxis: {

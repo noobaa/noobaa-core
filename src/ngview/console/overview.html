@@ -24,11 +24,11 @@
         </div>
     </div>
 
-    <div class="relpos container-fluid" style="height: 480px; padding-top: 80px">
+    <div class="relpos container-fluid" style="min-height: 600px; padding-top: 80px; overflow: hidden">
 
-        <div id="nodes_map" class="absfill"></div>
+        <div id="nodes_map" style="margin-top: -280px"></div>
 
-        <div class="abspos" style="bottom: 0">
+        <div class="abspos" style="top: 300px">
             <h1 class="text-muted">Capacity</h1>
             <h1 style="font-size: 4em">{{human_size(nbSystem.system.storage.alloc)}}</h1>
             <h1 class="text-muted">Nodes</h1>

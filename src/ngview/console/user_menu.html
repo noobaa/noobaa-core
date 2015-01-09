@@ -1,0 +1,31 @@
+<a class="dropdown-toggle" data-toggle="dropdown">
+    <span style="visibility: hidden; width: 0; margin-right: -15px">
+        O
+        <!-- needed some text for navbar height align -->
+    </span>
+    <i class="fa fa-user fa-lg"></i>
+    <i class="fa fa-angle-down"></i>
+</a>
+<ul class="dropdown-menu" role="menu">
+    <li>
+        <a>
+            <h4 class="text-muted" style="margin:0">
+                <i class="fa fa-envelope fa-fw"></i> {{nbClient.account.email}}
+            </h4>
+        </a>
+    </li>
+    <li class="divider"></li>
+    <li ng-repeat="sys in nbSystem.systems">
+        <a ng-click="nbSystem.connect_system(sys.name)">
+            <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
+        </a>
+    </li>
+    <li class="divider"></li>
+    <li>
+        <a ng-click="nbSystem.new_system()">New System</a>
+    </li>
+    <li class="divider"></li>
+    <li>
+        <a ng-click="nbClient.logout()">Logout</a>
+    </li>
+</ul>

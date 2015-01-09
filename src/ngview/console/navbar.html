@@ -8,18 +8,7 @@
             </div>
 
             <ul class="nav navbar-nav">
-                <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]; active=nav.active==key" ng-class="{active: active, dropdown: item.dropdown}">
-                    <a ng-if="!item.dropdown" ng-href="{{item.href}}">{{item.text}}</a>
-                    <a ng-if="item.dropdown" class="dropdown-toggle" data-toggle="dropdown">
-                        {{item.text}}
-                        <i class="fa fa-angle-down fa-fw text-muted" style="margin-right: -10px"></i>
-                    </a>
-                    <ul ng-if="item.dropdown" class="dropdown-menu" role="menu">
-                        <li ng-repeat="opt in item.dropdown">
-                            <a ng-href="{{opt.href}}">{{opt.text}}</a>
-                        </li>
-                    </ul>
-                </li>
+                <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]; active=nav.active==key" ng-class="{active: active, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
             </ul>
 
             <ul class="nav navbar-nav navbar-right">
@@ -32,39 +21,7 @@
                         <i class="fa fa-repeat fa-lg"></i>
                     </a>
                 </li>
-                <li class="dropdown" ng-if="nbClient.account">
-                    <a class="dropdown-toggle" data-toggle="dropdown">
-                        <span style="visibility: hidden; width: 0; margin-right: -15px">
-                            O
-                            <!-- needed some text for navbar height align -->
-                        </span>
-                        <i class="fa fa-user fa-lg"></i>
-                        <i class="fa fa-angle-down"></i>
-                    </a>
-                    <ul class="dropdown-menu" role="menu">
-                        <li>
-                            <a>
-                                <h4 class="text-muted" style="margin:0">
-                                    <i class="fa fa-envelope fa-fw"></i> {{nbClient.account.email}}
-                                </h4>
-                            </a>
-                        </li>
-                        <li class="divider"></li>
-                        <li ng-repeat="sys in nbSystem.systems">
-                            <a ng-click="nbSystem.connect_system(sys.name)">
-                                <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
-                            </a>
-                        </li>
-                        <li class="divider"></li>
-                        <li>
-                            <a ng-click="nbSystem.new_system()">New System</a>
-                        </li>
-                        <li class="divider"></li>
-                        <li>
-                            <a ng-click="nbClient.logout()">Logout</a>
-                        </li>
-                    </ul>
-                </li>
+                <li ng-include="'console/user_menu.html'" class="dropdown" ng-if="nbClient.account"></li>
             </ul>
         </div>
 
@@ -74,55 +31,21 @@
                     <i class="fa fa-bars fa-fw"></i> NooBaa
                 </a>
             </div>
+            <ul class="nav navbar-nav navbar-right">
+                <li ng-if="nav.refresh_view">
+                    <a nb-click-ladda="nav.refresh_view()">
+                        <span style="visibility: hidden; width: 0; margin-right: -15px">
+                            O
+                            <!-- needed some text for navbar height align -->
+                        </span>
+                        <i class="fa fa-repeat fa-lg"></i>
+                    </a>
+                </li>
+                <li ng-include="'console/user_menu.html'" class="dropdown" ng-if="nbClient.account"></li>
+            </ul>
             <div class="col-xs-7 col-sm-4 col-md-3 col-lg-2 sidebar sidebar-left sidebar-animate Xsidebar-sm-show">
-                <h1>Heya</h1>
-                <em>will show the navigation items here soon...</em>
-
-                <!-- TODO sidebar -->
-
-                <ul class="nav navbar-nav navbar-right">
-                    <li ng-if="nav.refresh_view">
-                        <a nb-click-ladda="nav.refresh_view()">
-                            <span style="visibility: hidden; width: 0; margin-right: -15px">
-                                O
-                                <!-- needed some text for navbar height align -->
-                            </span>
-                            <i class="fa fa-repeat fa-lg"></i>
-                        </a>
-                    </li>
-                    <li class="dropdown" ng-if="nbClient.account">
-                        <a class="dropdown-toggle" data-toggle="dropdown">
-                            <span style="visibility: hidden; width: 0; margin-right: -15px">
-                                O
-                                <!-- needed some text for navbar height align -->
-                            </span>
-                            <i class="fa fa-user fa-lg"></i>
-                            <i class="fa fa-angle-down"></i>
-                        </a>
-                        <ul class="dropdown-menu" role="menu">
-                            <li>
-                                <a>
-                                    <h4 class="text-muted" style="margin:0">
-                                        <i class="fa fa-envelope fa-fw"></i> {{nbClient.account.email}}
-                                    </h4>
-                                </a>
-                            </li>
-                            <li class="divider"></li>
-                            <li ng-repeat="sys in nbSystem.systems">
-                                <a ng-click="nbSystem.connect_system(sys.name)">
-                                    <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
-                                </a>
-                            </li>
-                            <li class="divider"></li>
-                            <li>
-                                <a ng-click="nbSystem.new_system()">New System</a>
-                            </li>
-                            <li class="divider"></li>
-                            <li>
-                                <a ng-click="nbClient.logout()">Logout</a>
-                            </li>
-                        </ul>
-                    </li>
+                <ul class="nav navbar-nav nav-pills nav-stacked">
+                    <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]; active=nav.active==key" ng-class="{active: active, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
                 </ul>
             </div>
         </div>

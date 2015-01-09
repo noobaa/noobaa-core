@@ -30,9 +30,9 @@
 @brand-info: @info;
 @border-color: @gray-lighter;
 
-/* @modal-backdrop-opacity: 0.6; */
+@modal-backdrop-opacity: 0.6;
 
-/* @grid-float-breakpoint: 0; */
+@grid-float-breakpoint: 0;
 
 @font-family-sans-serif: "Helvetica Neue", Helvetica, Arial, sans-serif;
 /* @font-family-sans-serif: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif; */
@@ -70,7 +70,7 @@ body.inverse {
         }
 
     }
-    .navbar-nav li.active > a {
+    .navbar-nav > li.active > a {
         /* color: @amber-100; */
         font-weight: 500;
         /* background-color: hsla(0,0%,100%,0.1); */
@@ -79,6 +79,10 @@ body.inverse {
 }
 .navbar-default {
     background-color: @navbar-default-bg;
+}
+.navbar .navbar-nav .open .dropdown-menu > li > a {
+    /* keep dropdown menus as real dropdowns even when shrinking */
+    color: initial !important;
 }
 .sidebar {
     /* fix sidebar's position to navbar's */
@@ -92,6 +96,14 @@ body.inverse {
     }
     background-color: @navbar-default-bg;
     color: @navbar-color;
+    .navbar-nav {
+        &,
+        & > li,
+        & > li > a {
+            float: none;
+            display: block;
+        }
+    }
     &.sidebar-left {
 
     }

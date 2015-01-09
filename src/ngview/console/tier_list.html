@@ -1,0 +1,23 @@
+<div ng-controller="TierListCtrl">
+    <div class="container">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <tr>
+                    <th>Tier Name</th>
+                    <th>Type</th>
+                    <th>Nodes</th>
+                    <th>Used Storage</th>
+                    <th>Raw Storage Capacity</th>
+                </tr>
+                <tr ng-repeat="tier in nbSystem.system.tiers">
+                    <td><a ng-href="tier/{{tier.name}}">{{tier.name}}</a>
+                    </td>
+                    <td>{{tier.kind == 'edge' && 'Distributed' || 'Centralized'}}</td>
+                    <td>{{tier.nodes.online}}</td>
+                    <td>{{human_size(tier.storage.used)}}</td>
+                    <td>{{human_size(tier.storage.alloc)}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>

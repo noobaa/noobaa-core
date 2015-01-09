@@ -4,11 +4,11 @@
         <div class="row">
             <div ng-repeat="tier in nbSystem.system.tiers" class="col-md-3 col-xs-6">
                 <div class="pull-left">
-                    <button class="btn btn-fab Xbtn-raised {{selected && 'btn-primary mdi-maps-place Xmdi-toggle-check-box' || 'btn-default mdi-maps-layers-clear Xmdi-toggle-check-box-outline-blank'}}" style="margin: 10px 1px" ng-click="selected=!selected">
+                    <button class="btn btn-fab {{selected && 'btn-primary mdi-maps-place Xmdi-toggle-check-box' || 'btn-default mdi-maps-layers-clear Xmdi-toggle-check-box-outline-blank'}}" style="margin: 10px 1px" ng-click="selected=!selected">
                     </button>
                 </div>
                 <div style="padding-left: 60px">
-                    <a class="btn btn-default btn-flat btn-block" style="text-align: left; padding-left: 10px; padding-right: 10px" href="#">
+                    <a class="btn btn-default btn-flat btn-block" style="text-align: left; padding-left: 10px; padding-right: 10px" ng-href="tier/{{tier.name}}">
                         <h5>
                             {{tier.name}}
                             <i class="fa fa-angle-right fa-lg pull-right"></i>

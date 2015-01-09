@@ -8,7 +8,7 @@
             </div>
 
             <ul class="nav navbar-nav">
-                <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]; active=nav.active==key" ng-class="{active: active, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
+                <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active: nav.active==key, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
             </ul>
 
             <ul class="nav navbar-nav navbar-right">
@@ -45,7 +45,7 @@
             </ul>
             <div class="col-xs-7 col-sm-4 col-md-3 col-lg-2 sidebar sidebar-left sidebar-animate Xsidebar-sm-show">
                 <ul class="nav navbar-nav nav-pills nav-stacked">
-                    <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]; active=nav.active==key" ng-class="{active: active, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
+                    <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active:  nav.active==key, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
                 </ul>
             </div>
         </div>

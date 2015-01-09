@@ -3,32 +3,32 @@
     <div class="container-fluid">
         <div class="row">
             <div ng-repeat="tier in nbSystem.system.tiers" class="col-md-3 col-xs-6">
-                <button class="btn btn-primary btn-raised btn-block" ng-class="{active:selected}" ng-click="selected=!selected" style="text-align: left; padding-left: 10px; padding-right: 10px">
-                    <div class="pull-left" style="font-size: 19px; margin: 7px 10px 7px 5px">
-                        <span class="mdi-toggle-check-box" ng-show="selected"></span>
-                        <span class="mdi-toggle-check-box-outline-blank" ng-hide="selected"></span>
-                    </div>
-                    <div class="hflow">
-                        <div>
-                            <b>{{tier.name}}</b>
-                            <small ng-if="tier.kind=='edge'">| {{tier.nodes.count}} nodes</small>
-                        </div>
+                <div class="pull-left">
+                    <button class="btn btn-fab Xbtn-raised {{selected && 'btn-primary mdi-maps-place Xmdi-toggle-check-box' || 'btn-default mdi-maps-layers-clear Xmdi-toggle-check-box-outline-blank'}}" style="margin: 10px 1px" ng-click="selected=!selected">
+                    </button>
+                </div>
+                <div style="padding-left: 60px">
+                    <a class="btn btn-default btn-block" style="text-align: left; padding-left: 10px; padding-right: 10px" href="#">
+                        <h5>
+                            {{tier.name}}
+                            <i class="fa fa-angle-right fa-lg pull-right"></i>
+                        </h5>
                         <div class="progress" style="margin: 7px 0 0 0">
                             <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 60%; background-color: black">
                                 <span class="sr-only">60% Complete</span>
                             </div>
                         </div>
-                    </div>
-                </button>
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="relpos container-fluid" style="min-height: 600px; padding-top: 80px; overflow: hidden">
+    <div class="relpos container-fluid" style="min-height: 550px; margin-top: 10px; overflow: hidden">
 
-        <div id="nodes_map" style="margin-top: -280px"></div>
+        <div id="nodes_map" style="margin-top: -300px"></div>
 
-        <div class="abspos" style="top: 300px">
+        <div class="abspos" style="bottom: 0">
             <h1 class="text-muted">Capacity</h1>
             <h1 style="font-size: 4em">{{human_size(nbSystem.system.storage.alloc)}}</h1>
             <h1 class="text-muted">Nodes</h1>

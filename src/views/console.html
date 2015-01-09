@@ -6,13 +6,11 @@
     <base href="/console/">
 </head>
 
-<body class="inverse" ng-controller="ConsoleCtrl" ng-cloak>
+<body class="Xinverse" ng-controller="ConsoleCtrl" ng-cloak>
 
     <div ng-include="'console/navbar.html'"></div>
 
-    <div style="padding-top: 80px">
-        <div ng-view></div>
-    </div>
+    <div ng-view></div>
 
     <div>
         {{{# def.include( 'common_scripts.html') }}}

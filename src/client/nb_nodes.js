@@ -407,14 +407,15 @@ nb_api.factory('nbNodes', [
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
                 backgroundColor: 'transparent',
-                datalessRegionColor: '#10312D', // ~teal
+                datalessRegionColor: '#b2dfdb', // teal-100
+                // datalessRegionColor: '#10312D', // ~teal
                 colorAxis: {
+                    // colors: ['#fff176', '#ffee58'], // yellow 300-400
                     // colors: ['#909688', '#009688'], // teal
                     // colors: ['#F9FFF4', '#76FF00'], // greens
                     // colors: ['#EC407A', '#E91E63'], // pink 400-500
-                    // colors: ['#7e57c2', '#673ab7'], // deep-purple 400-500
+                    colors: ['#7e57c2', '#673ab7'], // deep-purple 400-500
                     // colors: ['#00bcd4', '#00acc1'], // cyan 400-500
-                    colors: ['#fff176', '#ffee58'], // yellow 300-400
                     minValue: min_alloc,
                     maxValue: max_alloc,
                 },

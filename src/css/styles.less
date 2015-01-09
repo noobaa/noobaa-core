@@ -19,9 +19,9 @@
 // bootstrap //
 ///////////////
 
-@primary: @teal;
-@body-bg: darken(@bluegrey, 38%);
-@navbar-default-bg: lighten(@body-bg, 3%);
+/* @primary: @cyan; */
+/* @body-bg: hsl(0, 0%, 5%); */
+/* @navbar-default-bg: darken(@bluegrey, 35%); */
 
 @brand-primary: @primary;
 @brand-success: @success;
@@ -41,6 +41,14 @@
 *:not(input) {
     /* text-transform: uppercase !important; */
     /* font-weight: 600 !important; */
+
+}
+body {
+    padding-top: 70px;
+    @media (max-width: @screen-lg) {
+        padding-top: 60px;
+    }
+
 }
 body.inverse {
     background-color: @body-bg;
@@ -53,30 +61,39 @@ body.inverse {
             background-color: initial;
             color: initial;
         }
+
+    }
+    .btn-default {
+        color: @darkbg-text;
+        &:hover {
+            background-color: hsla(0, 0%, 100%, 0.2);
+        }
+
+    }
+    .navbar-nav li.active > a {
+        /* color: @amber-100; */
+        font-weight: 500;
+        /* background-color: hsla(0,0%,100%,0.1); */
     }
 
 }
 .navbar-default {
     background-color: @navbar-default-bg;
-    .nav.navbar-nav li.active > a {
-        /* color: @amber-100; */
-        font-weight: 500;
-        background-color: hsla(0,0%,100%,0.1);
-    }
 }
 .sidebar {
     /* fix sidebar's position to navbar's */
     /* z-index: 1040; */
-    top: 52px;
-    @media (min-width: @screen-sm) {
+    top: 63px;
+    @media (max-width: @screen-lg) {
         top: 53px;
     }
-    @media (min-width: @screen-lg) {
-        top: 63px;
+    @media (max-width: @screen-sm) {
+        top: 52px;
     }
+    background-color: @navbar-default-bg;
+    color: @navbar-color;
     &.sidebar-left {
-        background-color: @navbar-default-bg;
-        /* color: hsl(0,0%,90%); */
+
     }
 
 }

@@ -262,7 +262,8 @@ nb_api.factory('nbNodes', [
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
                 backgroundColor: 'transparent',
-                datalessRegionColor: '#b2dfdb', // teal-100
+                datalessRegionColor: '#cfd8dc', // blue-grey-100
+                // datalessRegionColor: '#b2dfdb', // teal-100
                 // datalessRegionColor: '#10312D', // ~teal
                 colorAxis: {
                     // colors: ['#fff176', '#ffee58'], // yellow 300-400

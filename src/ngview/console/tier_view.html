@@ -30,7 +30,7 @@
             <tr>
                 <td><i class="fa fa-check fa-lg"></i> Healthy</td>
                 <td>{{tier.nodes.online}}</td>
-                <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
+                <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
                 <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
             </tr>
         </table>
@@ -56,7 +56,7 @@
             <div ng-switch-when="settings">
                 <table class="table table-no-borders" style="width: auto">
                     <tr>
-                        <th>Tier name:</th>
+                        <th>Tier Name:</th>
                         <td class="capitalize">{{tier.name}}</td>
                         <td style="padding:2px">
                             <button style="margin:0" class="btn btn-primary btn-flat btn-sm">Change</button>

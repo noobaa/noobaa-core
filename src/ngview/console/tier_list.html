@@ -20,17 +20,17 @@
                     <th>Tier Name</th>
                     <th>Type</th>
                     <th>Nodes</th>
-                    <th>Used Storage</th>
-                    <th>Raw Storage Capacity</th>
+                    <th>Net Storage</th>
+                    <th>Raw Storage</th>
                 </tr>
                 <tr ng-repeat="tier in nbSystem.system.tiers">
-                    <td>
-                        <a ng-href="tier/{{tier.name}}" Xclass="btn btn-primary btn-flat btn-block capitalize" Xstyle="margin: 0; padding: 3px 10px; text-align: left">{{tier.name}}</a>
+                    <td style="padding:3px">
+                        <a ng-href="tier/{{tier.name}}" class="btn btn-primary btn-flat btn-block capitalize" style="margin: 0; padding: 5px 10px; text-align: left">{{tier.name}}</a>
                     </td>
                     <td>{{tier.kind == 'edge' && 'Distributed' || 'Centralized'}}</td>
                     <td>{{tier.nodes.online}}</td>
-                    <td>{{human_size(tier.storage.used)}}</td>
-                    <td>{{human_size(tier.storage.alloc)}}</td>
+                    <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
+                    <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
                 </tr>
             </table>
         </div>

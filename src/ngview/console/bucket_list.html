@@ -1,7 +1,21 @@
 <div ng-controller="BucketListCtrl">
     <div class="container">
+
+        <div class="Xpage-header">
+
+            <h1>Buckets List</h1>
+
+            <ol class="breadcrumb">
+                <li>
+                    <a href="/console/">Home</a>
+                </li>
+                <li class="active">Buckets List</li>
+            </ol>
+
+        </div>
+
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table">
                 <tr>
                     <th>Bucket Name</th>
                     <th>Used Storage</th>
@@ -9,7 +23,7 @@
                     <th>Tiers</th>
                 </tr>
                 <tr ng-repeat="bucket in nbSystem.system.buckets">
-                    <td><a ng-href="bucket/{{bucket.name}}">{{bucket.name}}</a>
+                    <td class="capitalize"><a ng-href="bucket/{{bucket.name}}">{{bucket.name}}</a>
                     </td>
                     <td>{{human_size(bucket.storage.used)}}</td>
                     <td>{{human_size(bucket.storage.alloc)}}</td>

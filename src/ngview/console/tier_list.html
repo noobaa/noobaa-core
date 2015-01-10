@@ -1,7 +1,21 @@
 <div ng-controller="TierListCtrl">
     <div class="container">
+
+        <div class="Xpage-header">
+
+            <h1>Tiers List</h1>
+
+            <ol class="breadcrumb">
+                <li>
+                    <a href="/console/">Home</a>
+                </li>
+                <li class="active">Tiers List</li>
+            </ol>
+
+        </div>
+
         <div class="table-responsive">
-            <table class="table table-striped">
+            <table class="table">
                 <tr>
                     <th>Tier Name</th>
                     <th>Type</th>
@@ -10,7 +24,7 @@
                     <th>Raw Storage Capacity</th>
                 </tr>
                 <tr ng-repeat="tier in nbSystem.system.tiers">
-                    <td><a ng-href="tier/{{tier.name}}">{{tier.name}}</a>
+                    <td class="capitalize"><a ng-href="tier/{{tier.name}}">{{tier.name}}</a>
                     </td>
                     <td>{{tier.kind == 'edge' && 'Distributed' || 'Centralized'}}</td>
                     <td>{{tier.nodes.online}}</td>

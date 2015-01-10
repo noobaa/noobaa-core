@@ -117,17 +117,27 @@ nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
     }
 }]);
 
-nb_console.controller('TierViewCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'tiers';
-    $scope.nav.refresh_view = refresh_view;
-    if (!$scope.nbSystem.system) {
-        refresh_view();
-    }
+nb_console.controller('TierViewCtrl', [
+    '$scope', '$q', '$routeParams',
+    function($scope, $q, $routeParams) {
+        $scope.nav.active = 'tiers';
+        $scope.nav.refresh_view = refresh_view;
+        refresh_view(true);
 
-    function refresh_view() {
-        return $scope.nbSystem.refresh_system();
+        function refresh_view(init_only) {
+            return $q.when()
+                .then(function() {
+                    if (init_only && $scope.nbSystem.system) return;
+                    return $scope.nbSystem.refresh_system();
+                })
+                .then(function() {
+                    $scope.tier = _.find($scope.nbSystem.system.tiers, function(tier) {
+                        return tier.name === $routeParams.tier_name;
+                    });
+                });
+        }
     }
-}]);
+]);
 
 nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
     $scope.nav.active = 'buckets';

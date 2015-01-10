@@ -1,4 +1,24 @@
 <div ng-controller="BucketViewCtrl">
     <div class="container">
+
+        <div class="Xpage-header">
+
+            <h1 class="capitalize">
+                <span class="text-muted">Bucket:</span>
+                {{bucket.name}}
+            </h1>
+
+            <ol class="breadcrumb">
+                <li>
+                    <a href="/console/">Home</a>
+                </li>
+                <li>
+                    <a href="/console/bucket/">Buckets List</a>
+                </li>
+                <li class="active capitalize">{{bucket.name}}</li>
+            </ol>
+
+        </div>
+
     </div>
 </div>

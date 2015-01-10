@@ -23,8 +23,8 @@
                     <th>Tiers</th>
                 </tr>
                 <tr ng-repeat="bucket in nbSystem.system.buckets">
-                    <td style="padding:3px">
-                        <a ng-href="bucket/{{bucket.name}}" class="btn btn-primary btn-flat btn-block capitalize" style="margin: 0; padding: 5px 10px; text-align: left">{{bucket.name}}</a>
+                    <td class="table-btn text-left">
+                        <a ng-href="bucket/{{bucket.name}}" class="btn btn-primary btn-flat btn-block capitalize">{{bucket.name}}</a>
                     </td>
                     <td>{{bucket.num_files}}</td>
                     <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>

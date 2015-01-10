@@ -24,8 +24,8 @@
                     <th>Raw Storage</th>
                 </tr>
                 <tr ng-repeat="tier in nbSystem.system.tiers">
-                    <td style="padding:3px">
-                        <a ng-href="tier/{{tier.name}}" class="btn btn-primary btn-flat btn-block capitalize" style="margin: 0; padding: 5px 10px; text-align: left">{{tier.name}}</a>
+                    <td class="table-btn text-left">
+                        <a ng-href="tier/{{tier.name}}" class="btn btn-primary btn-flat btn-block capitalize">{{tier.name}}</a>
                     </td>
                     <td>{{tier.kind == 'edge' && 'Distributed' || 'Centralized'}}</td>
                     <td>{{tier.nodes.online}}</td>

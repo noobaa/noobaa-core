@@ -119,8 +119,8 @@ hr {
 .table-no-borders {
     &,
     table& {
-        & tr > td,
-        & tr > th {
+        tr > td,
+        tr > th {
             border-top: none;
             border-bottom: none;
         }
@@ -131,12 +131,12 @@ hr {
     &,
     table& {
         .table-no-borders;
-        & tr:first-child > th,
-        & tr:first-child > td {
+        tr:first-child > th,
+        tr:first-child > td {
             border-top: 1px solid #ddd;
         }
-        & tr:last-child > th,
-        & tr:last-child > td {
+        tr:last-child > th,
+        tr:last-child > td {
             border-bottom: 1px solid #ddd;
         }
     }
@@ -151,6 +151,23 @@ hr {
         }
     }
 
+}
+.table-btn {
+    padding: 0px;
+    > .btn {
+        margin: 0;
+    }
+    > .btn-sm {
+        margin: 3px 0;
+    }
+    &.text-left > .btn {
+        padding-left: 10px;
+        padding-right: 10px;
+        text-align: left;
+    }
+}
+table.table td.table-btn {
+    .table-btn;
 }
 .text-green {
     /* color: #76ff00; */

@@ -28,7 +28,7 @@
 @brand-danger: @danger;
 @brand-warning: @warning;
 @brand-info: @info;
-@border-color: @gray-lighter;
+@border-color: darken(@body-bg, 15%);
 
 @modal-backdrop-opacity: 0.6;
 
@@ -49,6 +49,12 @@ body {
         padding-top: 60px;
     }
 
+}
+hr {
+    border-color: @border-color;
+}
+.panel-heading > hr {
+    margin: 15px -15px;
 }
 body.inverse {
     background-color: @body-bg;

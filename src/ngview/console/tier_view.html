@@ -1,4 +1,4 @@
-<div ng-controller="TierViewCtrl">
+<div ng-controller="TierViewCtrl" ng-init="tier_tab='nodes'">
     <div class="container">
 
         <div class="Xpage-header">
@@ -20,24 +20,52 @@
 
         </div>
 
-        <div class="well">
-            <div class="row text-center">
-                <div class="col-xs-6 col-sm-3">
-                    <h5 class="text-muted">Status</h5>
-                    <h5><i class="fa fa-check fa-lg"></i> Healthy</h5>
-                </div>
-                <div class="col-xs-6 col-sm-3">
-                    <h5 class="text-muted">Nodes</h5>
-                    <h5>{{tier.nodes.online}}</h5>
-                </div>
-                <div class="col-xs-6 col-sm-3">
-                    <h5 class="text-muted">Used Storage</h5>
-                    <h5>{{human_size(tier.storage.used)}}</h5>
-                </div>
-                <div class="col-xs-6 col-sm-3">
-                    <h5 class="text-muted">Raw Storage Capacity</h5>
-                    <h5>{{human_size(tier.storage.alloc)}}</h5>
-                </div>
+        <hr style="margin: 30px 0 0 0" />
+        <div class="row text-center">
+            <div class="col-xs-6 col-sm-3">
+                <h5 class="text-muted">Status</h5>
+                <h5><i class="fa fa-check fa-lg"></i> Healthy</h5>
+            </div>
+            <div class="col-xs-6 col-sm-3">
+                <h5 class="text-muted">Nodes</h5>
+                <h5>{{tier.nodes.online}}</h5>
+            </div>
+            <div class="col-xs-6 col-sm-3">
+                <h5 class="text-muted">Used Storage</h5>
+                <h5>{{human_size(tier.storage.used)}}</h5>
+            </div>
+            <div class="col-xs-6 col-sm-3">
+                <h5 class="text-muted">Raw Storage Capacity</h5>
+                <h5>{{human_size(tier.storage.alloc)}}</h5>
+            </div>
+        </div>
+        <hr style="margin: 0 0 30px 0" />
+
+        <ul class="nav nav-pills" style="margin: 0 0 15px 0">
+            <li ng-class="{active:tier_tab=='nodes'}">
+                <a ng-click="tier_tab='nodes'">Nodes</a>
+            </li>
+            <li ng-class="{active: tier_tab=='settings'}">
+                <a ng-click="tier_tab='settings'">Settings</a>
+            </li>
+            <li ng-class="{active: tier_tab=='stats'}">
+                <a ng-click="tier_tab='stats'">Statistics</a>
+            </li>
+        </ul>
+
+        <div class="well" ng-switch="tier_tab">
+            <div ng-switch-when="nodes">
+                <h1>Nodes TODO...</h1>
+            </div>
+            <div ng-switch-when="settings">
+                <p>
+                    <b>Tier name:</b>
+                    <span class="capitalize">{{tier.name}}</span>
+                    <button class="btn btn-primary btn-flat btn-xs">Change</button>
+                </p>
+            </div>
+            <div ng-switch-when="stats">
+                <h1>Stats TODO...</h1>
             </div>
         </div>
 

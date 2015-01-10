@@ -48,19 +48,27 @@
         </ul>
 
         <div class="well" ng-switch="tier_tab">
+
             <div ng-switch-when="nodes">
-                <h1>Nodes ...</h1>
+                <i>placeholder for nodes ...</i>
             </div>
+
             <div ng-switch-when="settings">
-                <p>
-                    <b>Tier name:</b>
-                    <span class="capitalize">{{tier.name}}</span>
-                    <button class="btn btn-primary btn-flat btn-xs">Change</button>
-                </p>
+                <table class="table table-no-borders" style="width: auto">
+                    <tr>
+                        <th>Tier name:</th>
+                        <td class="capitalize">{{tier.name}}</td>
+                        <td style="padding:2px">
+                            <button style="margin:0" class="btn btn-primary btn-flat btn-sm">Change</button>
+                        </td>
+                    </tr>
+                </table>
             </div>
+
             <div ng-switch-when="stats">
-                <h1>Stats ...</h1>
+                <i>placeholder for statistics ...</i>
             </div>
+
         </div>
 
     </div>

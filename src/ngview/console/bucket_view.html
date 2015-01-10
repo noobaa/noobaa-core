@@ -52,25 +52,35 @@
         </ul>
 
         <div class="well" ng-switch="bucket_tab">
+
             <div ng-switch-when="files">
-                <h1>Files ...</h1>
+                <i>placeholder for files ...</i>
             </div>
+
             <div ng-switch-when="settings">
-                <p>
-                    <b>Bucket name:</b>
-                    <span class="capitalize">{{bucket.name}}</span>
-                    <button class="btn btn-primary btn-flat btn-xs">Change</button>
-                </p>
+                <table class="table table-no-borders" style="width: auto">
+                    <tr>
+                        <th>Bucket name:</th>
+                        <td class="capitalize">{{bucket.name}}</td>
+                        <td style="padding:2px">
+                            <button style="margin:0" class="btn btn-primary btn-flat btn-sm">Change</button>
+                        </td>
+                    </tr>
+                </table>
             </div>
+
             <div ng-switch-when="stats">
-                <h1>Stats ...</h1>
+                <i>placeholder for statistics ...</i>
             </div>
+
             <div ng-switch-when="tiering">
-                <h1>Tiering ...</h1>
+                <i>placeholder for tiering ...</i>
             </div>
+
             <div ng-switch-when="bucket_link">
-                <h1>Bucket Link ...</h1>
+                <i>placeholder for bucket link ...</i>
             </div>
+
         </div>
 
     </div>

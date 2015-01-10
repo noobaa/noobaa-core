@@ -8,7 +8,7 @@
                 {{tier.name}}
             </h1>
 
-            <ol class="breadcrumb capitalize">
+            <ol class="breadcrumb capitalize" style="margin: 30px 0">
                 <li>
                     <a href="/console/">Home</a>
                 </li>
@@ -20,26 +20,20 @@
 
         </div>
 
-        <hr style="margin: 30px 0 0 0" />
-        <div class="row text-center">
-            <div class="col-xs-6 col-sm-3">
-                <h5 class="text-muted">Status</h5>
-                <h5><i class="fa fa-check fa-lg"></i> Healthy</h5>
-            </div>
-            <div class="col-xs-6 col-sm-3">
-                <h5 class="text-muted">Nodes</h5>
-                <h5>{{tier.nodes.online}}</h5>
-            </div>
-            <div class="col-xs-6 col-sm-3">
-                <h5 class="text-muted">Used Storage</h5>
-                <h5>{{human_size(tier.storage.used)}}</h5>
-            </div>
-            <div class="col-xs-6 col-sm-3">
-                <h5 class="text-muted">Raw Storage Capacity</h5>
-                <h5>{{human_size(tier.storage.alloc)}}</h5>
-            </div>
-        </div>
-        <hr style="margin: 0 0 30px 0" />
+        <table class="table table-minimal-borders table-center">
+            <tr class="text-center">
+                <th>Tier Status</th>
+                <th>Nodes</th>
+                <th>Net Storage</th>
+                <th>Raw Storage</th>
+            </tr>
+            <tr>
+                <td><i class="fa fa-check fa-lg"></i> Healthy</td>
+                <td>{{tier.nodes.online}}</td>
+                <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
+                <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
+            </tr>
+        </table>
 
         <ul class="nav nav-pills" style="margin: 0 0 15px 0">
             <li ng-class="{active:tier_tab=='nodes'}">
@@ -55,7 +49,7 @@
 
         <div class="well" ng-switch="tier_tab">
             <div ng-switch-when="nodes">
-                <h1>Nodes TODO...</h1>
+                <h1>Nodes ...</h1>
             </div>
             <div ng-switch-when="settings">
                 <p>
@@ -65,7 +59,7 @@
                 </p>
             </div>
             <div ng-switch-when="stats">
-                <h1>Stats TODO...</h1>
+                <h1>Stats ...</h1>
             </div>
         </div>
 

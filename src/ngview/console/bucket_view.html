@@ -1,4 +1,4 @@
-<div ng-controller="BucketViewCtrl">
+<div ng-controller="BucketViewCtrl" ng-init="bucket_tab='files'">
     <div class="container">
 
         <div class="Xpage-header">
@@ -8,7 +8,7 @@
                 {{bucket.name}}
             </h1>
 
-            <ol class="breadcrumb capitalize">
+            <ol class="breadcrumb capitalize" style="margin: 30px 0">
                 <li>
                     <a href="/console/">Home</a>
                 </li>
@@ -18,6 +18,59 @@
                 <li class="active">{{bucket.name}}</li>
             </ol>
 
+        </div>
+
+        <table class="table table-minimal-borders table-center">
+            <tr class="text-center">
+                <th>Bucket Status</th>
+                <th>Files</th>
+                <th>Net Storage</th>
+            </tr>
+            <tr>
+                <td><i class="fa fa-check fa-lg"></i> Healthy</td>
+                <td>{{bucket.num_files}}</td>
+                <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
+            </tr>
+        </table>
+
+        <ul class="nav nav-pills" style="margin: 0 0 15px 0">
+            <li ng-class="{active:bucket_tab=='files'}">
+                <a ng-click="bucket_tab='files'">Files</a>
+            </li>
+            <li ng-class="{active: bucket_tab=='settings'}">
+                <a ng-click="bucket_tab='settings'">Settings</a>
+            </li>
+            <li ng-class="{active: bucket_tab=='stats'}">
+                <a ng-click="bucket_tab='stats'">Statistics</a>
+            </li>
+            <li ng-class="{active: bucket_tab=='tiering'}">
+                <a ng-click="bucket_tab='tiering'">Tiering</a>
+            </li>
+            <li ng-class="{active: bucket_tab=='bucket_link'}">
+                <a ng-click="bucket_tab='bucket_link'">Bucket Link</a>
+            </li>
+        </ul>
+
+        <div class="well" ng-switch="bucket_tab">
+            <div ng-switch-when="files">
+                <h1>Files ...</h1>
+            </div>
+            <div ng-switch-when="settings">
+                <p>
+                    <b>Bucket name:</b>
+                    <span class="capitalize">{{bucket.name}}</span>
+                    <button class="btn btn-primary btn-flat btn-xs">Change</button>
+                </p>
+            </div>
+            <div ng-switch-when="stats">
+                <h1>Stats ...</h1>
+            </div>
+            <div ng-switch-when="tiering">
+                <h1>Tiering ...</h1>
+            </div>
+            <div ng-switch-when="bucket_link">
+                <h1>Bucket Link ...</h1>
+            </div>
         </div>
 
     </div>

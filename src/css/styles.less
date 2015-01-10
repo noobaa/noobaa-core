@@ -50,12 +50,6 @@ body {
     }
 
 }
-hr {
-    border-color: @border-color;
-}
-.panel-heading > hr {
-    margin: 15px -15px;
-}
 body.inverse {
     background-color: @body-bg;
     /* elements which are left un-inverted */
@@ -113,6 +107,36 @@ body.inverse {
     }
     &.sidebar-left {
 
+    }
+
+}
+hr {
+    border-color: @border-color;
+}
+.panel-heading > hr {
+    margin: 15px -15px;
+
+}
+table.table-minimal-borders {
+    & tr > td,
+    & tr > th {
+        border-top: none;
+        border-bottom: none;
+    }
+    & tr:first-child > th,
+    & tr:first-child > td {
+        border-top: 1px solid #ddd;
+    }
+    & tr:last-child > th,
+    & tr:last-child > td {
+        border-bottom: 1px solid #ddd;
+    }
+
+}
+table.table-center {
+    th,
+    td {
+        text-align: center;
     }
 
 }

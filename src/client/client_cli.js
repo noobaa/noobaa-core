@@ -207,22 +207,41 @@ ClientCLI.prototype.sys = function() {
             return self.client.system.read_system();
         })
         .then(function(res) {
-            console.log('\n---------------------------');
-            console.log('System info:');
-            console.log('---------------------------');
-            console.log('Name:', res.name);
-            console.log('Storage:', '\n\tAllocated: ' + size_utils.human_size(res.storage.alloc) + '\n\tContent capacity: ' + size_utils.human_size(res.storage.used));
-            console.log('Users:');
-            _.each(res.roles, function(curr_user) {
-                console.log('\tName:', curr_user.account.name);
+            console.log('\n\n-----------------------------');
+            console.log('System info :', res.name);
+            console.log('-----------------------------');
+
+            console.log('\nUsers:');
+            _.each(res.roles, function(role) {
+                console.log('\tRole  :', role.role);
+                console.log('\tEmail :', role.account.name);
             });
-            console.log('Tiers:');
-            _.each(res.tiers, function(curr_tier) {
-                console.log('\tName:' + curr_tier.name + '\n\tStorage:\n\tAllocated: ' + size_utils.human_size(curr_tier.storage.alloc) + '\n\tUsed: ' + size_utils.human_size(curr_tier.storage.used));
+
+            console.log('\nStorage:');
+            console.log('\tAllocated  :', size_utils.human_size(res.storage.alloc));
+            console.log('\tData size  :', size_utils.human_size(res.storage.used));
+            console.log('\tDisk usage :', size_utils.human_size(res.storage.real));
+
+            console.log('\nNodes:');
+            console.log('\tTotal  :', res.nodes.count);
+            console.log('\tOnline :', res.nodes.online);
+
+            console.log('\nTiers:');
+            _.each(res.tiers, function(tier) {
+                console.log('\tName         :', tier.name);
+                console.log('\tNodes total  :', tier.nodes.count);
+                console.log('\tNodes online :', tier.nodes.online);
+                console.log('\tAllocated    :', size_utils.human_size(tier.storage.alloc));
+                console.log('\tData size    :', size_utils.human_size(tier.storage.used));
             });
-            console.log('Nodes:', res.nodes);
-            console.log('Buckets:', res.buckets);
-            console.log('\tObjects:', res.objects);
+
+            console.log('\nBuckets:');
+            _.each(res.buckets, function(bkt) {
+                console.log('\tName      :', bkt.name);
+                console.log('\tObjects   :', bkt.num_objects);
+                console.log('\tQuota     :', size_utils.human_size(bkt.storage.alloc));
+                console.log('\tData size :', size_utils.human_size(bkt.storage.used));
+            });
 
         })
         .then(function() {

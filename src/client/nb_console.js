@@ -122,10 +122,11 @@ nb_console.controller('TierViewCtrl', [
     function($scope, $q, $routeParams, nbSystem, nbNodes) {
         $scope.nav.active = 'tiers';
         $scope.nav.refresh_view = refresh_view;
-        $scope.prepare_nodes = prepare_nodes;
+        $scope.refresh_nodes = refresh_nodes;
         $scope.goto_nodes_page = goto_nodes_page;
         $scope.nodes_active_page = 0;
         $scope.nodes_page_size = 10;
+        $scope.nodes_query = {};
         refresh_view(true);
 
         function refresh_view(init_only) {
@@ -144,11 +145,15 @@ nb_console.controller('TierViewCtrl', [
                 });
         }
 
-        function prepare_nodes() {
+        function refresh_nodes() {
+            var query = {
+                tier: $scope.tier.name
+            };
+            if ($scope.nodes_query.search) {
+                query.name = $scope.nodes_query.search;
+            }
             return nbNodes.list_nodes({
-                query: {
-                    tier: $scope.tier.name
-                },
+                query: query,
                 skip: $scope.nodes_active_page * $scope.nodes_page_size,
                 limit: $scope.nodes_page_size,
             }).then(function(res) {
@@ -166,7 +171,7 @@ nb_console.controller('TierViewCtrl', [
             }
             if ($scope.nodes_active_page !== page) {
                 $scope.nodes_active_page = page;
-                return prepare_nodes();
+                return refresh_nodes();
             }
         }
     }

@@ -35,7 +35,7 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
             .when('/tier/:tier_name', {
                 templateUrl: 'console/tier_view.html',
             })
-            .when('/tier/:tier_name/:node_id', {
+            .when('/tier/:tier_name/:node_name', {
                 templateUrl: 'console/node_view.html',
             })
             .when('/bucket', {
@@ -44,7 +44,7 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
             .when('/bucket/:bucket_name', {
                 templateUrl: 'console/bucket_view.html',
             })
-            .when('/bucket/:bucket_name/:file_id', {
+            .when('/bucket/:bucket_name/:file_name', {
                 templateUrl: 'console/file_view.html',
             })
             .otherwise({
@@ -190,10 +190,15 @@ nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
 }]);
 
 nb_console.controller('BucketViewCtrl', [
-    '$scope', '$q', '$routeParams', 'nbSystem', 'nbNodes',
-    function($scope, $q, $routeParams, nbSystem, nbNodes) {
+    '$scope', '$q', '$routeParams', 'nbSystem', 'nbFiles',
+    function($scope, $q, $routeParams, nbSystem, nbFiles) {
         $scope.nav.active = 'buckets';
         $scope.nav.refresh_view = refresh_view;
+        $scope.refresh_files = refresh_files;
+        $scope.goto_files_page = goto_files_page;
+        $scope.files_active_page = 0;
+        $scope.files_page_size = 10;
+        $scope.files_query = {};
         refresh_view(true);
 
         function refresh_view(init_only) {
@@ -207,6 +212,35 @@ nb_console.controller('BucketViewCtrl', [
                         return bucket.name === $routeParams.bucket_name;
                     });
                 });
+        }
+
+        function refresh_files() {
+            var params = {
+                bucket: $scope.bucket.name,
+                skip: $scope.files_active_page * $scope.files_page_size,
+                limit: $scope.files_page_size,
+            };
+            if ($scope.files_query.search) {
+                params.key = $scope.files_query.search;
+            }
+            return nbFiles.list_objects(params)
+                .then(function(res) {
+                    $scope.files = res;
+                });
+        }
+
+        function goto_files_page(page) {
+            page = parseInt(page, 10);
+            if (page < 0) {
+                page = 0;
+            }
+            if (page >= $scope.files_num_pages) {
+                page = $scope.files_num_pages - 1;
+            }
+            if ($scope.files_active_page !== page) {
+                $scope.files_active_page = page;
+                return refresh_files();
+            }
         }
     }
 ]);

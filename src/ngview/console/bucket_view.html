@@ -78,7 +78,50 @@
             </div>
 
             <div ng-switch-when="files">
-                <i>placeholder for files ...</i>
+                <input type="text" class="form-control floating-label" placeholder="Search File" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="refresh_files()" />
+                <div class="table-responsive">
+                    <table class="table" ng-init="refresh_files()">
+                        <tr>
+                            <th></th>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>Content Type</th>
+                            <th>Created</th>
+                            <!-- <th>Last Accessed</th> -->
+                        </tr>
+                        <tr ng-repeat="file in files">
+                            <td class="checkbox noselect" style="width: 1px; padding: 4px">
+                                <label>
+                                    <input type="checkbox" />
+                                </label>
+                            </td>
+                            <td class="table-btn text-left">
+                                <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                                    {{file.name}}
+                                </a>
+                            </td>
+                            <td>{{human_size(file.size)}}</td>
+                            <td>{{file.content_type}}</td>
+                            <td ng-attr-title="{{file.create_time.format('LLL')}}">
+                                {{file.create_time.fromNow()}}
+                            </td>
+                            <!-- <td>{{file.access_time}}</td> -->
+                        </tr>
+                    </table>
+                </div>
+                <nav class="noselect">
+                    <ul class="pagination">
+                        <li>
+                            <a nb-click-ladda="goto_files_page(files_active_page-1)">&laquo;</a>
+                        </li>
+                        <li ng-repeat="page in files_pages" ng-class="{active:page==files_active_page}">
+                            <a nb-click-ladda="goto_files_page(page)">{{page}}</a>
+                        </li>
+                        <li>
+                            <a nb-click-ladda="goto_files_page(files_active_page+1)">&raquo;</a>
+                        </li>
+                    </ul>
+                </nav>
             </div>
 
             <div ng-switch-when="bucket_link">

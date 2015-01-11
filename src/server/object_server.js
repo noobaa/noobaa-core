@@ -230,7 +230,16 @@ function list_objects(req) {
             if (req.rest_params.key) {
                 info.key = new RegExp(req.rest_params.key);
             }
-            return db.ObjectMD.find(info).exec();
+            var skip = req.rest_params.skip;
+            var limit = req.rest_params.limit;
+            var find = db.ObjectMD.find(info);
+            if (skip) {
+                find.skip(skip);
+            }
+            if (limit) {
+                find.limit(limit);
+            }
+            return find.exec();
         })
         .then(function(objects) {
             return {

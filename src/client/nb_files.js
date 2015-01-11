@@ -146,9 +146,11 @@ nb_api.controller('DownloadCtrl', [
 
 
 nb_api.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope',
-    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope) {
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope', 'nbClient',
+    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope, nbClient) {
         var $scope = {};
+
+        $scope.list_objects = list_objects;
 
         $scope.load_buckets = load_buckets;
         $scope.load_bucket_objects = load_bucket_objects;
@@ -156,6 +158,29 @@ nb_api.factory('nbFiles', [
         $scope.upload_file = upload_file;
         $scope.read_entire_object = read_entire_object;
         $scope.read_as_media_stream = read_as_media_stream;
+
+        function list_objects(params) {
+            return $q.when().then(
+                function() {
+                    return nbClient.client.object.list_objects(params);
+                }
+            ).then(
+                function(res) {
+                    console.log('OBJECTS', res);
+                    var objects = _.map(res.objects, function(obj) {
+                        var o = obj.info;
+                        o.create_time = moment(new Date(o.create_time));
+                        o.name = obj.key;
+                        return o;
+                    });
+                    return objects;
+                }
+            );
+        }
+
+
+        // TODO unused code -
+
 
         function load_buckets() {
             return $q.when(object_client.list_buckets()).then(

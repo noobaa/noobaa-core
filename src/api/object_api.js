@@ -271,6 +271,12 @@ module.exports = rest_api({
                     key: {
                         type: 'string',
                     },
+                    skip: {
+                        type: 'integer'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
                 }
             },
             reply: {

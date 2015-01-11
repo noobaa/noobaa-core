@@ -73,7 +73,15 @@ LRUCache.prototype.get = function(params, cache_miss) {
 /**
  * remove the key from the cache
  */
-LRUCache.prototype.invalidate = function(key) {
+LRUCache.prototype.invalidate = function(params) {
+    var key = this.make_key(params);
+    return this.invalidate_key(key);
+};
+
+/**
+ * remove the key from the cache
+ */
+LRUCache.prototype.invalidate_key = function(key) {
     var item = this.lru.remove_item(key);
     if (item && item.val) {
         return item.val;

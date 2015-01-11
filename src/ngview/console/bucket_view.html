@@ -115,7 +115,7 @@
                             <a nb-click-ladda="goto_files_page(files_active_page-1)">&laquo;</a>
                         </li>
                         <li ng-repeat="page in files_pages" ng-class="{active:page==files_active_page}">
-                            <a nb-click-ladda="goto_files_page(page)">{{page}}</a>
+                            <a nb-click-ladda="goto_files_page(page)">{{page+1}}</a>
                         </li>
                         <li>
                             <a nb-click-ladda="goto_files_page(files_active_page+1)">&raquo;</a>

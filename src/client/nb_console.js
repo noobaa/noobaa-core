@@ -139,8 +139,8 @@ nb_console.controller('TierViewCtrl', [
                     $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
                         return tier.name === $routeParams.tier_name;
                     });
-                    $scope.nodes_count = $scope.tier.nodes.count;
-                    $scope.nodes_num_pages = Math.ceil($scope.nodes_count / $scope.nodes_page_size);
+                    $scope.nodes_num_pages = Math.ceil(
+                        $scope.tier.nodes.count / $scope.nodes_page_size);
                     $scope.nodes_pages = _.times($scope.nodes_num_pages, _.identity);
                 });
         }
@@ -211,6 +211,9 @@ nb_console.controller('BucketViewCtrl', [
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;
                     });
+                    $scope.files_num_pages = Math.ceil(
+                        $scope.bucket.num_objects / $scope.files_page_size);
+                    $scope.files_pages = _.times($scope.files_num_pages, _.identity);
                 });
         }
 

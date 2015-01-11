@@ -90,7 +90,7 @@
                             <a nb-click-ladda="goto_nodes_page(nodes_active_page-1)">&laquo;</a>
                         </li>
                         <li ng-repeat="page in nodes_pages" ng-class="{active:page==nodes_active_page}">
-                            <a nb-click-ladda="goto_nodes_page(page)">{{page}}</a>
+                            <a nb-click-ladda="goto_nodes_page(page)">{{page+1}}</a>
                         </li>
                         <li>
                             <a nb-click-ladda="goto_nodes_page(nodes_active_page+1)">&raquo;</a>

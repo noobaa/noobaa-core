@@ -21,15 +21,25 @@
                     </a>
                 </li>
                 <li ng-include="'console/user_menu.html'" class="dropdown" ng-if="nbClient.account"></li>
-                <li>
-                    <a class="navbar-icon">
+                <li class="dropdown">
+                    <a class="dropdown-toggle navbar-icon" data-toggle="dropdown">
                         <i class="fa fa-pie-chart fa-lg"></i>
                     </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li style="padding: 30px 15px">
+                            <i>placeholder for statistics</i>
+                        </li>
+                    </ul>
                 </li>
-                <li>
-                    <a class="navbar-icon">
+                <li class="dropdown">
+                    <a class="dropdown-toggle navbar-icon" data-toggle="dropdown">
                         <i class="fa fa-bell fa-lg"></i>
                     </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li style="padding: 30px 15px">
+                            <span class="text-muted">No new messages</span>
+                        </li>
+                    </ul>
                 </li>
             </ul>
             <p class="navbar-text">

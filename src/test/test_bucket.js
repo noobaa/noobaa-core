@@ -41,6 +41,7 @@ describe('bucket', function() {
         }).then(function() {
             return client.bucket.create_bucket({
                 name: 'bkt',
+                tiering: ['edge'],
             });
         }).then(function() {
             return client.bucket.list_buckets();

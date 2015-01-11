@@ -2,12 +2,13 @@
     <i class="fa fa-user fa-lg"></i>
 </a>
 <ul class="dropdown-menu" role="menu">
-    <li>
-        <a>
-            <h4 class="text-muted" style="margin:0">
-                <i class="fa fa-envelope fa-fw"></i> {{nbClient.account.email}}
-            </h4>
-        </a>
+    <li class="text-muted" style="padding: 15px 15px 0 15px">
+        <p class="text-center">
+            <i class="fa fa-user fa-3x fa-fw"></i>
+        </p>
+        <p class="text-center">
+            <i class="fa fa-envelope fa-fw"></i> {{nbClient.account.email}}
+        </p>
     </li>
     <li class="divider"></li>
     <li ng-repeat="sys in nbSystem.systems">

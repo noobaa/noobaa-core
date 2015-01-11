@@ -1,4 +1,4 @@
-<div ng-controller="BucketViewCtrl" ng-init="bucket_tab='files'">
+<div ng-controller="BucketViewCtrl" ng-init="bucket_tab='stats'">
     <div class="container">
 
         <div class="Xpage-header">
@@ -28,33 +28,41 @@
             </tr>
             <tr>
                 <td><i class="fa fa-check fa-lg"></i> Healthy</td>
-                <td>{{bucket.num_files}}</td>
+                <td>{{bucket.num_objects}}</td>
                 <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
             </tr>
         </table>
 
-        <ul class="nav nav-pills" style="margin: 30px 0 15px 0">
-            <li ng-class="{active:bucket_tab=='files'}">
-                <a ng-click="bucket_tab='files'">Files</a>
-            </li>
-            <li ng-class="{active: bucket_tab=='settings'}">
-                <a ng-click="bucket_tab='settings'">Settings</a>
-            </li>
-            <li ng-class="{active: bucket_tab=='stats'}">
-                <a ng-click="bucket_tab='stats'">Statistics</a>
-            </li>
-            <li ng-class="{active: bucket_tab=='tiering'}">
-                <a ng-click="bucket_tab='tiering'">Tiering</a>
-            </li>
-            <li ng-class="{active: bucket_tab=='bucket_link'}">
-                <a ng-click="bucket_tab='bucket_link'">Bucket Link</a>
-            </li>
-        </ul>
 
-        <div class="well" ng-switch="bucket_tab">
+        <div class="well" ng-switch="bucket_tab" style="margin: 30px 0 0 0">
 
-            <div ng-switch-when="files">
-                <i>placeholder for files ...</i>
+            <ul class="nav nav-pills" style="margin: 0 0 15px 0">
+                <li ng-class="{active: bucket_tab=='stats'}">
+                    <a ng-click="bucket_tab='stats'">Statistics</a>
+                </li>
+                <li ng-class="{active: bucket_tab=='tiering'}">
+                    <a ng-click="bucket_tab='tiering'">Tiering</a>
+                </li>
+                <li ng-class="{active: bucket_tab=='settings'}">
+                    <a ng-click="bucket_tab='settings'">Settings</a>
+                </li>
+                <li ng-class="{active:bucket_tab=='files'}">
+                    <a ng-click="bucket_tab='files'">Files</a>
+                </li>
+                <li ng-class="{active: bucket_tab=='bucket_link'}">
+                    <a ng-click="bucket_tab='bucket_link'">Bucket Link</a>
+                </li>
+            </ul>
+
+            <div ng-switch-when="stats">
+                <i>placeholder for statistics ...</i>
+            </div>
+
+            <div ng-switch-when="tiering">
+                <i>placeholder for tiering ...</i>
+                <h5 ng-repeat="tier in bucket.tiering">
+                    {{tier}}
+                </h5>
             </div>
 
             <div ng-switch-when="settings">
@@ -69,12 +77,8 @@
                 </table>
             </div>
 
-            <div ng-switch-when="stats">
-                <i>placeholder for statistics ...</i>
-            </div>
-
-            <div ng-switch-when="tiering">
-                <i>placeholder for tiering ...</i>
+            <div ng-switch-when="files">
+                <i>placeholder for files ...</i>
             </div>
 
             <div ng-switch-when="bucket_link">

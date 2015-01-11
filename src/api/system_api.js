@@ -179,7 +179,10 @@ module.exports = rest_api({
                     $ref: '/system_api/definitions/nodes_info'
                 },
                 buckets: {
-                    type: 'integer'
+                    type: 'array',
+                    items: {
+                        $ref: '/bucket_api/definitions/bucket_info'
+                    }
                 },
                 objects: {
                     type: 'integer'

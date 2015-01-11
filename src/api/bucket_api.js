@@ -20,16 +20,13 @@ module.exports = rest_api({
             path: '/bucket',
             params: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'tiering'],
                 properties: {
                     name: {
                         type: 'string',
                     },
                     tiering: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                        }
+                        $ref: '/bucket_api/definitions/tiering_info'
                     }
                 }
             },
@@ -51,19 +48,7 @@ module.exports = rest_api({
                 }
             },
             reply: {
-                type: 'object',
-                required: ['name', 'tiering'],
-                properties: {
-                    name: {
-                        type: 'string'
-                    },
-                    tiering: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                        }
-                    }
-                }
+                $ref: '/bucket_api/definitions/bucket_info'
             },
             auth: {
                 system: 'admin'
@@ -84,10 +69,7 @@ module.exports = rest_api({
                         type: 'string',
                     },
                     tiering: {
-                        type: 'array',
-                        items: {
-                            type: 'string',
-                        }
+                        $ref: '/bucket_api/definitions/tiering_info'
                     }
                 }
             },
@@ -124,17 +106,11 @@ module.exports = rest_api({
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['name', 'tiering'],
+                            required: ['name'],
                             properties: {
                                 name: {
                                     type: 'string'
                                 },
-                                tiering: {
-                                    type: 'array',
-                                    items: {
-                                        type: 'string',
-                                    }
-                                }
                             }
                         }
                     }
@@ -148,6 +124,34 @@ module.exports = rest_api({
     },
 
 
-    definitions: {},
+    definitions: {
+
+        bucket_info: {
+            type: 'object',
+            required: ['name', 'tiering', 'storage', 'num_objects'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                tiering: {
+                    $ref: '/bucket_api/definitions/tiering_info'
+                },
+                storage: {
+                    $ref: '/system_api/definitions/storage_info'
+                },
+                num_objects: {
+                    type: 'integer'
+                },
+            }
+        },
+
+        tiering_info: {
+            type: 'array',
+            items: {
+                type: 'string',
+            }
+        }
+
+    },
 
 });

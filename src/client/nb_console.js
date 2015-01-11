@@ -189,17 +189,31 @@ nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
     }
 }]);
 
-nb_console.controller('BucketViewCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'buckets';
-    $scope.nav.refresh_view = refresh_view;
-    if (!$scope.nbSystem.system) {
-        refresh_view();
-    }
+nb_console.controller('BucketViewCtrl', [
+    '$scope', '$q', '$routeParams', 'nbSystem', 'nbNodes',
+    function($scope, $q, $routeParams, nbSystem, nbNodes) {
+        $scope.nav.active = 'buckets';
+        $scope.nav.refresh_view = refresh_view;
+        refresh_view(true);
 
-    function refresh_view() {
-        return $scope.nbSystem.refresh_system();
+        function refresh_view(init_only) {
+            return $q.when()
+                .then(function() {
+                    if (init_only && nbSystem.system) return;
+                    return nbSystem.refresh_system();
+                })
+                .then(function() {
+                    $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
+                        return bucket.name === $routeParams.bucket_name;
+                    });
+                });
+        }
     }
-}]);
+]);
+
+
+
+///// TODO unused code -
 
 
 nb_console.controller('NodesListCtrl', [

@@ -1,48 +1,48 @@
 <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
     <div class="container-fluid">
 
-        <div class="visible-sm visible-md visible-lg">
-
-            <div class="navbar-header" style="margin-right: 40px">
-                <a class="navbar-brand" href="/console/">NooBaa</a>
+        <div class="navbar-header">
+            <div class="visible-sm visible-md visible-lg">
+                <a class="navbar-brand" style="margin-right: 40px" href="/console/">NooBaa</a>
             </div>
-
-            <ul class="nav navbar-nav">
-                <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active: nav.active==key, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
-            </ul>
-
-            <ul class="nav navbar-nav navbar-right">
-                <li ng-if="nav.refresh_view">
-                    <a nb-click-ladda="nav.refresh_view()">
-                        <span style="visibility: hidden; width: 0; margin-right: -15px">
-                            O
-                            <!-- needed some text for navbar height align -->
-                        </span>
-                        <i class="fa fa-repeat fa-lg"></i>
-                    </a>
-                </li>
-                <li ng-include="'console/user_menu.html'" class="dropdown" ng-if="nbClient.account"></li>
-            </ul>
-        </div>
-
-        <div class="visible-xs">
-            <div class="navbar-header">
+            <div class="visible-xs">
                 <a class="navbar-brand navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-left" style="margin:0; padding-left: 0">
                     <i class="fa fa-bars fa-fw"></i> NooBaa
                 </a>
             </div>
-            <ul class="nav navbar-nav navbar-right">
+        </div>
+
+        <div class="navbar-right">
+            <ul class="nav navbar-nav">
                 <li ng-if="nav.refresh_view">
                     <a nb-click-ladda="nav.refresh_view()">
-                        <span style="visibility: hidden; width: 0; margin-right: -15px">
-                            O
-                            <!-- needed some text for navbar height align -->
-                        </span>
+                        <i class="navbar-icon"></i>
                         <i class="fa fa-repeat fa-lg"></i>
                     </a>
                 </li>
                 <li ng-include="'console/user_menu.html'" class="dropdown" ng-if="nbClient.account"></li>
+                <li>
+                    <a class="navbar-icon">
+                        <i class="fa fa-pie-chart fa-lg"></i>
+                    </a>
+                </li>
+                <li>
+                    <a class="navbar-icon">
+                        <i class="fa fa-bell fa-lg"></i>
+                    </a>
+                </li>
             </ul>
+            <p class="navbar-text">
+                Health: <i class="fa fa-check fa-lg"></i>
+            </p>
+        </div>
+
+        <div class="visible-sm visible-md visible-lg">
+            <ul class="nav navbar-nav">
+                <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active: nav.active==key, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
+            </ul>
+        </div>
+        <div class="visible-xs">
             <div class="col-xs-7 col-sm-4 col-md-3 col-lg-2 sidebar sidebar-left sidebar-animate Xsidebar-sm-show">
                 <ul class="nav navbar-nav nav-pills nav-stacked">
                     <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active:  nav.active==key, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>

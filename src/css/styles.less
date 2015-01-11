@@ -79,9 +79,23 @@ body.inverse {
 .navbar-default {
     background-color: @navbar-default-bg;
 }
-.navbar .navbar-nav .open .dropdown-menu > li > a {
-    /* keep dropdown menus as real dropdowns even when shrinking */
-    color: initial !important;
+.navbar {
+    .navbar-nav .open .dropdown-menu > li > a {
+        /* keep dropdown menus as real dropdowns even when shrinking */
+        color: initial !important;
+    }
+    .navbar-icon::before {
+        content: "O";
+        visibility: hidden;
+        width: 0;
+        margin-right: -15px;
+    }
+    .navbar-text {
+        @media (max-width: @screen-lg) {
+            margin-top: 14.5px;
+            margin-bottom: 14.5px;
+        }
+    }
 }
 .sidebar {
     /* fix sidebar's position to navbar's */

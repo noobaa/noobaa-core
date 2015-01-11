@@ -4,8 +4,12 @@
         <div class="Xpage-header">
 
             <h1 class="capitalize">
-                <span class="text-muted">Tier:</span>
+                <span ng-switch="tier.kind" class="text-muted">
+                    <i ng-switch-when="edge" class="fa fa-spinner fa-lg"></i>
+                    <i ng-switch-when="cloud" class="fa fa-cube fa-lg"></i>
+                </span>
                 {{tier.name}}
+                <!-- <span class="text-muted">Tier</span> -->
             </h1>
 
             <ol class="breadcrumb capitalize" style="margin: 30px 0">

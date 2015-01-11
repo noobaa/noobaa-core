@@ -7,10 +7,13 @@
                     <button class="btn btn-fab {{selected && 'btn-primary mdi-maps-place Xmdi-toggle-check-box' || 'btn-default mdi-maps-place X-layers-clear Xmdi-toggle-check-box-outline-blank'}}" style="margin: 10px 1px" ng-click="selected=!selected">
                     </button>
                 </div>
-                <div style="padding-left: 60px">
-                    <a class="btn btn-default btn-flat btn-block" style="text-align: left; padding-left: 10px; padding-right: 10px" ng-href="tier/{{tier.name}}">
+                <div style="padding-left: 58px">
+                    <a class="btn btn-primary btn-flat btn-block" style="text-align: left; padding-left: 10px; padding-right: 10px" ng-href="tier/{{tier.name}}">
                         <h5 class="capitalize">
-                            <span class="text-muted">Tier:</span>
+                            <span ng-switch="tier.kind">
+                                <i ng-switch-when="edge" class="fa fa-spinner fa-lg"></i>
+                                <i ng-switch-when="cloud" class="fa fa-cube fa-lg"></i>
+                            </span>
                             {{tier.name}}
                             <i class="fa fa-angle-right fa-lg pull-right"></i>
                         </h5>

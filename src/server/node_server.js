@@ -189,26 +189,34 @@ function read_node_maps(req) {
  *
  */
 function list_nodes(req) {
+    var info;
     return Q.fcall(function() {
-            var info = {
+            var query = req.rest_params.query;
+            info = {
                 system: req.system.id,
                 deleted: null,
             };
-            var query = req.rest_params.query;
+            if (!query) return;
+            if (query.name) {
+                info.name = new RegExp(query.name);
+            }
+            if (query.geolocation) {
+                info.geolocation = new RegExp(query.geolocation);
+            }
+            if (query.tier) {
+                return db.TierCache.get({
+                        system: req.system.id,
+                        name: query.tier,
+                    })
+                    .then(db.check_not_deleted(req, 'tier'))
+                    .then(function(tier) {
+                        info.tier = tier;
+                    });
+            }
+        })
+        .then(function() {
             var skip = req.rest_params.skip;
             var limit = req.rest_params.limit;
-            if (query) {
-                if (query.name) {
-                    info.name = new RegExp(query.name);
-                }
-                if (query.tier) {
-                    info.tier = query.tier;
-                }
-                if (query.geolocation) {
-                    info.geolocation = new RegExp(query.geolocation);
-                }
-            }
-
             var find = db.Node.find(info).sort('-_id');
             if (skip) {
                 find.skip(skip);

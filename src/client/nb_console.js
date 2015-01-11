@@ -118,23 +118,56 @@ nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
 }]);
 
 nb_console.controller('TierViewCtrl', [
-    '$scope', '$q', '$routeParams',
-    function($scope, $q, $routeParams) {
+    '$scope', '$q', '$routeParams', 'nbSystem', 'nbNodes',
+    function($scope, $q, $routeParams, nbSystem, nbNodes) {
         $scope.nav.active = 'tiers';
         $scope.nav.refresh_view = refresh_view;
+        $scope.prepare_nodes = prepare_nodes;
+        $scope.goto_nodes_page = goto_nodes_page;
+        $scope.nodes_active_page = 0;
+        $scope.nodes_page_size = 10;
         refresh_view(true);
 
         function refresh_view(init_only) {
             return $q.when()
                 .then(function() {
-                    if (init_only && $scope.nbSystem.system) return;
-                    return $scope.nbSystem.refresh_system();
+                    if (init_only && nbSystem.system) return;
+                    return nbSystem.refresh_system();
                 })
                 .then(function() {
-                    $scope.tier = _.find($scope.nbSystem.system.tiers, function(tier) {
+                    $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
                         return tier.name === $routeParams.tier_name;
                     });
+                    $scope.nodes_count = $scope.tier.nodes.count;
+                    $scope.nodes_num_pages = Math.ceil($scope.nodes_count / $scope.nodes_page_size);
+                    $scope.nodes_pages = _.times($scope.nodes_num_pages, _.identity);
                 });
+        }
+
+        function prepare_nodes() {
+            return nbNodes.list_nodes({
+                query: {
+                    tier: $scope.tier.name
+                },
+                skip: $scope.nodes_active_page * $scope.nodes_page_size,
+                limit: $scope.nodes_page_size,
+            }).then(function(res) {
+                $scope.nodes = res;
+            });
+        }
+
+        function goto_nodes_page(page) {
+            page = parseInt(page, 10);
+            if (page < 0) {
+                page = 0;
+            }
+            if (page >= $scope.nodes_num_pages) {
+                page = $scope.nodes_num_pages - 1;
+            }
+            if ($scope.nodes_active_page !== page) {
+                $scope.nodes_active_page = page;
+                return prepare_nodes();
+            }
         }
     }
 ]);

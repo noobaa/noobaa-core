@@ -1,4 +1,4 @@
-<div ng-controller="TierViewCtrl" ng-init="tier_tab='nodes'">
+<div ng-controller="TierViewCtrl" ng-init="tier_tab='stats'">
     <div class="container">
 
         <div class="Xpage-header">
@@ -39,22 +39,61 @@
             </tr>
         </table>
 
-        <ul class="nav nav-pills" style="margin: 30px 0 15px 0">
-            <li ng-class="{active:tier_tab=='nodes'}">
-                <a ng-click="tier_tab='nodes'">Nodes</a>
-            </li>
-            <li ng-class="{active: tier_tab=='settings'}">
-                <a ng-click="tier_tab='settings'">Settings</a>
-            </li>
-            <li ng-class="{active: tier_tab=='stats'}">
-                <a ng-click="tier_tab='stats'">Statistics</a>
-            </li>
-        </ul>
 
-        <div class="well" ng-switch="tier_tab">
+        <div class="well" ng-switch="tier_tab" style="margin: 30px 0 0 0">
+
+            <ul class="nav nav-pills noselect" style="margin: 0 0 15px 0">
+                <li ng-class="{active: tier_tab=='stats'}">
+                    <a ng-click="tier_tab='stats'">Statistics</a>
+                </li>
+                <li ng-class="{active: tier_tab=='settings'}">
+                    <a ng-click="tier_tab='settings'">Settings</a>
+                </li>
+                <li ng-class="{active:tier_tab=='nodes'}">
+                    <a ng-click="tier_tab='nodes'">Nodes</a>
+                </li>
+            </ul>
+
+            <div ng-switch-when="stats">
+                <i>placeholder for statistics ...</i>
+            </div>
 
             <div ng-switch-when="nodes">
-                <i>placeholder for nodes ...</i>
+                <table class="table" ng-init="prepare_nodes()">
+                    <tr>
+                        <th></th>
+                        <th>Node Name</th>
+                        <th>Raw Storage</th>
+                        <th>Status</th>
+                    </tr>
+                    <tr ng-repeat="node in nodes">
+                        <td class="checkbox noselect" style="width:1px">
+                            <label>
+                                <input type="checkbox" />
+                            </label>
+                        </td>
+                        <td class="table-btn text-left">
+                            <a ng-href="tier/{{tier.name}}/{{node.id}}" class="btn btn-primary btn-flat btn-block capitalize">
+                                {{node.name}}
+                            </a>
+                        </td>
+                        <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
+                        <td>Healthy</td>
+                    </tr>
+                </table>
+                <nav class="noselect">
+                    <ul class="pagination">
+                        <li>
+                            <a nb-click-ladda="goto_nodes_page(nodes_active_page-1)">&laquo;</a>
+                        </li>
+                        <li ng-repeat="page in nodes_pages" ng-class="{active:page==nodes_active_page}">
+                            <a nb-click-ladda="goto_nodes_page(page)">{{page}}</a>
+                        </li>
+                        <li>
+                            <a nb-click-ladda="goto_nodes_page(nodes_active_page+1)">&raquo;</a>
+                        </li>
+                    </ul>
+                </nav>
             </div>
 
             <div ng-switch-when="settings">
@@ -67,10 +106,6 @@
                         </td>
                     </tr>
                 </table>
-            </div>
-
-            <div ng-switch-when="stats">
-                <i>placeholder for statistics ...</i>
             </div>
 
         </div>

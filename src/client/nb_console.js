@@ -118,8 +118,8 @@ nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
 }]);
 
 nb_console.controller('TierViewCtrl', [
-    '$scope', '$q', '$routeParams', 'nbSystem', 'nbNodes',
-    function($scope, $q, $routeParams, nbSystem, nbNodes) {
+    '$scope', '$q', '$routeParams', '$location', 'nbSystem', 'nbNodes',
+    function($scope, $q, $routeParams, $location, nbSystem, nbNodes) {
         $scope.nav.active = 'tiers';
         $scope.nav.refresh_view = refresh_view;
         $scope.refresh_nodes = refresh_nodes;
@@ -139,6 +139,10 @@ nb_console.controller('TierViewCtrl', [
                     $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
                         return tier.name === $routeParams.tier_name;
                     });
+                    if (!$scope.tier) {
+                        $location.path('/tier/');
+                        return;
+                    }
                     $scope.nodes_num_pages = Math.ceil(
                         $scope.tier.nodes.count / $scope.nodes_page_size);
                     $scope.nodes_pages = _.times($scope.nodes_num_pages, _.identity);
@@ -190,8 +194,8 @@ nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
 }]);
 
 nb_console.controller('BucketViewCtrl', [
-    '$scope', '$q', '$routeParams', 'nbSystem', 'nbFiles',
-    function($scope, $q, $routeParams, nbSystem, nbFiles) {
+    '$scope', '$q', '$routeParams', '$location', 'nbSystem', 'nbFiles',
+    function($scope, $q, $routeParams, $location, nbSystem, nbFiles) {
         $scope.nav.active = 'buckets';
         $scope.nav.refresh_view = refresh_view;
         $scope.refresh_files = refresh_files;
@@ -211,6 +215,10 @@ nb_console.controller('BucketViewCtrl', [
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;
                     });
+                    if (!$scope.bucket) {
+                        $location.path('/bucket/');
+                        return;
+                    }
                     $scope.files_num_pages = Math.ceil(
                         $scope.bucket.num_objects / $scope.files_page_size);
                     $scope.files_pages = _.times($scope.files_num_pages, _.identity);

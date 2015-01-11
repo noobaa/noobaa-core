@@ -52,7 +52,7 @@ function create_node(req) {
         'geolocation'
     );
     info.system = req.system.id;
-    info.heartbeat = new Date();
+    info.heartbeat = new Date(0);
     info.storage = {
         alloc: req.rest_params.storage_alloc,
         used: 0,

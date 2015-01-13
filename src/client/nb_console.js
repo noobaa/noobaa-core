@@ -19,33 +19,42 @@ var nb_console = angular.module('nb_console', [
 ]);
 
 
+
 nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
     function($routeProvider, $locationProvider, $compileProvider) {
         // allow blob urls
         $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
         // routes
         $locationProvider.html5Mode(true);
+        // using reloadOnSearch=false to ignore hash changes for the sake of nbHashRouter
         $routeProvider
             .when('/overview', {
                 templateUrl: 'console/overview.html',
+                reloadOnSearch: false,
             })
             .when('/tier', {
                 templateUrl: 'console/tier_list.html',
+                reloadOnSearch: false,
             })
             .when('/tier/:tier_name', {
                 templateUrl: 'console/tier_view.html',
+                reloadOnSearch: false,
             })
             .when('/tier/:tier_name/:node_name', {
                 templateUrl: 'console/node_view.html',
+                reloadOnSearch: false,
             })
             .when('/bucket', {
                 templateUrl: 'console/bucket_list.html',
+                reloadOnSearch: false,
             })
             .when('/bucket/:bucket_name', {
                 templateUrl: 'console/bucket_view.html',
+                reloadOnSearch: false,
             })
             .when('/bucket/:bucket_name/:file_name', {
                 templateUrl: 'console/file_view.html',
+                reloadOnSearch: false,
             })
             .otherwise({
                 redirectTo: '/overview'
@@ -54,13 +63,12 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
 ]);
 
 
+
 nb_console.controller('ConsoleCtrl', [
-    '$scope', '$http', '$q', '$window',
-    'nbSystem', 'nbNodes', 'nbFiles',
-    'nbAlertify', '$location', 'nbClient',
-    function($scope, $http, $q, $window,
-        nbSystem, nbNodes, nbFiles,
-        nbAlertify, $location, nbClient) {
+    '$scope', '$http', '$q', '$window', '$location',
+    'nbSystem', 'nbNodes', 'nbFiles', 'nbClient', 'nbAlertify',
+    function($scope, $http, $q, $window, $location,
+        nbSystem, nbNodes, nbFiles, nbClient, nbAlertify) {
 
         $scope.nbClient = nbClient;
         $scope.nbSystem = nbSystem;
@@ -90,6 +98,7 @@ nb_console.controller('ConsoleCtrl', [
 ]);
 
 
+
 nb_console.controller('OverviewCtrl', ['$scope', '$q', function($scope, $q) {
     $scope.nav.active = 'overview';
     $scope.nav.refresh_view = refresh_view;
@@ -105,6 +114,8 @@ nb_console.controller('OverviewCtrl', ['$scope', '$q', function($scope, $q) {
     }
 }]);
 
+
+
 nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
     $scope.nav.active = 'tiers';
     $scope.nav.refresh_view = refresh_view;
@@ -117,16 +128,42 @@ nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
     }
 }]);
 
+
+
 nb_console.controller('TierViewCtrl', [
-    '$scope', '$q', '$routeParams', '$location', 'nbSystem', 'nbNodes',
-    function($scope, $q, $routeParams, $location, nbSystem, nbNodes) {
+    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
+    'nbSystem', 'nbNodes', 'nbHashRouter',
+    function($scope, $q, $timeout, $window, $location, $routeParams,
+        nbSystem, nbNodes, nbHashRouter) {
         $scope.nav.active = 'tiers';
         $scope.nav.refresh_view = refresh_view;
         $scope.refresh_nodes = refresh_nodes;
         $scope.goto_nodes_page = goto_nodes_page;
+        $scope.update_nodes_query = update_nodes_query;
         $scope.nodes_active_page = 0;
+        $scope.nodes_num_pages = 0;
         $scope.nodes_page_size = 10;
         $scope.nodes_query = {};
+
+        var hash_router = $scope.hash_router =
+            nbHashRouter($scope)
+            .when('stats', {
+                templateUrl: 'console/tier_stats.html',
+            })
+            .when('settings', {
+                templateUrl: 'console/tier_settings.html',
+            })
+            .when('nodes', {
+                templateUrl: 'console/tier_nodes.html',
+                show: function() {
+                    return refresh_nodes();
+                }
+            })
+            .otherwise({
+                redirectTo: 'stats'
+            })
+            .done();
+
         refresh_view(true);
 
         function refresh_view(init_only) {
@@ -146,12 +183,26 @@ nb_console.controller('TierViewCtrl', [
                     $scope.nodes_num_pages = Math.ceil(
                         $scope.tier.nodes.count / $scope.nodes_page_size);
                     $scope.nodes_pages = _.times($scope.nodes_num_pages, _.identity);
+                    return hash_router.refresh();
                 });
         }
 
         function refresh_nodes() {
+            var page = (parseInt(hash_router.params.pg, 10) - 1) || 0;
+            if (page >= $scope.nodes_num_pages) {
+                if ($scope.nodes_num_pages) {
+                    goto_nodes_page($scope.nodes_num_pages - 1);
+                }
+                return;
+            }
+            if (page < 0) {
+                goto_nodes_page(0);
+                return;
+            }
+            $scope.nodes_active_page = page;
+            $scope.nodes_query.search = hash_router.params.q;
             var query = {
-                tier: $scope.tier.name
+                tier: $routeParams.tier_name
             };
             if ($scope.nodes_query.search) {
                 query.name = $scope.nodes_query.search;
@@ -166,20 +217,22 @@ nb_console.controller('TierViewCtrl', [
         }
 
         function goto_nodes_page(page) {
-            page = parseInt(page, 10);
-            if (page < 0) {
-                page = 0;
-            }
-            if (page >= $scope.nodes_num_pages) {
-                page = $scope.nodes_num_pages - 1;
-            }
-            if ($scope.nodes_active_page !== page) {
-                $scope.nodes_active_page = page;
-                return refresh_nodes();
-            }
+            hash_router.set('nodes', {
+                pg: page + 1,
+                q: $scope.nodes_query.search,
+            });
+        }
+
+        function update_nodes_query() {
+            hash_router.set('nodes', {
+                pg: $scope.nodes_active_page + 1,
+                q: $scope.nodes_query.search,
+            });
         }
     }
 ]);
+
+
 
 nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
     $scope.nav.active = 'buckets';
@@ -192,6 +245,8 @@ nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
         return $scope.nbSystem.refresh_system();
     }
 }]);
+
+
 
 nb_console.controller('BucketViewCtrl', [
     '$scope', '$q', '$routeParams', '$location', 'nbSystem', 'nbFiles',

@@ -1,0 +1,62 @@
+<div ng-controller="BucketViewCtrl">
+    <div class="container">
+
+        <div class="Xpage-header">
+
+            <h1 class="capitalize">
+                <span class="text-muted">Bucket:</span>
+                {{bucket.name}}
+            </h1>
+
+            <ol class="breadcrumb capitalize" style="margin: 30px 0">
+                <li>
+                    <a href="/console/">Home</a>
+                </li>
+                <li>
+                    <a href="/console/bucket/">Buckets List</a>
+                </li>
+                <li class="active">{{bucket.name}}</li>
+            </ol>
+
+        </div>
+
+        <table class="table table-minimal-borders table-center">
+            <tr class="text-center">
+                <th>Bucket Status</th>
+                <th>Files</th>
+                <th>Net Storage</th>
+            </tr>
+            <tr>
+                <td><i class="fa fa-check fa-lg"></i> Healthy</td>
+                <td>{{bucket.num_objects}}</td>
+                <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
+            </tr>
+        </table>
+
+
+        <div class="well" style="margin: 30px 0 30px 0">
+
+            <ul class="nav nav-pills" style="margin: 0 0 15px 0">
+                <li ng-class="{active: bucket_router.route=='stats'}">
+                    <a ng-click="bucket_router.set('stats')">Statistics</a>
+                </li>
+                <li ng-class="{active: bucket_router.route=='tiering'}">
+                    <a ng-click="bucket_router.set('tiering')">Tiering</a>
+                </li>
+                <li ng-class="{active: bucket_router.route=='settings'}">
+                    <a ng-click="bucket_router.set('settings')">Settings</a>
+                </li>
+                <li ng-class="{active:bucket_router.route=='files'}">
+                    <a ng-click="bucket_router.set('files')">Files</a>
+                </li>
+                <li ng-class="{active: bucket_router.route=='link'}">
+                    <a ng-click="bucket_router.set('link')">Bucket Link</a>
+                </li>
+            </ul>
+
+            <div nb-hash-router-view="bucket_router"></div>
+
+        </div>
+
+    </div>
+</div>

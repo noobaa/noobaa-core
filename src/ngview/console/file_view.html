@@ -22,27 +22,29 @@
 
         </div>
 
-        <table class="table table-minimal-borders table-center">
-            <tr class="text-center">
-                <th>File Status</th>
-                <th>Bucket</th>
-                <th>Content Type</th>
-                <th>Size</th>
-                <th>Created</th>
-            </tr>
-            <tr>
-                <td><i class="fa fa-check fa-lg"></i> Healthy</td>
-                <td>{{bucket.name}}</td>
-                <td>{{file.content_type}}</td>
-                <td>{{human_size(file.size)}}</td>
-                <td ng-attr-title="{{file.create_time.format('LLL')}}">
-                    {{file.create_time.fromNow()}}
-                </td>
-            </tr>
-        </table>
+        <div class="well well-sm" style="margin: 30px 0">
+            <table class="table table-no-borders table-center" style="margin:0">
+                <tr class="text-center">
+                    <th>File Status</th>
+                    <th>Bucket</th>
+                    <th>Content Type</th>
+                    <th>Size</th>
+                    <th>Created</th>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-check fa-lg"></i> Healthy</td>
+                    <td>{{bucket.name}}</td>
+                    <td>{{file.content_type}}</td>
+                    <td>{{human_size(file.size)}}</td>
+                    <td ng-attr-title="{{file.create_time.format('LLL')}}">
+                        {{file.create_time.fromNow()}}
+                    </td>
+                </tr>
+            </table>
+        </div>
 
 
-        <div class="well" style="margin: 30px 0 30px 0">
+        <div class="Xwell" style="margin: 30px 0">
 
             <ul class="nav nav-pills" style="margin: 0 0 15px 0">
                 <li ng-class="{active: file_router.route=='stats'}">

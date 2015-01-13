@@ -223,7 +223,7 @@ nb_util.factory('nbHashRouter', [
 
         HashRouter.prototype.load = function(hash) {
             var self = this;
-            console.log('nbHashRouter.load', hash);
+            // console.log('nbHashRouter.load', hash);
             hash = hash || '';
             var matches = hash.match(/^(\w*)&?(.*)$/) || [];
             self.route = matches[1] || '';
@@ -247,7 +247,7 @@ nb_util.factory('nbHashRouter', [
             if (params) {
                 hash += '&' + querystring.stringify(params);
             }
-            console.log('nbHashRouter.set', hash);
+            // console.log('nbHashRouter.set', hash);
             if ($location.hash() !== hash) {
                 $location.hash(hash);
             }

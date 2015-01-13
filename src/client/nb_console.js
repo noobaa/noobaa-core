@@ -188,7 +188,7 @@ nb_console.controller('TierViewCtrl', [
         }
 
         function refresh_nodes() {
-            var page = (parseInt(tier_router.params.pg, 10) - 1) || 0;
+            var page = (parseInt(tier_router.params.page, 10) - 1) || 0;
             if (page >= $scope.nodes_num_pages) {
                 if ($scope.nodes_num_pages) {
                     goto_nodes_page($scope.nodes_num_pages - 1);
@@ -200,7 +200,7 @@ nb_console.controller('TierViewCtrl', [
                 return;
             }
             $scope.nodes_active_page = page;
-            $scope.nodes_query.search = tier_router.params.q;
+            $scope.nodes_query.search = tier_router.params.search;
             var query = {
                 tier: $routeParams.tier_name
             };
@@ -218,15 +218,15 @@ nb_console.controller('TierViewCtrl', [
 
         function goto_nodes_page(page) {
             tier_router.set('nodes', {
-                pg: page + 1,
-                q: $scope.nodes_query.search,
+                page: page + 1,
+                search: $scope.nodes_query.search,
             });
         }
 
         function update_nodes_query() {
             tier_router.set('nodes', {
-                pg: $scope.nodes_active_page + 1,
-                q: $scope.nodes_query.search,
+                page: $scope.nodes_active_page + 1,
+                search: $scope.nodes_query.search,
             });
         }
     }
@@ -312,7 +312,7 @@ nb_console.controller('BucketViewCtrl', [
         }
 
         function refresh_files() {
-            var page = (parseInt(bucket_router.params.pg, 10) - 1) || 0;
+            var page = (parseInt(bucket_router.params.page, 10) - 1) || 0;
             if (page >= $scope.files_num_pages) {
                 if ($scope.files_num_pages) {
                     goto_files_page($scope.files_num_pages - 1);
@@ -324,7 +324,7 @@ nb_console.controller('BucketViewCtrl', [
                 return;
             }
             $scope.files_active_page = page;
-            $scope.files_query.search = bucket_router.params.q;
+            $scope.files_query.search = bucket_router.params.search;
             var params = {
                 bucket: $routeParams.bucket_name,
                 skip: $scope.files_active_page * $scope.files_page_size,
@@ -341,15 +341,15 @@ nb_console.controller('BucketViewCtrl', [
 
         function goto_files_page(page) {
             bucket_router.set('files', {
-                pg: page + 1,
-                q: $scope.files_query.search,
+                page: page + 1,
+                search: $scope.files_query.search,
             });
         }
 
         function update_files_query() {
             bucket_router.set('files', {
-                pg: $scope.files_active_page + 1,
-                q: $scope.files_query.search,
+                page: $scope.files_active_page + 1,
+                search: $scope.files_query.search,
             });
         }
 

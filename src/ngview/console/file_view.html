@@ -4,8 +4,7 @@
         <div class="Xpage-header">
 
             <h1 class="capitalize">
-                <i class="fa fa-file fa-lg fa-fw text-muted"></i>
-                {{file.name}}
+                <i class="fa fa-file fa-lg fa-fw text-muted"></i> {{file.name}}
             </h1>
 
             <ol class="breadcrumb capitalize" style="margin: 30px 0">
@@ -25,14 +24,20 @@
 
         <table class="table table-minimal-borders table-center">
             <tr class="text-center">
-                <th>Bucket Status</th>
-                <th>Files</th>
-                <th>Net Storage</th>
+                <th>File Status</th>
+                <th>Bucket</th>
+                <th>Content Type</th>
+                <th>Size</th>
+                <th>Created</th>
             </tr>
             <tr>
                 <td><i class="fa fa-check fa-lg"></i> Healthy</td>
-                <td>{{bucket.num_objects}}</td>
-                <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
+                <td>{{bucket.name}}</td>
+                <td>{{file.content_type}}</td>
+                <td>{{human_size(file.size)}}</td>
+                <td ng-attr-title="{{file.create_time.format('LLL')}}">
+                    {{file.create_time.fromNow()}}
+                </td>
             </tr>
         </table>
 

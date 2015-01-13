@@ -130,6 +130,20 @@ nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
 
 
 
+nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
+    $scope.nav.active = 'buckets';
+    $scope.nav.refresh_view = refresh_view;
+    if (!$scope.nbSystem.system) {
+        refresh_view();
+    }
+
+    function refresh_view() {
+        return $scope.nbSystem.refresh_system();
+    }
+}]);
+
+
+
 nb_console.controller('TierViewCtrl', [
     '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
     'nbSystem', 'nbNodes', 'nbHashRouter',
@@ -234,17 +248,118 @@ nb_console.controller('TierViewCtrl', [
 
 
 
-nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'buckets';
-    $scope.nav.refresh_view = refresh_view;
-    if (!$scope.nbSystem.system) {
-        refresh_view();
-    }
+nb_console.controller('NodeViewCtrl', [
+    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
+    'nbSystem', 'nbNodes', 'nbHashRouter',
+    function($scope, $q, $timeout, $window, $location, $routeParams,
+        nbSystem, nbNodes, nbHashRouter) {
+        $scope.nav.active = 'tiers';
+        $scope.nav.refresh_view = refresh_view;
+        $scope.refresh_files = refresh_files;
+        $scope.goto_files_page = goto_files_page;
+        $scope.update_files_query = update_files_query;
+        $scope.files_active_page = 0;
+        $scope.files_num_pages = 0;
+        $scope.files_page_size = 10;
+        $scope.files_query = {};
 
-    function refresh_view() {
-        return $scope.nbSystem.refresh_system();
+        var node_router = $scope.node_router =
+            nbHashRouter($scope)
+            .when('stats', {
+                templateUrl: 'console/node_stats.html',
+            })
+            .when('settings', {
+                templateUrl: 'console/node_settings.html',
+            })
+            .when('properties', {
+                templateUrl: 'console/node_properties.html',
+            })
+            .when('files', {
+                templateUrl: 'console/node_files.html',
+                show: function() {
+                    return refresh_files();
+                }
+            })
+            .otherwise({
+                redirectTo: 'stats'
+            })
+            .done();
+
+        refresh_view(true);
+
+        function refresh_view(init_only) {
+            return $q.when()
+                .then(function() {
+                    if (init_only && nbSystem.system) return;
+                    return nbSystem.refresh_system();
+                })
+                .then(function() {
+                    $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
+                        return tier.name === $routeParams.tier_name;
+                    });
+                    if (!$scope.tier) {
+                        $location.path('/tier/');
+                        return;
+                    }
+                    return nbNodes.read_node($routeParams.node_name);
+                })
+                .then(function(res) {
+                    $scope.node = res;
+
+                    // TODO handle node files list
+                    /*
+                    $scope.files_num_pages = Math.ceil(
+                        $scope.tier.files.count / $scope.files_page_size);
+                    $scope.files_pages = _.times($scope.files_num_pages, _.identity);
+                    */
+                    return node_router.refresh();
+                });
+        }
+
+        function refresh_files() {
+            var page = (parseInt(node_router.params.page, 10) - 1) || 0;
+            if (page >= $scope.files_num_pages) {
+                if ($scope.files_num_pages) {
+                    goto_files_page($scope.files_num_pages - 1);
+                }
+                return;
+            }
+            if (page < 0) {
+                goto_files_page(0);
+                return;
+            }
+            $scope.files_active_page = page;
+            $scope.files_query.search = node_router.params.search;
+            var query = {
+                tier: $routeParams.tier_name
+            };
+            if ($scope.files_query.search) {
+                query.name = $scope.files_query.search;
+            }
+            return nbNodes.list_files({
+                query: query,
+                skip: $scope.files_active_page * $scope.files_page_size,
+                limit: $scope.files_page_size,
+            }).then(function(res) {
+                $scope.files = res;
+            });
+        }
+
+        function goto_files_page(page) {
+            node_router.set('files', {
+                page: page + 1,
+                search: $scope.files_query.search,
+            });
+        }
+
+        function update_files_query() {
+            node_router.set('files', {
+                page: $scope.files_active_page + 1,
+                search: $scope.files_query.search,
+            });
+        }
     }
-}]);
+]);
 
 
 
@@ -353,152 +468,5 @@ nb_console.controller('BucketViewCtrl', [
             });
         }
 
-    }
-]);
-
-
-
-///// TODO unused code -
-
-
-nb_console.controller('NodesListCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams', '$location',
-    function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams, $location) {
-
-        $scope.nav.active = 'nodes';
-
-        $scope.refresh_view = refresh_view;
-        $scope.open_node = open_node;
-        $scope.select_node = select_node;
-        $scope.is_selected_node = is_selected_node;
-        $scope.prev_page = prev_page;
-        $scope.next_page = next_page;
-        $scope.toggle_node_started = toggle_node_started;
-        $scope.add_nodes = add_nodes;
-        $scope.geo = $routeParams.geo;
-        $scope.skip = 0;
-        $scope.limit = 10;
-        $scope.nodes_count = 0;
-
-        $scope.$watch('nbNodes.node_groups_by_geo', function() {
-            if ($scope.geo && nbNodes.node_groups_by_geo) {
-                $scope.geo_stats = nbNodes.node_groups_by_geo[$scope.geo];
-                $scope.nodes_count = $scope.geo_stats.count;
-            } else {
-                $scope.nodes_count = nbNodes.nodes_count;
-            }
-        });
-
-        $scope.refresh_view();
-
-
-        function refresh_view() {
-            return $q.all([
-                nbNodes.refresh_node_groups($scope.geo),
-                refresh_list(),
-            ]);
-        }
-
-        function refresh_list() {
-            var query = {};
-            if ($scope.geo) {
-                // the query takes a regexp string
-                query.geolocation = '^' + $scope.geo + '$';
-            }
-            return nbNodes.list_nodes({
-                query: query,
-                skip: $scope.skip,
-                limit: $scope.limit,
-            }).then(
-                function(nodes) {
-                    $scope.nodes = nodes;
-                }
-            );
-        }
-
-        function open_node(node) {
-            $location.path('nodes/n/' + node.name);
-        }
-
-        function select_node(node) {
-            $scope.selected_node = node;
-        }
-
-        function is_selected_node(node) {
-            return $scope.selected_node === node;
-        }
-
-        function prev_page() {
-            $scope.skip -= $scope.limit;
-            if ($scope.skip < 0) {
-                $scope.skip = 0;
-                return;
-            }
-            return refresh_list();
-        }
-
-        function next_page() {
-            $scope.skip += $scope.limit;
-            if ($scope.skip >= $scope.nodes_count) {
-                $scope.skip -= $scope.limit;
-                return;
-            }
-            return refresh_list();
-        }
-
-        function toggle_node_started(node) {
-            if (node.started) {
-                return nbNodes.stop_node(node).then(refresh_view);
-            } else {
-                return nbNodes.start_node(node).then(refresh_view);
-            }
-        }
-
-        function add_nodes() {
-            return nbNodes.add_nodes().then(refresh_view);
-        }
-
-    }
-]);
-
-
-
-nb_console.controller('NodeDetailsCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout',
-    'nbNodes', '$routeParams', '$location', 'nbAlertify',
-    function($scope, $http, $q, $window, $timeout,
-        nbNodes, $routeParams, $location, nbAlertify) {
-
-        $scope.nav.active = 'nodes';
-
-        $scope.node_name = $routeParams.name;
-        $scope.refresh_view = refresh_view;
-        $scope.start_node = start_node;
-        $scope.stop_node = stop_node;
-        $scope.refresh_view();
-
-        function refresh_view() {
-            return nbNodes.read_node($scope.node_name).then(
-                function(node) {
-                    $scope.node = node;
-                },
-                function(err) {
-                    if (err.status === 404) {
-                        nbAlertify.error('node not found...');
-                        $location.path('nodes/');
-                        return;
-                    }
-                    throw err;
-                }
-            );
-        }
-
-        function start_node(node) {
-            return nbNodes.start_node(node).then(refresh_view);
-        }
-
-        function stop_node(node) {
-            return nbNodes.stop_node(node).then(refresh_view);
-        }
     }
 ]);

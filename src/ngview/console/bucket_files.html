@@ -1,5 +1,5 @@
 <div ng-cloak>
-    <input type="text" class="form-control floating-label" placeholder="Search File" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="update_files_query()" />
+    <input type="text" class="form-control floating-label" placeholder="Search File" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
     <div class="table-responsive">
         <table class="table">
             <tr>
@@ -33,13 +33,13 @@
     <nav class="noselect">
         <ul class="pagination">
             <li>
-                <a nb-click-ladda="goto_files_page(files_active_page-1)">&laquo;</a>
+                <a nb-click-ladda="bucket_router.set_page(files_query.page-1)">&laquo;</a>
             </li>
-            <li ng-repeat="page in files_pages" ng-class="{active:page==files_active_page}">
-                <a nb-click-ladda="goto_files_page(page)">{{page+1}}</a>
+            <li ng-repeat="page in files_pages" ng-class="{active: page==files_query.page}">
+                <a nb-click-ladda="bucket_router.set_page(page)">{{page+1}}</a>
             </li>
             <li>
-                <a nb-click-ladda="goto_files_page(files_active_page+1)">&raquo;</a>
+                <a nb-click-ladda="bucket_router.set_page(files_query.page+1)">&raquo;</a>
             </li>
         </ul>
     </nav>

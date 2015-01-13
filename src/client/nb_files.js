@@ -23,13 +23,13 @@ nb_api.controller('UploadCtrl', [
         nbAlertify, $sce, nbFiles, nbNetworkMonitor) {
 
         $scope.nav.active = 'upload';
-        $scope.refresh_view = refresh_view;
+        $scope.reload_view = reload_view;
         $scope.click_upload = click_upload;
         $scope.click_browse = click_browse;
-        refresh_view();
+        reload_view();
 
 
-        function refresh_view() {
+        function reload_view() {
             return nbFiles.load_buckets();
         }
 
@@ -109,15 +109,15 @@ nb_api.controller('DownloadCtrl', [
     function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
 
         $scope.nav.active = 'download';
-        $scope.refresh_view = refresh_view;
+        $scope.reload_view = reload_view;
         $scope.click_object = click_object;
-        refresh_view();
+        reload_view();
 
         $scope.$watch('nbFiles.bucket', function(bucket) {
             nbFiles.load_bucket_objects(bucket);
         });
 
-        function refresh_view() {
+        function reload_view() {
             return nbFiles.load_buckets();
         }
 

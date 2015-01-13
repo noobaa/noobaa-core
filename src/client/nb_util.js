@@ -197,10 +197,17 @@ nb_util.factory('nbHashRouter', [
             this.scope = scope;
             this.routes = {};
             this.route = '';
-            this.params = {};
-            this.routes[this.route] = this.params;
+            this.route_options = {};
+            this.routes[this.route] = this.route_options;
         }
 
+        /**
+         * route options:
+         * - templateURL (string)
+         * - redirectTo (string)
+         * - pagination (boolean)
+         * - reload (function)
+         */
         HashRouter.prototype.when = function(route, options) {
             this.routes[route] = options || {};
             return this;
@@ -221,31 +228,24 @@ nb_util.factory('nbHashRouter', [
             return self;
         };
 
-        HashRouter.prototype.load = function(hash) {
+        HashRouter.prototype.set = function(route, query) {
             var self = this;
-            // console.log('nbHashRouter.load', hash);
-            hash = hash || '';
-            var matches = hash.match(/^(\w*)&?(.*)$/) || [];
-            self.route = matches[1] || '';
-            self.params = self.routes[self.route];
-            if (!self.params) {
-                self.route = '';
-                self.params = self.routes[self.route];
-            }
-            while (self.params.redirectTo) {
-                self.route = self.params.redirectTo;
-                self.params = self.routes[self.route];
-            }
-            var params = querystring.parse(matches[2]);
-            _.merge(self.params, params);
-            self.refresh();
-            return self;
-        };
-
-        HashRouter.prototype.set = function(route, params) {
+            var opt = self.routes[route];
             var hash = encodeURIComponent(route);
-            if (params) {
-                hash += '&' + querystring.stringify(params);
+            // compact the query by removing empty values
+            var hash_query = _.pick(query, function(val, key) {
+                return !!val;
+            });
+            // handle pagination - translate the page number from 0-based to 1-based
+            if (opt.pagination) {
+                if (hash_query.page) {
+                    hash_query.page = hash_query.page + 1;
+                } else {
+                    delete hash_query.page;
+                }
+            }
+            if (!_.isEmpty(hash_query)) {
+                hash += '&' + querystring.stringify(hash_query);
             }
             // console.log('nbHashRouter.set', hash);
             if ($location.hash() !== hash) {
@@ -253,14 +253,74 @@ nb_util.factory('nbHashRouter', [
             }
         };
 
-        HashRouter.prototype.refresh = function() {
-            if (this.params && this.params.show) {
-                return this.params.show();
+        HashRouter.prototype.set_num_pages = function(route, num_pages) {
+            var opt = this.routes[route];
+            opt.num_pages = num_pages;
+            if (route === this.route) {
+                // set the same page to check bounds
+                var page = opt.query && opt.query.page || 0;
+                this.set_page(page);
             }
         };
 
-        HashRouter.prototype.is = function(route) {
-            return this.route === route;
+        HashRouter.prototype.set_page = function(page) {
+            var opt = this.route_options;
+            var query = opt.query || {};
+            var num_pages = opt.num_pages || 0;
+            if (page >= num_pages) {
+                page = num_pages - 1;
+            }
+            if (page < 0) {
+                page = 0;
+            }
+            if (page !== query.page) {
+                query.page = page;
+                this.set(this.route, query);
+            }
+        };
+
+        HashRouter.prototype.set_query = function(key, val) {
+            var opt = this.route_options;
+            var query = opt.query || {};
+            if (query[key] !== val) {
+                delete query.page;
+                query[key] = val;
+                this.set(this.route, query);
+            }
+        };
+
+        HashRouter.prototype.load = function(hash) {
+            var self = this;
+            // console.log('nbHashRouter.load', hash);
+            hash = hash || '';
+            var matches = hash.match(/^(\w*)&?(.*)$/) || [];
+            var route = matches[1] || '';
+            var opt = self.routes[route];
+            if (!opt) {
+                route = '';
+                opt = self.routes[route];
+            }
+            while (opt.redirectTo) {
+                route = opt.redirectTo;
+                opt = self.routes[route];
+            }
+            opt.query = querystring.parse(matches[2]) || {};
+            // handle pagination - convert back from 1-based to 0-based
+            if (opt.pagination) {
+                opt.query.page = (parseInt(opt.query.page, 10) - 1) || 0;
+            }
+            self.route = route;
+            self.route_options = opt;
+            self.reload();
+            return self;
+        };
+
+        HashRouter.prototype.reload = function() {
+            var self = this;
+            var opt = self.route_options;
+            if (opt.reload) {
+                return opt.reload(opt.query);
+            }
         };
 
         return function(scope) {
@@ -278,7 +338,7 @@ nb_util.directive('nbHashRouterView', [
             link: function(scope, element, attrs) {
                 var html = '<div ng-include="' +
                     attrs.nbHashRouterView +
-                    '.params.templateUrl"></div>';
+                    '.route_options.templateUrl"></div>';
                 element.append($compile(html)(scope));
             }
         };

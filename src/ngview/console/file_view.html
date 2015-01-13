@@ -1,0 +1,65 @@
+<div ng-controller="FileViewCtrl">
+    <div class="container">
+
+        <div class="Xpage-header">
+
+            <h1 class="capitalize">
+                <i class="fa fa-file fa-lg fa-fw text-muted"></i>
+                {{file.name}}
+            </h1>
+
+            <ol class="breadcrumb capitalize" style="margin: 30px 0">
+                <li>
+                    <a href="/console/">Home</a>
+                </li>
+                <li>
+                    <a href="/console/bucket/">Buckets List</a>
+                </li>
+                <li>
+                    <a ng-href="/console/bucket/{{bucket.name}}">{{bucket.name}}</a>
+                </li>
+                <li class="active">{{file.name}}</li>
+            </ol>
+
+        </div>
+
+        <table class="table table-minimal-borders table-center">
+            <tr class="text-center">
+                <th>Bucket Status</th>
+                <th>Files</th>
+                <th>Net Storage</th>
+            </tr>
+            <tr>
+                <td><i class="fa fa-check fa-lg"></i> Healthy</td>
+                <td>{{bucket.num_objects}}</td>
+                <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
+            </tr>
+        </table>
+
+
+        <div class="well" style="margin: 30px 0 30px 0">
+
+            <ul class="nav nav-pills" style="margin: 0 0 15px 0">
+                <li ng-class="{active: file_router.route=='stats'}">
+                    <a ng-click="file_router.set('stats')">Statistics</a>
+                </li>
+                <li ng-class="{active: file_router.route=='properties'}">
+                    <a ng-click="file_router.set('properties')">Properties</a>
+                </li>
+                <li ng-class="{active: file_router.route=='settings'}">
+                    <a ng-click="file_router.set('settings')">Settings</a>
+                </li>
+                <li ng-class="{active: file_router.route=='link'}">
+                    <a ng-click="file_router.set('link')">File Link</a>
+                </li>
+                <li ng-class="{active:file_router.route=='parts'}">
+                    <a ng-click="file_router.set('parts')">File Parts</a>
+                </li>
+            </ul>
+
+            <div nb-hash-router-view="file_router"></div>
+
+        </div>
+
+    </div>
+</div>

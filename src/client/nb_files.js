@@ -150,7 +150,8 @@ nb_api.factory('nbFiles', [
     function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope, nbClient) {
         var $scope = {};
 
-        $scope.list_objects = list_objects;
+        $scope.list_files = list_files;
+        $scope.get_file = get_file;
 
         $scope.load_buckets = load_buckets;
         $scope.load_bucket_objects = load_bucket_objects;
@@ -159,23 +160,41 @@ nb_api.factory('nbFiles', [
         $scope.read_entire_object = read_entire_object;
         $scope.read_as_media_stream = read_as_media_stream;
 
-        function list_objects(params) {
+        function list_files(params) {
             return $q.when().then(
                 function() {
                     return nbClient.client.object.list_objects(params);
                 }
             ).then(
                 function(res) {
-                    console.log('OBJECTS', res);
-                    var objects = _.map(res.objects, function(obj) {
-                        var o = obj.info;
-                        o.create_time = moment(new Date(o.create_time));
-                        o.name = obj.key;
-                        return o;
-                    });
+                    var objects = _.map(res.objects, make_file_info);
+                    console.log('FILES', res);
                     return objects;
                 }
             );
+        }
+
+        function get_file(params) {
+            return $q.when().then(
+                function() {
+                    return nbClient.client.object.get_object_md(params);
+                }
+            ).then(
+                function(res) {
+                    console.log('FILE', res);
+                    return make_file_info({
+                        key: params.key,
+                        info: res,
+                    });
+                }
+            );
+        }
+
+        function make_file_info(obj) {
+            var file = obj.info;
+            file.create_time = moment(new Date(file.create_time));
+            file.name = obj.key;
+            return file;
         }
 
 

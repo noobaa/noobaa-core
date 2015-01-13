@@ -145,7 +145,7 @@ nb_console.controller('TierViewCtrl', [
         $scope.nodes_page_size = 10;
         $scope.nodes_query = {};
 
-        var hash_router = $scope.hash_router =
+        var tier_router = $scope.tier_router =
             nbHashRouter($scope)
             .when('stats', {
                 templateUrl: 'console/tier_stats.html',
@@ -183,12 +183,12 @@ nb_console.controller('TierViewCtrl', [
                     $scope.nodes_num_pages = Math.ceil(
                         $scope.tier.nodes.count / $scope.nodes_page_size);
                     $scope.nodes_pages = _.times($scope.nodes_num_pages, _.identity);
-                    return hash_router.refresh();
+                    return tier_router.refresh();
                 });
         }
 
         function refresh_nodes() {
-            var page = (parseInt(hash_router.params.pg, 10) - 1) || 0;
+            var page = (parseInt(tier_router.params.pg, 10) - 1) || 0;
             if (page >= $scope.nodes_num_pages) {
                 if ($scope.nodes_num_pages) {
                     goto_nodes_page($scope.nodes_num_pages - 1);
@@ -200,7 +200,7 @@ nb_console.controller('TierViewCtrl', [
                 return;
             }
             $scope.nodes_active_page = page;
-            $scope.nodes_query.search = hash_router.params.q;
+            $scope.nodes_query.search = tier_router.params.q;
             var query = {
                 tier: $routeParams.tier_name
             };
@@ -217,14 +217,14 @@ nb_console.controller('TierViewCtrl', [
         }
 
         function goto_nodes_page(page) {
-            hash_router.set('nodes', {
+            tier_router.set('nodes', {
                 pg: page + 1,
                 q: $scope.nodes_query.search,
             });
         }
 
         function update_nodes_query() {
-            hash_router.set('nodes', {
+            tier_router.set('nodes', {
                 pg: $scope.nodes_active_page + 1,
                 q: $scope.nodes_query.search,
             });
@@ -249,15 +249,45 @@ nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
 
 
 nb_console.controller('BucketViewCtrl', [
-    '$scope', '$q', '$routeParams', '$location', 'nbSystem', 'nbFiles',
-    function($scope, $q, $routeParams, $location, nbSystem, nbFiles) {
+    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
+    'nbSystem', 'nbFiles', 'nbHashRouter',
+    function($scope, $q, $timeout, $window, $location, $routeParams,
+        nbSystem, nbFiles, nbHashRouter) {
         $scope.nav.active = 'buckets';
         $scope.nav.refresh_view = refresh_view;
         $scope.refresh_files = refresh_files;
         $scope.goto_files_page = goto_files_page;
+        $scope.update_files_query = update_files_query;
         $scope.files_active_page = 0;
+        $scope.files_num_pages = 0;
         $scope.files_page_size = 10;
         $scope.files_query = {};
+
+        var bucket_router = $scope.bucket_router =
+            nbHashRouter($scope)
+            .when('stats', {
+                templateUrl: 'console/bucket_stats.html',
+            })
+            .when('settings', {
+                templateUrl: 'console/bucket_settings.html',
+            })
+            .when('tiering', {
+                templateUrl: 'console/bucket_tiering.html',
+            })
+            .when('link', {
+                templateUrl: 'console/bucket_link.html',
+            })
+            .when('files', {
+                templateUrl: 'console/bucket_files.html',
+                show: function() {
+                    return refresh_files();
+                }
+            })
+            .otherwise({
+                redirectTo: 'stats'
+            })
+            .done();
+
         refresh_view(true);
 
         function refresh_view(init_only) {
@@ -277,12 +307,26 @@ nb_console.controller('BucketViewCtrl', [
                     $scope.files_num_pages = Math.ceil(
                         $scope.bucket.num_objects / $scope.files_page_size);
                     $scope.files_pages = _.times($scope.files_num_pages, _.identity);
+                    bucket_router.refresh();
                 });
         }
 
         function refresh_files() {
+            var page = (parseInt(bucket_router.params.pg, 10) - 1) || 0;
+            if (page >= $scope.files_num_pages) {
+                if ($scope.files_num_pages) {
+                    goto_files_page($scope.files_num_pages - 1);
+                }
+                return;
+            }
+            if (page < 0) {
+                goto_files_page(0);
+                return;
+            }
+            $scope.files_active_page = page;
+            $scope.files_query.search = bucket_router.params.q;
             var params = {
-                bucket: $scope.bucket.name,
+                bucket: $routeParams.bucket_name,
                 skip: $scope.files_active_page * $scope.files_page_size,
                 limit: $scope.files_page_size,
             };
@@ -296,18 +340,19 @@ nb_console.controller('BucketViewCtrl', [
         }
 
         function goto_files_page(page) {
-            page = parseInt(page, 10);
-            if (page < 0) {
-                page = 0;
-            }
-            if (page >= $scope.files_num_pages) {
-                page = $scope.files_num_pages - 1;
-            }
-            if ($scope.files_active_page !== page) {
-                $scope.files_active_page = page;
-                return refresh_files();
-            }
+            bucket_router.set('files', {
+                pg: page + 1,
+                q: $scope.files_query.search,
+            });
         }
+
+        function update_files_query() {
+            bucket_router.set('files', {
+                pg: $scope.files_active_page + 1,
+                q: $scope.files_query.search,
+            });
+        }
+
     }
 ]);
 

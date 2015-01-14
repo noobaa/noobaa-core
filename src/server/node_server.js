@@ -31,6 +31,7 @@ module.exports = new api.node_api.Server({
     delete_node: delete_node,
     read_node_maps: read_node_maps,
 
+    lookup_node: lookup_node,
     list_nodes: list_nodes,
     group_nodes: group_nodes,
 
@@ -185,6 +186,21 @@ function read_node_maps(req) {
 
 /**
  *
+ * LOOKUP_NODE
+ *
+ */
+function lookup_node(req) {
+    return find_node_by_ip_port(req)
+        .then(function(node) {
+            console.log(node);
+            return get_node_full_info(node);
+        });
+}
+
+
+
+/**
+ *
  * LIST_NODES
  *
  */
@@ -217,7 +233,9 @@ function list_nodes(req) {
         .then(function() {
             var skip = req.rest_params.skip;
             var limit = req.rest_params.limit;
-            var find = db.Node.find(info).sort('-_id');
+            var find = db.Node.find(info)
+                .sort('-_id')
+                .populate('tier', 'name');
             if (skip) {
                 find.skip(skip);
             }
@@ -575,6 +593,7 @@ function count_node_storage_used(node_id) {
 
 function get_node_full_info(node) {
     var info = _.pick(node, 'id', 'name', 'geolocation');
+    info.tier = node.tier.name;
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
@@ -591,7 +610,23 @@ function get_node_full_info(node) {
 }
 
 function find_node_by_name(req) {
-    return Q.when(db.Node.findOne(get_node_query(req)).exec())
+    return Q.when(
+            db.Node.findOne(get_node_query(req))
+            .populate('tier', 'name')
+            .exec())
+        .then(db.check_not_deleted(req, 'node'));
+}
+
+function find_node_by_ip_port(req) {
+    return Q.when(
+            db.Node.findOne({
+                system: req.system.id,
+                ip: req.rest_params.ip,
+                port: req.rest_params.port,
+                deleted: null,
+            })
+            .populate('tier', 'name')
+            .exec())
         .then(db.check_not_deleted(req, 'node'));
 }
 

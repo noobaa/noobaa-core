@@ -226,6 +226,7 @@ nb_util.factory('nbHashRouter', [
 
         HashRouter.prototype.done = function() {
             var self = this;
+            if (self.watch_scope) return;
             self.watch_scope = self.scope.$new();
             self.watch_scope.$location = $location;
             self.watch_scope.$watch('$location.hash()', function(hash) {
@@ -273,7 +274,7 @@ nb_util.factory('nbHashRouter', [
             var opt = this.route_options;
             var query = opt.query || {};
             var num_pages = opt.num_pages || 0;
-            if (page >= num_pages) {
+            if (page >= num_pages && num_pages >= 0) {
                 page = num_pages - 1;
             }
             if (page < 0) {

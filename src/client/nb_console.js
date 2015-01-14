@@ -176,8 +176,7 @@ nb_console.controller('TierViewCtrl', [
             })
             .otherwise({
                 redirectTo: 'stats'
-            })
-            .done();
+            });
 
         reload_view(true);
 
@@ -199,7 +198,7 @@ nb_console.controller('TierViewCtrl', [
                         $scope.tier.nodes.count / $scope.nodes_page_size);
                     $scope.nodes_pages = _.times($scope.nodes_num_pages, _.identity);
                     tier_router.set_num_pages('nodes', $scope.nodes_num_pages);
-                    return tier_router.reload();
+                    tier_router.done();
                 });
         }
 
@@ -253,8 +252,7 @@ nb_console.controller('NodeViewCtrl', [
             })
             .otherwise({
                 redirectTo: 'stats'
-            })
-            .done();
+            });
 
         reload_view(true);
 
@@ -284,7 +282,7 @@ nb_console.controller('NodeViewCtrl', [
                     $scope.files_pages = _.times($scope.files_num_pages, _.identity);
                     */
                     node_router.set_num_pages('files', $scope.files_num_pages);
-                    return node_router.reload();
+                    node_router.done();
                 });
         }
 
@@ -341,8 +339,7 @@ nb_console.controller('BucketViewCtrl', [
             })
             .otherwise({
                 redirectTo: 'stats'
-            })
-            .done();
+            });
 
         reload_view(true);
 
@@ -364,7 +361,7 @@ nb_console.controller('BucketViewCtrl', [
                         $scope.bucket.num_objects / $scope.files_page_size);
                     $scope.files_pages = _.times($scope.files_num_pages, _.identity);
                     bucket_router.set_num_pages('files', $scope.files_num_pages);
-                    bucket_router.reload();
+                    bucket_router.done();
                 });
         }
 
@@ -390,11 +387,12 @@ nb_console.controller('BucketViewCtrl', [
 
 nb_console.controller('FileViewCtrl', [
     '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
-    'nbClient', 'nbSystem', 'nbFiles', 'nbHashRouter',
+    'nbClient', 'nbSystem', 'nbFiles', 'nbNodes', 'nbHashRouter',
     function($scope, $q, $timeout, $window, $location, $routeParams,
-        nbClient, nbSystem, nbFiles, nbHashRouter) {
+        nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter) {
         $scope.nav.active = 'buckets';
         $scope.nav.reload_view = reload_view;
+        $scope.goto_block = goto_block;
         $scope.parts_num_pages = 0;
         $scope.parts_page_size = 10;
         $scope.parts_query = {};
@@ -420,8 +418,7 @@ nb_console.controller('FileViewCtrl', [
             })
             .otherwise({
                 redirectTo: 'stats'
-            })
-            .done();
+            });
 
         reload_view(true);
 
@@ -448,13 +445,11 @@ nb_console.controller('FileViewCtrl', [
                     $scope.file = res;
 
                     // TODO handle file parts list
-                    /*
-                    $scope.parts_num_pages = Math.ceil(
-                        $scope.bucket.num_objects / $scope.parts_page_size);
+                    $scope.parts_num_pages = 10;
+                    // Math.ceil($scope.bucket.num_objects / $scope.parts_page_size);
                     $scope.parts_pages = _.times($scope.parts_num_pages, _.identity);
-                    */
                     file_router.set_num_pages('parts', $scope.parts_num_pages);
-                    file_router.reload();
+                    file_router.done();
                 });
         }
 
@@ -462,18 +457,24 @@ nb_console.controller('FileViewCtrl', [
             $scope.parts_query = _.clone(hash_query);
             var params = {
                 bucket: $routeParams.bucket_name,
+                key: $routeParams.file_name,
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
             };
-            if ($scope.parts_query.search) {
-                params.key = $scope.parts_query.search;
-            }
-            /* TODO list_parts
-            return nbFiles.list_parts(params)
+            return nbFiles.list_file_parts(params)
                 .then(function(res) {
-                    $scope.parts = res;
+                    $scope.parts = res.parts;
                 });
-            */
+        }
+
+        function goto_block(block) {
+            return nbNodes.lookup_node({
+                    ip: block.node.ip,
+                    port: block.node.port
+                })
+                .then(function(node) {
+                    $location.path('/tier/' + node.tier + '/' + node.name);
+                });
         }
     }
 ]);

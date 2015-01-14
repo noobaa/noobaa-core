@@ -188,6 +188,12 @@ module.exports = rest_api({
                     end: {
                         type: 'integer',
                     },
+                    skip: {
+                        type: 'integer',
+                    },
+                    limit: {
+                        type: 'integer',
+                    },
                 },
             },
             reply: {

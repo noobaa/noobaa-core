@@ -18,6 +18,7 @@ nb_api.factory('nbNodes', [
         $scope.draw_nodes_map = draw_nodes_map;
         $scope.list_nodes = list_nodes;
         $scope.read_node = read_node;
+        $scope.lookup_node = lookup_node;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
         $scope.start_node = start_node;
@@ -78,6 +79,21 @@ nb_api.factory('nbNodes', [
             ).then(
                 function(res) {
                     console.log('READ NODE', res);
+                    var node = res;
+                    extend_node_info(node);
+                    return node;
+                }
+            );
+        }
+
+        function lookup_node(params) {
+            return $q.when().then(
+                function() {
+                    return nbClient.client.node.lookup_node(params);
+                }
+            ).then(
+                function(res) {
+                    console.log('LOOKUP NODE', res);
                     var node = res;
                     extend_node_info(node);
                     return node;

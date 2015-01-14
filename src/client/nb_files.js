@@ -152,6 +152,7 @@ nb_api.factory('nbFiles', [
 
         $scope.list_files = list_files;
         $scope.get_file = get_file;
+        $scope.list_file_parts = list_file_parts;
 
         $scope.load_buckets = load_buckets;
         $scope.load_bucket_objects = load_bucket_objects;
@@ -161,33 +162,27 @@ nb_api.factory('nbFiles', [
         $scope.read_as_media_stream = read_as_media_stream;
 
         function list_files(params) {
-            return $q.when().then(
-                function() {
+            return $q.when().then(function() {
                     return nbClient.client.object.list_objects(params);
-                }
-            ).then(
-                function(res) {
+                })
+                .then(function(res) {
                     var objects = _.map(res.objects, make_file_info);
                     console.log('FILES', res);
                     return objects;
-                }
-            );
+                });
         }
 
         function get_file(params) {
-            return $q.when().then(
-                function() {
+            return $q.when().then(function() {
                     return nbClient.client.object.get_object_md(params);
-                }
-            ).then(
-                function(res) {
+                })
+                .then(function(res) {
                     console.log('FILE', res);
                     return make_file_info({
                         key: params.key,
                         info: res,
                     });
-                }
-            );
+                });
         }
 
         function make_file_info(obj) {
@@ -195,6 +190,16 @@ nb_api.factory('nbFiles', [
             file.create_time = moment(new Date(file.create_time));
             file.name = obj.key;
             return file;
+        }
+
+        function list_file_parts(params) {
+            return $q.when().then(function() {
+                    return nbClient.client.object.read_object_mappings(params);
+                })
+                .then(function(res) {
+                    console.log('LIST FILE PARTS', res);
+                    return res;
+                });
         }
 
 

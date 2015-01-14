@@ -149,7 +149,9 @@ function read_object_mappings(req) {
             return object_mapper.read_object_mappings(
                 obj,
                 req.rest_params.start,
-                req.rest_params.end);
+                req.rest_params.end,
+                req.rest_params.skip,
+                req.rest_params.limit);
         })
         .then(function(parts) {
             return {

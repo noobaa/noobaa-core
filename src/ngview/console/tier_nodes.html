@@ -1,5 +1,7 @@
 <div ng-cloak>
+
     <input type="text" class="form-control floating-label" placeholder="Search Node" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)" />
+
     <div class="table-responsive">
         <table class="table">
             <tr>
@@ -16,8 +18,7 @@
                 </td>
                 <td class="table-btn text-left">
                     <a ng-href="tier/{{tier.name}}/{{node.name}}" class="btn btn-primary btn-flat btn-block capitalize">
-                        <i class="fa fa-desktop fa-lg fa-fw text-muted"></i>
-                        {{node.name}}
+                        <i class="fa fa-desktop fa-lg fa-fw text-muted"></i> {{node.name}}
                     </a>
                 </td>
                 <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
@@ -25,6 +26,7 @@
             </tr>
         </table>
     </div>
+
     <nav class="noselect">
         <ul class="pagination">
             <li>
@@ -38,4 +40,5 @@
             </li>
         </ul>
     </nav>
+
 </div>

@@ -163,19 +163,19 @@ nb_console.controller('TierViewCtrl', [
 
         var tier_router = $scope.tier_router =
             nbHashRouter($scope)
+            .when('nodes', {
+                templateUrl: 'console/tier_nodes.html',
+                pagination: true,
+                reload: reload_nodes
+            })
             .when('stats', {
                 templateUrl: 'console/tier_stats.html',
             })
             .when('settings', {
                 templateUrl: 'console/tier_settings.html',
             })
-            .when('nodes', {
-                templateUrl: 'console/tier_nodes.html',
-                pagination: true,
-                reload: reload_nodes
-            })
             .otherwise({
-                redirectTo: 'stats'
+                redirectTo: 'nodes'
             });
 
         reload_view(true);
@@ -236,22 +236,22 @@ nb_console.controller('NodeViewCtrl', [
 
         var node_router = $scope.node_router =
             nbHashRouter($scope)
+            .when('files', {
+                templateUrl: 'console/node_files.html',
+                pagination: true,
+                reload: reload_files
+            })
+            .when('properties', {
+                templateUrl: 'console/node_properties.html',
+            })
             .when('stats', {
                 templateUrl: 'console/node_stats.html',
             })
             .when('settings', {
                 templateUrl: 'console/node_settings.html',
             })
-            .when('properties', {
-                templateUrl: 'console/node_properties.html',
-            })
-            .when('files', {
-                templateUrl: 'console/node_files.html',
-                pagination: true,
-                reload: reload_files
-            })
             .otherwise({
-                redirectTo: 'stats'
+                redirectTo: 'files'
             });
 
         reload_view(true);
@@ -294,6 +294,7 @@ nb_console.controller('NodeViewCtrl', [
             if ($scope.files_query.search) {
                 query.name = $scope.files_query.search;
             }
+            /* TODO list node files
             return nbNodes.list_files({
                 query: query,
                 skip: $scope.files_query.page * $scope.files_page_size,
@@ -301,6 +302,7 @@ nb_console.controller('NodeViewCtrl', [
             }).then(function(res) {
                 $scope.files = res;
             });
+            */
         }
     }
 ]);
@@ -320,6 +322,11 @@ nb_console.controller('BucketViewCtrl', [
 
         var bucket_router = $scope.bucket_router =
             nbHashRouter($scope)
+            .when('files', {
+                templateUrl: 'console/bucket_files.html',
+                pagination: true,
+                reload: reload_files
+            })
             .when('stats', {
                 templateUrl: 'console/bucket_stats.html',
             })
@@ -332,13 +339,8 @@ nb_console.controller('BucketViewCtrl', [
             .when('link', {
                 templateUrl: 'console/bucket_link.html',
             })
-            .when('files', {
-                templateUrl: 'console/bucket_files.html',
-                pagination: true,
-                reload: reload_files
-            })
             .otherwise({
-                redirectTo: 'stats'
+                redirectTo: 'files'
             });
 
         reload_view(true);
@@ -399,25 +401,25 @@ nb_console.controller('FileViewCtrl', [
 
         var file_router = $scope.file_router =
             nbHashRouter($scope)
+            .when('parts', {
+                templateUrl: 'console/file_parts.html',
+                pagination: true,
+                reload: reload_parts
+            })
+            .when('properties', {
+                templateUrl: 'console/file_properties.html',
+            })
             .when('stats', {
                 templateUrl: 'console/file_stats.html',
             })
             .when('settings', {
                 templateUrl: 'console/file_settings.html',
             })
-            .when('properties', {
-                templateUrl: 'console/file_properties.html',
-            })
             .when('link', {
                 templateUrl: 'console/file_link.html',
             })
-            .when('parts', {
-                templateUrl: 'console/file_parts.html',
-                pagination: true,
-                reload: reload_parts
-            })
             .otherwise({
-                redirectTo: 'stats'
+                redirectTo: 'parts'
             });
 
         reload_view(true);

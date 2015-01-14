@@ -40,6 +40,9 @@
         <div class="Xwell" style="margin: 30px 0">
 
             <ul class="nav nav-pills" style="margin: 0 0 15px 0">
+                <li ng-class="{active:bucket_router.route=='files'}">
+                    <a ng-click="bucket_router.set('files')">Files List</a>
+                </li>
                 <li ng-class="{active: bucket_router.route=='stats'}">
                     <a ng-click="bucket_router.set('stats')">Statistics</a>
                 </li>
@@ -51,9 +54,6 @@
                 </li>
                 <li ng-class="{active: bucket_router.route=='link'}">
                     <a ng-click="bucket_router.set('link')">Link</a>
-                </li>
-                <li ng-class="{active:bucket_router.route=='files'}">
-                    <a ng-click="bucket_router.set('files')">Files List</a>
                 </li>
             </ul>
 

@@ -107,7 +107,10 @@ nb_console.controller('OverviewCtrl', ['$scope', '$q', function($scope, $q) {
     $scope.nav.active = 'overview';
     $scope.nav.reload_view = reload_view;
     if (!$scope.nbSystem.system) {
-        reload_view();
+        $scope.nbSystem.refresh_system()
+            .then(function() {
+                return $scope.nbNodes.refresh_node_groups();
+            });
     } else {
         $scope.nbNodes.draw_nodes_map();
     }

@@ -23,13 +23,13 @@ nb_api.controller('UploadCtrl', [
         nbAlertify, $sce, nbFiles, nbNetworkMonitor) {
 
         $scope.nav.active = 'upload';
-        $scope.refresh_view = refresh_view;
+        $scope.reload_view = reload_view;
         $scope.click_upload = click_upload;
         $scope.click_browse = click_browse;
-        refresh_view();
+        reload_view();
 
 
-        function refresh_view() {
+        function reload_view() {
             return nbFiles.load_buckets();
         }
 
@@ -109,15 +109,15 @@ nb_api.controller('DownloadCtrl', [
     function($scope, $http, $q, $window, $timeout, nbAlertify, $sce, nbFiles) {
 
         $scope.nav.active = 'download';
-        $scope.refresh_view = refresh_view;
+        $scope.reload_view = reload_view;
         $scope.click_object = click_object;
-        refresh_view();
+        reload_view();
 
         $scope.$watch('nbFiles.bucket', function(bucket) {
             nbFiles.load_bucket_objects(bucket);
         });
 
-        function refresh_view() {
+        function reload_view() {
             return nbFiles.load_buckets();
         }
 
@@ -146,9 +146,13 @@ nb_api.controller('DownloadCtrl', [
 
 
 nb_api.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope',
-    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope) {
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope', 'nbClient',
+    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope, nbClient) {
         var $scope = {};
+
+        $scope.list_files = list_files;
+        $scope.get_file = get_file;
+        $scope.list_file_parts = list_file_parts;
 
         $scope.load_buckets = load_buckets;
         $scope.load_bucket_objects = load_bucket_objects;
@@ -156,6 +160,51 @@ nb_api.factory('nbFiles', [
         $scope.upload_file = upload_file;
         $scope.read_entire_object = read_entire_object;
         $scope.read_as_media_stream = read_as_media_stream;
+
+        function list_files(params) {
+            return $q.when().then(function() {
+                    return nbClient.client.object.list_objects(params);
+                })
+                .then(function(res) {
+                    var objects = _.map(res.objects, make_file_info);
+                    console.log('FILES', res);
+                    return objects;
+                });
+        }
+
+        function get_file(params) {
+            return $q.when().then(function() {
+                    return nbClient.client.object.get_object_md(params);
+                })
+                .then(function(res) {
+                    console.log('FILE', res);
+                    return make_file_info({
+                        key: params.key,
+                        info: res,
+                    });
+                });
+        }
+
+        function make_file_info(obj) {
+            var file = obj.info;
+            file.create_time = moment(new Date(file.create_time));
+            file.name = obj.key;
+            return file;
+        }
+
+        function list_file_parts(params) {
+            return $q.when().then(function() {
+                    return nbClient.client.object.read_object_mappings(params);
+                })
+                .then(function(res) {
+                    console.log('LIST FILE PARTS', res);
+                    return res;
+                });
+        }
+
+
+        // TODO unused code -
+
 
         function load_buckets() {
             return $q.when(object_client.list_buckets()).then(

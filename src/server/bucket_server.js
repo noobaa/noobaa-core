@@ -61,7 +61,14 @@ function read_bucket(req) {
             .exec())
         .then(db.check_not_deleted(req, 'bucket'))
         .then(function(bucket) {
-            return get_bucket_info(bucket);
+            var reply = get_bucket_info(bucket);
+            // TODO read bucket's storage and objects info
+            reply.storage = {
+                alloc: 0,
+                used: 0,
+            };
+            reply.num_objects = 0;
+            return reply;
         });
 }
 
@@ -126,7 +133,7 @@ function list_buckets(req) {
         .then(function(buckets) {
             return {
                 buckets: _.map(buckets, function(bucket) {
-                    return get_bucket_info(bucket);
+                    return _.pick(bucket, 'name');
                 })
             };
         });

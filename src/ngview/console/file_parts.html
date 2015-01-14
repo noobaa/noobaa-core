@@ -1,0 +1,45 @@
+<div ng-cloak>
+
+    <!-- <input type="text" class="form-control floating-label" placeholder="Search Part" ng-model="parts_query.search" ng-model-options="{debounce: 700}" ng-change="file_router.set_query('search',parts_query.search)" /> -->
+
+    <div class="table-responsive">
+        <table class="table">
+            <tr>
+                <th>#</th>
+                <th>Offset</th>
+                <th>Nodes</th>
+                <th>Status</th>
+            </tr>
+            <tr ng-repeat="part in parts">
+                <td>{{(parts_query.page*parts_page_size) + $index + 1}}</td>
+                <td>{{human_size(part.start)}}</td>
+                <td>
+                    <span ng-repeat="frag in part.fragments">
+                        <span ng-repeat="block in frag">
+                            <a class="btn btn-default" style="padding: 10px; margin: 0 10px 5px 0" nb-click-ladda="goto_block(block)">
+                                <i class="fa fa-check fa-lg fa-fw text-success pull-left"></i>
+                                {{block.node.ip}}:{{block.node.port}}
+                            </a>
+                        </span>
+                    </span>
+                </td>
+                <td>Healthy</td>
+            </tr>
+        </table>
+    </div>
+
+    <nav class="noselect">
+        <ul class="pagination">
+            <li>
+                <a nb-click-ladda="file_router.set_page(parts_query.page-1)">&laquo;</a>
+            </li>
+            <li ng-repeat="page in parts_pages" ng-class="{active: page==parts_query.page}">
+                <a nb-click-ladda="file_router.set_page(page)">{{page+1}}</a>
+            </li>
+            <li>
+                <a nb-click-ladda="file_router.set_page(parts_query.page+1)">&raquo;</a>
+            </li>
+        </ul>
+    </nav>
+
+</div>

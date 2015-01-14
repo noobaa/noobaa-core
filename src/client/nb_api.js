@@ -41,6 +41,7 @@ nb_api.factory('nbClient', [
                     return $scope.client.auth.read_auth();
                 })
                 .then(function(res) {
+                    console.log('nbClient.refresh', res);
                     res = res || {};
                     $scope.account = res.account;
                     $scope.system = res.system;

@@ -1,0 +1,27 @@
+<html ng-app="nb_console">
+
+<head>
+    {{{# def.include( 'common_head.html') }}}
+
+    <base href="/console/">
+</head>
+
+<body class="Xinverse" ng-controller="ConsoleCtrl" ng-cloak>
+
+    <div ng-include="'console/navbar.html'"></div>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-sm-offset-3 col-sm-9 col-md-offset-2 col-md-10 col-lg-offset-2 col-lg-10">
+                <div ng-view></div>
+            </div>
+        </div>
+    </div>
+
+    <div>
+        {{{# def.include( 'common_scripts.html') }}}
+    </div>
+
+</body>
+
+</html>

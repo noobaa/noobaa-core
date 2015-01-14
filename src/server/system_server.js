@@ -100,16 +100,8 @@ function read_system(req) {
             // nodes - count, online count, allocated/used storage
             db.Node.aggregate_nodes(by_system_id_undeleted, minimum_online_heartbeat),
 
-            // objects
-            db.ObjectMD.mapReduce({
-                query: by_system_id_undeleted,
-                map: function() {
-                    /* global emit */
-                    emit('size', this.size);
-                    emit('count', 1);
-                },
-                reduce: size_utils.reduce_sum
-            }),
+            // objects - size, count
+            db.ObjectMD.aggregate_objects(by_system_id_undeleted),
 
             // blocks
             db.DataBlock.mapReduce({
@@ -122,13 +114,14 @@ function read_system(req) {
             }),
 
             // buckets
-            db.Bucket.count(by_system_id_undeleted).exec(),
+            db.Bucket.find(by_system_id_undeleted).exec(),
         ]);
 
-    }).spread(function(roles, tiers, nodes_aggregate, objects, blocks, buckets) {
-        objects = _.mapValues(_.indexBy(objects, '_id'), 'value');
+    }).spread(function(roles, tiers, nodes_aggregate, objects_aggregate, blocks, buckets) {
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
+        var tiers_by_id = _.indexBy(tiers, '_id');
         var nodes_sys = nodes_aggregate[''] || {};
+        var objects_sys = objects_aggregate[''] || {};
         return {
             name: req.system.name,
             roles: _.map(roles, function(role) {
@@ -151,15 +144,29 @@ function read_system(req) {
             }),
             storage: {
                 alloc: nodes_sys.alloc || 0,
-                used: objects.size || 0,
+                used: objects_sys.size || 0,
                 real: blocks.size || 0,
             },
             nodes: {
                 count: nodes_sys.count || 0,
                 online: nodes_sys.online || 0,
             },
-            buckets: buckets || 0,
-            objects: objects.count || 0,
+            buckets: _.map(buckets, function(bucket) {
+                var b = _.pick(bucket, 'name');
+                b.tiering = _.map(bucket.tiering, function(tier_id) {
+                    var tier = tiers_by_id[tier_id];
+                    return tier ? tier.name : '';
+                });
+                var a = objects_aggregate[bucket.id] || {};
+                b.storage = {
+                    alloc: 0, // TODO bucket quota
+                    used: a.size || 0,
+                };
+                b.num_objects = a.count || 0;
+                return b;
+
+            }),
+            objects: objects_sys.count || 0,
         };
     });
 }

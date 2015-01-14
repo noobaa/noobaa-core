@@ -129,6 +129,29 @@ module.exports = rest_api({
             }
         },
 
+        lookup_node: {
+            method: 'GET',
+            path: '/lookup',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    ip: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'integer'
+                    }
+                }
+            },
+            reply: {
+                $ref: '/node_api/definitions/node_full_info'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         list_nodes: {
             method: 'GET',
             path: '/node',
@@ -177,7 +200,6 @@ module.exports = rest_api({
                 system: 'admin'
             }
         },
-
 
         group_nodes: {
             method: 'GET',
@@ -320,6 +342,7 @@ module.exports = rest_api({
             required: [
                 'id',
                 'name',
+                'tier',
                 'geolocation',
                 'ip',
                 'port',
@@ -333,6 +356,9 @@ module.exports = rest_api({
                     type: 'string'
                 },
                 name: {
+                    type: 'string'
+                },
+                tier: {
                     type: 'string'
                 },
                 geolocation: {

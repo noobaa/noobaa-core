@@ -1,0 +1,31 @@
+<div>
+    <table class="table table-no-borders" style="width: auto">
+        <tr>
+            <th>Name:</th>
+            <td>{{node.name}}</td>
+        </tr>
+        <tr>
+            <th>Location:</th>
+            <td>{{node.geolocation}}</td>
+        </tr>
+        <tr>
+            <th>Online:</th>
+            <td>{{node.online}}</td>
+        </tr>
+        <tr>
+            <th>Heartbeat</th>
+            <td>{{node.hearbeat_moment.fromNow()}}</td>
+        </tr>
+        <tr ng-repeat="(key,val) in node.device_info.os">
+            <th>{{key}}</th>
+            <td ng-switch="key">
+                <span ng-switch-when="freemem">{{human_size(val)}}</span>
+                <span ng-switch-when="totalmem">{{human_size(val)}}</span>
+                <span ng-switch-when="cpus">{{val.length}}</span>
+                <span ng-switch-when="loadavg">{{val[0].toFixed(2)}} {{val[1].toFixed(2)}} {{val[2].toFixed(2)}}</span>
+                <span ng-switch-when="networkInterfaces">{{_.keys(val).join(', ')}}</span>
+                <span ng-switch-default>{{val}}</span>
+            </td>
+        </tr>
+    </table>
+</div>

@@ -1,0 +1,65 @@
+<div ng-controller="NodeViewCtrl">
+    <div class="Xcontainer">
+
+        <div class="Xpage-header">
+
+            <h1 class="capitalize">
+                <i class="fa fa-desktop fa-lg fa-fw text-muted"></i> {{node.name}}
+            </h1>
+
+            <ol class="breadcrumb capitalize" style="margin: 30px 0">
+                <li>
+                    <a href="/console/">Home</a>
+                </li>
+                <li>
+                    <a href="/console/tier/">Tiers List</a>
+                </li>
+                <li>
+                    <a ng-href="/console/tier/{{tier.name}}">{{tier.name}}</a>
+                </li>
+                <li class="active">{{node.name}}</li>
+            </ol>
+
+        </div>
+
+        <div class="well well-sm" style="margin: 30px 0">
+            <table class="table table-no-borders table-center" style="margin:0">
+                <tr class="text-center">
+                    <th>Node Status</th>
+                    <th>Trust Level</th>
+                    <th>Network Address</th>
+                    <th>Allocated Storage</th>
+                </tr>
+                <tr>
+                    <td><i class="fa fa-check fa-lg"></i> Healthy</td>
+                    <td>Trusted</td>
+                    <td>{{node.ip}}:{{node.port}}</td>
+                    <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
+                </tr>
+            </table>
+        </div>
+
+
+        <div class="Xwell" style="margin: 30px 0">
+
+            <ul class="nav nav-pills noselect" style="margin: 0 0 15px 0">
+                <li ng-class="{active: node_router.route == 'files'}">
+                    <a ng-click="node_router.set('files')">Files</a>
+                </li>
+                <li ng-class="{active: node_router.route == 'properties'}">
+                    <a ng-click="node_router.set('properties')">Properties</a>
+                </li>
+                <li ng-class="{active: node_router.route == 'stats'}">
+                    <a ng-click="node_router.set('stats')">Statistics</a>
+                </li>
+                <li ng-class="{active: node_router.route == 'settings'}">
+                    <a ng-click="node_router.set('settings')">Settings</a>
+                </li>
+            </ul>
+
+            <div nb-hash-router-view="node_router"></div>
+
+        </div>
+
+    </div>
+</div>

@@ -97,7 +97,7 @@ function allocate_object_part(bucket, obj, start, end, chunk_size, crypt) {
  * to make it ready for replying and simpler to iterate
  *
  */
-function read_object_mappings(obj, start, end) {
+function read_object_mappings(obj, start, end, skip, limit) {
     var rng = sanitize_object_range(obj, start, end);
     if (!rng) { // empty range
         return [];
@@ -109,7 +109,7 @@ function read_object_mappings(obj, start, end) {
     return Q.fcall(function() {
 
             // find parts intersecting the [start,end) range
-            return db.ObjectPart
+            var find = db.ObjectPart
                 .find({
                     obj: obj.id,
                     start: {
@@ -120,8 +120,10 @@ function read_object_mappings(obj, start, end) {
                     },
                 })
                 .sort('start')
-                .populate('chunks.chunk')
-                .exec();
+                .populate('chunks.chunk');
+            if (skip) find.skip(skip);
+            if (limit) find.limit(limit);
+            return find.exec();
         })
         .then(function(parts) {
             return read_parts_mappings(parts);

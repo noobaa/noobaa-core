@@ -8,151 +8,6 @@ var api = require('../api');
 
 var nb_api = angular.module('nb_api');
 
-
-nb_api.controller('NodesListCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout', 'nbNodes', '$routeParams', '$location',
-    function($scope, $http, $q, $window, $timeout, nbNodes, $routeParams, $location) {
-
-        $scope.nav.active = 'nodes';
-
-        $scope.refresh_view = refresh_view;
-        $scope.open_node = open_node;
-        $scope.select_node = select_node;
-        $scope.is_selected_node = is_selected_node;
-        $scope.prev_page = prev_page;
-        $scope.next_page = next_page;
-        $scope.toggle_node_started = toggle_node_started;
-        $scope.add_nodes = add_nodes;
-        $scope.geo = $routeParams.geo;
-        $scope.skip = 0;
-        $scope.limit = 10;
-        $scope.nodes_count = 0;
-
-        $scope.$watch('nbNodes.node_groups_by_geo', function() {
-            if ($scope.geo && nbNodes.node_groups_by_geo) {
-                $scope.geo_stats = nbNodes.node_groups_by_geo[$scope.geo];
-                $scope.nodes_count = $scope.geo_stats.count;
-            } else {
-                $scope.nodes_count = nbNodes.nodes_count;
-            }
-        });
-
-        $scope.refresh_view();
-
-
-        function refresh_view() {
-            return $q.all([
-                nbNodes.refresh_node_groups($scope.geo),
-                refresh_list(),
-            ]);
-        }
-
-        function refresh_list() {
-            var query = {};
-            if ($scope.geo) {
-                // the query takes a regexp string
-                query.geolocation = '^' + $scope.geo + '$';
-            }
-            return nbNodes.list_nodes({
-                query: query,
-                skip: $scope.skip,
-                limit: $scope.limit,
-            }).then(
-                function(nodes) {
-                    $scope.nodes = nodes;
-                }
-            );
-        }
-
-        function open_node(node) {
-            $location.path('nodes/n/' + node.name);
-        }
-
-        function select_node(node) {
-            $scope.selected_node = node;
-        }
-
-        function is_selected_node(node) {
-            return $scope.selected_node === node;
-        }
-
-        function prev_page() {
-            $scope.skip -= $scope.limit;
-            if ($scope.skip < 0) {
-                $scope.skip = 0;
-                return;
-            }
-            return refresh_list();
-        }
-
-        function next_page() {
-            $scope.skip += $scope.limit;
-            if ($scope.skip >= $scope.nodes_count) {
-                $scope.skip -= $scope.limit;
-                return;
-            }
-            return refresh_list();
-        }
-
-        function toggle_node_started(node) {
-            if (node.started) {
-                return nbNodes.stop_node(node).then(refresh_view);
-            } else {
-                return nbNodes.start_node(node).then(refresh_view);
-            }
-        }
-
-        function add_nodes() {
-            return nbNodes.add_nodes().then(refresh_view);
-        }
-
-    }
-]);
-
-
-
-nb_api.controller('NodeDetailsCtrl', [
-    '$scope', '$http', '$q', '$window', '$timeout',
-    'nbNodes', '$routeParams', '$location', 'nbAlertify',
-    function($scope, $http, $q, $window, $timeout,
-        nbNodes, $routeParams, $location, nbAlertify) {
-
-        $scope.nav.active = 'nodes';
-
-        $scope.node_name = $routeParams.name;
-        $scope.refresh_view = refresh_view;
-        $scope.start_node = start_node;
-        $scope.stop_node = stop_node;
-        $scope.refresh_view();
-
-        function refresh_view() {
-            return nbNodes.read_node($scope.node_name).then(
-                function(node) {
-                    $scope.node = node;
-                },
-                function(err) {
-                    if (err.status === 404) {
-                        nbAlertify.error('node not found...');
-                        $location.path('nodes/');
-                        return;
-                    }
-                    throw err;
-                }
-            );
-        }
-
-        function start_node(node) {
-            return nbNodes.start_node(node).then(refresh_view);
-        }
-
-        function stop_node(node) {
-            return nbNodes.stop_node(node).then(refresh_view);
-        }
-    }
-]);
-
-
-
 nb_api.factory('nbNodes', [
     '$q', '$timeout', 'nbGoogle', '$window', '$rootScope',
     '$location', 'nbAlertify', 'nbModal', 'nbClient', 'nbSystem',
@@ -160,8 +15,10 @@ nb_api.factory('nbNodes', [
         $location, nbAlertify, nbModal, nbClient, nbSystem) {
         var $scope = {};
         $scope.refresh_node_groups = refresh_node_groups;
+        $scope.draw_nodes_map = draw_nodes_map;
         $scope.list_nodes = list_nodes;
         $scope.read_node = read_node;
+        $scope.lookup_node = lookup_node;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
         $scope.start_node = start_node;
@@ -192,9 +49,7 @@ nb_api.factory('nbNodes', [
                         $scope.has_nodes = false;
                         $scope.has_no_nodes = true;
                     }
-                    return nbGoogle.then(function(google) {
-                        return draw_nodes_map(google, selected_geo);
-                    });
+                    return draw_nodes_map(selected_geo);
                 }
             );
         }
@@ -231,9 +86,24 @@ nb_api.factory('nbNodes', [
             );
         }
 
+        function lookup_node(params) {
+            return $q.when().then(
+                function() {
+                    return nbClient.client.node.lookup_node(params);
+                }
+            ).then(
+                function(res) {
+                    console.log('LOOKUP NODE', res);
+                    var node = res;
+                    extend_node_info(node);
+                    return node;
+                }
+            );
+        }
+
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
-            node.usage_percent = 100 * node.storage_used / node.storage_alloc;
+            node.usage_percent = 100 * node.storage.used / node.storage.alloc;
             // TODO resolve vendor id to name by client or server?
             // node.vendor = $scope.node_vendors_by_id[node.vendor];
         }
@@ -366,7 +236,12 @@ nb_api.factory('nbNodes', [
         }
 
 
-        function draw_nodes_map(google, selected_geo) {
+        function draw_nodes_map(selected_geo, google) {
+            if (!google) {
+                return nbGoogle.then(function(google) {
+                    return draw_nodes_map(selected_geo, google);
+                });
+            }
             var element = $window.document.getElementById('nodes_map');
             if (!element) {
                 return;
@@ -377,18 +252,18 @@ nb_api.factory('nbNodes', [
             var max_num_nodes = -Infinity;
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Location');
-            data.addColumn('number', 'Storage Capacity');
-            data.addColumn('number', 'Number of Nodes');
+            data.addColumn('number', 'Capacity');
+            data.addColumn('number', 'Nodes');
             var selected_row = -1;
             _.each($scope.node_groups, function(stat, index) {
                 if (stat.geolocation === selected_geo) {
                     selected_row = index;
                 }
-                if (stat.storage_alloc > max_alloc) {
-                    max_alloc = stat.storage_alloc;
+                if (stat.storage.alloc > max_alloc) {
+                    max_alloc = stat.storage.alloc;
                 }
-                if (stat.storage_alloc < min_alloc) {
-                    min_alloc = stat.storage_alloc;
+                if (stat.storage.alloc < min_alloc) {
+                    min_alloc = stat.storage.alloc;
                 }
                 if (stat.count > max_num_nodes) {
                     max_num_nodes = stat.count;
@@ -397,31 +272,36 @@ nb_api.factory('nbNodes', [
                     min_num_nodes = stat.count;
                 }
                 data.addRow([stat.geolocation, {
-                    v: stat.storage_alloc,
-                    f: $rootScope.human_size(stat.storage_alloc)
+                    v: stat.storage.alloc,
+                    f: $rootScope.human_size(stat.storage.alloc)
                 }, stat.count]);
+                console.log(stat, min_alloc, max_alloc);
             });
             var options = {
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
-                keepAspectRatio: false,
-                backgroundColor: '#EEE',
-                datalessRegionColor: '#CCC',
-                // backgroundColor: '#3a455f', // grey blue
-                // datalessRegionColor: '#272e3f', // darker grey blue
+                keepAspectRatio: true,
+                backgroundColor: 'transparent',
+                datalessRegionColor: '#cfd8dc', // blue-grey-100
+                // datalessRegionColor: '#b2dfdb', // teal-100
+                // datalessRegionColor: '#10312D', // ~teal
                 colorAxis: {
-                    colors: ['#909688', '#009688'], // teal
+                    // colors: ['#fff176', '#ffee58'], // yellow 300-400
+                    // colors: ['#909688', '#009688'], // teal
                     // colors: ['#F9FFF4', '#76FF00'], // greens
+                    // colors: ['#EC407A', '#E91E63'], // pink 400-500
+                    colors: ['#7e57c2', '#673ab7'], // deep-purple 400-500
+                    // colors: ['#00bcd4', '#00acc1'], // cyan 400-500
                     minValue: min_alloc,
                     maxValue: max_alloc,
                 },
                 sizeAxis: {
-                    minSize: 12,
-                    maxSize: 20,
+                    minSize: 10,
+                    maxSize: 12,
                     minValue: min_num_nodes,
                     maxValue: max_num_nodes,
                 },
-                legend: {
+                legend: 'none' || {
                     textStyle: {
                         color: 'black',
                         fontSize: 16

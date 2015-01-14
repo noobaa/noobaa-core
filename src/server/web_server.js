@@ -164,15 +164,15 @@ function page_context(req) {
     };
 }
 
-app.get('/sudo/*', function(req, res) {
-    return res.render('sudo.html', page_context(req));
+app.get('/console/*', function(req, res) {
+    return res.render('console.html', page_context(req));
 });
-app.get('/sudo', function(req, res) {
-    return res.redirect('/sudo/');
+app.get('/console', function(req, res) {
+    return res.redirect('/console/');
 });
 
 app.get('/', function(req, res) {
-    return res.redirect('/sudo/');
+    return res.redirect('/console/');
 });
 
 

@@ -3,6 +3,7 @@
 
 var _ = require('lodash');
 var moment = require('moment');
+var querystring = require('querystring');
 var size_utils = require('../util/size_utils');
 
 // include the generated templates from ngview
@@ -13,6 +14,7 @@ var nb_util = angular.module('nb_util', [
 ]);
 
 
+
 nb_util.run(['$rootScope', function($rootScope) {
     /* jshint jquery:true */
     $rootScope._ = _;
@@ -21,17 +23,24 @@ nb_util.run(['$rootScope', function($rootScope) {
     $rootScope.safe_apply = safe_apply;
     $rootScope.safe_callback = safe_callback;
     $rootScope.moment = moment;
+    $('body').tooltip({
+        selector: '[rel=tooltip]'
+    });
+    $('body').popover({
+        selector: '[rel=popover]'
+    });
     $.material.init();
 }]);
+
 
 
 nb_util.factory('nbNetworkMonitor', [
     '$q', '$window', '$interval',
     function($q, $window, $interval) {
-        var $scope = {};
+        var self = {};
 
-        $scope.data = [];
-        $scope.count = 0;
+        self.data = [];
+        self.count = 0;
         var curr = {
             out: 0,
             inn: 0,
@@ -42,7 +51,7 @@ nb_util.factory('nbNetworkMonitor', [
             if (!curr.inn && !curr.out) {
                 return;
             }
-            $scope.count += 1;
+            self.count += 1;
             curr.time = new Date();
             var time = curr.time.getTime();
             var elapsed = (time - last_time) / 1000;
@@ -50,9 +59,9 @@ nb_util.factory('nbNetworkMonitor', [
             curr.out /= elapsed;
             curr.inn /= elapsed;
             // push and keep under size limit
-            $scope.data.push(curr);
-            if ($scope.data.length > 60) {
-                $scope.data.shift();
+            self.data.push(curr);
+            if (self.data.length > 60) {
+                self.data.shift();
             }
             curr = {
                 out: 0,
@@ -60,16 +69,18 @@ nb_util.factory('nbNetworkMonitor', [
             };
         }, 3000);
 
-        $scope.report_incoming = function(bytes) {
+        self.report_incoming = function(bytes) {
             curr.inn += bytes;
         };
-        $scope.report_outgoing = function(bytes) {
+        self.report_outgoing = function(bytes) {
             curr.out += bytes;
         };
 
-        return $scope;
+        return self;
     }
 ]);
+
+
 
 nb_util.directive('nbNetworkChart', [
     'nbNetworkMonitor', 'nbGoogle', '$rootScope',
@@ -149,6 +160,7 @@ nb_util.directive('nbNetworkChart', [
 ]);
 
 
+
 nb_util.factory('nbGoogle', [
     '$q', '$window',
     function($q, $window) {
@@ -171,6 +183,7 @@ nb_util.factory('nbGoogle', [
 ]);
 
 
+
 nb_util.factory('nbServerData', [
     '$window',
     function($window) {
@@ -179,6 +192,166 @@ nb_util.factory('nbServerData', [
         return server_data;
     }
 ]);
+
+
+
+nb_util.factory('nbHashRouter', [
+    '$location', '$window', '$timeout', '$q',
+    function($location, $window, $timeout, $q) {
+
+        function HashRouter(scope) {
+            this.scope = scope;
+            this.routes = {};
+            this.route = '';
+            this.route_options = {};
+            this.routes[this.route] = this.route_options;
+        }
+
+        /**
+         * route options:
+         * - templateURL (string)
+         * - redirectTo (string)
+         * - pagination (boolean)
+         * - reload (function)
+         */
+        HashRouter.prototype.when = function(route, options) {
+            this.routes[route] = options || {};
+            return this;
+        };
+
+        HashRouter.prototype.otherwise = function(options) {
+            this.routes[''] = options || {};
+            return this;
+        };
+
+        HashRouter.prototype.done = function() {
+            var self = this;
+            if (self.watch_scope) return;
+            self.watch_scope = self.scope.$new();
+            self.watch_scope.$location = $location;
+            self.watch_scope.$watch('$location.hash()', function(hash) {
+                self.load(hash);
+            });
+            return self;
+        };
+
+        HashRouter.prototype.set = function(route, query) {
+            var self = this;
+            var opt = self.routes[route];
+            var hash = encodeURIComponent(route);
+            // compact the query by removing empty values
+            var hash_query = _.pick(query, function(val, key) {
+                return !!val;
+            });
+            // handle pagination - translate the page number from 0-based to 1-based
+            if (opt.pagination) {
+                if (hash_query.page) {
+                    hash_query.page = hash_query.page + 1;
+                } else {
+                    delete hash_query.page;
+                }
+            }
+            if (!_.isEmpty(hash_query)) {
+                hash += '&' + querystring.stringify(hash_query);
+            }
+            // console.log('nbHashRouter.set', hash);
+            if ($location.hash() !== hash) {
+                $location.hash(hash);
+            }
+        };
+
+        HashRouter.prototype.set_num_pages = function(route, num_pages) {
+            var opt = this.routes[route];
+            opt.num_pages = num_pages;
+            if (route === this.route) {
+                // set the same page to check bounds
+                var page = opt.query && opt.query.page || 0;
+                this.set_page(page);
+            }
+        };
+
+        HashRouter.prototype.set_page = function(page) {
+            var opt = this.route_options;
+            var query = opt.query || {};
+            var num_pages = opt.num_pages || 0;
+            if (page >= num_pages && num_pages >= 0) {
+                page = num_pages - 1;
+            }
+            if (page < 0) {
+                page = 0;
+            }
+            if (page !== query.page) {
+                query.page = page;
+                this.set(this.route, query);
+            }
+        };
+
+        HashRouter.prototype.set_query = function(key, val) {
+            var opt = this.route_options;
+            var query = opt.query || {};
+            if (query[key] !== val) {
+                delete query.page;
+                query[key] = val;
+                this.set(this.route, query);
+            }
+        };
+
+        HashRouter.prototype.load = function(hash) {
+            var self = this;
+            // console.log('nbHashRouter.load', hash);
+            hash = hash || '';
+            var matches = hash.match(/^(\w*)&?(.*)$/) || [];
+            var route = matches[1] || '';
+            var opt = self.routes[route];
+            if (!opt) {
+                route = '';
+                opt = self.routes[route];
+            }
+            while (opt.redirectTo) {
+                route = opt.redirectTo;
+                opt = self.routes[route];
+            }
+            opt.query = querystring.parse(matches[2]) || {};
+            // handle pagination - convert back from 1-based to 0-based
+            if (opt.pagination) {
+                opt.query.page = (parseInt(opt.query.page, 10) - 1) || 0;
+            }
+            self.route = route;
+            self.route_options = opt;
+            self.reload();
+            return self;
+        };
+
+        HashRouter.prototype.reload = function() {
+            var self = this;
+            var opt = self.route_options;
+            if (opt.reload) {
+                return opt.reload(opt.query);
+            }
+        };
+
+        return function(scope) {
+            return new HashRouter(scope);
+        };
+    }
+]);
+
+
+
+nb_util.directive('nbHashRouterView', [
+    '$compile', '$q', '$timeout',
+    function($compile, $q, $timeout) {
+        return {
+            link: function(scope, element, attrs) {
+                var html = '<div ng-include="' +
+                    attrs.nbHashRouterView +
+                    '.route_options.templateUrl"></div>';
+                element.append($compile(html)(scope));
+            }
+        };
+    }
+]);
+
 
 
 nb_util.factory('nbModal', [
@@ -251,21 +424,22 @@ nb_util.factory('nbModal', [
 ]);
 
 
+
 nb_util.factory('nbAlertify', [
     '$window', '$q',
     function($window, $q) {
 
         var alertify = $window.alertify;
-        var $scope = {};
-        $scope.log = wrap_alertify_promise('log', -1);
-        $scope.error = wrap_alertify_promise('error', -1);
-        $scope.success = wrap_alertify_promise('success', -1);
-        $scope.alert = wrap_alertify_promise('alert', -1);
-        $scope.confirm = wrap_alertify_promise('confirm', 1);
-        $scope.prompt = wrap_alertify_promise('prompt', 1);
+        var self = {};
+        self.log = wrap_alertify_promise('log', -1);
+        self.error = wrap_alertify_promise('error', -1);
+        self.success = wrap_alertify_promise('success', -1);
+        self.alert = wrap_alertify_promise('alert', -1);
+        self.confirm = wrap_alertify_promise('confirm', 1);
+        self.prompt = wrap_alertify_promise('prompt', 1);
 
-        $scope.prompt_password = function() {
-            var promise = $scope.prompt.apply(null, arguments);
+        self.prompt_password = function() {
+            var promise = self.prompt.apply(null, arguments);
             $window.document.getElementById('alertify-text').setAttribute('type', 'password');
             // setTimeout(function() {}, 1);
             return promise;
@@ -296,9 +470,10 @@ nb_util.factory('nbAlertify', [
                 return defer.promise;
             };
         }
-        return $scope;
+        return self;
     }
 ]);
+
 
 
 nb_util.directive('nbProgressCanvas', [
@@ -345,6 +520,7 @@ nb_util.directive('nbProgressCanvas', [
         };
     }
 ]);
+
 
 
 nb_util.directive('nbShowAnimated', [
@@ -395,6 +571,7 @@ nb_util.directive('nbShowAnimated', [
         };
     }
 ]);
+
 
 
 nb_util.directive('nbClickLadda', [

@@ -1,0 +1,47 @@
+<div ng-controller="TierListCtrl">
+    <div class="Xcontainer">
+
+        <div class="Xpage-header">
+
+            <h1 class="capitalize">Tiers List</h1>
+
+            <ol class="breadcrumb capitalize" style="margin: 30px 0">
+                <li>
+                    <a href="/console/">Home</a>
+                </li>
+                <li class="active">Tiers List</li>
+            </ol>
+
+        </div>
+
+        <div class="table-responsive">
+            <table class="table">
+                <tr>
+                    <th>Tier Name</th>
+                    <th>Type</th>
+                    <th>Nodes</th>
+                    <th>Net Storage</th>
+                    <th>Raw Storage</th>
+                </tr>
+                <tr ng-repeat="tier in nbSystem.system.tiers">
+                    <td class="table-btn text-left">
+                        <a ng-href="tier/{{tier.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                            <span ng-switch="tier.kind" class="text-muted">
+                                <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
+                                <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
+                            </span>
+                            {{tier.name}}
+                        </a>
+                    </td>
+                    <td ng-switch="tier.kind">
+                        <span ng-switch-when="edge">Distributed</span>
+                        <span ng-switch-when="cloud">Cloud</span>
+                    </td>
+                    <td>{{tier.nodes.online}}</td>
+                    <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
+                    <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+</div>

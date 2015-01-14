@@ -1,0 +1,47 @@
+<div ng-controller="OverviewCtrl">
+
+    <div class="container-fluid">
+        <div class="text-center">
+            <small class="text-muted">Map displays nodes by tiers</small>
+        </div>
+        <div class="row">
+            <div ng-repeat="tier in nbSystem.system.tiers" class="{{$first && $last && 'col-md-offset-4 col-md-4' || 'col-md-3'}} col-xs-6">
+                <div class="pull-left" ng-init="selected=true">
+                    <button class="btn btn-fab {{selected && 'btn-material-deeppurple mdi-maps-place Xmdi-toggle-check-box' || 'btn-default mdi-maps-place X-layers-clear Xmdi-toggle-check-box-outline-blank'}}" style="margin: 10px 1px" ng-click="selected=!selected" title="Show/hide tier's nodes on map" rel="tooltip" data-placement="bottom">
+                    </button>
+                </div>
+                <div style="padding-left: 58px">
+                    <a class="btn btn-primary btn-flat btn-block" style="text-align: left; padding-left: 10px; padding-right: 10px" ng-href="tier/{{tier.name}}" title="Go to tier's page" rel="tooltip" data-placement="bottom">
+                        <h4 class="capitalize" style="margin-top: 5px">
+                            <span ng-switch="tier.kind" class="text-muted">
+                                <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
+                                <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
+                            </span>
+                            {{tier.name}}
+                            <!-- <i class="fa fa-angle-right fa-lg pull-right"></i> -->
+                        </h4>
+                        <div class="progress" style="margin: 7px 0 0 0">
+                            <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 60%; background-color: black">
+                                <span class="sr-only">60% Complete</span>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="relpos container-fluid" style="min-height: 550px; margin-top: 10px; overflow: hidden">
+
+        <div id="nodes_map" style="margin-top: -150px"></div>
+
+        <div class="abspos" style="bottom: 0">
+            <h1 class="text-muted">Capacity</h1>
+            <h1 style="font-size: 4em">{{human_size(nbSystem.system.storage.alloc)}}</h1>
+            <h1 class="text-muted">Nodes</h1>
+            <h1 style="font-size: 4em">{{nbSystem.system.nodes.online}}</h1>
+        </div>
+
+    </div>
+
+</div>

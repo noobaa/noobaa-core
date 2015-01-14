@@ -1,1 +1,1 @@
-require('./nb_sudo');
+require('./nb_console');

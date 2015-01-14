@@ -19,10 +19,11 @@
 // bootstrap //
 ///////////////
 
-/* @primary: @teal-300; */
 @primary: @blue-grey-400;
+/* @primary: @teal-300; */
 /* @body-bg: hsl(0, 0%, 5%); */
 /* @navbar-default-bg: darken(@bluegrey, 35%); */
+@gray-light: hsl(0, 0%, 67%);
 @border-color: darken(@body-bg, 15%);
 @modal-backdrop-opacity: 0.6;
 @grid-float-breakpoint: 0;
@@ -67,17 +68,20 @@ body.inverse {
         &:hover {
             background-color: hsla(0, 0%, 100%, 0.2);
         }
-
-    }
-    .navbar-nav > li.active > a {
-        /* color: @amber-100; */
-        font-weight: 500;
-        /* background-color: hsla(0,0%,100%,0.1); */
     }
 
 }
-.navbar-default {
+.navbar.navbar-default {
     background-color: @navbar-default-bg;
+    .navbar-nav > li.active > a {
+        &,
+        &:hover {
+            /* color: @text-color; */
+            font-weight: 400;
+            background-color: hsla(0, 0%, 0%, 0.15);
+        }
+    }
+
 }
 .navbar {
     .navbar-nav .open .dropdown-menu > li > a {
@@ -96,6 +100,7 @@ body.inverse {
             margin-bottom: 14.5px;
         }
     }
+
 }
 .sidebar {
     /* fix sidebar's position to navbar's */
@@ -115,6 +120,12 @@ body.inverse {
         & > li > a {
             float: none;
             display: block;
+        }
+        & > li > a {
+            padding-top: 15px;
+            padding-bottom: 15px;
+            margin-top: 5px;
+            margin-bottom: 5px;
         }
 
     }
@@ -167,7 +178,7 @@ hr {
 
 }
 .table-btn {
-    padding: 0px;
+    padding: 0;
     > .btn {
         margin: 0;
     }
@@ -179,6 +190,7 @@ hr {
         padding-right: 10px;
         text-align: left;
     }
+
 }
 table.table td.table-btn {
     .table-btn;

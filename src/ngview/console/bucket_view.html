@@ -1,10 +1,11 @@
 <div ng-controller="BucketViewCtrl">
-    <div class="container">
+    <div class="Xcontainer">
 
         <div class="Xpage-header">
 
             <h1 class="capitalize">
-                <span class="text-muted">Bucket:</span>
+                <!-- <span class="text-muted">Bucket:</span> -->
+                <i class="fa fa-folder-o fa-lg fa-fw text-muted"></i>
                 {{bucket.name}}
             </h1>
 
@@ -49,10 +50,10 @@
                     <a ng-click="bucket_router.set('settings')">Settings</a>
                 </li>
                 <li ng-class="{active: bucket_router.route=='link'}">
-                    <a ng-click="bucket_router.set('link')">Bucket Link</a>
+                    <a ng-click="bucket_router.set('link')">Link</a>
                 </li>
                 <li ng-class="{active:bucket_router.route=='files'}">
-                    <a ng-click="bucket_router.set('files')">Files</a>
+                    <a ng-click="bucket_router.set('files')">Files List</a>
                 </li>
             </ul>
 

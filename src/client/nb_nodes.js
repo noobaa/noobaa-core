@@ -15,6 +15,7 @@ nb_api.factory('nbNodes', [
         $location, nbAlertify, nbModal, nbClient, nbSystem) {
         var $scope = {};
         $scope.refresh_node_groups = refresh_node_groups;
+        $scope.draw_nodes_map = draw_nodes_map;
         $scope.list_nodes = list_nodes;
         $scope.read_node = read_node;
         $scope.add_nodes = add_nodes;
@@ -47,9 +48,7 @@ nb_api.factory('nbNodes', [
                         $scope.has_nodes = false;
                         $scope.has_no_nodes = true;
                     }
-                    return nbGoogle.then(function(google) {
-                        return draw_nodes_map(google, selected_geo);
-                    });
+                    return draw_nodes_map(selected_geo);
                 }
             );
         }
@@ -221,7 +220,12 @@ nb_api.factory('nbNodes', [
         }
 
 
-        function draw_nodes_map(google, selected_geo) {
+        function draw_nodes_map(selected_geo, google) {
+            if (!google) {
+                return nbGoogle.then(function(google) {
+                    return draw_nodes_map(selected_geo, google);
+                });
+            }
             var element = $window.document.getElementById('nodes_map');
             if (!element) {
                 return;

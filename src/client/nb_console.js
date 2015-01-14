@@ -83,14 +83,18 @@ nb_console.controller('ConsoleCtrl', [
                 overview: {
                     text: 'Overview',
                     href: 'overview',
+                    icon: 'fa-globe',
                 },
                 tiers: {
                     text: 'Tiers',
                     href: 'tier',
+                    icon: 'fa-spinner',
+                    // icon: 'fa-database',
                 },
                 buckets: {
                     text: 'Buckets',
                     href: 'bucket',
+                    icon: 'fa-folder-o',
                 }
             }
         };
@@ -104,6 +108,8 @@ nb_console.controller('OverviewCtrl', ['$scope', '$q', function($scope, $q) {
     $scope.nav.reload_view = reload_view;
     if (!$scope.nbSystem.system) {
         reload_view();
+    } else {
+        $scope.nbNodes.draw_nodes_map();
     }
 
     function reload_view() {

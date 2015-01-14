@@ -1,5 +1,5 @@
 <div ng-controller="TierViewCtrl">
-    <div class="container">
+    <div class="Xcontainer">
 
         <div class="Xpage-header">
 
@@ -9,7 +9,6 @@
                     <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
                 </span>
                 {{tier.name}}
-                <!-- <span class="text-muted">Tier</span> -->
             </h1>
 
             <ol class="breadcrumb capitalize" style="margin: 30px 0">
@@ -52,7 +51,7 @@
                     <a ng-click="tier_router.set('settings')">Settings</a>
                 </li>
                 <li ng-class="{active: tier_router.route == 'nodes'}">
-                    <a ng-click="tier_router.set('nodes')">Nodes</a>
+                    <a ng-click="tier_router.set('nodes')">Nodes List</a>
                 </li>
             </ul>
 

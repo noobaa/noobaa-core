@@ -2,7 +2,7 @@
     <div class="container-fluid">
 
         <div class="navbar-header">
-            <div class="visible-sm visible-md visible-lg">
+            <div class="hidden-xs">
                 <a class="navbar-brand" style="margin-right: 40px" href="/console/">NooBaa</a>
             </div>
             <div class="visible-xs">
@@ -47,13 +47,16 @@
             </p>
         </div>
 
-        <div class="visible-sm visible-md visible-lg">
+        <!--
+        <div class="hidden-xs">
             <ul class="nav navbar-nav">
                 <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active: nav.active==key, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
             </ul>
         </div>
-        <div class="visible-xs">
-            <div class="col-xs-7 col-sm-4 col-md-3 col-lg-2 sidebar sidebar-left sidebar-animate Xsidebar-sm-show">
+        -->
+        <div class="row Xvisible-xs">
+            <div class="col-xs-6 col-sm-3 col-md-2 col-lg-2 sidebar sidebar-left sidebar-animate sidebar-sm-show sidebar-md-show sidebar-lg-show">
+                <br/>
                 <ul class="nav navbar-nav nav-pills nav-stacked">
                     <li ng-repeat="key in nav.order" ng-init="item=nav.items[key]" ng-class="{active:  nav.active==key, dropdown: item.dropdown}" ng-include="'console/navbar_item.html'"></li>
                 </ul>

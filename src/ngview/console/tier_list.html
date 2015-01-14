@@ -1,5 +1,5 @@
 <div ng-controller="TierListCtrl">
-    <div class="container">
+    <div class="Xcontainer">
 
         <div class="Xpage-header">
 
@@ -27,8 +27,8 @@
                     <td class="table-btn text-left">
                         <a ng-href="tier/{{tier.name}}" class="btn btn-primary btn-flat btn-block capitalize">
                             <span ng-switch="tier.kind" class="text-muted">
-                                <i ng-switch-when="edge" class="fa fa-spinner fa-lg"></i>
-                                <i ng-switch-when="cloud" class="fa fa-cube fa-lg"></i>
+                                <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
+                                <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
                             </span>
                             {{tier.name}}
                         </a>

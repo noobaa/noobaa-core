@@ -1,10 +1,10 @@
 <div ng-controller="FileViewCtrl">
-    <div class="container">
+    <div class="Xcontainer">
 
         <div class="Xpage-header">
 
             <h1 class="capitalize">
-                <i class="fa fa-file fa-lg fa-fw text-muted"></i> {{file.name}}
+                <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> {{file.name}}
             </h1>
 
             <ol class="breadcrumb capitalize" style="margin: 30px 0">
@@ -57,10 +57,10 @@
                     <a ng-click="file_router.set('settings')">Settings</a>
                 </li>
                 <li ng-class="{active: file_router.route=='link'}">
-                    <a ng-click="file_router.set('link')">File Link</a>
+                    <a ng-click="file_router.set('link')">Link</a>
                 </li>
                 <li ng-class="{active:file_router.route=='parts'}">
-                    <a ng-click="file_router.set('parts')">File Parts</a>
+                    <a ng-click="file_router.set('parts')">Parts List</a>
                 </li>
             </ul>
 

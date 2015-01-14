@@ -1,5 +1,5 @@
 <div ng-controller="BucketListCtrl">
-    <div class="container">
+    <div class="Xcontainer">
 
         <div class="Xpage-header">
 
@@ -24,7 +24,10 @@
                 </tr>
                 <tr ng-repeat="bucket in nbSystem.system.buckets">
                     <td class="table-btn text-left">
-                        <a ng-href="bucket/{{bucket.name}}" class="btn btn-primary btn-flat btn-block capitalize">{{bucket.name}}</a>
+                        <a ng-href="bucket/{{bucket.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                            <i class="fa fa-folder-o fa-lg fa-fw text-muted"></i>
+                            {{bucket.name}}
+                        </a>
                     </td>
                     <td>{{bucket.num_objects}}</td>
                     <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>

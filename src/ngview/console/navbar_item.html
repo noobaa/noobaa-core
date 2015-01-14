@@ -1,6 +1,8 @@
-<a ng-if="!item.dropdown" ng-href="{{item.href}}">{{item.text}}</a>
+<a ng-if="!item.dropdown" ng-href="{{item.href}}">
+    <i class="fa {{item.icon}} fa-lg fa-fw Xpull-right"></i> {{item.text}}
+</a>
 <a ng-if="item.dropdown" class="dropdown-toggle" data-toggle="dropdown">
-    {{item.text}}
+    <i class="fa {{item.icon}} fa-lg fa-fw Xpull-right"></i> {{item.text}}
     <i class="fa fa-angle-down fa-fw text-muted" style="margin-right: -10px"></i>
 </a>
 <ul ng-if="item.dropdown" class="dropdown-menu" role="menu">

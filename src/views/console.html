@@ -8,13 +8,151 @@
 
 <body class="Xinverse" ng-controller="ConsoleCtrl" ng-cloak>
 
-    <div ng-include="'console/navbar.html'"></div>
 
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-sm-offset-3 col-sm-9 col-md-offset-2 col-md-10 col-lg-offset-2 col-lg-10">
-                <div ng-view></div>
+    <div class="row">
+        <div class="sidebar sidebar-left sidebar-animate sidebar-md-show sidebar-lg-show">
+
+            <h4 style="margin: 0">
+                <a class="btn btn-link btn-block" href="/console/">
+                    <img src="/public/images/noobaa_icon_bgtrans.ico" width="30" style="vertical-align: middle; margin-right: 5px" /> NooBaa
+                </a>
+            </h4>
+            <hr/>
+
+            <div ng-if="nbClient.account">
+                <div class="dropdown clearfix">
+                    <a class="btn btn-link btn-block dropdown-toggle" data-toggle="dropdown">
+                        <i class="mdi-action-account-circle pull-left" style="font-size: 30px; margin: -3px 5px 0 0"></i> {{nbClient.account.email}}
+                        <i class="fa fa-angle-down pull-right"></i>
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li ng-repeat="sys in nbSystem.systems">
+                            <a ng-click="nbSystem.connect_system(sys.name)">
+                                <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
+                            </a>
+                        </li>
+                        <li>
+                            <a ng-click="nbSystem.new_system()">New System</a>
+                        </li>
+                        <li class="divider"></li>
+                        <li>
+                            <a ng-click="nbClient.logout()">Logout</a>
+                        </li>
+                    </ul>
+                </div>
+                <hr style="margin:0" />
             </div>
+
+
+            <ul class="nav nav-pills nav-stacked" ng-if="nbSystem.system">
+                <li>
+                    <p>
+                        <small>
+                            SYSTEM
+                            <!-- Health <i class="fa fa-check fa-lg"></i> -->
+                        </small>
+                    </p>
+                </li>
+                <li ng-class="{active: nav.active=='overview'}">
+                    <a href="/console/overview">
+                        <i class="fa fa-globe fa-fw fa-lg pull-left"></i> Overview
+                    </a>
+                </li>
+
+                <li>
+                    <p>
+                        <small>DATA</small>
+                    </p>
+                </li>
+                <li ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='buckets'}">
+                    <a ng-href="/console/bucket/{{bucket.name}}">
+                        <i class="fa fa-folder-o fa-fw fa-lg pull-left"></i>
+                        <span class="capitalize">{{bucket.name}}</span>
+                    </a>
+                </li>
+                <!-- <li>
+                    <a>
+                        <i class="fa fa-fw text-muted"></i>
+                        <small class="Xtext-muted">more ...</small>
+                    </a>
+                </li> -->
+
+                <li>
+                    <p>
+                        <small>RESOURCES</small>
+                    </p>
+                </li>
+                <li ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tiers'}">
+                    <a ng-href="/console/tier/{{tier.name}}">
+                        <i class="fa fa-spinner fa-fw fa-lg pull-left"></i> {{'Nodes' || tier.name}}
+                    </a>
+                </li>
+                <!-- <li>
+                    <a>
+                        <i class="fa fa-fw text-muted"></i>
+                        <small class="Xtext-muted">more ...</small>
+                    </a>
+                </li> -->
+
+                <li>
+                    <p></p>
+                </li>
+                <li>
+                    <p>
+                        <small>INFO</small>
+                    </p>
+                </li>
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fa fa-bell fa-fw fa-lg pull-left"></i> Alerts
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li style="padding: 30px 15px">
+                            <i class="text-muted">No new messages</i>
+                        </li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fa fa-book fa-fw fa-lg pull-left"></i> Log
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li style="padding: 30px 15px">
+                            <i class="text-muted">No new messages</i>
+                        </li>
+                    </ul>
+                </li>
+                <li class="dropdown">
+                    <a class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="fa fa-pie-chart fa-fw fa-lg pull-left"></i> Statistics
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li style="padding: 30px 15px">
+                            <i class="text-muted">placeholder for statistics</i>
+                        </li>
+                    </ul>
+                </li>
+                <li ng-if="nav.reload_view">
+                    <a nb-click-ladda="nav.reload_view()">
+                        <i class="fa fa-repeat fa-fw fa-lg pull-left"></i> Refresh
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="console-content">
+        <div class="container">
+
+            <div class="clearfix">
+                <div class="visible-xs visible-sm pull-left">
+                    <a class="navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-left" style="padding-left: 0">
+                        <i class="fa fa-bars fa-lg"></i>
+                    </a>
+                </div>
+            </div>
+
+            <div ng-view></div>
         </div>
     </div>
 

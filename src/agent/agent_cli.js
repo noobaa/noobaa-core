@@ -37,11 +37,11 @@ function AgentCLI(params) {
         root_path: './agent_storage/',
         address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
         port: params.prod ? 5050 : 0,
-        email: 'a@a.a',
-        password: 'aaa',
-        system: 'sys',
-        tier: 'edge',
-        bucket: 'bucket',
+        email: 'demo@noobaa.com',
+        password: 'DeMo',
+        system: 'demo',
+        tier: 'nodes',
+        bucket: 'files',
     });
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);

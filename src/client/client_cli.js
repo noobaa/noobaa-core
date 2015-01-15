@@ -34,11 +34,11 @@ function ClientCLI(params) {
     self.params = _.defaults(params, {
         address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
         streamer: params.prod ? 5005 : 5006,
-        email: 'a@a.a',
-        password: 'aaa',
-        system: 'sys',
-        tier: 'edge',
-        bucket: 'bucket',
+        email: 'demo@noobaa.com',
+        password: 'DeMo',
+        system: 'demo',
+        tier: 'nodes',
+        bucket: 'files',
     });
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);

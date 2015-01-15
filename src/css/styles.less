@@ -16,7 +16,7 @@
 /* @import (less)"animations.css"; */
 
 ///////////////
-// bootstrap //
+// variables //
 ///////////////
 
 @primary: @blue-grey-400;
@@ -42,6 +42,12 @@
     text-transform: uppercase !important;
     font-weight: 600 !important;
 } */
+
+
+////////////////
+// components //
+////////////////
+
 body {
     /* padding-top: 70px; */
     /* @media (max-width: @screen-lg) {
@@ -49,14 +55,22 @@ body {
     } */
 
 }
+.sidebar-content {
+    @media (min-width: @screen-md) {
+        margin-left: 220px;
+    }
+
+}
 .sidebar.sidebar-left {
-    width: 200px;
-    background-color: @blue-grey-700;
-    @text-color: hsl(0, 0%, 75%);
-    color: @text-color;
+    top: 0;
+    width: 220px;
+    background-color: darken(@blue-grey-600, 10%);
+    @sidebar-color: @navbar-color;
+    /* @sidebar-color: hsl(0, 0%, 75%); */
+    color: @sidebar-color;
     padding: 0 15px;
     .btn.btn-block {
-        color: @text-color;
+        color: @sidebar-color;
         text-transform: initial;
         padding: 15px;
         margin: 0 -15px;
@@ -72,7 +86,7 @@ body {
             margin-top: 4px;
         }
         &.pull-left {
-            margin-right: 10px;    
+            margin-right: 10px;
         }
     }
     hr {
@@ -93,7 +107,7 @@ body {
 
         }
         >li >a {
-            color: @text-color;
+            color: @sidebar-color;
             padding: 8px 15px;
             margin: 0 -15px;
             border-radius: 0;
@@ -108,14 +122,7 @@ body {
     }
 
 }
-.console-content {
-    @media (min-width: @screen-md) {
-        margin-left: 200px;
-    }
-
-}
-body.inverse {
-    background-color: @body-bg;
+.inverse {
     /* elements which are left un-inverted */
     .modal,
     .panel-default,
@@ -163,40 +170,6 @@ body.inverse {
             margin-top: 14.5px;
             margin-bottom: 14.5px;
         }
-    }
-
-}
-.sidebar {
-    /* fix sidebar's position to navbar's */
-    /* z-index: 1040; */
-    /* width: 200px; */
-    top: 0;
-    /* top: 63px; */
-    @media (max-width: @screen-lg) {
-        /* top: 53px; */
-    }
-    @media (max-width: @screen-sm) {
-        /* top: 52px; */
-    }
-    background-color: @navbar-default-bg;
-    color: @navbar-color;
-    .navbar-nav {
-        &,
-        & > li,
-        & > li > a {
-            float: none;
-            display: block;
-        }
-        & > li > a {
-            padding-top: 15px;
-            padding-bottom: 15px;
-            margin-top: 5px;
-            margin-bottom: 5px;
-        }
-
-    }
-    &.sidebar-left {
-
     }
 
 }

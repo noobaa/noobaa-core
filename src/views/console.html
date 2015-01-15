@@ -84,7 +84,8 @@
                 </li>
                 <li ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tiers'}">
                     <a ng-href="/console/tier/{{tier.name}}">
-                        <i class="fa fa-spinner fa-fw fa-lg pull-left"></i> {{'Nodes' || tier.name}}
+                        <i class="fa fa-spinner fa-fw fa-lg pull-left"></i>
+                        <span class="capitalize">{{tier.name}}</span>
                     </a>
                 </li>
                 <!-- <li>
@@ -141,7 +142,7 @@
         </div>
     </div>
 
-    <div class="console-content">
+    <div class="sidebar-content">
         <div class="container">
 
             <div class="clearfix">

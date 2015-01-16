@@ -22,8 +22,8 @@
             <div ng-if="nbClient.account">
                 <div class="dropdown clearfix">
                     <a class="btn btn-link btn-block dropdown-toggle" data-toggle="dropdown">
-                        <i class="mdi-action-account-circle pull-left" style="font-size: 30px; margin: -3px 5px 0 0"></i> {{nbClient.account.email}}
-                        <i class="fa fa-angle-down pull-right"></i>
+                        <i class="mdi-action-account-circle pull-left" style="font-size: 30px; margin: -6px 5px 0 0"></i> <small>{{nbClient.account.email}}</small>
+                        <i class="fa fa-angle-down fa-lg pull-right"></i>
                     </a>
                     <ul class="dropdown-menu" role="menu">
                         <li ng-repeat="sys in nbSystem.systems">

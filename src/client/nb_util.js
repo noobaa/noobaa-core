@@ -238,6 +238,10 @@ nb_util.factory('nbHashRouter', [
         HashRouter.prototype.set = function(route, query) {
             var self = this;
             var opt = self.routes[route];
+            if (!opt) {
+                console.error('no such route', route);
+                return;
+            }
             var hash = encodeURIComponent(route);
             // compact the query by removing empty values
             var hash_query = _.pick(query, function(val, key) {

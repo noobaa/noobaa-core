@@ -234,7 +234,7 @@ function list_objects(req) {
             }
             var skip = req.rest_params.skip;
             var limit = req.rest_params.limit;
-            var find = db.ObjectMD.find(info);
+            var find = db.ObjectMD.find(info).sort('-_id');
             if (skip) {
                 find.skip(skip);
             }

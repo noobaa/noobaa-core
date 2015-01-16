@@ -135,13 +135,13 @@ nb_api.factory('nbSystem', [
                 .then(function() {
                     return nbClient.client.system.read_system();
                 })
-                .then(function(res) {
-                    console.log('READ SYSTEM', res);
-                    $scope.system = res;
+                .then(function(sys) {
+                    console.log('READ SYSTEM', sys);
+                    $scope.system = sys;
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
-                    var s = $scope.system.storage;
-                    s.free = s.alloc - s.used;
-                    s.free_percent = !s.alloc ? 0 : 100 * (s.free / s.alloc);
+                    _.each(sys.tiers, function(tier) {
+                        tier.used_percent = Math.ceil(100 * tier.storage.used / tier.storage.alloc);
+                    });
                 }, function(err) {
                     console.error('READ SYSTEM FAILED', err);
                     return $scope.init_systems.then(function() {

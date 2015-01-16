@@ -88,12 +88,16 @@ function Agent(params) {
     // enable CORS for agent api
     app.use('/api', function(req, res, next) {
         res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
         res.header('Access-Control-Allow-Origin', '*');
         // note that browsers will not allow origin=* with credentials
         // but anyway we allow it by the agent server.
         res.header('Access-Control-Allow-Credentials', true);
-        next();
+        if (req.method === 'OPTIONS') {
+            res.send(200);
+        } else {
+            next();
+        }
     });
 
     var agent_server = new api.agent_api.Server({

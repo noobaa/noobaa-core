@@ -11,7 +11,6 @@ var Semaphore = require('noobaa-util/semaphore');
 var ChunkStream = require('../util/chunk_stream');
 var rabin = require('../util/rabin');
 var Poly = require('../util/poly');
-var EventEmitter = require('events').EventEmitter;
 var crypto = require('crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
@@ -66,17 +65,6 @@ function ObjectClient(base) {
 util.inherits(ObjectClient, object_api.Client);
 
 
-/**
- * get an event emitter to subscribe for events that give insight
- * to the client's internal flows.
- */
-ObjectClient.prototype.events = function() {
-    if (!this._events) {
-        this._events = new EventEmitter();
-    }
-    return this._events;
-};
-
 
 
 // WRITE FLOW /////////////////////////////////////////////////////////////////
@@ -95,14 +83,7 @@ ObjectClient.prototype.upload_stream = function(params) {
     dbg.log0('create multipart', params.key);
     return self.create_multipart_upload(create_params)
         .then(function() {
-            var pos = 0;
-            self.events().removeAllListeners('part:after');
-            self.events().on('part:after', function(part) {
-                var len = part.end - part.start;
-                pos += len;
-                dbg.log_progress(pos / params.size);
-            });
-            return Q.Promise(function(resolve, reject) {
+            return Q.Promise(function(resolve, reject, notify) {
                 params.source_stream
                     .pipe(new rabin.RabinChunkStream({
                         window_length: 128,
@@ -114,7 +95,14 @@ ObjectClient.prototype.upload_stream = function(params) {
                             hash_val: 0x07071070 // hebrew calculator pimp
                         }],
                     }))
-                    .pipe(self.open_write_stream(bucket_key_params))
+                    .pipe(self.open_write_stream(bucket_key_params)
+                        .on('progress', function(progress) {
+                            if (progress.event === 'part:after') {
+                                var pos = progress.part && progress.part.end || 0;
+                                dbg.log_progress(pos / params.size);
+                            }
+                            notify(progress);
+                        }))
                     .once('error', function(err) {
                         dbg.log0('error write stream', params.key, err);
                         reject(err);
@@ -196,6 +184,8 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
         }, function(err) {
             console.error('writer error', err);
             callback(err || 'writer error');
+        }, function(progress) {
+            self.emit('progress', progress);
         });
 };
 
@@ -220,52 +210,51 @@ ObjectWriter.prototype._write = function(chunk, encoding, callback) {
  */
 ObjectClient.prototype._write_object_part = function(params) {
     var self = this;
-    var part;
-    var part_params = _.pick(params, 'bucket', 'key', 'start', 'end');
-    var create_part_params = _.clone(part_params);
-    create_part_params.crypt = {
-        hash_type: 'sha256',
-        cipher_type: 'aes256',
-    };
-    var encrypted_buffer = encrypt_chunk(params.buffer, create_part_params.crypt);
-    create_part_params.chunk_size = encrypted_buffer.length;
-    dbg.log2('_write_object_part', create_part_params, 'plain length', params.buffer.length);
 
-    return self.allocate_object_part(create_part_params)
-        .then(function(res) {
-            if (res.dedup) {
-                part = part_params;
-                dbg.log0('DEDUP', range_utils.human_range(part));
-                return;
-            }
-            part = res.part;
-            if (self._events) {
-                self._events.emit('part:before', part);
-            }
-            dbg.log3('part before', range_utils.human_range(part));
-            var block_size = (part.chunk_size / part.kfrag) | 0;
-            var buffer_per_fragment = encode_chunk(encrypted_buffer, part.kfrag, block_size);
-            return Q.all(_.map(part.fragments, function(blocks, fragment) {
-                return Q.all(_.map(blocks, function(block) {
-                    if (self._events) {
-                        self._events.emit('block:before', buffer_per_fragment[fragment].length);
-                    }
-                    return self._attempt_write_block(_.extend({}, part_params, {
-                        part: part,
-                        fragment: fragment,
-                        offset: part.start + (fragment * block_size),
-                        block: block,
-                        buffer: buffer_per_fragment[fragment],
-                        remaining_attempts: 20,
+    // return a promise that also notify progress
+    return Q.Promise(function(resolve, reject, notify) {
+        var part;
+        var part_params = _.pick(params, 'bucket', 'key', 'start', 'end');
+        var create_part_params = _.clone(part_params);
+        create_part_params.crypt = {
+            hash_type: 'sha256',
+            cipher_type: 'aes256',
+        };
+        var encrypted_buffer = encrypt_chunk(params.buffer, create_part_params.crypt);
+        create_part_params.chunk_size = encrypted_buffer.length;
+        dbg.log2('_write_object_part', create_part_params, 'plain length', params.buffer.length);
+
+        self.allocate_object_part(create_part_params)
+            .then(function(res) {
+                if (res.dedup) {
+                    part = part_params;
+                    dbg.log0('DEDUP', range_utils.human_range(part));
+                    return;
+                }
+                part = res.part;
+                dbg.log3('part before', range_utils.human_range(part));
+                var block_size = (part.chunk_size / part.kfrag) | 0;
+                var buffer_per_fragment = encode_chunk(encrypted_buffer, part.kfrag, block_size);
+                return Q.all(_.map(part.fragments, function(blocks, fragment) {
+                    return Q.all(_.map(blocks, function(block) {
+                        return self._attempt_write_block(_.extend({}, part_params, {
+                            part: part,
+                            fragment: fragment,
+                            offset: part.start + (fragment * block_size),
+                            block: block,
+                            buffer: buffer_per_fragment[fragment],
+                            remaining_attempts: 20,
+                        }));
                     }));
                 }));
-            }));
-        }).then(function() {
-            dbg.log3('part after', range_utils.human_range(part));
-            if (self._events) {
-                self._events.emit('part:after', part);
-            }
-        });
+            }).then(function() {
+                dbg.log3('part after', range_utils.human_range(part));
+                notify({
+                    event: 'part:after',
+                    part: part
+                });
+            }).then(resolve, reject, notify);
+    });
 };
 
 

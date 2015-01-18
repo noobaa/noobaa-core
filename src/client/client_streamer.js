@@ -160,8 +160,20 @@ function client_streamer(client, port) {
             });
     });
 
+    // using a strict encoding to also handle the remaining special chars
+    function rfc3986EncodeURIComponent(str) {
+        return encodeURIComponent(str).replace(/[!'()*]/g, global.escape);
+    }
+
+    function name_to_content_dispos(name, download) {
+        return (download ? 'attachment;' : 'inline;') +
+            'filename="' + rfc3986EncodeURIComponent(name) + '"';
+    }
+
     app.get('/b/:bucket/o/:key', function(req, res) {
         console.log('read', req.path);
+        res.header('content-disposition',
+            name_to_content_dispos(req.param('key'), req.query.download));
         client.object.serve_http_stream(req, res, _.pick(req.params, 'bucket', 'key'));
     });
 

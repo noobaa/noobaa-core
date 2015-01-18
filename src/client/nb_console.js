@@ -312,9 +312,9 @@ nb_console.controller('BucketViewCtrl', [
                 pagination: true,
                 reload: reload_files
             })
-            .when('transfers', {
-                templateUrl: 'console/bucket_transfers.html',
-            })
+            // .when('transfers', {
+            // templateUrl: 'console/bucket_transfers.html',
+            // })
             .when('stats', {
                 templateUrl: 'console/bucket_stats.html',
             })
@@ -380,16 +380,22 @@ nb_console.controller('BucketViewCtrl', [
 
 
 nb_console.controller('FileViewCtrl', [
-    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
-    'nbClient', 'nbSystem', 'nbFiles', 'nbNodes', 'nbHashRouter',
-    function($scope, $q, $timeout, $window, $location, $routeParams,
-        nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter) {
+    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams', '$sce',
+    'nbClient', 'nbSystem', 'nbFiles', 'nbNodes', 'nbHashRouter', 'nbModal',
+    function($scope, $q, $timeout, $window, $location, $routeParams, $sce,
+        nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter, nbModal) {
         $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
         $scope.goto_block = goto_block;
+        $scope.download = download;
+        $scope.play = play;
         $scope.parts_num_pages = 0;
         $scope.parts_page_size = 10;
         $scope.parts_query = {};
+        $scope.download_url = $sce.trustAsResourceUrl(
+            'http://localhost:5006/b/' +
+            $routeParams.bucket_name + '/o/' +
+            $routeParams.file_name + '?download=1');
 
         var file_router = $scope.file_router =
             nbHashRouter($scope)
@@ -438,6 +444,12 @@ nb_console.controller('FileViewCtrl', [
                 .then(function(res) {
                     $scope.file = res;
 
+                    $scope.play_url = $sce.trustAsResourceUrl(
+                        'http://localhost:5006/b/' +
+                        $routeParams.bucket_name + '/' +
+                        (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
+                        $routeParams.file_name);
+
                     // TODO handle file parts list
                     $scope.parts_num_pages = 10;
                     // Math.ceil($scope.bucket.num_objects / $scope.parts_page_size);
@@ -470,5 +482,22 @@ nb_console.controller('FileViewCtrl', [
                     $location.path('/tier/' + node.tier + '/' + node.name);
                 });
         }
+
+        function download() {
+            $window.location = $scope.download_url;
+        }
+
+        function play() {
+            if ($scope.play_modal) {
+                $scope.play_modal.modal('hide');
+                $scope.play_modal = null;
+            }
+            $scope.play_modal = nbModal({
+                template: 'console/file_play.html',
+                size: 'lg',
+                scope: $scope,
+            });
+        }
+
     }
 ]);

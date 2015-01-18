@@ -391,6 +391,7 @@ nb_console.controller('FileViewCtrl', [
         $scope.nav.reload_view = reload_view;
         $scope.goto_block = goto_block;
         $scope.download = download;
+        $scope.save = save;
         $scope.play = play;
         $scope.parts_num_pages = 0;
         $scope.parts_page_size = 10;
@@ -487,7 +488,15 @@ nb_console.controller('FileViewCtrl', [
         }
 
         function download() {
-            $window.location = $scope.download_url;
+            // $window.location = $scope.download_url;
+            return nbFiles.download_file($routeParams.bucket_name, $scope.file)
+                .then(function(tx) {
+                    $scope.dl = tx;
+                });
+        }
+
+        function save() {
+            $scope.saver = new $window.FileSaver($scope.dl.output_file, $scope.file.content_type);
         }
 
         function play() {

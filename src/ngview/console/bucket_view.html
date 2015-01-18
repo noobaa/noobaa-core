@@ -69,7 +69,7 @@
         <div class="dropdown dropup pull-right" ng-repeat="tx in nbFiles.transfers" style="margin-right: 15px">
             <button class="btn btn-info btn-fab dropdown-toggle" data-toggle="dropdown">
                 <span ng-hide="tx.done">
-                    <span class="pulse" style="font-size: 14px; line-height: 36px">{{tx.progress.toFixed(0)}}%</span>
+                    <span style="font-size: 14px; line-height: 36px">{{tx.progress.toFixed(0)}}%</span>
                 </span>
                 <i ng-show="tx.done" class="fa fa-check" style="font-size: 14px; line-height: 36px"></i>
             </button>

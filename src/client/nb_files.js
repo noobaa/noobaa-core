@@ -7,8 +7,8 @@ var moment = require('moment');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var SliceReader = require('../util/slice_reader');
+var BrowserFileWriter = require('../util/browser_file_writer');
 var concat_stream = require('concat-stream');
-var object_client = new api.ObjectClient();
 
 var nb_api = angular.module('nb_api');
 
@@ -23,7 +23,7 @@ nb_api.factory('nbFiles', [
         $scope.list_file_parts = list_file_parts;
         $scope.create_bucket = create_bucket;
         $scope.upload_file = upload_file;
-        $scope.get_download_url = get_download_url;
+        $scope.download_file = download_file;
         $scope.read_entire_object = read_entire_object;
         $scope.read_as_media_stream = read_as_media_stream;
 
@@ -77,7 +77,7 @@ nb_api.factory('nbFiles', [
             return nbAlertify.prompt('Enter name for new bucket')
                 .then(function(str) {
                     if (!str) return;
-                    return $q.when(object_client.create_bucket({
+                    return $q.when(nbClient.client.object.create_bucket({
                         bucket: str
                     }));
                 });
@@ -115,7 +115,7 @@ nb_api.factory('nbFiles', [
             tx.content_type = tx.input_file.type;
             tx.start_time = Date.now();
             tx.progress = 0;
-            return $q.when(object_client.upload_stream({
+            return $q.when(nbClient.client.object.upload_stream({
                     bucket: tx.bucket,
                     key: tx.name,
                     size: tx.size,
@@ -133,7 +133,7 @@ nb_api.factory('nbFiles', [
                     var elapsed = duration.toFixed(1) + 'sec';
                     var speed = $rootScope.human_size(tx.size / duration) + '/sec';
                     console.log('upload completed', elapsed, speed);
-                    nbAlertify.success('upload completed ' + elapsed + ' ' + speed);
+                    nbAlertify.success('upload completed');
                 }, function(err) {
                     tx.error = err;
                     console.error('upload failed', err);
@@ -147,20 +147,82 @@ nb_api.factory('nbFiles', [
                 });
         }
 
-        function get_download_url(object) {
-            console.log('click_object', object);
-            $scope.video_src = $scope.object_src = null;
-            var url = read_as_media_stream(object);
-            if (url) {
-                return $sce.trustAsResourceUrl(url);
-            }
-            return $q.when(read_entire_object(object))
-                .then(function(data) {
-                    console.log('OBJECT DATA', data.length);
-                    var blob = new $window.Blob([data]);
-                    var url = $window.URL.createObjectURL(blob);
-                    return $sce.trustAsResourceUrl(url);
+        function download_file(bucket_name, file) {
+            return open_temp_file_write_stream()
+                .then(function(res) {
+                    var tx = {
+                        type: 'download',
+                        bucket: bucket_name,
+                        file: file,
+                        output_file: res.file_entry,
+                        // url: $sce.trustAsResourceUrl(res.file_entry.toURL()),
+                        name: file.name,
+                        size: file.size,
+                        content_type: file.type,
+                        start_time: Date.now(),
+                        progress: 0,
+                    };
+                    tx.promise = $q(function(resolve, reject, progress) {
+                        nbClient.client.object.open_read_stream({
+                                bucket: bucket_name,
+                                key: file.name,
+                            })
+                            .pipe(res.writer)
+                            .on('progress', function(pos) {
+                                tx.progress = (100 * pos / file.size);
+                                // progress(pos);
+                            })
+                            .once('finish', function() {
+                                tx.done = true;
+                                tx.progress = 100;
+                                tx.end_time = Date.now();
+                                var duration = (tx.end_time - tx.start_time) / 1000;
+                                var elapsed = duration.toFixed(1) + 'sec';
+                                var speed = $rootScope.human_size(tx.size / duration) + '/sec';
+                                console.log('download completed', elapsed, speed);
+                                nbAlertify.success('download completed');
+                                resolve();
+                            })
+                            .once('error', function(err) {
+                                tx.error = err;
+                                console.error('download failed', err);
+                                nbAlertify.error('download failed. ' + err.toString());
+                                reject(err);
+                            });
+                    });
+                    console.log('DOWNLOAD', tx);
+                    $scope.transfers.push(tx);
+                    return tx;
                 });
+        }
+
+        function open_temp_file_write_stream() {
+            return $q(function(resolve, reject, progress) {
+                var temp_storage =
+                    $window.navigator.temporaryStorage ||
+                    $window.navigator.webkitTemporaryStorage;
+                var request_fs =
+                    $window.requestFileSystem ||
+                    $window.webkitRequestFileSystem;
+                var fssize = 1;
+                var temp_fname = Date.now().toString();
+                temp_storage.requestQuota(fssize, function() {
+                    request_fs($window.TEMPORARY, fssize, function(fs) {
+                        fs.root.getFile(temp_fname, {
+                            create: true,
+                            exclusive: true
+                        }, function(file_entry) {
+                            file_entry.createWriter(function(file_writer) {
+                                resolve({
+                                    fs: fs,
+                                    file_entry: file_entry,
+                                    writer: new BrowserFileWriter(file_writer, $window.Blob)
+                                });
+                            }, reject);
+                        }, reject);
+                    }, reject);
+                }, reject);
+            });
         }
 
         function read_entire_object(object) {
@@ -171,7 +233,7 @@ nb_api.factory('nbFiles', [
             var defer = $q.defer();
             var stream = concat_stream(defer.resolve);
             stream.once('error', defer.reject);
-            object_client.open_read_stream(object_path).pipe(stream);
+            nbClient.client.object.open_read_stream(object_path).pipe(stream);
             return defer.promise;
         }
 
@@ -187,7 +249,7 @@ nb_api.factory('nbFiles', [
             ms.addEventListener('sourceopen', function(e) {
                 // TODO need to have content type, and check support for types
                 var source_buffer = ms.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
-                var stream = object_client.open_read_stream(object_path);
+                var stream = nbClient.client.object.open_read_stream(object_path);
                 var video = $window.document.getElementsByTagName('video')[0];
                 video.addEventListener('progress', function() {
                     stream.resume();

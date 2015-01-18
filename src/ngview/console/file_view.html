@@ -74,7 +74,28 @@
 
     <div class="text-right" style="position: fixed; bottom: 15px; right: 15px; z-index: 10">
         <button class="btn btn-material-teal btn-fab mdi-av-play-arrow pull-right" ng-click="play()"></button>
-        <button class="btn btn-material-lime btn-fab mdi-file-file-download pull-right" ng-click="download()" style="margin-right: 15px"></button>
+
+        <div class="pull-right" style="margin-right: 15px">
+            <button ng-if="!dl" class="btn btn-material-lime btn-fab mdi-file-file-download" ng-click="download()"></button>
+            <button ng-if="dl && dl.done" class="btn btn-material-lime btn-fab mdi-content-save" ng-click="save()"></button>
+            <div ng-if="dl && !dl.done" class="dropdown dropup">
+                <button class="btn btn-material-lime btn-fab dropdown-toggle" data-toggle="dropdown">
+                    <span style="font-size: 14px; line-height: 36px">{{dl.progress.toFixed(0)}}%</span>
+                    </span>
+                </button>
+                <ul class="dropdown-menu pull-right well" style="Xpadding: 15px; width: auto">
+                    <li>{{dl.name}}</li>
+                    <li>{{human_size(dl.size)}} {{dl.content_type}}</li>
+                    <li>
+                        <div class="progress" style="margin: 7px 0 0 0">
+                            <div class="progress-bar" role="progressbar" aria-valuenow="{{dl.progress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{dl.progress}}%; Xbackground-color: black">
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+        </div>
 
     </div>
 

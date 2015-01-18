@@ -451,7 +451,7 @@ nb_console.controller('FileViewCtrl', [
                         $routeParams.file_name);
 
                     // TODO handle file parts list
-                    $scope.parts_num_pages = 10;
+                    $scope.parts_num_pages = 9;
                     // Math.ceil($scope.bucket.num_objects / $scope.parts_page_size);
                     $scope.parts_pages = _.times($scope.parts_num_pages, _.identity);
                     file_router.set_num_pages('parts', $scope.parts_num_pages);

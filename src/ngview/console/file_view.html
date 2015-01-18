@@ -22,8 +22,8 @@
         <table class="table table-no-borders table-properties">
             <tr>
                 <td colspan="2" style="text-align: center">
-                    &nbsp; File Object
                     <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A file object is a file content stored on the system" data-placement="bottom"></i>
+                    <i>File Object</i> &nbsp;
                 </td>
             </tr>
             <tr>
@@ -56,14 +56,14 @@
         <li ng-class="{active:file_router.route=='parts'}">
             <a ng-click="file_router.set('parts')">Parts List</a>
         </li>
-        <li ng-class="{active: file_router.route=='properties'}">
-            <a ng-click="file_router.set('properties')">Properties</a>
-        </li>
-        <li ng-class="{active: file_router.route=='stats'}">
-            <a ng-click="file_router.set('stats')">Statistics</a>
-        </li>
         <li ng-class="{active: file_router.route=='settings'}">
             <a ng-click="file_router.set('settings')">Settings</a>
+        </li>
+        <!-- <li ng-class="{active: file_router.route=='properties'}">
+            <a ng-click="file_router.set('properties')">Properties</a>
+        </li> -->
+        <li ng-class="{active: file_router.route=='stats'}">
+            <a ng-click="file_router.set('stats')">Statistics</a>
         </li>
         <li ng-class="{active: file_router.route=='link'}">
             <a ng-click="file_router.set('link')">Link</a>

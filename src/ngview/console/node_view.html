@@ -22,8 +22,8 @@
         <table class="table table-no-borders table-properties" style="margin:0">
             <tr>
                 <td colspan="2" style="text-align: center">
-                    &nbsp; Resource Node
                     <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A node is a computer that was connected to the system. It's running an agent that allows it to be used as a storage node." data-placement="bottom"></i>
+                    <i>Resource Node</i> &nbsp;
                 </td>
             </tr>
             <tr>
@@ -52,14 +52,14 @@
         <li ng-class="{active: node_router.route == 'files'}">
             <a ng-click="node_router.set('files')">Files</a>
         </li>
+        <li ng-class="{active: node_router.route == 'settings'}">
+            <a ng-click="node_router.set('settings')">Settings</a>
+        </li>
         <li ng-class="{active: node_router.route == 'properties'}">
             <a ng-click="node_router.set('properties')">Properties</a>
         </li>
         <li ng-class="{active: node_router.route == 'stats'}">
             <a ng-click="node_router.set('stats')">Statistics</a>
-        </li>
-        <li ng-class="{active: node_router.route == 'settings'}">
-            <a ng-click="node_router.set('settings')">Settings</a>
         </li>
     </ul>
 

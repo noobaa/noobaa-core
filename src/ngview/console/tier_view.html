@@ -23,8 +23,8 @@
         <table class="table table-no-borders table-properties">
             <tr>
                 <td colspan="2" style="text-align: center">
-                    &nbsp; Distributed Tier
                     <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="Distributed tiers are composed of computers, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets" data-placement="bottom"></i>
+                    <i>Distributed Tier</i> &nbsp;
                 </td>
             </tr>
             <tr>
@@ -51,11 +51,11 @@
         <li ng-class="{active: tier_router.route == 'nodes'}">
             <a ng-click="tier_router.set('nodes')">Nodes List</a>
         </li>
-        <li ng-class="{active: tier_router.route == 'stats'}">
-            <a ng-click="tier_router.set('stats')">Statistics</a>
-        </li>
         <li ng-class="{active: tier_router.route == 'settings'}">
             <a ng-click="tier_router.set('settings')">Settings</a>
+        </li>
+        <li ng-class="{active: tier_router.route == 'stats'}">
+            <a ng-click="tier_router.set('stats')">Statistics</a>
         </li>
     </ul>
 

@@ -143,6 +143,7 @@ nb_api.factory('nbFiles', [
                         var pos = progress.part && progress.part.end || 0;
                         tx.progress = 100 * pos / tx.size;
                     }
+                    return progress;
                 });
         }
 

@@ -406,6 +406,7 @@ function rest_api(api) {
         }
 
         var options = {
+            protocol: self.options.protocol,
             hostname: self.options.hostname,
             port: self.options.port,
             method: method,

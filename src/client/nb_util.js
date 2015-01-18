@@ -226,7 +226,10 @@ nb_util.factory('nbHashRouter', [
 
         HashRouter.prototype.done = function() {
             var self = this;
-            if (self.watch_scope) return;
+            if (self.watch_scope) {
+                self.reload();
+                return self;
+            }
             self.watch_scope = self.scope.$new();
             self.watch_scope.$location = $location;
             self.watch_scope.$watch('$location.hash()', function(hash) {

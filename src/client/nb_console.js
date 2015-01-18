@@ -32,8 +32,12 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/overview.html',
                 reloadOnSearch: false,
             })
-            .when('/tier', {
-                templateUrl: 'console/tier_list.html',
+            .when('/resource', {
+                templateUrl: 'console/resource_view.html',
+                reloadOnSearch: false,
+            })
+            .when('/data', {
+                templateUrl: 'console/data_view.html',
                 reloadOnSearch: false,
             })
             .when('/tier/:tier_name', {
@@ -42,10 +46,6 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
             })
             .when('/tier/:tier_name/:node_name', {
                 templateUrl: 'console/node_view.html',
-                reloadOnSearch: false,
-            })
-            .when('/bucket', {
-                templateUrl: 'console/bucket_list.html',
                 reloadOnSearch: false,
             })
             .when('/bucket/:bucket_name', {
@@ -78,25 +78,6 @@ nb_console.controller('ConsoleCtrl', [
 
         $scope.nav = {
             active: 'overview',
-            order: ['overview', 'tiers', 'buckets'],
-            items: {
-                overview: {
-                    text: 'Overview',
-                    href: 'overview',
-                    icon: 'fa-globe',
-                },
-                tiers: {
-                    text: 'Tiers',
-                    href: 'tier',
-                    icon: 'fa-spinner',
-                    // icon: 'fa-database',
-                },
-                buckets: {
-                    text: 'Buckets',
-                    href: 'bucket',
-                    icon: 'fa-folder-o',
-                }
-            }
         };
     }
 ]);
@@ -125,8 +106,8 @@ nb_console.controller('OverviewCtrl', ['$scope', '$q', function($scope, $q) {
 
 
 
-nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'tiers';
+nb_console.controller('SystemResourceCtrl', ['$scope', '$q', function($scope, $q) {
+    $scope.nav.active = 'resource';
     $scope.nav.reload_view = reload_view;
     if (!$scope.nbSystem.system) {
         reload_view();
@@ -139,8 +120,8 @@ nb_console.controller('TierListCtrl', ['$scope', '$q', function($scope, $q) {
 
 
 
-nb_console.controller('BucketListCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'buckets';
+nb_console.controller('SystemDataCtrl', ['$scope', '$q', function($scope, $q) {
+    $scope.nav.active = 'data';
     $scope.nav.reload_view = reload_view;
     if (!$scope.nbSystem.system) {
         reload_view();
@@ -158,7 +139,7 @@ nb_console.controller('TierViewCtrl', [
     'nbSystem', 'nbNodes', 'nbHashRouter',
     function($scope, $q, $timeout, $window, $location, $routeParams,
         nbSystem, nbNodes, nbHashRouter) {
-        $scope.nav.active = 'tiers';
+        $scope.nav.active = 'tier';
         $scope.nav.reload_view = reload_view;
         $scope.nodes_num_pages = 0;
         $scope.nodes_page_size = 10;
@@ -231,7 +212,7 @@ nb_console.controller('NodeViewCtrl', [
     'nbSystem', 'nbNodes', 'nbHashRouter',
     function($scope, $q, $timeout, $window, $location, $routeParams,
         nbSystem, nbNodes, nbHashRouter) {
-        $scope.nav.active = 'tiers';
+        $scope.nav.active = 'tier';
         $scope.nav.reload_view = reload_view;
         $scope.files_num_pages = 0;
         $scope.files_page_size = 10;
@@ -317,8 +298,9 @@ nb_console.controller('BucketViewCtrl', [
     'nbSystem', 'nbFiles', 'nbHashRouter',
     function($scope, $q, $timeout, $window, $location, $routeParams,
         nbSystem, nbFiles, nbHashRouter) {
-        $scope.nav.active = 'buckets';
+        $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
+        $scope.upload = upload;
         $scope.files_num_pages = 0;
         $scope.files_page_size = 10;
         $scope.files_query = {};
@@ -329,6 +311,9 @@ nb_console.controller('BucketViewCtrl', [
                 templateUrl: 'console/bucket_files.html',
                 pagination: true,
                 reload: reload_files
+            })
+            .when('transfers', {
+                templateUrl: 'console/bucket_transfers.html',
             })
             .when('stats', {
                 templateUrl: 'console/bucket_stats.html',
@@ -385,6 +370,10 @@ nb_console.controller('BucketViewCtrl', [
                     $scope.files = res;
                 });
         }
+
+        function upload() {
+            return nbFiles.upload_file($routeParams.bucket_name);
+        }
     }
 ]);
 
@@ -395,7 +384,7 @@ nb_console.controller('FileViewCtrl', [
     'nbClient', 'nbSystem', 'nbFiles', 'nbNodes', 'nbHashRouter',
     function($scope, $q, $timeout, $window, $location, $routeParams,
         nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter) {
-        $scope.nav.active = 'buckets';
+        $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
         $scope.goto_block = goto_block;
         $scope.parts_num_pages = 0;

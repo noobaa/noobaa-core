@@ -1,51 +1,67 @@
-<div ng-cloak>
+<div ng-cloak class="row">
 
-    <input type="text" class="form-control floating-label" placeholder="Search File" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
+    <div class="col-sm-3">
+        <h4 class="text-primary">
+            Files in this bucket
+        </h4>
+        <div class="form-group">
+            <input type="text" class="form-control floating-label" style="Xheight: 32px" placeholder="Search in files" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
+        </div>
+        <p class="text-muted">
+            Click on a file name to get more information.
+        </p>
+    </div>
 
-    <div class="table-responsive">
-        <table class="table">
-            <tr>
-                <th></th>
-                <th>Name</th>
-                <th>Size</th>
-                <th>Content Type</th>
-                <th>Created</th>
-                <!-- <th>Last Accessed</th> -->
-            </tr>
-            <tr ng-repeat="file in files">
-                <td class="checkbox noselect" style="width: 1px; padding: 4px">
+
+    <div class="col-sm-9">
+        <div class="table-responsive">
+            <table class="table table-no-borders">
+                <tr>
+                    <!-- <th></th> -->
+                    <th>Name</th>
+                    <th>Size</th>
+                    <th>Content Type</th>
+                    <th>Created</th>
+                    <!-- <th>Last Accessed</th> -->
+                </tr>
+                <tr ng-repeat="file in files">
+                    <!-- <td class="checkbox noselect" style="width: 1px; padding: 4px">
                     <label>
                         <input type="checkbox" />
                     </label>
-                </td>
-                <td class="table-btn text-left">
-                    <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-primary btn-flat btn-block capitalize">
-                        <!-- <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> -->
-                        {{file.name}}
-                    </a>
-                </td>
-                <td>{{human_size(file.size)}}</td>
-                <td>{{file.content_type}}</td>
-                <td ng-attr-title="{{file.create_time.format('LLL')}}">
-                    {{file.create_time.fromNow()}}
-                </td>
-                <!-- <td>{{file.access_time}}</td> -->
-            </tr>
-        </table>
-    </div>
+                </td> -->
+                    <td class="table-btn text-left">
+                        <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-default btn-flat btn-block" style="text-transform: none">
+                            <!-- <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> -->
+                            {{file.name}}
+                        </a>
+                    </td>
+                    <td>{{human_size(file.size)}}</td>
+                    <td style="text-overflow: ellipsis; max-width: 100px; overflow: hidden; display: block">
+                        {{file.content_type}}
+                    </td>
+                    <td ng-attr-title="{{file.create_time.format('LLL')}}">
+                        {{file.create_time.fromNow()}}
+                    </td>
+                    <!-- <td>{{file.access_time}}</td> -->
+                </tr>
+            </table>
+        </div>
 
-    <nav class="noselect">
-        <ul class="pagination">
-            <li>
-                <a nb-click-ladda="bucket_router.set_page(files_query.page-1)">&laquo;</a>
-            </li>
-            <li ng-repeat="page in files_pages" ng-class="{active: page==files_query.page}">
-                <a nb-click-ladda="bucket_router.set_page(page)">{{page+1}}</a>
-            </li>
-            <li>
-                <a nb-click-ladda="bucket_router.set_page(files_query.page+1)">&raquo;</a>
-            </li>
-        </ul>
-    </nav>
+        <nav class="noselect">
+            <ul class="pagination">
+                <li>
+                    <a nb-click-ladda="bucket_router.set_page(files_query.page-1)">&laquo;</a>
+                </li>
+                <li ng-repeat="page in files_pages" ng-class="{active: page==files_query.page}">
+                    <a nb-click-ladda="bucket_router.set_page(page)">{{page+1}}</a>
+                </li>
+                <li>
+                    <a nb-click-ladda="bucket_router.set_page(files_query.page+1)">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+
+    </div>
 
 </div>

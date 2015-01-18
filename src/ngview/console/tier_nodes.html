@@ -1,44 +1,56 @@
-<div ng-cloak>
+<div ng-cloak class="row">
 
-    <input type="text" class="form-control floating-label" placeholder="Search Node" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)" />
+    <div class="col-sm-3">
+        <h4 class="text-primary">
+            Nodes in this tier
+        </h4>
+        <div class="form-group">
+            <input type="text" class="form-control floating-label" placeholder="Search in nodes" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)" />
+        </div>
+        <p class="text-muted">
+            Click on a node name to get more information.
+        </p>
+    </div>
 
-    <div class="table-responsive">
-        <table class="table">
-            <tr>
-                <th></th>
-                <th>Node Name</th>
-                <th>Raw Storage</th>
-                <th>Status</th>
-            </tr>
-            <tr ng-repeat="node in nodes">
-                <td class="checkbox noselect" style="width: 1px; padding: 4px">
+    <div class="col-sm-9">
+        <div class="table-responsive">
+            <table class="table table-no-borders">
+                <tr>
+                    <!-- <th></th> -->
+                    <th>Node Name</th>
+                    <th>Raw Storage</th>
+                    <th>Status</th>
+                </tr>
+                <tr ng-repeat="node in nodes">
+                    <!-- <td class="checkbox noselect" style="width: 1px; padding: 4px">
                     <label>
                         <input type="checkbox" />
                     </label>
-                </td>
-                <td class="table-btn text-left">
-                    <a ng-href="tier/{{tier.name}}/{{node.name}}" class="btn btn-primary btn-flat btn-block capitalize">
-                        <i class="fa fa-desktop fa-lg fa-fw text-muted"></i> {{node.name}}
-                    </a>
-                </td>
-                <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
-                <td>Healthy</td>
-            </tr>
-        </table>
-    </div>
+                </td> -->
+                    <td class="table-btn text-left">
+                        <a ng-href="tier/{{tier.name}}/{{node.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                            <i class="fa fa-desktop fa-lg fa-fw text-muted"></i> {{node.name}}
+                        </a>
+                    </td>
+                    <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
+                    <td>Healthy</td>
+                </tr>
+            </table>
+        </div>
 
-    <nav class="noselect">
-        <ul class="pagination">
-            <li>
-                <a nb-click-ladda="tier_router.set_page(nodes_query.page-1)">&laquo;</a>
-            </li>
-            <li ng-repeat="page in nodes_pages" ng-class="{active: page==nodes_query.page}">
-                <a nb-click-ladda="tier_router.set_page(page)">{{page+1}}</a>
-            </li>
-            <li>
-                <a nb-click-ladda="tier_router.set_page(nodes_query.page+1)">&raquo;</a>
-            </li>
-        </ul>
-    </nav>
+        <nav class="noselect">
+            <ul class="pagination">
+                <li>
+                    <a nb-click-ladda="tier_router.set_page(nodes_query.page-1)">&laquo;</a>
+                </li>
+                <li ng-repeat="page in nodes_pages" ng-class="{active: page==nodes_query.page}">
+                    <a nb-click-ladda="tier_router.set_page(page)">{{page+1}}</a>
+                </li>
+                <li>
+                    <a nb-click-ladda="tier_router.set_page(nodes_query.page+1)">&raquo;</a>
+                </li>
+            </ul>
+        </nav>
+    </div>
 
 </div>

@@ -126,6 +126,7 @@ nb_api.factory('nbFiles', [
                     }),
                 }))
                 .then(function() {
+                    tx.done = true;
                     tx.progress = 100;
                     tx.end_time = Date.now();
                     var duration = (tx.end_time - tx.start_time) / 1000;

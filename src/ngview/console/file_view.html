@@ -1,72 +1,75 @@
 <div ng-controller="FileViewCtrl">
-    <div class="Xcontainer">
 
-        <div class="Xpage-header">
+    <div class="page-header">
 
-            <h1 class="capitalize">
-                <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> {{file.name}}
-            </h1>
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">System</a>
+            </li>
+            <li>
+                <a href="/console/data/">Data</a>
+            </li>
+            <li>
+                <a ng-href="/console/bucket/{{bucket.name}}">{{bucket.name}}</a>
+            </li>
+            <li class="active">{{file.name}}</li>
+        </ol>
 
-            <ol class="breadcrumb capitalize" style="margin: 30px 0">
-                <li>
-                    <a href="/console/">Home</a>
-                </li>
-                <li>
-                    <a href="/console/bucket/">Buckets List</a>
-                </li>
-                <li>
-                    <a ng-href="/console/bucket/{{bucket.name}}">{{bucket.name}}</a>
-                </li>
-                <li class="active">{{file.name}}</li>
-            </ol>
+        <h1 class="text-center capitalize" style="word-break: break-all; text-overflow: ellipsis; overflow: hidden">
+            <i class="fa fa-file fa-lg fa-fw text-primary"></i> {{file.name}}
+        </h1>
 
-        </div>
-
-        <div class="well well-sm" style="margin: 30px 0">
-            <table class="table table-no-borders table-center" style="margin:0">
-                <tr class="text-center">
-                    <th>File Status</th>
-                    <th>Bucket</th>
-                    <th>Content Type</th>
-                    <th>Size</th>
-                    <th>Created</th>
-                </tr>
-                <tr>
-                    <td><i class="fa fa-check fa-lg"></i> Healthy</td>
-                    <td>{{bucket.name}}</td>
-                    <td>{{file.content_type}}</td>
-                    <td>{{human_size(file.size)}}</td>
-                    <td ng-attr-title="{{file.create_time.format('LLL')}}">
-                        {{file.create_time.fromNow()}}
-                    </td>
-                </tr>
-            </table>
-        </div>
-
-
-        <div class="Xwell" style="margin: 30px 0">
-
-            <ul class="nav nav-pills" style="margin: 0 0 15px 0">
-                <li ng-class="{active:file_router.route=='parts'}">
-                    <a ng-click="file_router.set('parts')">Parts List</a>
-                </li>
-                <li ng-class="{active: file_router.route=='properties'}">
-                    <a ng-click="file_router.set('properties')">Properties</a>
-                </li>
-                <li ng-class="{active: file_router.route=='stats'}">
-                    <a ng-click="file_router.set('stats')">Statistics</a>
-                </li>
-                <li ng-class="{active: file_router.route=='settings'}">
-                    <a ng-click="file_router.set('settings')">Settings</a>
-                </li>
-                <li ng-class="{active: file_router.route=='link'}">
-                    <a ng-click="file_router.set('link')">Link</a>
-                </li>
-            </ul>
-
-            <div nb-hash-router-view="file_router"></div>
-
-        </div>
-
+        <table class="table table-no-borders table-properties">
+            <tr>
+                <td colspan="2" style="text-align: center">
+                    &nbsp; File Object
+                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A file object is a file content stored on the system" data-placement="bottom"></i>
+                </td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>Healthy <i class="fa fa-check fa-lg"></i>
+                </td>
+            </tr>
+            <tr>
+                <th>Bucket</th>
+                <td>{{bucket.name}}</td>
+            </tr>
+            <tr>
+                <th>Content Type</th>
+                <td>{{file.content_type}}</td>
+            </tr>
+            <tr>
+                <th>Size</th>
+                <td>{{human_size(file.size)}}</td>
+            </tr>
+            <tr>
+                <th>Created</th>
+                <td ng-attr-title="{{file.create_time.format('LLL')}}">
+                    {{file.create_time.fromNow()}}
+                </td>
+            </tr>
+        </table>
     </div>
+
+    <ul class="nav nav-tabs">
+        <li ng-class="{active:file_router.route=='parts'}">
+            <a ng-click="file_router.set('parts')">Parts List</a>
+        </li>
+        <li ng-class="{active: file_router.route=='properties'}">
+            <a ng-click="file_router.set('properties')">Properties</a>
+        </li>
+        <li ng-class="{active: file_router.route=='stats'}">
+            <a ng-click="file_router.set('stats')">Statistics</a>
+        </li>
+        <li ng-class="{active: file_router.route=='settings'}">
+            <a ng-click="file_router.set('settings')">Settings</a>
+        </li>
+        <li ng-class="{active: file_router.route=='link'}">
+            <a ng-click="file_router.set('link')">Link</a>
+        </li>
+    </ul>
+
+    <div nb-hash-router-view="file_router"></div>
+
 </div>

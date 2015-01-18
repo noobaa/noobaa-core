@@ -1,65 +1,94 @@
-<div ng-controller="BucketViewCtrl">
-    <div class="Xcontainer">
+<div ng-controller="BucketViewCtrl" style="padding-bottom: 100px">
 
-        <div class="Xpage-header">
+    <div class="page-header">
 
-            <h1 class="capitalize">
-                <!-- <span class="text-muted">Bucket:</span> -->
-                <i class="fa fa-folder-o fa-lg fa-fw text-muted"></i>
-                {{bucket.name}}
-            </h1>
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">System</a>
+            </li>
+            <li>
+                <a href="/console/data/">Data</a>
+            </li>
+            <li class="active">{{bucket.name}}</li>
+        </ol>
 
-            <ol class="breadcrumb capitalize" style="margin: 30px 0">
+        <h1 class="text-center capitalize">
+            <i class="fa fa-folder fa-lg fa-fw text-primary"></i> {{bucket.name}}
+        </h1>
+
+        <table class="table table-no-borders table-properties">
+            <tr>
+                <td colspan="2" style="text-align: center">
+                    &nbsp;Data Bucket
+                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A bucket is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom"></i>
+                </td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>Healthy <i class="fa fa-check fa-lg"></i>
+                </td>
+            </tr>
+            <tr>
+                <th>Files</th>
+                <td>{{bucket.num_objects}}</td>
+            </tr>
+            <tr>
+                <th>Storage</th>
+                <td>{{human_size(bucket.storage.used)}}
+                    <!-- of {{human_size(bucket.storage.alloc)}} -->
+                </td>
+            </tr>
+        </table>
+    </div>
+
+    <ul class="nav nav-tabs">
+        <li ng-class="{active:bucket_router.route=='files'}">
+            <a ng-click="bucket_router.set('files')">Files List</a>
+        </li>
+        <!-- <li ng-class="{active:bucket_router.route=='transfers'}">
+            <a ng-click="bucket_router.set('transfers')">Transfers</a>
+        </li> -->
+        <li ng-class="{active: bucket_router.route=='stats'}">
+            <a ng-click="bucket_router.set('stats')">Statistics</a>
+        </li>
+        <!-- <li ng-class="{active: bucket_router.route=='tiering'}">
+            <a ng-click="bucket_router.set('tiering')">Tiering</a>
+        </li> -->
+        <li ng-class="{active: bucket_router.route=='settings'}">
+            <a ng-click="bucket_router.set('settings')">Settings</a>
+        </li>
+        <li ng-class="{active: bucket_router.route=='link'}">
+            <a ng-click="bucket_router.set('link')">Link</a>
+        </li>
+    </ul>
+
+    <div nb-hash-router-view="bucket_router"></div>
+
+    <div class="text-right" style="position: fixed; bottom: 15px; right: 15px; z-index: 10">
+        <button class="btn btn-material-purple btn-fab mdi-file-file-upload pull-right" ng-click="upload()"></button>
+        <div class="dropdown dropup pull-right" ng-repeat="tx in nbFiles.transfers" style="margin-right: 15px">
+            <button class="btn btn-info btn-fab dropdown-toggle" data-toggle="dropdown">
+                <span ng-hide="tx.done">
+                    <span class="pulse" style="font-size: 14px; line-height: 36px">{{tx.progress.toFixed(0)}}%</span>
+                </span>
+                <i ng-show="tx.done" class="fa fa-check" style="font-size: 14px; line-height: 36px"></i>
+            </button>
+            <ul class="dropdown-menu pull-right well" style="Xpadding: 15px; width: auto">
+                <li>{{tx.name}}</li>
+                <li>{{human_size(tx.size)}} {{tx.content_type}}</li>
                 <li>
-                    <a href="/console/">Home</a>
+                    <div class="progress" style="margin: 7px 0 0 0">
+                        <div class="progress-bar" role="progressbar" aria-valuenow="{{tx.progress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{tx.progress}}%; Xbackground-color: black">
+                        </div>
+                    </div>
                 </li>
-                <li>
-                    <a href="/console/bucket/">Buckets List</a>
-                </li>
-                <li class="active">{{bucket.name}}</li>
-            </ol>
-
-        </div>
-
-        <div class="well well-sm" style="margin: 30px 0">
-            <table class="table table-no-borders table-center" style="margin:0">
-                <tr class="text-center">
-                    <th>Bucket Status</th>
-                    <th>Files</th>
-                    <th>Net Storage</th>
-                </tr>
-                <tr>
-                    <td><i class="fa fa-check fa-lg"></i> Healthy</td>
-                    <td>{{bucket.num_objects}}</td>
-                    <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
-                </tr>
-            </table>
-        </div>
-
-
-        <div class="Xwell" style="margin: 30px 0">
-
-            <ul class="nav nav-pills" style="margin: 0 0 15px 0">
-                <li ng-class="{active:bucket_router.route=='files'}">
-                    <a ng-click="bucket_router.set('files')">Files List</a>
-                </li>
-                <li ng-class="{active: bucket_router.route=='stats'}">
-                    <a ng-click="bucket_router.set('stats')">Statistics</a>
-                </li>
-                <li ng-class="{active: bucket_router.route=='tiering'}">
-                    <a ng-click="bucket_router.set('tiering')">Tiering</a>
-                </li>
-                <li ng-class="{active: bucket_router.route=='settings'}">
-                    <a ng-click="bucket_router.set('settings')">Settings</a>
-                </li>
-                <li ng-class="{active: bucket_router.route=='link'}">
-                    <a ng-click="bucket_router.set('link')">Link</a>
+                <li ng-show="tx.done">
+                    <button class="btn btn-link btn-primary" nb-click="nbFiles.clear_transfer(tx)">
+                        Dismiss
+                    </button>
                 </li>
             </ul>
-
-            <div nb-hash-router-view="bucket_router"></div>
-
         </div>
-
     </div>
+
 </div>

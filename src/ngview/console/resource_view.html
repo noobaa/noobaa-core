@@ -1,0 +1,58 @@
+<div ng-controller="SystemResourceCtrl">
+
+    <div class="page-header">
+
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">System</a>
+            </li>
+            <li class="active">Resources</li>
+        </ol>
+
+        <h1 class="text-center capitalize">Resources</h1>
+
+    </div>
+
+    <div class="row" style="margin-top: 30px">
+
+        <div class="col-sm-3">
+            <h4 class="text-primary">
+                Distributed Tiers
+            </h4>
+            <p class="text-muted">
+                Distributed tiers are composed of computers, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets.
+            </p>
+        </div>
+
+        <div class="col-sm-9">
+            <div class="table-responsive">
+                <table class="table table-no-borders">
+                    <tr>
+                        <th>Tier Name</th>
+                        <th>Status</th>
+                        <th>Nodes</th>
+                        <th>Net Storage</th>
+                        <th>Raw Storage</th>
+                    </tr>
+                    <tr ng-repeat="tier in nbSystem.system.tiers">
+                        <td class="table-btn text-left">
+                            <a ng-href="tier/{{tier.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                                <span ng-switch="tier.kind" class="text-muted">
+                                    <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
+                                    <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
+                                </span>
+                                {{tier.name}}
+                            </a>
+                        </td>
+                        <td>Healthy <i class="fa fa-check fa-lg"></i>
+                        </td>
+                        <td>{{tier.nodes.online}}</td>
+                        <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
+                        <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>

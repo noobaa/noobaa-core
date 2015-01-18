@@ -22,7 +22,8 @@
             <div ng-if="nbClient.account">
                 <div class="dropdown clearfix">
                     <a class="btn btn-link btn-block dropdown-toggle" data-toggle="dropdown">
-                        <i class="mdi-action-account-circle pull-left" style="font-size: 30px; margin: -6px 5px 0 0"></i> <small>{{nbClient.account.email}}</small>
+                        <i class="mdi-action-account-circle pull-left" style="font-size: 30px; margin: -6px 5px 0 0"></i>
+                        <small>{{nbClient.account.email}}</small>
                         <i class="fa fa-angle-down fa-lg pull-right"></i>
                     </a>
                     <ul class="dropdown-menu" role="menu">
@@ -47,10 +48,12 @@
             <ul class="nav nav-pills nav-stacked" ng-if="nbSystem.system">
                 <li>
                     <p>
+                        <!-- <a/>
                         <small>
                             SYSTEM
-                            <!-- Health <i class="fa fa-check fa-lg"></i> -->
+                            Health <i class="fa fa-check fa-lg"></i>
                         </small>
+                        </a>-->
                     </p>
                 </li>
                 <li ng-class="{active: nav.active=='overview'}">
@@ -61,10 +64,10 @@
 
                 <li>
                     <p>
-                        <small>DATA</small>
+                        <a href="/console/data"><small>DATA</small></a>
                     </p>
                 </li>
-                <li ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='buckets'}">
+                <li ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
                     <a ng-href="/console/bucket/{{bucket.name}}">
                         <i class="fa fa-folder-o fa-fw fa-lg pull-left"></i>
                         <span class="capitalize">{{bucket.name}}</span>
@@ -79,10 +82,10 @@
 
                 <li>
                     <p>
-                        <small>RESOURCES</small>
+                        <a href="/console/resource"><small>RESOURCES</small></a>
                     </p>
                 </li>
-                <li ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tiers'}">
+                <li ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tier'}">
                     <a ng-href="/console/tier/{{tier.name}}">
                         <i class="fa fa-spinner fa-fw fa-lg pull-left"></i>
                         <span class="capitalize">{{tier.name}}</span>
@@ -100,7 +103,7 @@
                 </li>
                 <li>
                     <p>
-                        <small>INFO</small>
+                        <a><small>INFO</small></a>
                     </p>
                 </li>
                 <li class="dropdown">
@@ -143,15 +146,11 @@
     </div>
 
     <div class="sidebar-content">
-        <div class="container">
+        <div class="container-fluid">
 
-            <div class="clearfix">
-                <div class="visible-xs visible-sm pull-left">
-                    <a class="navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-left" style="padding-left: 0">
-                        <i class="fa fa-bars fa-lg"></i>
-                    </a>
-                </div>
-            </div>
+            <a class="navbar-toggle toggle-left visible-xs visible-sm pull-left" data-toggle="sidebar" data-target=".sidebar-left" style="padding: 10px">
+                <i class="fa fa-bars fa-lg"></i>
+            </a>
 
             <div ng-view></div>
         </div>

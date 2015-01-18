@@ -1,0 +1,54 @@
+<div ng-controller="SystemDataCtrl">
+
+    <div class="page-header">
+
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">System</a>
+            </li>
+            <li class="active">Data</li>
+        </ol>
+
+        <h1 class="text-center capitalize">Data</h1>
+
+    </div>
+
+    <div class="row" style="margin-top: 30px">
+
+        <div class="col-sm-3">
+            <h4 class="text-primary">
+                Data Buckets
+            </h4>
+            <p class="text-muted">
+                Buckets are containers for storing files that can be configured with policies for tiering, quota, retention, etc.
+            </p>
+        </div>
+
+        <div class="col-sm-9">
+            <div class="table-responsive">
+                <table class="table table-no-borders">
+                    <tr>
+                        <th>Bucket Name</th>
+                        <th>Status</th>
+                        <th>Files</th>
+                        <th>Net Storage</th>
+                        <th>Tiers</th>
+                    </tr>
+                    <tr ng-repeat="bucket in nbSystem.system.buckets">
+                        <td class="table-btn text-left">
+                            <a ng-href="bucket/{{bucket.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                                <i class="fa fa-folder-o fa-lg fa-fw text-muted"></i> {{bucket.name}}
+                            </a>
+                        </td>
+                        <td>Healthy <i class="fa fa-check fa-lg"></i>
+                        </td>
+                        <td>{{bucket.num_objects}}</td>
+                        <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
+                        <td>{{bucket.tiering}}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+</div>

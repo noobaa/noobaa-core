@@ -23,7 +23,8 @@ var nb_console = angular.module('nb_console', [
 nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
     function($routeProvider, $locationProvider, $compileProvider) {
         // allow blob urls
-        $compileProvider.imgSrcSanitizationWhitelist(/^\s*(blob):/);
+        $compileProvider.imgSrcSanitizationWhitelist(/^\s*(https?|file|blob|filesystem):/);
+        $compileProvider.aHrefSanitizationWhitelist(/^\s*(https?|file|blob|filesystem):/);
         // routes
         $locationProvider.html5Mode(true);
         // using reloadOnSearch=false to ignore hash changes for the sake of nbHashRouter
@@ -391,15 +392,10 @@ nb_console.controller('FileViewCtrl', [
         $scope.nav.reload_view = reload_view;
         $scope.goto_block = goto_block;
         $scope.download = download;
-        $scope.save = save;
         $scope.play = play;
         $scope.parts_num_pages = 0;
         $scope.parts_page_size = 10;
         $scope.parts_query = {};
-        $scope.download_url = $sce.trustAsResourceUrl(
-            'http://localhost:5006/b/' +
-            $routeParams.bucket_name + '/o/' +
-            $routeParams.file_name + '?download=1');
 
         var file_router = $scope.file_router =
             nbHashRouter($scope)
@@ -448,6 +444,10 @@ nb_console.controller('FileViewCtrl', [
                 .then(function(res) {
                     $scope.file = res;
 
+                    $scope.download_url = $sce.trustAsResourceUrl(
+                        'http://localhost:5006/b/' +
+                        $routeParams.bucket_name + '/o/' +
+                        $routeParams.file_name + '?download=1');
                     $scope.play_url = $sce.trustAsResourceUrl(
                         'http://localhost:5006/b/' +
                         $routeParams.bucket_name + '/' +
@@ -488,15 +488,10 @@ nb_console.controller('FileViewCtrl', [
         }
 
         function download() {
-            // $window.location = $scope.download_url;
             return nbFiles.download_file($routeParams.bucket_name, $scope.file)
                 .then(function(tx) {
                     $scope.dl = tx;
                 });
-        }
-
-        function save() {
-            $scope.saver = new $window.FileSaver($scope.dl.output_file, $scope.file.content_type);
         }
 
         function play() {

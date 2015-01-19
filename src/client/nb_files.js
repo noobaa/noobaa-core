@@ -155,7 +155,7 @@ nb_api.factory('nbFiles', [
                         bucket: bucket_name,
                         file: file,
                         output_file: res.file_entry,
-                        // url: $sce.trustAsResourceUrl(res.file_entry.toURL()),
+                        url: res.file_entry.toURL(),
                         name: file.name,
                         size: file.size,
                         content_type: file.type,
@@ -170,7 +170,10 @@ nb_api.factory('nbFiles', [
                             .pipe(res.writer)
                             .on('progress', function(pos) {
                                 tx.progress = (100 * pos / file.size);
-                                // progress(pos);
+                                if (progress) {
+                                    progress(pos);
+                                }
+                                $rootScope.safe_apply();
                             })
                             .once('finish', function() {
                                 tx.done = true;
@@ -182,16 +185,19 @@ nb_api.factory('nbFiles', [
                                 console.log('download completed', elapsed, speed);
                                 nbAlertify.success('download completed');
                                 resolve();
+                                $rootScope.safe_apply();
                             })
                             .once('error', function(err) {
                                 tx.error = err;
                                 console.error('download failed', err);
                                 nbAlertify.error('download failed. ' + err.toString());
                                 reject(err);
+                                $rootScope.safe_apply();
                             });
                     });
                     console.log('DOWNLOAD', tx);
                     $scope.transfers.push(tx);
+                    $rootScope.safe_apply();
                     return tx;
                 });
         }
@@ -216,7 +222,9 @@ nb_api.factory('nbFiles', [
                                 resolve({
                                     fs: fs,
                                     file_entry: file_entry,
-                                    writer: new BrowserFileWriter(file_writer, $window.Blob)
+                                    writer: new BrowserFileWriter(file_writer, $window.Blob, {
+                                        highWaterMark: size_utils.MEGABYTE,
+                                    })
                                 });
                             }, reject);
                         }, reject);

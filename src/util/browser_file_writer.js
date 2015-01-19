@@ -45,7 +45,6 @@ BrowserFileWriter.prototype._write = function(chunk, encoding, callback) {
         callback();
     };
     console.log('write blob', chunk.length);
-    // var blob = chunk.toArrayBuffer();
     var blob = new self.Blob([chunk.toArrayBuffer()]);
     self._file_writer.write(blob);
 };

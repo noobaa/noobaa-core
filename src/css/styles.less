@@ -27,6 +27,7 @@
 @border-color: darken(@body-bg, 15%);
 @modal-backdrop-opacity: 0.6;
 @grid-float-breakpoint: 0;
+@grid-gutter-width: 50px;
 
 @brand-primary: @primary;
 @brand-success: @success;
@@ -36,7 +37,7 @@
 
 /* @font-family-sans-serif: "Helvetica Neue", Helvetica, Arial, sans-serif; */
 /* @font-family-sans-serif: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif; */
-/* @font-size-base: 15px; */
+@font-size-base: 15px;
 /* @headings-font-weight: 900; */
 /* *:not(input) {
     text-transform: uppercase !important;
@@ -107,7 +108,7 @@ table {
             padding: 0;
         }
         >li >p {
-            padding: 20px 0 2px 0;
+            padding: 20px 0 2px;
             margin: 0;
         }
         >li >a {
@@ -135,18 +136,23 @@ table {
 }
 .page-header {
     .clearfix;
-    margin: 0 -15px;
-    background-color: hsla(0, 0%, 0%, 0.01);
+    margin: 0 -(@grid-gutter-width/2);
+    padding: 0 (@grid-gutter-width/2);
+    background-color: hsla(0, 0%, 0%, 0.05);
     border: none;
     .breadcrumb {
         margin: 7px 0;
         background-color: transparent;
     }
+    h1 {
+        margin-top: 10px;
+        margin-bottom: 15px;
+    }
 }
 .nav-tabs {
     .noselect;
     text-align: center;
-    margin: 0 0 30px 0;
+    margin: 0 0 30px;
     /* border-top: 1px solid @border-color; */
     border-bottom: 1px solid @border-color;
     background-color: transparent;
@@ -262,15 +268,43 @@ hr {
 
 }
 .table-properties {
+    /* .table-condensed */;
+    .table-no-borders;
     &,
     table& {
-        tr >th {
-            width: 50%;
-            text-align: right;
+        margin-bottom: 10px;
+        tr {
+            >th,
+            >td {
+                white-space: nowrap;
+                width: 1px;
+            }
+            >th {
+                text-align: right;
+            }
+            >td {
+                text-align: left;
+            }
+            >td:last-child,
+            >td:first-child {
+                width: auto;
+            }
         }
-        tr >td {
-            width: 50%;
-            text-align: left;
+        @media (max-width: @screen-sm) {
+            display: block;
+            tr {
+                display: block;
+                >th,
+                >tr {
+                    width: 50% !important;
+                    display: block;
+                    float: left;
+                }
+                >td:last-child,
+                >td:first-child {
+                    display: none;
+                }
+            }
         }
     }
 
@@ -297,6 +331,24 @@ hr {
         padding-left: 10px;
         padding-right: 10px;
         text-align: left;
+    }
+
+}
+.text-center-xs {
+    @media (max-width: @screen-sm) {
+        text-align: center;
+    }
+
+}
+.text-center-sm {
+    @media (max-width: @screen-md) {
+        text-align: center;
+    }
+
+}
+.text-center-md {
+    @media (max-width: @screen-lg) {
+        text-align: center;
     }
 
 }

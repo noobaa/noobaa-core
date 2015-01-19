@@ -12,31 +12,30 @@
             <li class="active">{{bucket.name}}</li>
         </ol>
 
+        <div class="clearfix"></div>
+
         <h1 class="text-center capitalize">
             <i class="fa fa-folder fa-lg fa-fw text-primary"></i> {{bucket.name}}
         </h1>
 
-        <table class="table table-no-borders table-properties">
+        <p class="text-center text-muted">
+            <i>Data Bucket</i> &nbsp;
+            <i class="fa fa-info-circle fa-fw" rel="tooltip" title="A bucket is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom"></i>
+        </p>
+
+        <table class="table table-properties">
             <tr>
-                <td colspan="2" style="text-align: center">
-                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A bucket is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom"></i>
-                    <i>Data Bucket</i> &nbsp;
-                </td>
-            </tr>
-            <tr>
+                <td></td>
                 <th>Status</th>
                 <td>Healthy <i class="fa fa-check fa-lg"></i>
                 </td>
-            </tr>
-            <tr>
                 <th>Files</th>
                 <td>{{bucket.num_objects}}</td>
-            </tr>
-            <tr>
                 <th>Storage</th>
                 <td>{{human_size(bucket.storage.used)}}
                     <!-- of {{human_size(bucket.storage.alloc)}} -->
                 </td>
+                <td></td>
             </tr>
         </table>
     </div>

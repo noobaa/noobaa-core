@@ -12,6 +12,8 @@
             <li class="active">{{tier.name}}</li>
         </ol>
 
+        <div class="clearfix"></div>
+
         <h1 class="text-center capitalize">
             <span ng-switch="tier.kind" class="text-primary">
                 <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
@@ -20,29 +22,24 @@
             {{tier.name}}
         </h1>
 
-        <table class="table table-no-borders table-properties">
+        <p class="text-center text-muted">
+            <i>Distributed Tier</i> &nbsp;
+            <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="Distributed tiers are composed of computers, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets" data-placement="bottom"></i>
+        </p>
+
+        <table class="table table-properties">
             <tr>
-                <td colspan="2" style="text-align: center">
-                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="Distributed tiers are composed of computers, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets" data-placement="bottom"></i>
-                    <i>Distributed Tier</i> &nbsp;
-                </td>
-            </tr>
-            <tr>
+                <td></td>
                 <th>Status</th>
                 <td>Healthy <i class="fa fa-check fa-lg"></i>
                 </td>
-            </tr>
-            <tr>
                 <th>Nodes</th>
                 <td>{{tier.nodes.online}}</td>
-            </tr>
-            <tr>
                 <th>Net Storage</th>
                 <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
-            </tr>
-            <tr>
                 <th>Raw Storage</th>
                 <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
+                <td></td>
             </tr>
         </table>
     </div>

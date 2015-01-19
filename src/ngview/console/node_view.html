@@ -15,34 +15,31 @@
             <li class="active">{{node.name}}</li>
         </ol>
 
+        <div class="clearfix"></div>
+
         <h1 class="text-center capitalize">
             <i class="fa fa-desktop fa-lg fa-fw text-primary"></i> {{node.name}}
         </h1>
 
-        <table class="table table-no-borders table-properties" style="margin:0">
+        <p class="text-center text-muted">
+            <i>Resource Node</i> &nbsp;
+            <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A node is a computer that was connected to the system. It's running an agent that allows it to be used as a storage node." data-placement="bottom"></i>
+        </p>
+
+        <table class="table table-properties">
             <tr>
-                <td colspan="2" style="text-align: center">
-                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A node is a computer that was connected to the system. It's running an agent that allows it to be used as a storage node." data-placement="bottom"></i>
-                    <i>Resource Node</i> &nbsp;
-                </td>
-            </tr>
-            <tr>
+                <td></td>
                 <th>Status</th>
                 <td>Healthy <i class="fa fa-check fa-lg"></i>
                 </td>
-            </tr>
-            <tr>
                 <th>Trust Level</th>
                 <td>Trusted <i class="mdi-action-verified-user"></i>
                 </td>
-            </tr>
-            <tr>
                 <th>Network Address</th>
                 <td>{{node.ip}}:{{node.port}}</td>
-            </tr>
-            <tr>
                 <th>Used Storage</th>
                 <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
+                <td></td>
             </tr>
         </table>
     </div>

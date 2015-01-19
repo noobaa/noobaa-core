@@ -602,10 +602,7 @@ function get_node_full_info(node) {
         used: node.storage.used || 0,
     };
     info.online = node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
-    info.device_info =
-        node.device_info &&
-        node.device_info.toObject &&
-        node.device_info.toObject() || {};
+    info.device_info = node.device_info || {};
     return info;
 }
 

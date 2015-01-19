@@ -32,7 +32,13 @@
             <tr>
                 <td></td>
                 <th>Status</th>
-                <td>Healthy <i class="fa fa-check fa-lg"></i>
+                <td>
+                    <span ng-if="node.online">
+                        Healthy <i class="fa fa-check fa-lg"></i>
+                    </span>
+                    <span ng-if="!node.online">
+                        Offline <i class="fa fa-plug fa-lg text-warning"></i>
+                    </span>
                 </td>
                 <th>Trust Level</th>
                 <td>Trusted <i class="mdi-action-verified-user"></i>
@@ -51,15 +57,15 @@
         <li ng-class="{active: node_router.route == 'files'}">
             <a ng-click="node_router.set('files')">Files</a>
         </li>
-        <li ng-class="{active: node_router.route == 'settings'}">
+        <!-- <li ng-class="{active: node_router.route == 'settings'}">
             <a ng-click="node_router.set('settings')">Settings</a>
-        </li>
+        </li> -->
         <li ng-class="{active: node_router.route == 'properties'}">
             <a ng-click="node_router.set('properties')">Properties</a>
         </li>
-        <li ng-class="{active: node_router.route == 'stats'}">
+        <!-- <li ng-class="{active: node_router.route == 'stats'}">
             <a ng-click="node_router.set('stats')">Statistics</a>
-        </li>
+        </li> -->
     </ul>
 
     <div nb-hash-router-view="node_router"></div>

@@ -17,6 +17,8 @@ var size_utils = require('../util/size_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var dbg = require('../util/dbg')(__filename);
+var evp_bytes_to_key = require('browserify/node_modules/crypto-browserify/node_modules/browserify-aes/EVP_BytesToKey');
+var subtle_crypto = global && global.crypto && global.crypto.subtle;
 
 module.exports = ObjectClient;
 
@@ -220,11 +222,15 @@ ObjectClient.prototype._write_object_part = function(params) {
             hash_type: 'sha256',
             cipher_type: 'aes256',
         };
-        var encrypted_buffer = encrypt_chunk(params.buffer, create_part_params.crypt);
-        create_part_params.chunk_size = encrypted_buffer.length;
-        dbg.log2('_write_object_part', create_part_params, 'plain length', params.buffer.length);
-
-        self.allocate_object_part(create_part_params)
+        var encrypted_buffer;
+        encrypt_chunk(params.buffer, create_part_params.crypt)
+            .then(function(buf) {
+                encrypted_buffer = buf;
+                create_part_params.chunk_size = encrypted_buffer.length;
+                dbg.log2('_write_object_part', create_part_params,
+                    'plain length', params.buffer.length);
+                return self.allocate_object_part(create_part_params);
+            })
             .then(function(res) {
                 if (res.dedup) {
                     part = part_params;
@@ -713,8 +719,11 @@ ObjectClient.prototype._read_object_part = function(part) {
         .then(function() {
             var encrypted_buffer = decode_chunk(part, buffer_per_fragment);
             dbg.log2('decrypt_chunk', encrypted_buffer.length, part);
-            var chunk = decrypt_chunk(encrypted_buffer, part.crypt);
-            part.buffer = chunk.slice(part.chunk_offset, part.chunk_offset + part.end - part.start);
+            return decrypt_chunk(encrypted_buffer, part.crypt);
+        }).then(function(chunk) {
+            part.buffer = chunk.slice(
+                part.chunk_offset,
+                part.chunk_offset + part.end - part.start);
             return part;
         });
 };
@@ -994,21 +1003,47 @@ function decode_chunk(part, buffer_per_fragment) {
  *
  */
 function encrypt_chunk(plain_buffer, crypt_info) {
-    var hasher = crypto.createHash(crypt_info.hash_type);
-    hasher.update(plain_buffer);
-    crypt_info.hash_val = hasher.digest('base64');
 
-    // convergent encryption - use data hash as cipher key
-    crypt_info.cipher_val = crypt_info.hash_val;
+    return Q.fcall(function() {
+        return digest_hash_base64(crypt_info.hash_type, plain_buffer);
 
-    var cipher = crypto.createCipher(crypt_info.cipher_type, crypt_info.cipher_val);
-    var encrypted_buffer = cipher.update(plain_buffer);
-    var cipher_final = cipher.final();
-    if (cipher_final && cipher_final.length) {
-        encrypted_buffer = Buffer.concat([encrypted_buffer, cipher_final]);
-    }
+    }).then(function(hash_val) {
 
-    return encrypted_buffer;
+        // convergent encryption - use data hash as cipher key
+        crypt_info.cipher_val = hash_val;
+        crypt_info.hash_val = hash_val;
+
+        // WebCrypto optimization
+        // the improvement is drastic in supported browsers
+        // over pure js code from crypto-browserify
+        if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
+            var keys = evp_bytes_to_key(crypto, crypt_info.cipher_val, 256, 16);
+            return subtle_crypto.importKey('raw', keys.key, {
+                    name: "AES-CBC",
+                    length: 256
+                }, false, ['encrypt'])
+                .then(function(key) {
+                    return subtle_crypto.encrypt({
+                        name: "AES-CBC",
+                        length: 256,
+                        iv: keys.iv,
+                    }, key, plain_buffer.toArrayBuffer());
+                })
+                .then(function(encrypted_array) {
+                    var encrypted_buffer = new Buffer(new Uint8Array(encrypted_array));
+                    return encrypted_buffer;
+                });
+        }
+
+        // use node.js crypto cipher api
+        var cipher = crypto.createCipher(crypt_info.cipher_type, crypt_info.cipher_val);
+        var encrypted_buffer = cipher.update(plain_buffer);
+        var cipher_final = cipher.final();
+        if (cipher_final && cipher_final.length) {
+            encrypted_buffer = Buffer.concat([encrypted_buffer, cipher_final]);
+        }
+        return encrypted_buffer;
+    });
 }
 
 
@@ -1018,21 +1053,69 @@ function encrypt_chunk(plain_buffer, crypt_info) {
  *
  */
 function decrypt_chunk(encrypted_buffer, crypt_info) {
-    var decipher = crypto.createDecipher(crypt_info.cipher_type, crypt_info.cipher_val);
-    var plain_buffer = decipher.update(encrypted_buffer);
-    var decipher_final = decipher.final();
-    if (decipher_final && decipher_final.length) {
-        plain_buffer = Buffer.concat([plain_buffer, decipher_final]);
+    var plain_buffer;
+
+    return Q.fcall(function() {
+
+        // WebCrypto optimization
+        // the improvement is drastic in supported browsers
+        // over pure js code from crypto-browserify
+        if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
+            var keys = evp_bytes_to_key(crypto, crypt_info.cipher_val, 256, 16);
+            return subtle_crypto.importKey('raw', keys.key, {
+                    name: "AES-CBC",
+                    length: 256
+                }, false, ['decrypt'])
+                .then(function(key) {
+                    return subtle_crypto.decrypt({
+                        name: "AES-CBC",
+                        length: 256,
+                        iv: keys.iv,
+                    }, key, encrypted_buffer.toArrayBuffer());
+                })
+                .then(function(plain_array) {
+                    plain_buffer = new Buffer(new Uint8Array(plain_array));
+                });
+        }
+
+        // use node.js crypto decipher api
+        var decipher = crypto.createDecipher(
+            crypt_info.cipher_type, crypt_info.cipher_val);
+        plain_buffer = decipher.update(encrypted_buffer);
+        var decipher_final = decipher.final();
+        if (decipher_final && decipher_final.length) {
+            plain_buffer = Buffer.concat([plain_buffer, decipher_final]);
+        }
+
+    }).then(function() {
+        return digest_hash_base64(crypt_info.hash_type, plain_buffer);
+
+    }).then(function(hash_val) {
+        if (hash_val !== crypt_info.hash_val) {
+            console.error('HASH CHECKSUM FAILED', hash_val, crypt_info);
+            throw new Error('hash checksum failed');
+        }
+        return plain_buffer;
+    });
+}
+
+
+function digest_hash_base64(hash_type, buffer) {
+
+    // WebCrypto optimization
+    if (subtle_crypto && hash_type === 'sha256') {
+        return subtle_crypto.digest({
+                name: 'SHA-256'
+            }, buffer.toArrayBuffer())
+            .then(function(hash_digest) {
+                var hash_val = new Buffer(new Uint8Array(hash_digest)).toString('base64');
+                return hash_val;
+            });
     }
 
-    var hasher = crypto.createHash(crypt_info.hash_type);
-    hasher.update(plain_buffer);
+    // use node.js crypto hash api
+    var hasher = crypto.createHash(hash_type);
+    hasher.update(buffer);
     var hash_val = hasher.digest('base64');
-
-    if (hash_val !== crypt_info.hash_val) {
-        console.error('HASH CHECKSUM FAILED', hash_val, crypt_info);
-        throw new Error('hash checksum failed');
-    }
-
-    return plain_buffer;
+    return hash_val;
 }

@@ -2,7 +2,7 @@
 
     <div class="page-header">
 
-        <ol class="breadcrumb capitalize">
+        <ol class="breadcrumb">
             <li>
                 <a href="/console/">System</a>
             </li>
@@ -17,55 +17,58 @@
 
         <div class="clearfix"></div>
 
-        <h1 class="text-center" style="word-break: break-all; text-overflow: ellipsis; overflow: hidden">
-            <i class="fa fa-file fa-lg fa-fw text-primary"></i> {{file.name}}
+        <h1 style="word-break: break-all; text-overflow: ellipsis; overflow: hidden">
+            <i class="fa fa-file fa-lg fa-fw text-primary pull-left"></i>
+            <div class="hflow">
+                {{file.name}} &nbsp;
+                <small>
+                    <i>File Object</i> &nbsp;
+                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A file object is a file content stored on the system" data-placement="bottom"></i>
+                </small>
+            </div>
         </h1>
 
-        <p class="text-center text-muted" style="padding-left: 8px">
-            <small>
-                <i>File Object</i> &nbsp;
-                <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A file object is a file content stored on the system" data-placement="bottom"></i>
-            </small>
-        </p>
+        <div class="page-properties">
+            <table class="table table-properties">
+                <tr>
+                    <!-- <td></td> -->
+                    <th>Status</th>
+                    <td>Healthy <i class="fa fa-check fa-lg"></i>
+                    </td>
+                    <th>Bucket</th>
+                    <td>{{bucket.name}}</td>
+                    <th>Content Type</th>
+                    <td>{{file.content_type}}</td>
+                    <th>Size</th>
+                    <td>{{human_size(file.size)}}</td>
+                    <th>Created</th>
+                    <td ng-attr-title="{{file.create_time.format('LLL')}}">
+                        {{file.create_time.fromNow()}}
+                    </td>
+                    <td></td>
+                </tr>
+            </table>
+        </div>
 
-        <table class="table table-properties">
-            <tr>
-                <td></td>
-                <th>Status</th>
-                <td>Healthy <i class="fa fa-check fa-lg"></i>
-                </td>
-                <th>Bucket</th>
-                <td>{{bucket.name}}</td>
-                <th>Content Type</th>
-                <td>{{file.content_type}}</td>
-                <th>Size</th>
-                <td>{{human_size(file.size)}}</td>
-                <th>Created</th>
-                <td ng-attr-title="{{file.create_time.format('LLL')}}">
-                    {{file.create_time.fromNow()}}
-                </td>
-                <td></td>
-            </tr>
-        </table>
+        <ul class="nav nav-tabs">
+            <li ng-class="{active:file_router.route=='parts'}">
+                <a ng-click="file_router.set('parts')">Parts List</a>
+            </li>
+            <!-- <li ng-class="{active: file_router.route=='settings'}">
+                <a ng-click="file_router.set('settings')">Settings</a>
+            </li> -->
+            <!-- <li ng-class="{active: file_router.route=='properties'}">
+                <a ng-click="file_router.set('properties')">Properties</a>
+            </li> -->
+            <!-- <li ng-class="{active: file_router.route=='stats'}">
+                <a ng-click="file_router.set('stats')">Statistics</a>
+            </li> -->
+            <!-- <li ng-class="{active: file_router.route=='link'}">
+                <a ng-click="file_router.set('link')">Link</a>
+            </li> -->
+        </ul>
+
     </div>
-
-    <ul class="nav nav-tabs">
-        <li ng-class="{active:file_router.route=='parts'}">
-            <a ng-click="file_router.set('parts')">Parts List</a>
-        </li>
-        <!-- <li ng-class="{active: file_router.route=='settings'}">
-            <a ng-click="file_router.set('settings')">Settings</a>
-        </li> -->
-        <!-- <li ng-class="{active: file_router.route=='properties'}">
-            <a ng-click="file_router.set('properties')">Properties</a>
-        </li> -->
-        <!-- <li ng-class="{active: file_router.route=='stats'}">
-            <a ng-click="file_router.set('stats')">Statistics</a>
-        </li> -->
-        <!-- <li ng-class="{active: file_router.route=='link'}">
-            <a ng-click="file_router.set('link')">Link</a>
-        </li> -->
-    </ul>
 
     <div nb-hash-router-view="file_router"></div>
 

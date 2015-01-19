@@ -40,7 +40,7 @@ function AgentCLI(params) {
         email: 'demo@noobaa.com',
         password: 'DeMo',
         system: 'demo',
-        tier: 'nodes',
+        tier: 'devices',
         bucket: 'files',
     });
     self.client = new api.Client();

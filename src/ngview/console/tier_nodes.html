@@ -2,22 +2,22 @@
 
     <div class="col-sm-3">
         <h4 class="text-primary">
-            Nodes in this tier
+            Devices in this tier
         </h4>
-        <div class="form-group">
-            <input type="text" class="form-control floating-label" placeholder="Search in nodes" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)" />
-        </div>
         <p class="text-muted">
-            Click on a node name to get more information.
+            Click a device name to get more information.
         </p>
     </div>
 
     <div class="col-sm-9">
+        <div class="form-group">
+            <input type="text" class="form-control floating-label" placeholder="Search in devices" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)" />
+        </div>
         <div class="table-responsive">
             <table class="table table-no-borders">
                 <tr>
                     <!-- <th></th> -->
-                    <th>Node Name</th>
+                    <th>Device Name</th>
                     <th>Raw Storage</th>
                     <th>Status</th>
                 </tr>

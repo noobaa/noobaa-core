@@ -138,7 +138,7 @@ table {
     .clearfix;
     margin: 0 -(@grid-gutter-width/2);
     padding: 0 (@grid-gutter-width/2);
-    background-color: hsla(0, 0%, 0%, 0.05);
+    background-color: hsla(0, 0%, 0%, 0.02);
     border: none;
     .breadcrumb {
         margin: 7px 0;
@@ -272,6 +272,7 @@ hr {
     .table-no-borders;
     &,
     table& {
+        font-size: 13px;
         margin-bottom: 10px;
         tr {
             >th,
@@ -281,9 +282,12 @@ hr {
             }
             >th {
                 text-align: right;
+                font-weight: normal;
             }
             >td {
                 text-align: left;
+                color: darken(@gray-light, 5%);
+                font-weight: bold;
             }
             >td:last-child,
             >td:first-child {

@@ -7,7 +7,7 @@
         <div class="col-sm-3" ng-init="new_name=tier.name">
             <form class="form">
                 <input type="text" class="form-control" ng-model="new_name" />
-                <button class="btn btn-default btn-raised" ng-disabled="!new_name || new_name==tier.name">
+                <button class="btn btn-default btn-flat" ng-disabled="!new_name || new_name==tier.name">
                     Rename
                 </button>
             </form>
@@ -21,7 +21,7 @@
             <h4 class="text-primary">Delete</h4>
         </div>
         <div class="col-sm-3">
-            <button class="btn btn-danger">
+            <button class="btn btn-danger btn-flat">
                 Delete permanently
             </button>
         </div>

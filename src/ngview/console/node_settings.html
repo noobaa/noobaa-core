@@ -7,7 +7,7 @@
         <div class="col-sm-3">
             <form class="form" ng-init="new_name=node.name">
                 <input type="text" class="form-control" ng-model="new_name" />
-                <button class="btn btn-default btn-raised" ng-disabled="!new_name || new_name==node.name">
+                <button class="btn btn-default btn-flat" ng-disabled="!new_name || new_name==node.name">
                     Rename
                 </button>
             </form>
@@ -23,7 +23,7 @@
         <div class="col-sm-3">
             <form class="form" ng-init="new_alloc=node.storage.alloc/1024/1024/1024">
                 <input type="number" class="form-control" ng-model="new_alloc" />
-                <button class="btn btn-default btn-raised" ng-disabled="!new_alloc || new_alloc==node.storage.alloc/1024/1024/1024">
+                <button class="btn btn-default btn-flat" ng-disabled="!new_alloc || new_alloc==node.storage.alloc/1024/1024/1024">
                     Update
                 </button>
             </form>
@@ -50,7 +50,7 @@
                         Decommission
                     </label>
                 </div>
-                <button class="btn btn-default btn-raised" ng-disabled="">
+                <button class="btn btn-default btn-flat" ng-disabled="">
                     Update
                 </button>
             </form>
@@ -64,12 +64,12 @@
             <h4 class="text-primary">Delete</h4>
         </div>
         <div class="col-sm-3">
-            <button class="btn btn-danger">
+            <button class="btn btn-danger btn-flat">
                 Delete permanently
             </button>
         </div>
     </div>
 
     <br/>
-    
+
 </div>

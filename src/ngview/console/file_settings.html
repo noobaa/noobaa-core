@@ -7,7 +7,7 @@
         <div class="col-sm-3">
             <form class="form" ng-init="new_name=file.name">
                 <input type="text" class="form-control" ng-model="new_name" />
-                <button class="btn btn-default btn-raised" ng-disabled="!new_name || new_name==file.name">
+                <button class="btn btn-default btn-flat" ng-disabled="!new_name || new_name==file.name">
                     Rename
                 </button>
             </form>
@@ -21,7 +21,7 @@
             <h4 class="text-primary">Delete</h4>
         </div>
         <div class="col-sm-3">
-            <button class="btn btn-danger">
+            <button class="btn btn-danger btn-flat">
                 Delete permanently
             </button>
         </div>

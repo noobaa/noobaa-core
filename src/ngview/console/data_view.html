@@ -31,8 +31,8 @@
                         <th>Bucket Name</th>
                         <th>Status</th>
                         <th>Files</th>
-                        <th>Net Storage</th>
-                        <th>Tiers</th>
+                        <th>Storage</th>
+                        <!-- <th>Tiers</th> -->
                     </tr>
                     <tr ng-repeat="bucket in nbSystem.system.buckets">
                         <td class="table-btn text-left">
@@ -43,8 +43,10 @@
                         <td>Healthy <i class="fa fa-check fa-lg"></i>
                         </td>
                         <td>{{bucket.num_objects}}</td>
-                        <td>{{human_size(bucket.storage.used)}} of {{human_size(bucket.storage.alloc)}}</td>
-                        <td>{{bucket.tiering}}</td>
+                        <td>{{human_size(bucket.storage.used)}}
+                            <!-- of {{human_size(bucket.storage.alloc)}} -->
+                        </td>
+                        <!-- <td>{{bucket.tiering}}</td> -->
                     </tr>
                 </table>
             </div>

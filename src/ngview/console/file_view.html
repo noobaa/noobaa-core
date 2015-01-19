@@ -70,13 +70,17 @@
     <div nb-hash-router-view="file_router"></div>
 
     <div class="text-right" style="position: fixed; bottom: 15px; right: 15px; z-index: 10">
-        <button class="btn btn-primary btn-material-teal btn-fab mdi-av-play-arrow pull-right" ng-click="play()"></button>
+
+        <button class="btn btn-primary btn-material-teal btn-fab mdi-av-play-arrow pull-right" ng-click="play()" rel="tooltip" title="Open file content for streaming / preview..." data-placement="top"></button>
 
         <div class="pull-right" style="margin-right: 15px">
-            <button ng-if="!dl" class="btn btn-primary btn-material-lime btn-fab mdi-file-file-download" ng-click="download()"></button>
-            <a ng-if="dl && dl.done" class="btn btn-material-lime btn-fab mdi-content-save" ng-href="{{dl.url}}" ng-attr-download="{{file.name}}"></a>
-            <div ng-if="dl && !dl.done" class="dropdown dropup">
-                <button class="btn btn-primary btn-material-lime btn-fab dropdown-toggle" data-toggle="dropdown">
+
+            <div ng-if="!dl">
+                <button ng-if="!dl" class="btn btn-warning btn-fab mdi-file-file-download" ng-click="download()" rel="tooltip" title="Click to start downloading..." data-placement="top"></button>
+            </div>
+
+            <div ng-if="dl && !dl.done" class="Xdropdown dropup">
+                <button class="btn btn-primary btn-fab dropdown-toggle" data-toggle="dropdown">
                     <span style="font-size: 14px; line-height: 36px">{{dl.progress.toFixed(0)}}%</span>
                     </span>
                 </button>
@@ -90,6 +94,10 @@
                         </div>
                     </li>
                 </ul>
+            </div>
+
+            <div ng-if="dl && dl.done">
+                <a class="btn btn-success btn-fab mdi-content-save animated bounce" ng-href="{{dl.url}}" ng-attr-download="{{file.name}}" rel="tooltip" title="Click to save the downloaded file..." data-placement="top"></a>
             </div>
 
         </div>

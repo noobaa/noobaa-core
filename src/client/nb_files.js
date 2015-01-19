@@ -196,7 +196,7 @@ nb_api.factory('nbFiles', [
                             });
                     });
                     console.log('DOWNLOAD', tx);
-                    $scope.transfers.push(tx);
+                    // $scope.transfers.push(tx);
                     $rootScope.safe_apply();
                     return tx;
                 });

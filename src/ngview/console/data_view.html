@@ -46,8 +46,9 @@
                     </tr>
                     <tr ng-repeat="bucket in nbSystem.system.buckets">
                         <td class="table-btn text-left">
-                            <a ng-href="bucket/{{bucket.name}}" class="btn btn-primary btn-flat btn-block capitalize">
-                                <i class="fa fa-folder-o fa-lg fa-fw text-muted"></i> {{bucket.name}}
+                            <a ng-href="bucket/{{bucket.name}}" class="btn btn-link btn-block capitalize">
+                                <i class="fa fa-folder-o fa-lg fa-fw text-muted"></i>
+                                <span class="text-primary">{{bucket.name}}</span>
                             </a>
                         </td>
                         <td>Healthy <i class="fa fa-check fa-lg"></i>

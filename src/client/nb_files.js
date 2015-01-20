@@ -110,7 +110,13 @@ nb_api.factory('nbFiles', [
 
         function run_upload(tx) {
             console.log('upload', tx);
-            tx.name = tx.input_file.name + '_' + Date.now().toString();
+            var ext_match = tx.input_file.name.match(/^(.*)(\.[^\.]*)$/);
+            var serial = (((Date.now() / 1000) % 10000000) | 0).toString();
+            if (ext_match) {
+                tx.name = ext_match[1] + '_' + serial + ext_match[2];
+            } else {
+                tx.name = tx.input_file.name + '_' + serial;
+            }
             tx.size = tx.input_file.size;
             tx.content_type = tx.input_file.type;
             tx.start_time = Date.now();

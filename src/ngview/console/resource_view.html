@@ -46,12 +46,12 @@
                     </tr>
                     <tr ng-repeat="tier in nbSystem.system.tiers">
                         <td class="table-btn text-left">
-                            <a ng-href="tier/{{tier.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                            <a ng-href="tier/{{tier.name}}" class="btn btn-link btn-block capitalize">
                                 <span ng-switch="tier.kind" class="text-muted">
                                     <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
                                     <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
                                 </span>
-                                {{tier.name}}
+                                <span class="text-primary">{{tier.name}}</span>
                             </a>
                         </td>
                         <td>Healthy <i class="fa fa-check fa-lg"></i>

@@ -65,13 +65,14 @@ table {
 }
 .sidebar-content {
     @media (min-width: @screen-md) {
-        margin-left: 220px;
+        margin-left: 250px;
     }
 
 }
 .sidebar.sidebar-left {
     top: 0;
-    width: 220px;
+    width: 250px;
+    overflow: initial;
     background-color: @navbar-default-bg;
     @sidebar-color: lighten(desaturate(@navbar-default-bg, 5%), 57%);
     /* @sidebar-color: hsla(0, 0%, 100%, 0.75); */
@@ -519,6 +520,9 @@ table th {
 
 .hflow {
     overflow: hidden;
+}
+.aflow {
+    overflow: auto;
 }
 .relpos {
     position: relative;

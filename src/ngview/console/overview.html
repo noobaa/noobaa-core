@@ -1,9 +1,8 @@
 <div ng-controller="OverviewCtrl">
 
+    <div class="clearfix"></div>
+
     <div class="container-fluid">
-        <div class="text-center">
-            <small class="text-muted">Map displays nodes by tiers</small>
-        </div>
         <div class="row">
             <div ng-repeat="tier in nbSystem.system.tiers" class="{{$first && $last && 'col-md-offset-4 col-md-4' || 'col-md-3'}} col-xs-6">
                 <div class="pull-left" ng-init="selected=true">

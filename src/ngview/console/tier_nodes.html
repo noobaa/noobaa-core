@@ -1,6 +1,6 @@
 <div ng-cloak class="row">
 
-    <div class="col-sm-3">
+    <div class="heading-col col-sm-3">
         <h4 class="text-primary">
             Devices in this tier
         </h4>
@@ -9,7 +9,7 @@
         </p>
     </div>
 
-    <div class="col-sm-9">
+    <div class="content-col col-sm-9">
         <div class="form-group">
             <input type="text" class="form-control floating-label" placeholder="Search in devices" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)" />
         </div>

@@ -491,6 +491,9 @@ nb_console.controller('FileViewCtrl', [
             return nbFiles.download_file($routeParams.bucket_name, $scope.file)
                 .then(function(tx) {
                     $scope.dl = tx;
+                    tx.promise.then(null, function() {
+                        $scope.dl = null;
+                    });
                 });
         }
 

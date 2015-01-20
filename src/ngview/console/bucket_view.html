@@ -20,7 +20,7 @@
                 {{bucket.name}} &nbsp;
                 <small>
                     <i>Data Bucket</i> &nbsp;
-                    <i class="fa fa-info-circle fa-fw" rel="tooltip" title="A bucket is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom"></i>
+                    <i class="fa fa-info-circle fa-fw" rel="tooltip" title="A bucket is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom" data-container="body"></i>
                 </small>
             </div>
         </h1>
@@ -74,7 +74,7 @@
         <button class="btn btn-material-purple btn-fab mdi-file-file-upload pull-right" ng-click="upload()" rel="tooltip" title="Upload file to bucket..." data-placement="top"></button>
 
         <div class="dropdown dropup pull-right" ng-repeat="tx in nbFiles.transfers" style="margin-right: 15px">
-            <button class="btn btn-primary btn-fab dropdown-toggle" data-toggle="dropdown">
+            <button class="btn {{tx.error && 'btn-danger' || 'btn-primary'}} btn-fab dropdown-toggle" data-toggle="dropdown">
                 <span ng-hide="tx.done">
                     <span style="font-size: 14px; line-height: 36px">{{tx.progress.toFixed(0)}}%</span>
                 </span>
@@ -89,6 +89,7 @@
                     </div>
                 </li>
                 <li>{{human_size(tx.size)}} {{tx.content_type}}</li>
+                <li>{{tx.error}}</li>
                 <li ng-show="tx.done">
                     <button class="btn btn-primary btn-flat" nb-click="nbFiles.clear_transfer(tx)">
                         Dismiss

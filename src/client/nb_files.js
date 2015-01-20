@@ -163,11 +163,13 @@ nb_api.factory('nbFiles', [
                         progress: 0,
                     };
                     tx.promise = $q(function(resolve, reject, progress) {
-                        nbClient.client.object.open_read_stream({
+                        var reader = nbClient.client.object.open_read_stream({
                                 bucket: bucket_name,
                                 key: file.name,
                             })
-                            .pipe(res.writer)
+                            .once('error', on_error);
+
+                        reader.pipe(res.writer)
                             .on('progress', function(pos) {
                                 tx.progress = (100 * pos / file.size);
                                 if (progress) {
@@ -183,17 +185,28 @@ nb_api.factory('nbFiles', [
                                 var elapsed = duration.toFixed(1) + 'sec';
                                 var speed = $rootScope.human_size(tx.size / duration) + '/sec';
                                 console.log('download completed', elapsed, speed);
+
+                                var a = $window.document.createElement('a');
+                                a.href = tx.url;
+                                a.target = '_blank';
+                                a.download = tx.name || '';
+                                var click = $window.document.createEvent('Event');
+                                click.initEvent('click', true, true);
+                                a.dispatchEvent(click);
+
                                 nbAlertify.success('download completed');
                                 resolve();
                                 $rootScope.safe_apply();
                             })
-                            .once('error', function(err) {
-                                tx.error = err;
-                                console.error('download failed', err);
-                                nbAlertify.error('download failed. ' + err.toString());
-                                reject(err);
-                                $rootScope.safe_apply();
-                            });
+                            .once('error', on_error);
+
+                        function on_error(err) {
+                            tx.error = err;
+                            console.error('download failed', err);
+                            nbAlertify.error('download failed. ' + err.toString());
+                            reject(err);
+                            $rootScope.safe_apply();
+                        }
                     });
                     console.log('DOWNLOAD', tx);
                     // $scope.transfers.push(tx);

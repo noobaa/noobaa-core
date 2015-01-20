@@ -9,7 +9,7 @@
             <li>
                 <a href="/console/data/">Data</a>
             </li>
-            <li>
+            <li class="capitalize">
                 <a ng-href="/console/bucket/{{bucket.name}}">{{bucket.name}}</a>
             </li>
             <li class="active">{{file.name}}</li>
@@ -17,13 +17,13 @@
 
         <div class="clearfix"></div>
 
-        <h1 style="word-break: break-all; text-overflow: ellipsis; overflow: hidden">
+        <h1>
             <i class="fa fa-file fa-lg fa-fw text-primary pull-left"></i>
-            <div class="hflow">
+            <div class="hflow" style="word-break: break-all; text-overflow: ellipsis; overflow: auto">
                 {{file.name}} &nbsp;
                 <small>
                     <i>File Object</i> &nbsp;
-                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A file object is a file content stored on the system" data-placement="bottom"></i>
+                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A file object is a file content stored on the system" data-placement="bottom" data-container="body"></i>
                 </small>
             </div>
         </h1>
@@ -83,19 +83,20 @@
             </div>
 
             <div ng-if="dl && !dl.done" class="Xdropdown dropup">
-                <button class="btn btn-primary btn-fab dropdown-toggle" data-toggle="dropdown">
+                <button class="btn {{dl.error && 'btn-danger' || 'btn-primary'}} btn-fab dropdown-toggle" data-toggle="dropdown">
                     <span style="font-size: 14px; line-height: 36px">{{dl.progress.toFixed(0)}}%</span>
                     </span>
                 </button>
                 <ul class="dropdown-menu pull-right well" style="Xpadding: 15px; width: auto">
-                    <li>{{dl.name}}</li>
-                    <li>{{human_size(dl.size)}} {{dl.content_type}}</li>
+                    <li style="white-space: nowrap">{{dl.name}}</li>
                     <li>
                         <div class="progress" style="margin: 7px 0 0 0">
                             <div class="progress-bar" role="progressbar" aria-valuenow="{{dl.progress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{dl.progress}}%; Xbackground-color: black">
                             </div>
                         </div>
                     </li>
+                    <li>{{human_size(dl.size)}} {{dl.content_type}}</li>
+                    <li>{{tx.error}}</li>
                 </ul>
             </div>
 

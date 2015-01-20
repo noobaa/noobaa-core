@@ -4,7 +4,7 @@
 
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/_colors.less";
-@import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less";
+@import (less)"../../bower_components/bootstrap-material-design/less/material.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
 @import (less)"../../bower_components/bootstrap-sidebar/dist/css/sidebar.css";
 @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
@@ -22,12 +22,12 @@
 @primary: @blue-grey-500;
 /* @primary: @deep-purple-200; */
 @body-bg: hsl(0, 0%, 100%);
-@navbar-default-bg: darken(@blue-grey-600, 20%);
+@navbar-default-bg: darken(@blue-grey-600, 18%);
 @gray-light: hsl(0, 0%, 67%);
 @border-color: darken(@body-bg, 15%);
 @modal-backdrop-opacity: 0.6;
 @grid-float-breakpoint: 0;
-@grid-gutter-width: 50px;
+@grid-gutter-width: 60px;
 
 @brand-primary: @primary;
 @brand-success: @success;
@@ -41,7 +41,7 @@
 /* @headings-font-weight: 900; */
 /* *:not(input) {
     text-transform: uppercase !important;
-    font-weight: 600 !important;
+    font-weight: 500;
 } */
 
 ////////////////
@@ -73,7 +73,9 @@ table {
     top: 0;
     width: 220px;
     background-color: @navbar-default-bg;
-    @sidebar-color: @navbar-color;
+    @sidebar-color: lighten(desaturate(@navbar-default-bg, 5%), 57%);
+    /* @sidebar-color: hsla(0, 0%, 100%, 0.75); */
+    /* @sidebar-color: @navbar-color; */
     /* @sidebar-color: hsl(0, 0%, 75%); */
     color: @sidebar-color;
     padding: 0 15px;
@@ -88,7 +90,9 @@ table {
     }
     .fa,
     .mdi-action-account-circle {
-        color: hsla(0, 0%, 0%, 0.35);
+        color: darken(saturate(@navbar-default-bg, 5%), 8%);
+        /* color: hsla(0, 0%, 100%, 0.20); */
+        /* color: hsla(0, 0%, 0%, 0.35); */
         &.pull-left,
         &.pull-right {
             margin-top: 4px;
@@ -153,23 +157,37 @@ table {
     }
     h1 {
         margin-top: 15px;
-        margin-bottom: 30px;
+        margin-bottom: 5px;
         small {
             white-space: nowrap;
             font-size: 13px;
+            line-height: (1.5 * @font-size-h1);
+            .pull-right;
         }
 
     }
     .page-properties {
-        margin: 0 -(@grid-gutter-width/2);
-        padding: 0 (@grid-gutter-width/2);
-        background-color: hsla(0, 0%, 0%, 0.02);
+        /* background-color: lighten(@navbar-default-bg, 77%); */
+        /* background-color: lighten(@navbar-default-bg, 10%); */
+        /* margin: 0 -(@grid-gutter-width/2); */
+        /* padding: 0 (@grid-gutter-width/2); */
         .table-properties {
-            margin: 0;
+            th {
+                color: hsla(0,0%,0%,0.35);
+            }
+            td {
+                color: hsla(0,0%,0%,0.50);
+
+            }
+            /* margin: 0; */
         }
 
     }
     .nav-tabs {
+        /* margin: 0 -(@grid-gutter-width/2); */
+        /* padding: 0 (@grid-gutter-width/2); */
+        background-color: lighten(@navbar-default-bg, 76%);
+        border-radius: 3px;
         text-align: center;
         /*
         @media (min-width: @screen-sm) {
@@ -204,8 +222,15 @@ table {
     >li.active >a {
         color: @primary !important;
         font-weight: 700 !important;
-        border-bottom: 3px solid @primary !important;
+        border-bottom: 2px solid @primary !important;
     }
+
+}
+.heading-col {
+    line-height: 2em;
+}
+.content-col {
+
 
 }
 .btn.btn-flat {

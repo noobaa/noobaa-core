@@ -1,19 +1,19 @@
 <div ng-cloak class="row">
 
-    <div class="col-sm-3">
+    <div class="heading-col col-sm-3">
         <h4 class="text-primary">
             Files in this bucket
         </h4>
-        <div class="form-group">
-            <input type="text" class="form-control floating-label" style="Xheight: 32px" placeholder="Search in files" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
-        </div>
         <p class="text-muted">
             Click on a file name to get more information.
         </p>
     </div>
 
 
-    <div class="col-sm-9">
+    <div class="content-col col-sm-9">
+        <div class="form-group">
+            <input type="text" class="form-control floating-label" style="Xheight: 32px" placeholder="Search in files" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
+        </div>
         <div class="table-responsive">
             <table class="table table-no-borders">
                 <tr>
@@ -31,8 +31,8 @@
                     </label>
                 </td> -->
                     <td class="table-btn text-left">
-                        <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-default btn-flat btn-block" style="text-transform: none">
-                            <!-- <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> -->
+                        <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-primary btn-flat btn-block" style="text-transform: none">
+                            <i class="fa fa-file-o fa-lg fa-fw text-muted"></i>
                             {{file.name}}
                         </a>
                     </td>

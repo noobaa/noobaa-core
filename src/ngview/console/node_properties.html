@@ -1,10 +1,10 @@
 <div ng-cloak>
 
     <div class="row">
-        <div class="col-sm-3">
+        <div class="heading-col col-sm-3">
             <h4 class="text-primary">Last heartbeat</h4>
         </div>
-        <div class="col-sm-3">
+        <div class="content-col col-sm-3">
             {{node.hearbeat_moment.fromNow()}}
         </div>
     </div>
@@ -12,10 +12,10 @@
     <hr/>
 
     <div class="row">
-        <div class="col-sm-3">
+        <div class="heading-col col-sm-3">
             <h4 class="text-primary">Operating system</h4>
         </div>
-        <div class="col-sm-6">
+        <div class="content-col col-sm-6">
             <table class="table table-no-borders">
                 <tr ng-repeat="(key,val) in node.device_info">
                     <th>{{key}}</th>

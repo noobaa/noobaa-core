@@ -14,7 +14,9 @@
         <div ng-repeat="part in parts">
             <div class="clearfix" style="border-top: 1px solid hsl(0,0%,85%); padding: 10px 0">
                 <div class="pull-left text-center" style="padding: 5px 20px 5px 0">
-                    <span class="badge" rel="tooltip" ng-attr-title="Offset {{human_size(part.start)}}" data-placement="bottom" data-container="body">{{human_size(part.end-part.start)}}</span>
+                    <span class="badge" rel="tooltip" ng-attr-title="Offset {{human_size(part.start)}}" data-placement="bottom" data-container="body">
+                        {{human_size(part.end-part.start)}}
+                    </span>
                 </div>
                 <div class="pull-right text-center" style="padding: 5px 0 5px 20px">
                     <!-- <span class="badge">#{{(parts_query.page*parts_page_size) + $index + 1}}</span> -->
@@ -24,8 +26,7 @@
                     <span ng-repeat="frag in part.fragments">
                         <span ng-repeat="block in frag">
                             <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)">
-                                <i class="fa fa-check fa-lg fa-fw text-success"></i>
-                                {{block.node.ip}}:{{block.node.port}}
+                                <i class="fa fa-check fa-lg fa-fw text-success"></i> {{block.node.ip}}:{{block.node.port}}
                             </a>
                         </span>
                     </span>

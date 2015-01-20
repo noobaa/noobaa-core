@@ -11,14 +11,16 @@
 
 
     <div class="content-col col-sm-9">
-        <div class="form-group">
-            <input type="text" class="form-control floating-label" style="Xheight: 32px" placeholder="Search in files" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
-        </div>
+        <div class="clearfix"></div>
         <div class="table-responsive">
             <table class="table table-no-borders">
                 <tr>
                     <!-- <th></th> -->
-                    <th>Name</th>
+                    <th>
+                        <div class="form-group">
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="File Name (click to search)" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
+                        </div>
+                    </th>
                     <th>Size</th>
                     <th>Content Type</th>
                     <th>Created</th>
@@ -30,14 +32,14 @@
                         <input type="checkbox" />
                     </label>
                 </td> -->
-                    <td class="table-btn text-left">
+                    <td class="table-btn text-left" style="max-width: 60%; text-overflow: ellipsis; overflow: hidden; display: block">
                         <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-link btn-block" style="text-transform: none">
                             <i class="fa fa-file-o fa-lg fa-fw text-muted"></i>
                             <span class="text-primary">{{file.name}}</span>
                         </a>
                     </td>
                     <td>{{human_size(file.size)}}</td>
-                    <td style="text-overflow: ellipsis; max-width: 100px; overflow: hidden; display: block">
+                    <td style="max-width: 100px; text-overflow: ellipsis; overflow: hidden; display: block">
                         {{file.content_type}}
                     </td>
                     <td ng-attr-title="{{file.create_time.format('LLL')}}">

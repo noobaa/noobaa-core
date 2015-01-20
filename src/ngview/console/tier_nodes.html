@@ -10,14 +10,16 @@
     </div>
 
     <div class="content-col col-sm-9">
-        <div class="form-group">
-            <input type="text" class="form-control floating-label" placeholder="Search in devices" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)" />
-        </div>
         <div class="table-responsive">
             <table class="table table-no-borders">
                 <tr>
                     <!-- <th></th> -->
-                    <th>Device Name</th>
+                    <th>
+                        <div class="form-group">
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="Device Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
+                            />
+                        </div>
+                    </th>
                     <th>Raw Storage</th>
                     <th>Status</th>
                 </tr>

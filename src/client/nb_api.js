@@ -15,8 +15,8 @@ var nb_api = angular.module('nb_api', [
 
 
 nb_api.factory('nbClient', [
-    '$q', '$timeout', '$window', '$location', '$rootScope', 'nbModal', 'nbAlertify',
-    function($q, $timeout, $window, $location, $rootScope, nbModal, nbAlertify) {
+    '$q', '$http', '$timeout', '$window', '$location', '$rootScope', 'nbModal', 'nbAlertify',
+    function($q, $http, $timeout, $window, $location, $rootScope, nbModal, nbAlertify) {
         var $scope = {};
 
         var win_storage = $window.localStorage; // or sessionStorage ?
@@ -29,6 +29,22 @@ nb_api.factory('nbClient', [
         $scope.login = login;
         $scope.logout = logout;
         $scope.init_promise = $q.when().then(init_token);
+
+
+        // TODO this manual hack allows https websites to call regular http to agents
+        // we need to support https in the agents.
+        setTimeout(function() {
+            console.log('******************************************' +
+                '*********************************');
+            console.log('***** click the shield icon on the browser' +
+                ' and allow insecure scripts *****');
+            console.log('******************************************' +
+                '*********************************');
+            $http({
+                method: 'GET',
+                url: 'http://localhost'
+            });
+        }, 1000);
 
         // return a new client based on mine - inherits auth token unless overriden
         function new_client() {

@@ -12,11 +12,13 @@
     <div class="row">
         <div class="sidebar sidebar-left sidebar-animate sidebar-md-show sidebar-lg-show">
 
-            <h4 style="margin: 0">
-                <a class="btn btn-link btn-block" href="/console/">
-                    <img src="/public/images/noobaa_icon_bgtrans.ico" width="30" style="vertical-align: middle; margin-right: 5px" /> NooBaa
-                </a>
-            </h4>
+            <div class="clearfix">
+                <h4 class="aflow" style="margin: 0">
+                    <a class="btn btn-link btn-block" href="/console/">
+                        <img src="/public/images/noobaa_icon_bgtrans.ico" width="30" style="vertical-align: middle; margin-right: 5px" /> NooBaa
+                    </a>
+                </h4>
+            </div>
             <hr/>
 
             <div ng-if="nbClient.account">
@@ -26,7 +28,7 @@
                         <small>{{nbClient.account.email}}</small>
                         <i class="fa fa-angle-down fa-lg pull-right"></i>
                     </a>
-                    <ul class="dropdown-menu" role="menu">
+                    <ul class="dropdown-menu" role="menu" style="right:0">
                         <li ng-repeat="sys in nbSystem.systems">
                             <a ng-click="nbSystem.connect_system(sys.name)">
                                 <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
@@ -48,12 +50,12 @@
             <ul class="nav nav-pills nav-stacked" ng-if="nbSystem.system">
                 <li>
                     <p>
-                        <!-- <a/>
-                        <small>
-                            SYSTEM
-                            Health <i class="fa fa-check fa-lg"></i>
-                        </small>
-                        </a>-->
+                        <a style="cursor:default">
+                            <small>SYSTEM</small>
+                            <!-- <small class="pull-right">
+                                Health <i class="fa fa-check fa-lg"></i>
+                            </small> -->
+                        </a>
                     </p>
                 </li>
                 <li ng-class="{active: nav.active=='overview'}">
@@ -64,7 +66,9 @@
 
                 <li>
                     <p>
-                        <a href="/console/data"><small>DATA</small></a>
+                        <a href="/console/data" class="btn-block">
+                            <small>DATA</small>
+                        </a>
                     </p>
                 </li>
                 <li ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
@@ -73,16 +77,12 @@
                         <span class="capitalize">{{bucket.name}}</span>
                     </a>
                 </li>
-                <!-- <li>
-                    <a>
-                        <i class="fa fa-fw text-muted"></i>
-                        <small class="Xtext-muted">more ...</small>
-                    </a>
-                </li> -->
 
                 <li>
                     <p>
-                        <a href="/console/resource"><small>RESOURCES</small></a>
+                        <a href="/console/resource" class="btn-block">
+                            <small>RESOURCES</small>
+                        </a>
                     </p>
                 </li>
                 <li ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tier'}">
@@ -91,13 +91,8 @@
                         <span class="capitalize">{{tier.name}}</span>
                     </a>
                 </li>
-                <!-- <li>
-                    <a>
-                        <i class="fa fa-fw text-muted"></i>
-                        <small class="Xtext-muted">more ...</small>
-                    </a>
-                </li> -->
 
+                <!--
                 <li>
                     <p></p>
                 </li>
@@ -141,6 +136,8 @@
                         <i class="fa fa-repeat fa-fw fa-lg pull-left"></i> Refresh
                     </a>
                 </li>
+                -->
+
             </ul>
         </div>
     </div>
@@ -148,9 +145,26 @@
     <div class="sidebar-content">
         <div class="container-fluid">
 
-            <a class="navbar-toggle toggle-left visible-xs visible-sm pull-left" data-toggle="sidebar" data-target=".sidebar-left" style="padding: 10px">
-                <i class="fa fa-bars fa-lg"></i>
-            </a>
+            <div class="pull-left">
+                <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left visible-xs visible-sm" data-toggle="sidebar" data-target=".sidebar-left" style="padding: 20px 14px; margin: 0 10px 0 0">
+                    <i class="fa fa-bars fa-lg text-primary"></i>
+                </a>
+            </div>
+            <div class="pull-right">
+                <span class="dropdown">
+                    <a class="btn btn-default Xbtn-flat dropdown-toggle" data-toggle="dropdown" style="padding: 20px 14px; margin: 0">
+                        <i class="fa fa-bell fa-lg text-muted"></i>
+                    </a>
+                    <ul class="dropdown-menu pull-right" role="menu" style="top: auto">
+                        <li class="text-center" style="padding: 30px 15px">
+                            <i class="text-muted">No new messages</i>
+                        </li>
+                    </ul>
+                </span>
+                <a class="btn btn-default Xbtn-flat" style="padding: 20px 14px; margin: 0" ng-if="nav.reload_view" nb-click-ladda="nav.reload_view()">
+                    <i class="fa fa-repeat fa-lg text-muted"></i>
+                </a>
+            </div>
 
             <div ng-view></div>
         </div>

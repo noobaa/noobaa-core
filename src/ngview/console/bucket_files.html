@@ -31,9 +31,9 @@
                     </label>
                 </td> -->
                     <td class="table-btn text-left">
-                        <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-primary btn-flat btn-block" style="text-transform: none">
+                        <a ng-href="bucket/{{bucket.name}}/{{file.name}}" class="btn btn-link btn-block" style="text-transform: none">
                             <i class="fa fa-file-o fa-lg fa-fw text-muted"></i>
-                            {{file.name}}
+                            <span class="text-primary">{{file.name}}</span>
                         </a>
                     </td>
                     <td>{{human_size(file.size)}}</td>

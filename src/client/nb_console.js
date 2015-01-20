@@ -210,21 +210,21 @@ nb_console.controller('TierViewCtrl', [
 
 nb_console.controller('NodeViewCtrl', [
     '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
-    'nbSystem', 'nbNodes', 'nbHashRouter',
+    'nbClient', 'nbSystem', 'nbNodes', 'nbHashRouter',
     function($scope, $q, $timeout, $window, $location, $routeParams,
-        nbSystem, nbNodes, nbHashRouter) {
+        nbClient, nbSystem, nbNodes, nbHashRouter) {
         $scope.nav.active = 'tier';
         $scope.nav.reload_view = reload_view;
-        $scope.files_num_pages = 0;
-        $scope.files_page_size = 10;
-        $scope.files_query = {};
+        $scope.parts_num_pages = 0;
+        $scope.parts_page_size = 10;
+        $scope.parts_query = {};
 
         var node_router = $scope.node_router =
             nbHashRouter($scope)
-            .when('files', {
-                templateUrl: 'console/node_files.html',
+            .when('parts', {
+                templateUrl: 'console/node_parts.html',
                 pagination: true,
-                reload: reload_files
+                reload: reload_parts
             })
             .when('properties', {
                 templateUrl: 'console/node_properties.html',
@@ -236,7 +236,7 @@ nb_console.controller('NodeViewCtrl', [
                 templateUrl: 'console/node_settings.html',
             })
             .otherwise({
-                redirectTo: 'files'
+                redirectTo: 'parts'
             });
 
         reload_view(true);
@@ -260,34 +260,42 @@ nb_console.controller('NodeViewCtrl', [
                 .then(function(res) {
                     $scope.node = res;
 
-                    // TODO handle node files list
-                    /*
-                    $scope.files_num_pages = Math.ceil(
-                        $scope.tier.files.count / $scope.files_page_size);
-                    $scope.files_pages = _.times($scope.files_num_pages, _.identity);
-                    */
-                    node_router.set_num_pages('files', $scope.files_num_pages);
+                    // TODO handle node parts pages
+                    $scope.parts_num_pages = 9;
+                    // Math.ceil($scope.bucket.num_objects / $scope.parts_page_size);
+                    $scope.parts_pages = _.times($scope.parts_num_pages, _.identity);
+                    node_router.set_num_pages('parts', $scope.parts_num_pages);
                     node_router.done();
                 });
         }
 
-        function reload_files(hash_query) {
-            $scope.files_query = _.clone(hash_query);
+        function reload_parts(hash_query) {
+            $scope.parts_query = _.clone(hash_query);
             var query = {
-                tier: $routeParams.tier_name
+                name: $routeParams.node_name,
+                skip: $scope.parts_query.page * $scope.parts_page_size,
+                limit: $scope.parts_page_size,
             };
-            if ($scope.files_query.search) {
-                query.name = $scope.files_query.search;
-            }
-            /* TODO list node files
-            return nbNodes.list_files({
-                query: query,
-                skip: $scope.files_query.page * $scope.files_page_size,
-                limit: $scope.files_page_size,
-            }).then(function(res) {
-                $scope.files = res;
-            });
-            */
+            return $q.when(nbClient.client.node.read_node_maps(query))
+                .then(function(res) {
+                    $scope.parts = [];
+                    _.each(res.objects, function(object) {
+                        _.each(object.parts, function(part) {
+                            _.each(part.fragments, function(frag) {
+                                frag.sort(function(block1, block2) {
+                                    if (block1.node.ip === $scope.node.ip &&
+                                        block1.node.port === $scope.node.port) {
+                                        return -1;
+                                    } else {
+                                        return 1;
+                                    }
+                                });
+                            });
+                            part.file = object.key;
+                            $scope.parts.push(part);
+                        });
+                    });
+                });
         }
     }
 ]);
@@ -390,7 +398,6 @@ nb_console.controller('FileViewCtrl', [
         nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter, nbModal) {
         $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
-        $scope.goto_block = goto_block;
         $scope.download = download;
         $scope.play = play;
         $scope.parts_num_pages = 0;
@@ -454,7 +461,7 @@ nb_console.controller('FileViewCtrl', [
                         (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
                         $routeParams.file_name);
 
-                    // TODO handle file parts list
+                    // TODO handle file parts pages
                     $scope.parts_num_pages = 9;
                     // Math.ceil($scope.bucket.num_objects / $scope.parts_page_size);
                     $scope.parts_pages = _.times($scope.parts_num_pages, _.identity);
@@ -474,16 +481,6 @@ nb_console.controller('FileViewCtrl', [
             return nbFiles.list_file_parts(params)
                 .then(function(res) {
                     $scope.parts = res.parts;
-                });
-        }
-
-        function goto_block(block) {
-            return nbNodes.lookup_node({
-                    ip: block.node.ip,
-                    port: block.node.port
-                })
-                .then(function(node) {
-                    $location.path('/tier/' + node.tier + '/' + node.name);
                 });
         }
 

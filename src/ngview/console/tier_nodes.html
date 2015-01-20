@@ -28,8 +28,9 @@
                     </label>
                 </td> -->
                     <td class="table-btn text-left">
-                        <a ng-href="tier/{{tier.name}}/{{node.name}}" class="btn btn-primary btn-flat btn-block capitalize">
-                            <i class="fa fa-desktop fa-lg fa-fw text-muted"></i> {{node.name}}
+                        <a ng-href="tier/{{tier.name}}/{{node.name}}" class="btn btn-link btn-block capitalize">
+                            <i class="fa fa-desktop fa-lg fa-fw text-muted"></i>
+                            <span class="text-primary">{{node.name}}</span>
                         </a>
                     </td>
                     <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>

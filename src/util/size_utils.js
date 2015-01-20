@@ -101,8 +101,10 @@ function human_size(bytes) {
     }
     if (i === 0) {
         return x.toString() + ' B';
+    } else if (x < 100) {
+        return x.toPrecision(2) + ' ' + SIZE_UNITS[i] + 'B';
     } else {
-        return x.toFixed(1) + ' ' + SIZE_UNITS[i] + 'B';
+        return x.toFixed(0) + ' ' + SIZE_UNITS[i] + 'B';
     }
 }
 

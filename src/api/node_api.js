@@ -94,7 +94,13 @@ module.exports = rest_api({
                 properties: {
                     name: {
                         type: 'string'
-                    }
+                    },
+                    skip: {
+                        type: 'integer'
+                    },
+                    limit: {
+                        type: 'integer'
+                    },
                 }
             },
             reply: {

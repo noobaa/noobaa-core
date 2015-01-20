@@ -1,6 +1,6 @@
 <div ng-controller="NodeViewCtrl">
 
-    <div class="page-header">
+    <div class="page-header page-node">
 
         <ol class="breadcrumb capitalize">
             <li>
@@ -54,8 +54,8 @@
         </div>
 
         <ul class="nav nav-tabs">
-            <li ng-class="{active: node_router.route == 'files'}">
-                <a ng-click="node_router.set('files')">Files</a>
+            <li ng-class="{active: node_router.route == 'parts'}">
+                <a ng-click="node_router.set('parts')">Files Parts</a>
             </li>
             <!-- <li ng-class="{active: node_router.route == 'settings'}">
                 <a ng-click="node_router.set('settings')">Settings</a>

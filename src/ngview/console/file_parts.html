@@ -4,11 +4,8 @@
         <h4 class="text-primary">
             Storage locations of file parts
         </h4>
-        <!-- <div class="form-group">
-            <input type="text" class="form-control floating-label" placeholder="Search Part" ng-model="parts_query.search" ng-model-options="{debounce: 700}" ng-change="file_router.set_query('search',parts_query.search)" />
-        </div> -->
         <p class="text-muted">
-            Click on a location to go to the node that stores that part.
+            Click on a part to go to the storage device.
         </p>
     </div>
 
@@ -17,18 +14,19 @@
             <table class="table table-no-borders">
                 <tr>
                     <th>#</th>
-                    <th>Offset</th>
-                    <th>Nodes</th>
+                    <th>Size</th>
+                    <th>Devices</th>
                     <th>Status</th>
                 </tr>
                 <tr ng-repeat="part in parts">
                     <td>{{(parts_query.page*parts_page_size) + $index + 1}}</td>
-                    <td>{{human_size(part.start)}}</td>
+                    <td>{{human_size(part.end-part.start)}}</td>
                     <td style="padding: 0">
                         <span ng-repeat="frag in part.fragments">
                             <span ng-repeat="block in frag">
-                                <a class="btn btn-flat btn-default" style="padding: 10px; margin: 0 10px 5px 0" nb-click-ladda="goto_block(block)">
-                                    <i class="fa fa-check fa-lg fa-fw text-success pull-left"></i> {{block.node.ip}}:{{block.node.port}}
+                                <a class="btn btn-flat btn-default" style="padding: 10px; margin: 0 10px 5px 0" nb-click-ladda="nbNodes.goto_node_by_block(block)">
+                                    <i class="fa fa-check fa-lg fa-fw text-success pull-left"></i>
+                                    <small>{{block.node.ip}}:{{block.node.port}}</small>
                                 </a>
                             </span>
                         </span>

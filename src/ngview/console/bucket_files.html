@@ -11,14 +11,16 @@
 
 
     <div class="content-col col-sm-9">
-        <div class="form-group">
-            <input type="text" class="form-control floating-label" style="Xheight: 32px" placeholder="Search in files" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
-        </div>
+        <div class="clearfix"></div>
         <div class="table-responsive">
             <table class="table table-no-borders">
                 <tr>
                     <!-- <th></th> -->
-                    <th>Name</th>
+                    <th>
+                        <div class="form-group">
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="Name (click to search...)" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
+                        </div>
+                    </th>
                     <th>Size</th>
                     <th>Content Type</th>
                     <th>Created</th>

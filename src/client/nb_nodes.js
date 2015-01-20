@@ -109,6 +109,7 @@ nb_api.factory('nbNodes', [
             })
             .then(function(node) {
                 $location.path('/tier/' + node.tier + '/' + node.name);
+                $location.hash('');
             });
         }
 

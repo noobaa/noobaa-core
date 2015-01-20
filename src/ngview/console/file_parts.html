@@ -10,7 +10,30 @@
     </div>
 
     <div class="content-col col-sm-9">
-        <div class="table-responsive">
+
+        <div ng-repeat="part in parts">
+            <div class="clearfix" style="border-top: 1px solid hsl(0,0%,85%); padding: 10px 0">
+                <div class="pull-left text-center" style="padding: 5px 20px 5px 0">
+                    <span class="badge" rel="tooltip" ng-attr-title="Offset {{human_size(part.start)}}" data-placement="bottom" data-container="body">{{human_size(part.end-part.start)}}</span>
+                </div>
+                <div class="pull-right text-center" style="padding: 5px 0 5px 20px">
+                    <!-- <span class="badge">#{{(parts_query.page*parts_page_size) + $index + 1}}</span> -->
+                    <span>Healthy</span>
+                </div>
+                <div class="hflow" style="border-left: 1px solid hsl(0,0%,85%); border-right: 1px solid hsl(0,0%,85%); margin: 5px 0">
+                    <span ng-repeat="frag in part.fragments">
+                        <span ng-repeat="block in frag">
+                            <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)">
+                                <i class="fa fa-check fa-lg fa-fw text-success"></i>
+                                {{block.node.ip}}:{{block.node.port}}
+                            </a>
+                        </span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- <div class="table-responsive">
             <table class="table table-no-borders">
                 <tr>
                     <th>#</th>
@@ -19,7 +42,7 @@
                     <th>Status</th>
                 </tr>
                 <tr ng-repeat="part in parts">
-                    <td>{{(parts_query.page*parts_page_size) + $index + 1}}</td>
+                    <td>{{(parts_query.page*parts_page_size) + \$index + 1}}</td>
                     <td>{{human_size(part.end-part.start)}}</td>
                     <td style="padding: 0">
                         <span ng-repeat="frag in part.fragments">
@@ -34,7 +57,7 @@
                     <td>Healthy</td>
                 </tr>
             </table>
-        </div>
+        </div> -->
 
         <nav class="noselect">
             <ul class="pagination">

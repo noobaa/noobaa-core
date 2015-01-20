@@ -236,7 +236,7 @@ nb_console.controller('NodeViewCtrl', [
                 templateUrl: 'console/node_settings.html',
             })
             .otherwise({
-                redirectTo: 'parts'
+                redirectTo: 'properties'
             });
 
         reload_view(true);

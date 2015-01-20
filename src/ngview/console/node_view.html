@@ -54,15 +54,15 @@
         </div>
 
         <ul class="nav nav-tabs">
+            <li ng-class="{active: node_router.route == 'properties'}">
+                <a ng-click="node_router.set('properties')">Properties</a>
+            </li>
             <li ng-class="{active: node_router.route == 'parts'}">
                 <a ng-click="node_router.set('parts')">Files Parts</a>
             </li>
             <!-- <li ng-class="{active: node_router.route == 'settings'}">
                 <a ng-click="node_router.set('settings')">Settings</a>
             </li> -->
-            <li ng-class="{active: node_router.route == 'properties'}">
-                <a ng-click="node_router.set('properties')">Properties</a>
-            </li>
             <!-- <li ng-class="{active: node_router.route == 'stats'}">
                 <a ng-click="node_router.set('stats')">Statistics</a>
             </li> -->

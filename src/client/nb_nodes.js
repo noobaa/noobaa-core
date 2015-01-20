@@ -19,6 +19,7 @@ nb_api.factory('nbNodes', [
         $scope.list_nodes = list_nodes;
         $scope.read_node = read_node;
         $scope.lookup_node = lookup_node;
+        $scope.goto_node_by_block = goto_node_by_block;
         $scope.add_nodes = add_nodes;
         $scope.remove_node = remove_node;
         $scope.start_node = start_node;
@@ -99,6 +100,17 @@ nb_api.factory('nbNodes', [
                     return node;
                 }
             );
+        }
+
+        function goto_node_by_block(block) {
+            return lookup_node({
+                ip: block.node.ip,
+                port: block.node.port
+            })
+            .then(function(node) {
+                $location.path('/tier/' + node.tier + '/' + node.name);
+                $location.hash('');
+            });
         }
 
         function extend_node_info(node) {

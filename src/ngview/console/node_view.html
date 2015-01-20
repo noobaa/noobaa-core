@@ -1,65 +1,75 @@
 <div ng-controller="NodeViewCtrl">
-    <div class="Xcontainer">
 
-        <div class="Xpage-header">
+    <div class="page-header page-node">
 
-            <h1 class="capitalize">
-                <i class="fa fa-desktop fa-lg fa-fw text-muted"></i> {{node.name}}
-            </h1>
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">System</a>
+            </li>
+            <li>
+                <a href="/console/resource/">Resources</a>
+            </li>
+            <li>
+                <a ng-href="/console/tier/{{tier.name}}">{{tier.name}}</a>
+            </li>
+            <li class="active">{{node.name}}</li>
+        </ol>
 
-            <ol class="breadcrumb capitalize" style="margin: 30px 0">
-                <li>
-                    <a href="/console/">Home</a>
-                </li>
-                <li>
-                    <a href="/console/tier/">Tiers List</a>
-                </li>
-                <li>
-                    <a ng-href="/console/tier/{{tier.name}}">{{tier.name}}</a>
-                </li>
-                <li class="active">{{node.name}}</li>
-            </ol>
+        <div class="clearfix"></div>
 
-        </div>
+        <h1 class="capitalize">
+            <i class="fa fa-desktop fa-lg fa-fw text-primary pull-left"></i>
+            <div class="hflow">
+                {{node.name}} &nbsp;
+                <small>
+                    <i>Resource Device</i> &nbsp;
+                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A device connects to the system by running an agent that allows it to be used as a storage device." data-placement="bottom" data-container="body"></i>
+                </small>
+            </div>
+        </h1>
 
-        <div class="well well-sm" style="margin: 30px 0">
-            <table class="table table-no-borders table-center" style="margin:0">
-                <tr class="text-center">
-                    <th>Node Status</th>
-                    <th>Trust Level</th>
-                    <th>Network Address</th>
-                    <th>Allocated Storage</th>
-                </tr>
+        <div class="page-properties">
+            <table class="table table-properties">
                 <tr>
-                    <td><i class="fa fa-check fa-lg"></i> Healthy</td>
-                    <td>Trusted</td>
+                    <!-- <td></td> -->
+                    <th>Status</th>
+                    <td>
+                        <span ng-if="node.online">
+                            Healthy <i class="fa fa-check fa-lg"></i>
+                        </span>
+                        <span ng-if="!node.online">
+                            Offline <i class="fa fa-plug fa-lg text-warning"></i>
+                        </span>
+                    </td>
+                    <th>Trust Level</th>
+                    <td>Trusted <i class="mdi-action-verified-user"></i>
+                    </td>
+                    <th>Network Address</th>
                     <td>{{node.ip}}:{{node.port}}</td>
+                    <th>Used Storage</th>
                     <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
+                    <td></td>
                 </tr>
             </table>
         </div>
 
-
-        <div class="Xwell" style="margin: 30px 0">
-
-            <ul class="nav nav-pills noselect" style="margin: 0 0 15px 0">
-                <li ng-class="{active: node_router.route == 'files'}">
-                    <a ng-click="node_router.set('files')">Files</a>
-                </li>
-                <li ng-class="{active: node_router.route == 'properties'}">
-                    <a ng-click="node_router.set('properties')">Properties</a>
-                </li>
-                <li ng-class="{active: node_router.route == 'stats'}">
-                    <a ng-click="node_router.set('stats')">Statistics</a>
-                </li>
-                <li ng-class="{active: node_router.route == 'settings'}">
-                    <a ng-click="node_router.set('settings')">Settings</a>
-                </li>
-            </ul>
-
-            <div nb-hash-router-view="node_router"></div>
-
-        </div>
+        <ul class="nav nav-tabs">
+            <li ng-class="{active: node_router.route == 'properties'}">
+                <a ng-click="node_router.set('properties')">Properties</a>
+            </li>
+            <li ng-class="{active: node_router.route == 'parts'}">
+                <a ng-click="node_router.set('parts')">Files Parts</a>
+            </li>
+            <!-- <li ng-class="{active: node_router.route == 'settings'}">
+                <a ng-click="node_router.set('settings')">Settings</a>
+            </li> -->
+            <!-- <li ng-class="{active: node_router.route == 'stats'}">
+                <a ng-click="node_router.set('stats')">Statistics</a>
+            </li> -->
+        </ul>
 
     </div>
+
+    <div nb-hash-router-view="node_router"></div>
+
 </div>

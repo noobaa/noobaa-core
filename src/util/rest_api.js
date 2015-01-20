@@ -406,6 +406,7 @@ function rest_api(api) {
         }
 
         var options = {
+            protocol: self.options.protocol,
             hostname: self.options.hostname,
             port: self.options.port,
             method: method,
@@ -432,10 +433,14 @@ function rest_api(api) {
             req.end();
         }
         if (self.options.timeout) {
-            req.setTimeout(self.options.timeout, function() {
-                console.error('REQUEST TIMEOUT');
-                req.abort();
-            });
+            if (req.setTimeout) {
+                req.setTimeout(self.options.timeout, function() {
+                    console.error('REQUEST TIMEOUT');
+                    req.abort();
+                });
+            } else {
+                // TODO browserify doesn't implement req.setTimeout...
+            }
         }
         return defer.promise;
     };

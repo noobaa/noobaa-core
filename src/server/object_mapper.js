@@ -136,15 +136,19 @@ function read_object_mappings(obj, start, end, skip, limit) {
  * read_node_mappings
  *
  */
-function read_node_mappings(node) {
-    return Q.when(db.DataBlock
-            .find({
-                node: node.id,
-                deleted: null,
-            })
-            .exec())
+function read_node_mappings(node, skip, limit) {
+    return Q.fcall(function() {
+            var find = db.DataBlock
+                .find({
+                    node: node.id,
+                    deleted: null,
+                })
+                .sort('-_id');
+            if (skip) find.skip(skip);
+            if (limit) find.limit(limit);
+            return find.exec();
+        })
         .then(function(blocks) {
-
             return db.ObjectPart
                 .find({
                     'chunks.chunk': {

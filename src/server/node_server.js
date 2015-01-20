@@ -172,7 +172,10 @@ function read_node_maps(req) {
     return find_node_by_name(req)
         .then(function(node_arg) {
             node = node_arg;
-            return object_mapper.read_node_mappings(node);
+            return object_mapper.read_node_mappings(
+                node,
+                req.rest_params.skip,
+                req.rest_params.limit);
         })
         .then(function(objects) {
             return {
@@ -602,10 +605,7 @@ function get_node_full_info(node) {
         used: node.storage.used || 0,
     };
     info.online = node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
-    info.device_info =
-        node.device_info &&
-        node.device_info.toObject &&
-        node.device_info.toObject() || {};
+    info.device_info = node.device_info || {};
     return info;
 }
 

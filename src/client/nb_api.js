@@ -19,7 +19,7 @@ nb_api.factory('nbClient', [
     function($q, $timeout, $window, $location, $rootScope, nbModal, nbAlertify) {
         var $scope = {};
 
-        var win_storage = $window.sessionStorage; // or localStorage ?
+        var win_storage = $window.localStorage; // or sessionStorage ?
         $scope.client = new api.Client();
         $scope.new_client = new_client;
         $scope.refresh = refresh;
@@ -117,7 +117,7 @@ nb_api.factory('nbSystem', [
         $scope.connect_system = connect_system;
         $scope.refresh_system = refresh_system;
 
-        refresh_systems();
+        $scope.init_systems = refresh_systems();
 
         function refresh_systems() {
             return nbClient.init_promise
@@ -135,15 +135,19 @@ nb_api.factory('nbSystem', [
                 .then(function() {
                     return nbClient.client.system.read_system();
                 })
-                .then(function(res) {
-                    console.log('READ SYSTEM', res);
-                    $scope.system = res;
+                .then(function(sys) {
+                    console.log('READ SYSTEM', sys);
+                    $scope.system = sys;
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
-                    var s = $scope.system.storage;
-                    s.free = s.alloc - s.used;
-                    s.free_percent = !s.alloc ? 0 : 100 * (s.free / s.alloc);
+                    _.each(sys.tiers, function(tier) {
+                        tier.used_percent = Math.ceil(100 * tier.storage.used / tier.storage.alloc);
+                    });
                 }, function(err) {
                     console.error('READ SYSTEM FAILED', err);
+                    return $scope.init_systems.then(function() {
+                        var sys = $scope.systems[0];
+                        return connect_system(sys.name);
+                    });
                 });
         }
 

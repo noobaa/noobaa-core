@@ -1,11 +1,32 @@
-<div>
-    <table class="table table-no-borders" style="width: auto">
-        <tr>
-            <th>Tier Name:</th>
-            <td class="capitalize">{{tier.name}}</td>
-            <td class="table-btn">
-                <button class="btn btn-primary btn-flat btn-sm">Change</button>
-            </td>
-        </tr>
-    </table>
+<div ng-cloak>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Name</h4>
+        </div>
+        <div class="content-col col-sm-3" ng-init="new_name=tier.name">
+            <form class="form">
+                <input type="text" class="form-control" ng-model="new_name" />
+                <button class="btn btn-default btn-flat" ng-disabled="!new_name || new_name==tier.name">
+                    Rename
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Delete</h4>
+        </div>
+        <div class="content-col col-sm-3">
+            <button class="btn btn-danger btn-flat">
+                Delete permanently
+            </button>
+        </div>
+    </div>
+
+    <br/>
+
 </div>

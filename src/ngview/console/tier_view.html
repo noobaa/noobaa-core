@@ -1,63 +1,65 @@
 <div ng-controller="TierViewCtrl">
-    <div class="Xcontainer">
 
-        <div class="Xpage-header">
+    <div class="page-header page-tier">
 
-            <h1 class="capitalize">
-                <span ng-switch="tier.kind" class="text-muted">
-                    <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
-                    <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
-                </span>
-                {{tier.name}}
-            </h1>
+        <ol class="breadcrumb capitalize">
+            <li>
+                <a href="/console/">System</a>
+            </li>
+            <li>
+                <a href="/console/resource/">Resources</a>
+            </li>
+            <li class="active">{{tier.name}}</li>
+        </ol>
 
-            <ol class="breadcrumb capitalize" style="margin: 30px 0">
-                <li>
-                    <a href="/console/">Home</a>
-                </li>
-                <li>
-                    <a href="/console/tier/">Tiers List</a>
-                </li>
-                <li class="active">{{tier.name}}</li>
-            </ol>
+        <div class="clearfix"></div>
 
-        </div>
+        <h1 class="capitalize">
+            <span ng-switch="tier.kind" class="text-primary pull-left">
+                <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
+                <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
+            </span>
+            <div class="hflow">
+                {{tier.name}} &nbsp;
+                <small>
+                    <i>Distributed Tier</i> &nbsp;
+                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="Distributed tiers are composed of devices, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets" data-placement="bottom" data-container="body"></i>
+                </small>
+            </div>
+        </h1>
 
-        <div class="well well-sm" style="margin: 30px 0">
-            <table class="table table-no-borders table-center" style="margin:0">
-                <tr class="text-center">
-                    <th>Tier Status</th>
-                    <th>Nodes</th>
-                    <th>Net Storage</th>
-                    <th>Raw Storage</th>
-                </tr>
+        <div class="page-properties">
+            <table class="table table-properties">
                 <tr>
-                    <td><i class="fa fa-check fa-lg"></i> Healthy</td>
+                    <!-- <td></td> -->
+                    <th>Status</th>
+                    <td>Healthy <i class="fa fa-check fa-lg"></i>
+                    </td>
+                    <th>Devices</th>
                     <td>{{tier.nodes.online}}</td>
+                    <th>Net Storage</th>
                     <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
+                    <th>Raw Storage</th>
                     <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
+                    <td></td>
                 </tr>
             </table>
         </div>
 
-
-        <div class="Xwell" style="margin: 30px 0">
-
-            <ul class="nav nav-pills noselect" style="margin: 0 0 15px 0">
-                <li ng-class="{active: tier_router.route == 'nodes'}">
-                    <a ng-click="tier_router.set('nodes')">Nodes List</a>
-                </li>
-                <li ng-class="{active: tier_router.route == 'stats'}">
-                    <a ng-click="tier_router.set('stats')">Statistics</a>
-                </li>
-                <li ng-class="{active: tier_router.route == 'settings'}">
-                    <a ng-click="tier_router.set('settings')">Settings</a>
-                </li>
-            </ul>
-
-            <div nb-hash-router-view="tier_router"></div>
-
-        </div>
+        <ul class="nav nav-tabs">
+            <li ng-class="{active: tier_router.route == 'nodes'}">
+                <a ng-click="tier_router.set('nodes')">Devices List</a>
+            </li>
+            <!-- <li ng-class="{active: tier_router.route == 'settings'}">
+                <a ng-click="tier_router.set('settings')">Settings</a>
+            </li> -->
+            <!-- <li ng-class="{active: tier_router.route == 'stats'}">
+                <a ng-click="tier_router.set('stats')">Statistics</a>
+            </li> -->
+        </ul>
 
     </div>
+
+    <div nb-hash-router-view="tier_router"></div>
+
 </div>

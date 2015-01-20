@@ -1,3 +1,75 @@
-<div>
-    <i>placeholder for node settings ...</i>
+<div ng-cloak>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Name</h4>
+        </div>
+        <div class="content-col col-sm-3">
+            <form class="form" ng-init="new_name=node.name">
+                <input type="text" class="form-control" ng-model="new_name" />
+                <button class="btn btn-default btn-flat" ng-disabled="!new_name || new_name==node.name">
+                    Rename
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Storage allocation</h4>
+        </div>
+        <div class="content-col col-sm-3">
+            <form class="form" ng-init="new_alloc=node.storage.alloc/1024/1024/1024">
+                <input type="number" class="form-control" ng-model="new_alloc" />
+                <button class="btn btn-default btn-flat" ng-disabled="!new_alloc || new_alloc==node.storage.alloc/1024/1024/1024">
+                    Update
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Operational state</h4>
+        </div>
+        <div class="content-col col-sm-3">
+            <form class="form">
+                <div class="radio radio-success">
+                    <label>
+                        <input type="radio" name="commission" value="commission" checked="">
+                        Commission
+                    </label>
+                </div>
+                <div class="radio radio-success">
+                    <label>
+                        <input type="radio" name="commission" value="decommission">
+                        Decommission
+                    </label>
+                </div>
+                <button class="btn btn-default btn-flat" ng-disabled="">
+                    Update
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Delete</h4>
+        </div>
+        <div class="content-col col-sm-3">
+            <button class="btn btn-danger btn-flat">
+                Delete permanently
+            </button>
+        </div>
+    </div>
+
+    <br/>
+
 </div>

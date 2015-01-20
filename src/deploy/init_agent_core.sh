@@ -18,6 +18,7 @@ echo '/*'
 echo ' * noobaa-agent starting'
 echo ' */'
 echo
+export HOME='/root'
 cd /noobaa
 source /usr/local/nvm/nvm.sh
 nvm use 0.10.33

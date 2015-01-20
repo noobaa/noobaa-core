@@ -226,7 +226,10 @@ nb_util.factory('nbHashRouter', [
 
         HashRouter.prototype.done = function() {
             var self = this;
-            if (self.watch_scope) return;
+            if (self.watch_scope) {
+                self.reload();
+                return self;
+            }
             self.watch_scope = self.scope.$new();
             self.watch_scope.$location = $location;
             self.watch_scope.$watch('$location.hash()', function(hash) {
@@ -238,6 +241,10 @@ nb_util.factory('nbHashRouter', [
         HashRouter.prototype.set = function(route, query) {
             var self = this;
             var opt = self.routes[route];
+            if (!opt) {
+                console.error('no such route', route);
+                return;
+            }
             var hash = encodeURIComponent(route);
             // compact the query by removing empty values
             var hash_query = _.pick(query, function(val, key) {

@@ -1,0 +1,42 @@
+<div ng-cloak>
+
+    <p>
+        <button class="btn btn-primary" nb-click-ladda="upload()">Upload</button>
+    </p>
+
+    <div class="table-responsive">
+        <table class="table">
+            <tr>
+                <th></th>
+                <th>Name</th>
+                <th>Size</th>
+                <th>Content Type</th>
+                <th>Progress</th>
+            </tr>
+            <tr ng-repeat="tx in nbFiles.transfers">
+                <td class="checkbox noselect" style="width: 1px; padding: 4px">
+                    <label>
+                        <input type="checkbox" />
+                    </label>
+                </td>
+                <td class="table-btn text-left">
+                    <a ng-href="bucket/{{bucket.name}}/{{tx.name}}" class="btn btn-primary btn-flat btn-block capitalize">
+                        <!-- <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> -->
+                        {{tx.name}}
+                    </a>
+                </td>
+                <td>{{human_size(tx.size)}}</td>
+                <td style="text-overflow: ellipsis; max-width: 50px; overflow: hidden">
+                    {{tx.content_type}}
+                </td>
+                <td>
+                    <div class="progress" style="margin: 7px 0 0 0">
+                        <div class="progress-bar" role="progressbar" aria-valuenow="{{tx.progress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{tx.progress}}%; Xbackground-color: black">
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</div>

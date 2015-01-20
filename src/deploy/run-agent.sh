@@ -1,6 +1,7 @@
 #!/bin/bash
 #$1 is the env name (mandatory)
 #$2 is the port number
+export HOME='/root'
 cd /noobaa
 source /usr/local/nvm/nvm.sh
 nvm use 0.10.33
@@ -23,9 +24,9 @@ time rm -rf node_modules/
 time npm install
 if [ $# -eq 1 ]
   then
-    node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  https://noobaa-$1.herokuapp.com 
+    node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  https://noobaa-$1.herokuapp.com
   else
-   echo 'got port (2) '$1 $2 
+   echo 'got port (2) '$1 $2
     node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  https://noobaa-$1.herokuapp.com  --port $2
 fi
 exit

@@ -181,7 +181,7 @@ nb_console.controller('TierViewCtrl', [
                     }
                     $scope.nodes_num_pages = Math.ceil(
                         $scope.tier.nodes.count / $scope.nodes_page_size);
-                    $scope.nodes_pages = _.times($scope.nodes_num_pages, _.identity);
+                    $scope.nodes_pages = _.times(Math.min(15, $scope.nodes_num_pages), _.identity);
                     tier_router.set_num_pages('nodes', $scope.nodes_num_pages);
                     tier_router.done();
                 });
@@ -263,7 +263,7 @@ nb_console.controller('NodeViewCtrl', [
                     // TODO handle node parts pages
                     $scope.parts_num_pages = 9;
                     // Math.ceil($scope.bucket.num_objects / $scope.parts_page_size);
-                    $scope.parts_pages = _.times($scope.parts_num_pages, _.identity);
+                    $scope.parts_pages = _.times(Math.min(15, $scope.parts_num_pages), _.identity);
                     node_router.set_num_pages('parts', $scope.parts_num_pages);
                     node_router.done();
                 });
@@ -358,7 +358,7 @@ nb_console.controller('BucketViewCtrl', [
                     }
                     $scope.files_num_pages = Math.ceil(
                         $scope.bucket.num_objects / $scope.files_page_size);
-                    $scope.files_pages = _.times($scope.files_num_pages, _.identity);
+                    $scope.files_pages = _.times(Math.min(15, $scope.files_num_pages), _.identity);
                     bucket_router.set_num_pages('files', $scope.files_num_pages);
                     bucket_router.done();
                 });
@@ -381,10 +381,7 @@ nb_console.controller('BucketViewCtrl', [
         }
 
         function upload() {
-            return nbFiles.upload_file($routeParams.bucket_name)
-                .then(null, null, function(progress) {
-                    $scope.safe_apply();
-                });
+            return nbFiles.upload_file($routeParams.bucket_name);
         }
     }
 ]);
@@ -464,7 +461,7 @@ nb_console.controller('FileViewCtrl', [
                     // TODO handle file parts pages
                     $scope.parts_num_pages = 9;
                     // Math.ceil($scope.bucket.num_objects / $scope.parts_page_size);
-                    $scope.parts_pages = _.times($scope.parts_num_pages, _.identity);
+                    $scope.parts_pages = _.times(Math.min(15, $scope.parts_num_pages), _.identity);
                     file_router.set_num_pages('parts', $scope.parts_num_pages);
                     file_router.done();
                 });

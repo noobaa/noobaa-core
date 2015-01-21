@@ -90,8 +90,8 @@
                 </li>
                 <li>{{human_size(tx.size)}} {{tx.content_type}}</li>
                 <li>{{tx.error}}</li>
-                <li ng-show="tx.done">
-                    <button class="btn btn-primary btn-flat" nb-click="nbFiles.clear_transfer(tx)">
+                <li ng-if="tx.done">
+                    <button class="btn btn-primary btn-flat" ng-click="nbFiles.clear_transfer(tx)">
                         Dismiss
                     </button>
                 </li>

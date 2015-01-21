@@ -17,8 +17,10 @@ var size_utils = require('../util/size_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var dbg = require('../util/dbg')(__filename);
-var evp_bytes_to_key = require('browserify/node_modules/crypto-browserify/node_modules/browserify-aes/EVP_BytesToKey');
 var subtle_crypto = global && global.crypto && global.crypto.subtle;
+if (subtle_crypto) {
+    var evp_bytes_to_key = require('browserify-aes/EVP_BytesToKey');
+}
 
 module.exports = ObjectClient;
 
@@ -1017,7 +1019,7 @@ function encrypt_chunk(plain_buffer, crypt_info) {
         // the improvement is drastic in supported browsers
         // over pure js code from crypto-browserify
         if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
-            var keys = evp_bytes_to_key(crypto, crypt_info.cipher_val, 256, 16);
+            var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
             return subtle_crypto.importKey('raw', keys.key, {
                     name: "AES-CBC",
                     length: 256
@@ -1061,7 +1063,7 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
         // the improvement is drastic in supported browsers
         // over pure js code from crypto-browserify
         if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
-            var keys = evp_bytes_to_key(crypto, crypt_info.cipher_val, 256, 16);
+            var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
             return subtle_crypto.importKey('raw', keys.key, {
                     name: "AES-CBC",
                     length: 256

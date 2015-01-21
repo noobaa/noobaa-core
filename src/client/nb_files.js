@@ -24,6 +24,7 @@ nb_api.factory('nbFiles', [
         $scope.create_bucket = create_bucket;
         $scope.upload_file = upload_file;
         $scope.download_file = download_file;
+        $scope.clear_transfer = clear_transfer;
         $scope.read_entire_object = read_entire_object;
         $scope.read_as_media_stream = read_as_media_stream;
 
@@ -151,6 +152,13 @@ nb_api.factory('nbFiles', [
                     }
                     return progress;
                 });
+        }
+
+        function clear_transfer(tx) {
+            var index = $scope.transfers.indexOf(tx);
+            if (index >= 0) {
+                $scope.transfers.splice(index, 1);
+            }
         }
 
         function download_file(bucket_name, file) {

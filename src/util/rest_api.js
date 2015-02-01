@@ -43,7 +43,7 @@ function rest_api(api) {
         http.globalAgent.maxSockets = 100;
     }
 
-    var api_path = PATH.join('/api', api.name);
+    var api_path = url_path_join('/api', api.name);
 
     // add all definitions
     _.each(api.definitions, function(schema, name) {
@@ -158,11 +158,11 @@ function rest_api(api) {
     Server.prototype.install_rest = function(router, path) {
         var self = this;
         path = path || api_path;
-        var doc_base = PATH.join('/doc', path);
+        var doc_base = url_path_join('/doc', path);
 
         // install methods on the router
         _.each(api.methods, function(func_info, func_name) {
-            var method_path = PATH.join(path, func_info.path);
+            var method_path = url_path_join(path, func_info.path);
             var handler = self._handlers[func_name];
             // route_func points to the route functions router.get/post/put/delete
             var route_func = router[func_info.method.toLowerCase()];
@@ -170,7 +170,7 @@ function rest_api(api) {
             route_func.call(router, method_path, handler);
 
             // install also a documentation route
-            router.get(PATH.join(doc_base, func_name), function(req, res) {
+            router.get(url_path_join(doc_base, func_name), function(req, res) {
                 res.send(func_info.doc);
                 // TODO restul doc should return also params/reply/other-info doc
             });
@@ -212,52 +212,52 @@ function rest_api(api) {
                 return next();
             }
             Q.fcall(function() {
-                    /**
-                     * mark the request to respond with error
-                     * @param status <Number> optional status code.
-                     * @param data <String> the error response data to send
-                     * @param reason <Any> a reason for logging only
-                     */
-                    req.rest_error = function(status, data, reason) {
-                        if (typeof(status) === 'string') {
-                            reason = data;
-                            data = status;
-                            status = 500;
-                        }
-                        if (!req._rest_error_data) {
-                            req._rest_error_status = status;
-                            req._rest_error_data = data;
-                            req._rest_error_reason = reason;
-                        }
-                        return new Error('rest_error');
-                    };
-                    req.rest_clear_error = function() {
-                        req._rest_error_status = undefined;
-                        req._rest_error_data = undefined;
-                        req._rest_error_reason = undefined;
-                    };
-                    req.rest_params = {};
-                    _.each(req.query, function(v, k) {
-                        req.rest_params[k] =
-                            component_to_param(v, func_info.params_properties[k].type);
+                /**
+                 * mark the request to respond with error
+                 * @param status <Number> optional status code.
+                 * @param data <String> the error response data to send
+                 * @param reason <Any> a reason for logging only
+                 */
+                req.rest_error = function(status, data, reason) {
+                    if (typeof(status) === 'string') {
+                        reason = data;
+                        data = status;
+                        status = 500;
+                    }
+                    if (!req._rest_error_data) {
+                        req._rest_error_status = status;
+                        req._rest_error_data = data;
+                        req._rest_error_reason = reason;
+                    }
+                    return new Error('rest_error');
+                };
+                req.rest_clear_error = function() {
+                    req._rest_error_status = undefined;
+                    req._rest_error_data = undefined;
+                    req._rest_error_reason = undefined;
+                };
+                req.rest_params = {};
+                _.each(req.query, function(v, k) {
+                    req.rest_params[k] =
+                        component_to_param(v, func_info.params_properties[k].type);
+                });
+                if (!func_info.param_raw) {
+                    _.each(req.body, function(v, k) {
+                        req.rest_params[k] = v;
                     });
-                    if (!func_info.param_raw) {
-                        _.each(req.body, function(v, k) {
-                            req.rest_params[k] = v;
-                        });
-                    }
-                    _.each(req.params, function(v, k) {
-                        req.rest_params[k] =
-                            component_to_param(v, func_info.params_properties[k].type);
-                    });
-                    validate_schema(req.rest_params, func_info.params_schema, func_info, 'server request');
-                    if (func_info.param_raw) {
-                        req.rest_params[func_info.param_raw] = req.body;
-                    }
-                    if (func_info.auth !== false) {
-                        return req.load_auth(func_info.auth);
-                    }
-                })
+                }
+                _.each(req.params, function(v, k) {
+                    req.rest_params[k] =
+                        component_to_param(v, func_info.params_properties[k].type);
+                });
+                validate_schema(req.rest_params, func_info.params_schema, func_info, 'server request');
+                if (func_info.param_raw) {
+                    req.rest_params[func_info.param_raw] = req.body;
+                }
+                if (func_info.auth !== false) {
+                    return req.load_auth(func_info.auth);
+                }
+            })
                 .then(function() {
                     // server functions are expected to return a promise
                     return func(req, res, next);
@@ -325,8 +325,8 @@ function rest_api(api) {
     Client.prototype._client_request = function(func_info, params) {
         var self = this;
         return Q.fcall(function() {
-                return self._http_request(func_info, params);
-            })
+            return self._http_request(func_info, params);
+        })
             .then(read_http_response)
             .then(function(res) {
                 return self._handle_http_reply(func_info, res);
@@ -373,12 +373,12 @@ function rest_api(api) {
                 return;
             } else if (typeof(p) === 'string') {
                 // for plain path strings which are non params
-                path = PATH.join(path, p);
+                path = url_path_join(path, p);
             } else {
                 assert(p.name in params,
                     'rest_api: missing required path param: ' +
                     p + ' for ' + func_info.fullname);
-                path = PATH.join(path, param_to_component(data[p.name], p.param.type));
+                path = url_path_join(path, param_to_component(data[p.name], p.param.type));
                 delete data[p.name];
             }
         });
@@ -683,4 +683,14 @@ function read_http_response(res) {
             defer.reject(err);
         }
     }
+}
+
+function url_path_join() {
+    return _.reduce(arguments, function(path, item) {
+        if (path[path.length - 1] === '/' || item[0] === '/') {
+            return path + item;
+        } else {
+            return path + '/' + item;
+        }
+    }, '');
 }

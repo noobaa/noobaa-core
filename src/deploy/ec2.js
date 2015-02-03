@@ -46,9 +46,10 @@ var KEY_PAIR_PARAMS = {
     PublicKeyMaterial: fs.readFileSync(__dirname + '/noobaa-demo.pub')
 };
 
-// the run script to send to started instances
-var run_script = fs.readFileSync(__dirname + '/init_agent.sh');
 
+// the heroku app name
+
+var app_name = '';
 
 
 /**
@@ -249,18 +250,38 @@ function scale_region(region_name, count, instances, allow_terminate,is_docker_h
  *
  */
 function add_region_instances(region_name, count,is_docker_host,number_of_dockers) {
+    var instance_type = 't2.micro';
+    // the run script to send to started instances
+    var run_script = fs.readFileSync(__dirname + '/init_agent.sh','UTF8');
+
+    if (is_docker_host){
+        instance_type = 'm3.2xlarge';
+        run_script = fs.readFileSync(__dirname + '/docker_setup.sh','utf8');
+        //replace 'test' with the correct env name
+        var test_instances_counter = (run_script.match(/test/g) || []).length;
+        var dockers_instances_counter = (run_script.match(/200/g) || []).length;
+
+        if (test_instances_counter!=1 || dockers_instances_counter !=1){
+            throw new Error ('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
+        }
+        run_script = run_script.replace("test", app_name);
+        run_script = run_script.replace("200",number_of_dockers);
+    }else
+    {
+        var test_instances_counter = (run_script.match(/test/g) || []).length;
+        console.log('test_instances_counter',test_instances_counter);
+        if (test_instances_counter!=1){
+            throw new Error ('init_agent.sh expected to contain default env "test"',test_instances_counter);
+        }
+        run_script = run_script.replace("test", app_name);
+    }
+    //console.log('run ',run_script);
+
+
     return Q
         .fcall(get_ami_image_id, region_name)
         .then(function(ami_image_id) {
-            var instance_type = 't2.micro';
-            if (is_docker_host){
-                instance_type = 'm3.2xlarge';
-//              var NooBaaProject = process.env.NOOBAA_PROJECT_NAME;
-//              var noobaa_env_name = NooBaaProject.split('-')[1];
-                run_script = fs.readFileSync(__dirname + '/docker_setup.sh');
-//                console.log('running:'+'/init_agent_'+noobaa_env_name+'.sh');
-//                return;
-            }
+
             console.log('AddInstance:', region_name, count, ami_image_id);
             return ec2_region_call(region_name, 'runInstances', {
                 ImageId: ami_image_id,
@@ -491,6 +512,16 @@ function main() {
             is_docker_host = true;
             console.log ('starting '+argv.dockers + ' dockers on each host');
 
+        }
+        if (_.isUndefined(argv.app)) {
+
+            console.error('\n\n******************************************');
+            console.error('Please provide --app (heroku app name)');
+            console.error('******************************************\n\n');
+            throw err;
+        }else
+        {
+            app_name = argv.app;
         }
 
         // add a --term flag to allow removing nodes

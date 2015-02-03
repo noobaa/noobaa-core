@@ -22,7 +22,7 @@ export HOME='/root'
 cd /noobaa
 source /usr/local/nvm/nvm.sh
 nvm use 0.10.33
-time curl -H "Accept: application/json" https://noobaa-core.herokuapp.com/agent/package.json > package.json
+time curl -H "Accept: application/json" https://noobaa-test.herokuapp.com/agent/package.json > package.json
 time rm -rf node_modules/
 time npm install
 time npm start

@@ -2,6 +2,8 @@
 mkdir -p /noobaa
 sudo apt-get -y update
 sudo apt-get -y install git build-essential libssl-dev
+ENV_NAME=$(curl http://metadata/computeMetadata/v1/instance/attributes/env -H "Metadata-Flavor: Google")
+echo '+++++ENV::::' $ENV_NAME
 
 # install nodejs with nvm (node version manager)
 export NVM_DIR="/usr/local/nvm"
@@ -22,7 +24,7 @@ export HOME='/root'
 cd /noobaa
 source /usr/local/nvm/nvm.sh
 nvm use 0.10.33
-time curl -H "Accept: application/json" https://noobaa-test.herokuapp.com/agent/package.json > package.json
+time curl -H "Accept: application/json" https://noobaa-$ENV_NAME.herokuapp.com/agent/package.json > package.json
 time rm -rf node_modules/
 time npm install
 time npm start

@@ -34,15 +34,11 @@ if (!process.env.SERVICE_ACCOUNT_EMAIL) {
     dotenv.load();
 }
 
-var SERVICE_ACCOUNT_EMAIL = process.env.SERVICE_ACCOUNT_EMAIL;
-var SERVICE_ACCOUNT_KEY_FILE = process.env.SERVICE_ACCOUNT_KEY_FILE;
-var authClient = new google.auth.JWT(
-    SERVICE_ACCOUNT_EMAIL,
-    SERVICE_ACCOUNT_KEY_FILE,
-    null, ['https://www.googleapis.com/auth/compute']);
+var SERVICE_ACCOUNT_EMAIL = '';
+var SERVICE_ACCOUNT_KEY_FILE = '';
+var authClient = '';
 
-var NooBaaProject = process.env.NOOBAA_PROJECT_NAME;
-console.log('Noobaa Project: ',NooBaaProject," file:",SERVICE_ACCOUNT_KEY_FILE);
+var NooBaaProject = '';
 
 /**
  *
@@ -62,7 +58,7 @@ module.exports = {
 
 
 var _gcloud_per_zone = {};
-
+var app_name = '';
 // // returns a promise for the completion of the loop
 function promiseWhile(condition, body) {
     var done = Q.defer();
@@ -224,7 +220,7 @@ function scale_region(region_name, count, instances, allow_terminate,is_docker_h
             ' --- removing', instances.length - count);
         var death_row = _.first(instances, instances.length - count);
         var ids = _.pluck(death_row, 'name');
-        //in this case, the id is the instance name. 
+        //in this case, the id is the instance name.
         return terminate_instances(region_name, ids);
     }
 
@@ -411,23 +407,23 @@ function add_region_instances(region_name, count,is_docker_host,number_of_docker
     promiseWhile(function() {
             return index < count;
         }, function() {
-            var noobaa_env_name = NooBaaProject.split('-')[1];
+            var noobaa_env_name = app_name;
 
-            var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro'; 
-            var startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/init_agent_'+noobaa_env_name+'.sh'; 
-            
+            var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro';
+            var startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/init_agent.sh';
+
             if (is_docker_host){
                 startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/docker_setup.sh';
                 machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
-                
+
             }
             if (_.isUndefined(number_of_dockers)){
                 number_of_dockers = 0;
             }
-            
+
             console.log('env:',noobaa_env_name,NooBaaProject);
             console.log('script:',startup_script);
-            
+
             console.log('number_of_dockers',number_of_dockers);
 
 
@@ -492,10 +488,10 @@ function add_region_instances(region_name, count,is_docker_host,number_of_docker
                     var pieces_array = instanceInformation[0].targetLink.split('/');
                     var instanceName = pieces_array[pieces_array.length - 1];
                     console.log('New instance name:' + JSON.stringify(instanceName));
-                    
+
                     if (1 === 1) {
-                        //waiting until the instance is running. 
-                        //Disk dependecy can be added only after the instance is up and running. 
+                        //waiting until the instance is running.
+                        //Disk dependecy can be added only after the instance is up and running.
                         var interval = setInterval(function() {
                             var operationsParams = {
                                 project: NooBaaProject,
@@ -598,7 +594,28 @@ function init(callback) {
 
 function main() {
     console.log('before init');
-     if (_.isUndefined(SERVICE_ACCOUNT_EMAIL)) {
+    if (_.isUndefined(argv.app)) {
+
+        console.error('\n\n******************************************');
+        console.error('Please provide --app (heroku app name)');
+        console.error('******************************************\n\n');
+        throw err;
+    }else
+    {
+        app_name = argv.app;
+        SERVICE_ACCOUNT_EMAIL = eval('process.env.'+app_name.toUpperCase()+'_SERVICE_ACCOUNT_EMAIL');
+        SERVICE_ACCOUNT_KEY_FILE = eval('process.env.'+app_name.toUpperCase()+'_SERVICE_ACCOUNT_KEY_FILE');
+        NooBaaProject = eval('process.env.'+app_name.toUpperCase()+'_NOOBAA_PROJECT_NAME');
+        authClient = new google.auth.JWT(
+            SERVICE_ACCOUNT_EMAIL,
+            SERVICE_ACCOUNT_KEY_FILE,
+            null, ['https://www.googleapis.com/auth/compute']);
+
+        //console.log('Noobaa Project: ',NooBaaProject," file:",SERVICE_ACCOUNT_KEY_FILE," auth:",authClient);
+
+
+    }
+    if (_.isUndefined(app_name+'_'+SERVICE_ACCOUNT_EMAIL)) {
             console.error('\n\n****************************************************');
             console.error('You must provide google cloud env details in .env:');
             console.error('SERVICE_ACCOUNT_EMAIL SERVICE_ACCOUNT_KEY_FILE NOOBAA_PROJECT_NAME');
@@ -607,6 +624,8 @@ function main() {
     }
     init(function(data) {
         var is_docker_host = false;
+
+
         if (!_.isUndefined(argv.dockers)) {
             is_docker_host = true;
             console.log ('starting '+argv.dockers + ' dockers on each host');

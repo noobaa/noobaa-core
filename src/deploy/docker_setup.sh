@@ -11,6 +11,7 @@ unzip DockerClient.zip
 ENV_NAME=$(curl http://metadata/computeMetadata/v1/instance/attributes/env -H "Metadata-Flavor: Google")
 echo '+++++ENV::::' $ENV_NAME
 if [ ${#ENV_NAME} -eq 0 ]; then
+	#for amazon we will set it (for now), by replacing the env_name string from ec2.js
 	ENV_NAME='test'
 else
 	echo 'EE' $ENV_NAME
@@ -25,11 +26,11 @@ number_of_dockers=$(curl http://metadata/computeMetadata/v1/instance/attributes/
 #in case of unexpected response, we will set 450 as default
 re='^[0-9]+$'
 if ! [[ $number_of_dockers =~ $re ]] ; then
-   number_of_dockers=250
+   number_of_dockers=200
 fi
 while [  $COUNTER -lt $number_of_dockers ]; do
    sudo ./start_noobaa_docker.sh
    echo The counter is $COUNTER
-   let COUNTER=COUNTER+1 
+   let COUNTER=COUNTER+1
    sleep $[ ( $RANDOM % 5 )  + 1 ]s
 done

@@ -339,6 +339,9 @@ module.exports = rest_api({
                 storage_alloc: {
                     type: 'integer'
                 },
+                disabled: {
+                    type: 'boolean'
+                }
             }
         },
 

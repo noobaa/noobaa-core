@@ -50,7 +50,8 @@ function create_node(req) {
     var info = _.pick(req.rest_params,
         'name',
         'is_server',
-        'geolocation'
+        'geolocation',
+        'disabled'
     );
     info.system = req.system.id;
     info.heartbeat = new Date(0);
@@ -123,7 +124,11 @@ function read_node(req) {
  *
  */
 function update_node(req) {
-    var updates = _.pick(req.rest_params, 'is_server', 'geolocation');
+    var updates = _.pick(req.rest_params,
+        'is_server',
+        'geolocation',
+        'disabled'
+    );
     updates.storage = {
         alloc: req.rest_params.storage_alloc,
     };

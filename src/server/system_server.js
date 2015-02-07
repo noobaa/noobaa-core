@@ -174,9 +174,7 @@ function read_system(req) {
 
 function update_system(req) {
     var info = _.pick(req.rest_params, 'name');
-    return Q.when(db.System
-            .findByIdAndUpdate(req.system.id, info)
-            .exec())
+    return Q.when(req.system.update(info).exec())
         .thenResolve();
 }
 
@@ -187,8 +185,8 @@ function update_system(req) {
  *
  */
 function delete_system(req) {
-    return Q.when(db.System
-            .findByIdAndUpdate(req.system.id, {
+    return Q.when(
+            req.system.update({
                 deleted: new Date()
             })
             .exec())
@@ -206,7 +204,8 @@ function list_systems(req) {
 
     // special case for support accounts - list all systems
     if (req.account.is_support) {
-        return Q.when(db.System
+        return Q.when(
+                db.System
                 .find({
                     deleted: null
                 })
@@ -219,7 +218,8 @@ function list_systems(req) {
     }
 
     // for normal accounts, get list from roles
-    return Q.when(db.Role
+    return Q.when(
+            db.Role
             .find({
                 account: req.account.id
             })
@@ -241,7 +241,8 @@ function list_systems(req) {
  *
  */
 function add_role(req) {
-    return Q.when(db.Account
+    return Q.when(
+            db.Account
             .findOne({
                 email: req.rest_params.email,
                 deleted: null,
@@ -267,7 +268,8 @@ function add_role(req) {
  *
  */
 function remove_role(req) {
-    return Q.when(db.Account
+    return Q.when(
+            db.Account
             .findOne({
                 email: req.rest_params.email,
                 deleted: null,

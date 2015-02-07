@@ -538,7 +538,7 @@ function heartbeat(req) {
                 return heartbeat_update_node_timestamp_barrier.call(node_id);
             } else {
                 updates.heartbeat = new Date();
-                return db.Node.findByIdAndUpdate(node_id, updates).exec();
+                return node.update(updates).exec();
             }
 
         }).then(function() {

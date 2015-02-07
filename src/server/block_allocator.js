@@ -36,8 +36,8 @@ function allocate_blocks_for_new_chunk(chunk) {
 
 
 function reallocate_bad_block(chunk, bad_block) {
-    return Q.when(db.DataBlock
-            .findByIdAndUpdate(bad_block.id, {
+    return Q.when(
+            bad_block.update({
                 deleted: new Date()
             })
             .exec())

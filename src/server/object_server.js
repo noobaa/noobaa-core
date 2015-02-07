@@ -67,8 +67,7 @@ function create_multipart_upload(req) {
 function complete_multipart_upload(req) {
     return find_object_md(req)
         .then(function(obj) {
-            return db.ObjectMD
-                .findByIdAndUpdate(obj.id, {
+            return obj.update({
                     $unset: {
                         upload_mode: 1
                     }
@@ -186,7 +185,7 @@ function update_object_md(req) {
     return find_object_md(req)
         .then(function(obj) {
             var updates = _.pick(req.rest_params, 'content_type');
-            return db.ObjectMD.findByIdAndUpdate(obj.id, updates).exec();
+            return obj.update(updates).exec();
         })
         .then(db.check_not_deleted(req, 'object'))
         .thenResolve();
@@ -207,7 +206,7 @@ function delete_object(req) {
         })
         .then(db.check_not_found(req, 'object'))
         .then(function(obj) {
-            return db.ObjectMD.findByIdAndUpdate(obj.id, {
+            return obj.update({
                 deleted: new Date()
             }).exec();
         })

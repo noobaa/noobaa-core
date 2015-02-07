@@ -248,7 +248,7 @@ module.exports = rest_api({
                                     type: 'integer'
                                 },
                                 storage: {
-                                    $ref: '/system_api/definitions/storage_info'
+                                    $ref: '/common_api/definitions/storage_info'
                                 },
                             }
                         }
@@ -286,7 +286,7 @@ module.exports = rest_api({
                         type: 'integer'
                     },
                     storage: {
-                        $ref: '/system_api/definitions/storage_info'
+                        $ref: '/common_api/definitions/storage_info'
                     },
                     device_info: {
                         type: 'object',
@@ -305,7 +305,7 @@ module.exports = rest_api({
                         type: 'integer'
                     },
                     storage: {
-                        $ref: '/system_api/definitions/storage_info'
+                        $ref: '/common_api/definitions/storage_info'
                     },
                 }
             },
@@ -387,7 +387,7 @@ module.exports = rest_api({
                     format: 'date',
                 },
                 storage: {
-                    $ref: '/system_api/definitions/storage_info'
+                    $ref: '/common_api/definitions/storage_info'
                 },
                 device_info: {
                     type: 'object',

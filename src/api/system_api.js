@@ -173,7 +173,7 @@ module.exports = rest_api({
                     }
                 },
                 storage: {
-                    $ref: '/system_api/definitions/storage_info'
+                    $ref: '/common_api/definitions/storage_info'
                 },
                 nodes: {
                     $ref: '/system_api/definitions/nodes_info'
@@ -232,41 +232,6 @@ module.exports = rest_api({
             }
         },
 
-        storage_info: {
-            type: 'object',
-            required: ['alloc', 'used'],
-            properties: {
-                alloc: {
-                    $ref: '/system_api/definitions/bigint'
-                },
-                used: {
-                    $ref: '/system_api/definitions/bigint'
-                },
-                real: {
-                    $ref: '/system_api/definitions/bigint'
-                },
-            }
-        },
-
-
-        bigint: {
-            oneOf: [{
-                type: 'integer'
-            }, {
-                type: 'object',
-                properties: {
-                    n: {
-                        type: 'integer',
-                    },
-                    // to support bigger integers we can specify a peta field
-                    // which is considered to be based from 2^50
-                    peta: {
-                        type: 'integer',
-                    }
-                }
-            }]
-        },
 
     }
-
 });

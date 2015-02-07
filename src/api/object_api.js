@@ -160,7 +160,7 @@ module.exports = rest_api({
                 required: [],
                 properties: {
                     new_block: {
-                        $ref: '/object_api/definitions/block_info'
+                        $ref: '/common_api/definitions/block_info'
                     }
                 }
             },
@@ -386,33 +386,8 @@ module.exports = rest_api({
                         // each fragment contains an array of blocks
                         type: 'array',
                         items: {
-                            $ref: '/object_api/definitions/block_info'
+                            $ref: '/common_api/definitions/block_info'
                         }
-                    }
-                }
-            }
-        },
-
-        block_info: {
-            type: 'object',
-            required: ['id', 'node'],
-            properties: {
-                id: {
-                    type: 'string',
-                },
-                node: {
-                    type: 'object',
-                    required: ['ip', 'port'],
-                    properties: {
-                        id: { // TODO remove this field
-                            type: 'string',
-                        },
-                        ip: {
-                            type: 'string',
-                        },
-                        port: {
-                            type: 'integer',
-                        },
                     }
                 }
             }

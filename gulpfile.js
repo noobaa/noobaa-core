@@ -233,7 +233,7 @@ gulp.task('ng', function() {
 
 gulp.task('jshint', function() {
     return gulp
-        .src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
+        .src(_.flattenDeep([PATHS.scripts, PATHS.html_scripts]))
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_cached('jshint'))
         .pipe(gulp_jshint.extract('always'))
@@ -343,6 +343,7 @@ gulp.task('mocha', function() {
     return gulp
         .src(PATHS.scripts)
         .pipe(gulp_istanbul())
+        .pipe(gulp_istanbul.hookRequire()) // Force `require` to return covered files
         .on('finish', function() {
             return gulp.src(PATHS.test_scripts, SRC_DONT_READ)
                 .pipe(gulp_mocha(mocha_options))

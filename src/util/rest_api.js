@@ -11,6 +11,9 @@ var URL = require('url');
 var PATH = require('path');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
+var dbg = require('./dbg')(__filename);
+
+// dbg.log_level = 3;
 
 module.exports = rest_api;
 
@@ -41,6 +44,10 @@ function rest_api(api) {
     // increase the maximum sockets per host, the default is 5 which is very low
     if (http.globalAgent && http.globalAgent.maxSockets < 100) {
         http.globalAgent.maxSockets = 100;
+    }
+    // same for http-browserify
+    if (http.Agent && http.Agent.defaultMaxSockets < 100) {
+        http.Agent.defaultMaxSockets = 100;
     }
 
     var api_path = url_path_join('/api', api.name);
@@ -419,10 +426,11 @@ function rest_api(api) {
             responseType: 'arraybuffer',
         };
 
-        // console.log('HTTP request', options);
+        dbg.log2('HTTP request options', options);
         var req = self.options.protocol === 'https:' ?
             https.request(options) :
             http.request(options);
+        dbg.log3('HTTP request', req);
 
         var defer = Q.defer();
         req.on('error', defer.reject);
@@ -628,17 +636,17 @@ function component_to_param(component, type) {
 
 // send http request and return a promise for the response
 function read_http_response(res) {
-    // console.log('HTTP response headers', res.statusCode, res.headers);
     var chunks = [];
     var chunks_length = 0;
     var defer = Q.defer();
+    dbg.log3('HTTP response headers', res.statusCode, res.headers);
     res.on('error', defer.reject);
     res.on('data', add_chunk);
     res.on('end', finish);
     return defer.promise;
 
     function add_chunk(chunk) {
-        // console.log('HTTP response data', chunk.length, typeof(chunk));
+        dbg.log3('HTTP response data', chunk.length, typeof(chunk));
         chunks.push(chunk);
         chunks_length += chunk.length;
     }
@@ -666,6 +674,7 @@ function read_http_response(res) {
     }
 
     function finish() {
+        dbg.log3('HTTP response finish', res);
         try {
             var data = decode_response(concat_chunks());
             if (res.statusCode !== 200) {

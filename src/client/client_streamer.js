@@ -107,7 +107,7 @@ function client_streamer(client, port) {
                     '</body>',
                     '</html>'
                 ];
-                var html = _.flatten(html_arrays).join('\n');
+                var html = _.flattenDeep(html_arrays).join('\n');
                 res.status(200).send(html);
             })
             .then(null, function(err) {
@@ -151,7 +151,7 @@ function client_streamer(client, port) {
                     '</body>',
                     '</html>'
                 ];
-                var html = _.flatten(html_arrays).join('\n');
+                var html = _.flattenDeep(html_arrays).join('\n');
                 res.status(200).send(html);
             })
             .then(null, function(err) {

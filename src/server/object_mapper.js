@@ -5,8 +5,10 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var db = require('./db');
+var api = require('../api');
 var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
+var dbg = require('../util/dbg')(__filename);
 
 module.exports = {
     allocate_object_part: allocate_object_part,
@@ -304,6 +306,95 @@ function bad_block_in_part(obj, start, end, fragment, block_id, is_write) {
 
 
 
+/**
+ *
+ * build_chunk
+ *
+ */
+function build_chunk(chunk) {
+
+    return Q.fcall(function() {
+
+            // if already loaded fragments use them
+            if (chunk.fragments) return chunk.fragments;
+
+            // otherwise load fragments and blocks of the chunk
+            return load_chunk_fragments(chunk._id);
+        })
+        .then(function(fragments) {
+
+            // handle each fragment
+            return Q.all(_.map(fragments, function(blocks, fragment) {
+
+                // partition the blocks to the ones that require building,
+                // and the stable blocks that can be used as source.
+                var blocks_partition = _.partition(blocks, 'building');
+                var target_blocks = blocks_partition[0];
+                var source_blocks = blocks_partition[1];
+                if (!source_blocks.length) {
+                    console.error('chunk fragment has no source blocks',
+                        chunk, fragment, blocks);
+                    throw new Error('chunk fragment has no source blocks');
+                }
+                if (!target_blocks.length) return;
+                var next_source = 0;
+
+                return Q.all(target_blocks, function(block) {
+                    // pick a source block round robin
+                    var source = source_blocks[next_source];
+                    next_source = (next_source + 1) % source_blocks.length;
+
+                    // request the agent to replicate from the source
+                    var agent = new api.agent_api.Client();
+                    agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
+                    return agent.replicate_block({
+                            block_id: block._id,
+                            source: {
+                                id: source._id,
+                                node: {
+                                    ip: source.node.ip,
+                                    port: source.node.port,
+                                }
+                            }
+                        })
+                        .then(function() {
+                            return block.update({
+                                $unset: {
+                                    building: 1
+                                }
+                            }).exec();
+                        });
+                });
+            }));
+        });
+}
+
+
+
+/**
+ *
+ * load_chunk_fragments
+ *
+ */
+function load_chunk_fragments(chunk_id) {
+    return Q.when(db.DataBlock
+            .find({
+                chunk: chunk_id,
+                deleted: null,
+            })
+            .populate('node')
+            .exec())
+        .then(function(blocks) {
+            var fragments = _.groupBy(blocks, 'fragment');
+            return fragments;
+        });
+}
+
+
+
+// UTILS
+
+
 function get_part_info(part, chunk, blocks, set_obj) {
     var fragments = [];
     _.each(_.groupBy(blocks, 'fragment'), function(fragment_blocks, fragment) {
@@ -324,8 +415,7 @@ function get_part_info(part, chunk, blocks, set_obj) {
 
 function get_block_info(block) {
     var b = _.pick(block, 'id');
-    // TODO remove the id field from the reply
-    b.node = _.pick(block.node, 'id', 'ip', 'port');
+    b.node = _.pick(block.node, 'ip', 'port');
     return b;
 }
 

@@ -302,7 +302,7 @@ gulp.task('client', ['bower', 'ng'], function() {
             './' + PATHS.client_bundle,
             // './' + PATHS.agent_bundle
         ],
-        debug: (process.env.DEBUG_MODE === 'true'),
+        debug: true,
 
         // TODO this browserify config will not work in node-webkit....
 

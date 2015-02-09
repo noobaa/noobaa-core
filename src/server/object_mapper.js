@@ -8,6 +8,7 @@ var db = require('./db');
 var api = require('../api');
 var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
+var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('../util/dbg')(__filename);
 
 module.exports = {
@@ -16,6 +17,7 @@ module.exports = {
     read_node_mappings: read_node_mappings,
     delete_object_mappings: delete_object_mappings,
     bad_block_in_part: bad_block_in_part,
+    build_chunks: build_chunks,
 };
 
 // default split of chunks with kfrag
@@ -70,8 +72,8 @@ function allocate_object_part(bucket, obj, start, end, chunk_size, crypt) {
             // console.log('create chunk', new_chunk);
             return db.DataChunk.create(new_chunk)
                 .then(function() {
-                    // console.log('allocate_blocks_for_new_chunk');
-                    return block_allocator.allocate_blocks_for_new_chunk(new_chunk);
+                    // console.log('allocate_blocks_for_chunk');
+                    return block_allocator.allocate_blocks_for_chunk(new_chunk);
                 })
                 .then(function(new_blocks) {
                     // console.log('create blocks', new_blocks);
@@ -308,66 +310,303 @@ function bad_block_in_part(obj, start, end, fragment, block_id, is_write) {
 
 /**
  *
- * build_chunk
+ * build_chunks
  *
  */
-function build_chunk(chunk) {
+function build_chunks(chunks) {
+    var blocks_to_remove = [];
+    var blocks_to_build = [];
+    var blocks_info_to_allocate = [];
+    var chunk_ids = _.pluck(chunks, '_id');
+    var in_chunk_ids = {
+        $in: chunk_ids
+    };
 
-    return Q.fcall(function() {
+    dbg.log0('build_chunks:', 'batch start', chunks.length, 'chunks');
 
-            // if already loaded fragments use them
-            if (chunk.fragments) return chunk.fragments;
+    function push_block_to_remove(chunk, block, fragment, reason) {
+        dbg.log0('build_chunks:', 'remove block (' + reason + ') -',
+            'chunk', chunk._id, 'fragment', fragment, 'block', block._id);
+        blocks_to_remove.push(block);
+    }
 
-            // otherwise load fragments and blocks of the chunk
-            return load_chunk_fragments(chunk._id);
+    return Q.all([ // parallel queries
+            Q.fcall(function() {
+
+                // load blocks of the chunk
+                return db.DataBlock
+                    .find({
+                        chunk: in_chunk_ids,
+                        deleted: null,
+                    })
+                    .populate('node')
+                    .exec();
+            }),
+            Q.fcall(function() {
+
+                // update the chunks to building mode
+                return db.DataChunk.update({
+                    _id: in_chunk_ids
+                }, {
+                    building: new Date(),
+                }).exec();
+            })
+        ])
+        .spread(function(all_blocks, chunks_updated) {
+
+            // TODO take config of desired replicas from tier/bucket
+            var optimal_replicas = 3;
+            // TODO move times to config constants/env
+            var now = Date.now();
+            var long_gone_threshold = 3600000;
+            var short_gone_threshold = 300000;
+            var long_build_threshold = 300000;
+
+            var blocks_by_chunk = _.groupBy(all_blocks, 'chunk');
+            _.each(chunks, function(chunk) {
+                var blocks_by_fragments = _.groupBy(blocks_by_chunk[chunk._id], 'fragment');
+                _.times(chunk.kfrag, function(fragment) {
+                    var blocks = blocks_by_fragments[fragment] || [];
+                    dbg.log1('build_chunks:', 'chunk', chunk._id,
+                        'fragment', fragment, 'num blocks', blocks.length);
+                    var good_blocks = [];
+                    var corrupted_blocks = [];
+                    var long_gone_blocks = [];
+                    var short_gone_blocks = [];
+                    var building_blocks = [];
+                    var long_building_blocks = [];
+
+                    _.each(blocks, function(block) {
+                        if (block.corrupted) return corrupted_blocks.push(block);
+                        var since_hb = now - block.node.heartbeat.getTime();
+                        if (since_hb > long_gone_threshold) return long_gone_blocks.push(block);
+                        if (since_hb > short_gone_threshold) return short_gone_blocks.push(block);
+                        if (block.building) {
+                            var since_bld = now - block.building.getTime();
+                            if (since_bld > long_build_threshold) {
+                                return long_building_blocks.push(block);
+                            } else {
+                                return building_blocks.push(block);
+                            }
+                        }
+                        good_blocks.push(block);
+                    });
+
+                    if (!good_blocks.length) {
+                        // TODO try erasure coding to rebuild from other fragments
+                        console.error('build_chunk:', 'NO GOOD BLOCKS',
+                            'chunk', chunk._id, 'fragment', fragment,
+                            'corrupted', corrupted_blocks.length,
+                            'long gone', long_gone_blocks.length,
+                            'short gone', short_gone_blocks.length,
+                            'building', building_blocks.length,
+                            'long building', long_building_blocks.length);
+                        return;
+                    }
+
+                    // blocks that were building for too long will all be removed
+                    // as they most likely failed to build
+                    while (long_building_blocks.length) {
+                        push_block_to_remove(long_building_blocks.pop(), 'long building');
+                    }
+
+                    // remove extra blocks that did not finish building
+                    while (good_blocks.length + building_blocks.length > optimal_replicas) {
+                        push_block_to_remove(building_blocks.pop(), 'extra building');
+                    }
+
+                    // when above optimal we can remove long gone blocks
+                    // defer the short gone blocks until either back to good or become long.
+                    if (good_blocks.length >= optimal_replicas) {
+                        while (long_gone_blocks.length) {
+                            push_block_to_remove(long_gone_blocks.pop(), 'extra long gone');
+                        }
+                    }
+
+                    // remove good blocks only if above optimal
+                    while (good_blocks.length > optimal_replicas) {
+                        push_block_to_remove(good_blocks.pop(), 'extra good');
+                    }
+
+                    // for every build block pick a source from good blocks round robin
+                    var round_rob = 0;
+                    _.each(building_blocks, function(block) {
+                        block.source = good_blocks[round_rob % good_blocks.length];
+                        round_rob += 1;
+                    });
+
+                    // mark to allocate blocks for fragment to reach optimal count
+                    var num_blocks_to_add =
+                        Math.max(0, optimal_replicas - good_blocks.length - building_blocks.length);
+                    _.times(num_blocks_to_add, function() {
+                        blocks_info_to_allocate.push({
+                            chunk_id: chunk._id,
+                            chunk: chunk,
+                            fragment: fragment,
+                            source: good_blocks[round_rob % good_blocks.length]
+                        });
+                        round_rob += 1;
+                    });
+                });
+            });
+
+            return Q.all([
+                Q.fcall(function() {
+
+                    // remove unneeded blocks from db
+                    if (!blocks_to_remove.length) return;
+                    dbg.log0('build_chunks:', 'removing', blocks_to_remove.length, 'blocks');
+                    return block_allocator.remove_blocks(blocks_to_remove);
+                }),
+                Q.fcall(function() {
+
+                    // allocate blocks
+                    if (!blocks_info_to_allocate.length) return;
+                    var blocks_info_by_chunk = _.groupBy(blocks_info_to_allocate, 'chunk_id');
+                    return Q.all(_.map(blocks_info_by_chunk, function(blocks_info) {
+                            var chunk = blocks_info[0].chunk;
+                            return block_allocator.allocate_blocks_for_chunk(chunk, blocks_info);
+                        }))
+                        .then(function(res) {
+
+                            // append new blocks to build list
+                            var new_blocks = _.flatten(res);
+                            Array.prototype.push.apply(blocks_to_build, new_blocks);
+
+                            // create in db (in building mode)
+                            dbg.log0('build_chunks:', 'creating', new_blocks.length, 'blocks');
+                            return db.DataBlock.create(new_blocks);
+                        });
+                })
+            ]);
         })
-        .then(function(fragments) {
+        .then(function() {
 
-            // handle each fragment
-            return Q.all(_.map(fragments, function(blocks, fragment) {
+            // replicate each block in building mode
+            // send to the agent a request to replicate from the source
 
-                // partition the blocks to the ones that require building,
-                // and the stable blocks that can be used as source.
-                var blocks_partition = _.partition(blocks, 'building');
-                var target_blocks = blocks_partition[0];
-                var source_blocks = blocks_partition[1];
-                if (!source_blocks.length) {
-                    console.error('chunk fragment has no source blocks',
-                        chunk, fragment, blocks);
-                    throw new Error('chunk fragment has no source blocks');
-                }
-                if (!target_blocks.length) return;
-                var next_source = 0;
+            if (!blocks_to_build.length) return;
+            var sem = new Semaphore(32);
 
-                return Q.all(target_blocks, function(block) {
-                    // pick a source block round robin
-                    var source = source_blocks[next_source];
-                    next_source = (next_source + 1) % source_blocks.length;
-
-                    // request the agent to replicate from the source
-                    var agent = new api.agent_api.Client();
-                    agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
-                    return agent.replicate_block({
+            dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
+            return Q.all(_.map(blocks_to_build, function(block) {
+                    return sem.surround(function() {
+                        var agent = new api.agent_api.Client();
+                        agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
+                        return agent.replicate_block({
                             block_id: block._id,
                             source: {
-                                id: source._id,
+                                id: block.source._id,
                                 node: {
-                                    ip: source.node.ip,
-                                    port: source.node.port,
+                                    ip: block.source.node.ip,
+                                    port: block.source.node.port,
                                 }
                             }
-                        })
-                        .then(function() {
-                            return block.update({
-                                $unset: {
-                                    building: 1
-                                }
-                            }).exec();
-                        });
+                        }).thenResolve(block._id);
+                    });
+                }))
+                .then(function(built_block_ids) {
+
+                    // update building blocks to remove the building mode timestamp
+                    return db.DataBlock.update({
+                        _id: {
+                            $in: built_block_ids
+                        }
+                    }, {
+                        $unset: {
+                            building: 1
+                        }
+                    }).exec();
                 });
-            }));
+        })
+        .then(function() {
+
+            // complete chunks build state - remove the building time and set last_build time
+            dbg.log0('build_chunks:', 'batch end', chunks.length, 'chunks');
+            return db.DataChunk.update({
+                _id: in_chunk_ids
+            }, {
+                last_build: new Date(),
+                $unset: {
+                    building: 1
+                }
+            }).exec();
         });
 }
+
+
+setTimeout(build_worker, 5000);
+
+function build_worker() {
+    var last_chunk_id;
+    var batch_size = 100;
+    var time_since_last_build = 3000; // TODO increase...
+    var building_timeout = 60000; // TODO increase...
+    return run();
+
+    function run() {
+        return run_batch().then(null, function(err) {
+                dbg.log0('build_worker:', 'ERROR', err, err.stack);
+            })
+            .delay(5000)
+            .then(run);
+    }
+
+    function run_batch() {
+        return Q.fcall(function() {
+                var query = {
+                    $and: [{
+                        $or: [{
+                            last_build: null
+                        }, {
+                            last_build: {
+                                $lt: new Date(Date.now() - time_since_last_build)
+                            }
+                        }]
+                    }, {
+                        $or: [{
+                            building: null
+                        }, {
+                            building: {
+                                $lt: new Date(Date.now() - building_timeout)
+                            }
+                        }]
+                    }]
+                };
+                if (last_chunk_id) {
+                    query._id = {
+                        $gt: last_chunk_id
+                    };
+                } else {
+                    dbg.log0('build_worker:', 'BEGIN');
+                }
+
+                return db.DataChunk.find(query)
+                    .limit(batch_size)
+                    .exec();
+            })
+            .then(function(chunks) {
+
+                // update the last_chunk_id for next time
+                if (chunks.length === batch_size) {
+                    last_chunk_id = chunks[chunks.length - 1];
+                } else {
+                    last_chunk_id = undefined;
+                }
+
+                if (chunks.length) {
+                    return build_chunks(chunks);
+                }
+            });
+    }
+}
+
+
+
+
+
+
+// UTILS //////////////////////////////////////////////////////////
 
 
 
@@ -390,9 +629,6 @@ function load_chunk_fragments(chunk_id) {
         });
 }
 
-
-
-// UTILS
 
 
 function get_part_info(part, chunk, blocks, set_obj) {

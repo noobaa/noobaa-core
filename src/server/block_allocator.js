@@ -9,8 +9,9 @@ var db = require('./db');
 
 
 module.exports = {
-    allocate_blocks_for_new_chunk: allocate_blocks_for_new_chunk,
+    allocate_blocks_for_chunk: allocate_blocks_for_chunk,
     reallocate_bad_block: reallocate_bad_block,
+    remove_blocks: remove_blocks,
 };
 
 var COPIES = 3;
@@ -19,17 +20,29 @@ var COPIES = 3;
  * selects distinct edge node for allocating new blocks.
  * TODO take into consideration the state of the nodes.
  *
+ * @param blocks_info (optional) - array of objects containing:
+ *      - fragment number
+ *      - source block for replication
  * @return array of new DataBlock.
  */
-function allocate_blocks_for_new_chunk(chunk) {
-    var count = chunk.kfrag * COPIES;
+function allocate_blocks_for_chunk(chunk, blocks_info) {
     var block_size = (chunk.size / chunk.kfrag) | 0;
+    var count = blocks_info ? blocks_info.length : (chunk.kfrag * COPIES);
 
     return update_tier_alloc_nodes(chunk.system, chunk.tier)
         .then(function(alloc_nodes) {
             var nodes = pop_round_robin(alloc_nodes, count);
+
             return _.map(nodes, function(node, i) {
-                return new_block(chunk, node, i % chunk.kfrag, block_size);
+                var info = blocks_info && blocks_info[i];
+                var fragment = info ? info.fragment : (i % chunk.kfrag);
+                var block = new_block(chunk, node, fragment, block_size);
+
+                // copy the source block for building by replication - see build_chunk()
+                if (info && info.source) {
+                    block.source = info.source;
+                }
+                return block;
             });
         });
 }
@@ -51,11 +64,20 @@ function reallocate_bad_block(chunk, bad_block) {
 }
 
 
+function remove_blocks(blocks) {
+    return db.DataBlock.remove({
+        _id: {
+            $in: _.pluck(blocks, '_id')
+        }
+    }).exec();
+}
+
 
 function new_block(chunk, node, fragment, size) {
     var block = new db.DataBlock({
         fragment: fragment,
         size: size,
+        building: new Date()
     });
 
     // using setValue as a small hack to make these fields seem populated

@@ -339,12 +339,16 @@ function build_chunks(chunks) {
             Q.fcall(function() {
 
                 // load blocks of the chunk
+                // TODO: sort by _id is a hack to make consistent decisions between
+                // different servers or else they might decide to remove different blocks
+                // and leave no good blocks...
                 return db.DataBlock
                     .find({
                         chunk: in_chunk_ids,
                         deleted: null,
                     })
                     .populate('node')
+                    .sort('_id')
                     .exec();
             }),
             Q.fcall(function() {

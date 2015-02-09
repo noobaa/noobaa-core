@@ -242,16 +242,21 @@ function delete_object_mappings(obj) {
             var in_chunk_ids = {
                 $in: chunk_ids
             };
+            var chunk_query = {
+                _id: in_chunk_ids
+            };
+            var block_query = {
+                chunk: in_chunk_ids
+            };
             var deleted_update = {
                 deleted: new Date()
             };
+            var multi_opt = {
+                multi: true
+            };
             return Q.all([
-                db.DataChunk.update({
-                    _id: in_chunk_ids
-                }, deleted_update).exec(),
-                db.DataBlock.update({
-                    chunk: in_chunk_ids
-                }, deleted_update).exec()
+                db.DataChunk.update(chunk_query, deleted_update, multi_opt).exec(),
+                db.DataBlock.update(block_query, deleted_update, multi_opt).exec()
             ]);
         });
 }
@@ -349,6 +354,8 @@ function build_chunks(chunks) {
                     _id: in_chunk_ids
                 }, {
                     building: new Date(),
+                }, {
+                    multi: true
                 }).exec();
             })
         ])
@@ -530,6 +537,8 @@ function build_chunks(chunks) {
                 $unset: {
                     building: 1
                 }
+            }, {
+                multi: true
             }).exec();
         });
 }
@@ -545,10 +554,13 @@ function build_worker() {
     return run();
 
     function run() {
-        return run_batch().then(null, function(err) {
+        return run_batch()
+            .then(function() {
+                return Q.delay(last_chunk_id ? 1000 : 10000);
+            }, function(err) {
                 dbg.log0('build_worker:', 'ERROR', err, err.stack);
+                return Q.delay(10000);
             })
-            .delay(5000)
             .then(run);
     }
 

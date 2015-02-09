@@ -65,10 +65,14 @@ function reallocate_bad_block(chunk, bad_block) {
 
 
 function remove_blocks(blocks) {
-    return db.DataBlock.remove({
+    return db.DataBlock.update({
         _id: {
             $in: _.pluck(blocks, '_id')
         }
+    }, {
+        deleted: new Date()
+    }, {
+        multi: true
     }).exec();
 }
 

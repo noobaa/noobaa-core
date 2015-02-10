@@ -19,6 +19,7 @@ var api = require('../api');
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var AgentStore = require('./agent_store');
+var ice_api = require('../util/ice_api');
 
 module.exports = Agent;
 
@@ -51,7 +52,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 10,
-            load: self.store.read_block.bind(self.store),
+            load: self.store.read_block.bind(self.store)
         });
     } else {
         assert(self.token, 'missing param: token. ' +
@@ -61,7 +62,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 1,
-            load: self.store.read_block.bind(self.store),
+            load: self.store.read_block.bind(self.store)
         });
     }
 
@@ -105,7 +106,7 @@ function Agent(params) {
         read_block: self.read_block.bind(self),
         check_block: self.check_block.bind(self),
         delete_block: self.delete_block.bind(self),
-        kill_agent: self.kill_agent.bind(self),
+        kill_agent: self.kill_agent.bind(self)
     });
     agent_server.install_rest(app);
 
@@ -124,8 +125,29 @@ function Agent(params) {
         'United States', 'Canada', 'Brazil', 'Mexico',
         'China', 'Japan', 'Korea', 'India', 'Australia',
         'Israel', 'Romania', 'Russia',
-        'Germany', 'England', 'France', 'Spain',
+        'Germany', 'England', 'France', 'Spain'
     ]);
+
+    self.sigSocket = ice_api.signalingSetup(function(channel, message) {
+        var msg;
+        var body;
+
+        if (typeof message == 'string' || message instanceof String) {
+            msg = JSON.parse(message);
+
+            console.log('-> do something '+msg);
+
+        }  else if (message instanceof ArrayBuffer) {
+            body = channel.buffer;
+            msg = channel.peer_msg;
+
+            console.log('-> do something with buffer '+msg);
+
+        } else {
+            console.log('-> got weird msg '+message);
+        }
+    }, params.node_name);
+    self.client.options.set_ws(self.sigSocket);
 }
 
 
@@ -214,7 +236,7 @@ Agent.prototype._init_node = function() {
                     name: self.node_name,
                     tier: res.extra.tier,
                     geolocation: self.geolocation,
-                    storage_alloc: 100 * size_utils.GIGABYTE,
+                    storage_alloc: 100 * size_utils.GIGABYTE
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.client.headers.set_auth_token(node.token);
@@ -280,7 +302,11 @@ Agent.prototype._server_close_handler = function() {
     console.log('AGENT server closed');
     this.http_port = 0;
     // set timer to check the state and react by restarting or not
-    setTimeout(this._start_stop_http_server.bind(this), 1000);
+    try {
+        setTimeout(this._start_stop_http_server.bind(this), 1000);
+    } catch (ex) {
+        console.error("prob 777777");
+    }
 };
 
 
@@ -322,8 +348,8 @@ Agent.prototype.send_heartbeat = function() {
                 port: self.http_port,
                 storage: {
                     alloc: store_stats.alloc,
-                    used: store_stats.used,
-                },
+                    used: store_stats.used
+                }
             };
             var now_time = Date.now();
             if (!self.device_info_send_time ||
@@ -340,7 +366,7 @@ Agent.prototype.send_heartbeat = function() {
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
                     cpus: os.cpus(),
-                    networkInterfaces: os.networkInterfaces(),
+                    networkInterfaces: os.networkInterfaces()
                 };
             }
             return self.client.node.heartbeat(params);
@@ -404,7 +430,12 @@ Agent.prototype._start_stop_heartbeats = function() {
         ms = ms || (60000 * (1 + Math.random())); // default 1 minute
         ms = Math.max(ms, 1000); // force above 1 second
         ms = Math.min(ms, 300000); // force below 5 minutes
-        self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
+        try{
+            self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
+        } catch (ex) {
+            console.error("prob 55555");
+        }
+
     }
 };
 

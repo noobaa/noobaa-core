@@ -8,9 +8,9 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var URL = require('url');
-var PATH = require('path');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
+var ice_api = require('./ice_api');
 
 module.exports = rest_api;
 
@@ -325,20 +325,15 @@ function rest_api(api) {
     Client.prototype._client_request = function(func_info, params) {
         var self = this;
         return Q.fcall(function() {
-            return self._http_request(func_info, params);
-        })
-            .then(read_http_response)
-            .then(function(res) {
-                return self._handle_http_reply(func_info, res);
-            })
-            .then(null, function(err) {
-                console.error('REST REQUEST FAILED', err);
-                throw err;
-            });
+            return self._peer_request(func_info, params);
+        }).then(null, function(err) {
+            console.error('REST REQUEST FAILED', err);
+            throw err;
+        });
     };
 
     // create a REST api call and return the options for http request.
-    Client.prototype._http_request = function(func_info, params) {
+    Client.prototype._peer_request = function(func_info, params) {
         var self = this;
         var method = func_info.method;
         var path = self.options.path || '/';
@@ -416,11 +411,40 @@ function rest_api(api) {
             // in order to use allow-origin=* (CORS)
             withCredentials: false,
             // tell browserify http module to use binary data
-            responseType: 'arraybuffer',
+            responseType: 'arraybuffer'
         };
 
-        // console.log('HTTP request', options);
-        var req = self.options.protocol === 'https:' ?
+        console.log(JSON.stringify(options));
+
+        if (options.path.indexOf('auth') >= 0 || options.path.indexOf('heartbeat') >= 0) { // do http
+            console.log('do http req');
+            return Q.fcall(function() {
+                return self._http_request(options, body);
+            }).then(read_http_response)
+            .then(function(res) {
+                return self._handle_http_reply(func_info, res);
+            })
+            .then(null, function(err) {
+                console.error('REST REQUEST FAILED', err);
+                throw err;
+            });
+        } else { // do ice
+            console.log('do ice ' + (self.options.ws_socket ? self.options.ws_socket.idInServer : "not agent"));
+            return Q.fcall(function() {
+                var peerId = options.hostname + ":" + options.port;
+                return ice_api.sendRequest(self.options.ws_socket, peerId, options, null, body);
+            })
+            .then(null, function(err) {
+                console.error('REST REQUEST FAILED', err);
+                throw err;
+            });
+        }
+
+    };
+
+    // create a REST api call and return the options for http request.
+    Client.prototype._http_request = function(options, body) {
+        var req = options.protocol === 'https:' ?
             https.request(options) :
             http.request(options);
 
@@ -432,12 +456,19 @@ function rest_api(api) {
         } else {
             req.end();
         }
-        if (self.options.timeout) {
+        if (options.timeout) {
             if (req.setTimeout) {
-                req.setTimeout(self.options.timeout, function() {
-                    console.error('REQUEST TIMEOUT');
-                    req.abort();
-                });
+
+                try {
+                    req.setTimeout(options.timeout, function() {
+                        console.error('REQUEST TIMEOUT');
+                        req.abort();
+                    });
+                } catch (ex) {
+                    console.error("prob 666666");
+                }
+
+
             } else {
                 // TODO browserify doesn't implement req.setTimeout...
             }
@@ -506,6 +537,9 @@ rest_api.global_client_options = {
 
     set_timeout: function(ms) {
         this.timeout = ms;
+    },
+    set_ws: function(ws) {
+        this.ws_socket = ws;
     },
 
     /**
@@ -649,7 +683,11 @@ function read_http_response(res) {
         }
         if (typeof(chunks[0]) === 'string') {
             // if string was already decoded then keep working with strings
-            return String.prototype.concat.apply('', chunks);
+
+            var rest4;
+            try {rest4 = String.prototype.concat.apply('', chunks);} catch (ex) {console.error("prob 444444")}
+
+            return rest4;
         }
         // binary data buffers for the win!
         if (!Buffer.isBuffer(chunks[0])) {
@@ -671,12 +709,12 @@ function read_http_response(res) {
             if (res.statusCode !== 200) {
                 defer.reject({
                     status: res.statusCode,
-                    data: data.toString(),
+                    data: data.toString()
                 });
             } else {
                 defer.resolve({
                     response: res,
-                    data: data,
+                    data: data
                 });
             }
         } catch (err) {

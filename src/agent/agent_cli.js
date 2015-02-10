@@ -41,7 +41,7 @@ function AgentCLI(params) {
         password: 'DeMo',
         system: 'demo',
         tier: 'devices',
-        bucket: 'files',
+        bucket: 'files'
     });
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);
@@ -80,6 +80,14 @@ AgentCLI.prototype.init = function() {
         });
 };
 
+try {
+    setInterval(function() {
+        console.log(
+            'memory '+ JSON.stringify(process.memoryUsage()));
+    }, 30000);
+} catch (ex) {
+    console.error("prob xxxxxxx");
+}
 
 
 /**
@@ -196,7 +204,7 @@ AgentCLI.prototype.start = function(node_name) {
             address: self.params.address,
             node_name: node_name,
             prefered_port: self.params.port,
-            storage_path: path.join(self.params.root_path, node_name),
+            storage_path: path.join(self.params.root_path, node_name)
         });
         console.log('agent inited', node_name);
     }
@@ -271,16 +279,31 @@ function file_must_exist(path) {
 
 
 function main() {
-    var cli = new AgentCLI(argv);
+
+    var app = require('app');  // Module to control application life.
+    //app.dock.hide();
+    var BrowserWindow = require('browser-window');
+    app.on('ready', function() {
+        var windowMain = new BrowserWindow({show: false});
+        windowMain.loadUrl('file://' + __dirname + '/index.html');
+    });
+
+
+//    var cli = new AgentCLI(argv);
+    var args ={
+      address: 'http://127.0.0.1:5001'
+
+    };
+    var cli = new AgentCLI(args);
     cli.init().done(function() {
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
             prompt: 'agent-cli > ',
-            useGlobal: false,
+            useGlobal: false
         });
         var help = {
             functions: [],
-            variables: [],
+            variables: []
         };
         _.forIn(cli, function(val, key) {
             if (typeof(val) === 'function') {
@@ -300,3 +323,20 @@ function main() {
 if (require.main === module) {
     main();
 }
+
+
+process.stdin.resume();//so the program will not close instantly
+
+function exitHandler() {
+    console.log('exiting');
+    process.exit();
+}
+
+process.on('exit', function(code) {
+    console.log('About to exit with code:', code);
+});
+
+process.on('uncaughtException', function(err) {
+    console.log('Caught exception: ' + err + ' ; ' + err.stack);
+    exitHandler();
+});

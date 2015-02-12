@@ -8,6 +8,7 @@ build/
 *.sublime-workspace
 *.sublime-project
 .idea/
+tags
 
 ## istanbul coverage
 coverage/

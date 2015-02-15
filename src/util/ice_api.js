@@ -70,6 +70,7 @@ function onIceMessage(channel, event) {
         writeLog('got chunk ' + event.data + " size " + event.data.byteLength + " curr " + channel.received_size);
 
         if (event.data.byteLength < chunk_size) {
+            writeLog('got last chunk as '+channel.chunk_num);
             channel.last_part = event.data;
         } else {
             channel.arrayToStoreChunks.push(event.data);

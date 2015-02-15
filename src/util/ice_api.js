@@ -10,6 +10,7 @@ var exports = module.exports = {};
 var isAgent;
 
 var chunk_size = 60000;
+var partSize = 8;
 
 exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
     handleRequestMethod = handleRequestMethodTemp;
@@ -60,17 +61,14 @@ function onIceMessage(channel, event) {
 
         try {
             var bff = buf.toBuffer(event.data);
-
-            writeLog('got chunk size ' + event.data.byteLength + " curr " + channel.received_size);
-
             var part = bff.readInt8(0);
-            channel.chunks_map[part] = event.data.slice(8);
+            channel.chunks_map[part] = event.data.slice(partSize);
 
-            writeLog('got chunk '+part+' starts with '+ channel.chunks_map[part][0]+','+channel.chunks_map[part][1]+','+channel.chunks_map[part][2]);
+            writeLog('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + channel.received_size);
 
             channel.chunk_num++;
 
-            channel.received_size += (event.data.byteLength - 8);
+            channel.received_size += (event.data.byteLength - partSize);
 
             if (channel.received_size === parseInt(channel.msg_size)) {
 
@@ -101,14 +99,13 @@ function onIceMessage(channel, event) {
 }
 
 function createBufferToSend(block, seq) {
-    var bufToSend = new Buffer(8);
+    var bufToSend = new Buffer(partSize);
     bufToSend.writeInt8(seq);
     bufToSend = buf.addToBuffer(bufToSend, block);
     return buf.toArrayBuffer(bufToSend);
 }
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block) {
-    var bff;
     if (block.byteLength > chunk_size) {
         var begin = 0;
         var end = chunk_size;
@@ -117,19 +114,17 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block) {
 
             channel.send(createBufferToSend(block.slice(begin, end), counter));
 
-            bff = buf.toBuffer(block.slice(begin, end));
-            writeLog('send chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
+            writeLog('send chunk '+counter+ ' size: ' + chunk_size);
             begin = end;
             end = end + chunk_size;
             counter++;
         }
-
-        channel.send(createBufferToSend(block.slice(begin), counter));
-        bff = buf.toBuffer(block.slice(begin));
-        writeLog('send last chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
+        var bufToSend = block.slice(begin);
+        channel.send(createBufferToSend(bufToSend, counter));
+        writeLog('send last chunk '+counter+ ' size: ' + bufToSend.byteLength);
 
     } else {
-        writeLog('send chunk all at one');
+        writeLog('send chunk all at one, size: '+block.byteLength);
         channel.send(createBufferToSend(block), counter);
     }
 };

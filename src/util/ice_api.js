@@ -9,6 +9,8 @@ var exports = module.exports = {};
 
 var isAgent;
 
+var chunk_size = 60000;
+
 exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
     handleRequestMethod = handleRequestMethodTemp;
     if (agentId) {
@@ -26,47 +28,73 @@ function writeLog(msg) {
 }
 
 function onIceMessage(channel, event) {
-
-    writeLog('*** got event '+event.data  + " ; my id: "+channel.myId);
+    writeLog('*** got event '+ event.data  + " ; my id: "+channel.myId);
 
     if (typeof event.data == 'string' || event.data instanceof String) {
+        writeLog('got message str '+require('util').inspect(event.data));
         try {
             var message = JSON.parse(event.data);
 
-            writeLog('got message '+ message + ' --- from ---' +event.data);
+            if (message.chunk_num && message.message instanceof ArrayBuffer) {
+                writeLog('got message ab '+ message + ' --- from ---' +event.data);
 
-            channel.peer_msg = message;
-
-            if (!message.size || parseInt(message.size) === 0) {
-
-                if (channel.action_defer) {
-                    channel.action_defer.resolve(channel);
-                } else {
-                    handleRequestMethod(channel, message);
-                }
+                handleArrayInObject(channel, message);
             } else {
-                channel.msg_size = parseInt(message.size);
-                channel.received_size = 0;
+                writeLog('got message str ' + message + ' --- from ---' + event.data);
+
+                channel.peer_msg = message;
+
+                if (!message.size || parseInt(message.size) === 0) {
+
+                    if (channel.action_defer) {
+                        channel.action_defer.resolve(channel);
+                    } else {
+                        handleRequestMethod(channel, message);
+                    }
+                } else {
+                    channel.msg_size = parseInt(message.size);
+                    channel.received_size = 0;
+                    channel.chunk_num = 0;
+                    channel.chunks_map = {};
+                    channel.arrayToStoreChunks = [];
+                }
             }
         } catch (ex) {
-            writeLog('ex on string req ' + ex);
+            writeLog('ex on string req ' + ex.stack);
         }
     } else if (event.data instanceof ArrayBuffer) {
 
+        var bff = buf.toBuffer(event.data);
+        console.error('%%%% got chunk '+channel.chunk_num+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
+
         writeLog('got chunk ' + event.data + " size " + event.data.byteLength + " curr " + channel.received_size);
-        try {
-            if (channel.buffer) {
-                channel.buffer = buf.addToBuffer(channel.buffer, event.data);
-            } else {
-                channel.buffer = buf.toBuffer(event.data);
-            }
-        } catch (ex) {
-            writeLog('err write on got chunk '+ ex.stack +' ex: ' +ex);
+
+        if (event.data.byteLength < chunk_size) {
+            channel.last_part = event.data;
+        } else {
+            channel.arrayToStoreChunks.push(event.data);
         }
+
+        channel.chunk_num++;
 
         channel.received_size += event.data.byteLength;
 
         if (channel.received_size === parseInt(channel.msg_size)) {
+
+            for (var i = 0; i < channel.chunk_num - 1; ++i) {
+                if (channel.buffer) {
+                    channel.buffer = buf.addToBuffer(channel.buffer, channel.arrayToStoreChunks[i]);
+                } else {
+                    channel.buffer = buf.toBuffer(channel.arrayToStoreChunks[i]);
+                }
+            }
+
+            if (channel.buffer) {
+                channel.buffer = buf.addToBuffer(channel.buffer, channel.last_part);
+            } else {
+                channel.buffer = buf.toBuffer(channel.last_part);
+            }
+
 
             if (channel.action_defer) {
                 channel.action_defer.resolve(channel);
@@ -83,19 +111,29 @@ function onIceMessage(channel, event) {
     }
 }
 
-var chunk_size = 60000;
 var writeBufferToSocket = function writeBufferToSocket(channel, block) {
+    var bff;
     if (block.byteLength > chunk_size) {
         var begin = 0;
         var end = chunk_size;
+        var counter = 0;
         while (end < block.byteLength) {
+
             channel.send(block.slice(begin, end));
+
+            bff = buf.toBuffer(block.slice(begin, end));
+            console.error('%%%% send chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
             begin = end;
             end = end + chunk_size;
+            counter++;
         }
+
         channel.send(block.slice(begin));
+        bff = buf.toBuffer(block.slice(begin));
+        console.error('%%%% send last chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
 
     } else {
+        console.error('%%%% send chunk all at one');
         channel.send(block);
     }
 };

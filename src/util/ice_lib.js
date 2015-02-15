@@ -248,7 +248,13 @@ function createPeerConnection(socket, channelId, config) {
         if (channelObj.isInitiator) {
             writeLog(socket, 'Creating Data Channel');
             try {
-                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa");
+
+                var dataChannelOptions = {
+                    reliable: true,
+                    ordered: true
+                };
+
+                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dataChannelOptions);
                 onDataChannelCreated(socket, channelId, channelObj.dataChannel);
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating Data Channel ' + ex);

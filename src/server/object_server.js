@@ -51,7 +51,7 @@ function create_multipart_upload(req) {
                 bucket: req.bucket.id,
                 key: req.rest_params.key,
                 size: req.rest_params.size,
-                content_type: req.rest_params.content_type,
+                content_type: req.rest_params.content_type || 'application/octet-stream',
                 upload_mode: true,
             };
             return db.ObjectMD.create(info);

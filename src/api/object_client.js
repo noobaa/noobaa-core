@@ -171,10 +171,17 @@ ObjectClient.prototype.upload_stream = function(params) {
                                 })
                                 .then(function(res) {
                                     // push parts down the pipe
+                                    var part;
                                     for (var i = 0; i < res.parts.length; i++) {
-                                        var part = res.parts[i].part;
-                                        part.encrypted_chunk = parts[i].encrypted_chunk;
-                                        dbg.log0('upload_stream: allocated part', part.start);
+                                        if (res.parts[i].dedup) {
+                                            part = parts[i];
+                                            part.dedup = true;
+                                            dbg.log0('upload_stream: DEDUP part', part.start);
+                                        } else {
+                                            part = res.parts[i].part;
+                                            part.encrypted_chunk = parts[i].encrypted_chunk;
+                                            dbg.log0('upload_stream: allocated part', part.start);
+                                        }
                                         stream.push(part);
                                     }
                                 });
@@ -191,6 +198,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                             objectMode: true
                         },
                         transform: function(part) {
+                            if (part.dedup) return;
                             return self._write_part_blocks(
                                     params.bucket, params.key, part)
                                 .thenResolve(part);
@@ -218,13 +226,14 @@ ObjectClient.prototype.upload_stream = function(params) {
                             return self.finalize_object_parts({
                                     bucket: params.bucket,
                                     key: params.key,
-                                    parts: _.map(parts, function(part) {
+                                    parts: _.compact(_.map(parts, function(part) {
+                                        if (part.dedup) return;
                                         return {
                                             start: part.start,
                                             end: part.end,
                                             block_ids: _.pluck(_.flatten(part.fragments), 'id')
                                         };
-                                    })
+                                    }))
                                 })
                                 .then(function() {
                                     // push parts down the pipe

@@ -177,11 +177,6 @@ module.exports = rest_api({
                     }
                 },
             },
-            // reply: {
-            //     type: 'object',
-            //     required: [],
-            //     properties: {}
-            // },
             auth: {
                 system: ['admin', 'user']
             }

@@ -38,34 +38,8 @@ function allocate_object_parts(bucket, obj, parts) {
     }
     var tier_id = bucket.tiering[0].tier;
 
-    var new_chunks = _.map(parts, function(part, i) {
-        // chunk size is aligned up to be an integer multiple of kfrag*block_size
-        var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
-        return new db.DataChunk({
-            system: obj.system,
-            tier: tier_id,
-            size: chunk_size,
-            kfrag: CHUNK_KFRAG,
-            crypt: part.crypt,
-        });
-    });
-
-    var new_parts = _.map(parts, function(part, i) {
-        return new db.ObjectPart({
-            system: obj.system,
-            obj: obj.id,
-            start: part.start,
-            end: part.end,
-            chunks: [{
-                chunk: new_chunks[i],
-                // chunk_offset: 0, // not required
-            }]
-        });
-    });
-
-    var hash_values = _.map(parts, function(part) {
-        return part.crypt.hash_val;
-    });
+    var new_chunks = [];
+    var new_parts = [];
 
     var reply = {
         parts: _.times(parts.length, function() {
@@ -74,23 +48,51 @@ function allocate_object_parts(bucket, obj, parts) {
     };
 
     // dedup with existing chunks by lookup of crypt.hash_val
-    return Q.when(db.DataChunk.findOne({
-            system: obj.system,
-            tier: tier_id,
-            'crypt.hash_val': {
-                $in: hash_values
-            },
-            deleted: null,
-        }).exec())
+    return Q.when(
+            db.DataChunk
+            .find({
+                system: obj.system,
+                tier: tier_id,
+                'crypt.hash_val': {
+                    $in: _.map(parts, function(part) {
+                        return part.crypt.hash_val;
+                    })
+                },
+                deleted: null,
+            })
+            .exec())
         .then(function(dup_chunks) {
             var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
                 return chunk.crypt.hash_val;
             });
-            new_chunks = _.filter(new_chunks, function(chunk, i) {
-                var dup_chunk = hash_val_to_dup_chunk[chunk.crypt.hash_val];
-                if (!dup_chunk) return true;
-                new_parts[i].chunks[0].chunk = dup_chunk;
-                reply.parts[i].dedup = true;
+            _.each(parts, function(part, i) {
+                // chunk size is aligned up to be an integer multiple of kfrag*block_size
+                var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
+                var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
+                var chunk;
+                if (dup_chunk) {
+                    chunk = dup_chunk;
+                    reply.parts[i].dedup = true;
+                } else {
+                    chunk = new db.DataChunk({
+                        system: obj.system,
+                        tier: tier_id,
+                        size: chunk_size,
+                        kfrag: CHUNK_KFRAG,
+                        crypt: part.crypt,
+                    });
+                    new_chunks.push(chunk);
+                }
+                new_parts.push(new db.ObjectPart({
+                    system: obj.system,
+                    obj: obj.id,
+                    start: part.start,
+                    end: part.end,
+                    chunks: [{
+                        chunk: chunk,
+                        // chunk_offset: 0, // not required
+                    }]
+                }));
             });
             dbg.log2('allocate_blocks');
             return block_allocator.allocate_blocks(
@@ -104,16 +106,20 @@ function allocate_object_parts(bucket, obj, parts) {
                 }));
         })
         .then(function(new_blocks) {
-            dbg.log2('create blocks', new_blocks);
-            _.each(reply.parts, function(reply_part, i) {
-                if (reply_part.dedup) return;
-                var new_block = new_blocks[i];
-                dbg.log0('part info', new_parts[i],
-                    'chunk', new_block.chunk,
-                    'blocks', new_block);
-                reply_part.part = get_part_info(
-                    new_parts[i], new_block.chunk, [new_block]);
+            var blocks_by_chunk = _.groupBy(new_blocks, function(block) {
+                return block.chunk._id;
             });
+            _.each(new_parts, function(part, i) {
+                var reply_part = reply.parts[i];
+                if (reply_part.dedup) return;
+                var new_blocks = blocks_by_chunk[part.chunks[0].chunk];
+                var chunk = new_blocks[0].chunk;
+                dbg.log0('part info', part,
+                    'chunk', chunk,
+                    'blocks', new_blocks);
+                reply_part.part = get_part_info(part, chunk, new_blocks);
+            });
+            dbg.log2('create blocks', new_blocks.length);
             return db.DataBlock.create(new_blocks);
         })
         .then(function() {

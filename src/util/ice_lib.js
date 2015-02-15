@@ -40,8 +40,6 @@ var connect = function (socket) {
 
         ws.onopen = (function () {
 
-            //console.error("ws   ---> "+String(ws));
-
 
             if (socket.isAgent) {
                 ws.send(JSON.stringify({sigType: 'id', id: socket.idInServer}));
@@ -58,7 +56,7 @@ var connect = function (socket) {
                 try {
                     msgRec = JSON.parse(msgRec);
                 } catch (ex) {
-                    console.error('problem parsing msg '+msgRec);
+                    writeLog(socket, 'problem parsing msg '+msgRec);
                 }
             }
 
@@ -72,7 +70,7 @@ var connect = function (socket) {
                     message = msgRec.data;
                 }
             } else {
-                console.error('cant find msg '+msgRec);
+                writeLog(socket, 'cant find msg '+msgRec);
             }
 
                 if (message.sigType === 'id') {
@@ -94,16 +92,16 @@ var connect = function (socket) {
                 } else if (message.sigType === 'keepalive') {
                     // nothing
                 } else {
-                    console.error('unknown message ' + message);
+                    writeLog(socket, 'unknown sig message ' + message);
                     try {
-                        console.error('unknown message 2 ' + JSON.stringify(message));
+                        writeLog(socket, 'unknown sig message 2 ' + JSON.stringify(message));
                     } catch (ex) {
 
                     }
                 }
             });
         ws.onerror = (function (err) {
-            console.log('error ' + err);
+            writeLog(socket, 'error ' + err);
             setTimeout(
                 function () {
                     reconnect(socket);
@@ -119,7 +117,7 @@ var connect = function (socket) {
             });
         socket.ws = ws;
     } catch (ex) {
-        console.error('---> ice_lib.connect ERROR '+ ex+' ; ' + ex.stack);
+        writeLog(socket, 'ice_lib.connect ERROR '+ ex+' ; ' + ex.stack);
     }
 
     return socket;
@@ -130,7 +128,7 @@ function keepalive(socket) {
     try {
         socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
     } catch (ex) {
-        console.error('keepalive err', ex);
+        writeLog(socket, 'keepalive err', ex);
     }
 }
 
@@ -229,7 +227,7 @@ function createPeerConnection(socket, channelId, config) {
         try {
             channelObj.peerConn = new funcPerrConn(config);
         } catch (ex) {
-            console.error('prob win create '+ex.stack);
+            writeLog(socket, 'prob win create '+ex.stack);
         }
 
         // send any ice candidates to the other peer

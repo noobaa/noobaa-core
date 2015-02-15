@@ -157,19 +157,14 @@ function rest_api(api) {
      * path (String) - optional base path for the routes.
      */
     Server.prototype.install_rest = function(router, path) {
-        console.error('in install_rest 0');
 
         var self = this;
         path = path || api_path;
         var doc_base = url_path_join('/doc', path);
 
-        console.error('in install_rest 1');
-
         // install methods on the router
         _.each(api.methods, function(func_info, func_name) {
             var method_path = url_path_join(path, func_info.path);
-
-            console.error('path: '+method_path+" ;;; "+func_name);
 
             var handler = self._handlers[func_name];
             // route_func points to the route functions router.get/post/put/delete
@@ -213,20 +208,13 @@ function rest_api(api) {
 
     Server.prototype.ice_server_handler = function(channel, message) {
         if (!this.ice_router) {
-
             try {
-                console.error('-> $%^&$%&$%   do express ice router');
-
                 var express = require('express');
                 this.ice_router = express.Router();
-
-                console.error('-> $%^&$%&$%   do express ice router 222 ');
-
                 this.install_rest(this.ice_router);
             } catch (ex) {
-                console.error('-> $%^&$%&$%   do express ice router ex '+ex.stack);
+                console.error('do express ice router ex '+ex.stack);
             }
-
         }
 
         var msg;
@@ -235,21 +223,17 @@ function rest_api(api) {
         if (typeof message == 'string' || message instanceof String) {
             msg = JSON.parse(message);
             body = msg.body;
-
-            console.error('-> %%%% do something '+require("util").inspect(msg));
-
+            console.log('ice do something '+require("util").inspect(msg));
         }  else if (message instanceof ArrayBuffer) {
             body = channel.buffer;
             msg = channel.peer_msg;
-
-            console.error('-> %%%%% do something with buffer '+require("util").inspect(msg));
-
+            console.log('ice do something with buffer '+require("util").inspect(msg));
         } else if (message.method) {
             msg = message;
             body = msg.body;
         }
         else {
-            console.error('-> %%%%%% got weird msg '+require("util").inspect(message));
+            console.error('ice got weird msg '+require("util").inspect(message));
         }
 
 
@@ -270,7 +254,7 @@ function rest_api(api) {
                     replyBuffer = buf.toArrayBuffer(replyBuffer);
                 }
 
-                console.error('done manuall status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
+                console.log('done manuall status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
 
                 var reply = {
                     status: status,
@@ -278,11 +262,9 @@ function rest_api(api) {
                     data: replyJSON
                 };
 
-                console.error('done manuall - send reply');
                 channel.send(JSON.stringify(reply));
 
                 if (replyBuffer) {
-                    console.error('done manuall - send reply buffer');
                     ice_api.writeBufferToSocket(channel, replyBuffer);
                 }
 
@@ -302,7 +284,7 @@ function rest_api(api) {
         };
 
         this.ice_router.handle(req, res, function() {
-            console.error('done status: '+status+" reply: "+reply+" replyBuffer: "+replyBuffer);
+            console.error('SHOULD NOT BE HERE done status: '+status+" reply: "+reply+" replyBuffer: "+replyBuffer);
         });
 
     };
@@ -315,8 +297,6 @@ function rest_api(api) {
     Server.prototype._create_server_handler = function(func, func_info) {
         var self = this;
         return function(req, res, next) {
-
-            console.error('ROUTING '+require("util").inspect(func_info));
 
             // marking _disabled on the server will bypass all the routes it has.
             if (self._disabled) {
@@ -460,16 +440,6 @@ function rest_api(api) {
         var headers = {};
         var body;
 
-        if (self.options) {
-            try {
-                console.log('in _peer_request got '+JSON.stringify(self.options));
-            } catch (ex) {
-                console.log('in _peer_request got '+String(self.options));
-            }
-        } else {
-            console.log('in _peer_request got no ' +self.options);
-        }
-
         // using forIn to enumerate headers that may be inherited from base headers (see Client ctor).
         _.forIn(self.headers, function(val, key) {
             if (typeof(val) === 'function') return;
@@ -569,9 +539,6 @@ function rest_api(api) {
             })
             .catch(function(err) {
                 console.error('REST REQUEST CATCH '+ err.stack);
-            })
-            .fail(function(err) {
-                console.error('REST REQUEST FAIL '+ err.stack);
             });
         } else { // do http
             writeLog(self.options, 'do http req '+options.path);
@@ -620,10 +587,8 @@ function rest_api(api) {
                         req.abort();
                     });
                 } catch (ex) {
-                    console.error("prob 666666");
+                    console.error("prob with set request timeout "+ex.stack);
                 }
-
-
             } else {
                 // TODO browserify doesn't implement req.setTimeout...
             }
@@ -838,11 +803,7 @@ function read_http_response(res) {
         }
         if (typeof(chunks[0]) === 'string') {
             // if string was already decoded then keep working with strings
-
-            var rest4;
-            try {rest4 = String.prototype.concat.apply('', chunks);} catch (ex) {console.error("prob 444444")}
-
-            return rest4;
+            return String.prototype.concat.apply('', chunks);
         }
         // binary data buffers for the win!
         if (!Buffer.isBuffer(chunks[0])) {

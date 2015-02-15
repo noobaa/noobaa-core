@@ -71,7 +71,7 @@ function onIceMessage(channel, event) {
             var part = bff.readInt8(0);
             channel.chunks_map[part] = event.data.slice(8);
 
-            console.error('%%%% got chunk '+part+' starts with '+ channel.chunks_map[part][0]+','+channel.chunks_map[part][1]+','+channel.chunks_map[part][2]);
+            writeLog('got chunk '+part+' starts with '+ channel.chunks_map[part][0]+','+channel.chunks_map[part][1]+','+channel.chunks_map[part][2]);
 
             channel.chunk_num++;
 
@@ -123,7 +123,7 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block) {
             channel.send(createBufferToSend(block.slice(begin, end), counter));
 
             bff = buf.toBuffer(block.slice(begin, end));
-            console.error('%%%% send chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
+            writeLog('send chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
             begin = end;
             end = end + chunk_size;
             counter++;
@@ -131,10 +131,10 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block) {
 
         channel.send(createBufferToSend(block.slice(begin), counter));
         bff = buf.toBuffer(block.slice(begin));
-        console.error('%%%% send last chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
+        writeLog('send last chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
 
     } else {
-        console.error('%%%% send chunk all at one');
+        writeLog('send chunk all at one');
         channel.send(createBufferToSend(block), counter);
     }
 };
@@ -182,16 +182,16 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
 
         var response = channel.peer_msg;
         if (channel.buffer) {
-            console.error('---> response: has buffer ' + Buffer.isBuffer(channel.buffer));
+            writeLog('---> response: has buffer ' + Buffer.isBuffer(channel.buffer));
             response.data = channel.buffer;
         }
 
-        console.error('---> response: '+response + ' ; ' + require('util').inspect(response));
+        writeLog('---> response: '+response + ' ; ' + require('util').inspect(response));
 
         return response;
     }).then(null, function(err) {
-        console.error('---> ice_api.sendRequest ERROR '+err.stack);
+        writeLog('---> ice_api.sendRequest ERROR '+err.stack);
     }).catch(function(err) {
-        console.error('---> ice_api.sendRequest FAIL '+err.stack);
+        writeLog('---> ice_api.sendRequest FAIL '+err.stack);
     });
 };

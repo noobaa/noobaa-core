@@ -28,36 +28,31 @@ function writeLog(msg) {
 }
 
 function onIceMessage(channel, event) {
-    writeLog('*** got event ; my id: '+channel.myId);
+    writeLog('Got event '+event.data+' ; my id: '+channel.myId);
 
     if (typeof event.data == 'string' || event.data instanceof String) {
         writeLog('got message str '+require('util').inspect(event.data));
         try {
             var message = JSON.parse(event.data);
 
-            if (message.chunk_num && message.message instanceof ArrayBuffer) {
-                writeLog('got message ab '+ message + ' --- from ---' +event.data);
+            writeLog('got message str ' + message + ' --- from --- ' + event.data);
 
-                handleArrayInObject(channel, message);
-            } else {
-                writeLog('got message str ' + message + ' --- from ---' + event.data);
+            channel.peer_msg = message;
 
-                channel.peer_msg = message;
+            if (!message.size || parseInt(message.size) === 0) {
 
-                if (!message.size || parseInt(message.size) === 0) {
-
-                    if (channel.action_defer) {
-                        channel.action_defer.resolve(channel);
-                    } else {
-                        handleRequestMethod(channel, message);
-                    }
+                if (channel.action_defer) {
+                    channel.action_defer.resolve(channel);
                 } else {
-                    channel.msg_size = parseInt(message.size);
-                    channel.received_size = 0;
-                    channel.chunk_num = 0;
-                    channel.chunks_map = {};
+                    handleRequestMethod(channel, message);
                 }
+            } else {
+                channel.msg_size = parseInt(message.size);
+                channel.received_size = 0;
+                channel.chunk_num = 0;
+                channel.chunks_map = {};
             }
+
         } catch (ex) {
             writeLog('ex on string req ' + ex.stack);
         }
@@ -182,16 +177,16 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
 
         var response = channel.peer_msg;
         if (channel.buffer) {
-            writeLog('---> response: has buffer ' + Buffer.isBuffer(channel.buffer));
+            writeLog('response: has buffer ' + Buffer.isBuffer(channel.buffer));
             response.data = channel.buffer;
         }
 
-        writeLog('---> response: '+response + ' ; ' + require('util').inspect(response));
+        writeLog('response: '+response + ' ; ' + require('util').inspect(response));
 
         return response;
     }).then(null, function(err) {
-        writeLog('---> ice_api.sendRequest ERROR '+err.stack);
+        writeLog('ice_api.sendRequest ERROR '+err.stack);
     }).catch(function(err) {
-        writeLog('---> ice_api.sendRequest FAIL '+err.stack);
+        writeLog('ice_api.sendRequest FAIL '+err.stack);
     });
 };

@@ -81,12 +81,12 @@ module.exports = rest_api({
             }
         },
 
-        allocate_object_part: {
+        allocate_object_parts: {
             method: 'POST',
             path: '/obj/:bucket/:key/part',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'start', 'end', 'chunk_size', 'crypt'],
+                required: ['bucket', 'key', 'parts'],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -94,32 +94,94 @@ module.exports = rest_api({
                     key: {
                         type: 'string',
                     },
-                    start: {
-                        type: 'integer',
-                    },
-                    end: {
-                        type: 'integer',
-                    },
-                    chunk_size: {
-                        type: 'integer',
-                    },
-                    crypt: {
-                        $ref: '/object_api/definitions/crypt_info',
-                    },
+                    parts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['start', 'end', 'chunk_size', 'crypt'],
+                            properties: {
+                                start: {
+                                    type: 'integer',
+                                },
+                                end: {
+                                    type: 'integer',
+                                },
+                                chunk_size: {
+                                    type: 'integer',
+                                },
+                                crypt: {
+                                    $ref: '/object_api/definitions/crypt_info',
+                                },
+                            }
+                        }
+                    }
                 },
             },
             reply: {
                 type: 'object',
-                required: [],
+                required: ['parts'],
                 properties: {
-                    dedup: {
-                        type: 'boolean'
-                    },
-                    part: {
-                        $ref: '/object_api/definitions/object_part_info'
+                    parts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: [],
+                            properties: {
+                                dedup: {
+                                    type: 'boolean'
+                                },
+                                part: {
+                                    $ref: '/object_api/definitions/object_part_info'
+                                }
+                            }
+                        }
                     }
                 }
             },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        finalize_object_parts: {
+            method: 'PUT',
+            path: '/obj/:bucket/:key/part',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key', 'parts'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    parts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['start', 'end', 'block_ids'],
+                            properties: {
+                                start: {
+                                    type: 'integer',
+                                },
+                                end: {
+                                    type: 'integer',
+                                },
+                                block_ids: {
+                                    type: 'array',
+                                    items: 'string',
+                                },
+                            }
+                        }
+                    }
+                },
+            },
+            // reply: {
+            //     type: 'object',
+            //     required: [],
+            //     properties: {}
+            // },
             auth: {
                 system: ['admin', 'user']
             }
@@ -353,7 +415,8 @@ module.exports = rest_api({
         object_part_info: {
             type: 'object',
             required: [
-                'start', 'end',
+                'start',
+                'end',
                 'kfrag',
                 'crypt',
                 'chunk_size',

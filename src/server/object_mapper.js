@@ -12,7 +12,8 @@ var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('../util/dbg')(__filename);
 
 module.exports = {
-    allocate_object_part: allocate_object_part,
+    allocate_object_parts: allocate_object_parts,
+    finalize_object_parts: finalize_object_parts,
     read_object_mappings: read_object_mappings,
     read_node_mappings: read_node_mappings,
     delete_object_mappings: delete_object_mappings,
@@ -27,67 +28,174 @@ var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
 
 /**
  *
- * allocate_object_part
+ * allocate_object_parts
  *
  */
-function allocate_object_part(bucket, obj, start, end, chunk_size, crypt) {
-    // chunk size is aligned up to be an integer multiple of kfrag*block_size
-    chunk_size = range_utils.align_up_bitwise(chunk_size, CHUNK_KFRAG_BITWISE);
+function allocate_object_parts(bucket, obj, parts) {
 
     if (!bucket.tiering || bucket.tiering.length !== 1) {
         throw new Error('only single tier supported per bucket/chunk');
     }
+    var tier_id = bucket.tiering[0].tier;
 
-    var new_chunk = new db.DataChunk({
-        system: obj.system,
-        tier: bucket.tiering[0].tier,
-        size: chunk_size,
-        kfrag: CHUNK_KFRAG,
-        crypt: crypt,
+    var new_chunks = _.map(parts, function(part, i) {
+        // chunk size is aligned up to be an integer multiple of kfrag*block_size
+        var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
+        return new db.DataChunk({
+            system: obj.system,
+            tier: tier_id,
+            size: chunk_size,
+            kfrag: CHUNK_KFRAG,
+            crypt: part.crypt,
+        });
     });
-    var new_part = new db.ObjectPart({
-        system: obj.system,
-        obj: obj.id,
-        start: start,
-        end: end,
-        chunks: [{
-            chunk: new_chunk,
-            // chunk_offset: 0, // not required
-        }]
-    });
-    var reply = {};
 
+    var new_parts = _.map(parts, function(part, i) {
+        return new db.ObjectPart({
+            system: obj.system,
+            obj: obj.id,
+            start: part.start,
+            end: part.end,
+            chunks: [{
+                chunk: new_chunks[i],
+                // chunk_offset: 0, // not required
+            }]
+        });
+    });
+
+    var hash_values = _.map(parts, function(part) {
+        return part.crypt.hash_val;
+    });
+
+    var reply = {
+        parts: _.times(parts.length, function() {
+            return {};
+        })
+    };
+
+    // dedup with existing chunks by lookup of crypt.hash_val
     return Q.when(db.DataChunk.findOne({
             system: obj.system,
-            tier: bucket.tiering[0].tier,
-            'crypt.hash_val': crypt.hash_val,
+            tier: tier_id,
+            'crypt.hash_val': {
+                $in: hash_values
+            },
             deleted: null,
         }).exec())
-        .then(function(dup_chunk) {
-            if (dup_chunk) {
-                reply.dedup = true;
-                new_part.chunks[0].chunk = dup_chunk;
-                return;
-            }
-            // console.log('create chunk', new_chunk);
-            return db.DataChunk.create(new_chunk)
-                .then(function() {
-                    // console.log('allocate_blocks_for_chunk');
-                    return block_allocator.allocate_blocks_for_chunk(new_chunk);
-                })
-                .then(function(new_blocks) {
-                    // console.log('create blocks', new_blocks);
-                    reply.part = get_part_info(new_part, new_chunk, new_blocks);
-                    return db.DataBlock.create(new_blocks);
+        .then(function(dup_chunks) {
+            var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
+                return chunk.crypt.hash_val;
+            });
+            new_chunks = _.filter(new_chunks, function(chunk, i) {
+                var dup_chunk = hash_val_to_dup_chunk[chunk.crypt.hash_val];
+                if (!dup_chunk) return true;
+                new_parts[i].chunks[0].chunk = dup_chunk;
+                reply.parts[i].dedup = true;
+            });
+            dbg.log2('allocate_blocks');
+            return block_allocator.allocate_blocks(
+                obj.system,
+                tier_id,
+                _.map(new_chunks, function(chunk) {
+                    return {
+                        chunk: chunk,
+                        fragment: 0
+                    };
+                }));
+        })
+        .then(function(new_blocks) {
+            dbg.log2('create blocks', new_blocks);
+            _.each(reply.parts, function(reply_part, i) {
+                if (reply_part.dedup) return;
+                var new_block = new_blocks[i];
+                dbg.log0('part info', new_parts[i],
+                    'chunk', new_block.chunk,
+                    'blocks', new_block);
+                reply_part.part = get_part_info(
+                    new_parts[i], new_block.chunk, [new_block]);
+            });
+            return db.DataBlock.create(new_blocks);
+        })
+        .then(function() {
+            dbg.log2('create chunks', new_chunks);
+            return db.DataChunk.create(new_chunks);
+        })
+        .then(function() {
+            dbg.log2('create parts', new_parts);
+            return db.ObjectPart.create(new_parts);
+        })
+        .thenResolve(reply);
+}
+
+
+
+/**
+ *
+ * finalize_object_parts
+ *
+ */
+function finalize_object_parts(bucket, obj, parts) {
+    var block_ids = _.flatten(_.map(parts, 'block_ids'));
+    var chunks;
+    return Q.all([
+            // find parts by start offset
+            db.ObjectPart
+            .find({
+                obj: obj.id,
+                start: {
+                    $in: _.map(parts, 'start')
+                }
+            })
+            .populate('chunks.chunk')
+            .exec(),
+            // find blocks by list of ids
+            db.DataBlock
+            .find({
+                _id: {
+                    $in: block_ids
+                }
+            })
+            .exec()
+        ])
+        .spread(function(parts_res, blocks) {
+            var blocks_by_id = _.indexBy(blocks, '_id');
+            var parts_by_start = _.groupBy(parts_res, 'start');
+            chunks = _.flatten(_.map(parts, function(part) {
+                var part_res = parts_by_start[part.start];
+                if (!part_res) {
+                    throw new Error('part not found ' +
+                        obj.id + ' ' + range_utils.human_range(part));
+                }
+                return _.map(part_res, function(p) {
+                    return p.chunks[0].chunk;
                 });
+            }));
+            var chunk_by_id = _.indexBy(chunks, '_id');
+            _.each(blocks, function(block) {
+                if (!block.building) {
+                    throw new Error('block not in building mode');
+                }
+                var chunk = chunk_by_id[block.chunk];
+                if (!chunk) {
+                    throw new Error('missing block chunk');
+                }
+            });
+            return db.DataBlock
+                .update({
+                    _id: {
+                        $in: block_ids
+                    }
+                }, {
+                    $unset: {
+                        building: 1
+                    }
+                }, {
+                    multi: true
+                })
+                .exec();
         })
         .then(function() {
-            // console.log('create part', new_part);
-            return db.ObjectPart.create(new_part);
-        })
-        .then(function() {
-            console.log('part info', reply);
-            return reply;
+            return build_chunks(chunks);
         });
 }
 
@@ -451,6 +559,8 @@ function build_chunks(chunks) {
                         Math.max(0, optimal_replicas - good_blocks.length - building_blocks.length);
                     _.times(num_blocks_to_add, function() {
                         blocks_info_to_allocate.push({
+                            system_id: chunk.system,
+                            tier_id: chunk.tier,
                             chunk_id: chunk._id,
                             chunk: chunk,
                             fragment: fragment,
@@ -473,10 +583,12 @@ function build_chunks(chunks) {
 
                     // allocate blocks
                     if (!blocks_info_to_allocate.length) return;
-                    var blocks_info_by_chunk = _.groupBy(blocks_info_to_allocate, 'chunk_id');
-                    return Q.all(_.map(blocks_info_by_chunk, function(blocks_info) {
-                            var chunk = blocks_info[0].chunk;
-                            return block_allocator.allocate_blocks_for_chunk(chunk, blocks_info);
+                    var blocks_info_by_tier = _.groupBy(blocks_info_to_allocate, 'tier_id');
+                    return Q.all(_.map(blocks_info_by_tier, function(blocks_info) {
+                            return block_allocator.allocate_blocks(
+                                blocks_info[0].system_id,
+                                blocks_info[0].tier_id,
+                                blocks_info);
                         }))
                         .then(function(res) {
 
@@ -505,9 +617,9 @@ function build_chunks(chunks) {
                         var agent = new api.agent_api.Client();
                         agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
                         return agent.replicate_block({
-                            block_id: block._id,
+                            block_id: block._id.toString(),
                             source: {
-                                id: block.source._id,
+                                id: block.source._id.toString(),
                                 node: {
                                     ip: block.source.node.ip,
                                     port: block.source.node.port,
@@ -527,6 +639,8 @@ function build_chunks(chunks) {
                         $unset: {
                             building: 1
                         }
+                    }, {
+                        multi: true
                     }).exec();
                 });
         })

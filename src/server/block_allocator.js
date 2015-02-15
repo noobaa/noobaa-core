@@ -9,7 +9,7 @@ var db = require('./db');
 
 
 module.exports = {
-    allocate_blocks_for_chunk: allocate_blocks_for_chunk,
+    allocate_blocks: allocate_blocks,
     reallocate_bad_block: reallocate_bad_block,
     remove_blocks: remove_blocks,
 };
@@ -17,6 +17,9 @@ module.exports = {
 var COPIES = 3;
 
 /**
+ *
+ * allocate_blocks
+ *
  * selects distinct edge node for allocating new blocks.
  * TODO take into consideration the state of the nodes.
  *
@@ -25,21 +28,19 @@ var COPIES = 3;
  *      - source block for replication
  * @return array of new DataBlock.
  */
-function allocate_blocks_for_chunk(chunk, blocks_info) {
-    var block_size = (chunk.size / chunk.kfrag) | 0;
-    var count = blocks_info ? blocks_info.length : (chunk.kfrag * COPIES);
-
-    return update_tier_alloc_nodes(chunk.system, chunk.tier)
+function allocate_blocks(system, tier, blocks_info) {
+    return update_tier_alloc_nodes(system, tier)
         .then(function(alloc_nodes) {
-            var nodes = pop_round_robin(alloc_nodes, count);
+            var nodes = pop_round_robin(alloc_nodes, blocks_info.length);
 
             return _.map(nodes, function(node, i) {
-                var info = blocks_info && blocks_info[i];
-                var fragment = info ? info.fragment : (i % chunk.kfrag);
-                var block = new_block(chunk, node, fragment, block_size);
+                var info = blocks_info[i];
+                var chunk = info.chunk;
+                var block_size = (chunk.size / chunk.kfrag) | 0;
+                var block = new_block(chunk, node, info.fragment, block_size);
 
                 // copy the source block for building by replication - see build_chunk()
-                if (info && info.source) {
+                if (info.source) {
                     block.source = info.source;
                 }
                 return block;

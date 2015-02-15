@@ -22,7 +22,8 @@ module.exports = new api.object_api.Server({
     create_multipart_upload: create_multipart_upload,
     complete_multipart_upload: complete_multipart_upload,
     abort_multipart_upload: abort_multipart_upload,
-    allocate_object_part: allocate_object_part,
+    allocate_object_parts: allocate_object_parts,
+    finalize_object_parts: finalize_object_parts,
     report_bad_block: report_bad_block,
 
     // read
@@ -92,23 +93,38 @@ function abort_multipart_upload(req) {
 
 /**
  *
- * ALLOCATE_OBJECT_PART
+ * ALLOCATE_OBJECT_PARTS
  *
  */
-function allocate_object_part(req) {
+function allocate_object_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
             if (!obj.upload_mode) {
-                // TODO handle the upload_mode state
-                // throw new Error('object not in upload mode');
+                throw new Error('object not in upload mode');
             }
-            return object_mapper.allocate_object_part(
+            return object_mapper.allocate_object_parts(
                 req.bucket,
                 obj,
-                req.rest_params.start,
-                req.rest_params.end,
-                req.rest_params.chunk_size,
-                req.rest_params.crypt);
+                req.rest_params.parts);
+        });
+}
+
+
+/**
+ *
+ * FINALIZE_OBJECT_PART
+ *
+ */
+function finalize_object_parts(req) {
+    return find_object_md(req)
+        .then(function(obj) {
+            if (!obj.upload_mode) {
+                throw new Error('object not in upload mode');
+            }
+            return object_mapper.finalize_object_parts(
+                req.bucket,
+                obj,
+                req.rest_params.parts);
         });
 }
 

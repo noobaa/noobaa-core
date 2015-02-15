@@ -147,7 +147,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                     .pipe(new CoalesceStream({
                         objectMode: true,
                         max_length: 10,
-                        max_wait_ms: 50,
+                        max_wait_ms: 200,
                     }))
                     .pipe(transformer({
                         options: {
@@ -156,21 +156,23 @@ ObjectClient.prototype.upload_stream = function(params) {
                         transform: function(parts) {
                             var stream = this;
                             dbg.log0('upload_stream: allocating parts', parts.length);
-                            return Q.all(_.map(parts, function(part) {
-                                    var alloc_params = {
-                                        bucket: params.bucket,
-                                        key: params.key,
-                                        start: part.start,
-                                        end: part.end,
-                                        crypt: part.crypt,
-                                        chunk_size: part.encrypted_chunk.length
-                                    };
-                                    dbg.log2('upload_stream: allocate_object_part', alloc_params);
-                                    return self.allocate_object_part(alloc_params);
-                                }))
+                            // send parts to server
+                            return self.allocate_object_parts({
+                                    bucket: params.bucket,
+                                    key: params.key,
+                                    parts: _.map(parts, function(part) {
+                                        return {
+                                            start: part.start,
+                                            end: part.end,
+                                            crypt: part.crypt,
+                                            chunk_size: part.encrypted_chunk.length
+                                        };
+                                    })
+                                })
                                 .then(function(res) {
-                                    for (var i = 0; i < res.length; i++) {
-                                        var part = res[i].part;
+                                    // push parts down the pipe
+                                    for (var i = 0; i < res.parts.length; i++) {
+                                        var part = res.parts[i].part;
                                         part.encrypted_chunk = parts[i].encrypted_chunk;
                                         dbg.log0('upload_stream: allocated part', part.start);
                                         stream.push(part);
@@ -203,22 +205,35 @@ ObjectClient.prototype.upload_stream = function(params) {
                     .pipe(new CoalesceStream({
                         objectMode: true,
                         max_length: 10,
-                        max_wait_ms: 50,
+                        max_wait_ms: 200,
                     }))
                     .pipe(transformer({
                         options: {
                             objectMode: true
                         },
                         transform: function(parts) {
-
-                            // TODO finalize parts (multi)
-
+                            var stream = this;
                             dbg.log0('finalize parts', parts.length);
-                            for (var i = 0; i < parts.length; i++) {
-                                var part = parts[i];
-                                dbg.log0('finalize part offset', part.start);
-                                this.push(part);
-                            }
+                            // send parts to server
+                            return self.finalize_object_parts({
+                                    bucket: params.bucket,
+                                    key: params.key,
+                                    parts: _.map(parts, function(part) {
+                                        return {
+                                            start: part.start,
+                                            end: part.end,
+                                            block_ids: _.pluck(_.flatten(part.fragments), 'id')
+                                        };
+                                    })
+                                })
+                                .then(function() {
+                                    // push parts down the pipe
+                                    for (var i = 0; i < parts.length; i++) {
+                                        var part = parts[i];
+                                        dbg.log0('finalize part offset', part.start);
+                                        stream.push(part);
+                                    }
+                                });
                         }
                     }));
 
@@ -232,7 +247,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                             objectMode: true
                         },
                         transform: function(part) {
-                            dbg.log0('finish part offset', part.start);
+                            dbg.log0('completed part offset', part.start);
                             dbg.log_progress(part.end / params.size);
                             notify({
                                 event: 'part:after',

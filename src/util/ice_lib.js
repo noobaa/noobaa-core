@@ -3,11 +3,7 @@ var Q = require('q');
 var rand = require('./random_utils');
 
 var configuration = {
-    'iceServers': [{'url': 'stun:stun.l.google.com:19302'}],
-    optional: [
-        {DtlsSrtpKeyAgreement: true},
-        {RtpDataChannels: false}
-    ]
+    'iceServers': [{'url': 'stun:stun.l.google.com:19302'}]
 };
 
 var exports = module.exports = {};
@@ -254,16 +250,7 @@ function createPeerConnection(socket, channelId, config) {
         if (channelObj.isInitiator) {
             writeLog(socket, 'Creating Data Channel');
             try {
-
-                var dataChannelOptions;
-
-                if (window.RTCPeerConnection || window.webkitRTCPeerConnection) {
-                    dataChannelOptions = { reliable: true, ordered: true };
-                } else if (window.mozRTCPeerConnection) {
-                    dataChannelOptions = { outOfOrderAllowed:false };
-                }
-
-                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dataChannelOptions);
+                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa");
                 onDataChannelCreated(socket, channelId, channelObj.dataChannel);
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating Data Channel ' + ex);

@@ -28,7 +28,7 @@ function writeLog(msg) {
 }
 
 function onIceMessage(channel, event) {
-    writeLog('*** got event '+ event.data  + " ; my id: "+channel.myId);
+    writeLog('*** got event ; my id: '+channel.myId);
 
     if (typeof event.data == 'string' || event.data instanceof String) {
         writeLog('got message str '+require('util').inspect(event.data));
@@ -56,7 +56,6 @@ function onIceMessage(channel, event) {
                     channel.received_size = 0;
                     channel.chunk_num = 0;
                     channel.chunks_map = {};
-                    channel.arrayToStoreChunks = [];
                 }
             }
         } catch (ex) {
@@ -64,52 +63,53 @@ function onIceMessage(channel, event) {
         }
     } else if (event.data instanceof ArrayBuffer) {
 
-        var bff = buf.toBuffer(event.data);
-        console.error('%%%% got chunk '+channel.chunk_num+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
+        try {
+            var bff = buf.toBuffer(event.data);
 
-        writeLog('got chunk ' + event.data + " size " + event.data.byteLength + " curr " + channel.received_size);
+            writeLog('got chunk size ' + event.data.byteLength + " curr " + channel.received_size);
 
-        if (event.data.byteLength < chunk_size) {
-            writeLog('got last chunk as '+channel.chunk_num);
-            channel.last_part = event.data;
-        } else {
-            channel.arrayToStoreChunks.push(event.data);
-        }
+            var part = bff.readInt8(0);
+            channel.chunks_map[part] = event.data.slice(8);
 
-        channel.chunk_num++;
+            console.error('%%%% got chunk '+part+' starts with '+ channel.chunks_map[part][0]+','+channel.chunks_map[part][1]+','+channel.chunks_map[part][2]);
 
-        channel.received_size += event.data.byteLength;
+            channel.chunk_num++;
 
-        if (channel.received_size === parseInt(channel.msg_size)) {
+            channel.received_size += (event.data.byteLength - 8);
 
-            for (var i = 0; i < channel.chunk_num - 1; ++i) {
-                if (channel.buffer) {
-                    channel.buffer = buf.addToBuffer(channel.buffer, channel.arrayToStoreChunks[i]);
+            if (channel.received_size === parseInt(channel.msg_size)) {
+
+                for (var i = 0; i < channel.chunk_num; ++i) {
+                    if (channel.buffer) {
+                        channel.buffer = buf.addToBuffer(channel.buffer, channel.chunks_map[i]);
+                    } else {
+                        channel.buffer = buf.toBuffer(channel.chunks_map[i]);
+                    }
+                }
+
+                if (channel.action_defer) {
+                    channel.action_defer.resolve(channel);
                 } else {
-                    channel.buffer = buf.toBuffer(channel.arrayToStoreChunks[i]);
+                    try {
+                        handleRequestMethod(channel, event.data);
+                    } catch (ex) {
+                        writeLog('ex on ArrayBuffer req ' + ex);
+                    }
                 }
             }
-
-            if (channel.buffer) {
-                channel.buffer = buf.addToBuffer(channel.buffer, channel.last_part);
-            } else {
-                channel.buffer = buf.toBuffer(channel.last_part);
-            }
-
-
-            if (channel.action_defer) {
-                channel.action_defer.resolve(channel);
-            } else {
-                try {
-                    handleRequestMethod(channel, event.data);
-                } catch (ex) {
-                    writeLog('ex on ArrayBuffer req ' + ex);
-                }
-            }
+        } catch (ex) {
+            writeLog('ex on ab got ' + ex.stack);
         }
     } else {
         writeLog('WTF got ' + event.data);
     }
+}
+
+function createBufferToSend(block, seq) {
+    var bufToSend = new Buffer(8);
+    bufToSend.writeInt8(seq);
+    bufToSend = buf.addToBuffer(bufToSend, block);
+    return buf.toArrayBuffer(bufToSend);
 }
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block) {
@@ -120,7 +120,7 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block) {
         var counter = 0;
         while (end < block.byteLength) {
 
-            channel.send(block.slice(begin, end));
+            channel.send(createBufferToSend(block.slice(begin, end), counter));
 
             bff = buf.toBuffer(block.slice(begin, end));
             console.error('%%%% send chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
@@ -129,13 +129,13 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block) {
             counter++;
         }
 
-        channel.send(block.slice(begin));
+        channel.send(createBufferToSend(block.slice(begin), counter));
         bff = buf.toBuffer(block.slice(begin));
         console.error('%%%% send last chunk '+counter+ ' begin at:' + begin+' starts with '+ bff[0]+','+bff[1]+','+bff[2]);
 
     } else {
         console.error('%%%% send chunk all at one');
-        channel.send(block);
+        channel.send(createBufferToSend(block), counter);
     }
 };
 exports.writeBufferToSocket = writeBufferToSocket;

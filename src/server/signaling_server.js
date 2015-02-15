@@ -6,6 +6,7 @@
 var WebSocketServer = require("ws").Server;
 var http = require("http");
 var express = require("express");
+var thenRedis = require('then-redis');
 var uuid = require('node-uuid');
 
 var app = express();
@@ -26,25 +27,36 @@ var redis = require("redis");
 
 var redisClientSub;
 var redisClientPub;
+var redisClientId;
 if (process.env.REDISTOGO_URL) {
     var rtg   = require("url").parse(process.env.REDISTOGO_URL);
 
-    var redisClientSub = redis.createClient(rtg.port, rtg.hostname);
+    redisClientSub = redis.createClient(rtg.port, rtg.hostname);
     redisClientSub.auth(rtg.auth.split(":")[1]);
 
-    var redisClientPub = redis.createClient(rtg.port, rtg.hostname);
+    redisClientPub = redis.createClient(rtg.port, rtg.hostname);
     redisClientPub.auth(rtg.auth.split(":")[1]);
+
+    redisClientId = thenRedis.createClient({
+        host: rtg.hostname,
+            port: rtg.port
+    });
+    redisClientId.auth(rtg.auth.split(":")[1]);
 } else {
     redisClientSub = redis.createClient();
     redisClientPub = redis.createClient();
+    redisClientId = thenRedis.createClient();
 }
 
 
 redisClientSub.on("error", function (err) {
-    console.log("Error " + err);
+    console.log("redisClientSub Error " + err);
 });
 redisClientPub.on("error", function (err) {
-    console.log("Error " + err);
+    console.log("redisClientPub Error " + err);
+});
+redisClientId.on("error", function (err) {
+    console.log("redisClientId Error " + err);
 });
 
 redisClientSub.subscribe("sig-channel");
@@ -74,15 +86,25 @@ var wss = new WebSocketServer({
     server: server
 })
     .on("connection", function(ws) {
-        var id = uuid.v4();
-        count += 1;
-        wsmap[id] = ws;
 
-        var idMsg = JSON.stringify({sigType: 'id', id: id});
+        var id;
+        redisClientId.incr('my-clients').done(function (res){
+            id = res;
+            if (!id) {
+                id = uuid.v4();
+            } else {
+                id = 'client-' + id;
+            }
 
-        console.error('send id ' + idMsg + ' to ' + id);
+            count += 1;
+            wsmap[id] = ws;
 
-        ws.send(idMsg);
+            var idMsg = JSON.stringify({sigType: 'id', id: id});
+
+            console.error('send id ' + idMsg + ' to ' + id);
+
+            ws.send(idMsg);
+        });
 
         ws.on("close", function() {
             count -= 1;

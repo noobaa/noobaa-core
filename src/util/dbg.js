@@ -25,6 +25,7 @@ module.exports = DebugContext;
 // keep all contexes in global map
 DebugContext.ctx = {};
 
+global.DebugContext = DebugContext;
 
 function DebugContext(module) {
     // allow calling this ctor without new keyword

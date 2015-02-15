@@ -7,27 +7,40 @@ var handleRequestMethod;
 
 var exports = module.exports = {};
 
+var isAgent;
+
 exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
     handleRequestMethod = handleRequestMethodTemp;
+    if (agentId) {
+        isAgent = true;
+    }
     return ice.setup(onIceMessage, agentId);
 };
 
+function writeLog(msg) {
+    if (isAgent) {
+        console.error(msg);
+    } else {
+        console.log(msg);
+    }
+}
+
 function onIceMessage(channel, event) {
 
-    console.log('*** got event '+event.data);
+    writeLog('*** got event '+event.data  + " ; my id: "+channel.myId);
 
     if (typeof event.data == 'string' || event.data instanceof String) {
         try {
             var message = JSON.parse(event.data);
 
-            console.log('got message '+ message + ' --- from ---' +event.data);
+            writeLog('got message '+ message + ' --- from ---' +event.data);
 
             channel.peer_msg = message;
 
             if (!message.size || parseInt(message.size) === 0) {
 
                 if (channel.action_defer) {
-                    channel.action_defer.resolve(message);
+                    channel.action_defer.resolve(channel);
                 } else {
                     handleRequestMethod(channel, message);
                 }
@@ -36,11 +49,11 @@ function onIceMessage(channel, event) {
                 channel.received_size = 0;
             }
         } catch (ex) {
-            console.log('ex on string req ' + ex);
+            writeLog('ex on string req ' + ex);
         }
     } else if (event.data instanceof ArrayBuffer) {
 
-        console.log('got chunk ' + event.data + " size " + event.data.byteLength + " curr " + channel.received_size);
+        writeLog('got chunk ' + event.data + " size " + event.data.byteLength + " curr " + channel.received_size);
         try {
             if (channel.buffer) {
                 channel.buffer = buf.addToBuffer(channel.buffer, event.data);
@@ -48,7 +61,7 @@ function onIceMessage(channel, event) {
                 channel.buffer = buf.toBuffer(event.data);
             }
         } catch (ex) {
-            console.log('err write on got chunk '+ ex.stack +' ex: ' +ex);
+            writeLog('err write on got chunk '+ ex.stack +' ex: ' +ex);
         }
 
         channel.received_size += event.data.byteLength;
@@ -56,13 +69,17 @@ function onIceMessage(channel, event) {
         if (channel.received_size === parseInt(channel.msg_size)) {
 
             if (channel.action_defer) {
-                channel.action_defer.resolve(channel.buffer);
+                channel.action_defer.resolve(channel);
             } else {
-                handleRequestMethod(channel, event.data);
+                try {
+                    handleRequestMethod(channel, event.data);
+                } catch (ex) {
+                    writeLog('ex on ArrayBuffer req ' + ex);
+                }
             }
         }
     } else {
-        console.log('WTF got ' + event.data);
+        writeLog('WTF got ' + event.data);
     }
 }
 
@@ -88,17 +105,21 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
     var iceSocket;
     var sigSocket;
 
+    if (agentId) {
+        isAgent = true;
+    }
+
     return Q.fcall(function() {
-        console.log('starting setup');
+        writeLog('starting setup');
         if (ws_socket) {
             sigSocket = ws_socket;
         } else {
             sigSocket = ice.setup(onIceMessage, agentId);
         }
-        if (sigSocket.ws.conn_defer) return sigSocket.ws.conn_defer.promise;
+        if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
         else return Q.fcall(function() {return sigSocket});
     }).then(function() {
-        console.log('starting to initiate ice '+JSON.stringify(sigSocket));
+        writeLog('starting to initiate ice '+JSON.stringify(sigSocket));
         var requestId = 'req-' + rand.getRandomInt(10000,90000) + "-end";
         return ice.initiateIce(sigSocket, peerId, true, requestId);
     }).then(function(newSocket) {
@@ -116,13 +137,22 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
         }
 
         return iceSocket.action_defer.promise;
-    }).then(function(response) {
+    }).then(function(channel) {
         iceSocket.close();
         ice.closeSignaling(sigSocket);
+
+        var response = channel.peer_msg;
+        if (channel.buffer) {
+            console.error('---> response: has buffer ' + Buffer.isBuffer(channel.buffer));
+            response.data = channel.buffer;
+        }
+
+        console.error('---> response: '+response + ' ; ' + require('util').inspect(response));
+
         return response;
     }).then(null, function(err) {
-        console.log('---> query ERROR '+err.stack);
+        console.error('---> ice_api.sendRequest ERROR '+err.stack);
     }).catch(function(err) {
-        console.log('---> onIceMessage FAIL '+err.stack);
+        console.error('---> ice_api.sendRequest FAIL '+err.stack);
     });
 };

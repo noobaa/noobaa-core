@@ -64,7 +64,7 @@ AgentCLI.prototype.init = function() {
             .then(function() {
                 console.log('COMPLETED: setup', self.params);
             }, function(err) {
-                console.log('ERROR: setup', self.params, err);
+                console.log('ERROR: setup', self.params, err.stack);
             })
             .then(function() {
                 process.exit();
@@ -75,7 +75,7 @@ AgentCLI.prototype.init = function() {
         .then(function() {
             console.log('COMPLETED: load');
         }, function(err) {
-            console.log('ERROR: load', self.params, err);
+            console.log('ERROR: load', self.params, err.stack);
 
         });
 };
@@ -129,7 +129,7 @@ AgentCLI.prototype.load = function() {
             }
         })
         .then(null, function(err) {
-            console.error('load failed');
+            console.error('load failed '+err.stack);
             throw err;
         });
 };
@@ -280,19 +280,8 @@ function file_must_exist(path) {
 
 function main() {
 
-    var app = require('app');  // Module to control application life.
-    //app.dock.hide();
-    var BrowserWindow = require('browser-window');
-    app.on('ready', function() {
-        var windowMain = new BrowserWindow({show: false});
-        windowMain.loadUrl('file://' + __dirname + '/index.html');
-    });
-
-
-//    var cli = new AgentCLI(argv);
-    var args ={
+    var args = {
       address: 'http://127.0.0.1:5001'
-
     };
     var cli = new AgentCLI(args);
     cli.init().done(function() {

@@ -27,84 +27,106 @@ function Socket(idInServer) {
  * connection to signaling server
  ********************************/
 var connect = function (socket) {
-    console.log('do CLIENT connect ' + (socket.isAgent ? socket.idInServer : ""));
-
-    socket.ws = new WebSocket(params.address)
-        .on('connect', function () {
-        })
-        .on('open', function () {
-            if (socket.isAgent) {
-                socket.ws.send(JSON.stringify({type: 'id', id: socket.idInServer}));
-            }
-
-            try {
-                socket.alive_interval = setInterval(function() {keepalive(socket);}, params.alive_delay);
-            } catch (ex) {
-                console.error("prob vvvvvvv");
-            }
-
-        })
-        .on('message', function (data) {
-
-            var message = JSON.parse(data);
-
-            if (message.type === 'id') {
-                console.log('Got id ' + message);
-                if (socket.isAgent) {
-                    console.log('id from server ignored');
-                } else {
-                    console.log('id ' + message.id);
-                    socket.idInServer = message.id;
-                    if (socket.ws.conn_defer) {
-                        socket.ws.conn_defer.resolve();
-                    }
-                }
-            } else if (message.type === 'ice') {
-                console.log('Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
-                signalingMessageCallback(socket, message.from, message.data, message.requestId);
-            } else if (message.type === 'accept') {
-                console.log('Got accept ' + message);
-                initiateIce(socket, message.from, false, message.requestId);
-            } else if (message.type === 'keepalive') {
-                // nothing
-            } else {
-                console.log('message ' + data);
-            }
-        })
-        .on('error', function (err) {
-            console.log('error ' + err);
-            try {
-                setTimeout(
-                    function () {
-                        reconnect(socket);
-                    }, params.reconnect_delay);
-            } catch (ex) {
-                console.error("prob bbbbbbbb");
-            }
-        })
-        .on('close', function () {
-            console.log('close');
-            disconnect(socket);
-            try {
-                setTimeout(
-                    function () {
-                        connect(socket);
-                    }, params.reconnect_delay);
-            } catch (ex) {
-                console.error("prob nnnnnnnn");
-            }
-        });
+    writeLog(socket, 'do CLIENT connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
 
     if (!socket.isAgent) {
-        socket.ws.conn_defer = Q.defer();
+        socket.conn_defer = Q.defer();
     }
+
+    try {
+        var ws = new WebSocket(params.address);
+
+        ws.onopen = (function () {
+
+            //console.error("ws   ---> "+String(ws));
+
+
+            if (socket.isAgent) {
+                ws.send(JSON.stringify({sigType: 'id', id: socket.idInServer}));
+            }
+
+            socket.alive_interval = setInterval(function () {
+                keepalive(socket);
+            }, params.alive_delay);
+
+            });
+        ws.onmessage = (function (msgRec) {
+
+            if (typeof msgRec == 'string' || msgRec instanceof String) {
+                try {
+                    msgRec = JSON.parse(msgRec);
+                } catch (ex) {
+                    console.error('problem parsing msg '+msgRec);
+                }
+            }
+
+            var message;
+            if (msgRec.sigType) {
+                message = msgRec;
+            } else if (msgRec.data) {
+                if (typeof msgRec.data == 'string' || msgRec.data instanceof String) {
+                    message = JSON.parse(msgRec.data);
+                } else {
+                    message = msgRec.data;
+                }
+            } else {
+                console.error('cant find msg '+msgRec);
+            }
+
+                if (message.sigType === 'id') {
+                    if (socket.isAgent) {
+                        writeLog(socket, 'id from server ignored');
+                    } else {
+                        writeLog(socket, 'id ' + message.id);
+                        socket.idInServer = message.id;
+                        if (socket.conn_defer) {
+                            socket.conn_defer.resolve();
+                        }
+                    }
+                } else if (message.sigType === 'ice') {
+                    writeLog(socket, 'Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
+                    signalingMessageCallback(socket, message.from, message.data, message.requestId);
+                } else if (message.sigType === 'accept') {
+                    writeLog(socket, 'Got accept ' + message);
+                    initiateIce(socket, message.from, false, message.requestId);
+                } else if (message.sigType === 'keepalive') {
+                    // nothing
+                } else {
+                    console.error('unknown message ' + message);
+                    try {
+                        console.error('unknown message 2 ' + JSON.stringify(message));
+                    } catch (ex) {
+
+                    }
+                }
+            });
+        ws.onerror = (function (err) {
+            console.log('error ' + err);
+            setTimeout(
+                function () {
+                    reconnect(socket);
+                }, params.reconnect_delay);
+            });
+        ws.onclose = (function () {
+            writeLog(socket, 'close');
+            disconnect(socket);
+            setTimeout(
+                function () {
+                    connect(socket);
+                }, params.reconnect_delay);
+            });
+        socket.ws = ws;
+    } catch (ex) {
+        console.error('---> ice_lib.connect ERROR '+ ex+' ; ' + ex.stack);
+    }
+
     return socket;
 };
 
 function keepalive(socket) {
-    //console.error('send keepalive');
+    writeLog(socket, 'send keepalive');
     try {
-        socket.ws.send(JSON.stringify({type: 'keepalive'}));
+        socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
     } catch (ex) {
         console.error('keepalive err', ex);
     }
@@ -116,7 +138,7 @@ function reconnect(socket) {
 }
 
 function disconnect(socket) {
-    console.log('called disconnect');
+    writeLog(socket, 'called disconnect');
     if (!socket.ws) return;
     clearInterval(socket.alive_interval);
     socket.ws = null;
@@ -124,9 +146,9 @@ function disconnect(socket) {
 }
 
 function sendMessage(socket, peerId, requestId, message) {
-    console.log('Client sending message: ', message);
+    writeLog(socket, 'Client sending message: '+ message);
     socket.ws.send(JSON.stringify({
-        type: 'ice',
+        sigType: 'ice',
         from: socket.idInServer,
         to: peerId,
         requestId: requestId,
@@ -138,18 +160,18 @@ function sendMessage(socket, peerId, requestId, message) {
  * handle stale connections
  ********************************/
 function staleConnChk(socket) {
-    console.log('looking for stale connections to remove');
+    writeLog(socket, 'looking for stale connections to remove');
     var now = (new Date()).getTime();
     var toDel = [];
     for (var iceObjChk in socket.icemap) {
-        console.log('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
+        writeLog(socket, 'chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
         if (now - socket.icemap[iceObjChk].created.getTime() > params.connection_data_stale) {
             toDel.push(iceObjChk);
         }
     }
 
     for (var iceToDel in toDel) {
-        console.log('remove stale connections to peer ' + socket.icemap[toDel[iceToDel]].peerId);
+        writeLog(socket, 'remove stale connections to peer ' + socket.icemap[toDel[iceToDel]].peerId);
         delete socket.icemap[toDel[iceToDel]];
     }
 }
@@ -170,8 +192,8 @@ var initiateIce = function initiateIce(socket, peerId, isInitiator, requestId) {
     };
 
     if (isInitiator) {
-        console.log('send accept to peer ' + peerId);
-        socket.ws.send(JSON.stringify({type: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
+        writeLog(socket, 'send accept to peer ' + peerId);
+        socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
     }
 
     createPeerConnection(socket, channelId, configuration);
@@ -183,77 +205,95 @@ var initiateIce = function initiateIce(socket, peerId, isInitiator, requestId) {
 };
 
 function logError(err) {
-    console.log(err.toString(), err);
+    console.error(err.toString(), err);
+}
+
+function writeLog(socket, msg) {
+    if (socket.isAgent) {
+        console.error(msg);
+    } else {
+        console.log(msg);
+    }
 }
 
 function createPeerConnection(socket, channelId, config) {
     var channelObj = socket.icemap[channelId];
-    try {
-        console.log('Creating Peer connection as initiator ' + channelObj.isInitiator + ' config: ' + config);
 
-        channelObj.peerConn = new require('shell').webkitRTCPeerConnection(config);
+    try {
+        writeLog(socket, 'Creating Peer connection as initiator ' + channelObj.isInitiator + ' config: ' + config);
+
+        var funcPerrConn = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
+
+        try {
+            channelObj.peerConn = new funcPerrConn(config);
+        } catch (ex) {
+            console.error('prob win create '+ex.stack);
+        }
 
         // send any ice candidates to the other peer
         channelObj.peerConn.onicecandidate = function (event) {
-            console.log('onIceCandidate event:', event);
+            writeLog(socket, 'onIceCandidate event:'+ event);
             if (event.candidate) {
-                sendMessage(channelObj.peerId, channelObj.requestId, {
+                sendMessage(socket, channelObj.peerId, channelObj.requestId, {
                     type: 'candidate',
                     label: event.candidate.sdpMLineIndex,
                     id: event.candidate.sdpMid,
                     candidate: event.candidate.candidate
                 });
             } else {
-                console.log('End of candidates.');
+                writeLog(socket, 'End of candidates.');
             }
         };
 
         if (channelObj.isInitiator) {
-            console.log('Creating Data Channel');
+            writeLog(socket, 'Creating Data Channel');
             try {
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa");
                 onDataChannelCreated(socket, channelId, channelObj.dataChannel);
             } catch (ex) {
-                console.log('Ex on Creating Data Channel ' + ex);
+                writeLog(socket, 'Ex on Creating Data Channel ' + ex);
                 if (channelObj.connect_defer) channelObj.connect_defer.reject();
             }
 
-            console.log('Creating an offer');
+            writeLog(socket, 'Creating an offer');
             try {
                 channelObj.peerConn.createOffer(function (desc) {
                     return onLocalSessionCreated(socket, channelId, desc);
                 }, logError);
             } catch (ex) {
-                console.log('Ex on Creating an offer ' + ex);
+                writeLog(socket, 'Ex on Creating an offer ' + ex.stack);
                 if (channelObj.connect_defer) channelObj.connect_defer.reject();
             }
         }
+
+
+
         channelObj.peerConn.ondatachannel = function (event) {
-            console.log('ondatachannel:', event.channel);
+            writeLog(socket, 'ondatachannel:'+ event.channel);
             try {
                 channelObj.dataChannel = event.channel;
                 onDataChannelCreated(socket, channelId, channelObj.dataChannel);
             } catch (ex) {
-                console.log('Ex on ondatachannel ' + ex);
+                writeLog(socket, 'Ex on ondatachannel ' + ex.stack);
                 if (channelObj.connect_defer) channelObj.connect_defer.reject();
             }
         };
     } catch (ex) {
-        console.log('Ex on createPeerConnection ' + ex);
+        writeLog(socket, 'Ex on createPeerConnection ' + ex.stack);
         if (channelObj.connect_defer) channelObj.connect_defer.reject();
     }
 }
 
 function onLocalSessionCreated(socket, channelId, desc) {
-    console.log('local session created:', desc);
+    writeLog(socket, 'local session created:'+ desc);
     var channelObj = socket.icemap[channelId];
     try {
         channelObj.peerConn.setLocalDescription(desc, function () {
-            console.log('sending local desc:', channelObj.peerConn.localDescription);
+            writeLog(socket, 'sending local desc:'+ channelObj.peerConn.localDescription);
             sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.localDescription);
         }, logError);
     } catch (ex) {
-        console.log('Ex on local session ' + ex);
+        writeLog(socket, 'Ex on local session ' + ex);
         if (channelObj.connect_defer) channelObj.connect_defer.reject();
     }
 }
@@ -261,7 +301,7 @@ function onLocalSessionCreated(socket, channelId, desc) {
 function signalingMessageCallback(socket, peerId, message, requestId) {
 
     var channelId;
-    for (var iceObj in icemap) {
+    for (var iceObj in socket.icemap) {
         if (socket.icemap[iceObj].peerId === peerId && socket.icemap[iceObj].requestId === requestId) {
             channelId = iceObj;
             break;
@@ -270,7 +310,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
     var channelObj = socket.icemap[channelId];
 
     if (message.type === 'offer') {
-        console.log('Got offer. Sending answer to peer. ' + peerId + ' and channel ' + channelId);
+        writeLog(socket, 'Got offer. Sending answer to peer. ' + peerId + ' and channel ' + channelId);
 
         try {
             if (channelObj.peerConn) {
@@ -283,13 +323,13 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
                 return onLocalSessionCreated(socket, channelId, desc);
             }, logError);
         } catch (ex) {
-            console.log('problem in offer ' + ex.stack);
+            writeLog(socket, 'problem in offer ' + ex.stack);
             if (channelObj.connect_defer) channelObj.connect_defer.reject();
         }
 
     } else if (message.type === 'answer') {
         try {
-            console.log('Got answer.' + peerId + ' and channel ' + channelId);
+            writeLog(socket, 'Got answer.' + peerId + ' and channel ' + channelId);
             if (channelObj.peerConn) {
             } else {
                 createPeerConnection(socket, channelId, configuration);
@@ -297,45 +337,46 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
             channelObj.peerConn.setRemoteDescription(new RTCSessionDescription(message), function () {
             }, logError);
         } catch (ex) {
-            console.log('problem in answer ' + ex);
+            writeLog(socket, 'problem in answer ' + ex);
             if (channelObj.connect_defer) channelObj.connect_defer.reject();
         }
 
     } else if (message.type === 'candidate') {
         try {
-            console.log('Got candidate.' + peerId + ' and channel ' + channelId);
+            writeLog(socket, 'Got candidate.' + peerId + ' and channel ' + channelId);
             if (channelObj.peerConn) {
             } else {
                 createPeerConnection(socket, channelId, configuration);
             }
             channelObj.peerConn.addIceCandidate(new RTCIceCandidate({candidate: message.candidate}));
         } catch (ex) {
-            console.log('problem in candidate ' + ex);
+            writeLog(socket, 'problem in candidate ' + ex);
             if (channelObj.connect_defer) channelObj.connect_defer.reject();
         }
     } else if (message === 'bye') {
-        console.log('Got bye.');
+        writeLog(socket, 'Got bye.');
     }
 }
 
 function onDataChannelCreated(socket, channelId, channel) {
 
     try {
-        console.log('onDataChannelCreated:', channel);
+        writeLog(socket, 'onDataChannelCreated:'+ channel);
 
         channel.onopen = function () {
 
             var channelObj = socket.icemap[channelId];
 
-            console.log('CHANNEL opened!!! ' + channelObj.peerId);
+            writeLog(socket, 'CHANNEL opened!!! ' + channelObj.peerId);
 
             channel.peerId = channelObj.peerId;
+            channel.myId = socket.idInServer;
 
             if (channelObj.connect_defer) {
-                console.log('connect defer - resolve');
+                writeLog(socket, 'connect defer - resolve');
                 channelObj.connect_defer.resolve(channelObj.dataChannel);
             } else {
-                console.log('no connect defer');
+                writeLog(socket, 'no connect defer');
             }
             delete socket.icemap[channelId];
         };
@@ -343,19 +384,19 @@ function onDataChannelCreated(socket, channelId, channel) {
         channel.onmessage = onIceMessage(channel);
 
         channel.onclose = function () {
-            console.log('CHANNEL closed!!! ' + channel.peerId);
+            writeLog(socket, 'CHANNEL closed!!! ' + channel.peerId);
             if (socket.icemap[channelId] && socket.icemap[channelId].connect_defer) socket.icemap[channelId].connect_defer.reject();
             delete socket.icemap[channelId];
         };
 
         channel.onerror = function (err) {
-            console.log('CHANNEL ERR ' + channel.peerId + ' ' + err);
+            writeLog(socket, 'CHANNEL ERR ' + channel.peerId + ' ' + err);
             if (socket.icemap[channelId] && socket.icemap[channelId].connect_defer) socket.icemap[channelId].connect_defer.reject();
             delete socket.icemap[channelId];
         };
 
     } catch (ex) {
-        console.log('Ex on onDataChannelCreated ' + ex);
+        writeLog(socket, 'Ex on onDataChannelCreated ' + ex);
 
         if (socket.icemap[channelId] && socket.icemap[channelId].connect_defer) {
             socket.icemap[channelId].connect_defer.reject();
@@ -383,12 +424,7 @@ exports.setup = function setup(msgCallback, agentId) {
 
     callbackOnPeerMsg = msgCallback;
 
-    try {
-        socket.stale_conn_interval = setInterval(function(){staleConnChk(socket);}, params.check_stale_conns);
-    } catch (ex) {
-        console.error("prob ccccccc");
-    }
-
+    socket.stale_conn_interval = setInterval(function(){staleConnChk(socket);}, params.check_stale_conns);
 
     return connect(socket);
 

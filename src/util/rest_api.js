@@ -11,6 +11,7 @@ var URL = require('url');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
 var ice_api = require('./ice_api');
+var buf = require('./buffer_utils');
 
 module.exports = rest_api;
 
@@ -86,7 +87,7 @@ function rest_api(api) {
             assert(param, 'rest_api: missing param info: ' + p + ' for ' + func_info.fullname);
             return {
                 name: p,
-                param: param,
+                param: param
             };
         });
 
@@ -156,18 +157,27 @@ function rest_api(api) {
      * path (String) - optional base path for the routes.
      */
     Server.prototype.install_rest = function(router, path) {
+        console.error('in install_rest 0');
+
         var self = this;
         path = path || api_path;
         var doc_base = url_path_join('/doc', path);
 
+        console.error('in install_rest 1');
+
         // install methods on the router
         _.each(api.methods, function(func_info, func_name) {
             var method_path = url_path_join(path, func_info.path);
+
+            console.error('path: '+method_path+" ;;; "+func_name);
+
             var handler = self._handlers[func_name];
             // route_func points to the route functions router.get/post/put/delete
             var route_func = router[func_info.method.toLowerCase()];
             // call the route function to set the route handler
             route_func.call(router, method_path, handler);
+
+
 
             // install also a documentation route
             router.get(url_path_join(doc_base, func_name), function(req, res) {
@@ -201,12 +211,113 @@ function rest_api(api) {
         return this._impl[func_name](req);
     };
 
+    Server.prototype.ice_server_handler = function(channel, message) {
+        if (!this.ice_router) {
+
+            try {
+                console.error('-> $%^&$%&$%   do express ice router');
+
+                var express = require('express');
+                this.ice_router = express.Router();
+
+                console.error('-> $%^&$%&$%   do express ice router 222 ');
+
+                this.install_rest(this.ice_router);
+            } catch (ex) {
+                console.error('-> $%^&$%&$%   do express ice router ex '+ex.stack);
+            }
+
+        }
+
+        var msg;
+        var body;
+
+        if (typeof message == 'string' || message instanceof String) {
+            msg = JSON.parse(message);
+            body = msg.body;
+
+            console.error('-> %%%% do something '+require("util").inspect(msg));
+
+        }  else if (message instanceof ArrayBuffer) {
+            body = channel.buffer;
+            msg = channel.peer_msg;
+
+            console.error('-> %%%%% do something with buffer '+require("util").inspect(msg));
+
+        } else if (message.method) {
+            msg = message;
+            body = msg.body;
+        }
+        else {
+            console.error('-> %%%%%% got weird msg '+require("util").inspect(message));
+        }
+
+
+        var req = {
+            url: 'http://127.0.0.1'+msg.path,
+            method: msg.method,
+            body: body,
+            load_auth: function() {} // TODO
+        };
+
+        var status;
+        var replyJSON;
+        var replyBuffer;
+        var res = {
+            manual: function() {
+
+                if (replyBuffer && !(replyBuffer instanceof ArrayBuffer)) {
+                    replyBuffer = buf.toArrayBuffer(replyBuffer);
+                }
+
+                console.error('done manuall status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
+
+                var reply = {
+                    status: status,
+                    size: (replyBuffer ? replyBuffer.byteLength : 0),
+                    data: replyJSON
+                };
+
+                console.error('done manuall - send reply');
+                channel.send(JSON.stringify(reply));
+
+                if (replyBuffer) {
+                    console.error('done manuall - send reply buffer');
+                    ice_api.writeBufferToSocket(channel, replyBuffer);
+                }
+
+            },
+            status: function(code) {
+                status = code;
+                return this;
+            },
+            json: function(msg) {
+                replyJSON = msg;
+                return this;
+            },
+            send: function(buffer) {
+                replyBuffer = buffer;
+                return this;
+            }
+        };
+
+        this.ice_router.handle(req, res, function() {
+            console.error('done status: '+status+" reply: "+reply+" replyBuffer: "+replyBuffer);
+        });
+
+    };
+
+
+
     /**
      * return a route handler that calls the server function
      */
     Server.prototype._create_server_handler = function(func, func_info) {
         var self = this;
         return function(req, res, next) {
+
+            console.error('ROUTING '+require("util").inspect(func_info));
+
             // marking _disabled on the server will bypass all the routes it has.
             if (self._disabled) {
                 return next();
@@ -286,6 +397,11 @@ function rest_api(api) {
                     var data = req._rest_error_data || 'error';
                     return res.status(status).json(data);
                 })
+                .then(function(){
+                    if (res.manual) {
+                        res.manual();
+                    }
+                })
                 .done(null, function(err) {
                     self._log('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
                     return next(err);
@@ -334,6 +450,7 @@ function rest_api(api) {
 
     // create a REST api call and return the options for http request.
     Client.prototype._peer_request = function(func_info, params) {
+
         var self = this;
         var method = func_info.method;
         var path = self.options.path || '/';
@@ -342,6 +459,16 @@ function rest_api(api) {
         var jar = self.options.cookie_jars[host];
         var headers = {};
         var body;
+
+        if (self.options) {
+            try {
+                console.log('in _peer_request got '+JSON.stringify(self.options));
+            } catch (ex) {
+                console.log('in _peer_request got '+String(self.options));
+            }
+        } else {
+            console.log('in _peer_request got no ' +self.options);
+        }
 
         // using forIn to enumerate headers that may be inherited from base headers (see Client ctor).
         _.forIn(self.headers, function(val, key) {
@@ -414,10 +541,40 @@ function rest_api(api) {
             responseType: 'arraybuffer'
         };
 
-        console.log(JSON.stringify(options));
+        if (options.path.indexOf('block') >= 0) { // do ice
+            writeLog(self.options, 'do ice ' + (self.options.ws_socket ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
+            return Q.fcall(function() {
+                var peerId = options.hostname + ":" + options.port;
 
-        if (options.path.indexOf('auth') >= 0 || options.path.indexOf('heartbeat') >= 0) { // do http
-            console.log('do http req');
+                var buffer;
+                if (options.headers['content-type'] === 'application/json') {
+                    options.body = body;
+                } else {
+                    buffer = body;
+                }
+                return ice_api.sendRequest(self.options.ws_socket, peerId, options, null, buffer);
+            })
+            .then(function(res) {
+
+                writeLog(self.options, 'res is: '+ require('util').inspect(res));
+
+                if (!func_info.reply_raw) {
+                    // check the json reply
+                    validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
+                }
+                return res.data;
+            })
+            .then(null, function(err) {
+                console.error('REST REQUEST FAILED '+ err.stack);
+            })
+            .catch(function(err) {
+                console.error('REST REQUEST CATCH '+ err.stack);
+            })
+            .fail(function(err) {
+                console.error('REST REQUEST FAIL '+ err.stack);
+            });
+        } else { // do http
+            writeLog(self.options, 'do http req '+options.path);
             return Q.fcall(function() {
                 return self._http_request(options, body);
             }).then(read_http_response)
@@ -428,19 +585,17 @@ function rest_api(api) {
                 console.error('REST REQUEST FAILED', err);
                 throw err;
             });
-        } else { // do ice
-            console.log('do ice ' + (self.options.ws_socket ? self.options.ws_socket.idInServer : "not agent"));
-            return Q.fcall(function() {
-                var peerId = options.hostname + ":" + options.port;
-                return ice_api.sendRequest(self.options.ws_socket, peerId, options, null, body);
-            })
-            .then(null, function(err) {
-                console.error('REST REQUEST FAILED', err);
-                throw err;
-            });
         }
 
     };
+
+    function writeLog(options, msg) {
+        if (options.ws_socket) {
+            console.error(msg);
+        } else {
+            console.log(msg);
+        }
+    }
 
     // create a REST api call and return the options for http request.
     Client.prototype._http_request = function(options, body) {

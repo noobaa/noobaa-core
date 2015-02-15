@@ -108,12 +108,15 @@ function Agent(params) {
         delete_block: self.delete_block.bind(self),
         kill_agent: self.kill_agent.bind(self)
     });
+    self.agent_server = agent_server;
     agent_server.install_rest(app);
 
     var http_server = http.createServer(app);
     http_server.on('listening', self._server_listening_handler.bind(self));
     http_server.on('close', self._server_close_handler.bind(self));
     http_server.on('error', self._server_error_handler.bind(self));
+
+
 
     self.agent_app = app;
     self.agent_server = agent_server;
@@ -128,26 +131,6 @@ function Agent(params) {
         'Germany', 'England', 'France', 'Spain'
     ]);
 
-    self.sigSocket = ice_api.signalingSetup(function(channel, message) {
-        var msg;
-        var body;
-
-        if (typeof message == 'string' || message instanceof String) {
-            msg = JSON.parse(message);
-
-            console.log('-> do something '+msg);
-
-        }  else if (message instanceof ArrayBuffer) {
-            body = channel.buffer;
-            msg = channel.peer_msg;
-
-            console.log('-> do something with buffer '+msg);
-
-        } else {
-            console.log('-> got weird msg '+message);
-        }
-    }, params.node_name);
-    self.client.options.set_ws(self.sigSocket);
 }
 
 
@@ -170,6 +153,12 @@ Agent.prototype.start = function() {
         })
         .then(function() {
             return self.send_heartbeat();
+        })
+        .then(function() {
+            self.sigSocket = ice_api.signalingSetup(self.agent_server.ice_server_handler.bind(self.agent_server),
+                "127.0.0.1:"+(self.http_port || self.prefered_port));
+            self.client.options.set_ws(self.sigSocket);
+            return self.sigSocket;
         })
         .then(null, function(err) {
             console.error('AGENT server failed to start', err);
@@ -302,11 +291,7 @@ Agent.prototype._server_close_handler = function() {
     console.log('AGENT server closed');
     this.http_port = 0;
     // set timer to check the state and react by restarting or not
-    try {
-        setTimeout(this._start_stop_http_server.bind(this), 1000);
-    } catch (ex) {
-        console.error("prob 777777");
-    }
+    setTimeout(this._start_stop_http_server.bind(this), 1000);
 };
 
 

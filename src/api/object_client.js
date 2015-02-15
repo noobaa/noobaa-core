@@ -8,19 +8,18 @@ var Q = require('q');
 var object_api = require('./object_api');
 var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
+var transformer = require('../util/transformer');
 var ChunkStream = require('../util/chunk_stream');
+var CoalesceStream = require('../util/coalesce_stream');
 var rabin = require('../util/rabin');
 var Poly = require('../util/poly');
 var crypto = require('crypto');
+var chunk_crypto = require('../util/chunk_crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var dbg = require('../util/dbg')(__filename);
-var subtle_crypto = global && global.crypto && global.crypto.subtle;
-if (subtle_crypto) {
-    var evp_bytes_to_key = require('browserify-aes/EVP_BytesToKey');
-}
 
 module.exports = ObjectClient;
 
@@ -56,6 +55,11 @@ function ObjectClient(base) {
     self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 32 MB
     self.HTTP_TRUNCATE_PART_SIZE = false;
 
+    self.CRYPT_TYPE = {
+        hash_type: 'sha256',
+        cipher_type: 'aes256',
+    };
+
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
 
@@ -84,11 +88,17 @@ ObjectClient.prototype.upload_stream = function(params) {
     var create_params = _.pick(params, 'bucket', 'key', 'size', 'content_type');
     var bucket_key_params = _.pick(params, 'bucket', 'key');
 
-    dbg.log0('create multipart', params.key);
+    dbg.log0('upload_stream: create multipart', params.key);
     return self.create_multipart_upload(create_params)
         .then(function() {
             return Q.Promise(function(resolve, reject, notify) {
-                params.source_stream
+                var pipeline = params.source_stream;
+
+                ////////////////////////////////////////
+                // PIPELINE: split to chunks by rabin //
+                ////////////////////////////////////////
+
+                pipeline = pipeline
                     .pipe(new rabin.RabinChunkStream({
                         window_length: 128,
                         min_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 3,
@@ -98,15 +108,138 @@ ObjectClient.prototype.upload_stream = function(params) {
                             hash_bits: self.OBJECT_RANGE_ALIGN_NBITS - 1, // 256 KB average chunk
                             hash_val: 0x07071070 // hebrew calculator pimp
                         }],
+                    }));
+
+                ////////////////////////////
+                // PIPELINE: encrypt part //
+                ////////////////////////////
+
+                pipeline = pipeline
+                    .pipe(transformer({
+                        options: {
+                            objectMode: true
+                        },
+                        init: function() {
+                            this._pos = 0;
+                        },
+                        transform: function(chunk) {
+                            var stream = this;
+                            var crypt = _.clone(self.CRYPT_TYPE);
+                            return chunk_crypto.encrypt_chunk(chunk, crypt)
+                                .then(function(encrypted_chunk) {
+                                    var part = {
+                                        start: stream._pos,
+                                        end: stream._pos + chunk.length,
+                                        crypt: crypt,
+                                        encrypted_chunk: encrypted_chunk
+                                    };
+                                    stream._pos = part.end;
+                                    return part;
+                                });
+                        }
+                    }));
+
+                //////////////////////////////////////
+                // PIPELINE: allocate part mappings //
+                //////////////////////////////////////
+
+                pipeline = pipeline
+                    .pipe(new CoalesceStream({
+                        objectMode: true,
+                        max_length: 10,
+                        max_wait_ms: 50,
                     }))
-                    .pipe(self.open_write_stream(bucket_key_params)
-                        .on('progress', function(progress) {
-                            if (progress.event === 'part:after') {
-                                var pos = progress.part && progress.part.end || 0;
-                                dbg.log_progress(pos / params.size);
+                    .pipe(transformer({
+                        options: {
+                            objectMode: true
+                        },
+                        transform: function(parts) {
+                            var stream = this;
+                            dbg.log0('upload_stream: allocating parts', parts.length);
+                            return Q.all(_.map(parts, function(part) {
+                                    var alloc_params = {
+                                        bucket: params.bucket,
+                                        key: params.key,
+                                        start: part.start,
+                                        end: part.end,
+                                        crypt: part.crypt,
+                                        chunk_size: part.encrypted_chunk.length
+                                    };
+                                    dbg.log2('upload_stream: allocate_object_part', alloc_params);
+                                    return self.allocate_object_part(alloc_params);
+                                }))
+                                .then(function(res) {
+                                    for (var i = 0; i < res.length; i++) {
+                                        var part = res[i].part;
+                                        part.encrypted_chunk = parts[i].encrypted_chunk;
+                                        dbg.log0('upload_stream: allocated part', part.start);
+                                        stream.push(part);
+                                    }
+                                });
+                        }
+                    }));
+
+                /////////////////////////////////
+                // PIPELINE: write part blocks //
+                /////////////////////////////////
+
+                pipeline = pipeline
+                    .pipe(transformer({
+                        options: {
+                            objectMode: true
+                        },
+                        transform: function(part) {
+                            return self._write_part_blocks(
+                                    params.bucket, params.key, part)
+                                .thenResolve(part);
+                        }
+                    }));
+
+                /////////////////////////////
+                // PIPELINE: finalize part //
+                /////////////////////////////
+
+                pipeline = pipeline
+                    .pipe(new CoalesceStream({
+                        objectMode: true,
+                        max_length: 10,
+                        max_wait_ms: 50,
+                    }))
+                    .pipe(transformer({
+                        options: {
+                            objectMode: true
+                        },
+                        transform: function(parts) {
+
+                            // TODO finalize parts (multi)
+
+                            dbg.log0('finalize parts', parts.length);
+                            for (var i = 0; i < parts.length; i++) {
+                                var part = parts[i];
+                                dbg.log0('finalize part offset', part.start);
+                                this.push(part);
                             }
-                            notify(progress);
-                        }))
+                        }
+                    }));
+
+                //////////////////////////////////////////
+                // PIPELINE: resolve, reject and notify //
+                //////////////////////////////////////////
+
+                pipeline = pipeline
+                    .pipe(transformer({
+                        options: {
+                            objectMode: true
+                        },
+                        transform: function(part) {
+                            dbg.log0('finish part offset', part.start);
+                            dbg.log_progress(part.end / params.size);
+                            notify({
+                                event: 'part:after',
+                                part: part
+                            });
+                        }
+                    }))
                     .once('error', function(err) {
                         dbg.log0('error write stream', params.key, err);
                         reject(err);
@@ -124,146 +257,42 @@ ObjectClient.prototype.upload_stream = function(params) {
 };
 
 
-/**
- *
- * OPEN_WRITE_STREAM
- *
- * returns a writable stream to the object.
- * see ObjectWriter.
- *
- */
-ObjectClient.prototype.open_write_stream = function(params, watermark) {
-    return new ObjectWriter(this, params, watermark || this.OBJECT_RANGE_ALIGN);
-};
-
-
 
 /**
  *
- * ObjectWriter
- *
- * a Writable stream for the specified object and range.
- * params is also used for stream.Writable highWaterMark
+ * _write_part_blocks
  *
  */
-function ObjectWriter(client, params, watermark) {
+ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
     var self = this;
-    stream.Writable.call(self, {
-        // highWaterMark Number - Buffer level when write() starts returning false. Default=16kb
-        highWaterMark: watermark,
-        // decodeStrings Boolean - Whether or not to decode strings into Buffers
-        // before passing them to _write(). Default=true
-        decodeStrings: true,
-        // objectMode Boolean - Whether or not the write(anyObj) is a valid operation.
-        // If set you can write arbitrary data instead of only Buffer / String data. Default=false
-        objectMode: false,
-    });
-    self._client = client;
-    self._bucket = params.bucket;
-    self._key = params.key;
-    self._pos = 0;
-}
 
-// proper inheritance
-util.inherits(ObjectWriter, stream.Writable);
+    if (part.dedup) {
+        dbg.log0('DEDUP', range_utils.human_range(part));
+        return part;
+    }
 
-/**
- * implement the stream's inner Writable._write() function
- */
-ObjectWriter.prototype._write = function(chunk, encoding, callback) {
-    var self = this;
-    Q.fcall(function() {
-            return self._client._write_object_part({
-                bucket: self._bucket,
-                key: self._key,
-                start: self._pos,
-                end: self._pos + chunk.length,
-                buffer: chunk,
+    dbg.log3('part before', range_utils.human_range(part));
+    var block_size = (part.chunk_size / part.kfrag) | 0;
+    var buffer_per_fragment = encode_chunk(part.encrypted_chunk, part.kfrag, block_size);
+
+    return Q.all(_.map(part.fragments, function(blocks, fragment) {
+        return Q.all(_.map(blocks, function(block) {
+            return self._attempt_write_block({
+                bucket: bucket,
+                key: key,
+                start: part.start,
+                end: part.end,
+                part: part,
+                fragment: fragment,
+                offset: part.start + (fragment * block_size),
+                block: block,
+                buffer: buffer_per_fragment[fragment],
+                remaining_attempts: 20,
             });
-        })
-        .then(function() {
-            self._pos += chunk.length;
-            dbg.log3('writer pos', size_utils.human_offset(self._pos));
-            callback();
-        }, function(err) {
-            console.error('writer error', err);
-            callback(err || 'writer error');
-        }, function(progress) {
-            self.emit('progress', progress);
-        });
+        }));
+    }));
 };
 
-
-/**
- *
- * _write_object_part
- *
- * write a single object part.
- * the boundary of object parts can decided by the caller,
- * and it affects directly on the object mappings.
- * TODO need to clarify how to define parts.
- *
- * @param {Object} params:
- *   - bucket (String)
- *   - key (String)
- *   - start (Number) - object start offset
- *   - end (Number) - object end offset
- *   - buffer (Buffer) - data to write
- *
- * @return promise
- */
-ObjectClient.prototype._write_object_part = function(params) {
-    var self = this;
-
-    // return a promise that also notify progress
-    return Q.Promise(function(resolve, reject, notify) {
-        var part;
-        var part_params = _.pick(params, 'bucket', 'key', 'start', 'end');
-        var create_part_params = _.clone(part_params);
-        create_part_params.crypt = {
-            hash_type: 'sha256',
-            cipher_type: 'aes256',
-        };
-        var encrypted_buffer;
-        encrypt_chunk(params.buffer, create_part_params.crypt)
-            .then(function(buf) {
-                encrypted_buffer = buf;
-                create_part_params.chunk_size = encrypted_buffer.length;
-                dbg.log2('_write_object_part', create_part_params,
-                    'plain length', params.buffer.length);
-                return self.allocate_object_part(create_part_params);
-            })
-            .then(function(res) {
-                if (res.dedup) {
-                    part = part_params;
-                    dbg.log0('DEDUP', range_utils.human_range(part));
-                    return;
-                }
-                part = res.part;
-                dbg.log3('part before', range_utils.human_range(part));
-                var block_size = (part.chunk_size / part.kfrag) | 0;
-                var buffer_per_fragment = encode_chunk(encrypted_buffer, part.kfrag, block_size);
-                return Q.all(_.map(part.fragments, function(blocks, fragment) {
-                    return Q.all(_.map(blocks, function(block) {
-                        return self._attempt_write_block(_.extend({}, part_params, {
-                            part: part,
-                            fragment: fragment,
-                            offset: part.start + (fragment * block_size),
-                            block: block,
-                            buffer: buffer_per_fragment[fragment],
-                            remaining_attempts: 20,
-                        }));
-                    }));
-                }));
-            }).then(function() {
-                dbg.log3('part after', range_utils.human_range(part));
-                notify({
-                    event: 'part:after',
-                    part: part
-                });
-            }).then(resolve, reject, notify);
-    });
-};
 
 
 /**
@@ -721,7 +750,7 @@ ObjectClient.prototype._read_object_part = function(part) {
         .then(function() {
             var encrypted_buffer = decode_chunk(part, buffer_per_fragment);
             dbg.log2('decrypt_chunk', encrypted_buffer.length, part);
-            return decrypt_chunk(encrypted_buffer, part.crypt);
+            return chunk_crypto.decrypt_chunk(encrypted_buffer, part.crypt);
         }).then(function(chunk) {
             part.buffer = chunk.slice(
                 part.chunk_offset,
@@ -996,128 +1025,4 @@ function decode_chunk(part, buffer_per_fragment) {
         }
     }
     return Buffer.concat(buffers, part.chunk_size);
-}
-
-
-/**
- *
- * encrypt_chunk
- *
- */
-function encrypt_chunk(plain_buffer, crypt_info) {
-
-    return Q.fcall(function() {
-        return digest_hash_base64(crypt_info.hash_type, plain_buffer);
-
-    }).then(function(hash_val) {
-
-        // convergent encryption - use data hash as cipher key
-        crypt_info.cipher_val = hash_val;
-        crypt_info.hash_val = hash_val;
-
-        // WebCrypto optimization
-        // the improvement is drastic in supported browsers
-        // over pure js code from crypto-browserify
-        if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
-            var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
-            return subtle_crypto.importKey('raw', keys.key, {
-                    name: "AES-CBC",
-                    length: 256
-                }, false, ['encrypt'])
-                .then(function(key) {
-                    return subtle_crypto.encrypt({
-                        name: "AES-CBC",
-                        length: 256,
-                        iv: keys.iv,
-                    }, key, plain_buffer.toArrayBuffer());
-                })
-                .then(function(encrypted_array) {
-                    var encrypted_buffer = new Buffer(new Uint8Array(encrypted_array));
-                    return encrypted_buffer;
-                });
-        }
-
-        // use node.js crypto cipher api
-        var cipher = crypto.createCipher(crypt_info.cipher_type, crypt_info.cipher_val);
-        var encrypted_buffer = cipher.update(plain_buffer);
-        var cipher_final = cipher.final();
-        if (cipher_final && cipher_final.length) {
-            encrypted_buffer = Buffer.concat([encrypted_buffer, cipher_final]);
-        }
-        return encrypted_buffer;
-    });
-}
-
-
-/**
- *
- * decrypt_chunk
- *
- */
-function decrypt_chunk(encrypted_buffer, crypt_info) {
-    var plain_buffer;
-
-    return Q.fcall(function() {
-
-        // WebCrypto optimization
-        // the improvement is drastic in supported browsers
-        // over pure js code from crypto-browserify
-        if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
-            var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
-            return subtle_crypto.importKey('raw', keys.key, {
-                    name: "AES-CBC",
-                    length: 256
-                }, false, ['decrypt'])
-                .then(function(key) {
-                    return subtle_crypto.decrypt({
-                        name: "AES-CBC",
-                        length: 256,
-                        iv: keys.iv,
-                    }, key, encrypted_buffer.toArrayBuffer());
-                })
-                .then(function(plain_array) {
-                    plain_buffer = new Buffer(new Uint8Array(plain_array));
-                });
-        }
-
-        // use node.js crypto decipher api
-        var decipher = crypto.createDecipher(
-            crypt_info.cipher_type, crypt_info.cipher_val);
-        plain_buffer = decipher.update(encrypted_buffer);
-        var decipher_final = decipher.final();
-        if (decipher_final && decipher_final.length) {
-            plain_buffer = Buffer.concat([plain_buffer, decipher_final]);
-        }
-
-    }).then(function() {
-        return digest_hash_base64(crypt_info.hash_type, plain_buffer);
-
-    }).then(function(hash_val) {
-        if (hash_val !== crypt_info.hash_val) {
-            console.error('HASH CHECKSUM FAILED', hash_val, crypt_info);
-            throw new Error('hash checksum failed');
-        }
-        return plain_buffer;
-    });
-}
-
-
-function digest_hash_base64(hash_type, buffer) {
-
-    // WebCrypto optimization
-    if (subtle_crypto && hash_type === 'sha256') {
-        return subtle_crypto.digest({
-                name: 'SHA-256'
-            }, buffer.toArrayBuffer())
-            .then(function(hash_digest) {
-                var hash_val = new Buffer(new Uint8Array(hash_digest)).toString('base64');
-                return hash_val;
-            });
-    }
-
-    // use node.js crypto hash api
-    var hasher = crypto.createHash(hash_type);
-    hasher.update(buffer);
-    var hash_val = hasher.digest('base64');
-    return hash_val;
 }

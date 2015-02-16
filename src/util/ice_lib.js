@@ -9,7 +9,7 @@ var configuration = {
 var exports = module.exports = {};
 
 var params = {
-    address: 'ws://127.0.0.1:5000', // wss://stormy-ravine-6974.herokuapp.com
+    address: 'wss://noobaa-signaling.herokuapp.com', // wss://noobaa-signaling.herokuapp.com  ws://127.0.0.1:5000
     alive_delay: 10000,
     reconnect_delay: 5 * 1000,
     connection_data_stale: 5 * 60 * 1000,

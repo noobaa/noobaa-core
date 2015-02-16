@@ -68,8 +68,8 @@ var node_schema = new Schema({
         type: String,
     },
 
-    // decomission state
-    decomission: {
+    // decommission state
+    decommission: {
         enum: ['running', 'done'],
         type: String,
     },
@@ -77,6 +77,11 @@ var node_schema = new Schema({
     // malicious state
     malicious: {
         enum: ['suspected', 'malicious'],
+        type: String,
+    },
+
+    // the identifier used for p2p signaling
+    peer_id: {
         type: String,
     },
 
@@ -115,6 +120,23 @@ node_schema.index({
     deleted: 1, // allow to filter deleted
 }, {
     unique: true
+});
+
+node_schema.index({
+    peer_id: 1,
+    deleted: 1, // allow to filter deleted
+}, {
+    unique: true,
+    sparse: true
+});
+
+node_schema.index({
+    ip: 1,
+    port: 1,
+    deleted: 1, // allow to filter deleted
+}, {
+    unique: true,
+    sparse: true
 });
 
 

@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
+var jwt = require('jsonwebtoken');
 var db = require('./db');
 var api = require('../api');
 var range_utils = require('../util/range_utils');
@@ -415,7 +416,7 @@ function bad_block_in_part(obj, start, end, fragment, block_id, is_write) {
                         return db.DataBlock.create(new_block);
                     })
                     .then(function() {
-                        return get_block_info(new_block);
+                        return get_block_address(new_block);
                     });
 
             } else {
@@ -620,17 +621,14 @@ function build_chunks(chunks) {
             dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
             return Q.all(_.map(blocks_to_build, function(block) {
                     return sem.surround(function() {
+                        var block_addr = get_block_address(block);
+                        var source_addr = get_block_address(block.source);
                         var agent = new api.agent_api.Client();
-                        agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
+                        agent.options.set_address(block_addr.host);
+
                         return agent.replicate_block({
                             block_id: block._id.toString(),
-                            source: {
-                                id: block.source._id.toString(),
-                                node: {
-                                    ip: block.source.node.ip,
-                                    port: block.source.node.port,
-                                }
-                            }
+                            source: source_addr
                         }).thenResolve(block._id);
                     });
                 }))
@@ -771,7 +769,7 @@ function get_part_info(part, chunk, blocks, set_obj) {
     var fragments = [];
     _.each(_.groupBy(blocks, 'fragment'), function(fragment_blocks, fragment) {
         var sorted_blocks = _.sortBy(fragment_blocks, block_heartbeat_sort);
-        fragments[fragment] = _.map(sorted_blocks, get_block_info);
+        fragments[fragment] = _.map(sorted_blocks, get_block_address);
     });
     var p = _.pick(part, 'start', 'end', 'chunk_offset');
     p.fragments = fragments;
@@ -785,9 +783,21 @@ function get_part_info(part, chunk, blocks, set_obj) {
     return p;
 }
 
-function get_block_info(block) {
-    var b = _.pick(block, 'id');
-    b.node = _.pick(block.node, 'ip', 'port');
+function get_block_address(block) {
+    var b = {};
+    b.id = block._id.toString();
+    b.host = 'http://' + block.node.ip + ':' + block.node.port;
+    if (block.node.peer_id) {
+        if (process.env.JWT_SECRET_PEER) {
+            var jwt_options = {
+                expiresInMinutes: 60
+            };
+            b.peer = jwt.sign(block.node.peer_id,
+                process.env.JWT_SECRET_PEER, jwt_options);
+        } else {
+            b.peer = block.node.peer_id;
+        }
+    }
     return b;
 }
 

@@ -217,7 +217,7 @@ module.exports = rest_api({
                 required: [],
                 properties: {
                     new_block: {
-                        $ref: '/common_api/definitions/block_info'
+                        $ref: '/common_api/definitions/block_address'
                     }
                 }
             },

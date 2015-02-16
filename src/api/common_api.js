@@ -18,24 +18,18 @@ module.exports = rest_api({
     definitions: {
 
 
-        block_info: {
+        block_address: {
             type: 'object',
-            required: ['id', 'node'],
+            required: ['id'],
             properties: {
                 id: {
-                    type: 'string',
+                    type: 'string'
                 },
-                node: {
-                    type: 'object',
-                    required: ['ip', 'port'],
-                    properties: {
-                        ip: {
-                            type: 'string',
-                        },
-                        port: {
-                            type: 'integer',
-                        },
-                    }
+                host: {
+                    type: 'string'
+                },
+                peer: {
+                    type: 'string'
                 }
             }
         },

@@ -24,7 +24,12 @@ var DataBlock = require('./data_block');
  *
  */
 module.exports = {
-    ObjectID: mongoose.Schema.Types.ObjectID,
+
+    // this ObjectId is a function that generates mongo ObjectId.
+    // notice that this is not the same as mongoose.Schema.Types.ObjectId
+    // which is used in schema definitions. this mongoose duality will probably
+    // be confusing and buggy...
+    new_object_id: mongoose.Types.ObjectId,
 
     Account: Account,
     Role: Role,

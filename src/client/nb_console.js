@@ -323,6 +323,7 @@ nb_console.controller('NodeViewCtrl', [
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
             };
+            var my_host = 'http://' + $scope.node.ip + ':' + $scope.node.port;
             return $q.when(nbClient.client.node.read_node_maps(query))
                 .then(function(res) {
                     $scope.parts = [];
@@ -330,8 +331,7 @@ nb_console.controller('NodeViewCtrl', [
                         _.each(object.parts, function(part) {
                             _.each(part.fragments, function(frag) {
                                 frag.sort(function(block1, block2) {
-                                    if (block1.node.ip === $scope.node.ip &&
-                                        block1.node.port === $scope.node.port) {
+                                    if (block1.host === my_host) {
                                         return -1;
                                     } else {
                                         return 1;

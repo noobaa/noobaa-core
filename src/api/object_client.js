@@ -365,12 +365,12 @@ ObjectClient.prototype._write_block = function(block, buffer, offset) {
     return self._block_write_sem.surround(function() {
 
         var agent = new agent_api.Client();
-        agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
+        agent.options.set_address(block.host);
         agent.options.set_timeout(30000);
 
         dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block.id,
-            'to', block.node.ip + ':' + block.node.port);
+            'to', block.host);
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
@@ -380,7 +380,7 @@ ObjectClient.prototype._write_block = function(block, buffer, offset) {
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block.id,
-                'from', block.node.ip + ':' + block.node.port);
+                'from', block.host);
             throw err;
         });
 
@@ -821,12 +821,12 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
     return self._block_read_sem.surround(function() {
 
         var agent = new agent_api.Client();
-        agent.options.set_address('http://' + block.node.ip + ':' + block.node.port);
+        agent.options.set_address(block.host);
         agent.options.set_timeout(30000);
 
         dbg.log1('read_block', size_utils.human_offset(offset),
             size_utils.human_size(block_size), block.id,
-            'from', block.node.ip + ':' + block.node.port);
+            'from', block.host);
 
         return agent.read_block({
                 block_id: block.id
@@ -843,7 +843,7 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
             }, function(err) {
                 console.error('FAILED read_block', size_utils.human_offset(offset),
                     size_utils.human_size(block_size), block.id,
-                    'from', block.node.ip + ':' + block.node.port);
+                    'from', block.host);
                 throw err;
             });
     });

@@ -139,16 +139,7 @@ module.exports = rest_api({
             method: 'GET',
             path: '/lookup',
             params: {
-                type: 'object',
-                required: [],
-                properties: {
-                    ip: {
-                        type: 'string'
-                    },
-                    port: {
-                        type: 'integer'
-                    }
-                }
+                $ref: '/common_api/definitions/block_address'
             },
             reply: {
                 $ref: '/node_api/definitions/node_full_info'
@@ -353,6 +344,7 @@ module.exports = rest_api({
                 'name',
                 'tier',
                 'geolocation',
+                'peer_id',
                 'ip',
                 'port',
                 'online',
@@ -371,6 +363,9 @@ module.exports = rest_api({
                     type: 'string'
                 },
                 geolocation: {
+                    type: 'string'
+                },
+                peer_id: {
                     type: 'string'
                 },
                 ip: {

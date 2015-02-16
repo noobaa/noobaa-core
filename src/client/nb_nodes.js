@@ -103,10 +103,8 @@ nb_api.factory('nbNodes', [
         }
 
         function goto_node_by_block(block) {
-            return lookup_node({
-                ip: block.node.ip,
-                port: block.node.port
-            })
+            var params = _.pick(block, 'id', 'host', 'peer');
+            return lookup_node(params)
             .then(function(node) {
                 $location.path('/tier/' + node.tier + '/' + node.name);
                 $location.hash('');

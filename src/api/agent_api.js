@@ -57,7 +57,7 @@ module.exports = rest_api({
                         type: 'string',
                     },
                     source: {
-                        $ref: '/common_api/definitions/block_info'
+                        $ref: '/common_api/definitions/block_address'
                     }
                 },
             },

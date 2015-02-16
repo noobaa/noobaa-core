@@ -202,7 +202,9 @@ Agent.prototype._init_node = function() {
             if (res.account && res.system &&
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
-                console.log('authorized node', self.node_name, 'id', self.node_id);
+                self.peer_id = res.extra.peer_id;
+                console.log('authorized node', self.node_name,
+                    'id', self.node_id, 'peer_id', self.peer_id);
                 return;
             }
 
@@ -446,7 +448,7 @@ Agent.prototype.replicate_block = function(req) {
 
     // read from source agent
     var agent = new api.agent_api.Client();
-    agent.options.set_address('http://' + source.node.ip + ':' + source.node.port);
+    agent.options.set_address(source.host);
     return agent.read_block({
             block_id: source.id
         })

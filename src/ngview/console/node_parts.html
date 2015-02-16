@@ -36,7 +36,7 @@
                         <span ng-repeat="block in frag">
                             <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)">
                                 <i class="fa fa-check fa-lg fa-fw text-success"></i>
-                                {{block.node.ip}}:{{block.node.port}}
+                                {{block.host.slice(7)}}
                             </a>
                         </span>
                     </span>
@@ -72,7 +72,7 @@
                             <div ng-repeat="block in frag">
                                 <a class="btn btn-flat btn-default" style="padding: 10px; margin: 0 10px 5px 0" nb-click-ladda="nbNodes.goto_node_by_block(block)">
                                     <i class="fa fa-check fa-lg fa-fw text-success pull-left"></i>
-                                    <small>{{block.node.ip}}:{{block.node.port}}</small>
+                                    <small>{{block.host.slice(7)}}</small>
                                 </a>
                             </div>
                         </span>

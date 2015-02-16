@@ -55,6 +55,7 @@ function create_node(req) {
     );
     info.system = req.system.id;
     info.heartbeat = new Date(0);
+    info.peer_id = db.new_object_id();
     info.storage = {
         alloc: req.rest_params.storage_alloc,
         used: 0,
@@ -92,6 +93,7 @@ function create_node(req) {
                 role: 'agent',
                 extra: {
                     node_id: node.id,
+                    peer_id: node.peer_id,
                 }
             });
 
@@ -198,7 +200,7 @@ function read_node_maps(req) {
  *
  */
 function lookup_node(req) {
-    return find_node_by_ip_port(req)
+    return find_node_by_block(req)
         .then(function(node) {
             console.log(node);
             return get_node_full_info(node);
@@ -602,6 +604,7 @@ function count_node_storage_used(node_id) {
 function get_node_full_info(node) {
     var info = _.pick(node, 'id', 'name', 'geolocation');
     info.tier = node.tier.name;
+    info.peer_id = node.peer_id || '';
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
@@ -622,12 +625,18 @@ function find_node_by_name(req) {
         .then(db.check_not_deleted(req, 'node'));
 }
 
-function find_node_by_ip_port(req) {
+function find_node_by_block(req) {
+    var match = req.rest_params.host.match(/http:\/\/([^:]+):([0-9]+)/);
+    if (!match) {
+        throw req.rest_error(400, 'invalid block host');
+    }
+    var ip = match[1];
+    var port = match[2];
     return Q.when(
             db.Node.findOne({
                 system: req.system.id,
-                ip: req.rest_params.ip,
-                port: req.rest_params.port,
+                ip: ip,
+                port: port,
                 deleted: null,
             })
             .populate('tier', 'name')

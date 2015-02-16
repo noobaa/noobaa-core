@@ -333,7 +333,7 @@ ClientCLI.prototype.object_maps = function(key) {
             var i = 1;
             _.each(mappings.parts, function(part) {
                 var nodes_list = _.map(part.fragments[0], function(block) {
-                    return block.node.ip + ':' + block.node.port;
+                    return block.host.slice(7); // slice 'http://' prefix
                 }).join(',\t');
                 console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);
                 i += 1;
@@ -361,7 +361,7 @@ ClientCLI.prototype.node_maps = function(node_name) {
             });
         })
         .then(function(res) {
-            var node_ip_port = res.node.ip + ':' + res.node.port;
+            var node_host = 'http://' + res.node.ip + ':' + res.node.port;
             console.log('\n\nListing object blocks for node:', node_name);
             console.log('------------------------------');
             _.each(res.objects, function(object) {
@@ -370,11 +370,10 @@ ClientCLI.prototype.node_maps = function(node_name) {
                 _.each(object.parts, function(part) {
                     _.each(part.fragments, function(fragment_blocks, fragment) {
                         var nodes_list = _.map(fragment_blocks, function(block) {
-                            var block_ip_port = block.node.ip + ':' + block.node.port;
-                            if (block_ip_port === node_ip_port) {
-                                return '*' + block_ip_port;
+                            if (block.host === node_host) {
+                                return '*' + block.host.slice(7);
                             } else {
-                                return block_ip_port;
+                                return block.host.slice(7);
                             }
                         }).sort().join(',\t');
                         console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);

@@ -235,8 +235,11 @@ nb_console.controller('NodeViewCtrl', [
             .when('settings', {
                 templateUrl: 'console/node_settings.html',
             })
+            .when('overview', {
+                templateUrl: 'console/node_overview.html',
+            })
             .otherwise({
-                redirectTo: 'properties'
+                redirectTo: 'overview'
             });
 
         reload_view(true);
@@ -259,6 +262,50 @@ nb_console.controller('NodeViewCtrl', [
                 })
                 .then(function(res) {
                     $scope.node = res;
+
+                    var used = $scope.node.storage.used;
+                    var unused = $scope.node.storage.alloc - used;
+                    var operating_sys = 4 * 1024 * 1024 * 1024;
+                    var free_disk = 100 * 1024 * 1024 * 1024;
+                    $scope.pie_chart = {
+                        options: {
+                            legend: {
+                                position: 'right',
+                                alignment: 'start',
+                                maxLines: 10
+                            },
+                            is3D: true,
+                            sliceVisibilityThreshold: 0,
+                            slices: [{
+                                color: '#03a9f4'
+                            },{
+                                color: '#ff008b'
+                            },{
+                                color: '#ffa0d3'
+                            },{
+                                color: '#81d4fa'
+                            }]
+                        },
+                        data: [
+                            ['Storage', 'Capacity'],
+                            ['Operating system', {
+                                v: operating_sys,
+                                f: $scope.human_size(operating_sys)
+                            }],
+                            ['Noobaa used', {
+                                v: used,
+                                f: $scope.human_size(used)
+                            }],
+                            ['Noobaa unused', {
+                                v: unused,
+                                f: $scope.human_size(unused)
+                            }],
+                            ['Free disk', {
+                                v: free_disk,
+                                f: $scope.human_size(free_disk)
+                            }],
+                        ]
+                    };
 
                     // TODO handle node parts pages
                     $scope.parts_num_pages = 9;

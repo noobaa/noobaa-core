@@ -160,6 +160,31 @@ nb_util.directive('nbNetworkChart', [
 ]);
 
 
+nb_util.directive('nbPieChart', [
+    'nbGoogle', '$rootScope',
+    function(nbGoogle, $rootScope) {
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                var google;
+                scope.$watch(attrs.nbPieChart, redraw, true);
+                function redraw(pie_chart) {
+                    if (!google) {
+                        return nbGoogle.then(function(google_arg) {
+                            google = google_arg;
+                            redraw(pie_chart);
+                        });
+                    }
+                    var table = google.visualization.arrayToDataTable(pie_chart.data);
+                    var chart = new google.visualization.PieChart(element[0]);
+                    chart.draw(table, pie_chart.options);
+                }
+            }
+        };
+    }
+]);
+
+
 
 nb_util.factory('nbGoogle', [
     '$q', '$window',

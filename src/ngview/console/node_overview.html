@@ -1,0 +1,77 @@
+<div class="row text-center">
+
+    <div class="col-sm-6">
+        <div class="well well-sm clearfix">
+            <div class="clearfix">
+                <a class="btn btn-flat btn-info btn-sm pull-right" ng-click="node_router.set('parts')">See file parts list</a>
+            </div>
+            <div class="row" style="padding: 30px 0">
+                <div class="col-xs-6">
+                    <p>
+                        <i class="fa fa-heartbeat" style="font-size: 80px"></i>
+                    </p>
+                    <h5 class="text-muted">
+                        Healthy
+                        <!-- <i class="fa fa-check text-success"></i> -->
+                    </h5>
+                </div>
+                <div class="col-xs-6">
+                    <p>
+                        <i class="mdi-action-verified-user" style="font-size: 80px"></i>
+                    </p>
+                    <h5 class="text-muted">
+                        Trusted
+                        <!-- <i class="fa fa-check text-success"></i> -->
+                    </h5>
+                </div>
+            </div>
+            <div class="row" style="padding: 30px 0">
+                <div class="col-xs-6">
+                    <p>
+                        <i class="fa fa-flash" style="font-size: 80px"></i>
+                    </p>
+                    <h5 class="text-muted">
+                        Connected
+                        <!-- <i class="fa fa-check text-success"></i> -->
+                    </h5>
+                    <p>
+                        <button class="btn btn-default btn-flat btn-xs" nb-click-ladda="disconnect()"><small>Disconnect</small></button>
+                    </p>
+                </div>
+                <div class="col-xs-6">
+                    <p>
+                        <i class="fa fa-flag" style="font-size: 80px"></i>
+                    </p>
+                    <h5 class="text-muted">
+                        Commissioned
+                        <!-- <i class="fa fa-check text-success"></i> -->
+                    </h5>
+                    <p>
+                        <button class="btn btn-default btn-flat btn-xs" nb-click-ladda="decommission()"><small>Decommission</small></button>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6">
+        <div class="well well-sm clearfix">
+            <div class="clearfix">
+                <a class="btn btn-flat btn-info btn-sm pull-right" ng-click="node_router.set('properties')">See more</a>
+            </div>
+            <div style="padding: 0 0 0 0">
+                <p>
+                    <i class="fa fa-hdd-o" style="font-size: 85px"></i>
+                </p>
+                <h3 style="margin-top: 10px"><b>HARD DRIVE</b>
+                </h3>
+                <small>
+                    Noobaa allocated size: {{human_size(node.storage.alloc)}}
+                    <br/> Current usage by noobaa: {{human_size(node.storage.used)}}
+                </small>
+            </div>
+            <div nb-pie-chart="pie_chart" style="height: 250px"></div>
+        </div>
+    </div>
+
+</div>

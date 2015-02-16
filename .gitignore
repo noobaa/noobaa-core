@@ -17,3 +17,10 @@ ionic-app/
 
 # heapdump files
 heapdump-*
+
+# intellij project files
+.idea
+*.iml
+
+# log files
+*.log

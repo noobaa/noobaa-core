@@ -12,6 +12,8 @@ var isAgent;
 var chunk_size = 60000;
 var partSize = 8;
 
+var wsClientSocket;
+
 exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
     handleRequestMethod = handleRequestMethodTemp;
     if (agentId) {
@@ -130,6 +132,27 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block) {
 };
 exports.writeBufferToSocket = writeBufferToSocket;
 
+
+/********************************
+ * handle stale connections
+ ********************************/
+function staleConnChk() {
+    writeLog('BEFORE stale ws connection');
+    if (isAgent || !wsClientSocket)
+        return;
+
+    writeLog('START chk for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
+    var now = (new Date()).getTime();
+
+    if (now - wsClientSocket.lastTimeUsed > (1*60*1000)) {
+        ice.closeSignaling(wsClientSocket.ws_socket);
+        clearInterval(wsClientSocket.interval);
+        wsClientSocket = null;
+    }
+
+    writeLog('AFTER looking for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
+}
+
 exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, buffer) {
     var iceSocket;
     var sigSocket;
@@ -140,15 +163,33 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
 
     return Q.fcall(function() {
         writeLog('starting setup');
+
         if (ws_socket) {
             sigSocket = ws_socket;
-        } else {
+        } else if (wsClientSocket) {
+            sigSocket = wsClientSocket.ws_socket;
+        }
+
+        if (!sigSocket) {
+            writeLog('CREATE NEW CONN');
             sigSocket = ice.setup(onIceMessage, agentId);
         }
+
+        if (!isAgent) {
+            var interval;
+            if (!wsClientSocket) {
+                writeLog('SET INTERVAL stale ws connection');
+                interval = setInterval(function(){staleConnChk();}, (1*60*1000));
+            } else {
+                interval = wsClientSocket.interval;
+            }
+            wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+        }
+
         if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
         else return Q.fcall(function() {return sigSocket});
     }).then(function() {
-        writeLog('starting to initiate ice '+JSON.stringify(sigSocket));
+        writeLog('starting to initiate ice to '+peerId);
         var requestId = 'req-' + rand.getRandomInt(10000,90000) + "-end";
         return ice.initiateIce(sigSocket, peerId, true, requestId);
     }).then(function(newSocket) {
@@ -167,8 +208,8 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
 
         return iceSocket.action_defer.promise;
     }).then(function(channel) {
+        writeLog('close ice socket');
         iceSocket.close();
-        ice.closeSignaling(sigSocket);
 
         var response = channel.peer_msg;
         if (channel.buffer) {
@@ -181,7 +222,9 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
         return response;
     }).then(null, function(err) {
         writeLog('ice_api.sendRequest ERROR '+err.stack);
+        throw err;
     }).catch(function(err) {
         writeLog('ice_api.sendRequest FAIL '+err.stack);
+        throw err;
     });
 };

@@ -680,7 +680,7 @@ function build_worker() {
     function run() {
         return run_batch()
             .then(function() {
-                return Q.delay(last_chunk_id ? 1000 : 10000);
+                return Q.delay(last_chunk_id ? 1000 : 60000);
             }, function(err) {
                 dbg.log0('build_worker:', 'ERROR', err, err.stack);
                 return Q.delay(10000);

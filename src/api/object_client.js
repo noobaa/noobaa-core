@@ -21,10 +21,11 @@ var subtle_crypto = global && global.crypto && global.crypto.subtle;
 if (subtle_crypto) {
     var evp_bytes_to_key = require('browserify-aes/EVP_BytesToKey');
 }
+var buf_utils = require('../util/buffer_utils');
 
 module.exports = ObjectClient;
 
-// dbg.log_level = 3;
+//dbg.log_level = 3;
 
 /**
  *
@@ -470,7 +471,7 @@ ObjectReader.prototype._read = function(requested_size) {
                 self.push(null);
             }
         }, function(err) {
-            console.error('reader error', err);
+            console.error('reader error '+ err.stack);
             self.emit('error', err || 'reader error');
         });
 };
@@ -494,7 +495,7 @@ ObjectReader.prototype._read = function(requested_size) {
 ObjectClient.prototype.read_object = function(params) {
     var self = this;
 
-    dbg.log1('read_object', range_utils.human_range(params));
+    dbg.log1('read_object1', range_utils.human_range(params));
 
     if (params.end <= params.start) {
         // empty read range
@@ -511,7 +512,7 @@ ObjectClient.prototype.read_object = function(params) {
             params.end,
             range_utils.align_up_bitwise(pos + 1, self.OBJECT_RANGE_ALIGN_NBITS)
         );
-        dbg.log2('read_object', range_utils.human_range(range));
+        dbg.log2('read_object2', range_utils.human_range(range));
         promises.push(self._object_range_cache.get(range));
         pos = range.end;
     }
@@ -720,13 +721,16 @@ ObjectClient.prototype._read_object_part = function(part) {
     return Q.all(_.times(part.kfrag, read_the_next_fragment))
         .then(function() {
             var encrypted_buffer = decode_chunk(part, buffer_per_fragment);
-            dbg.log2('decrypt_chunk', encrypted_buffer.length, part);
+            dbg.log2('decrypt_chunk '+ encrypted_buffer.length+' ; ' +require('util').inspect(part));
             return decrypt_chunk(encrypted_buffer, part.crypt);
         }).then(function(chunk) {
             part.buffer = chunk.slice(
                 part.chunk_offset,
                 part.chunk_offset + part.end - part.start);
             return part;
+        }).catch(function(err){
+            console.error('decrypt_chunk FAILED FRAGMENT '+require('util').inspect(err)+ ' ; ' + err.stack);
+            throw err;
         });
 };
 
@@ -1063,17 +1067,36 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
         // the improvement is drastic in supported browsers
         // over pure js code from crypto-browserify
         if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
+
             var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
-            return subtle_crypto.importKey('raw', keys.key, {
+
+            var keyToUse;
+            if (keys.key instanceof ArrayBuffer) {
+                keyToUse = keys.key;
+            } else {
+                keyToUse = buf_utils.toArrayBuffer(keys.key);
+            }
+
+            return subtle_crypto.importKey('raw', keyToUse, {
                     name: "AES-CBC",
                     length: 256
                 }, false, ['decrypt'])
                 .then(function(key) {
+
+                    var encBuf = buf_utils.toArrayBuffer(encrypted_buffer);
+
+                    var iv;
+                    if (buf_utils.isAbv(keys.iv)) {
+                        iv = keys.iv;
+                    } else {
+                        iv = buf_utils.toArrayBufferView(keys.iv);
+                    }
+
                     return subtle_crypto.decrypt({
                         name: "AES-CBC",
                         length: 256,
-                        iv: keys.iv,
-                    }, key, encrypted_buffer.toArrayBuffer());
+                        iv: iv
+                    }, key, encBuf);
                 })
                 .then(function(plain_array) {
                     plain_buffer = new Buffer(new Uint8Array(plain_array));
@@ -1104,11 +1127,13 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
 
 function digest_hash_base64(hash_type, buffer) {
 
+    var plnBuf = buf_utils.toArrayBuffer(buffer);
+
     // WebCrypto optimization
     if (subtle_crypto && hash_type === 'sha256') {
         return subtle_crypto.digest({
                 name: 'SHA-256'
-            }, buffer.toArrayBuffer())
+            }, plnBuf)
             .then(function(hash_digest) {
                 var hash_val = new Buffer(new Uint8Array(hash_digest)).toString('base64');
                 return hash_val;

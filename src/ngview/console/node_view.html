@@ -18,20 +18,23 @@
         <div class="clearfix"></div>
 
         <h1 class="capitalize">
-            <i class="fa fa-desktop fa-lg fa-fw text-primary pull-left"></i>
-            <div class="hflow">
-                {{node.name}} &nbsp;
+            <!-- <i class="fa fa-desktop fa-lg fa-fw text-primary pull-left"></i> -->
+            <div class="text-center Xhflow">
+                {{node.name}}
+                <!--
+                &nbsp;
                 <small>
                     <i>Resource Device</i> &nbsp;
                     <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A device connects to the system by running an agent that allows it to be used as a storage device." data-placement="bottom" data-container="body"></i>
                 </small>
+                -->
             </div>
         </h1>
 
+        <!--
         <div class="page-properties">
             <table class="table table-properties">
                 <tr>
-                    <!-- <td></td> -->
                     <th>Status</th>
                     <td>
                         <span ng-if="node.online">
@@ -52,22 +55,41 @@
                 </tr>
             </table>
         </div>
+        -->
 
+        <!--
         <ul class="nav nav-tabs">
-            <li ng-class="{active: node_router.route == 'properties'}">
-                <a ng-click="node_router.set('properties')">Properties</a>
+            <li ng-class="{active: node_router.route == 'overview'}">
+                <a ng-click="node_router.set('overview')">Device Details</a>
             </li>
             <li ng-class="{active: node_router.route == 'parts'}">
                 <a ng-click="node_router.set('parts')">Files Parts</a>
             </li>
-            <!-- <li ng-class="{active: node_router.route == 'settings'}">
+            <li ng-class="{active: node_router.route == 'properties'}">
+                <a ng-click="node_router.set('properties')">Properties</a>
+            </li>
+            <li ng-class="{active: node_router.route == 'settings'}">
                 <a ng-click="node_router.set('settings')">Settings</a>
-            </li> -->
-            <!-- <li ng-class="{active: node_router.route == 'stats'}">
+            </li>
+            <li ng-class="{active: node_router.route == 'stats'}">
                 <a ng-click="node_router.set('stats')">Statistics</a>
-            </li> -->
+            </li>
         </ul>
+        -->
 
+    </div>
+
+    <div class="text-center clearfix" style="margin: -10px 0 20px 0">
+        <b>Device Details</b>
+        <span class="dropdown pull-right">
+            <a class="dropdown-toggle" data-toggle="dropdown">
+                <i class="fa fa-cog fa-2x"></i>
+            </a>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li><a ng-click="nbNodes.block_node(node)">Block device</a></li>
+                <li><a ng-click="nbNodes.decommission_node(node)">Decommission device</a></li>
+            </ul>
+        </span>
     </div>
 
     <div nb-hash-router-view="node_router"></div>

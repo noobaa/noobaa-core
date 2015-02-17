@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var rest_api = require('../util/rest_api');
+var common_api = require('./common_api');
 var auth_api = require('./auth_api');
 var account_api = require('./account_api');
 var system_api = require('./system_api');
@@ -24,6 +25,7 @@ module.exports = {
     Client: Client,
 
     rest_api: rest_api,
+    common_api: common_api,
     auth_api: auth_api,
     account_api: account_api,
     system_api: system_api,

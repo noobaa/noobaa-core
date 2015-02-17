@@ -9,35 +9,48 @@ var db = require('./db');
 
 
 module.exports = {
-    allocate_blocks_for_new_chunk: allocate_blocks_for_new_chunk,
+    allocate_blocks: allocate_blocks,
     reallocate_bad_block: reallocate_bad_block,
+    remove_blocks: remove_blocks,
 };
 
 var COPIES = 3;
 
 /**
- * selects distinct edge node for allocating new blocks.
- * TODO take into consideration the state of the nodes.
  *
+ * allocate_blocks
+ *
+ * selects distinct edge node for allocating new blocks.
+ *
+ * @param blocks_info (optional) - array of objects containing:
+ *      - fragment number
+ *      - source block for replication
  * @return array of new DataBlock.
  */
-function allocate_blocks_for_new_chunk(chunk) {
-    var count = chunk.kfrag * COPIES;
-    var block_size = (chunk.size / chunk.kfrag) | 0;
-
-    return update_tier_alloc_nodes(chunk.system, chunk.tier)
+function allocate_blocks(system, tier, blocks_info) {
+    return update_tier_alloc_nodes(system, tier)
         .then(function(alloc_nodes) {
-            var nodes = pop_round_robin(alloc_nodes, count);
+            var nodes = pop_round_robin(alloc_nodes, blocks_info.length);
+
             return _.map(nodes, function(node, i) {
-                return new_block(chunk, node, i % chunk.kfrag, block_size);
+                var info = blocks_info[i];
+                var chunk = info.chunk;
+                var block_size = (chunk.size / chunk.kfrag) | 0;
+                var block = new_block(chunk, node, info.fragment, block_size);
+
+                // copy the source block for building by replication - see build_chunk()
+                if (info.source) {
+                    block.source = info.source;
+                }
+                return block;
             });
         });
 }
 
 
 function reallocate_bad_block(chunk, bad_block) {
-    return Q.when(db.DataBlock
-            .findByIdAndUpdate(bad_block.id, {
+    return Q.when(
+            bad_block.update({
                 deleted: new Date()
             })
             .exec())
@@ -51,11 +64,24 @@ function reallocate_bad_block(chunk, bad_block) {
 }
 
 
+function remove_blocks(blocks) {
+    return db.DataBlock.update({
+        _id: {
+            $in: _.pluck(blocks, '_id')
+        }
+    }, {
+        deleted: new Date()
+    }, {
+        multi: true
+    }).exec();
+}
+
 
 function new_block(chunk, node, fragment, size) {
     var block = new db.DataBlock({
         fragment: fragment,
         size: size,
+        building: new Date()
     });
 
     // using setValue as a small hack to make these fields seem populated
@@ -96,9 +122,7 @@ function update_tier_alloc_nodes(system, tier) {
             heartbeat: {
                 $gt: min_heartbeat
             },
-            disabled: {
-                $ne: true
-            },
+            srvmode: null,
         })
         .sort({
             // sorting with lowest used storage nodes first
@@ -121,8 +145,8 @@ function update_tier_alloc_nodes(system, tier) {
 
 
 function pop_round_robin(nodes, count) {
-    if (nodes.length < count) {
-        throw new Error('cannot find enough nodes: ' + nodes.length + '/' + count);
+    if (nodes.length < 5) {
+        throw new Error('not enough nodes: ' + nodes.length);
     }
 
     var ret = [];

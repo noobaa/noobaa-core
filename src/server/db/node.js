@@ -58,25 +58,13 @@ var node_schema = new Schema({
         },
     },
 
-    disabled: {
-        type: Boolean,
-    },
-
-    // ready state
-    ready: {
-        enum: ['verifying', 'impotent', 'sleeping', 'coma'],
+    srvmode: {
         type: String,
+        enum: ['blocked', 'decommissioning', 'decommisioned']
     },
 
-    // decomission state
-    decomission: {
-        enum: ['running', 'done'],
-        type: String,
-    },
-
-    // malicious state
-    malicious: {
-        enum: ['suspected', 'malicious'],
+    // the identifier used for p2p signaling
+    peer_id: {
         type: String,
     },
 
@@ -117,6 +105,23 @@ node_schema.index({
     unique: true
 });
 
+node_schema.index({
+    peer_id: 1,
+    deleted: 1, // allow to filter deleted
+}, {
+    unique: true,
+    sparse: true
+});
+
+node_schema.index({
+    ip: 1,
+    port: 1,
+    deleted: 1, // allow to filter deleted
+}, {
+    unique: true,
+    sparse: true
+});
+
 
 /**
  *
@@ -141,7 +146,7 @@ node_schema.statics.aggregate_nodes = function(query, minimum_online_heartbeat) 
             emit(['', 'alloc'], this.storage.alloc);
             emit(['', 'used'], this.storage.used);
             emit(['', 'count'], 1);
-            var online = (!this.disabled && this.heartbeat >= minimum_online_heartbeat);
+            var online = (!this.srvmode && this.heartbeat >= minimum_online_heartbeat);
             if (online) {
                 emit(['', 'online'], 1);
             }

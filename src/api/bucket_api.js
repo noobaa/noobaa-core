@@ -137,7 +137,7 @@ module.exports = rest_api({
                     $ref: '/bucket_api/definitions/tiering_info'
                 },
                 storage: {
-                    $ref: '/system_api/definitions/storage_info'
+                    $ref: '/common_api/definitions/storage_info'
                 },
                 num_objects: {
                     type: 'integer'

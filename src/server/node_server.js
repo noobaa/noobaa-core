@@ -31,7 +31,6 @@ module.exports = new api.node_api.Server({
     delete_node: delete_node,
     read_node_maps: read_node_maps,
 
-    lookup_node: lookup_node,
     list_nodes: list_nodes,
     group_nodes: group_nodes,
 
@@ -54,6 +53,7 @@ function create_node(req) {
     );
     info.system = req.system.id;
     info.heartbeat = new Date(0);
+    info.peer_id = db.new_object_id();
     info.storage = {
         alloc: req.rest_params.storage_alloc,
         used: 0,
@@ -91,6 +91,7 @@ function create_node(req) {
                 role: 'agent',
                 extra: {
                     node_id: node.id,
+                    peer_id: node.peer_id,
                 }
             });
 
@@ -123,10 +124,23 @@ function read_node(req) {
  *
  */
 function update_node(req) {
-    var updates = _.pick(req.rest_params, 'is_server', 'geolocation');
-    updates.storage = {
-        alloc: req.rest_params.storage_alloc,
-    };
+    var updates = _.pick(req.rest_params,
+        'is_server',
+        'geolocation',
+        'srvmode'
+    );
+    if (req.rest_params.storage_alloc) {
+        updates.storage = {
+            alloc: req.rest_params.storage_alloc,
+        };
+    }
+    if (updates.srvmode === 'connect') {
+        // to connect we remove the srvmode field
+        delete updates.srvmode;
+        updates.$unset = {
+            srvmode: 1
+        };
+    }
 
     // TODO move node between tiers - requires decomission
     if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
@@ -182,21 +196,6 @@ function read_node_maps(req) {
                 node: get_node_full_info(node),
                 objects: objects,
             };
-        });
-}
-
-
-
-/**
- *
- * LOOKUP_NODE
- *
- */
-function lookup_node(req) {
-    return find_node_by_ip_port(req)
-        .then(function(node) {
-            console.log(node);
-            return get_node_full_info(node);
         });
 }
 
@@ -533,7 +532,7 @@ function heartbeat(req) {
                 return heartbeat_update_node_timestamp_barrier.call(node_id);
             } else {
                 updates.heartbeat = new Date();
-                return db.Node.findByIdAndUpdate(node_id, updates).exec();
+                return node.update(updates).exec();
             }
 
         }).then(function() {
@@ -595,8 +594,10 @@ function count_node_storage_used(node_id) {
 
 
 function get_node_full_info(node) {
-    var info = _.pick(node, 'id', 'name', 'geolocation');
+    var info = _.pick(node, 'id', 'name', 'geolocation', 'srvmode');
+    if (!info.srvmode) delete info.srvmode;
     info.tier = node.tier.name;
+    info.peer_id = node.peer_id || '';
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
     info.heartbeat = node.heartbeat.toString();
@@ -604,7 +605,7 @@ function get_node_full_info(node) {
         alloc: node.storage.alloc || 0,
         used: node.storage.used || 0,
     };
-    info.online = node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
+    info.online = node_monitor.is_node_online(node);
     info.device_info = node.device_info || {};
     return info;
 }
@@ -617,12 +618,18 @@ function find_node_by_name(req) {
         .then(db.check_not_deleted(req, 'node'));
 }
 
-function find_node_by_ip_port(req) {
+function find_node_by_block(req) {
+    var match = req.rest_params.host.match(/http:\/\/([^:]+):([0-9]+)/);
+    if (!match) {
+        throw req.rest_error(400, 'invalid block host');
+    }
+    var ip = match[1];
+    var port = match[2];
     return Q.when(
             db.Node.findOne({
                 system: req.system.id,
-                ip: req.rest_params.ip,
-                port: req.rest_params.port,
+                ip: ip,
+                port: port,
                 deleted: null,
             })
             .populate('tier', 'name')

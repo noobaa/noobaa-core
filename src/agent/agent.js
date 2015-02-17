@@ -103,8 +103,9 @@ function Agent(params) {
     var agent_server = new api.agent_api.Server({
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
-        check_block: self.check_block.bind(self),
+        replicate_block: self.replicate_block.bind(self),
         delete_block: self.delete_block.bind(self),
+        check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
     });
     agent_server.install_rest(app);
@@ -201,7 +202,9 @@ Agent.prototype._init_node = function() {
             if (res.account && res.system &&
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
-                console.log('authorized node', self.node_name, 'id', self.node_id);
+                self.peer_id = res.extra.peer_id;
+                console.log('authorized node', self.node_name,
+                    'id', self.node_id, 'peer_id', self.peer_id);
                 return;
             }
 
@@ -434,6 +437,24 @@ Agent.prototype.write_block = function(req) {
     console.log('AGENT write_block', block_id, data.length);
     self.store_cache.invalidate(block_id);
     return self.store.write_block(block_id, data);
+};
+
+Agent.prototype.replicate_block = function(req) {
+    var self = this;
+    var block_id = req.rest_params.block_id;
+    var source = req.rest_params.source;
+    console.log('AGENT replicate_block', block_id);
+    self.store_cache.invalidate(block_id);
+
+    // read from source agent
+    var agent = new api.agent_api.Client();
+    agent.options.set_address(source.host);
+    return agent.read_block({
+            block_id: source.id
+        })
+        .then(function(data) {
+            return self.store.write_block(block_id, data);
+        });
 };
 
 Agent.prototype.delete_block = function(req) {

@@ -93,7 +93,7 @@ function describe_instances(params) {
             return ec2_region_call(region.RegionName, 'describeInstances', params)
                 .then(function(res) {
                     // return a flat array of instances from res.Reservations[].Instances[]
-                    var instances = _.flatten(res.Reservations, 'Instances');
+                    var instances = _.flatten(_.map(res.Reservations, 'Instances'));
                     // prepare instance extra fields and filter out irrelevant instances
                     return _.filter(instances, function(instance) {
                         instance.region = region;
@@ -141,7 +141,7 @@ function describe_instance(instance_id) {
  * scale_instances
  *
  */
-function scale_instances(count, allow_terminate,is_docker_host,number_of_dockers) {
+function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers) {
 
     return describe_instances({
         Filters: [{
@@ -192,7 +192,7 @@ function scale_instances(count, allow_terminate,is_docker_host,number_of_dockers
                 new_count += region_count;
             }
 
-            return scale_region(region_name, region_count, instances, allow_terminate,is_docker_host,number_of_dockers);
+            return scale_region(region_name, region_count, instances, allow_terminate, is_docker_host, number_of_dockers);
         }));
     });
 }
@@ -206,7 +206,7 @@ function scale_instances(count, allow_terminate,is_docker_host,number_of_dockers
  * @param instances - array of existing instances
  *
  */
-function scale_region(region_name, count, instances, allow_terminate,is_docker_host,number_of_dockers) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers) {
 
     // always make sure the region has the security group and key pair
     return Q
@@ -222,7 +222,7 @@ function scale_region(region_name, count, instances, allow_terminate,is_docker_h
             if (count > instances.length) {
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
-                return add_region_instances(region_name, count - instances.length,is_docker_host,number_of_dockers);
+                return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers);
             }
 
             // need to terminate
@@ -249,29 +249,29 @@ function scale_region(region_name, count, instances, allow_terminate,is_docker_h
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count,is_docker_host,number_of_dockers) {
+function add_region_instances(region_name, count, is_docker_host, number_of_dockers) {
     var instance_type = 't2.micro';
     // the run script to send to started instances
-    var run_script = fs.readFileSync(__dirname + '/init_agent.sh','UTF8');
+    var run_script = fs.readFileSync(__dirname + '/init_agent.sh', 'UTF8');
+    var test_instances_counter;
 
-    if (is_docker_host){
+    if (is_docker_host) {
         instance_type = 'm3.2xlarge';
-        run_script = fs.readFileSync(__dirname + '/docker_setup.sh','utf8');
+        run_script = fs.readFileSync(__dirname + '/docker_setup.sh', 'utf8');
         //replace 'test' with the correct env name
-        var test_instances_counter = (run_script.match(/test/g) || []).length;
+        test_instances_counter = (run_script.match(/test/g) || []).length;
         var dockers_instances_counter = (run_script.match(/200/g) || []).length;
 
-        if (test_instances_counter!=1 || dockers_instances_counter !=1){
-            throw new Error ('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
+        if (test_instances_counter !== 1 || dockers_instances_counter !== 1) {
+            throw new Error('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
         }
         run_script = run_script.replace("test", app_name);
-        run_script = run_script.replace("200",number_of_dockers);
-    }else
-    {
-        var test_instances_counter = (run_script.match(/test/g) || []).length;
-        console.log('test_instances_counter',test_instances_counter);
-        if (test_instances_counter!=1){
-            throw new Error ('init_agent.sh expected to contain default env "test"',test_instances_counter);
+        run_script = run_script.replace("200", number_of_dockers);
+    } else {
+        test_instances_counter = (run_script.match(/test/g) || []).length;
+        console.log('test_instances_counter', test_instances_counter);
+        if (test_instances_counter !== 1) {
+            throw new Error('init_agent.sh expected to contain default env "test"', test_instances_counter);
         }
         run_script = run_script.replace("test", app_name);
     }
@@ -499,33 +499,31 @@ function print_instances(instances) {
 function main() {
 
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
-            console.error('\n\n****************************************************');
-            console.error('You must provide amazon cloud env details in .env:');
-            console.error('AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION');
-            console.error('****************************************************\n\n');
-            return;
+        console.error('\n\n****************************************************');
+        console.error('You must provide amazon cloud env details in .env:');
+        console.error('AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION');
+        console.error('****************************************************\n\n');
+        return;
     }
-    if (!_.isUndefined(argv.scale)) {
 
+    if (!_.isUndefined(argv.scale)) {
         var is_docker_host = false;
         if (!_.isUndefined(argv.dockers)) {
             is_docker_host = true;
-            console.log ('starting '+argv.dockers + ' dockers on each host');
+            console.log('starting ' + argv.dockers + ' dockers on each host');
 
         }
         if (_.isUndefined(argv.app)) {
-
             console.error('\n\n******************************************');
             console.error('Please provide --app (heroku app name)');
             console.error('******************************************\n\n');
-            throw err;
-        }else
-        {
+            return;
+        } else {
             app_name = argv.app;
         }
 
         // add a --term flag to allow removing nodes
-        scale_instances(argv.scale, argv.term,is_docker_host, argv.dockers)
+        scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers)
             .then(function(res) {
                 console_inspect('Scale: completed to ' + argv.scale, res);
                 return describe_instances().then(print_instances);

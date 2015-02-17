@@ -38,11 +38,11 @@
                             <span class="text-primary">{{file.name}}</span>
                         </a>
                     </td>
-                    <td>{{human_size(file.size)}}</td>
-                    <td style="max-width: 100px; text-overflow: ellipsis; overflow: hidden; display: block">
+                    <td style="white-space: nowrap">{{human_size(file.size)}}</td>
+                    <td style="white-space: nowrap; max-width: 100px; text-overflow: ellipsis; overflow: hidden; display: block">
                         {{file.content_type}}
                     </td>
-                    <td ng-attr-title="{{file.create_time.format('LLL')}}">
+                    <td style="white-space: nowrap" ng-attr-title="{{file.create_time.format('LLL')}}">
                         {{file.create_time.fromNow()}}
                     </td>
                     <!-- <td>{{file.access_time}}</td> -->

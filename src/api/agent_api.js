@@ -45,6 +45,25 @@ module.exports = rest_api({
             reply_raw: true,
         },
 
+
+        replicate_block: {
+            method: 'POST',
+            path: '/block/:block_id/replicate',
+            params: {
+                type: 'object',
+                required: ['block_id'],
+                properties: {
+                    block_id: {
+                        type: 'string',
+                    },
+                    source: {
+                        $ref: '/common_api/definitions/block_address'
+                    }
+                },
+            },
+        },
+
+
         check_block: {
             method: 'POST',
             path: '/block/:block_id/check',

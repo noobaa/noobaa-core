@@ -530,9 +530,9 @@ function build_chunks(chunks) {
                         }
                     });
 
-                    if (!good_blocks.length) {
+                    if (!accessible_blocks.length) {
                         // TODO try erasure coding to rebuild from other fragments
-                        console.error('build_chunk:', 'NO GOOD BLOCKS',
+                        console.error('build_chunk:', 'NO ACCESSIBLE BLOCKS',
                             'chunk', chunk._id, 'fragment', fragment,
                             'good', good_blocks.length,
                             'accessible', accessible_blocks.length,

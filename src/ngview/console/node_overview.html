@@ -24,19 +24,19 @@
                     <div ng-switch="node.srvmode">
                         <div ng-switch-when="blocked">
                             <p>
-                                <i class="fa fa-ban text-warning" style="font-size: 80px"></i>
+                                <i class="fa fa-ban text-danger" style="font-size: 80px"></i>
                             </p>
                             <h5 class="text-muted">Blocked</h5>
                         </div>
                         <div ng-switch-when="decommissioning">
                             <p>
-                                <i class="fa fa-flag text-warning" style="font-size: 80px"></i>
+                                <i class="fa fa-flag text-info" style="font-size: 80px"></i>
                             </p>
                             <h5 class="text-muted">Decommissioning</h5>
                         </div>
                         <div ng-switch-when="decommissioned">
                             <p>
-                                <i class="fa fa-flag-checkered text-info" style="font-size: 80px"></i>
+                                <i class="fa fa-flag-checkered text-muted" style="font-size: 80px"></i>
                             </p>
                             <h5 class="text-muted">Decommissioned</h5>
                         </div>
@@ -49,15 +49,15 @@
                             </div>
                             <div ng-if="node.online">
                                 <p>
-                                    <i class="fa fa-check" style="font-size: 80px"></i>
+                                    <i class="fa fa-wifi" style="font-size: 80px"></i>
                                 </p>
                                 <h5 class="text-muted">Connected</h5>
                             </div>
                         </div>
                     </div>
                     <p>
-                        <button ng-if="node.srvmode=='blocked'" class="btn btn-warning" nb-click-ladda="nbNodes.reconnect_node(node)">Unblock</button>
-                        <button ng-if="node.srvmode=='decommissioning'" class="btn btn-warning" nb-click-ladda="nbNodes.reconnect_node(node)">Recommission</button>
+                        <button ng-if="node.srvmode=='blocked'" class="btn btn-warning btn-raised" nb-click-ladda="nbNodes.reconnect_node(node)">Unblock</button>
+                        <button ng-if="node.srvmode=='decommissioning'" class="btn btn-warning btn-raised" nb-click-ladda="nbNodes.reconnect_node(node)">Recommission</button>
                     </p>
                 </div>
             </div>

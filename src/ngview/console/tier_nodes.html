@@ -38,8 +38,8 @@
                     <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
                     <td>
                         <span ng-switch="node.srvmode">
-                            <span ng-switch-when="blocked" class="text-warning">Blocked</span>
-                            <span ng-switch-when="decommissioning" class="text-danger">Decommissioning</span>
+                            <span ng-switch-when="blocked" class="text-danger">Blocked</span>
+                            <span ng-switch-when="decommissioning" class="text-info">Decommissioning</span>
                             <span ng-switch-when="decommissioned" class="text-muted">Decommissioned</span>
                             <span ng-switch-default>
                                 <span ng-if="!node.online" class="text-warning">Offline</span>

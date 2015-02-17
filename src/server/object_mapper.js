@@ -9,6 +9,7 @@ var db = require('./db');
 var api = require('../api');
 var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
+var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('../util/dbg')(__filename);
 
@@ -444,7 +445,7 @@ function build_chunks(chunks) {
 
     dbg.log0('build_chunks:', 'batch start', chunks.length, 'chunks');
 
-    function push_block_to_remove(chunk, block, fragment, reason) {
+    function push_block_to_remove(chunk, fragment, block, reason) {
         dbg.log0('build_chunks:', 'remove block (' + reason + ') -',
             'chunk', chunk._id, 'fragment', fragment, 'block', block._id);
         blocks_to_remove.push(block);
@@ -495,75 +496,78 @@ function build_chunks(chunks) {
                     var blocks = blocks_by_fragments[fragment] || [];
                     dbg.log1('build_chunks:', 'chunk', chunk._id,
                         'fragment', fragment, 'num blocks', blocks.length);
+
                     var good_blocks = [];
-                    var corrupted_blocks = [];
-                    var long_gone_blocks = [];
+                    var accessible_blocks = [];
                     var short_gone_blocks = [];
+                    var long_gone_blocks = [];
                     var building_blocks = [];
-                    var long_building_blocks = [];
+                    var building_timeout_blocks = [];
+
 
                     _.each(blocks, function(block) {
-                        if (block.corrupted) return corrupted_blocks.push(block);
                         var since_hb = now - block.node.heartbeat.getTime();
-                        if (since_hb > long_gone_threshold) return long_gone_blocks.push(block);
-                        if (since_hb > short_gone_threshold) return short_gone_blocks.push(block);
+                        if (since_hb > long_gone_threshold || block.node.srvmode === 'blocked') {
+                            return long_gone_blocks.push(block);
+                        }
+                        if (since_hb > short_gone_threshold) {
+                            return short_gone_blocks.push(block);
+                        }
                         if (block.building) {
                             var since_bld = now - block.building.getTime();
                             if (since_bld > long_build_threshold) {
-                                return long_building_blocks.push(block);
+                                return building_timeout_blocks.push(block);
                             } else {
                                 return building_blocks.push(block);
                             }
                         }
-                        good_blocks.push(block);
+                        if (!block.node.srvmode) {
+                            good_blocks.push(block);
+                        }
+                        // also keep list of blocks that we can use to replicate from
+                        if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
+                            accessible_blocks.push(block);
+                        }
                     });
 
                     if (!good_blocks.length) {
                         // TODO try erasure coding to rebuild from other fragments
                         console.error('build_chunk:', 'NO GOOD BLOCKS',
                             'chunk', chunk._id, 'fragment', fragment,
-                            'corrupted', corrupted_blocks.length,
-                            'long gone', long_gone_blocks.length,
+                            'good', good_blocks.length,
+                            'accessible', accessible_blocks.length,
                             'short gone', short_gone_blocks.length,
+                            'long gone', long_gone_blocks.length,
                             'building', building_blocks.length,
-                            'long building', long_building_blocks.length);
+                            'building timeout', building_timeout_blocks.length);
                         return;
                     }
 
-                    // blocks that were building for too long will all be removed
+                    // remove all blocks that were building for too long
                     // as they most likely failed to build
-                    while (long_building_blocks.length) {
-                        push_block_to_remove(long_building_blocks.pop(), 'long building');
-                    }
-
-                    // remove extra blocks that did not finish building
-                    while (good_blocks.length + building_blocks.length > optimal_replicas) {
-                        push_block_to_remove(building_blocks.pop(), 'extra building');
+                    while (building_timeout_blocks.length) {
+                        push_block_to_remove(chunk, fragment,
+                            building_timeout_blocks.pop(), 'building timeout');
                     }
 
                     // when above optimal we can remove long gone blocks
                     // defer the short gone blocks until either back to good or become long.
                     if (good_blocks.length >= optimal_replicas) {
                         while (long_gone_blocks.length) {
-                            push_block_to_remove(long_gone_blocks.pop(), 'extra long gone');
+                            push_block_to_remove(chunk, fragment,
+                                long_gone_blocks.pop(), 'extra long gone');
                         }
                     }
 
                     // remove good blocks only if above optimal
                     while (good_blocks.length > optimal_replicas) {
-                        push_block_to_remove(good_blocks.pop(), 'extra good');
+                        push_block_to_remove(chunk, fragment,
+                            good_blocks.pop(), 'extra good');
                     }
 
-                    // for every build block pick a source from good blocks round robin
-                    var round_rob = 0;
-                    _.each(building_blocks, function(block) {
-                        block.source = good_blocks[round_rob % good_blocks.length];
-                        round_rob += 1;
-                    });
-
                     // mark to allocate blocks for fragment to reach optimal count
-                    var num_blocks_to_add =
-                        Math.max(0, optimal_replicas - good_blocks.length - building_blocks.length);
+                    var round_rob = 0;
+                    var num_blocks_to_add = Math.max(0, optimal_replicas - good_blocks.length);
                     _.times(num_blocks_to_add, function() {
                         blocks_info_to_allocate.push({
                             system_id: chunk.system,
@@ -571,7 +575,7 @@ function build_chunks(chunks) {
                             chunk_id: chunk._id,
                             chunk: chunk,
                             fragment: fragment,
-                            source: good_blocks[round_rob % good_blocks.length]
+                            source: accessible_blocks[round_rob % accessible_blocks.length]
                         });
                         round_rob += 1;
                     });
@@ -769,7 +773,24 @@ function get_part_info(part, chunk, blocks, set_obj) {
     var fragments = [];
     _.each(_.groupBy(blocks, 'fragment'), function(fragment_blocks, fragment) {
         var sorted_blocks = _.sortBy(fragment_blocks, block_heartbeat_sort);
-        fragments[fragment] = _.map(sorted_blocks, get_block_address);
+        fragments[fragment] = _.map(sorted_blocks, function(block) {
+            var block_info = {
+                address: get_block_address(block),
+            };
+            // TODO send details only to admin!
+            block_info.details = {
+                tier_name: 'devices', // TODO get tier name
+                node_name: block.node.name,
+                online: node_monitor.is_node_online(block.node),
+            };
+            if (block.node.srvmode) {
+                block_info.details.srvmode = block.node.srvmode;
+            }
+            if (block.building) {
+                block_info.details.building = true;
+            }
+            return block_info;
+        });
     });
     var p = _.pick(part, 'start', 'end', 'chunk_offset');
     p.fragments = fragments;

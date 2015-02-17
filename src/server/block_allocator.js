@@ -21,7 +21,6 @@ var COPIES = 3;
  * allocate_blocks
  *
  * selects distinct edge node for allocating new blocks.
- * TODO take into consideration the state of the nodes.
  *
  * @param blocks_info (optional) - array of objects containing:
  *      - fragment number
@@ -123,9 +122,7 @@ function update_tier_alloc_nodes(system, tier) {
             heartbeat: {
                 $gt: min_heartbeat
             },
-            disabled: {
-                $ne: true
-            },
+            srvmode: null,
         })
         .sort({
             // sorting with lowest used storage nodes first
@@ -148,8 +145,8 @@ function update_tier_alloc_nodes(system, tier) {
 
 
 function pop_round_robin(nodes, count) {
-    if (nodes.length < count) {
-        throw new Error('cannot find enough nodes: ' + nodes.length + '/' + count);
+    if (nodes.length < 5) {
+        throw new Error('not enough nodes: ' + nodes.length);
     }
 
     var ret = [];

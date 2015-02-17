@@ -444,7 +444,34 @@ module.exports = rest_api({
                         // each fragment contains an array of blocks
                         type: 'array',
                         items: {
-                            $ref: '/common_api/definitions/block_info'
+                            type: 'object',
+                            required: ['address'],
+                            properties: {
+                                address: {
+                                    $ref: '/common_api/definitions/block_address'
+                                },
+                                details: {
+                                    type: 'object',
+                                    required: ['tier_name', 'node_name'],
+                                    properties: {
+                                        tier_name: {
+                                            type: 'string',
+                                        },
+                                        node_name: {
+                                            type: 'string',
+                                        },
+                                        srvmode: {
+                                            $ref: '/node_api/definitions/srvmode'
+                                        },
+                                        online: {
+                                            type: 'boolean'
+                                        },
+                                        building: {
+                                            type: 'boolean',
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

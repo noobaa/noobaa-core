@@ -31,7 +31,6 @@ module.exports = new api.node_api.Server({
     delete_node: delete_node,
     read_node_maps: read_node_maps,
 
-    lookup_node: lookup_node,
     list_nodes: list_nodes,
     group_nodes: group_nodes,
 
@@ -50,8 +49,7 @@ function create_node(req) {
     var info = _.pick(req.rest_params,
         'name',
         'is_server',
-        'geolocation',
-        'disabled'
+        'geolocation'
     );
     info.system = req.system.id;
     info.heartbeat = new Date(0);
@@ -129,11 +127,20 @@ function update_node(req) {
     var updates = _.pick(req.rest_params,
         'is_server',
         'geolocation',
-        'disabled'
+        'srvmode'
     );
-    updates.storage = {
-        alloc: req.rest_params.storage_alloc,
-    };
+    if (req.rest_params.storage_alloc) {
+        updates.storage = {
+            alloc: req.rest_params.storage_alloc,
+        };
+    }
+    if (updates.srvmode === 'connect') {
+        // to connect we remove the srvmode field
+        delete updates.srvmode;
+        updates.$unset = {
+            srvmode: 1
+        };
+    }
 
     // TODO move node between tiers - requires decomission
     if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
@@ -189,21 +196,6 @@ function read_node_maps(req) {
                 node: get_node_full_info(node),
                 objects: objects,
             };
-        });
-}
-
-
-
-/**
- *
- * LOOKUP_NODE
- *
- */
-function lookup_node(req) {
-    return find_node_by_block(req)
-        .then(function(node) {
-            console.log(node);
-            return get_node_full_info(node);
         });
 }
 
@@ -602,7 +594,8 @@ function count_node_storage_used(node_id) {
 
 
 function get_node_full_info(node) {
-    var info = _.pick(node, 'id', 'name', 'geolocation');
+    var info = _.pick(node, 'id', 'name', 'geolocation', 'srvmode');
+    if (!info.srvmode) delete info.srvmode;
     info.tier = node.tier.name;
     info.peer_id = node.peer_id || '';
     info.ip = node.ip || '0.0.0.0';
@@ -612,7 +605,7 @@ function get_node_full_info(node) {
         alloc: node.storage.alloc || 0,
         used: node.storage.used || 0,
     };
-    info.online = node.heartbeat >= node_monitor.get_minimum_online_heartbeat();
+    info.online = node_monitor.is_node_online(node);
     info.device_info = node.device_info || {};
     return info;
 }

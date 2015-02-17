@@ -58,26 +58,9 @@ var node_schema = new Schema({
         },
     },
 
-    disabled: {
-        type: Boolean,
-    },
-
-    // ready state
-    ready: {
-        enum: ['verifying', 'impotent', 'sleeping', 'coma'],
+    srvmode: {
         type: String,
-    },
-
-    // decommission state
-    decommission: {
-        enum: ['running', 'done'],
-        type: String,
-    },
-
-    // malicious state
-    malicious: {
-        enum: ['suspected', 'malicious'],
-        type: String,
+        enum: ['blocked', 'decommissioning', 'decommisioned']
     },
 
     // the identifier used for p2p signaling
@@ -163,7 +146,7 @@ node_schema.statics.aggregate_nodes = function(query, minimum_online_heartbeat) 
             emit(['', 'alloc'], this.storage.alloc);
             emit(['', 'used'], this.storage.used);
             emit(['', 'count'], 1);
-            var online = (!this.disabled && this.heartbeat >= minimum_online_heartbeat);
+            var online = (!this.srvmode && this.heartbeat >= minimum_online_heartbeat);
             if (online) {
                 emit(['', 'online'], 1);
             }

@@ -10,44 +10,54 @@
                     <p>
                         <i class="fa fa-heartbeat" style="font-size: 80px"></i>
                     </p>
-                    <h5 class="text-muted">
-                        Healthy
-                        <!-- <i class="fa fa-check text-success"></i> -->
-                    </h5>
+                    <h5 class="text-muted">Healthy</h5>
                 </div>
                 <div class="col-xs-6">
                     <p>
                         <i class="mdi-action-verified-user" style="font-size: 80px"></i>
                     </p>
-                    <h5 class="text-muted">
-                        Trusted
-                        <!-- <i class="fa fa-check text-success"></i> -->
-                    </h5>
+                    <h5 class="text-muted">Trusted</h5>
                 </div>
             </div>
             <div class="row" style="padding: 30px 0">
-                <div class="col-xs-6">
+                <div class="col-xs-12">
+                    <div ng-switch="node.srvmode">
+                        <div ng-switch-when="blocked">
+                            <p>
+                                <i class="fa fa-ban text-warning" style="font-size: 80px"></i>
+                            </p>
+                            <h5 class="text-muted">Blocked</h5>
+                        </div>
+                        <div ng-switch-when="decommissioning">
+                            <p>
+                                <i class="fa fa-flag text-warning" style="font-size: 80px"></i>
+                            </p>
+                            <h5 class="text-muted">Decommissioning</h5>
+                        </div>
+                        <div ng-switch-when="decommissioned">
+                            <p>
+                                <i class="fa fa-flag-checkered text-info" style="font-size: 80px"></i>
+                            </p>
+                            <h5 class="text-muted">Decommissioned</h5>
+                        </div>
+                        <div ng-switch-default>
+                            <div ng-if="!node.online">
+                                <p>
+                                    <i class="fa fa-moon-o text-warning" style="font-size: 80px"></i>
+                                </p>
+                                <h5 class="text-muted">Offline</h5>
+                            </div>
+                            <div ng-if="node.online">
+                                <p>
+                                    <i class="fa fa-check" style="font-size: 80px"></i>
+                                </p>
+                                <h5 class="text-muted">Connected</h5>
+                            </div>
+                        </div>
+                    </div>
                     <p>
-                        <i class="fa fa-flash" style="font-size: 80px"></i>
-                    </p>
-                    <h5 class="text-muted">
-                        Connected
-                        <!-- <i class="fa fa-check text-success"></i> -->
-                    </h5>
-                    <p>
-                        <button class="btn btn-default btn-flat btn-xs" nb-click-ladda="disconnect()"><small>Disconnect</small></button>
-                    </p>
-                </div>
-                <div class="col-xs-6">
-                    <p>
-                        <i class="fa fa-flag" style="font-size: 80px"></i>
-                    </p>
-                    <h5 class="text-muted">
-                        Commissioned
-                        <!-- <i class="fa fa-check text-success"></i> -->
-                    </h5>
-                    <p>
-                        <button class="btn btn-default btn-flat btn-xs" nb-click-ladda="decommission()"><small>Decommission</small></button>
+                        <button ng-if="node.srvmode=='blocked'" class="btn btn-warning" nb-click-ladda="nbNodes.reconnect_node(node)">Unblock</button>
+                        <button ng-if="node.srvmode=='decommissioning'" class="btn btn-warning" nb-click-ladda="nbNodes.reconnect_node(node)">Recommission</button>
                     </p>
                 </div>
             </div>

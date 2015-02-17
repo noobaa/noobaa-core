@@ -26,7 +26,16 @@
                     <span ng-repeat="frag in part.fragments">
                         <span ng-repeat="block in frag">
                             <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)">
-                                <i class="fa fa-check fa-lg fa-fw text-success"></i> {{block.host.slice(7)}}
+                                <span ng-switch="block.details.srvmode">
+                                    <i ng-switch-when="blocked" class="fa fa-ban fa-lg fa-fw text-warning"></i>
+                                    <i ng-switch-when="decommissioning" class="fa fa-flag fa-lg fa-fw text-warning"></i>
+                                    <i ng-switch-when="decommissioned" class="fa fa-flag-checkered fa-lg fa-fw text-muted"></i>
+                                    <span ng-switch-default>
+                                        <i ng-if="!block.details.online" class="fa fa-moon-o fa-lg fa-fw text-muted"></i>
+                                        <i ng-if="block.details.online" class="fa fa-check fa-lg fa-fw text-success"></i>
+                                    </span>
+                                </span>
+                                {{block.address.host.slice(7)}}
                             </a>
                         </span>
                     </span>
@@ -50,7 +59,7 @@
                             <span ng-repeat="block in frag">
                                 <a class="btn btn-flat btn-default" style="padding: 10px; margin: 0 10px 5px 0" nb-click-ladda="nbNodes.goto_node_by_block(block)">
                                     <i class="fa fa-check fa-lg fa-fw text-success pull-left"></i>
-                                    <small>{{block.host.slice(7)}}</small>
+                                    <small>{{block.address.host.slice(7)}}</small>
                                 </a>
                             </span>
                         </span>

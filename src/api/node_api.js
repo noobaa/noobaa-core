@@ -135,20 +135,6 @@ module.exports = rest_api({
             }
         },
 
-        lookup_node: {
-            method: 'GET',
-            path: '/lookup',
-            params: {
-                $ref: '/common_api/definitions/block_address'
-            },
-            reply: {
-                $ref: '/node_api/definitions/node_full_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         list_nodes: {
             method: 'GET',
             path: '/node',
@@ -313,7 +299,7 @@ module.exports = rest_api({
 
         node_config: {
             type: 'object',
-            required: ['name', 'tier'],
+            required: ['name'],
             properties: {
                 name: {
                     type: 'string',
@@ -327,15 +313,20 @@ module.exports = rest_api({
                 geolocation: {
                     type: 'string',
                 },
+                srvmode: {
+                    $ref: '/node_api/definitions/srvmode'
+                },
                 storage_alloc: {
                     type: 'integer'
                 },
-                disabled: {
-                    type: 'boolean'
-                }
             }
         },
 
+
+        srvmode: {
+            type: 'string',
+            enum: ['connect', 'blocked', 'decommissioning', 'decommissioned']
+        },
 
         node_full_info: {
             type: 'object',
@@ -364,6 +355,9 @@ module.exports = rest_api({
                 },
                 geolocation: {
                     type: 'string'
+                },
+                srvmode: {
+                    $ref: '/node_api/definitions/srvmode'
                 },
                 peer_id: {
                     type: 'string'

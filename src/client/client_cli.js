@@ -333,7 +333,7 @@ ClientCLI.prototype.object_maps = function(key) {
             var i = 1;
             _.each(mappings.parts, function(part) {
                 var nodes_list = _.map(part.fragments[0], function(block) {
-                    return block.host.slice(7); // slice 'http://' prefix
+                    return block.address.host.slice(7); // slice 'http://' prefix
                 }).join(',\t');
                 console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);
                 i += 1;
@@ -370,10 +370,10 @@ ClientCLI.prototype.node_maps = function(node_name) {
                 _.each(object.parts, function(part) {
                     _.each(part.fragments, function(fragment_blocks, fragment) {
                         var nodes_list = _.map(fragment_blocks, function(block) {
-                            if (block.host === node_host) {
-                                return '*' + block.host.slice(7);
+                            if (block.address.host === node_host) {
+                                return '*' + block.address.host.slice(7);
                             } else {
-                                return block.host.slice(7);
+                                return block.address.host.slice(7);
                             }
                         }).sort().join(',\t');
                         console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);

@@ -117,7 +117,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                 pipeline = pipeline
                     .pipe(transformer({
                         options: {
-                            objectMode: true
+                            objectMode: true,
                         },
                         init: function() {
                             this._pos = 0;
@@ -146,12 +146,14 @@ ObjectClient.prototype.upload_stream = function(params) {
                 pipeline = pipeline
                     .pipe(new CoalesceStream({
                         objectMode: true,
+                        highWaterMark: 30,
                         max_length: 10,
-                        max_wait_ms: 200,
+                        max_wait_ms: 1000,
                     }))
                     .pipe(transformer({
                         options: {
-                            objectMode: true
+                            objectMode: true,
+                            highWaterMark: 10
                         },
                         transform: function(parts) {
                             var stream = this;
@@ -195,7 +197,8 @@ ObjectClient.prototype.upload_stream = function(params) {
                 pipeline = pipeline
                     .pipe(transformer({
                         options: {
-                            objectMode: true
+                            objectMode: true,
+                            highWaterMark: 30
                         },
                         transform: function(part) {
                             if (part.dedup) return;
@@ -212,26 +215,30 @@ ObjectClient.prototype.upload_stream = function(params) {
                 pipeline = pipeline
                     .pipe(new CoalesceStream({
                         objectMode: true,
+                        highWaterMark: 30,
                         max_length: 10,
-                        max_wait_ms: 200,
+                        max_wait_ms: 1000,
                     }))
                     .pipe(transformer({
                         options: {
-                            objectMode: true
+                            objectMode: true,
+                            highWaterMark: 10
                         },
                         transform: function(parts) {
                             var stream = this;
-                            dbg.log0('finalize parts', parts.length);
+                            dbg.log0('upload_stream: finalize parts', parts.length);
                             // send parts to server
                             return self.finalize_object_parts({
                                     bucket: params.bucket,
                                     key: params.key,
                                     parts: _.compact(_.map(parts, function(part) {
                                         if (part.dedup) return;
+                                        var block_ids = _.pluck(_.pluck(
+                                            _.flatten(part.fragments), 'address'), 'id');
                                         return {
                                             start: part.start,
                                             end: part.end,
-                                            block_ids: _.pluck(_.flatten(part.fragments), 'id')
+                                            block_ids: block_ids
                                         };
                                     }))
                                 })
@@ -239,7 +246,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                                     // push parts down the pipe
                                     for (var i = 0; i < parts.length; i++) {
                                         var part = parts[i];
-                                        dbg.log0('finalize part offset', part.start);
+                                        dbg.log0('upload_stream: finalize part offset', part.start);
                                         stream.push(part);
                                     }
                                 });
@@ -253,10 +260,11 @@ ObjectClient.prototype.upload_stream = function(params) {
                 pipeline = pipeline
                     .pipe(transformer({
                         options: {
-                            objectMode: true
+                            objectMode: true,
+                            highWaterMark: 30
                         },
                         transform: function(part) {
-                            dbg.log0('completed part offset', part.start);
+                            dbg.log0('upload_stream: completed part offset', part.start);
                             dbg.log_progress(part.end / params.size);
                             notify({
                                 event: 'part:after',
@@ -265,17 +273,17 @@ ObjectClient.prototype.upload_stream = function(params) {
                         }
                     }))
                     .once('error', function(err) {
-                        dbg.log0('error write stream', params.key, err);
+                        dbg.log0('upload_stream: error write stream', params.key, err);
                         reject(err);
                     })
                     .once('finish', function() {
-                        dbg.log0('finish write stream', params.key);
+                        dbg.log0('upload_stream: finish write stream', params.key);
                         resolve();
                     });
             });
         })
         .then(function() {
-            dbg.log0('complete multipart', params.key);
+            dbg.log0('upload_stream: complete multipart', params.key);
             return self.complete_multipart_upload(bucket_key_params);
         });
 };
@@ -309,7 +317,7 @@ ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
                 part: part,
                 fragment: fragment,
                 offset: part.start + (fragment * block_size),
-                block: block,
+                block_address: block.address,
                 buffer: buffer_per_fragment[fragment],
                 remaining_attempts: 20,
             });
@@ -329,7 +337,7 @@ ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
 ObjectClient.prototype._attempt_write_block = function(params) {
     var self = this;
 
-    return self._write_block(params.block, params.buffer, params.offset)
+    return self._write_block(params.block_address, params.buffer, params.offset)
         .then(null, function(err) {
             if (params.remaining_attempts <= 0) {
                 throw new Error('EXHAUSTED WRITE BLOCK', size_utils.human_offset(params.offset));
@@ -337,14 +345,14 @@ ObjectClient.prototype._attempt_write_block = function(params) {
             params.remaining_attempts -= 1;
             var bad_block_params =
                 _.extend(_.pick(params, 'bucket', 'key', 'start', 'end', 'fragment'), {
-                    block_id: params.block.id,
+                    block_id: params.block_address.id,
                     is_write: true,
                 });
             dbg.log0('write block remaining attempts',
                 params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
             return self.report_bad_block(bad_block_params)
                 .then(function(res) {
-                    params.block = res.new_block;
+                    params.block_address = res.new_block.address;
                     return self._attempt_write_block(params);
                 });
         });
@@ -358,29 +366,29 @@ ObjectClient.prototype._attempt_write_block = function(params) {
  * write a block to the storage node
  *
  */
-ObjectClient.prototype._write_block = function(block, buffer, offset) {
+ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
     var self = this;
 
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
 
         var agent = new agent_api.Client();
-        agent.options.set_address(block.host);
+        agent.options.set_address(block_address.host);
         agent.options.set_timeout(30000);
 
         dbg.log1('write_block', size_utils.human_offset(offset),
-            size_utils.human_size(buffer.length), block.id,
-            'to', block.host);
+            size_utils.human_size(buffer.length), block_address.id,
+            'to', block_address.host);
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
         return agent.write_block({
-            block_id: block.id,
+            block_id: block_address.id,
             data: buffer,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
-                size_utils.human_size(buffer.length), block.id,
-                'from', block.host);
+                size_utils.human_size(buffer.length), block_address.id,
+                'from', block_address.host);
             throw err;
         });
 
@@ -745,7 +753,7 @@ ObjectClient.prototype._read_object_part = function(part) {
                 }
                 var offset = part.start + (fragment * block_size);
                 return self._blocks_cache.get({
-                    block: block,
+                    block_address: block.address,
                     block_size: block_size,
                     offset: offset,
                 });
@@ -796,11 +804,13 @@ ObjectClient.prototype._init_blocks_cache = function() {
         max_length: self.READ_CONCURRENCY, // very small, just to handle repeated calls
         expiry_ms: 600000, // 10 minutes
         make_key: function(params) {
-            return params.block.id;
+            return params.block_address.id;
         },
         load: function(params) {
-            dbg.log1('BlocksCache: load', size_utils.human_offset(params.offset), params.block.id);
-            return self._read_block(params.block, params.block_size, params.offset);
+            dbg.log1('BlocksCache: load',
+                size_utils.human_offset(params.offset),
+                params.block_address.id);
+            return self._read_block(params.block_address, params.block_size, params.offset);
         }
     });
 
@@ -814,22 +824,22 @@ ObjectClient.prototype._init_blocks_cache = function() {
  * read a block from the storage node
  *
  */
-ObjectClient.prototype._read_block = function(block, block_size, offset) {
+ObjectClient.prototype._read_block = function(block_address, block_size, offset) {
     var self = this;
 
     // use semaphore to surround the IO
     return self._block_read_sem.surround(function() {
 
         var agent = new agent_api.Client();
-        agent.options.set_address(block.host);
+        agent.options.set_address(block_address.host);
         agent.options.set_timeout(30000);
 
         dbg.log1('read_block', size_utils.human_offset(offset),
-            size_utils.human_size(block_size), block.id,
-            'from', block.host);
+            size_utils.human_size(block_size), block_address.id,
+            'from', block_address.host);
 
         return agent.read_block({
-                block_id: block.id
+                block_id: block_address.id
             })
             .then(function(buffer) {
                 // verify the received buffer length must be full size
@@ -842,8 +852,8 @@ ObjectClient.prototype._read_block = function(block, block_size, offset) {
                 return buffer;
             }, function(err) {
                 console.error('FAILED read_block', size_utils.human_offset(offset),
-                    size_utils.human_size(block_size), block.id,
-                    'from', block.host);
+                    size_utils.human_size(block_size), block_address.id,
+                    'from', block_address.host);
                 throw err;
             });
     });

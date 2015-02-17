@@ -12,6 +12,10 @@ var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
 var ice_api = require('./ice_api');
 var buf = require('./buffer_utils');
+var dbg = require('./dbg')(__filename);
+
+// dbg.log_level = 3;
+
 
 module.exports = rest_api;
 
@@ -42,6 +46,10 @@ function rest_api(api) {
     // increase the maximum sockets per host, the default is 5 which is very low
     if (http.globalAgent && http.globalAgent.maxSockets < 100) {
         http.globalAgent.maxSockets = 100;
+    }
+    // same for http-browserify
+    if (http.Agent && http.Agent.defaultMaxSockets < 100) {
+        http.Agent.defaultMaxSockets = 100;
     }
 
     var api_path = url_path_join('/api', api.name);
@@ -511,10 +519,10 @@ function rest_api(api) {
             responseType: 'arraybuffer'
         };
 
-        if (options.path.indexOf('block') >= 0) { // do ice
+        if (self.options.peer) { // do ice
             writeLog(self.options, 'do ice ' + (self.options.ws_socket ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
             return Q.fcall(function() {
-                var peerId = options.hostname + ":" + options.port;
+                var peerId = self.options.peer;
 
                 var buffer;
                 if (options.headers['content-type'] === 'application/json') {
@@ -569,6 +577,7 @@ function rest_api(api) {
         var req = options.protocol === 'https:' ?
             https.request(options) :
             http.request(options);
+        dbg.log3('HTTP request', req);
 
         var defer = Q.defer();
         req.on('error', defer.reject);
@@ -654,6 +663,11 @@ rest_api.global_client_options = {
         this.hostname = u.hostname;
         this.port = u.port;
     },
+    set_peer: function (peer) {
+        console.error('SET PEER '+peer);
+        this.peer = peer;
+    },
+
 
     set_timeout: function(ms) {
         this.timeout = ms;
@@ -782,17 +796,17 @@ function component_to_param(component, type) {
 
 // send http request and return a promise for the response
 function read_http_response(res) {
-    // console.log('HTTP response headers', res.statusCode, res.headers);
     var chunks = [];
     var chunks_length = 0;
     var defer = Q.defer();
+    dbg.log3('HTTP response headers', res.statusCode, res.headers);
     res.on('error', defer.reject);
     res.on('data', add_chunk);
     res.on('end', finish);
     return defer.promise;
 
     function add_chunk(chunk) {
-        // console.log('HTTP response data', chunk.length, typeof(chunk));
+        dbg.log3('HTTP response data', chunk.length, typeof(chunk));
         chunks.push(chunk);
         chunks_length += chunk.length;
     }
@@ -820,6 +834,7 @@ function read_http_response(res) {
     }
 
     function finish() {
+        dbg.log3('HTTP response finish', res);
         try {
             var data = decode_response(concat_chunks());
             if (res.statusCode !== 200) {

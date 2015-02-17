@@ -130,7 +130,7 @@ module.exports = rest_api({
                     $ref: '/tier_api/definitions/cloud_details'
                 },
                 storage: {
-                    $ref: '/system_api/definitions/storage_info'
+                    $ref: '/common_api/definitions/storage_info'
                 },
                 nodes: {
                     $ref: '/system_api/definitions/nodes_info'

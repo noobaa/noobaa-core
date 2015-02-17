@@ -74,6 +74,13 @@ var data_chunk_schema = new Schema({
         type: Number,
     },
 
+    building: {
+        type: Date
+    },
+    last_build: {
+        type: Date
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date

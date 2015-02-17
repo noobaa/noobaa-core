@@ -4,8 +4,12 @@ build/
 .env
 *.pem
 
+## IDE
 *.sublime-workspace
 *.sublime-project
+.idea/
+tags
+*.iml
 
 ## istanbul coverage
 coverage/
@@ -13,14 +17,11 @@ coverage/
 ## testing agent storage
 agent_storage/
 
+## mobile
 ionic-app/
 
 # heapdump files
 heapdump-*
-
-# intellij project files
-.idea
-*.iml
 
 # log files
 *.log

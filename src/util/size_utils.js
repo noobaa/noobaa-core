@@ -101,9 +101,13 @@ function human_size(bytes) {
     }
     if (i === 0) {
         return x.toString() + ' B';
-    } else if (x < 100) {
+    } else if (x < 99) {
+        // precision formatting applied for 2 digits numbers for fraction rounding up/down.
+        // NOTE: for some reason Number(99.5).toPrecision(2) returns '1.0e+2'
+        // which we don't want, so we only use precision formating below 99
         return x.toPrecision(2) + ' ' + SIZE_UNITS[i] + 'B';
     } else {
+        // fixed formatting truncates the fraction part which is negligible for 3 digit numbers
         return x.toFixed(0) + ' ' + SIZE_UNITS[i] + 'B';
     }
 }

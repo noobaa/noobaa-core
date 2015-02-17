@@ -135,29 +135,6 @@ module.exports = rest_api({
             }
         },
 
-        lookup_node: {
-            method: 'GET',
-            path: '/lookup',
-            params: {
-                type: 'object',
-                required: [],
-                properties: {
-                    ip: {
-                        type: 'string'
-                    },
-                    port: {
-                        type: 'integer'
-                    }
-                }
-            },
-            reply: {
-                $ref: '/node_api/definitions/node_full_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
         list_nodes: {
             method: 'GET',
             path: '/node',
@@ -248,7 +225,7 @@ module.exports = rest_api({
                                     type: 'integer'
                                 },
                                 storage: {
-                                    $ref: '/system_api/definitions/storage_info'
+                                    $ref: '/common_api/definitions/storage_info'
                                 },
                             }
                         }
@@ -286,7 +263,7 @@ module.exports = rest_api({
                         type: 'integer'
                     },
                     storage: {
-                        $ref: '/system_api/definitions/storage_info'
+                        $ref: '/common_api/definitions/storage_info'
                     },
                     device_info: {
                         type: 'object',
@@ -305,7 +282,7 @@ module.exports = rest_api({
                         type: 'integer'
                     },
                     storage: {
-                        $ref: '/system_api/definitions/storage_info'
+                        $ref: '/common_api/definitions/storage_info'
                     },
                 }
             },
@@ -322,7 +299,7 @@ module.exports = rest_api({
 
         node_config: {
             type: 'object',
-            required: ['name', 'tier'],
+            required: ['name'],
             properties: {
                 name: {
                     type: 'string',
@@ -336,12 +313,20 @@ module.exports = rest_api({
                 geolocation: {
                     type: 'string',
                 },
+                srvmode: {
+                    $ref: '/node_api/definitions/srvmode'
+                },
                 storage_alloc: {
                     type: 'integer'
                 },
             }
         },
 
+
+        srvmode: {
+            type: 'string',
+            enum: ['connect', 'blocked', 'decommissioning', 'decommissioned']
+        },
 
         node_full_info: {
             type: 'object',
@@ -350,6 +335,7 @@ module.exports = rest_api({
                 'name',
                 'tier',
                 'geolocation',
+                'peer_id',
                 'ip',
                 'port',
                 'online',
@@ -370,6 +356,12 @@ module.exports = rest_api({
                 geolocation: {
                     type: 'string'
                 },
+                srvmode: {
+                    $ref: '/node_api/definitions/srvmode'
+                },
+                peer_id: {
+                    type: 'string'
+                },
                 ip: {
                     type: 'string'
                 },
@@ -384,7 +376,7 @@ module.exports = rest_api({
                     format: 'date',
                 },
                 storage: {
-                    $ref: '/system_api/definitions/storage_info'
+                    $ref: '/common_api/definitions/storage_info'
                 },
                 device_info: {
                     type: 'object',

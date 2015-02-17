@@ -247,7 +247,7 @@ function authorize() {
  *
  * _prepare_auth_request()
  *
- * on valid token, set utility functions on the request to be able to use in other api's.
+ * set utility functions on the request to be able to use in other api's.
  * see the function docs below.
  *
  */
@@ -274,14 +274,23 @@ function _prepare_auth_request(req) {
             // check that auth has account_id
             var ignore_missing_account = (options.account === false);
             if (!req.auth || !req.auth.account_id) {
-                if (!ignore_missing_account) throw req.unauthorized('no account_id in auth');
-                return;
+                if (ignore_missing_account) {
+                    return;
+                } else {
+                    throw req.unauthorized('no account_id in auth');
+                }
             }
 
             // use a cache because this is called on every authorized api
             return db.AccountCache.get(req.auth.account_id)
                 .then(function(account) {
-                    if (!account) throw req.unauthorized('auth account not found in cache');
+                    if (!account) {
+                        if (ignore_missing_account) {
+                            return;
+                        } else {
+                            throw req.unauthorized('auth account not found in cache');
+                        }
+                    }
                     req.account = account;
                 });
 
@@ -290,8 +299,11 @@ function _prepare_auth_request(req) {
             // check that auth contains system
             var ignore_missing_system = (options.system === false);
             if (!req.auth || !req.auth.system_id) {
-                if (!ignore_missing_system) throw req.unauthorized('no system_id in auth');
-                return;
+                if (ignore_missing_system) {
+                    return;
+                } else {
+                    throw req.unauthorized('no system_id in auth');
+                }
             }
 
             // check that auth contains valid system role
@@ -303,7 +315,13 @@ function _prepare_auth_request(req) {
             // use a cache because this is called on every authorized api
             return db.SystemCache.get(req.auth.system_id)
                 .then(function(system) {
-                    if (!system) throw req.unauthorized('auth system not found in cache');
+                    if (!system) {
+                        if (ignore_missing_system) {
+                            return;
+                        } else {
+                            throw req.unauthorized('auth system not found in cache');
+                        }
+                    }
                     req.system = system;
                     req.role = req.auth.role;
                 });

@@ -32,16 +32,6 @@ describe('account', function() {
                     password: PASSWORD,
                 });
             }).then(function() {
-                return client.account.create_account({
-                    name: NAME,
-                    email: EMAIL,
-                    password: PASSWORD,
-                }).then(function() {
-                    throw new Error('expected error: account already exists');
-                }, function(err) {
-                    assert.strictEqual(err.data, 'account already exists');
-                });
-            }).then(function() {
                 return client.create_auth_token({
                     email: EMAIL,
                     password: PASSWORD + '!',
@@ -64,6 +54,16 @@ describe('account', function() {
             }).then(function() {
                 return client.account.read_account().then(function(res) {
                     assert.strictEqual(res.email, EMAIL);
+                });
+            }).then(function() {
+                return client.account.create_account({
+                    name: NAME,
+                    email: EMAIL,
+                    password: PASSWORD,
+                }).then(function() {
+                    throw new Error('expected error: account already exists');
+                }, function(err) {
+                    assert.strictEqual(err.data, 'account already exists');
                 });
             }).then(function() {
                 return client.account.update_account({

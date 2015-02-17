@@ -59,13 +59,14 @@ nb_api.factory('nbClient', [
                 .then(function(res) {
                     console.log('nbClient.refresh', res);
                     res = res || {};
+                    if (!res.account) return $timeout(login, 10);
                     $scope.account = res.account;
                     $scope.system = res.system;
                     $scope.role = res.role;
                     $scope.extra = res.extra;
                 }, function(err) {
-                    // handle unauthorized response
                     console.error(err);
+                    // handle unauthorized response
                     if (err.status === 401) return $timeout(login, 10);
                     var q = 'Oy, there\'s a problem. Would you like to reload?';
                     return nbAlertify.confirm(q).then(logout);
@@ -208,6 +209,7 @@ nb_api.controller('LoginCtrl', [
             $scope.alert_text = '';
             $scope.alert_class = '';
             $scope.form_disabled = true;
+            nbClient.save_token('');
 
             return nbClient.create_auth({
                     email: $scope.email,
@@ -230,6 +232,7 @@ nb_api.controller('LoginCtrl', [
             $scope.alert_text = '';
             $scope.alert_class = '';
             $scope.form_disabled = true;
+            nbClient.save_token('');
 
             return nbAlertify.prompt_password('Verify your password')
                 .then(function(str) {

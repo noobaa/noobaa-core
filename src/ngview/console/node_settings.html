@@ -34,32 +34,20 @@
 
     <div class="row">
         <div class="heading-col col-sm-3">
-            <h4 class="text-primary">Operational state</h4>
+            <h4 class="text-primary">Operation mode</h4>
         </div>
-        <div class="content-col col-sm-3">
-            <form class="form">
-                <div class="radio radio-success">
-                    <label>
-                        <input type="radio" name="commission" value="commission" checked="">
-                        Commission
-                    </label>
-                </div>
-                <div class="radio radio-success">
-                    <label>
-                        <input type="radio" name="commission" value="decommission">
-                        Decommission
-                    </label>
-                </div>
-                <button class="btn btn-default btn-flat" ng-disabled="">
-                    Update
-                </button>
-            </form>
+        <div class="content-col col-sm-6">
+            <div class="btn-group">
+                <button class="btn btn-success">Serving</button>
+                <button class="btn btn-default">Pause</button>
+                <button class="btn btn-default">Decommission</button>
+            </div>
         </div>
     </div>
 
     <hr/>
 
-    <div class="row">
+    <!-- <div class="row">
         <div class="heading-col col-sm-3">
             <h4 class="text-primary">Delete</h4>
         </div>
@@ -68,7 +56,7 @@
                 Delete permanently
             </button>
         </div>
-    </div>
+    </div> -->
 
     <br/>
 

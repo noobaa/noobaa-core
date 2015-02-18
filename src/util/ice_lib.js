@@ -130,7 +130,7 @@ var connect = function (socket) {
 };
 
 function keepalive(socket) {
-    writeLog(socket, 'send keepalive');
+    writeLog(socket, 'send keepalive from '+socket.idInServer);
     try {
         socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
     } catch (ex) {
@@ -147,6 +147,11 @@ function disconnect(socket) {
     writeLog(socket, 'called disconnect ws');
     if (!socket.ws) return;
     writeLog(socket, 'called disconnect ws - clear interval and close');
+    try {
+        ws.close();
+    } catch (err) {
+        // do nothing
+    }
     try {
         clearInterval(socket.alive_interval);
         socket.ws = null;
@@ -428,9 +433,6 @@ function onIceMessage(channel) {
 exports.closeSignaling = function closeSignaling(socket) {
     if (!socket.isAgent) {
         try {
-            if (socket.ws) {
-                socket.ws.close();
-            }
             disconnect(socket);
             clearInterval(socket.stale_conn_interval);
             socket.stale_conn_interval = null;

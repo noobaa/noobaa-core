@@ -2,6 +2,13 @@ var ice = require('./ice_lib');
 var Q = require('q');
 var buf = require('./buffer_utils');
 var rand = require('./random_utils');
+var dbg = require('../util/dbg')(__filename);
+var dotenv = require('dotenv');
+
+if (!process.env.CHUNK_SIZE) {
+    console.log('loading .env file');
+    dotenv.load();
+}
 
 var handleRequestMethod;
 
@@ -9,8 +16,13 @@ var exports = module.exports = {};
 
 var isAgent;
 
-var chunk_size = 60000;
 var partSize = 8;
+
+var params = {
+    chunk_size: parseInt(process.env.CHUNK_SIZE),
+    connection_data_stale: parseInt(process.env.CONN_STALE),
+    check_stale_conns: parseInt(process.env.CHK_CONN_STALE)
+};
 
 var wsClientSocket;
 
@@ -31,14 +43,14 @@ function writeLog(msg) {
 }
 
 function onIceMessage(channel, event) {
-    writeLog('Got event '+event.data+' ; my id: '+channel.myId);
+    dbg.log0('Got event '+event.data+' ; my id: '+channel.myId);
 
     if (typeof event.data == 'string' || event.data instanceof String) {
-        writeLog('got message str '+require('util').inspect(event.data));
+        dbg.log0('got message str '+require('util').inspect(event.data));
         try {
             var message = JSON.parse(event.data);
 
-            writeLog('got message str ' + message + ' --- from --- ' + event.data);
+            dbg.log0('got message str ' + message + ' --- from --- ' + event.data);
 
             channel.peer_msg = message;
 
@@ -66,7 +78,7 @@ function onIceMessage(channel, event) {
             var part = bff.readInt8(0);
             channel.chunks_map[part] = event.data.slice(partSize);
 
-            writeLog('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + channel.received_size);
+            dbg.log0('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + channel.received_size);
 
             channel.chunk_num++;
 
@@ -108,26 +120,25 @@ function createBufferToSend(block, seq) {
 }
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block) {
-    if (block.byteLength > chunk_size) {
+    var counter = 0;
+    if (block.byteLength > params.chunk_size) {
         var begin = 0;
-        var end = chunk_size;
-        var counter = 0;
+        var end = params.chunk_size;
+
         while (end < block.byteLength) {
-
             channel.send(createBufferToSend(block.slice(begin, end), counter));
-
-            writeLog('send chunk '+counter+ ' size: ' + chunk_size);
+            dbg.log0('send chunk '+counter+ ' size: ' + params.chunk_size);
             begin = end;
-            end = end + chunk_size;
+            end = end + params.chunk_size;
             counter++;
         }
         var bufToSend = block.slice(begin);
         channel.send(createBufferToSend(bufToSend, counter));
-        writeLog('send last chunk '+counter+ ' size: ' + bufToSend.byteLength);
+        dbg.log0('send last chunk '+counter+ ' size: ' + bufToSend.byteLength);
 
     } else {
-        writeLog('send chunk all at one, size: '+block.byteLength);
-        channel.send(createBufferToSend(block), counter);
+        dbg.log0('send chunk all at one, size: '+block.byteLength);
+        channel.send(createBufferToSend(block, counter));
     }
 };
 exports.writeBufferToSocket = writeBufferToSocket;
@@ -137,20 +148,20 @@ exports.writeBufferToSocket = writeBufferToSocket;
  * handle stale connections
  ********************************/
 function staleConnChk() {
-    writeLog('BEFORE stale ws connection');
+    dbg.log0('BEFORE stale ws connection');
     if (isAgent || !wsClientSocket)
         return;
 
-    writeLog('START chk for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
+    dbg.log0('START chk for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
     var now = (new Date()).getTime();
 
-    if (now - wsClientSocket.lastTimeUsed > (1*60*1000)) {
+    if (now - wsClientSocket.lastTimeUsed > params.connection_data_stale) {
         ice.closeSignaling(wsClientSocket.ws_socket);
         clearInterval(wsClientSocket.interval);
         wsClientSocket = null;
     }
 
-    writeLog('AFTER looking for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
+    dbg.log0('AFTER looking for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
 }
 
 exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, buffer) {
@@ -162,7 +173,7 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
     }
 
     return Q.fcall(function() {
-        writeLog('starting setup');
+        dbg.log0('starting setup');
 
         if (ws_socket) {
             sigSocket = ws_socket;
@@ -171,15 +182,15 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
         }
 
         if (!sigSocket) {
-            writeLog('CREATE NEW CONN');
+            dbg.log0('CREATE NEW WS CONN');
             sigSocket = ice.setup(onIceMessage, agentId);
         }
 
         if (!isAgent) {
             var interval;
             if (!wsClientSocket) {
-                writeLog('SET INTERVAL stale ws connection');
-                interval = setInterval(function(){staleConnChk();}, (1*60*1000));
+                dbg.log0('SET INTERVAL stale ws connection');
+                interval = setInterval(function(){staleConnChk();}, params.check_stale_conns);
             } else {
                 interval = wsClientSocket.interval;
             }
@@ -189,7 +200,7 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
         if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
         else return Q.fcall(function() {return sigSocket});
     }).then(function() {
-        writeLog('starting to initiate ice to '+peerId);
+        dbg.log0('starting to initiate ice to '+peerId);
         var requestId = 'req-' + rand.getRandomInt(10000,90000) + "-end";
         return ice.initiateIce(sigSocket, peerId, true, requestId);
     }).then(function(newSocket) {
@@ -208,16 +219,16 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
 
         return iceSocket.action_defer.promise;
     }).then(function(channel) {
-        writeLog('close ice socket');
+        dbg.log0('close ice socket');
         iceSocket.close();
 
         var response = channel.peer_msg;
         if (channel.buffer) {
-            writeLog('response: has buffer ' + Buffer.isBuffer(channel.buffer));
+            dbg.log0('response: has buffer ' + Buffer.isBuffer(channel.buffer));
             response.data = channel.buffer;
         }
 
-        writeLog('response: '+response + ' ; ' + require('util').inspect(response));
+        dbg.log0('response: '+response + ' ; ' + require('util').inspect(response));
 
         return response;
     }).then(null, function(err) {

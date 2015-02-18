@@ -520,7 +520,7 @@ function rest_api(api) {
         };
 
         if (self.options.peer) { // do ice
-            writeLog(self.options, 'do ice ' + (self.options.ws_socket ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
+            dbg.log0('do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;
 
@@ -530,11 +530,11 @@ function rest_api(api) {
                 } else {
                     buffer = body;
                 }
+
                 return ice_api.sendRequest(self.options.ws_socket, peerId, options, null, buffer);
             })
             .then(function(res) {
-
-                writeLog(self.options, 'res is: '+ require('util').inspect(res));
+                dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
 
                 if (!func_info.reply_raw) {
                     // check the json reply
@@ -549,7 +549,7 @@ function rest_api(api) {
                 console.error('REST REQUEST CATCH '+ err.stack);
             });
         } else { // do http
-            writeLog(self.options, 'do http req '+options.path);
+            dbg.log0(self.options, 'do http req '+options.path);
             return Q.fcall(function() {
                 return self._http_request(options, body);
             }).then(read_http_response)
@@ -664,7 +664,6 @@ rest_api.global_client_options = {
         this.port = u.port;
     },
     set_peer: function (peer) {
-        console.error('SET PEER '+peer);
         this.peer = peer;
     },
 

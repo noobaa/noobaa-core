@@ -3,12 +3,7 @@ var Q = require('q');
 var buf = require('./buffer_utils');
 var rand = require('./random_utils');
 var dbg = require('../util/dbg')(__filename);
-var dotenv = require('dotenv');
-
-if (!process.env.CHUNK_SIZE) {
-    console.log('loading .env file');
-    dotenv.load();
-}
+var config = require('../../config.js');
 
 var handleRequestMethod;
 
@@ -17,12 +12,6 @@ var exports = module.exports = {};
 var isAgent;
 
 var partSize = 8;
-
-var params = {
-    chunk_size: parseInt(process.env.CHUNK_SIZE),
-    connection_data_stale: parseInt(process.env.CONN_STALE),
-    check_stale_conns: parseInt(process.env.CHK_CONN_STALE)
-};
 
 var wsClientSocket;
 
@@ -121,15 +110,15 @@ function createBufferToSend(block, seq) {
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block) {
     var counter = 0;
-    if (block.byteLength > params.chunk_size) {
+    if (block.byteLength > config.chunk_size) {
         var begin = 0;
-        var end = params.chunk_size;
+        var end = config.chunk_size;
 
         while (end < block.byteLength) {
             channel.send(createBufferToSend(block.slice(begin, end), counter));
-            dbg.log0('send chunk '+counter+ ' size: ' + params.chunk_size);
+            dbg.log0('send chunk '+counter+ ' size: ' + config.chunk_size);
             begin = end;
-            end = end + params.chunk_size;
+            end = end + config.chunk_size;
             counter++;
         }
         var bufToSend = block.slice(begin);
@@ -155,7 +144,7 @@ function staleConnChk() {
     dbg.log0('START chk for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
     var now = (new Date()).getTime();
 
-    if (now - wsClientSocket.lastTimeUsed > params.connection_data_stale) {
+    if (now - wsClientSocket.lastTimeUsed > config.connection_data_stale) {
         ice.closeSignaling(wsClientSocket.ws_socket);
         clearInterval(wsClientSocket.interval);
         wsClientSocket = null;
@@ -168,7 +157,7 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
     var iceSocket;
     var sigSocket;
 
-    if (agentId) {
+    if (agentId || (ws_socket && ws_socket.isAgent)) {
         isAgent = true;
     }
 
@@ -190,7 +179,7 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
             var interval;
             if (!wsClientSocket) {
                 dbg.log0('SET INTERVAL stale ws connection');
-                interval = setInterval(function(){staleConnChk();}, params.check_stale_conns);
+                interval = setInterval(function(){staleConnChk();}, config.check_stale_conns);
             } else {
                 interval = wsClientSocket.interval;
             }
@@ -224,11 +213,9 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
 
         var response = channel.peer_msg;
         if (channel.buffer) {
-            dbg.log0('response: has buffer ' + Buffer.isBuffer(channel.buffer));
+            dbg.log0('response: '+response+' has buffer ' + Buffer.isBuffer(channel.buffer));
             response.data = channel.buffer;
         }
-
-        dbg.log0('response: '+response + ' ; ' + require('util').inspect(response));
 
         return response;
     }).then(null, function(err) {

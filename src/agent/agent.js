@@ -144,7 +144,7 @@ Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
-    console.log('start agent', self.node_id, self.peer_id);
+    console.log('start agent id: '+ self.node_id+' peer id: '+ self.peer_id);
 
     return Q.fcall(function() {
             return self._init_node();
@@ -176,7 +176,7 @@ Agent.prototype.start = function() {
  */
 Agent.prototype.stop = function() {
     var self = this;
-    console.log('stop agent', self.node_id);
+    console.log('stop agent '+ self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
     self._start_stop_heartbeats();
@@ -281,7 +281,7 @@ Agent.prototype._start_stop_http_server = function() {
  */
 Agent.prototype._server_listening_handler = function() {
     this.http_port = this.http_server.address().port;
-    console.log('AGENT server listening on port', this.http_port);
+    console.log('AGENT server listening on port '+ this.http_port);
 };
 
 
@@ -418,12 +418,7 @@ Agent.prototype._start_stop_heartbeats = function() {
         ms = ms || (60000 * (1 + Math.random())); // default 1 minute
         ms = Math.max(ms, 1000); // force above 1 second
         ms = Math.min(ms, 300000); // force below 5 minutes
-        try{
-            self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
-        } catch (ex) {
-            console.error("prob 55555");
-        }
-
+        self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
     }
 };
 

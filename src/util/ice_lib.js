@@ -2,26 +2,13 @@ var WebSocket = require('ws');
 var Q = require('q');
 var rand = require('./random_utils');
 var dbg = require('../util/dbg')(__filename);
-var dotenv = require('dotenv');
-
-if (!process.env.STUN_SERVER) {
-    console.log('loading .env file');
-    dotenv.load();
-}
+var config = require('../../config.js');
 
 var configuration = {
-    'iceServers': [{'url': process.env.STUN_SERVER}]
+    'iceServers': [{'url': config.stun}]
 };
 
 var exports = module.exports = {};
-
-var params = {
-    address: process.env.SIGNALING_SERVER_URL,
-    alive_delay: parseInt(process.env.KEEP_ALIVE_DELAY),
-    reconnect_delay: parseInt(process.env.RECONNECT_DELAY),
-    connection_data_stale: parseInt(process.env.CONN_STALE),
-    check_stale_conns: parseInt(process.env.CHK_CONN_STALE)
-};
 
 var callbackOnPeerMsg;
 
@@ -43,7 +30,7 @@ var connect = function (socket) {
     }
 
     try {
-        var ws = new WebSocket(params.address);
+        var ws = new WebSocket(config.address);
 
         ws.onopen = (function () {
 
@@ -54,7 +41,7 @@ var connect = function (socket) {
 
             socket.alive_interval = setInterval(function () {
                 keepalive(socket);
-            }, params.alive_delay);
+            }, config.alive_delay);
 
             });
 
@@ -114,7 +101,7 @@ var connect = function (socket) {
             setTimeout(
                 function () {
                     reconnect(socket);
-                }, params.reconnect_delay);
+                }, config.reconnect_delay);
             });
 
         ws.onclose = (function () {
@@ -124,7 +111,7 @@ var connect = function (socket) {
                 setTimeout(
                     function () {
                         connect(socket);
-                    }, params.reconnect_delay);
+                    }, config.reconnect_delay);
             }
         });
 
@@ -188,7 +175,7 @@ function staleConnChk(socket) {
     var toDel = [];
     for (var iceObjChk in socket.icemap) {
         dbg.log0('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
-        if (now - socket.icemap[iceObjChk].created.getTime() > params.connection_data_stale) {
+        if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale) {
             toDel.push(iceObjChk);
         }
     }
@@ -255,8 +242,8 @@ function createPeerConnection(socket, channelId, config) {
 
         // send any ice candidates to the other peer
         channelObj.peerConn.onicecandidate = function (event) {
-            dbg.log0('onIceCandidate event:'+ event);
             if (event.candidate) {
+                dbg.log0('onIceCandidate event:'+ require('util').inspect(event.candidate.candidate));
                 sendMessage(socket, channelObj.peerId, channelObj.requestId, {
                     type: 'candidate',
                     label: event.candidate.sdpMLineIndex,
@@ -455,7 +442,7 @@ exports.setup = function setup(msgCallback, agentId) {
 
     callbackOnPeerMsg = msgCallback;
 
-    socket.stale_conn_interval = setInterval(function(){staleConnChk(socket);}, params.check_stale_conns);
+    socket.stale_conn_interval = setInterval(function(){staleConnChk(socket);}, config.check_stale_conns);
 
     return connect(socket);
 

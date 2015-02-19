@@ -175,7 +175,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                                     // push parts down the pipe
                                     var part;
                                     for (var i = 0; i < res.parts.length; i++) {
-                                        if (res.parts[i].dedup) {
+                                        if (require('../../config.js').doDedup && res.parts[i].dedup) {
                                             part = parts[i];
                                             part.dedup = true;
                                             dbg.log0('upload_stream: DEDUP part', part.start);
@@ -201,7 +201,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                             highWaterMark: 30
                         },
                         transform: function(part) {
-                            if (part.dedup) return;
+                            if (require('../../config.js').doDedup && part.dedup) return;
                             return self._write_part_blocks(
                                     params.bucket, params.key, part)
                                 .thenResolve(part);
@@ -232,7 +232,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                                     bucket: params.bucket,
                                     key: params.key,
                                     parts: _.compact(_.map(parts, function(part) {
-                                        if (part.dedup) return;
+                                        if (require('../../config.js').doDedup && part.dedup) return;
                                         var block_ids = _.pluck(_.pluck(
                                             _.flatten(part.fragments), 'address'), 'id');
                                         return {
@@ -298,7 +298,7 @@ ObjectClient.prototype.upload_stream = function(params) {
 ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
     var self = this;
 
-    if (part.dedup) {
+    if (require('../../config.js').doDedup && part.dedup) {
         dbg.log0('DEDUP', range_utils.human_range(part));
         return part;
     }

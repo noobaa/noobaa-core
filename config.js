@@ -8,6 +8,7 @@ config.connection_data_stale = 1 * 60 * 1000;
 config.check_stale_conns = 1 * 60 * 1000;
 config.stun='stun:stun.l.google.com:19302';
 config.chunk_size = 60 * 1000;
+config.doDedup = false;
 
 module.exports = config;
 

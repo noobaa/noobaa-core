@@ -72,7 +72,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
                 var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
                 var chunk;
-                if (dup_chunk) {
+                if (require('../../config.js').doDedup && dup_chunk) {
                     chunk = dup_chunk;
                     reply.parts[i].dedup = true;
                 } else {
@@ -113,7 +113,7 @@ function allocate_object_parts(bucket, obj, parts) {
             });
             _.each(new_parts, function(part, i) {
                 var reply_part = reply.parts[i];
-                if (reply_part.dedup) return;
+                if (require('../../config.js').doDedup && reply_part.dedup) return;
                 var new_blocks = blocks_by_chunk[part.chunks[0].chunk];
                 var chunk = new_blocks[0].chunk;
                 dbg.log0('part info', part,

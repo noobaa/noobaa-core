@@ -144,7 +144,6 @@ Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
-    console.log('start agent id: '+ self.node_id+' peer id: '+ self.peer_id);
 
     return Q.fcall(function() {
             return self._init_node();
@@ -156,6 +155,9 @@ Agent.prototype.start = function() {
             return self.send_heartbeat();
         })
         .then(function() {
+
+            console.log('start ws agent id: '+ self.node_id+' peer id: '+ self.peer_id);
+
             self.sigSocket = ice_api.signalingSetup(self.agent_server.ice_server_handler.bind(self.agent_server),
                 self.peer_id);
             self.client.options.set_ws(self.sigSocket);
@@ -214,8 +216,8 @@ Agent.prototype._init_node = function() {
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
                 self.peer_id = res.extra.peer_id;
-                console.log('authorized node', self.node_name,
-                    'id', self.node_id, 'peer_id', self.peer_id);
+                console.log('authorized node '+ self.node_name+
+                    ' id '+ self.node_id+ ' peer_id '+ self.peer_id);
                 return;
             }
 
@@ -461,6 +463,7 @@ Agent.prototype.replicate_block = function(req) {
     var agent = new api.agent_api.Client();
     agent.options.set_address(source.host);
     agent.options.set_peer(source.peer);
+    agent.options.set_ws(self.sigSocket);
     return agent.read_block({
             block_id: source.id
         })

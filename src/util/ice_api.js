@@ -137,20 +137,17 @@ exports.writeBufferToSocket = writeBufferToSocket;
  * handle stale connections
  ********************************/
 function staleConnChk() {
-    dbg.log0('BEFORE stale ws connection');
     if (isAgent || !wsClientSocket)
         return;
 
-    dbg.log0('START chk for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
     var now = (new Date()).getTime();
 
     if (now - wsClientSocket.lastTimeUsed > config.connection_data_stale) {
+        dbg.log0('REMOVE stale ws connection to remove - client as '+require('util').inspect(wsClientSocket.ws_socket.idInServer));
         ice.closeSignaling(wsClientSocket.ws_socket);
         clearInterval(wsClientSocket.interval);
         wsClientSocket = null;
     }
-
-    dbg.log0('AFTER looking for stale ws connection to remove - client '+require('util').inspect(wsClientSocket));
 }
 
 exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, buffer) {

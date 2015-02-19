@@ -170,7 +170,6 @@ function sendMessage(socket, peerId, requestId, message) {
  * handle stale connections
  ********************************/
 function staleConnChk(socket) {
-    dbg.log0('looking for stale ice connections to remove');
     var now = (new Date()).getTime();
     var toDel = [];
     for (var iceObjChk in socket.icemap) {
@@ -255,6 +254,11 @@ function createPeerConnection(socket, channelId, config) {
             }
         };
 
+        /*channelObj.peerConn.oniceconnectionstatechange = function(evt) {
+            // checking / connected / completed
+            dbg.log0(channelObj.peerId+" ICE connection state change: " + evt.target.iceConnectionState);
+        };*/
+
         if (channelObj.isInitiator) {
             dbg.log0('Creating Data Channel');
             try {
@@ -275,8 +279,6 @@ function createPeerConnection(socket, channelId, config) {
                 if (channelObj.connect_defer) channelObj.connect_defer.reject();
             }
         }
-
-
 
         channelObj.peerConn.ondatachannel = function (event) {
             dbg.log0('ondatachannel:'+ event.channel);

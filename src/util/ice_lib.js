@@ -190,7 +190,14 @@ function staleConnChk(socket) {
 /* /////////////////////////////////////////// */
 var initiateIce = function initiateIce(socket, peerId, isInitiator, requestId) {
 
-    var channelObj = getChannelObj(socket, peerId, requestId, isInitiator);
+    socket.icemap[requestId] = {
+        "peerId": peerId,
+        "isInitiator": isInitiator,
+        "requestId": requestId,
+        "created": new Date()
+    };
+
+    var channelObj = socket.icemap[requestId];
 
     if (isInitiator) {
         dbg.log0('send accept to peer ' + peerId);
@@ -234,27 +241,39 @@ function createPeerConnection(socket, requestId, config) {
         // send any ice candidates to the other peer
         channelObj.peerConn.onicecandidate = function (event) {
             if (event.candidate) {
-                dbg.log0('onIceCandidate event:'+ require('util').inspect(event.candidate.candidate));
-                sendMessage(socket, channelObj.peerId, channelObj.requestId, {
+                dbg.log0(channelObj.peerId+' onIceCandidate event: '+
+                    require('util').inspect(event.candidate.candidate) +
+                    ' state is '+event.target.iceGatheringState);
+                sendMessage(socket, channelObj.peerId, channelObj.requestId, JSON.stringify({
                     type: 'candidate',
                     label: event.candidate.sdpMLineIndex,
                     id: event.candidate.sdpMid,
                     candidate: event.candidate.candidate
-                });
+                }));
             } else {
-                dbg.log0('End of candidates.');
+                dbg.log0(channelObj.peerId+' End of candidates. state is '+event.target.iceGatheringState);
             }
         };
 
-        /*channelObj.peerConn.oniceconnectionstatechange = function(evt) {
-            // checking / connected / completed
-            dbg.log0(channelObj.peerId+" ICE connection state change: " + evt.target.iceConnectionState);
-        };*/
+        channelObj.peerConn.oniceconnectionstatechange = function(evt) {
+            /*
+             failed:
+             The ICE agent is finished checking all candidate pairs and failed to find a connection for at least one component. Connections may have been found for some components.
+             disconnected:
+             Liveness checks have failed for one or more components. This is more aggressive than failed and may trigger intermittently (and resolve itself without action) on a flaky network.
+             closed:
+             The ICE agent has shut down and is no longer responding to STUN requests.
+             */
+            if (evt.target.iceConnectionState === 'failed') {
+                dbg.log0(channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
+            }
+        };
 
         if (channelObj.isInitiator) {
             dbg.log0('Creating Data Channel');
             try {
-                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa");
+                var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};
+                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa"); // TODO  ? dtConfig
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating Data Channel ' + ex);
@@ -262,10 +281,16 @@ function createPeerConnection(socket, requestId, config) {
             }
 
             dbg.log0('Creating an offer');
+            var mediaConstraints = {
+                mandatory: {
+                    OfferToReceiveAudio: false,
+                    OfferToReceiveVideo: false
+                }
+            };
             try {
                 channelObj.peerConn.createOffer(function (desc) {
                     return onLocalSessionCreated(socket, requestId, desc);
-                }, logError);
+                }, logError); // TODO ? mediaConstraints
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating an offer ' + ex.stack);
                 if (channelObj.connect_defer) channelObj.connect_defer.reject();
@@ -302,28 +327,9 @@ function onLocalSessionCreated(socket, requestId, desc) {
     }
 }
 
-function getChannelObj(socket, peerId, requestId, isInitiator) {
-    if (!socket.icemap[requestId]) {
-
-        if (!isInitiator) {
-            console.error('#### in socket ' + socket.idInServer + ' cant find channel for peer ' + peerId + ' and req ' + requestId + ' in map -> create');
-        }
-
-        socket.icemap[requestId] = {
-            "peerId": peerId,
-            "isInitiator": (isInitiator ? isInitiator : false),
-            "requestId": requestId,
-            "created": new Date()
-        };
-    } else if (isInitiator) {
-        socket.icemap[requestId].isInitiator = true;
-    }
-    return socket.icemap[requestId];
-}
-
 function signalingMessageCallback(socket, peerId, message, requestId) {
 
-    var channelObj = getChannelObj(socket, peerId, requestId);
+    var channelObj = socket.icemap[requestId];
 
     if (message.type === 'offer') {
         dbg.log0('Got offer. Sending answer to peer. ' + peerId + ' and channel ' + requestId);
@@ -383,7 +389,7 @@ function onDataChannelCreated(socket, requestId, channel) {
 
             var channelObj = socket.icemap[requestId];
 
-            dbg.log0('ICE CHANNEL opened!!! ' + channelObj.peerId);
+            dbg.log0('ICE CHANNEL opened ' + channelObj.peerId);
 
             channel.peerId = channelObj.peerId;
             channel.myId = socket.idInServer;
@@ -400,7 +406,7 @@ function onDataChannelCreated(socket, requestId, channel) {
         channel.onmessage = onIceMessage(channel);
 
         channel.onclose = function () {
-            dbg.log0('ICE CHANNEL closed!!! ' + channel.peerId);
+            dbg.log0('ICE CHANNEL closed ' + channel.peerId);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }

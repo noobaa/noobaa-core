@@ -144,6 +144,7 @@ function allocate_object_parts(bucket, obj, parts) {
  */
 function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.map(parts, 'block_ids'));
+    dbg.log3('finalize_object_parts', block_ids);
     var chunks;
     return Q.all([
             // find parts by start offset
@@ -180,6 +181,7 @@ function finalize_object_parts(bucket, obj, parts) {
             }));
             var chunk_by_id = _.indexBy(chunks, '_id');
             _.each(blocks, function(block) {
+                dbg.log3('going to finalize block ',block);
                 if (!block.building) {
                     throw new Error('block not in building mode');
                 }
@@ -204,6 +206,9 @@ function finalize_object_parts(bucket, obj, parts) {
         })
         .then(function() {
             return build_chunks(chunks);
+        }).then(null, function(err) {
+            console.error('error finalize_object_parts '+err+' ; '+err.stack);
+            throw err;
         });
 }
 
@@ -620,7 +625,7 @@ function build_chunks(chunks) {
             // send to the agent a request to replicate from the source
 
             if (!blocks_to_build.length) return;
-            var sem = new Semaphore(32);
+            var sem = new Semaphore(1);
 
             dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
             return Q.all(_.map(blocks_to_build, function(block) {
@@ -633,10 +638,17 @@ function build_chunks(chunks) {
                         return agent.replicate_block({
                             block_id: block._id.toString(),
                             source: source_addr
-                        }).thenResolve(block._id);
+                        }).then(function() {
+                            dbg.log3('replicated block', block._id);
+                        }, function(err) {
+                            dbg.log0('ERROR replicate block', block._id, err);
+                            throw err;
+                        })
+                            .thenResolve(block._id);
                     });
                 }))
                 .then(function(built_block_ids) {
+                    dbg.log3('replicated blocks', built_block_ids);
 
                     // update building blocks to remove the building mode timestamp
                     return db.DataBlock.update({
@@ -673,6 +685,7 @@ function build_chunks(chunks) {
 setTimeout(build_worker, 5000);
 
 function build_worker() {
+
     var last_chunk_id;
     var batch_size = 100;
     var time_since_last_build = 3000; // TODO increase...

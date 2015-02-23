@@ -686,6 +686,8 @@ setTimeout(build_worker, 5000);
 
 function build_worker() {
 
+    if (!(require('../../config.js').buildWorkerOn)) return;
+
     var last_chunk_id;
     var batch_size = 100;
     var time_since_last_build = 3000; // TODO increase...

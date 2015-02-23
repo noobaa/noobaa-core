@@ -9,6 +9,7 @@ config.check_stale_conns = 1 * 60 * 1000;
 config.stun='stun:stun.l.google.com:19302';
 config.chunk_size = 60 * 1000;
 config.doDedup = false;
+config.buildWorkerOn = false;
 
 module.exports = config;
 

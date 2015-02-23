@@ -519,7 +519,7 @@ function rest_api(api) {
             responseType: 'arraybuffer'
         };
 
-        if (self.options.peer) { // do ice
+        if (self.options.peer && (!self.options.ws_socket || self.options.peer != self.options.ws_socket.idInServer)) { // do ice
             dbg.log0('do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;

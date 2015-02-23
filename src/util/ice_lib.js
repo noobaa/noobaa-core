@@ -3,21 +3,13 @@ var Q = require('q');
 var rand = require('./random_utils');
 var dbg = require('../util/dbg')(__filename);
 var config = require('../../config.js');
+var zlib = require('zlib');
 
 var configuration = {
     'iceServers': [{'url': config.stun}]
 };
 
 var exports = module.exports = {};
-
-var callbackOnPeerMsg;
-
-function Socket(idInServer) {
-    var self = this;
-    self.idInServer = idInServer;
-    self.isAgent = idInServer ? true : false;
-    self.icemap = {};
-}
 
 /********************************
  * connection to signaling server
@@ -47,6 +39,8 @@ var connect = function (socket) {
 
         ws.onmessage = (function (msgRec) {
 
+            //dbg.log0('#### got msg '+require('util').inspect(msgRec));
+
             if (typeof msgRec == 'string' || msgRec instanceof String) {
                 try {
                     msgRec = JSON.parse(msgRec);
@@ -70,7 +64,7 @@ var connect = function (socket) {
 
             if (message.sigType === 'id') {
                 if (socket.isAgent) {
-                    dbg.log0('id from server ignored');
+                    dbg.log0('id '+ message.id+' from server ignored, i am '+socket.idInServer);
                 } else {
                     dbg.log0('id ' + message.id);
                     socket.idInServer = message.id;
@@ -79,10 +73,19 @@ var connect = function (socket) {
                     }
                 }
             } else if (message.sigType === 'ice') {
-                dbg.log0('Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
-                signalingMessageCallback(socket, message.from, message.data, message.requestId);
+                if (typeof message.data == 'string' || message.data instanceof String) {
+                    var buf = new Buffer(message.data, 'binary');
+                    zlib.gunzip(buf, function (err, msgData) {
+                        msgData = JSON.parse(msgData);
+                        dbg.log0('Got ice from ' + message.from + ' to ' + message.to + ' data ' + msgData + (err ? ' gzip error '+err : '')+' i am '+socket.idInServer);
+                        signalingMessageCallback(socket, message.from, msgData, message.requestId);
+                    });
+                } else {
+                    dbg.log0('Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
+                    signalingMessageCallback(socket, message.from, message.data, message.requestId);
+                }
             } else if (message.sigType === 'accept') {
-                dbg.log0('Got accept ' + message);
+                dbg.log0('Got accept ' + message + ' from '+message.from+' to '+message.to+' i am '+socket.idInServer);
                 initiateIce(socket, message.from, false, message.requestId);
             } else if (message.sigType === 'keepalive') {
                 // nothing
@@ -157,13 +160,28 @@ function disconnect(socket) {
 
 function sendMessage(socket, peerId, requestId, message) {
     dbg.log0('Client sending message: '+ message);
-    socket.ws.send(JSON.stringify({
+
+    var toSend = {
         sigType: 'ice',
         from: socket.idInServer,
         to: peerId,
-        requestId: requestId,
-        data: message
-    }));
+        requestId: requestId
+    };
+
+    if (typeof message == 'string' || message instanceof String) {
+        var buf = new Buffer(message, 'utf-8');
+        zlib.gzip(buf, function (err, result) {
+            result = result.toString('binary');
+            if (err) {
+                console.error('sending ice msg gzip error '+err);
+            }
+            toSend.data = result;
+            socket.ws.send(JSON.stringify(toSend));
+        });
+    } else {
+        toSend.data = message;
+        socket.ws.send(JSON.stringify(toSend));
+    }
 }
 
 /********************************
@@ -174,7 +192,7 @@ function staleConnChk(socket) {
     var toDel = [];
     for (var iceObjChk in socket.icemap) {
         dbg.log0('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
-        if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale) {
+        if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale || socket.icemap[iceObjChk].done) {
             toDel.push(iceObjChk);
         }
     }
@@ -200,15 +218,13 @@ var initiateIce = function initiateIce(socket, peerId, isInitiator, requestId) {
     var channelObj = socket.icemap[requestId];
 
     if (isInitiator) {
-        dbg.log0('send accept to peer ' + peerId);
+        dbg.log0('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
         socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
-    }
-
-    createPeerConnection(socket, requestId, configuration);
-
-    if (isInitiator) {
+        createPeerConnection(socket, requestId, configuration);
         channelObj.connect_defer = Q.defer();
         return channelObj.connect_defer.promise;
+    } else {
+        createPeerConnection(socket, requestId, configuration);
     }
 };
 
@@ -226,6 +242,9 @@ function writeLog(socket, msg) {
 
 function createPeerConnection(socket, requestId, config) {
     var channelObj = socket.icemap[requestId];
+    if (!channelObj) {
+        dbg.log0('PROBLEM Creating Peer connection no channel !!!ß');
+    }
 
     try {
         dbg.log0('Creating Peer connection as initiator ' + channelObj.isInitiator + ' config: ' + config);
@@ -318,7 +337,7 @@ function onLocalSessionCreated(socket, requestId, desc) {
     var channelObj = socket.icemap[requestId];
     try {
         channelObj.peerConn.setLocalDescription(desc, function () {
-            dbg.log0('sending local desc:'+ channelObj.peerConn.localDescription);
+            dbg.log0('sending local desc:' + channelObj.peerConn.localDescription);
             sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.localDescription);
         }, logError);
     } catch (ex) {
@@ -330,15 +349,14 @@ function onLocalSessionCreated(socket, requestId, desc) {
 function signalingMessageCallback(socket, peerId, message, requestId) {
 
     var channelObj = socket.icemap[requestId];
+    if (!channelObj) {
+        //dbg.log0('problem NO channelObj for req '+requestId+' and peer '+peerId);
+    }
 
     if (message.type === 'offer') {
         dbg.log0('Got offer. Sending answer to peer. ' + peerId + ' and channel ' + requestId);
 
         try {
-            if (channelObj.peerConn) {
-            } else {
-                createPeerConnection(socket, requestId, configuration);
-            }
             channelObj.peerConn.setRemoteDescription(new RTCSessionDescription(message), function () {
             }, logError);
             channelObj.peerConn.createAnswer(function (desc) {
@@ -346,33 +364,32 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
             }, logError);
         } catch (ex) {
             writeLog(socket, 'problem in offer ' + ex.stack);
+            channelObj = socket.icemap[requestId];
             if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
         }
 
     } else if (message.type === 'answer') {
         try {
             dbg.log0('Got answer.' + peerId + ' and channel ' + requestId);
-            if (channelObj.peerConn) {
-            } else {
-                createPeerConnection(socket, requestId, configuration);
-            }
             channelObj.peerConn.setRemoteDescription(new RTCSessionDescription(message), function () {
             }, logError);
         } catch (ex) {
             writeLog(socket, 'problem in answer ' + ex);
+            channelObj = socket.icemap[requestId];
             if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
         }
 
     } else if (message.type === 'candidate') {
         try {
             dbg.log0('Got candidate.' + peerId + ' and channel ' + requestId);
-            if (channelObj.peerConn) {
+            if (channelObj && !channelObj.done) {
+                channelObj.peerConn.addIceCandidate(new RTCIceCandidate({candidate: message.candidate}));
             } else {
-                createPeerConnection(socket, requestId, configuration);
+                dbg.log0('Got candidate.' + peerId + ' and channel ' + requestId + ' CANNOT HANDLE connection removed/done');
             }
-            channelObj.peerConn.addIceCandidate(new RTCIceCandidate({candidate: message.candidate}));
         } catch (ex) {
-            writeLog(socket, 'problem in candidate ' + ex+ ', msg was: '+message.candidate);
+            writeLog(socket, 'problem in candidate fro req '+ requestId +' ex:' + ex+ ', msg was: '+message.candidate);
+            channelObj = socket.icemap[requestId];
             if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
         }
     } else if (message === 'bye') {
@@ -389,10 +406,12 @@ function onDataChannelCreated(socket, requestId, channel) {
 
             var channelObj = socket.icemap[requestId];
 
-            dbg.log0('ICE CHANNEL opened ' + channelObj.peerId);
+            dbg.log0('ICE CHANNEL opened ' + channelObj.peerId+' i am '+socket.idInServer + ' for request '+requestId);
 
             channel.peerId = channelObj.peerId;
             channel.myId = socket.idInServer;
+            channel.callbackOnPeerMsg = socket.callbackOnPeerMsg;
+            channel.handleRequestMethod = socket.handleRequestMethod;
 
             if (channelObj.connect_defer) {
                 dbg.log0('connect defer - resolve');
@@ -400,7 +419,6 @@ function onDataChannelCreated(socket, requestId, channel) {
             } else {
                 dbg.log0('no connect defer');
             }
-            delete socket.icemap[requestId];
         };
 
         channel.onmessage = onIceMessage(channel);
@@ -410,7 +428,7 @@ function onDataChannelCreated(socket, requestId, channel) {
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }
-            delete socket.icemap[requestId];
+            socket.icemap[requestId].done = true;
         };
 
         channel.onerror = function (err) {
@@ -418,7 +436,7 @@ function onDataChannelCreated(socket, requestId, channel) {
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }
-            delete socket.icemap[requestId];
+            socket.icemap[requestId].done = true;
         };
 
     } catch (ex) {
@@ -432,7 +450,7 @@ function onDataChannelCreated(socket, requestId, channel) {
 
 function onIceMessage(channel) {
     return function onmessage(event) {
-        return callbackOnPeerMsg(channel, event);
+        return channel.callbackOnPeerMsg(channel, event);
     }
 }
 
@@ -448,13 +466,17 @@ exports.closeSignaling = function closeSignaling(socket) {
     }
 };
 
-exports.setup = function setup(msgCallback, agentId) {
+exports.setup = function setup(msgCallback, agentId, handleRequestMethod) {
 
-    var socket = new Socket(agentId);
-
-    callbackOnPeerMsg = msgCallback;
+    var socket = {
+        idInServer: agentId,
+        isAgent: agentId ? true : false,
+        icemap: {},
+        callbackOnPeerMsg: msgCallback
+    };
 
     socket.stale_conn_interval = setInterval(function(){staleConnChk(socket);}, config.check_stale_conns);
+    socket.handleRequestMethod = handleRequestMethod;
 
     return connect(socket);
 

@@ -87,13 +87,11 @@ function onIceMessage(channel, event) {
                 event.data.byteLength + " total size so far " + msgObj.received_size
                 + ' my id '+channel.myId + ' ; '+(wsClientSocket && wsClientSocket.ws_socket ? wsClientSocket.ws_socket.idInServer : ''));
 
+                var chunksParts = [];
                 for (var i = 0; i < msgObj.chunk_num; ++i) {
-                    if (msgObj.buffer) {
-                        msgObj.buffer = buf.addToBuffer(msgObj.buffer, msgObj.chunks_map[i]);
-                    } else {
-                        msgObj.buffer = buf.toBuffer(msgObj.chunks_map[i]);
-                    }
+                    chunksParts.push(buf.toBuffer(msgObj.chunks_map[i]));
                 }
+                msgObj.buffer = Buffer.concat(chunksParts, msgObj.msg_size);
 
                 if (msgObj.action_defer) {
                     msgObj.action_defer.resolve(channel);

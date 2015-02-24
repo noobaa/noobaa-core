@@ -366,7 +366,7 @@ function createPeerConnection(socket, requestId, config) {
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating Data Channel ' + ex);
-                if (channelObj.connect_defer) channelObj.connect_defer.reject();
+                if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
             }
 
             dbg.log3('Creating an offer');
@@ -382,7 +382,7 @@ function createPeerConnection(socket, requestId, config) {
                 }, logError); // TODO ? mediaConstraints
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating an offer ' + ex.stack);
-                if (channelObj.connect_defer) channelObj.connect_defer.reject();
+                if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
             }
         }
 
@@ -393,12 +393,12 @@ function createPeerConnection(socket, requestId, config) {
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
                 writeLog(socket, 'Ex on ondatachannel ' + ex.stack);
-                if (channelObj.connect_defer) channelObj.connect_defer.reject();
+                if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
             }
         };
     } catch (ex) {
         writeLog(socket, 'Ex on createPeerConnection ' + ex.stack);
-        if (channelObj.connect_defer) channelObj.connect_defer.reject();
+        if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
     }
 }
 
@@ -412,7 +412,7 @@ function onLocalSessionCreated(socket, requestId, desc) {
         }, logError);
     } catch (ex) {
         writeLog(socket, 'Ex on local session ' + ex);
-        if (channelObj.connect_defer) channelObj.connect_defer.reject();
+        if (channelObj && channelObj.connect_defer) channelObj.connect_defer.reject();
     }
 }
 
@@ -420,7 +420,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
     var channelObj = socket.icemap[requestId];
     if (!channelObj) {
-        //dbg.log0('problem NO channelObj for req '+requestId+' and peer '+peerId);
+        dbg.log0('problem NO channelObj for req '+requestId+' and peer '+peerId);
     }
 
     if (message.type === 'offer') {

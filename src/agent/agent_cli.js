@@ -17,6 +17,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
+var config = require('../../config.js');
 
 Q.longStackSupport = true;
 
@@ -35,7 +36,7 @@ function AgentCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
         root_path: './agent_storage/',
-        address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
+        address: params.prod ? config.web_address_heroku  : config.web_address,
         port: params.prod ? 5050 : 0,
         email: 'demo@noobaa.com',
         password: 'DeMo',

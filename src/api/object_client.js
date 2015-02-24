@@ -46,10 +46,10 @@ function ObjectClient(base) {
     self.MAP_RANGE_ALIGN_NBITS = 24; // log2( 16 MB )
     self.MAP_RANGE_ALIGN = 1 << self.MAP_RANGE_ALIGN_NBITS; // 16 MB
 
-    self.READ_CONCURRENCY = 1;
-    self.WRITE_CONCURRENCY = 1;
+    self.READ_CONCURRENCY = require('../../config.js').READ_CONCURRENCY;
+    self.WRITE_CONCURRENCY = require('../../config.js').WRITE_CONCURRENCY;
 
-    self.READ_RANGE_CONCURRENCY = 1;
+    self.READ_RANGE_CONCURRENCY = require('../../config.js').READ_RANGE_CONCURRENCY;
 
     self.HTTP_PART_ALIGN_NBITS = self.OBJECT_RANGE_ALIGN_NBITS + 6; // log2( 32 MB )
     self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 32 MB

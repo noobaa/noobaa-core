@@ -235,7 +235,11 @@ function rest_api(api) {
             body = msg.body;
             console.log('ice do something '+require("util").inspect(msg));
         }  else if (message instanceof ArrayBuffer) {
-            try {reqId = ''+message.readInt32LE(0); console.error('req is '+reqId);} catch (ex) {console.error('problem reading req id rest_api '+ex);}
+            try {
+                reqId = ''+buf.toBuffer(message).readInt32LE(0);
+            } catch (ex) {
+                console.error('problem reading req id rest_api '+ex+' ; '+ex.stack);
+            }
             var msgObj = channel.msgs[reqId];
             body = msgObj.buffer;
             msg = msgObj.peer_msg;

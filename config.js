@@ -11,5 +11,10 @@ config.chunk_size = 60 * 1000;
 config.doDedup = false;
 config.buildWorkerOn = false;
 
+config.READ_CONCURRENCY = 32;
+config.WRITE_CONCURRENCY = 16;
+config.READ_RANGE_CONCURRENCY = 8;
+config.REPLICATE_CONCURRENCY = 32;
+
 module.exports = config;
 

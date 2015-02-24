@@ -625,7 +625,7 @@ function build_chunks(chunks) {
             // send to the agent a request to replicate from the source
 
             if (!blocks_to_build.length) return;
-            var sem = new Semaphore(1);
+            var sem = new Semaphore(require('../../config.js').REPLICATE_CONCURRENCY);
 
             dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
             return Q.all(_.map(blocks_to_build, function(block) {

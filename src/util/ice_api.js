@@ -115,7 +115,7 @@ function onIceMessage(channel, event) {
 
 function createBufferToSend(block, seq, reqId) {
     var bufToSend = new Buffer(partSize);
-    try {reqId = parseInt(reqId, 10);}  catch (ex){console.error('fail parse '+ex);}
+    try {reqId = parseInt(reqId, 10);}  catch (ex){console.error('fail parse req id '+ex);}
     bufToSend.writeInt32LE(reqId,0);
     bufToSend.writeInt8(seq,32);
     bufToSend = buf.addToBuffer(bufToSend, block);

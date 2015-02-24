@@ -236,7 +236,7 @@ function rest_api(api) {
             console.log('ice do something '+require("util").inspect(msg));
         }  else if (message instanceof ArrayBuffer) {
             try {
-                reqId = ''+buf.toBuffer(message).readInt32LE(0);
+                reqId = ''+buf.toBuffer(message.slice(0,32)).readInt32LE(0);
             } catch (ex) {
                 console.error('problem reading req id rest_api '+ex+' ; '+ex.stack);
             }

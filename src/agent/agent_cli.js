@@ -282,7 +282,7 @@ function file_must_exist(path) {
 function main() {
 
     var args = {
-      address: 'http://127.0.0.1:5001'
+      address: config.web_address
     };
     var cli = new AgentCLI(args);
     cli.init().done(function() {

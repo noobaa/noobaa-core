@@ -227,18 +227,23 @@ function rest_api(api) {
 
         var msg;
         var body;
+        var reqId;
 
         if (typeof message == 'string' || message instanceof String) {
             msg = JSON.parse(message);
+            reqId = msg.req;
             body = msg.body;
             console.log('ice do something '+require("util").inspect(msg));
         }  else if (message instanceof ArrayBuffer) {
-            body = channel.buffer;
-            msg = channel.peer_msg;
-            console.log('ice do something with buffer '+require("util").inspect(msg));
+            try {reqId = ''+message.readInt32LE(0); console.error('req is '+reqId);} catch (ex) {console.error('problem reading req id rest_api '+ex);}
+            var msgObj = channel.msgs[reqId];
+            body = msgObj.buffer;
+            msg = msgObj.peer_msg;
+            console.log('ice do something with buffer '+require("util").inspect(msg)+' for req '+reqId);
         } else if (message.method) {
             msg = message;
             body = msg.body;
+            reqId = msg.req;
         }
         else {
             console.error('ice got weird msg '+require("util").inspect(message));
@@ -258,22 +263,27 @@ function rest_api(api) {
         var res = {
             manual: function() {
 
-                if (replyBuffer && !(replyBuffer instanceof ArrayBuffer)) {
-                    replyBuffer = buf.toArrayBuffer(replyBuffer);
-                }
+                try {
+                    if (replyBuffer && !(replyBuffer instanceof ArrayBuffer)) {
+                        replyBuffer = buf.toArrayBuffer(replyBuffer);
+                    }
 
-                console.log('done manuall status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
+                    console.log('done manuall status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
 
-                var reply = {
-                    status: status,
-                    size: (replyBuffer ? replyBuffer.byteLength : 0),
-                    data: replyJSON
-                };
+                    var reply = {
+                        status: status,
+                        size: (replyBuffer ? replyBuffer.byteLength : 0),
+                        data: replyJSON,
+                        req: reqId
+                    };
 
-                channel.send(JSON.stringify(reply));
+                    channel.send(JSON.stringify(reply));
 
-                if (replyBuffer) {
-                    ice_api.writeBufferToSocket(channel, replyBuffer);
+                    if (replyBuffer) {
+                        ice_api.writeBufferToSocket(channel, replyBuffer, reqId);
+                    }
+                } catch (ex) {
+                    console.error('ERROR sending ice response '+ex+' ; '+ex.stack);
                 }
 
             },

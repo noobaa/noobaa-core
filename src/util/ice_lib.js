@@ -1,6 +1,5 @@
 var WebSocket = require('ws');
 var Q = require('q');
-var rand = require('./random_utils');
 var dbg = require('../util/dbg')(__filename);
 var config = require('../../config.js');
 var zlib = require('zlib');
@@ -10,6 +9,8 @@ var configuration = {
 };
 
 var exports = module.exports = {};
+
+var iceSockets = {};
 
 /********************************
  * connection to signaling server
@@ -192,7 +193,7 @@ function staleConnChk(socket) {
     var toDel = [];
     for (var iceObjChk in socket.icemap) {
         dbg.log0('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
-        if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale || socket.icemap[iceObjChk].done) {
+        if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale && socket.icemap[iceObjChk].done) {
             toDel.push(iceObjChk);
         }
     }
@@ -200,6 +201,21 @@ function staleConnChk(socket) {
     for (var iceToDel in toDel) {
         dbg.log0('remove stale connections to peer ' + socket.icemap[toDel[iceToDel]].peerId);
         delete socket.icemap[toDel[iceToDel]];
+    }
+
+    now = (new Date()).getTime();
+    toDel = [];
+
+    for (var iceObjChk in iceSockets) {
+        if (now - iceSockets[iceObjChk].lastUsed > config.connection_data_stale && iceSockets[iceObjChk].done) {
+            toDel.push(iceObjChk);
+        }
+    }
+
+    for (var iceToDel in toDel) {
+        dbg.log0('remove stale connections to peer ' + toDel[iceToDel]);
+        iceSockets[toDel[iceToDel]].dataChannel.close();
+        delete iceSockets[toDel[iceToDel]];
     }
 }
 
@@ -218,15 +234,38 @@ var initiateIce = function initiateIce(socket, peerId, isInitiator, requestId) {
     var channelObj = socket.icemap[requestId];
 
     if (isInitiator) {
-        dbg.log3('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
-        socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
-        createPeerConnection(socket, requestId, configuration);
         channelObj.connect_defer = Q.defer();
+        if (!iceSockets[peerId]) {
+            dbg.log3('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+            socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
+            createPeerConnection(socket, requestId, configuration);
+        } else {
+            channelObj.peerConn = iceSockets[peerId].peerConn;
+            channelObj.dataChannel = iceSockets[peerId].dataChannel;
+            channelObj.connect_defer.resolve(channelObj.dataChannel);
+
+            iceSockets[peerId].lastUsed = (new Date()).getTime();
+            iceSockets[peerId].done = false;
+        }
         return channelObj.connect_defer.promise;
     } else {
         createPeerConnection(socket, requestId, configuration);
     }
 };
+
+var closeIce = function closeIce(socket, requestId, dataChannel) {
+
+    delete dataChannel.msgs[requestId];
+
+    var channelObj = socket.icemap[requestId];
+    if (iceSockets[channelObj.peerId] && iceSockets[channelObj.peerId].dataChannel === dataChannel) {
+        iceSockets[channelObj.peerId].done = true;
+        iceSockets[channelObj.peerId].lastUsed = (new Date()).getTime();
+    } else {
+        dataChannel.close();
+    }
+};
+exports.closeIce = closeIce;
 
 function logError(err) {
     console.error(err.toString(), err);
@@ -408,6 +447,15 @@ function onDataChannelCreated(socket, requestId, channel) {
         channel.onopen = function () {
 
             var channelObj = socket.icemap[requestId];
+            channel.msgs = {};
+            if (!socket.isAgent) {
+                iceSockets[channelObj.peerId] = {
+                    peerConn: channelObj.peerConn,
+                    dataChannel : channelObj.dataChannel,
+                    lastUsed: (new Date()).getTime(),
+                    done: false
+                };
+            }
 
             dbg.log0('ICE CHANNEL opened ' + channelObj.peerId+' i am '+socket.idInServer + ' for request '+requestId);
 
@@ -475,11 +523,11 @@ exports.setup = function setup(msgCallback, agentId, handleRequestMethod) {
         idInServer: agentId,
         isAgent: agentId ? true : false,
         icemap: {},
-        callbackOnPeerMsg: msgCallback
+        callbackOnPeerMsg: msgCallback,
+        handleRequestMethod: handleRequestMethod
     };
 
     socket.stale_conn_interval = setInterval(function(){staleConnChk(socket);}, config.check_stale_conns);
-    socket.handleRequestMethod = handleRequestMethod;
 
     return connect(socket);
 

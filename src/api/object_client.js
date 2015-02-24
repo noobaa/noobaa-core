@@ -369,6 +369,10 @@ ObjectClient.prototype._attempt_write_block = function(params) {
 ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
     var self = this;
 
+    if (!self.p2p_context) {
+        self.p2p_context = {};
+    }
+
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
 
@@ -376,6 +380,7 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
         agent.options.set_address(block_address.host);
         agent.options.set_timeout(30000);
         agent.options.set_peer(block_address.peer);
+        agent.options.set_p2p_context(self.p2p_context);
 
         dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block_address.id,
@@ -832,6 +837,10 @@ ObjectClient.prototype._init_blocks_cache = function() {
 ObjectClient.prototype._read_block = function(block_address, block_size, offset) {
     var self = this;
 
+    if (!self.p2p_context) {
+        self.p2p_context = {};
+    }
+
     // use semaphore to surround the IO
     return self._block_read_sem.surround(function() {
 
@@ -839,6 +848,7 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
         agent.options.set_address(block_address.host);
         agent.options.set_timeout(30000);
         agent.options.set_peer(block_address.peer);
+        agent.options.set_p2p_context(self.p2p_context);
 
         dbg.log1('read_block', size_utils.human_offset(offset),
             size_utils.human_size(block_size), block_address.id,

@@ -459,11 +459,16 @@ Agent.prototype.replicate_block = function(req) {
     console.log('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
+    if (!self.p2p_context) {
+        self.p2p_context = {};
+    }
+
     // read from source agent
     var agent = new api.agent_api.Client();
     agent.options.set_address(source.host);
     agent.options.set_peer(source.peer);
     agent.options.set_ws(self.sigSocket);
+    agent.options.set_p2p_context(self.p2p_context);
     return agent.read_block({
             block_id: source.id
         })

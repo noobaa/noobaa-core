@@ -10,8 +10,6 @@ var configuration = {
 
 var exports = module.exports = {};
 
-var iceSockets = {};
-
 /********************************
  * connection to signaling server
  ********************************/
@@ -87,7 +85,7 @@ var connect = function (socket) {
                 }
             } else if (message.sigType === 'accept') {
                 dbg.log3('Got accept ' + message + ' from '+message.from+' to '+message.to+' i am '+socket.idInServer);
-                initiateIce(socket, message.from, false, message.requestId);
+                initiateIce(socket.p2p_context ,socket, message.from, false, message.requestId);
             } else if (message.sigType === 'keepalive') {
                 // nothing
             } else {
@@ -189,80 +187,110 @@ function sendMessage(socket, peerId, requestId, message) {
  * handle stale connections
  ********************************/
 function staleConnChk(socket) {
+
     var now = (new Date()).getTime();
     var toDel = [];
-    for (var iceObjChk in socket.icemap) {
-        dbg.log0('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
-        if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale && socket.icemap[iceObjChk].done) {
-            toDel.push(iceObjChk);
+    try {
+        for (var iceObjChk in socket.icemap) {
+            //dbg.log0('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
+            if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale && socket.icemap[iceObjChk].done) {
+                toDel.push(iceObjChk);
+            }
         }
-    }
 
-    for (var iceToDel in toDel) {
-        dbg.log0('remove stale connections to peer ' + socket.icemap[toDel[iceToDel]].peerId);
-        delete socket.icemap[toDel[iceToDel]];
-    }
-
-    now = (new Date()).getTime();
-    toDel = [];
-
-    for (var iceObjChk in iceSockets) {
-        if (now - iceSockets[iceObjChk].lastUsed > config.connection_data_stale && iceSockets[iceObjChk].done) {
-            toDel.push(iceObjChk);
+        for (var iceToDel in toDel) {
+            dbg.log0('remove stale connections to peer ' + socket.icemap[toDel[iceToDel]].peerId);
+            delete socket.icemap[toDel[iceToDel]];
         }
+    } catch (ex) {
+        console.error('Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
     }
 
-    for (var iceToDel in toDel) {
-        dbg.log0('remove stale connections to peer ' + toDel[iceToDel]);
-        iceSockets[toDel[iceToDel]].dataChannel.close();
-        delete iceSockets[toDel[iceToDel]];
+    try {
+        if (socket.p2p_context && socket.p2p_context.iceSockets) {
+            now = (new Date()).getTime();
+            toDel = [];
+
+            for (var iceObjChk in socket.p2p_context.iceSockets) {
+                if (now - socket.p2p_context.iceSockets[iceObjChk].lastUsed > config.connection_data_stale &&
+                    socket.p2p_context.iceSockets[iceObjChk].usedBy === {}) {
+                    toDel.push(iceObjChk);
+                }
+            }
+
+            for (var iceToDel in toDel) {
+                dbg.log0('remove stale ice connections to peer ' + toDel[iceToDel]);
+                socket.p2p_context.iceSockets[toDel[iceToDel]].dataChannel.close();
+                delete socket.p2p_context.iceSockets[toDel[iceToDel]];
+            }
+        }
+    } catch (ex) {
+        console.error('Error on staleConnChk of p2p_context iceSockets ex '+ex+' ; '+ex.stack);
     }
 }
 
 /* /////////////////////////////////////////// */
 /* ICE */
 /* /////////////////////////////////////////// */
-var initiateIce = function initiateIce(socket, peerId, isInitiator, requestId) {
+var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
 
-    socket.icemap[requestId] = {
-        "peerId": peerId,
-        "isInitiator": isInitiator,
-        "requestId": requestId,
-        "created": new Date()
-    };
+    try {
+        socket.icemap[requestId] = {
+            peerId: peerId,
+            isInitiator: isInitiator,
+            requestId: requestId,
+            created: new Date()
+        };
 
-    var channelObj = socket.icemap[requestId];
-
-    if (isInitiator) {
-        channelObj.connect_defer = Q.defer();
-        if (!iceSockets[peerId]) {
-            dbg.log3('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
-            socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
-            createPeerConnection(socket, requestId, configuration);
-        } else {
-            channelObj.peerConn = iceSockets[peerId].peerConn;
-            channelObj.dataChannel = iceSockets[peerId].dataChannel;
-            channelObj.connect_defer.resolve(channelObj.dataChannel);
-
-            iceSockets[peerId].lastUsed = (new Date()).getTime();
-            iceSockets[peerId].done = false;
+        socket.p2p_context = p2p_context;
+        if (p2p_context && !p2p_context.iceSockets) {
+            p2p_context.iceSockets = {};
         }
-        return channelObj.connect_defer.promise;
-    } else {
-        createPeerConnection(socket, requestId, configuration);
+
+        var channelObj = socket.icemap[requestId];
+
+        if (isInitiator) {
+            channelObj.connect_defer = Q.defer();
+            if (!p2p_context || !p2p_context.iceSockets[peerId]) {
+                dbg.log3('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+                socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
+                createPeerConnection(socket, requestId, configuration);
+            } else {
+                channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
+                channelObj.dataChannel = p2p_context.iceSockets[peerId].dataChannel;
+                channelObj.connect_defer.resolve(channelObj.dataChannel);
+
+                p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
+                p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
+            }
+            return channelObj.connect_defer.promise;
+        } else {
+            createPeerConnection(socket, requestId, configuration);
+        }
+    } catch (ex) {
+        console.error('Error on initiateIce '+(isInitiator ? 'to' : 'for')+' peer '+peerId+' ex '+ex+' ; '+ex.stack);
+        throw ex;
     }
+
 };
+exports.initiateIce = initiateIce;
 
 var closeIce = function closeIce(socket, requestId, dataChannel) {
 
-    delete dataChannel.msgs[requestId];
+    try {
+        delete dataChannel.msgs[requestId];
 
-    var channelObj = socket.icemap[requestId];
-    if (iceSockets[channelObj.peerId] && iceSockets[channelObj.peerId].dataChannel === dataChannel) {
-        iceSockets[channelObj.peerId].done = true;
-        iceSockets[channelObj.peerId].lastUsed = (new Date()).getTime();
-    } else {
-        dataChannel.close();
+        var channelObj = socket.icemap[requestId];
+        var obj = socket.p2p_context ? socket.p2p_context.iceSockets[channelObj.peerId] : null;
+
+        if (obj && obj.dataChannel === dataChannel) {
+            obj.lastUsed = (new Date()).getTime();
+            delete socket.p2p_context.iceSockets[channelObj.peerId].usedBy[requestId];
+        } else {
+            dataChannel.close();
+        }
+    } catch (ex) {
+       console.error('Error on close ice socket for request '+requestId+' ex '+ex+' ; '+ex.stack);
     }
 };
 exports.closeIce = closeIce;
@@ -448,13 +476,20 @@ function onDataChannelCreated(socket, requestId, channel) {
 
             var channelObj = socket.icemap[requestId];
             channel.msgs = {};
-            if (!socket.isAgent) {
-                iceSockets[channelObj.peerId] = {
+
+            if (socket.p2p_context) {
+
+                if (socket.p2p_context && !socket.p2p_context.iceSockets) {
+                    socket.p2p_context.iceSockets = {};
+                }
+
+                socket.p2p_context.iceSockets[channelObj.peerId] = {
                     peerConn: channelObj.peerConn,
                     dataChannel : channelObj.dataChannel,
                     lastUsed: (new Date()).getTime(),
-                    done: false
+                    usedBy: {}
                 };
+                socket.p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
             }
 
             dbg.log0('ICE CHANNEL opened ' + channelObj.peerId+' i am '+socket.idInServer + ' for request '+requestId);
@@ -480,6 +515,10 @@ function onDataChannelCreated(socket, requestId, channel) {
                 socket.icemap[requestId].connect_defer.reject();
             }
             socket.icemap[requestId].done = true;
+
+            if (socket.p2p_context && socket.p2p_context.iceSockets[channelObj.peerId]) {
+                delete socket.p2p_context.iceSockets[channelObj.peerId];
+            }
         };
 
         channel.onerror = function (err) {
@@ -488,6 +527,10 @@ function onDataChannelCreated(socket, requestId, channel) {
                 socket.icemap[requestId].connect_defer.reject();
             }
             socket.icemap[requestId].done = true;
+
+            if (socket.p2p_context && socket.p2p_context.iceSockets[channelObj.peerId]) {
+                delete socket.p2p_context.iceSockets[channelObj.peerId].usedBy[requestId];
+            }
         };
 
     } catch (ex) {
@@ -532,5 +575,3 @@ exports.setup = function setup(msgCallback, agentId, handleRequestMethod) {
     return connect(socket);
 
 };
-
-exports.initiateIce = initiateIce;

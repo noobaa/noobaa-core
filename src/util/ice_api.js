@@ -165,7 +165,7 @@ function staleConnChk() {
 var timeToIce = 0;
 var timeWithSend = 0;
 var tries = 0;
-exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, buffer) {
+exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, request, agentId, buffer) {
     var iceSocket;
     var sigSocket;
 
@@ -207,7 +207,7 @@ exports.sendRequest = function sendRequest(ws_socket, peerId, request, agentId, 
     }).then(function() {
         dbg.log0('starting to initiate ice to '+peerId);
         requestId = ''+rand.getRandomInt(10000,90000);
-        return ice.initiateIce(sigSocket, peerId, true, requestId);
+        return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
     }).then(function(newSocket) {
         iceSocket = newSocket;
 

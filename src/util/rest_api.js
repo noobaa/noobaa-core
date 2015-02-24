@@ -545,7 +545,7 @@ function rest_api(api) {
                     buffer = body;
                 }
 
-                return ice_api.sendRequest(self.options.ws_socket, peerId, options, null, buffer);
+                return ice_api.sendRequest(self.options.p2p_context,self.options.ws_socket, peerId, options, null, buffer);
             })
             .then(function(res) {
                 dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
@@ -687,6 +687,9 @@ rest_api.global_client_options = {
     },
     set_ws: function(ws) {
         this.ws_socket = ws;
+    },
+    set_p2p_context: function(context) {
+        this.p2p_context = context;
     },
 
     /**

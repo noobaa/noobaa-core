@@ -12,7 +12,21 @@ var block_allocator = require('./block_allocator');
 var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('../util/dbg')(__filename);
+var config = require('../../config.js');
 
+
+/**
+ *
+ * General:
+ *
+ * object = file
+ * part = part of a file logically, points to a chunk
+ * chunk = actual data of the part can be used by several object parts if identical
+ * block = representation of a chunk on a specific node
+ * fragment = if we use erasure coding than a chunk is divided to fragments where if we lose one we can rebuild it using the rest.
+ *            each fragment will be replicated to x nodes as blocks
+ *
+ */
 module.exports = {
     allocate_object_parts: allocate_object_parts,
     finalize_object_parts: finalize_object_parts,
@@ -30,7 +44,7 @@ var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
 
 /**
  *
- * allocate_object_parts
+ * allocate_object_parts - allocates the object parts, chunks and blocks and writes it to the db
  *
  */
 function allocate_object_parts(bucket, obj, parts) {
@@ -72,7 +86,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
                 var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
                 var chunk;
-                if (require('../../config.js').doDedup && dup_chunk) {
+                if (config.doDedup && dup_chunk) {
                     chunk = dup_chunk;
                     reply.parts[i].dedup = true;
                 } else {
@@ -113,7 +127,7 @@ function allocate_object_parts(bucket, obj, parts) {
             });
             _.each(new_parts, function(part, i) {
                 var reply_part = reply.parts[i];
-                if (require('../../config.js').doDedup && reply_part.dedup) return;
+                if (config.doDedup && reply_part.dedup) return;
                 var new_blocks = blocks_by_chunk[part.chunks[0].chunk];
                 var chunk = new_blocks[0].chunk;
                 dbg.log0('part info', part,
@@ -139,7 +153,8 @@ function allocate_object_parts(bucket, obj, parts) {
 
 /**
  *
- * finalize_object_parts
+ * finalize_object_parts - after the 1st block was uploaded, this creates more blocks on other nodes to replicate to
+ * but only in the db
  *
  */
 function finalize_object_parts(bucket, obj, parts) {
@@ -625,7 +640,7 @@ function build_chunks(chunks) {
             // send to the agent a request to replicate from the source
 
             if (!blocks_to_build.length) return;
-            var sem = new Semaphore(require('../../config.js').REPLICATE_CONCURRENCY);
+            var sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 
             dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
             return Q.all(_.map(blocks_to_build, function(block) {
@@ -686,7 +701,7 @@ setTimeout(build_worker, 5000);
 
 function build_worker() {
 
-    if (!(require('../../config.js').buildWorkerOn)) return;
+    if (!(config.buildWorkerOn)) return;
 
     var last_chunk_id;
     var batch_size = 100;

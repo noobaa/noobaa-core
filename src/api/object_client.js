@@ -20,6 +20,7 @@ var size_utils = require('../util/size_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var dbg = require('../util/dbg')(__filename);
+var config = require('../../config.js');
 
 module.exports = ObjectClient;
 
@@ -32,6 +33,9 @@ module.exports = ObjectClient;
  * extends object_api which is plain REST api with logic to provide access
  * to remote object storage, and does the necessary distributed of io.
  * the client functions usually have the signature function(params), and return a promise.
+ *
+ *
+ * this is the client side (web currently) that sends the commands defined in object_api to the web server
  *
  */
 function ObjectClient(base) {
@@ -46,10 +50,10 @@ function ObjectClient(base) {
     self.MAP_RANGE_ALIGN_NBITS = 24; // log2( 16 MB )
     self.MAP_RANGE_ALIGN = 1 << self.MAP_RANGE_ALIGN_NBITS; // 16 MB
 
-    self.READ_CONCURRENCY = require('../../config.js').READ_CONCURRENCY;
-    self.WRITE_CONCURRENCY = require('../../config.js').WRITE_CONCURRENCY;
+    self.READ_CONCURRENCY = config.READ_CONCURRENCY;
+    self.WRITE_CONCURRENCY = config.WRITE_CONCURRENCY;
 
-    self.READ_RANGE_CONCURRENCY = require('../../config.js').READ_RANGE_CONCURRENCY;
+    self.READ_RANGE_CONCURRENCY = config.READ_RANGE_CONCURRENCY;
 
     self.HTTP_PART_ALIGN_NBITS = self.OBJECT_RANGE_ALIGN_NBITS + 6; // log2( 32 MB )
     self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 32 MB
@@ -175,7 +179,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                                     // push parts down the pipe
                                     var part;
                                     for (var i = 0; i < res.parts.length; i++) {
-                                        if (require('../../config.js').doDedup && res.parts[i].dedup) {
+                                        if (config.doDedup && res.parts[i].dedup) {
                                             part = parts[i];
                                             part.dedup = true;
                                             dbg.log0('upload_stream: DEDUP part', part.start);
@@ -201,7 +205,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                             highWaterMark: 30
                         },
                         transform: function(part) {
-                            if (require('../../config.js').doDedup && part.dedup) return;
+                            if (config.doDedup && part.dedup) return;
                             return self._write_part_blocks(
                                     params.bucket, params.key, part)
                                 .thenResolve(part);
@@ -232,7 +236,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                                     bucket: params.bucket,
                                     key: params.key,
                                     parts: _.compact(_.map(parts, function(part) {
-                                        if (require('../../config.js').doDedup && part.dedup) return;
+                                        if (config.doDedup && part.dedup) return;
                                         var block_ids = _.pluck(_.pluck(
                                             _.flatten(part.fragments), 'address'), 'id');
                                         return {
@@ -298,7 +302,7 @@ ObjectClient.prototype.upload_stream = function(params) {
 ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
     var self = this;
 
-    if (require('../../config.js').doDedup && part.dedup) {
+    if (config.doDedup && part.dedup) {
         dbg.log0('DEDUP', range_utils.human_range(part));
         return part;
     }

@@ -11,8 +11,6 @@ var isAgent;
 
 var partSize = 40;
 
-var wsClientSocket;
-
 exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
     if (agentId) {
         isAgent = true;
@@ -36,8 +34,7 @@ function onIceMessage(channel, event) {
         try {
             var message = JSON.parse(event.data);
 
-            dbg.log0('got message str ' + event.data + ' my id '+channel.myId + ' ; '+
-            (wsClientSocket && wsClientSocket.ws_socket ? wsClientSocket.ws_socket.idInServer : ''));
+            dbg.log0('got message str ' + event.data + ' my id '+channel.myId);
 
             if (!channel.msgs[message.req]) {
                 channel.msgs[message.req] = {};
@@ -85,7 +82,7 @@ function onIceMessage(channel, event) {
 
                 dbg.log0('all chunks received last '+part+' with size ' +
                 event.data.byteLength + " total size so far " + msgObj.received_size
-                + ' my id '+channel.myId + ' ; '+(wsClientSocket && wsClientSocket.ws_socket ? wsClientSocket.ws_socket.idInServer : ''));
+                + ' my id '+channel.myId);
 
                 var chunksParts = [];
                 for (var i = 0; i < msgObj.chunk_num; ++i) {
@@ -148,17 +145,17 @@ exports.writeBufferToSocket = writeBufferToSocket;
 /********************************
  * handle stale connections
  ********************************/
-function staleConnChk() {
-    if (isAgent || !wsClientSocket)
+function staleConnChk(p2p_context) {
+    if (isAgent || !p2p_context || !p2p_context.wsClientSocket)
         return;
 
     var now = (new Date()).getTime();
 
-    if (now - wsClientSocket.lastTimeUsed > config.connection_data_stale) {
-        dbg.log0('REMOVE stale ws connection to remove - client as '+require('util').inspect(wsClientSocket.ws_socket.idInServer));
-        ice.closeSignaling(wsClientSocket.ws_socket);
-        clearInterval(wsClientSocket.interval);
-        wsClientSocket = null;
+    if (now - p2p_context.wsClientSocket.lastTimeUsed > config.connection_data_stale) {
+        dbg.log0('REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
+        ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
+        clearInterval(p2p_context.wsClientSocket.interval);
+        p2p_context.wsClientSocket = null;
     }
 }
 
@@ -182,8 +179,8 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
 
         if (ws_socket) {
             sigSocket = ws_socket;
-        } else if (wsClientSocket) {
-            sigSocket = wsClientSocket.ws_socket;
+        } else if (p2p_context && p2p_context.wsClientSocket) {
+            sigSocket = p2p_context.wsClientSocket.ws_socket;
         }
 
         if (!sigSocket) {
@@ -191,15 +188,15 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
             sigSocket = ice.setup(onIceMessage, agentId);
         }
 
-        if (!isAgent) {
+        if (!isAgent && p2p_context) {
             var interval;
-            if (!wsClientSocket) {
+            if (!p2p_context.wsClientSocket) {
                 dbg.log0('SET INTERVAL stale ws connection');
-                interval = setInterval(function(){staleConnChk();}, config.check_stale_conns);
+                interval = setInterval(function(){staleConnChk(p2p_context);}, config.check_stale_conns);
             } else {
-                interval = wsClientSocket.interval;
+                interval = p2p_context.wsClientSocket.interval;
             }
-            wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+            p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
         }
 
         if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;

@@ -641,7 +641,7 @@ function build_chunks(chunks) {
                         }).then(function() {
                             dbg.log3('replicated block', block._id);
                         }, function(err) {
-                            dbg.log0('ERROR replicate block', block._id, err);
+                            dbg.log0('ERROR replicate block', block._id, block_addr.host, err);
                             throw err;
                         })
                             .thenResolve(block._id);

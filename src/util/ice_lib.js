@@ -99,7 +99,7 @@ var connect = function (socket) {
         });
 
         ws.onerror = (function (err) {
-            writeLog(socket, 'error ' + err);
+            writeLog(socket, 'on error ws ' + err);
             setTimeout(
                 function () {
                     reconnect(socket);
@@ -107,7 +107,7 @@ var connect = function (socket) {
             });
 
         ws.onclose = (function () {
-            writeLog(socket, 'close');
+            writeLog(socket, 'onclose ws');
             if (socket.isAgent) {
                 disconnect(socket);
                 setTimeout(
@@ -130,7 +130,7 @@ function keepalive(socket) {
     try {
         socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
     } catch (ex) {
-        writeLog(socket, 'keepalive err', ex);
+        writeLog(socket, 'keepalive err '+ ex);
     }
 }
 
@@ -303,7 +303,7 @@ function writeLog(socket, msg) {
     if (socket.isAgent) {
         console.error(msg);
     } else {
-        console.log(msg);
+        dbg.log0(msg);
     }
 }
 

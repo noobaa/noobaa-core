@@ -664,10 +664,10 @@ ObjectClient.prototype._read_object_range = function(params) {
 
     dbg.log2('_read_object_range', range_utils.human_range(params));
 
-    return self._object_map_cache.get(params)
+    return self._object_map_cache.get(params) // get meta data on object range we want to read
         .then(function(mappings) {
             obj_size = mappings.size;
-            return Q.all(_.map(mappings.parts, self._read_object_part, self));
+            return Q.all(_.map(mappings.parts, self._read_object_part, self)); // get actual data from nodes
         })
         .then(function(parts) {
             // once all parts finish we can construct the complete buffer.

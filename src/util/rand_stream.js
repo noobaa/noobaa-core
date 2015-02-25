@@ -14,7 +14,7 @@ module.exports = RandStream;
  *
  * RandStream
  *
- * A transforming stream that chunks the input to fixes size chunks.
+ * A readable stream that generates chunks with crypto.pseudoRandomBytes
  *
  */
 function RandStream(max_length, options) {

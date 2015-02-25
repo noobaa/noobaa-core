@@ -221,7 +221,7 @@ function rest_api(api) {
                 this.ice_router = express.Router();
                 this.install_rest(this.ice_router);
             } catch (ex) {
-                console.error('do express ice router ex '+ex.stack);
+                console.error('do express ice router ex '+ex);
             }
         }
 
@@ -238,7 +238,7 @@ function rest_api(api) {
             try {
                 reqId = ''+buf.toBuffer(message.slice(0,32)).readInt32LE(0);
             } catch (ex) {
-                console.error('problem reading req id rest_api '+ex+' ; '+ex.stack);
+                console.error('problem reading req id rest_api '+ex);
             }
             var msgObj = channel.msgs[reqId];
             body = msgObj.buffer;
@@ -287,7 +287,7 @@ function rest_api(api) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);
                     }
                 } catch (ex) {
-                    console.error('ERROR sending ice response '+ex+' ; '+ex.stack);
+                    console.error('ERROR sending ice response '+ex);
                 }
 
             },
@@ -550,6 +550,10 @@ function rest_api(api) {
             .then(function(res) {
                 dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
 
+                /*if (!res || !res.status || res.status !== '200') {
+                    isIceFailure = true;
+                }*/
+
                 if (!func_info.reply_raw) {
                     // check the json reply
                     validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
@@ -557,25 +561,28 @@ function rest_api(api) {
                 return res.data;
             })
             .then(null, function(err) {
-                console.error('REST REQUEST FAILED '+ err.stack);
-            })
-            .catch(function(err) {
-                console.error('REST REQUEST CATCH '+ err.stack);
+                console.error('ICE REST REQUEST FAILED '+ err+' try http instead');
+                return self._doHttpCall(func_info, options, body);
             });
         } else { // do http
-            dbg.log0(self.options, 'do http req '+options.path);
-            return Q.fcall(function() {
-                return self._http_request(options, body);
-            }).then(read_http_response)
-            .then(function(res) {
-                return self._handle_http_reply(func_info, res);
-            })
-            .then(null, function(err) {
-                console.error('REST REQUEST FAILED', err);
-                throw err;
-            });
+            return self._doHttpCall(func_info, options, body);
         }
 
+    };
+
+    Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
+        var self = this;
+        dbg.log0(self.options, 'do http req');
+        return Q.fcall(function() {
+            return self._http_request(options, body);
+        }).then(read_http_response)
+        .then(function(res) {
+            return self._handle_http_reply(func_info, res);
+        })
+        .then(null, function(err) {
+            console.error('HTTP REST REQUEST FAILED', err);
+            throw err;
+        });
     };
 
     function writeLog(options, msg) {
@@ -610,7 +617,7 @@ function rest_api(api) {
                         req.abort();
                     });
                 } catch (ex) {
-                    console.error("prob with set request timeout "+ex.stack);
+                    console.error("prob with set request timeout "+ex);
                 }
             } else {
                 // TODO browserify doesn't implement req.setTimeout...

@@ -248,10 +248,10 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
 
         return response;
     }).then(null, function(err) {
-        writeLog('ice_api.sendRequest ERROR '+err.stack);
+        writeLog('ice_api.sendRequest ERROR '+err);
         throw err;
     }).catch(function(err) {
-        writeLog('ice_api.sendRequest FAIL '+err.stack);
+        writeLog('ice_api.sendRequest FAIL '+err);
         throw err;
     });
 };

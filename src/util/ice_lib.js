@@ -100,6 +100,11 @@ var connect = function (socket) {
 
         ws.onerror = (function (err) {
             writeLog(socket, 'on error ws ' + err);
+
+            if (socket.conn_defer) {
+                socket.conn_defer.reject();
+            }
+
             setTimeout(
                 function () {
                     reconnect(socket);
@@ -290,7 +295,7 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
             dataChannel.close();
         }
     } catch (ex) {
-       console.error('Error on close ice socket for request '+requestId+' ex '+ex+' ; '+ex.stack);
+       console.error('Error on close ice socket for request '+requestId+' ex '+ex);
     }
 };
 exports.closeIce = closeIce;

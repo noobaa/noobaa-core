@@ -17,6 +17,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
+var Tracer = require('noobaa-util/tracer');
 
 Q.longStackSupport = true;
 
@@ -80,7 +81,9 @@ AgentCLI.prototype.init = function() {
         });
 };
 
-
+AgentCLI.prototype.init.helper = function () {
+    console.log("Init client");
+};
 
 /**
  *
@@ -126,7 +129,9 @@ AgentCLI.prototype.load = function() {
         });
 };
 
-
+AgentCLI.prototype.load.helper = function () {
+    console.log("create token, start nodes ");
+};
 
 /**
  *
@@ -160,6 +165,9 @@ AgentCLI.prototype.create = function() {
         });
 };
 
+AgentCLI.prototype.create.helper = function () {
+    console.log("Create a new agent and start it");
+};
 
 /**
  *
@@ -178,7 +186,9 @@ AgentCLI.prototype.create_some = function(n) {
     }));
 };
 
-
+AgentCLI.prototype.create_some.helper = function () {
+    console.log("Create n agents:   create_some <n>");
+};
 
 /**
  *
@@ -212,7 +222,9 @@ AgentCLI.prototype.start = function(node_name) {
     });
 };
 
-
+AgentCLI.prototype.start.helper = function () {
+    console.log("Start a specific agent, if agent doesn't exist, will create it:   start <agent>");
+};
 
 /**
  *
@@ -234,7 +246,9 @@ AgentCLI.prototype.stop = function(node_name) {
     console.log('agent stopped', node_name);
 };
 
-
+AgentCLI.prototype.stop.helper = function () {
+    console.log("Stop a specific agent:   stop <agent>");
+};
 
 /**
  *
@@ -254,7 +268,66 @@ AgentCLI.prototype.list = function() {
     });
 };
 
+AgentCLI.prototype.list.helper = function () {
+    console.log("List all agents status");
+};
 
+/**
+ *
+ * Set Log Level
+ *
+ * Set logging level for a module (or "all") for a specific agent, or for all agents
+ *
+ */
+AgentCLI.prototype.set_log = function(node_name, mod, level) {
+    var self = this;
+    try {
+        if (node_name === "all") { //Set all agents with the log level
+            _.each(self.agents, function(agent, node_name) {
+                agent.set_log(mod, level);
+            });
+            console.log("Log for " + mod + " with level of " + level + " was set for all agents");
+        } else {
+            var agent = self.agents[node_name];
+            if (!agent) {
+                console.log('agent not found', node_name);
+                return;
+            }
+            agent.set_log(mod, level);
+            console.log("Log for " + mod + " with level of " + level + " was set for agent " + node_name);
+        }
+    } catch (e) {
+        console.log("Error while trying to set log for " + node_name + " " + e);
+    }
+};
+
+AgentCLI.prototype.set_log.helper = function () {
+    console.log('Setting log levels for agent:   set_log <"node_name/all"> <"module/all"> <level>');
+};
+/**
+ *
+ * Show
+ *
+ * help for specific API
+ *
+ */
+AgentCLI.prototype.show = function(func_name) {
+    var self = this;
+
+    if (!func_name) {
+        return;
+    } else {
+        if (self[func_name] && typeof self[func_name] === 'function') {
+            if (self[func_name].helper && typeof self[func_name].helper === 'function') {
+                  self[func_name].helper();
+            } else {
+                console.log(func_name + " does not have help");
+            }
+        } else {
+            console.log("unrecognized option " + func_name);
+        }
+    }
+};
 
 function file_must_not_exist(path) {
     return Q.nfcall(fs.stat, path)
@@ -269,6 +342,9 @@ function file_must_exist(path) {
     return Q.nfcall(fs.stat, path).thenResolve();
 }
 
+function populate_general_help(general) {
+    general.push('show("<function>"") to show help on a specific API');
+}
 
 function main() {
     var cli = new AgentCLI(argv);
@@ -281,6 +357,7 @@ function main() {
         var help = {
             functions: [],
             variables: [],
+            general: [],
         };
         _.forIn(cli, function(val, key) {
             if (typeof(val) === 'function') {
@@ -291,6 +368,7 @@ function main() {
                 help.variables.push(key);
             }
         });
+        populate_general_help(help.general);
         repl_srv.context.help = help;
     }, function(err) {
         console.error(err);

@@ -314,7 +314,7 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 exports.closeIce = closeIce;
 
 function logError(err) {
-    console.error(err.toString(), err);
+    console.error('logError called: '+err.toString(), err);
 }
 
 function writeLog(socket, msg) {
@@ -328,7 +328,7 @@ function writeLog(socket, msg) {
 function createPeerConnection(socket, requestId, config) {
     var channelObj = socket.icemap[requestId];
     if (!channelObj) {
-        dbg.log0('PROBLEM Creating Peer connection no channel !!!ß');
+        dbg.log0('PROBLEM Creating Peer connection no channel !!!');
     }
 
     try {
@@ -441,11 +441,14 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
         dbg.log0('problem NO channelObj for req '+requestId+' and peer '+peerId);
     }
 
+    var Desc = RTCSessionDescription;
+    var Candidate = RTCIceCandidate;
+
     if (message.type === 'offer') {
         dbg.log3('Got offer. Sending answer to peer. ' + peerId + ' and channel ' + requestId);
 
         try {
-            channelObj.peerConn.setRemoteDescription(new RTCSessionDescription(message), function () {
+            channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
             }, logError);
             channelObj.peerConn.createAnswer(function (desc) {
                 return onLocalSessionCreated(socket, requestId, desc);
@@ -459,7 +462,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
     } else if (message.type === 'answer') {
         try {
             dbg.log3('Got answer.' + peerId + ' and channel ' + requestId);
-            channelObj.peerConn.setRemoteDescription(new RTCSessionDescription(message), function () {
+            channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
             }, logError);
         } catch (ex) {
             writeLog(socket, 'problem in answer ' + ex);
@@ -471,7 +474,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
         try {
             dbg.log3('Got candidate.' + peerId + ' and channel ' + requestId);
             if (channelObj && !channelObj.done) {
-                channelObj.peerConn.addIceCandidate(new RTCIceCandidate({candidate: message.candidate}));
+                channelObj.peerConn.addIceCandidate(new Candidate({candidate: message.candidate}));
             } else {
                 dbg.log0('Got candidate.' + peerId + ' and channel ' + requestId + ' CANNOT HANDLE connection removed/done');
             }
@@ -534,8 +537,8 @@ function onDataChannelCreated(socket, requestId, channel) {
             }
             socket.icemap[requestId].done = true;
 
-            if (socket.p2p_context && socket.p2p_context.iceSockets[channelObj.peerId]) {
-                delete socket.p2p_context.iceSockets[channelObj.peerId];
+            if (socket.p2p_context && socket.p2p_context.iceSockets[channel.peerId]) {
+                delete socket.p2p_context.iceSockets[channel.peerId];
             }
         };
 
@@ -546,8 +549,8 @@ function onDataChannelCreated(socket, requestId, channel) {
             }
             socket.icemap[requestId].done = true;
 
-            if (socket.p2p_context && socket.p2p_context.iceSockets[channelObj.peerId]) {
-                delete socket.p2p_context.iceSockets[channelObj.peerId].usedBy[requestId];
+            if (socket.p2p_context && socket.p2p_context.iceSockets[channel.peerId]) {
+                delete socket.p2p_context.iceSockets[channel.peerId].usedBy[requestId];
             }
         };
 

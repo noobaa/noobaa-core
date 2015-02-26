@@ -210,9 +210,6 @@ function generateRequestId() {
     return ''+rand.getRandomInt(10000,90000);
 }
 
-var timeToIce = 0;
-var timeWithSend = 0;
-var tries = 0;
 exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, request, agentId, buffer) {
     var iceSocket;
     var sigSocket;
@@ -221,8 +218,6 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
         isAgent = true;
     }
 
-    tries++;
-    var start = new Date().getTime();
     var requestId;
 
     return Q.fcall(function() {
@@ -264,9 +259,6 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
 
         msgObj.action_defer = Q.defer();
 
-        var end = new Date().getTime();
-        timeToIce += (end - start);
-
         if (buffer) {
             request.size = buffer.byteLength;
         }
@@ -288,11 +280,6 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
             dbg.log0('response: '+response+' has buffer ' + Buffer.isBuffer(msgObj.buffer));
             response.data = msgObj.buffer;
         }
-
-        var end2 = new Date().getTime();
-        timeWithSend += (end2 - start);
-
-        console.error('$%$#%$# time ice: '+(timeToIce/1000) + ' sec and time with send '+(timeWithSend/1000) + ' for tries: '+tries);
 
         dbg.log0('close ice socket');
         ice.closeIce(sigSocket, requestId, iceSocket);

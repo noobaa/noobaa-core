@@ -10,6 +10,8 @@ config.stun='stun:stun.l.google.com:19302';
 config.chunk_size = 60 * 1000;
 config.doDedup = false;
 config.buildWorkerOn = false;
+config.connection_default_timeout = 60 * 1000;
+config.get_response_default_timeout = 10 * 60 * 1000;
 
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;

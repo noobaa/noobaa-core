@@ -570,7 +570,7 @@ function rest_api(api) {
             }
 
             return Q.fcall(function() {
-                return ice_api.sendWSRequest(self.options.p2p_context, peerId, options);
+                return ice_api.sendWSRequest(self.options.p2p_context, peerId, options, self.options.timeout);
             }).then(function(res) {
                 dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
 
@@ -601,7 +601,7 @@ function rest_api(api) {
                     buffer = body;
                 }
 
-                return ice_api.sendRequest(self.options.p2p_context,self.options.ws_socket, peerId, options, null, buffer);
+                return ice_api.sendRequest(self.options.p2p_context,self.options.ws_socket, peerId, options, null, buffer, self.options.timeout);
             })
             .then(function(res) {
                 dbg.log0(self.options, 'res is: '+ require('util').inspect(res));

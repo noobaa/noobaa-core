@@ -26,13 +26,18 @@ function writeLog(msg) {
     }
 }
 
-function onIceMessage(channel, event) {
+function onIceMessage(p2p_context, channel, event) {
     //dbg.log0('Got event '+event.data+' ; my id: '+channel.myId);
 
     if (typeof event.data == 'string' || event.data instanceof String) {
         //dbg.log0('got message str '+require('util').inspect(event.data));
         try {
             var message = JSON.parse(event.data);
+
+            if (!ice.isRequestAlive(p2p_context, channel.peerId, message.req)) {
+                dbg.log0('got message str ' + event.data + ' my id '+channel.myId + ' but channel req '+message.req+' done !!!');
+                return;
+            }
 
             dbg.log0('got message str ' + event.data + ' my id '+channel.myId);
 
@@ -66,6 +71,11 @@ function onIceMessage(channel, event) {
             var bff = buf.toBuffer(event.data);
             var req = ''+bff.readInt32LE(0);
             var part = bff.readInt8(32);
+
+            if (!ice.isRequestAlive(p2p_context, channel.peerId, req)) {
+                dbg.log0('got message str ' + event.data + ' my id '+channel.myId + ' but channel req '+req+' done !!!');
+                return;
+            }
 
             var msgObj = channel.msgs[req];
 
@@ -159,9 +169,15 @@ function staleConnChk(p2p_context) {
     }
 }
 
-exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options) {
+exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options, timeout) {
 
     var sigSocket;
+    var requestId;
+
+    if (!timeout) {
+        timeout = config.connection_default_timeout;
+    }
+
     return Q.fcall(function() {
 
         if (p2p_context && p2p_context.wsClientSocket) {
@@ -188,8 +204,8 @@ exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options) {
 
         if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
         else return Q.fcall(function() {return sigSocket});
-    }).then(function(wsSocket) {
-        var requestId = generateRequestId();
+    }).timeout(timeout).then(function(wsSocket) {
+        requestId = generateRequestId();
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
         if (!sigSocket.action_defer) {
@@ -197,11 +213,17 @@ exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options) {
         }
         sigSocket.action_defer[requestId] = Q.defer();
         return sigSocket.action_defer[requestId].promise;
-    }).then(function(response) {
+    }).timeout(config.get_response_default_timeout).then(function(response) {
         dbg.log3('return response data '+require('util').inspect(response));
         return response;
     }).then(null, function(err) {
         console.error('WS REST REQUEST FAILED '+err);
+
+        if (sigSocket) {
+            dbg.log0('close ice socket');
+            ice.closeIce(sigSocket, requestId, null);
+        }
+
         throw err;
     });
 };
@@ -210,15 +232,18 @@ function generateRequestId() {
     return ''+rand.getRandomInt(10000,90000);
 }
 
-exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, request, agentId, buffer) {
+exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, request, agentId, buffer, timeout) {
     var iceSocket;
     var sigSocket;
+    var requestId;
 
     if (agentId || (ws_socket && ws_socket.isAgent)) {
         isAgent = true;
     }
 
-    var requestId;
+    if (!timeout) {
+        timeout = config.connection_default_timeout;
+    }
 
     return Q.fcall(function() {
         dbg.log3('starting setup');
@@ -247,11 +272,11 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
 
         if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
         else return Q.fcall(function() {return sigSocket});
-    }).then(function() {
+    }).timeout(timeout).then(function() {
         dbg.log0('starting to initiate ice to '+peerId);
         requestId = generateRequestId();
         return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
-    }).then(function(newSocket) {
+    }).timeout(timeout).then(function(newSocket) {
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};
@@ -271,7 +296,7 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
         }
 
         return msgObj.action_defer.promise;
-    }).then(function(channel) {
+    }).timeout(config.get_response_default_timeout).then(function(channel) {
 
         msgObj = iceSocket.msgs[requestId];
 
@@ -286,10 +311,13 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
 
         return response;
     }).then(null, function(err) {
-        writeLog('ice_api.sendRequest ERROR '+err);
-        throw err;
-    }).catch(function(err) {
-        writeLog('ice_api.sendRequest FAIL '+err);
+        console.error('ice_api.sendRequest ERROR '+err);
+
+        if (iceSocket && sigSocket) {
+            dbg.log0('close ice socket');
+            ice.closeIce(sigSocket, requestId, iceSocket);
+        }
+
         throw err;
     });
 };

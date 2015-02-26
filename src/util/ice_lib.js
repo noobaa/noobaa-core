@@ -299,12 +299,13 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
         delete dataChannel.msgs[requestId];
 
         var channelObj = socket.icemap[requestId];
+        channelObj.done = true;
         var obj = socket.p2p_context ? socket.p2p_context.iceSockets[channelObj.peerId] : null;
 
         if (obj && obj.dataChannel === dataChannel) {
             obj.lastUsed = (new Date()).getTime();
             delete socket.p2p_context.iceSockets[channelObj.peerId].usedBy[requestId];
-        } else {
+        } else if (dataChannel) {
             dataChannel.close();
         }
     } catch (ex) {
@@ -327,8 +328,9 @@ function writeLog(socket, msg) {
 
 function createPeerConnection(socket, requestId, config) {
     var channelObj = socket.icemap[requestId];
-    if (!channelObj) {
-        dbg.log0('PROBLEM Creating Peer connection no channel !!!');
+    if (!channelObj || channelObj.done) {
+        dbg.log0('PROBLEM Creating Peer connection no channel or already done !!!');
+        return;
     }
 
     try {
@@ -423,6 +425,12 @@ function createPeerConnection(socket, requestId, config) {
 function onLocalSessionCreated(socket, requestId, desc) {
     dbg.log3('local session created:'+ desc);
     var channelObj = socket.icemap[requestId];
+
+    if (!channelObj || channelObj.done) {
+        dbg.log0('PROBLEM onLocalSessionCreated no channel or already done !!!');
+        return;
+    }
+
     try {
         channelObj.peerConn.setLocalDescription(desc, function () {
             dbg.log3('sending local desc:' + channelObj.peerConn.localDescription);
@@ -437,8 +445,9 @@ function onLocalSessionCreated(socket, requestId, desc) {
 function signalingMessageCallback(socket, peerId, message, requestId) {
 
     var channelObj = socket.icemap[requestId];
-    if (!channelObj) {
-        dbg.log0('problem NO channelObj for req '+requestId+' and peer '+peerId);
+    if (!channelObj || channelObj.done) {
+        dbg.log0('problem NO channelObj or already done for req '+requestId+' and peer '+peerId);
+        return;
     }
 
     var Desc = RTCSessionDescription;
@@ -528,7 +537,7 @@ function onDataChannelCreated(socket, requestId, channel) {
             }
         };
 
-        channel.onmessage = onIceMessage(channel);
+        channel.onmessage = onIceMessage(socket, channel);
 
         channel.onclose = function () {
             dbg.log0('ICE CHANNEL closed ' + channel.peerId);
@@ -563,11 +572,21 @@ function onDataChannelCreated(socket, requestId, channel) {
     }
 }
 
-function onIceMessage(channel) {
+function onIceMessage(socket, channel) {
     return function onmessage(event) {
-        return channel.callbackOnPeerMsg(channel, event);
+        return channel.callbackOnPeerMsg(socket.p2p_context, channel, event);
     }
 }
+
+exports.isRequestAlive = function isRequestAlive(p2p_context, peerId, requestId) {
+    if (requestId && p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId]
+        && p2p_context.iceSockets[peerId].lastUsed
+        && ((new Date()).getTime() -  p2p_context.iceSockets[peerId].lastUsed > config.connection_default_timeout)
+        && !p2p_context.iceSockets[peerId].usedBy[requestId]) {
+        return false;
+    }
+    return true;
+};
 
 exports.closeSignaling = function closeSignaling(socket) {
     if (!socket.isAgent) {

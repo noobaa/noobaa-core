@@ -14,6 +14,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('../util/dbg')(__filename);
 var config = require('../../config.js');
 
+var p2p_context = {};
 
 /**
  *
@@ -651,7 +652,8 @@ function build_chunks(chunks) {
                         agent.options.set_address(block_addr.host);
                         agent.options.set_peer(block_addr.peer);
                         agent.options.set_is_ws();
-                        //agent.options.set_p2p_context(self.p2p_context); TODO
+                        agent.options.set_p2p_context(p2p_context);
+                        agent.options.set_timeout(30000);
 
                         return agent.replicate_block({
                             block_id: block._id.toString(),
@@ -662,7 +664,7 @@ function build_chunks(chunks) {
                             dbg.log0('ERROR replicate block', block._id, block_addr.host, err);
                             throw err;
                         })
-                            .thenResolve(block._id);
+                        .thenResolve(block._id);
                     });
                 }))
                 .then(function(built_block_ids) {

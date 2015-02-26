@@ -13,6 +13,7 @@ var tv4 = require('tv4').freshApi();
 var ice_api = require('./ice_api');
 var buf = require('./buffer_utils');
 var dbg = require('./dbg')(__filename);
+var config = require('../../config.js');
 
 // dbg.log_level = 3;
 
@@ -471,7 +472,7 @@ function rest_api(api) {
         return Q.fcall(function() {
             return self._peer_request(func_info, params);
         }).then(null, function(err) {
-            console.error('REST REQUEST FAILED', err);
+            console.error('REST REQUEST FAILED '+ err);
             throw err;
         });
     };
@@ -559,7 +560,7 @@ function rest_api(api) {
             responseType: 'arraybuffer'
         };
 
-        if (self.options.is_ws && self.options.peer) {
+        if (config.use_ws_when_possible && self.options.is_ws && self.options.peer) {
 
             dbg.log0('do ws for path '+options.path);
 
@@ -589,7 +590,7 @@ function rest_api(api) {
                 return self._doHttpCall(func_info, options, body);
             });
 
-        } else if (self.options.peer && (!self.options.ws_socket || self.options.peer != self.options.ws_socket.idInServer)) { // do ice
+        } else if (config.use_ice_when_possible && self.options.peer && (!self.options.ws_socket || self.options.peer != self.options.ws_socket.idInServer)) { // do ice
             dbg.log0('do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;

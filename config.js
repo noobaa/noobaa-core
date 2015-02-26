@@ -13,6 +13,9 @@ config.buildWorkerOn = false;
 config.connection_default_timeout = 60 * 1000;
 config.get_response_default_timeout = 10 * 60 * 1000;
 
+config.use_ws_when_possible = true;
+config.use_ice_when_possible = true;
+
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;

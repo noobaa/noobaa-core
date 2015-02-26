@@ -314,7 +314,7 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 exports.closeIce = closeIce;
 
 function logError(err) {
-    console.error('logError called: '+err.toString(), err);
+    console.error('logError called: '+ err);
 }
 
 function writeLog(socket, msg) {

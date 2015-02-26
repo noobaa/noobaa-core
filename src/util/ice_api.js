@@ -226,7 +226,7 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
     var requestId;
 
     return Q.fcall(function() {
-        dbg.log0('starting setup');
+        dbg.log3('starting setup');
 
         if (ws_socket) {
             sigSocket = ws_socket;
@@ -242,7 +242,7 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
         if (!isAgent && p2p_context) {
             var interval;
             if (!p2p_context.wsClientSocket) {
-                dbg.log0('SET INTERVAL stale ws connection');
+                dbg.log3('SET INTERVAL stale ws connection');
                 interval = setInterval(function(){staleConnChk(p2p_context);}, config.check_stale_conns);
             } else {
                 interval = p2p_context.wsClientSocket.interval;

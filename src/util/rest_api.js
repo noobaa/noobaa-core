@@ -228,12 +228,13 @@ function rest_api(api) {
         var msg;
         var body;
         var reqId;
+        var isWs = false;
 
         if (typeof message == 'string' || message instanceof String) {
             msg = JSON.parse(message);
-            reqId = msg.req;
+            reqId = msg.req || msg.requestId;
             body = msg.body;
-            console.log('ice do something '+require("util").inspect(msg));
+            dbg.log0('ice do something '+require("util").inspect(msg));
         }  else if (message instanceof ArrayBuffer) {
             try {
                 reqId = ''+buf.toBuffer(message.slice(0,32)).readInt32LE(0);
@@ -243,21 +244,38 @@ function rest_api(api) {
             var msgObj = channel.msgs[reqId];
             body = msgObj.buffer;
             msg = msgObj.peer_msg;
-            console.log('ice do something with buffer '+require("util").inspect(msg)+' for req '+reqId);
+            dbg.log0('ice do something with buffer '+require("util").inspect(msg)+' for req '+reqId);
         } else if (message.method) {
             msg = message;
             body = msg.body;
-            reqId = msg.req;
+            reqId = msg.req || msg.requestId;
+            dbg.log0('ice do something json '+require("util").inspect(message)+' req '+reqId);
         }
         else {
             console.error('ice got weird msg '+require("util").inspect(message));
         }
 
+        if (msg.sigType) {
+            isWs = true;
+        }
+
+        var reqBody = body;
+        if (body && body.body) {
+            reqBody = body.body;
+
+            try {
+                if (typeof reqBody == 'string' || reqBody instanceof String) {
+                    reqBody = JSON.parse(reqBody);
+                }
+            } catch (ex) {
+                console.error('problem parsing body as json '+ex);
+            }
+        }
 
         var req = {
-            url: 'http://127.0.0.1'+msg.path,
+            url: 'http://127.0.0.1'+(msg.path || body.path),
             method: msg.method,
-            body: body,
+            body: reqBody,
             load_auth: function() {} // TODO
         };
 
@@ -272,7 +290,7 @@ function rest_api(api) {
                         replyBuffer = buf.toArrayBuffer(replyBuffer);
                     }
 
-                    console.log('done manuall status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
+                    dbg.log0('done manual status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
 
                     var reply = {
                         status: status,
@@ -280,6 +298,13 @@ function rest_api(api) {
                         data: replyJSON,
                         req: reqId
                     };
+
+                    if (isWs) {
+                        reply.sigType = 'response';
+                        reply.requestId = reqId;
+                        reply.from = msg.to;
+                        reply.to = msg.from;
+                    }
 
                     channel.send(JSON.stringify(reply));
 
@@ -305,8 +330,8 @@ function rest_api(api) {
             }
         };
 
-        this.ice_router.handle(req, res, function() {
-            console.error('SHOULD NOT BE HERE done status: '+status+" reply: "+reply+" replyBuffer: "+replyBuffer);
+        this.ice_router.handle(req, res, function(err) {
+            console.error('SHOULD NOT BE HERE done status: '+status+" reply: "+replyJSON+" replyBuffer: "+replyBuffer+' if err '+err);
         });
 
     };
@@ -376,10 +401,11 @@ function rest_api(api) {
                     return func(req, res, next);
                 })
                 .then(function(reply) {
+
                     if (req._rest_error_data) {
                         throw new Error('rethrow_rest_error');
                     }
-                    self._log('SERVER COMPLETED', func_info.name);
+                    console.error('SERVER COMPLETED', func_info.name);
                     if (func_info.reply_raw) {
                         return res.status(200).send(reply);
                     } else {
@@ -388,10 +414,10 @@ function rest_api(api) {
                     }
                 })
                 .then(null, function(err) {
-                    self._log('SERVER ERROR', func_info.name,
+                    console.error('SERVER ERROR', func_info.name,
                         ':', req._rest_error_status, req._rest_error_data,
                         '-', req._rest_error_reason);
-                    self._log(err.stack || err);
+                    console.error(err.stack || err);
                     var status = req._rest_error_status || err.status || err.statusCode;
                     if (typeof status !== 'number' || status < 100 || status >= 600) {
                         status = 500;
@@ -405,7 +431,7 @@ function rest_api(api) {
                     }
                 })
                 .done(null, function(err) {
-                    self._log('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
+                    console.error('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
                     return next(err);
                 });
         };
@@ -474,7 +500,7 @@ function rest_api(api) {
             headers['content-type'] = 'application/octet-stream';
             headers['content-length'] = body.length;
             if (!Buffer.isBuffer(body)) {
-                console.log('body is not a buffer, try to convert', body);
+                dbg.log3('body is not a buffer, try to convert', body);
                 body = new Buffer(new Uint8Array(body));
             }
         }
@@ -533,7 +559,37 @@ function rest_api(api) {
             responseType: 'arraybuffer'
         };
 
-        if (self.options.peer && (!self.options.ws_socket || self.options.peer != self.options.ws_socket.idInServer)) { // do ice
+        if (self.options.is_ws && self.options.peer) {
+
+            dbg.log0('do ws for path '+options.path);
+
+            var peerId = self.options.peer;
+
+            if (options.headers['content-type'] === 'application/json') {
+                options.body = body;
+            }
+
+            return Q.fcall(function() {
+                return ice_api.sendWSRequest(self.options.p2p_context, peerId, options);
+            }).then(function(res) {
+                dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
+
+                if (res && res.status && res.status === 500) {
+                    dbg.log0('failed '+options.path+' in ws, try http instead');
+                    return self._doHttpCall(func_info, options, body);
+                } else {
+                    if (!func_info.reply_raw) {
+                        // check the json reply
+                        validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
+                    }
+                    return res.data;
+                }
+            }).then(null, function(err) {
+                console.error('WS REST REQUEST FAILED '+ err+' try http instead');
+                return self._doHttpCall(func_info, options, body);
+            });
+
+        } else if (self.options.peer && (!self.options.ws_socket || self.options.peer != self.options.ws_socket.idInServer)) { // do ice
             dbg.log0('do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;
@@ -550,15 +606,16 @@ function rest_api(api) {
             .then(function(res) {
                 dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
 
-                /*if (!res || !res.status || res.status !== '200') {
-                    isIceFailure = true;
-                }*/
-
-                if (!func_info.reply_raw) {
-                    // check the json reply
-                    validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
+                if (res && res.status && res.status === 500) {
+                    dbg.log0('failed '+options.path+' in ice, try http instead');
+                    return self._doHttpCall(func_info, options, body);
+                } else {
+                    if (!func_info.reply_raw) {
+                        // check the json reply
+                        validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
+                    }
+                    return res.data;
                 }
-                return res.data;
             })
             .then(null, function(err) {
                 console.error('ICE REST REQUEST FAILED '+ err+' try http instead');
@@ -572,7 +629,12 @@ function rest_api(api) {
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        dbg.log0(self.options, 'do http req');
+        dbg.log0(self.options, 'do http req '+options.path);
+
+        if (options.body) {
+            delete options.body;
+        }
+
         return Q.fcall(function() {
             return self._http_request(options, body);
         }).then(read_http_response)
@@ -584,14 +646,6 @@ function rest_api(api) {
             throw err;
         });
     };
-
-    function writeLog(options, msg) {
-        if (options.ws_socket) {
-            console.error(msg);
-        } else {
-            console.log(msg);
-        }
-    }
 
     // create a REST api call and return the options for http request.
     Client.prototype._http_request = function(options, body) {
@@ -697,6 +751,9 @@ rest_api.global_client_options = {
     },
     set_p2p_context: function(context) {
         this.p2p_context = context;
+    },
+    set_is_ws: function() {
+        this.is_ws = true;
     },
 
     /**

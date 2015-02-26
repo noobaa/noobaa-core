@@ -25,6 +25,7 @@ var connect = function (socket) {
 
         ws.onopen = (function () {
 
+            dbg.log0('ws open connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
 
             if (socket.isAgent) {
                 ws.send(JSON.stringify({sigType: 'id', id: socket.idInServer}));
@@ -88,6 +89,14 @@ var connect = function (socket) {
                 initiateIce(socket.p2p_context ,socket, message.from, false, message.requestId);
             } else if (message.sigType === 'keepalive') {
                 // nothing
+            } else if (message.sigType && message.requestId) {
+                dbg.log3('Got ' + message.sigType + ' from web server '+message.from+' to '+message.to+' i am '+socket.idInServer);
+                if (socket.action_defer && socket.action_defer[message.requestId]) {
+                    socket.action_defer[message.requestId].resolve(message);
+                    delete socket.action_defer[message.requestId];
+                } else {
+                    socket.handleRequestMethod(ws, message);
+                }
             } else {
                 writeLog(socket, 'unknown sig message ' + require('util').inspect(message));
                 try {
@@ -99,10 +108,14 @@ var connect = function (socket) {
         });
 
         ws.onerror = (function (err) {
-            writeLog(socket, 'on error ws ' + err);
+            writeLog(socket, 'on error ws ' + err+' ; '+err.stack);
 
             if (socket.conn_defer) {
                 socket.conn_defer.reject();
+            }
+
+            if (socket.action_defer) {
+                socket.action_defer.reject();
             }
 
             setTimeout(

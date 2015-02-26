@@ -649,6 +649,9 @@ function build_chunks(chunks) {
                         var source_addr = get_block_address(block.source);
                         var agent = new api.agent_api.Client();
                         agent.options.set_address(block_addr.host);
+                        agent.options.set_peer(block_addr.peer);
+                        agent.options.set_is_ws();
+                        //agent.options.set_p2p_context(self.p2p_context); TODO
 
                         return agent.replicate_block({
                             block_id: block._id.toString(),

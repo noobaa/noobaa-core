@@ -159,6 +159,57 @@ function staleConnChk(p2p_context) {
     }
 }
 
+exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options) {
+
+    var sigSocket;
+    return Q.fcall(function() {
+
+        if (p2p_context && p2p_context.wsClientSocket) {
+            sigSocket = p2p_context.wsClientSocket.ws_socket;
+        }
+
+        if (!sigSocket) {
+            dbg.log0('CREATE NEW WS CONN');
+            var prob = function(channel, event) {
+                console.error('ERROR Should never receive ice msgs ! got: '+event.data);};
+            sigSocket = ice.setup(prob, null, prob);
+        }
+
+        if (!isAgent && p2p_context) {
+            var interval;
+            if (!p2p_context.wsClientSocket) {
+                dbg.log3('SET INTERVAL stale ws connection');
+                interval = setInterval(function(){staleConnChk(p2p_context);}, config.check_stale_conns);
+            } else {
+                interval = p2p_context.wsClientSocket.interval;
+            }
+            p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+        }
+
+        if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
+        else return Q.fcall(function() {return sigSocket});
+    }).then(function(wsSocket) {
+        var requestId = generateRequestId();
+        sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
+
+        if (!sigSocket.action_defer) {
+            sigSocket.action_defer = {};
+        }
+        sigSocket.action_defer[requestId] = Q.defer();
+        return sigSocket.action_defer[requestId].promise;
+    }).then(function(response) {
+        dbg.log3('return response data '+require('util').inspect(response));
+        return response;
+    }).then(null, function(err) {
+        console.error('WS REST REQUEST FAILED '+err);
+        throw err;
+    });
+};
+
+function generateRequestId() {
+    return ''+rand.getRandomInt(10000,90000);
+}
+
 var timeToIce = 0;
 var timeWithSend = 0;
 var tries = 0;
@@ -203,7 +254,7 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
         else return Q.fcall(function() {return sigSocket});
     }).then(function() {
         dbg.log0('starting to initiate ice to '+peerId);
-        requestId = ''+rand.getRandomInt(10000,90000);
+        requestId = generateRequestId();
         return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
     }).then(function(newSocket) {
         iceSocket = newSocket;

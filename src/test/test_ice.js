@@ -75,7 +75,7 @@ describe('on ice message', function() {
         };
 
         var message = {
-            req: 43544,
+            req: '43544',
             body: 'dfgdfgdfg'
         };
 
@@ -87,6 +87,59 @@ describe('on ice message', function() {
 
         assert.equal(result.req, message.req);
         assert.equal(result.body, message.body);
+    });
+
+    it('get buffer', function() {
+
+        var result;
+        var requestId = '43544';
+        var body = 'dfgdfgdfg';
+
+        var block = new Buffer('stam','utf-8');
+
+        var channel = {
+            myId: 1,
+            peerId: 2,
+            msgs: {},
+            handleRequestMethod: function(channel, message) {
+                var msgObj = channel.msgs[requestId];
+                result = msgObj.peer_msg;
+                result.data = msgObj.buffer;
+
+                assert.equal(result.req, requestId);
+                assert.equal(result.body, body);
+
+                var strVal = result.data.toString();
+                assert.equal(strVal, 'stamstam');
+            }
+        };
+
+        var message = {
+            req: requestId,
+            body: body,
+            size: block.length*2
+        };
+
+        var event = {
+            data: JSON.stringify(message)
+        };
+
+        ice_api.onIceMessage(null, channel, event);
+
+        var blockEvent = ice_api.createBufferToSend(block, 0, requestId);
+        event = {
+            data: buf.toArrayBuffer(blockEvent)
+        };
+
+        ice_api.onIceMessage(null, channel, event);
+
+
+        blockEvent = ice_api.createBufferToSend(block, 1, requestId);
+        event = {
+            data: buf.toArrayBuffer(blockEvent)
+        };
+        ice_api.onIceMessage(null, channel, event);
+
     });
 
 });

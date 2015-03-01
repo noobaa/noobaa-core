@@ -48,17 +48,17 @@ module.exports = function(rootDirectory) {
     var client = new api.Client();
     client.options.set_address(params.address);
     Q.fcall(function() {
-            var auth_params = _.pick(params,
-                'email', 'password', 'system', 'role');
-            if (params.bucket) {
-                auth_params.extra = {
-                    bucket: params.bucket
-                };
-            }
-            dbg.log1('create auth', auth_params);
-            return client.create_auth_token(auth_params);
+        var auth_params = _.pick(params,
+            'email', 'password', 'system', 'role');
+        if (params.bucket) {
+            auth_params.extra = {
+                bucket: params.bucket
+            };
+        }
+        dbg.log1('create auth', auth_params);
+        return client.create_auth_token(auth_params);
 
-        });
+    });
 
     var buildXmlResponse = function(res, status, template) {
         res.header('Content-Type', 'application/xml');
@@ -119,7 +119,7 @@ module.exports = function(rootDirectory) {
                         obj.modifiedDate = new Date().toUTCString();
                         obj.md5 = 9999999;
                         obj.size = obj.info.size;
-                        console.log('#' + i, obj.key, '\t', obj.info.size, 'bytes. Modified:',obj.modifiedDate);
+                        console.log('#' + i, obj.key, '\t', obj.info.size, 'bytes. Modified:', obj.modifiedDate);
 
                     });
                     options.bucketName = req.bucket.name;
@@ -192,17 +192,17 @@ module.exports = function(rootDirectory) {
                 var template = templateBuilder.buildAcl();
                 return buildXmlResponse(res, 200, template);
             }
-//            keyName = keyName.replace('..chunk..map','');
+            //            keyName = keyName.replace('..chunk..map','');
 
             Q.fcall(function() {
-                var object_path = {
-                    bucket: params.bucket,
-                    key: keyName
-                };
+                    var object_path = {
+                        bucket: params.bucket,
+                        key: keyName
+                    };
                     return client.object.get_object_md(object_path);
                 })
-                .then (function(object_md){
-                    console.log('ooooo',object_md);
+                .then(function(object_md) {
+                    console.log('ooooo', object_md);
 
                     res.header('Last-Modified', new Date().toUTCString());
                     res.header('Content-Type', object_md.content_type);
@@ -219,14 +219,13 @@ module.exports = function(rootDirectory) {
                     return defer.promise;
                 })
                 .then(function(stream) {
-                    console.log('COMPLETED: download of ',stream);
+                    console.log('COMPLETED: download of ', stream);
                     res.header('Etag', md5(stream));
 
                     res.status(200);
                     if (req.method === 'HEAD') {
                         return res.end();
-                    }
-                    else{
+                    } else {
                         res.write(stream);
                         return res.end();
                     }
@@ -283,36 +282,60 @@ module.exports = function(rootDirectory) {
             } else {
 
 
-                    console.log('About to store object "%s" in bucket "%s" ', req.params.key, req.bucket.name, req.headers);
-                    res.header('ETag', 999999);
+                console.log('About to store object "%s" in bucket "%s" ', req.params.key, req.bucket.name, req.headers);
+                res.header('ETag', 999999);
 
-                    var file_key_name = req.params.key;
+                var file_key_name = req.params.key;
 
-                    var ext_match = file_key_name.match(/^(.*)(\.[^\.]*)$/);
+                // generate unique name - disable for now
+                //
+                // var ext_match = file_key_name.match(/^(.*)(\.[^\.]*)$/);
+                //
+                // var serial = (((Date.now() / 1000) % 10000000) | 0).toString();
+                // if (ext_match) {
+                //     file_key_name = ext_match[1] + '_' + serial + ext_match[2];
+                // } else {
+                //     file_key_name = file_key_name + '_' + serial;
+                // }
 
-                    var serial = (((Date.now() / 1000) % 10000000) | 0).toString();
-                    if (ext_match) {
-                        file_key_name = ext_match[1] + '_' + serial + ext_match[2];
-                    } else {
-                        file_key_name = file_key_name + '_' + serial;
-                    }
+                var client = new api.Client();
+                client.options.set_address(params.address);
 
-                    var client = new api.Client();
-                    client.options.set_address(params.address);
+                Q.fcall(function() {
+                        var auth_params = _.pick(params,
+                            'email', 'password', 'system', 'role');
+                        if (params.bucket) {
+                            auth_params.extra = {
+                                bucket: params.bucket
+                            };
+                        }
+                        dbg.log1('create auth', auth_params);
+                        return client.create_auth_token(auth_params);
 
-                    Q.fcall(function() {
-                            var auth_params = _.pick(params,
-                                'email', 'password', 'system', 'role');
-                            if (params.bucket) {
-                                auth_params.extra = {
-                                    bucket: params.bucket
-                                };
+                    }).then(function() {
+                        return client.object.list_objects({
+                            bucket: params.bucket,
+                            key: file_key_name
+                        });
+                    }).then(function(res){
+                            //object exists. Delete and write.
+                            if (res.objects.length>0){
+                                Q.nfcall(function() {
+                                    return client.object.delete_object({
+                                        bucket: params.bucket,
+                                        key: file_key_name
+                                    });
+                                }).then(function() {
+                                    console.info('Deleted old version of object "%s" in bucket "%s"', file_key_name, params.bucket);
+                                    return res.status(204).end();
+                                }, function(err) {
+                                    console.error('Failure while trying to delete old version of object "%s"', file_key_name, err);
+                                    var template = templateBuilder.buildKeyNotFound(file_key_name);
+                                    return buildXmlResponse(res, 500, template);
+
+                                });
                             }
-                            dbg.log1('create auth', auth_params);
-                            return client.create_auth_token(auth_params);
-
-                        }).then(function() {
-                            console.log('mime:',mime.lookup(file_key_name));
+                            //console.log('mime:', mime.lookup(file_key_name));
                             return client.object.upload_stream({
                                 bucket: params.bucket,
                                 key: file_key_name,
@@ -321,40 +344,56 @@ module.exports = function(rootDirectory) {
                                 content_type: req.headers['content-type'],
                                 source_stream: new SliceReader(new Buffer(req.body)),
                             });
-                        })
-                        .then(function() {
-                            console.log('COMPLETED: upload', file_key_name);
-                            return res.status(200).end();
-                        }, function(err) {
-                            // console.error('Error uploading object "%s" to bucket "%s"',
-                            //     req.params.key, req.bucket.name, err);
-                            // var template = templateBuilder.buildError('InternalError',
-                            //     'We encountered an internal error. Please try again.');
-                            // return buildXmlResponse(res, 500, template);
-                            console.log('ERROR: upload', file_key_name, err);
-                            return res.status(500).end();
-                        });
+                    }).then(function() {
+                        console.log('COMPLETED: upload', file_key_name);
+                        return res.status(200).end();
+                    }, function(err) {
+                        // console.error('Error uploading object "%s" to bucket "%s"',
+                        //     req.params.key, req.bucket.name, err);
+                        // var template = templateBuilder.buildError('InternalError',
+                        //     'We encountered an internal error. Please try again.');
+                        // return buildXmlResponse(res, 500, template);
+                        console.log('ERROR: upload', file_key_name, ' err:',err);
+                        return res.status(500).end();
+                    });
 
             }
         },
         deleteObject: function(req, res) {
             var key = req.params.key;
-            fileStore.getObjectExists(req.bucket, key, function(err) {
-                if (err) {
-                    var template = templateBuilder.buildKeyNotFound(key);
-                    return buildXmlResponse(res, 404, template);
-                }
-                fileStore.deleteObject(req.bucket, key, function(err) {
-                    if (err) {
-                        console.error('Could not delete object "%s"', key, err);
-                        var template = templateBuilder.buildError('InternalError',
-                            'We encountered an internal error. Please try again.');
-                        return buildXmlResponse(res, 500, template);
+            Q.fcall(function() {
+                    return client.object.list_objects({
+                        bucket: params.bucket,
+                        key: key
+                    });
+                })
+                .then(function(res) {
+                    console.log('res', res);
+
+                    if (res.objects.length === 0) {
+                        console.error('Could not delete object "%s"', key);
+                        var template = templateBuilder.buildKeyNotFound(key);
+                        return buildXmlResponse(res, 404, template);
                     }
+                    console.log('objects in bucket', params.bucket, ' with key ', key, ':');
+                    var i = 0;
+                    _.each(res.objects, function(obj) {
+                        console.log('#' + i, obj.key, '\t', obj.info.size, 'bytes');
+                        i++;
+                    });
+                    return client.object.delete_object({
+                        bucket: params.bucket,
+                        key: key
+                    });
+                }).then(function() {
                     console.info('Deleted object "%s" in bucket "%s"', key, req.bucket.name);
                     return res.status(204).end();
+                }, function(err) {
+                    console.error('Failure while trying to delete object "%s"', key, err);
+                    var template = templateBuilder.buildKeyNotFound(key);
+                    return buildXmlResponse(res, 500, template);
+
                 });
-            });
         }
     };
 };

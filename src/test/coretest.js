@@ -34,6 +34,11 @@ var object_server = require('../server/object_server');
 
 var client = new api.Client();
 
+// use http only for test
+var config = require('../../config.js');
+config.use_ws_when_possible = false;
+config.use_ice_when_possible = false;
+
 
 before(function(done) {
     Q.fcall(function() {

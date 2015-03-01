@@ -1,3 +1,5 @@
+'use strict';
+
 var ice = require('./ice_lib');
 var Q = require('q');
 var buf = require('./buffer_utils');
@@ -5,18 +7,11 @@ var rand = require('./random_utils');
 var dbg = require('../util/dbg')(__filename);
 var config = require('../../config.js');
 
-var exports = module.exports = {};
+module.exports = {};
 
 var isAgent;
 
 var partSize = 40;
-
-exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
-    if (agentId) {
-        isAgent = true;
-    }
-    return ice.setup(onIceMessage, agentId, handleRequestMethodTemp);
-};
 
 function writeLog(msg) {
     if (isAgent) {
@@ -26,11 +21,11 @@ function writeLog(msg) {
     }
 }
 
-function onIceMessage(p2p_context, channel, event) {
-    //dbg.log0('Got event '+event.data+' ; my id: '+channel.myId);
+var onIceMessage = function onIceMessage(p2p_context, channel, event) {
+    dbg.log3('Got event '+event.data+' ; my id: '+channel.myId);
+    var msgObj;
 
-    if (typeof event.data == 'string' || event.data instanceof String) {
-        //dbg.log0('got message str '+require('util').inspect(event.data));
+    if (typeof event.data === 'string' || event.data instanceof String) {
         try {
             var message = JSON.parse(event.data);
 
@@ -44,11 +39,11 @@ function onIceMessage(p2p_context, channel, event) {
             if (!channel.msgs[message.req]) {
                 channel.msgs[message.req] = {};
             }
-            var msgObj = channel.msgs[message.req];
+            msgObj = channel.msgs[message.req];
 
             msgObj.peer_msg = message;
 
-            if (!message.size || parseInt(message.size) === 0) {
+            if (!message.size || parseInt(message.size, 10) === 0) {
 
                 if (msgObj.action_defer) {
                     msgObj.action_defer.resolve(channel);
@@ -56,7 +51,7 @@ function onIceMessage(p2p_context, channel, event) {
                     channel.handleRequestMethod(channel, message);
                 }
             } else {
-                msgObj.msg_size = parseInt(message.size);
+                msgObj.msg_size = parseInt(message.size, 10);
                 msgObj.received_size = 0;
                 msgObj.chunk_num = 0;
                 msgObj.chunks_map = {};
@@ -69,7 +64,7 @@ function onIceMessage(p2p_context, channel, event) {
 
         try {
             var bff = buf.toBuffer(event.data);
-            var req = ''+bff.readInt32LE(0);
+            var req = (bff.readInt32LE(0)).toString();
             var part = bff.readInt8(32);
 
             if (!ice.isRequestAlive(p2p_context, channel.peerId, req)) {
@@ -77,7 +72,7 @@ function onIceMessage(p2p_context, channel, event) {
                 return;
             }
 
-            var msgObj = channel.msgs[req];
+            msgObj = channel.msgs[req];
 
             var partBuf = event.data.slice(partSize);
             msgObj.chunks_map[part] = partBuf;
@@ -95,8 +90,9 @@ function onIceMessage(p2p_context, channel, event) {
                 + ' my id '+channel.myId);
 
                 var chunksParts = [];
-                for (var i = 0; i < msgObj.chunk_num; ++i) {
-                    chunksParts.push(buf.toBuffer(msgObj.chunks_map[i]));
+                var chunk_counter;
+                for (chunk_counter = 0; chunk_counter < msgObj.chunk_num; ++chunk_counter) {
+                    chunksParts.push(buf.toBuffer(msgObj.chunks_map[chunk_counter]));
                 }
                 msgObj.buffer = Buffer.concat(chunksParts, msgObj.msg_size);
 
@@ -116,15 +112,28 @@ function onIceMessage(p2p_context, channel, event) {
     } else {
         writeLog('WTF got ' + event.data);
     }
-}
+};
+module.exports.onIceMessage = onIceMessage;
 
-function createBufferToSend(block, seq, reqId) {
+module.exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
+    if (agentId) {
+        isAgent = true;
+    }
+    return ice.setup(onIceMessage, agentId, handleRequestMethodTemp);
+};
+
+var createBufferToSend = function createBufferToSend(block, seq, reqId) {
     var bufToSend = new Buffer(partSize);
     try {reqId = parseInt(reqId, 10);}  catch (ex){console.error('fail parse req id '+ex);}
     bufToSend.writeInt32LE(reqId,0);
     bufToSend.writeInt8(seq,32);
     bufToSend = buf.addToBuffer(bufToSend, block);
     return buf.toArrayBuffer(bufToSend);
+};
+module.exports.createBufferToSend = createBufferToSend;
+
+function generateRequestId() {
+    return rand.getRandomInt(10000,90000).toString();
 }
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
@@ -149,15 +158,16 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
         channel.send(createBufferToSend(block, counter, reqId));
     }
 };
-exports.writeBufferToSocket = writeBufferToSocket;
+module.exports.writeBufferToSocket = writeBufferToSocket;
 
 
 /********************************
  * handle stale connections
  ********************************/
 function staleConnChk(p2p_context) {
-    if (isAgent || !p2p_context || !p2p_context.wsClientSocket)
+    if (isAgent || !p2p_context || !p2p_context.wsClientSocket) {
         return;
+    }
 
     var now = (new Date()).getTime();
 
@@ -169,7 +179,7 @@ function staleConnChk(p2p_context) {
     }
 }
 
-exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options, timeout) {
+module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options, timeout) {
 
     var sigSocket;
     var requestId;
@@ -187,7 +197,7 @@ exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options, tim
         if (!sigSocket) {
             dbg.log0('CREATE NEW WS CONN');
             var prob = function(channel, event) {
-                console.error('ERROR Should never receive ice msgs ! got: '+event.data);};
+                console.error('ERROR Should never receive ice msgs ! got: '+event.data+' from '+channel.peerId);};
             sigSocket = ice.setup(prob, null, prob);
         }
 
@@ -202,9 +212,12 @@ exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options, tim
             p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
         }
 
-        if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
-        else return Q.fcall(function() {return sigSocket});
-    }).timeout(timeout).then(function(wsSocket) {
+        if (sigSocket.conn_defer) {
+            return sigSocket.conn_defer.promise;
+        }
+        return Q.fcall(function() {return sigSocket;});
+
+    }).timeout(timeout).then(function() {
         requestId = generateRequestId();
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
@@ -228,11 +241,7 @@ exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options, tim
     });
 };
 
-function generateRequestId() {
-    return ''+rand.getRandomInt(10000,90000);
-}
-
-exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, request, agentId, buffer, timeout) {
+module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, request, agentId, buffer, timeout) {
     var iceSocket;
     var sigSocket;
     var requestId;
@@ -270,8 +279,8 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
             p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
         }
 
-        if (sigSocket.conn_defer) return sigSocket.conn_defer.promise;
-        else return Q.fcall(function() {return sigSocket});
+        if (sigSocket.conn_defer) {return sigSocket.conn_defer.promise;}
+        return Q.fcall(function() {return sigSocket;});
     }).timeout(timeout).then(function() {
         dbg.log0('starting to initiate ice to '+peerId);
         requestId = generateRequestId();
@@ -280,7 +289,7 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};
-        msgObj = iceSocket.msgs[requestId];
+        var msgObj = iceSocket.msgs[requestId];
 
         msgObj.action_defer = Q.defer();
 
@@ -296,9 +305,9 @@ exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId, reque
         }
 
         return msgObj.action_defer.promise;
-    }).timeout(config.get_response_default_timeout).then(function(channel) {
+    }).timeout(config.get_response_default_timeout).then(function() {
 
-        msgObj = iceSocket.msgs[requestId];
+        var msgObj = iceSocket.msgs[requestId];
 
         var response = msgObj.peer_msg;
         if (msgObj.buffer) {

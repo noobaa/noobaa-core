@@ -187,7 +187,7 @@ function reconnect(socket) {
     connect(socket);
 }
 
-function sendMessage(socket, peerId, requestId, message) {
+var sendMessage = function sendMessage(socket, peerId, requestId, message) {
     dbg.log0('Client sending message: '+ message);
 
     var toSend = {
@@ -211,7 +211,8 @@ function sendMessage(socket, peerId, requestId, message) {
         toSend.data = message;
         socket.ws.send(JSON.stringify(toSend));
     }
-}
+};
+module.exports.sendWSMessage = sendMessage;
 
 /********************************
  * handle stale connections

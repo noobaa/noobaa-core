@@ -7,6 +7,8 @@ var _ = require('lodash');
 var Q = require('q');
 var ice_api = require('../util/ice_api');
 var assert = require("assert");
+var ice_lib = require('../util/ice_lib');
+var sinon     = require('sinon');
 
 describe('create buffer to send', function() {
 
@@ -140,6 +142,87 @@ describe('on ice message', function() {
         };
         ice_api.onIceMessage(null, channel, event);
 
+    });
+
+
+
+    it('test ws', function() {
+
+        // create mock for web sockets
+        var wsMock = function(addr) {
+            this.ws = {
+                msgsSent: [],
+                msgsRec: []
+            };
+
+            this.ws.send = function(msg) {
+                this.msgsSent.push(msg);
+            };
+
+            console.log('creating dummy ws for addr '+addr);
+            return this.ws;
+        };
+
+        var rewire = require('rewire');
+        var ice_lib = rewire('../util/ice_lib');
+        ice_lib.__set__({
+            'WebSocket': wsMock
+        });
+
+        var agentId = '45y45y54y45';
+
+        var p2p_context = {
+            iceSockets: {}
+        };
+
+        // open mock web socket to signaling server
+        var socket = ice_lib.setup(function(p2p_context, channel, event) {
+            console.log('got event '+event.data+' from peer '+channel.peerId);
+        }, agentId, function(channel, message) {
+            console.log('got message '+message+' from peer '+channel.peerId);
+        });
+
+        // chk onopen sends required message
+        socket.ws.onopen();
+        assert.ok(socket.alive_interval);
+        assert.ok(socket.ws.msgsSent[0].indexOf('sigType') >= 0);
+        assert.equal(socket.idInServer,agentId);
+
+        // clear keep alive interval and stale conns one
+        clearInterval(socket.alive_interval);
+        clearInterval(socket.stale_conn_interval);
+
+        // chk that when id msg received from server it is ignored for agent
+        socket.ws.onmessage({sigType: 'id', id: 'ytytytytyt'});
+        assert.equal(socket.idInServer,agentId);
+
+        // test send message to peer
+        ice_lib.sendWSMessage(socket, '6y6y6yy6', '7777', {df: 'hh', ba: '434'});
+        assert.ok(socket.ws.msgsSent[1].indexOf('sigType') >= 0);
+        assert.ok(socket.ws.msgsSent[1].indexOf('ice') >= 0);
+        assert.ok(socket.ws.msgsSent[1].indexOf('434') >= 0);
+
+        // chk that when request of no specific type arrives it goes to the right method
+        socket.handleRequestMethod = function(ws, message) {
+            console.log('got msg '+message);
+            ws.msgsRec.push(message);
+        };
+        socket.ws.onmessage({sigType: 'blat', requestId: 'blat'});
+        assert.ok(socket.ws.msgsRec[0].sigType === 'blat');
+
+        // get ice connection to peer of which and ice connection already exists
+        var peerId = '9i9i9i9';
+        var reqId = '999';
+        p2p_context.iceSockets[peerId] = {
+            peerConn: 1,
+            dataChannel: 2,
+            usedBy: {}
+        };
+        ice_lib.initiateIce(p2p_context, socket, peerId, true, reqId);
+        assert.ok(socket.icemap[reqId].peerId === peerId);
+        assert.ok(socket.icemap[reqId].isInitiator);
+        assert.ok(socket.icemap[reqId].requestId === reqId);
+        assert.ok(p2p_context.iceSockets[peerId].usedBy[reqId] === 1);
     });
 
 });

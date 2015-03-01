@@ -311,21 +311,21 @@ AgentCLI.prototype.set_log.helper = function () {
  * help for specific API
  *
  */
-AgentCLI.prototype.show = function(func_name) {
-    var self = this;
 
-    if (!func_name) {
-        return;
+AgentCLI.prototype.show = function(func_name) {
+    var func = this[func_name];
+    var helper = func && func.helper;
+
+    // in the common case the helper is a function - so call it
+    if (typeof(helper) === 'function') {
+        return helper.call(this);
+    }
+
+    // if helper is string or something else we just print it
+    if (helper) {
+        console.log(helper);
     } else {
-        if (self[func_name] && typeof self[func_name] === 'function') {
-            if (self[func_name].helper && typeof self[func_name].helper === 'function') {
-                  self[func_name].helper();
-            } else {
-                console.log(func_name + " does not have help");
-            }
-        } else {
-            console.log("unrecognized option " + func_name);
-        }
+        console.log('help not found for function', func_name);
     }
 };
 

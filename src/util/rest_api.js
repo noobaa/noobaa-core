@@ -150,7 +150,7 @@ function rest_api(api) {
                     });
                 };
             }
-            assert.strictEqual(typeof(func), 'function',
+            assert.strictEqual(typeof func, 'function',
                 'rest_api: server method should be a function - ' + func_info.fullname);
             self._impl[func_name] = func;
             self._handlers[func_name] = self._create_server_handler(func, func_info);
@@ -231,14 +231,14 @@ function rest_api(api) {
         var reqId;
         var isWs = false;
 
-        if (typeof message == 'string' || message instanceof String) {
+        if (typeof message === 'string' || message instanceof String) {
             msg = JSON.parse(message);
             reqId = msg.req || msg.requestId;
             body = msg.body;
             dbg.log0('ice do something '+require("util").inspect(msg));
         }  else if (message instanceof ArrayBuffer) {
             try {
-                reqId = ''+buf.toBuffer(message.slice(0,32)).readInt32LE(0);
+                reqId = (buf.toBuffer(message.slice(0,32)).readInt32LE(0)).toString();
             } catch (ex) {
                 console.error('problem reading req id rest_api '+ex);
             }
@@ -265,7 +265,7 @@ function rest_api(api) {
             reqBody = body.body;
 
             try {
-                if (typeof reqBody == 'string' || reqBody instanceof String) {
+                if (typeof reqBody === 'string' || reqBody instanceof String) {
                     reqBody = JSON.parse(reqBody);
                 }
             } catch (ex) {
@@ -358,7 +358,7 @@ function rest_api(api) {
                  * @param reason <Any> a reason for logging only
                  */
                 req.rest_error = function(status, data, reason) {
-                    if (typeof(status) === 'string') {
+                    if (typeof status === 'string') {
                         reason = data;
                         data = status;
                         status = 500;
@@ -491,7 +491,7 @@ function rest_api(api) {
 
         // using forIn to enumerate headers that may be inherited from base headers (see Client ctor).
         _.forIn(self.headers, function(val, key) {
-            if (typeof(val) === 'function') return;
+            if (typeof val === 'function') {return;}
             headers[key] = val;
         });
 
@@ -512,7 +512,7 @@ function rest_api(api) {
         _.each(func_info.path_items, function(p) {
             if (!p) {
                 return;
-            } else if (typeof(p) === 'string') {
+            } else if (typeof p === 'string') {
                 // for plain path strings which are non params
                 path = url_path_join(path, p);
             } else {
@@ -795,7 +795,7 @@ rest_api.global_client_headers = {
             // probably in another inherited headers object. not sure how/why...
             // delete this.authorization;
         }
-        console.log('set_auth_token', typeof(token),
+        console.log('set_auth_token', typeof token,
             token ? token.slice(0, 20) + '...' : '\'\'');
     },
 
@@ -856,7 +856,7 @@ function param_to_component(param, type) {
 
 function component_to_param(component, type) {
     if (type === 'array' || type === 'object') {
-        if (typeof(component) === type) {
+        if (typeof component === type) {
             return component; // already parsed
         } else {
             return JSON.parse(decodeURIComponent(component));

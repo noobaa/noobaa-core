@@ -61,22 +61,25 @@ describe('write buffer to socket', function() {
 
 describe('on ice message', function() {
 
-    it('get string', function() {
+    it('get string', function(done) {
 
         var result;
+
+        var message = {
+            req: '43544',
+            body: 'dfgdfgdfg'
+        };
 
         var channel = {
             myId: 1,
             peerId: 2,
             msgs: {},
-            handleRequestMethod: function(channel, message) {
-                result = message;
+            handleRequestMethod: function(channel, data) {
+                result = data;
+                assert.equal(result.req, message.req);
+                assert.equal(result.body, message.body);
+                done();
             }
-        };
-
-        var message = {
-            req: '43544',
-            body: 'dfgdfgdfg'
         };
 
         var event = {
@@ -84,12 +87,9 @@ describe('on ice message', function() {
         };
 
         ice_api.onIceMessage(null, channel, event);
-
-        assert.equal(result.req, message.req);
-        assert.equal(result.body, message.body);
     });
 
-    it('get buffer', function() {
+    it('get buffer', function(done) {
 
         var result;
         var requestId = '43544';
@@ -111,6 +111,7 @@ describe('on ice message', function() {
 
                 var strVal = result.data.toString();
                 assert.equal(strVal, 'stamstam');
+                done();
             }
         };
 
@@ -132,7 +133,6 @@ describe('on ice message', function() {
         };
 
         ice_api.onIceMessage(null, channel, event);
-
 
         blockEvent = ice_api.createBufferToSend(block, 1, requestId);
         event = {

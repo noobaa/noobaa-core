@@ -20,6 +20,7 @@ var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var AgentStore = require('./agent_store');
 var ice_api = require('../util/ice_api');
+var config = require('../../config.js');
 
 module.exports = Agent;
 
@@ -155,13 +156,14 @@ Agent.prototype.start = function() {
             return self.send_heartbeat();
         })
         .then(function() {
+            if (config.use_ice_when_possible || config.use_ws_when_possible) {
+                console.log('start ws agent id: '+ self.node_id+' peer id: '+ self.peer_id);
 
-            console.log('start ws agent id: '+ self.node_id+' peer id: '+ self.peer_id);
-
-            self.sigSocket = ice_api.signalingSetup(self.agent_server.ice_server_handler.bind(self.agent_server),
-                self.peer_id);
-            self.client.options.set_ws(self.sigSocket);
-            return self.sigSocket;
+                self.sigSocket = ice_api.signalingSetup(self.agent_server.ice_server_handler.bind(self.agent_server),
+                    self.peer_id);
+                self.client.options.set_ws(self.sigSocket);
+                return self.sigSocket;
+            }
         })
         .then(null, function(err) {
             console.error('AGENT server failed to start', err);

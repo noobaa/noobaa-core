@@ -8,6 +8,7 @@ var jwt = require('jsonwebtoken');
 var db = require('./db');
 var api = require('../api');
 var range_utils = require('../util/range_utils');
+var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
 var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('../util/dbg')(__filename);
@@ -602,42 +603,27 @@ function build_chunks(chunks) {
         });
 }
 
+
+
 /**
- * create a timeout promise that does not block the event loop from exiting
- * in case there are no other events waiting.
- * see http://nodejs.org/api/timers.html#timers_unref
+ *
+ * BUILD_WORKER
+ *
+ * background worker that scans chunks and builds them according to their blocks status
+ *
  */
-function delay_unblocking(delay) {
-    var defer = Q.defer();
-    var timer = setTimeout(defer.resolve, delay);
-    timer.unref();
-    return defer.promise;
-}
+var build_worker = promise_utils.run_background_worker({
 
-// for the same of tests we schedule the worker with unblocking delay
-// so that it won't prevent the process from existing if it's the only timer left
-delay_unblocking(5000).then(build_worker);
+    name: 'build_worker',
+    batch_size: 100,
+    time_since_last_build: 3000, // TODO increase...
+    building_timeout: 60000, // TODO increase...
 
-
-function build_worker() {
-    var last_chunk_id;
-    var batch_size = 100;
-    var time_since_last_build = 3000; // TODO increase...
-    var building_timeout = 60000; // TODO increase...
-    return run();
-
-    function run() {
-        return run_batch()
-            .then(function() {
-                return delay_unblocking(last_chunk_id ? 1000 : 60000);
-            }, function(err) {
-                dbg.log0('build_worker:', 'ERROR', err, err.stack);
-                return delay_unblocking(10000);
-            })
-            .then(run);
-    }
-
-    function run_batch() {
+    /**
+     * run the next batch of build_chunks
+     */
+    run_batch: function() {
+        var self = this;
         return Q.fcall(function() {
                 var query = {
                     $and: [{
@@ -645,7 +631,7 @@ function build_worker() {
                             last_build: null
                         }, {
                             last_build: {
-                                $lt: new Date(Date.now() - time_since_last_build)
+                                $lt: new Date(Date.now() - self.time_since_last_build)
                             }
                         }]
                     }, {
@@ -653,38 +639,53 @@ function build_worker() {
                             building: null
                         }, {
                             building: {
-                                $lt: new Date(Date.now() - building_timeout)
+                                $lt: new Date(Date.now() - self.building_timeout)
                             }
                         }]
                     }]
                 };
-                if (last_chunk_id) {
+                if (self.last_chunk_id) {
                     query._id = {
-                        $gt: last_chunk_id
+                        $gt: self.last_chunk_id
                     };
                 } else {
-                    dbg.log0('build_worker:', 'BEGIN');
+                    dbg.log0('BUILD_WORKER:', 'BEGIN');
                 }
 
                 return db.DataChunk.find(query)
-                    .limit(batch_size)
+                    .limit(self.batch_size)
                     .exec();
             })
             .then(function(chunks) {
 
                 // update the last_chunk_id for next time
-                if (chunks.length === batch_size) {
-                    last_chunk_id = chunks[chunks.length - 1];
+                if (chunks.length === self.batch_size) {
+                    self.last_chunk_id = chunks[chunks.length - 1]._id;
                 } else {
-                    last_chunk_id = undefined;
+                    self.last_chunk_id = undefined;
                 }
 
                 if (chunks.length) {
                     return build_chunks(chunks);
                 }
+            })
+            .then(function() {
+                // return the delay before next batch
+                if (self.last_chunk_id) {
+                    dbg.log0('BUILD_WORKER:', 'CONTINUE', self.last_chunk_id);
+                    return 1000;
+                } else {
+                    dbg.log0('BUILD_WORKER:', 'END');
+                    return 60000;
+                }
+            }, function(err) {
+                // return the delay before next batch
+                dbg.log0('BUILD_WORKER:', 'ERROR', err, err.stack);
+                return 10000;
             });
     }
-}
+});
+
 
 
 

@@ -8,6 +8,7 @@ var db = require('./db');
 var Barrier = require('../util/barrier');
 var dbg = require('../util/dbg')(__filename);
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 
 
 module.exports = {
@@ -224,6 +225,56 @@ function heartbeat(params) {
         return promise;
     }
 }
+
+
+
+
+/**
+ *
+ * NODE_MONITOR_WORKER
+ *
+ * background worker that scans chunks and builds them according to their blocks status
+ *
+ * /
+var node_monitor_worker = promise_utils.run_background_worker({
+
+    name: 'node_monitor_worker',
+    batch_size: 100,
+    time_since_last_build: 3000, // TODO increase...
+    building_timeout: 60000, // TODO increase...
+
+    /**
+     * run the next batch of node scan
+     * /
+    run_batch: function() {
+        var self = this;
+        return Q.fcall(function() {
+                dbg.log0('NODE_MONITOR_WORKER:', 'RUN');
+            })
+            .then(function() {
+                // return the delay before next batch
+                if (self.last_node_id) {
+                    return 1000;
+                } else {
+                    return 60000;
+                }
+            }, function(err) {
+                // return the delay before next batch
+                dbg.log0('NODE_MONITOR_WORKER:', 'ERROR', err, err.stack);
+                return 10000;
+            });
+    }
+
+});
+*/
+
+
+
+
+
+// UTILS //////////////////////////////////////////////////////////
+
+
 
 
 

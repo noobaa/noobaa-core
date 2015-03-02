@@ -1,5 +1,6 @@
 'use strict';
 var fs = require('fs');
+var https = require('https');
 
 var app = function(hostname, port, directory, silent) {
     var express = require('express'),
@@ -30,12 +31,17 @@ var app = function(hostname, port, directory, silent) {
         stream: accessLogStream
     }));
 
-    app.use(function(req, res, next) {
+    // app.use(function(req, res, next) {
+    //
+    //     req.pipe(concat(function(data) {
+    //         req.body = data;
+    //         next();
+    //     }));
+    // });
 
-        req.pipe(concat(function(data) {
-            req.body = data;
-            next();
-        }));
+    app.use(function (req, res, next) {
+      console.log('Time:', Date.now(),req.headers);
+      next();
     });
 
     app.disable('x-powered-by');
@@ -54,7 +60,13 @@ var app = function(hostname, port, directory, silent) {
 
     return {
         serve: function(done) {
-            app.listen(port, hostname, function(err) {
+            var privateKey = fs.readFileSync('/Users/eran/workspace/key.pem');
+            var certificate = fs.readFileSync('/Users/eran/workspace/cert.pem');
+
+            https.createServer({
+                key: privateKey,
+                cert: certificate
+            }, app).listen(port, hostname, function(err) {
                 return done(err, hostname, port, directory);
             }).on('error', function(err) {
                 return done(err);

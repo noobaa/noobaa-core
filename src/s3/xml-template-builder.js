@@ -26,7 +26,7 @@ var xml = function() {
             MaxKeys: options.maxKeys,
             IsTruncated: false
         });
-        console.log('content:', content, ' opts', options, 'items:', items);
+        //console.log('content:', content, ' opts', options, 'items:', items);
 
         return content;
     };
@@ -133,7 +133,7 @@ var xml = function() {
                         DisplayName: DISPLAY_NAME
                     },
                     AccessControlList: {
-                        Grant: {
+                        Grant: [{
                             _name: 'Grantee',
                             _attrs: {
                                 'xmlns:xsi': 'http://www.w3.org/2001/XMLSchema-instance',
@@ -142,9 +142,11 @@ var xml = function() {
                             _content: {
                                 ID: 'abc',
                                 DisplayName: 'You'
-                            }
-                        },
-                        Permission: 'FULL_CONTROL'
+                            },
+                        }, {
+                            _name: 'Permission',
+                            _content: 'FULL_CONTROL'
+                        }]
                     }
                 }
             }, {

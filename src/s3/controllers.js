@@ -2,7 +2,10 @@
 var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
+var util = require('util');
 var md5 = require('MD5');
+var crypto = require('crypto');
+var md5_stream = require('../util/md5_stream');
 // var os = require('os');
 // var http = require('http');
 var path = require('path');
@@ -66,6 +69,52 @@ module.exports = function(rootDirectory) {
         return res.send(template);
     };
 
+    var uploadObject = function(req, res, file_key_name) {
+        try {
+            var md5 = 0;
+
+            // tranform stream that calculates md5 on-the-fly
+            var md5_calc = new md5_stream();
+            req.pipe(md5_calc);
+
+            md5_calc.on('finish', function() {
+                md5 = md5_calc.toString();
+                console.log('MD5 data (end)', md5);
+            });
+
+            // md5_calc.on('data', function(data) {
+            //     md5Hash.update(data);
+            // });
+            // md5_calc.on('end', function() {
+            //     md5 = md5Hash.digest('hex');
+            //     console.log('go data (end)', md5);
+            // });
+
+            return client.object.upload_stream({
+                bucket: params.bucket,
+                key: file_key_name,
+                size: parseInt(req.headers['content-length']),
+                content_type: req.headers['content-type'],
+                source_stream: md5_calc,
+            }).then(function() {
+                try {
+                    console.log('COMPLETED: upload', file_key_name, md5);
+                    res.header('ETag', md5);
+                } catch (err) {
+                    console.log('FAILED', err, res);
+
+                }
+                return res.status(200).end();
+            }, function(err) {
+                console.log('ERROR: upload', file_key_name, ' err:', util.inspect(err));
+                return res.status(500).end();
+            });
+        } catch (err) {
+            console.log('Failed upload stream to noobaa:', err);
+        }
+    };
+
+
     /**
      * The following methods correspond the S3 api. For more information visit:
      * http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html
@@ -99,7 +148,7 @@ module.exports = function(rootDirectory) {
                 maxKeys: parseInt(req.query['max-keys']) || 1000,
                 delimiter: req.query.delimiter || null
             };
-            console.info('Fetched bucket "%s" with options %s', req.bucket.name);
+            console.info('Fetched bucket "%s" with options', req.bucket.name);
             //  fileStore.getObjects(req.bucket, options, function(err, results) {
             //      console.info('Found %d objects for bucket "%s"', results.length, req.bucket.name, 'res', results);
             //      options.bucketName = req.bucket.name;
@@ -113,22 +162,18 @@ module.exports = function(rootDirectory) {
                     });
                 })
                 .then(function(results) {
-                    //console.log('objects in bucket', params.bucket, ':');
+                    //console.log('objects in bucket', params.bucket, ':',results);
                     var i = 0;
                     _.each(results.objects, function(obj) {
-                        obj.modifiedDate = new Date().toUTCString();
+                        obj.modifiedDate = new Date().toISOString();
                         obj.md5 = 9999999;
                         obj.size = obj.info.size;
-                        console.log('#' + i, obj.key, '\t', obj.info.size, 'bytes. Modified:', obj.modifiedDate);
-
                     });
                     options.bucketName = req.bucket.name;
-                    //console.log('objectsII:',results.objects[0]);
                     var template = templateBuilder.buildBucketQuery(options, results.objects);
                     return buildXmlResponse(res, 200, template);
                 })
                 .then(function() {
-
                     console.log('COMPLETED: list');
                 }, function(err) {
                     console.log('ERROR: list', err);
@@ -190,62 +235,65 @@ module.exports = function(rootDirectory) {
             var acl = req.query.acl;
             if (acl !== undefined) {
                 var template = templateBuilder.buildAcl();
+                console.log('ACL:', acl, 'template', template);
                 return buildXmlResponse(res, 200, template);
+
+            } else {
+
+
+                //S3 browser format - maybe future use.
+                // keyName = keyName.replace('..chunk..map','');
+
+                Q.fcall(function() {
+                        var object_path = {
+                            bucket: params.bucket,
+                            key: keyName
+                        };
+                        return client.object.get_object_md(object_path);
+                    })
+                    .then(function(object_md) {
+                        res.header('Last-Modified', new Date().toISOString());
+                        res.header('Content-Type', object_md.content_type);
+                        res.header('Content-Length', object_md.size);
+                        res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
+                        var defer = Q.defer();
+                        var object_path = {
+                            bucket: params.bucket,
+                            key: keyName
+                        };
+                        //var stream = concat_stream(defer.resolve);
+                        //stream.once('error', defer.reject);
+                        //client.object.open_read_stream(object_path).pipe(stream);
+                        //return defer.promise;
+                        return client.object.open_read_stream(object_path).pipe(res);
+                    })
+                    .then(function(stream) {
+                        console.log('COMPLETED: download of ', keyName,md5(stream));
+                        res.header('Etag', md5(stream));
+                        res.status(200);
+                        if (req.method === 'HEAD') {
+                            return res.end();
+                        } else {
+                            res.write(stream);
+                            return res.end();
+                        }
+
+                    }, function(err) {
+                        console.log('ERROR: while download from noobaa', err);
+                        var template = templateBuilder.buildKeyNotFound(keyName);
+                        console.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
+                        return buildXmlResponse(res, 404, template);
+                    });
             }
-            //            keyName = keyName.replace('..chunk..map','');
-
-            Q.fcall(function() {
-                    var object_path = {
-                        bucket: params.bucket,
-                        key: keyName
-                    };
-                    return client.object.get_object_md(object_path);
-                })
-                .then(function(object_md) {
-                    console.log('ooooo', object_md);
-
-                    res.header('Last-Modified', new Date().toUTCString());
-                    res.header('Content-Type', object_md.content_type);
-                    res.header('Content-Length', object_md.size);
-                    res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
-                    var defer = Q.defer();
-                    var object_path = {
-                        bucket: params.bucket,
-                        key: keyName
-                    };
-                    var stream = concat_stream(defer.resolve);
-                    stream.once('error', defer.reject);
-                    client.object.open_read_stream(object_path).pipe(stream);
-                    return defer.promise;
-                })
-                .then(function(stream) {
-                    console.log('COMPLETED: download of ', stream);
-                    res.header('Etag', md5(stream));
-
-                    res.status(200);
-                    if (req.method === 'HEAD') {
-                        return res.end();
-                    } else {
-                        res.write(stream);
-                        return res.end();
-                    }
-
-                }, function(err) {
-                    //         var template = templateBuilder.buildKeyNotFound(keyName);
-                    //         console.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
-                    //         return buildXmlResponse(res, 404, template);
-
-                    console.log('ERROR: aaadownload from noobaa', err);
-                    var template = templateBuilder.buildKeyNotFound(keyName);
-                    console.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
-                    return buildXmlResponse(res, 404, template);
-                });
         },
-
-
-
         putObject: function(req, res) {
             var template;
+            var acl = req.query.acl;
+            if (acl !== undefined) {
+                template = templateBuilder.buildAcl();
+                console.log('ACL:', acl, 'template', template);
+                return buildXmlResponse(res, 200, template);
+            }
             var copy = req.headers['x-amz-copy-source'];
             if (copy) {
                 var srcObjectParams = copy.split('/'),
@@ -281,9 +329,7 @@ module.exports = function(rootDirectory) {
                 });
             } else {
 
-
                 console.log('About to store object "%s" in bucket "%s" ', req.params.key, req.bucket.name, req.headers);
-                res.header('ETag', 999999);
 
                 var file_key_name = req.params.key;
 
@@ -299,64 +345,60 @@ module.exports = function(rootDirectory) {
                 // }
 
                 var client = new api.Client();
+
                 client.options.set_address(params.address);
 
                 Q.fcall(function() {
-                        var auth_params = _.pick(params,
-                            'email', 'password', 'system', 'role');
-                        if (params.bucket) {
-                            auth_params.extra = {
-                                bucket: params.bucket
-                            };
-                        }
-                        dbg.log1('create auth', auth_params);
-                        return client.create_auth_token(auth_params);
+                    var auth_params = _.pick(params,
+                        'email', 'password', 'system', 'role');
+                    if (params.bucket) {
+                        auth_params.extra = {
+                            bucket: params.bucket
+                        };
+                    }
+                    dbg.log1('create auth', auth_params);
+                    return client.create_auth_token(auth_params);
 
-                    }).then(function() {
-                        return client.object.list_objects({
-                            bucket: params.bucket,
-                            key: file_key_name
-                        });
-                    }).then(function(res){
-                            //object exists. Delete and write.
-                            if (res.objects.length>0){
-                                Q.nfcall(function() {
-                                    return client.object.delete_object({
-                                        bucket: params.bucket,
-                                        key: file_key_name
-                                    });
-                                }).then(function() {
-                                    console.info('Deleted old version of object "%s" in bucket "%s"', file_key_name, params.bucket);
-                                    return res.status(204).end();
-                                }, function(err) {
-                                    console.error('Failure while trying to delete old version of object "%s"', file_key_name, err);
-                                    var template = templateBuilder.buildKeyNotFound(file_key_name);
-                                    return buildXmlResponse(res, 500, template);
+                }).then(function() {
+                    console.log('check', params.bucket, file_key_name);
 
-                                });
-                            }
-                            //console.log('mime:', mime.lookup(file_key_name));
-                            return client.object.upload_stream({
-                                bucket: params.bucket,
-                                key: file_key_name,
-                                size: req.body.length,
-                                //content_type: mime.lookup(file_key_name),
-                                content_type: req.headers['content-type'],
-                                source_stream: new SliceReader(new Buffer(req.body)),
-                            });
-                    }).then(function() {
-                        console.log('COMPLETED: upload', file_key_name);
-                        return res.status(200).end();
-                    }, function(err) {
-                        // console.error('Error uploading object "%s" to bucket "%s"',
-                        //     req.params.key, req.bucket.name, err);
-                        // var template = templateBuilder.buildError('InternalError',
-                        //     'We encountered an internal error. Please try again.');
-                        // return buildXmlResponse(res, 500, template);
-                        console.log('ERROR: upload', file_key_name, ' err:',err);
-                        return res.status(500).end();
+                    return client.object.list_objects({
+                        bucket: params.bucket,
+                        key: file_key_name
                     });
+                }).then(function(list_results) {
+                    console.log('resres', list_results, list_results.objects.length, params.bucket, file_key_name);
+                    //object exists. Delete and write.
+                    if (list_results.objects.length > 0) {
+                        var obj_index = _.findIndex(list_results.objects, function(chr) {
+                            return chr.key === file_key_name;
+                        });
+                        //the current implementation of list_objects returns list of objects with key
+                        // that starts with the provided name. we will validate it.
+                        if (obj_index >= 0) {
+                            return client.object.delete_object({
+                                bucket: params.bucket,
+                                key: file_key_name
+                            }).then(function() {
+                                console.log('Deleted old version of object "%s" in bucket "%s"', file_key_name, params.bucket);
+                                uploadObject(req, res, file_key_name);
+                                //                                    return res.status(204).end();
+                            }, function(err) {
+                                console.log('Failure while trying to delete old version of object "%s"', file_key_name, err);
+                                var template = templateBuilder.buildKeyNotFound(file_key_name);
+                                return buildXmlResponse(res, 500, template);
 
+                            });
+                        } else {
+                            console.log('no real old version');
+                            uploadObject(req, res, file_key_name);
+                        }
+                    } else {
+                        console.log('body:', parseInt(req.headers['content-length']));
+                        uploadObject(req, res, file_key_name);
+                    }
+
+                });
             }
         },
         deleteObject: function(req, res) {

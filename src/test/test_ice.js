@@ -309,11 +309,13 @@ describe('on ice message', function() {
             }
         },1000);
 
+        socket.icemap[reqId].dataChannel.onopen();
+        assert.ok(p2p_context.iceSockets[peerId].usedBy[reqId] === 1);
+
         // check close
         ice_lib.closeIce(socket, reqId, socket.icemap[reqId].dataChannel);
         assert.ok(socket.icemap[reqId].done, 'close ice didnt mark req as done is: '+socket.icemap[reqId].done);
-        assert.ok(!p2p_context.iceSockets[peerId] || !p2p_context.iceSockets[peerId].usedBy ||
-                        !p2p_context.iceSockets[peerId].usedBy[reqId], 'close ice didnt delete used by');
+        assert.ok(!p2p_context.iceSockets[peerId].usedBy[reqId], 'close ice didnt delete used by');
 
     });
 

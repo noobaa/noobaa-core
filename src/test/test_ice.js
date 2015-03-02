@@ -163,11 +163,52 @@ describe('on ice message', function() {
             return this.ws;
         };
 
+        var windowMock = {};
+        windowMock.RTCPeerConnection = function() {
+            var conn = {
+                candidates: 0,
+                offers: 0,
+                dataChannels: 0,
+                remoteDesk: 0,
+                localDesk: 0,
+                answers: 0,
+                createDataChannel: function () {
+                    this.dataChannels += 1;
+                    return {};
+                },
+                createOffer: function (descCB) {
+                    this.offers += 1;
+                    descCB('desc');
+                },
+                addIceCandidate: function () {
+                    this.candidates += 1;
+                    return {};
+                },
+                setRemoteDescription: function () {
+                    this.remoteDesk += 1;
+                    return {};
+                },
+                createAnswer: function (descCB) {
+                    this.answers += 1;
+                    descCB('desc');
+                },
+                setLocalDescription: function () {
+                    this.localDesk += 1;
+                    return {};
+                }
+            };
+            return conn;
+        };
+
         var rewire = require('rewire');
         var ice_lib = rewire('../util/ice_lib');
         ice_lib.__set__({
             'WebSocket': wsMock
         });
+        global.window = windowMock;
+        global.RTCIceCandidate = sinon.spy();
+        global.RTCSessionDescription = sinon.spy();
+
 
         var agentId = '45y45y54y45';
 
@@ -223,6 +264,34 @@ describe('on ice message', function() {
         assert.ok(socket.icemap[reqId].isInitiator);
         assert.ok(socket.icemap[reqId].requestId === reqId);
         assert.ok(p2p_context.iceSockets[peerId].usedBy[reqId] === 1);
+
+        // get ice connection to peer - new
+        peerId = '9i9i888';
+        reqId = '888';
+        assert(!socket.icemap[reqId], 'request used before ?');
+        ice_lib.initiateIce(p2p_context, socket, peerId, true, reqId);
+        assert.ok(socket.ws.msgsSent[2].indexOf('sigType') >= 0);
+        assert.ok(socket.ws.msgsSent[2].indexOf('accept') >= 0);
+        assert(socket.icemap[reqId].peerConn.offers === 1, 'ice offer not called during initiateIce');
+
+        // candidate ws msg handling
+        assert(socket.icemap[reqId].peerConn.candidates === 0, 'addIceCandidate called before ?');
+        socket.ws.onmessage({sigType: 'ice', requestId: reqId, from: peerId, to: agentId, data: {type: 'candidate', candidate:'gaga'}});
+        assert(socket.icemap[reqId].peerConn.candidates === 1, 'addIceCandidate not called');
+        assert(global.RTCIceCandidate.called, 'global.RTCIceCandidate not called');
+
+        // offer ws msg handling
+        assert(socket.icemap[reqId].peerConn.answers === 0, 'ice offer answer called before: '+socket.icemap[reqId].peerConn.offers+' should be 0');
+        socket.ws.onmessage({sigType: 'ice', requestId: reqId, from: peerId, to: agentId, data: {type: 'offer', offer:'gaga'}});
+        assert(socket.icemap[reqId].peerConn.answers === 1, 'ice answer not called');
+        assert(global.RTCSessionDescription.called, 'global.RTCSessionDescription not called');
+
+        // answer ws msg handling
+        assert(socket.icemap[reqId].peerConn.remoteDesk === 1, 'ice set remote desc called before: '+socket.icemap[reqId].peerConn.remoteDesk+' should be 1');
+        socket.ws.onmessage({sigType: 'ice', requestId: reqId, from: peerId, to: agentId, data: {type: 'answer', answer:'gaga'}});
+        assert(socket.icemap[reqId].peerConn.remoteDesk === 2, 'ice handle answer not called');
+        assert(global.RTCSessionDescription.called, 'global.RTCSessionDescription not called');
+
     });
 
 });

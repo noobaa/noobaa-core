@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var moment = require('moment');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -123,6 +124,22 @@ node_schema.index({
 });
 
 
+function get_minimum_online_heartbeat() {
+    return moment().subtract(5, 'minutes').toDate();
+}
+
+function get_minimum_alloc_heartbeat() {
+    return moment().subtract(2, 'minutes').toDate();
+}
+
+node_schema.methods.is_online = function() {
+    return !this.srvmode && this.heartbeat >= get_minimum_online_heartbeat();
+};
+
+node_schema.statics.get_minimum_online_heartbeat = get_minimum_online_heartbeat;
+node_schema.statics.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
+
+
 /**
  *
  * aggregate_nodes
@@ -134,7 +151,8 @@ node_schema.index({
  *      each tier value is an object with properties: alloc, used, count, online.
  *
  */
-node_schema.statics.aggregate_nodes = function(query, minimum_online_heartbeat) {
+node_schema.statics.aggregate_nodes = function(query) {
+    var minimum_online_heartbeat = get_minimum_online_heartbeat();
     return this.mapReduce({
         query: query,
         scope: {

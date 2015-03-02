@@ -69,6 +69,13 @@ nb_api.factory('nbFiles', [
                     return nbClient.client.object.read_object_mappings(params);
                 })
                 .then(function(res) {
+                    _.each(res.parts, function(part) {
+                        var frag_size = part.chunk_size / part.kfrag;
+                        _.each(part.fragments, function(fragment, fragment_index) {
+                            fragment.start = part.start + (frag_size * fragment_index);
+                            fragment.size = frag_size;
+                        });
+                    });
                     console.log('LIST FILE PARTS', res);
                     return res;
                 });

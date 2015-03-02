@@ -262,6 +262,7 @@ nb_console.controller('NodeViewCtrl', [
                 })
                 .then(function(res) {
                     $scope.node = res;
+                    $scope.my_host = 'http://' + $scope.node.ip + ':' + $scope.node.port;
 
                     var used = $scope.node.storage.used;
                     var unused = $scope.node.storage.alloc - used;
@@ -278,11 +279,11 @@ nb_console.controller('NodeViewCtrl', [
                             sliceVisibilityThreshold: 0,
                             slices: [{
                                 color: '#03a9f4'
-                            },{
+                            }, {
                                 color: '#ff008b'
-                            },{
+                            }, {
                                 color: '#ffa0d3'
-                            },{
+                            }, {
                                 color: '#81d4fa'
                             }]
                         },
@@ -323,20 +324,15 @@ nb_console.controller('NodeViewCtrl', [
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
             };
-            var my_host = 'http://' + $scope.node.ip + ':' + $scope.node.port;
             return $q.when(nbClient.client.node.read_node_maps(query))
                 .then(function(res) {
                     $scope.parts = [];
                     _.each(res.objects, function(object) {
                         _.each(object.parts, function(part) {
-                            _.each(part.fragments, function(frag) {
-                                frag.sort(function(block1, block2) {
-                                    if (block1.host === my_host) {
-                                        return -1;
-                                    } else {
-                                        return 1;
-                                    }
-                                });
+                            var frag_size = part.chunk_size / part.kfrag;
+                            _.each(part.fragments, function(fragment, fragment_index) {
+                                fragment.start = part.start + (frag_size * fragment_index);
+                                fragment.size = frag_size;
                             });
                             part.file = object.key;
                             $scope.parts.push(part);
@@ -521,6 +517,7 @@ nb_console.controller('FileViewCtrl', [
                 key: $routeParams.file_name,
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
+                details: true
             };
             return nbFiles.list_file_parts(params)
                 .then(function(res) {

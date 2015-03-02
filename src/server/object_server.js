@@ -132,13 +132,14 @@ function finalize_object_parts(req) {
 function report_bad_block(req) {
     return find_object_md(req)
         .then(function(obj) {
-            return object_mapper.bad_block_in_part(
-                obj,
-                req.rest_params.start,
-                req.rest_params.end,
-                req.rest_params.fragment,
-                req.rest_params.block_id,
-                req.rest_params.is_write);
+            var params = _.pick(req.rest_params,
+                'start',
+                'end',
+                'fragment',
+                'block_id',
+                'is_write');
+            params.obj = obj;
+            return object_mapper.bad_block_in_part(params);
         })
         .then(function(new_block) {
             if (new_block) {
@@ -161,12 +162,18 @@ function read_object_mappings(req) {
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
-            return object_mapper.read_object_mappings(
-                obj,
-                req.rest_params.start,
-                req.rest_params.end,
-                req.rest_params.skip,
-                req.rest_params.limit);
+            var params = _.pick(req.rest_params,
+                'start',
+                'end',
+                'skip',
+                'limit',
+                'details');
+            params.obj = obj;
+            // allow details only to admin!
+            if (params.details && req.role !== 'admin') {
+                params.details = false;
+            }
+            return object_mapper.read_object_mappings(params);
         })
         .then(function(parts) {
             return {

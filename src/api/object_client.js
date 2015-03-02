@@ -233,8 +233,13 @@ ObjectClient.prototype.upload_stream = function(params) {
                                     key: params.key,
                                     parts: _.compact(_.map(parts, function(part) {
                                         if (part.dedup) return;
-                                        var block_ids = _.pluck(_.pluck(
-                                            _.flatten(part.fragments), 'address'), 'id');
+                                        var block_ids = _.flatten(
+                                            _.map(part.fragments, function(fragment) {
+                                                return _.map(fragment.blocks, function(block) {
+                                                    return block.address.id;
+                                                });
+                                            })
+                                        );
                                         return {
                                             start: part.start,
                                             end: part.end,
@@ -307,18 +312,18 @@ ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
     var block_size = (part.chunk_size / part.kfrag) | 0;
     var buffer_per_fragment = encode_chunk(part.encrypted_chunk, part.kfrag, block_size);
 
-    return Q.all(_.map(part.fragments, function(blocks, fragment) {
-        return Q.all(_.map(blocks, function(block) {
+    return Q.all(_.map(part.fragments, function(fragment, fragment_index) {
+        return Q.all(_.map(fragment.blocks, function(block) {
             return self._attempt_write_block({
                 bucket: bucket,
                 key: key,
                 start: part.start,
                 end: part.end,
                 part: part,
-                fragment: fragment,
-                offset: part.start + (fragment * block_size),
+                fragment: fragment_index,
+                offset: part.start + (fragment_index * block_size),
                 block_address: block.address,
-                buffer: buffer_per_fragment[fragment],
+                buffer: buffer_per_fragment[fragment_index],
                 remaining_attempts: 20,
             });
         }));
@@ -721,58 +726,58 @@ ObjectClient.prototype._read_object_part = function(part) {
     var self = this;
     var block_size = (part.chunk_size / part.kfrag) | 0;
     var buffer_per_fragment = {};
-    var next_fragment = 0;
+    var next_fragment_index = 0;
 
     dbg.log2('_read_object_part', range_utils.human_range(part));
 
     // advancing the read by taking the next fragment and return promise to read it.
     // will fail if no more fragments remain, which means the part cannot be served.
     function read_the_next_fragment() {
-        while (next_fragment < part.fragments.length) {
-            var curr_fragment = next_fragment;
-            var blocks = part.fragments[curr_fragment];
-            next_fragment += 1;
-            if (blocks) {
-                return read_fragment_blocks_chain(blocks, curr_fragment);
+        while (next_fragment_index < part.fragments.length) {
+            var curr_fragment_index = next_fragment_index;
+            var fragment = part.fragments[curr_fragment_index];
+            next_fragment_index += 1;
+            if (fragment) {
+                return read_fragment_blocks_chain(fragment, curr_fragment_index);
             }
         }
         throw new Error('READ PART EXHAUSTED', part);
     }
 
-    function read_fragment_blocks_chain(blocks, fragment) {
-        dbg.log3('read_fragment_blocks_chain', range_utils.human_range(part), fragment);
+    function read_fragment_blocks_chain(fragment, fragment_index) {
+        dbg.log3('read_fragment_blocks_chain', range_utils.human_range(part), fragment_index);
 
         // chain the blocks of the fragment with array reduce
         // to handle read failures we create a promise chain such that each block of
         // this fragment will read and if fails it's promise rejection handler will go
         // to read the next block of the fragment.
-        var add_block_promise_to_chain = function(promise, block) {
+        function add_block_promise_to_chain(promise, block) {
             return promise.then(null, function(err) {
                 if (err !== chain_init_err) {
                     console.error('READ FAILED BLOCK', err);
                 }
-                var offset = part.start + (fragment * block_size);
+                var offset = part.start + (fragment_index * block_size);
                 return self._blocks_cache.get({
                     block_address: block.address,
                     block_size: block_size,
                     offset: offset,
                 });
             });
-        };
+        }
 
         // chain_initiator is used to fire the first rejection handler for the head of the chain.
-        var chain_init_err = {};
+        var chain_init_err = 'chain_init_err';
         var chain_initiator = Q.reject(chain_init_err);
 
         // reduce the blocks array to create the chain and feed it with the initial promise
-        return _.reduce(blocks, add_block_promise_to_chain, chain_initiator)
+        return _.reduce(fragment.blocks, add_block_promise_to_chain, chain_initiator)
             .then(function(buffer) {
                 // when done, just keep the buffer and finish this promise chain
-                buffer_per_fragment[fragment] = buffer;
+                buffer_per_fragment[fragment_index] = buffer;
             })
             .then(null, function(err) {
                 // failed to read this fragment, try another.
-                console.error('READ FAILED FRAGMENT', fragment, err);
+                console.error('READ FAILED FRAGMENT', fragment_index, err);
                 return read_the_next_fragment();
             });
     }

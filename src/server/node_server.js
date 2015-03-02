@@ -8,7 +8,6 @@ var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var system_server = require('./system_server');
-var node_monitor = require('./node_monitor');
 var object_mapper = require('./object_mapper');
 var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
@@ -186,10 +185,9 @@ function read_node_maps(req) {
     return find_node_by_name(req)
         .then(function(node_arg) {
             node = node_arg;
-            return object_mapper.read_node_mappings(
-                node,
-                req.rest_params.skip,
-                req.rest_params.limit);
+            var params = _.pick(req.rest_params, 'skip', 'limit');
+            params.node = node;
+            return object_mapper.read_node_mappings(params);
         })
         .then(function(objects) {
             return {
@@ -605,7 +603,7 @@ function get_node_full_info(node) {
         alloc: node.storage.alloc || 0,
         used: node.storage.used || 0,
     };
-    info.online = node_monitor.is_node_online(node);
+    info.online = node.is_online();
     info.device_info = node.device_info || {};
     return info;
 }

@@ -9,7 +9,6 @@ var db = require('./db');
 var api = require('../api');
 var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
-var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('../util/dbg')(__filename);
 
@@ -50,19 +49,23 @@ function allocate_object_parts(bucket, obj, parts) {
     };
 
     // dedup with existing chunks by lookup of crypt.hash_val
-    return Q.when(
-            db.DataChunk
-            .find({
-                system: obj.system,
-                tier: tier_id,
-                'crypt.hash_val': {
-                    $in: _.map(parts, function(part) {
-                        return part.crypt.hash_val;
-                    })
-                },
-                deleted: null,
-            })
-            .exec())
+    return Q.fcall(function() {
+            if (process.env.DEDUP_DISABLED) {
+                return;
+            }
+            return db.DataChunk
+                .find({
+                    system: obj.system,
+                    tier: tier_id,
+                    'crypt.hash_val': {
+                        $in: _.map(parts, function(part) {
+                            return part.crypt.hash_val;
+                        })
+                    },
+                    deleted: null,
+                })
+                .exec();
+        })
         .then(function(dup_chunks) {
             var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
                 return chunk.crypt.hash_val;
@@ -119,7 +122,12 @@ function allocate_object_parts(bucket, obj, parts) {
                 dbg.log0('part info', part,
                     'chunk', chunk,
                     'blocks', new_blocks);
-                reply_part.part = get_part_info(part, chunk, new_blocks);
+                reply_part.part = get_part_info({
+                    part: part,
+                    chunk: chunk,
+                    blocks: new_blocks,
+                    building: true
+                });
             });
             dbg.log2('create blocks', new_blocks.length);
             return db.DataBlock.create(new_blocks);
@@ -210,20 +218,21 @@ function finalize_object_parts(bucket, obj, parts) {
 
 /**
  *
- * read_node_mappings
+ * read_object_mappings
  *
  * query the db for existing parts and blocks which intersect the requested range,
  * return the blocks inside each part (part.fragments) like the api format
  * to make it ready for replying and simpler to iterate
  *
+ * @params: obj, start, end, skip, limit
  */
-function read_object_mappings(obj, start, end, skip, limit) {
-    var rng = sanitize_object_range(obj, start, end);
+function read_object_mappings(params) {
+    var rng = sanitize_object_range(params.obj, params.start, params.end);
     if (!rng) { // empty range
         return [];
     }
-    start = rng.start;
-    end = rng.end;
+    var start = rng.start;
+    var end = rng.end;
     var parts;
 
     return Q.fcall(function() {
@@ -231,7 +240,7 @@ function read_object_mappings(obj, start, end, skip, limit) {
             // find parts intersecting the [start,end) range
             var find = db.ObjectPart
                 .find({
-                    obj: obj.id,
+                    obj: params.obj.id,
                     start: {
                         $lt: end
                     },
@@ -241,12 +250,15 @@ function read_object_mappings(obj, start, end, skip, limit) {
                 })
                 .sort('start')
                 .populate('chunks.chunk');
-            if (skip) find.skip(skip);
-            if (limit) find.limit(limit);
+            if (params.skip) find.skip(params.skip);
+            if (params.limit) find.limit(params.limit);
             return find.exec();
         })
         .then(function(parts) {
-            return read_parts_mappings(parts);
+            return read_parts_mappings({
+                parts: parts,
+                details: params.details
+            });
         });
 }
 
@@ -255,17 +267,18 @@ function read_object_mappings(obj, start, end, skip, limit) {
  *
  * read_node_mappings
  *
+ * @params: node, skip, limit
  */
-function read_node_mappings(node, skip, limit) {
+function read_node_mappings(params) {
     return Q.fcall(function() {
             var find = db.DataBlock
                 .find({
-                    node: node.id,
+                    node: params.node.id,
                     deleted: null,
                 })
                 .sort('-_id');
-            if (skip) find.skip(skip);
-            if (limit) find.limit(limit);
+            if (params.skip) find.skip(params.skip);
+            if (params.limit) find.limit(params.limit);
             return find.exec();
         })
         .then(function(blocks) {
@@ -280,7 +293,11 @@ function read_node_mappings(node, skip, limit) {
                 .exec();
         })
         .then(function(parts) {
-            return read_parts_mappings(parts, 'set_obj');
+            return read_parts_mappings({
+                parts: parts,
+                set_obj: true,
+                details: true
+            });
         })
         .then(function(parts) {
             var objects = {};
@@ -307,9 +324,10 @@ function read_node_mappings(node, skip, limit) {
  *
  * parts should have populated chunks
  *
+ * @params: parts, set_obj, details
  */
-function read_parts_mappings(parts, set_obj) {
-    var chunks = _.pluck(_.flatten(_.map(parts, 'chunks')), 'chunk');
+function read_parts_mappings(params) {
+    var chunks = _.pluck(_.flatten(_.map(params.parts, 'chunks')), 'chunk');
     var chunk_ids = _.pluck(chunks, 'id');
 
     // find all blocks of the resulting parts
@@ -325,13 +343,19 @@ function read_parts_mappings(parts, set_obj) {
             .exec())
         .then(function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
-            var parts_reply = _.map(parts, function(part) {
+            var parts_reply = _.map(params.parts, function(part) {
                 if (!part.chunks || part.chunks.length !== 1) {
                     throw new Error('only single tier supported per bucket/chunk');
                 }
                 var chunk = part.chunks[0].chunk;
                 var blocks = blocks_by_chunk[chunk.id];
-                return get_part_info(part, chunk, blocks, set_obj);
+                return get_part_info({
+                    part: part,
+                    chunk: chunk,
+                    blocks: blocks,
+                    set_obj: params.set_obj,
+                    details: params.details
+                });
             });
             return parts_reply;
         });
@@ -383,15 +407,17 @@ function delete_object_mappings(obj) {
  *
  * bad_block_in_part
  *
+ * @params: obj, start, end, fragment, block_id, is_write
+ *
  */
-function bad_block_in_part(obj, start, end, fragment, block_id, is_write) {
+function bad_block_in_part(params) {
     return Q.all([
-            db.DataBlock.findById(block_id).exec(),
+            db.DataBlock.findById(params.block_id).exec(),
             db.ObjectPart.findOne({
-                system: obj.system,
-                obj: obj.id,
-                start: start,
-                end: end,
+                system: params.obj.system,
+                obj: params.obj.id,
+                start: params.start,
+                end: params.end,
             })
             .populate('chunks.chunk')
             .exec(),
@@ -402,13 +428,13 @@ function bad_block_in_part(obj, start, end, fragment, block_id, is_write) {
                 throw new Error('invalid bad block request');
             }
             var chunk = part.chunks[0].chunk;
-            if (!block || block.fragment !== fragment ||
+            if (!block || block.fragment !== params.fragment ||
                 String(block.chunk) !== String(chunk.id)) {
                 console.error('bad block - invalid block', block, part);
                 throw new Error('invalid bad block request');
             }
 
-            if (is_write) {
+            if (params.is_write) {
                 var new_block;
 
                 return block_allocator.reallocate_bad_block(chunk, block)
@@ -481,105 +507,12 @@ function build_chunks(chunks) {
         ])
         .spread(function(all_blocks, chunks_updated) {
 
-            // TODO take config of desired replicas from tier/bucket
-            var optimal_replicas = 3;
-            // TODO move times to config constants/env
-            var now = Date.now();
-            var long_gone_threshold = 3600000;
-            var short_gone_threshold = 300000;
-            var long_build_threshold = 300000;
-
             var blocks_by_chunk = _.groupBy(all_blocks, 'chunk');
             _.each(chunks, function(chunk) {
-                var blocks_by_fragments = _.groupBy(blocks_by_chunk[chunk._id], 'fragment');
-                _.times(chunk.kfrag, function(fragment) {
-                    var blocks = blocks_by_fragments[fragment] || [];
-                    dbg.log1('build_chunks:', 'chunk', chunk._id,
-                        'fragment', fragment, 'num blocks', blocks.length);
-
-                    var good_blocks = [];
-                    var accessible_blocks = [];
-                    var short_gone_blocks = [];
-                    var long_gone_blocks = [];
-                    var building_blocks = [];
-                    var building_timeout_blocks = [];
-
-
-                    _.each(blocks, function(block) {
-                        var since_hb = now - block.node.heartbeat.getTime();
-                        if (since_hb > long_gone_threshold || block.node.srvmode === 'blocked') {
-                            return long_gone_blocks.push(block);
-                        }
-                        if (since_hb > short_gone_threshold) {
-                            return short_gone_blocks.push(block);
-                        }
-                        if (block.building) {
-                            var since_bld = now - block.building.getTime();
-                            if (since_bld > long_build_threshold) {
-                                return building_timeout_blocks.push(block);
-                            } else {
-                                return building_blocks.push(block);
-                            }
-                        }
-                        if (!block.node.srvmode) {
-                            good_blocks.push(block);
-                        }
-                        // also keep list of blocks that we can use to replicate from
-                        if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
-                            accessible_blocks.push(block);
-                        }
-                    });
-
-                    if (!accessible_blocks.length) {
-                        // TODO try erasure coding to rebuild from other fragments
-                        console.error('build_chunk:', 'NO ACCESSIBLE BLOCKS',
-                            'chunk', chunk._id, 'fragment', fragment,
-                            'good', good_blocks.length,
-                            'accessible', accessible_blocks.length,
-                            'short gone', short_gone_blocks.length,
-                            'long gone', long_gone_blocks.length,
-                            'building', building_blocks.length,
-                            'building timeout', building_timeout_blocks.length);
-                        return;
-                    }
-
-                    // remove all blocks that were building for too long
-                    // as they most likely failed to build
-                    while (building_timeout_blocks.length) {
-                        push_block_to_remove(chunk, fragment,
-                            building_timeout_blocks.pop(), 'building timeout');
-                    }
-
-                    // when above optimal we can remove long gone blocks
-                    // defer the short gone blocks until either back to good or become long.
-                    if (good_blocks.length >= optimal_replicas) {
-                        while (long_gone_blocks.length) {
-                            push_block_to_remove(chunk, fragment,
-                                long_gone_blocks.pop(), 'extra long gone');
-                        }
-                    }
-
-                    // remove good blocks only if above optimal
-                    while (good_blocks.length > optimal_replicas) {
-                        push_block_to_remove(chunk, fragment,
-                            good_blocks.pop(), 'extra good');
-                    }
-
-                    // mark to allocate blocks for fragment to reach optimal count
-                    var round_rob = 0;
-                    var num_blocks_to_add = Math.max(0, optimal_replicas - good_blocks.length);
-                    _.times(num_blocks_to_add, function() {
-                        blocks_info_to_allocate.push({
-                            system_id: chunk.system,
-                            tier_id: chunk.tier,
-                            chunk_id: chunk._id,
-                            chunk: chunk,
-                            fragment: fragment,
-                            source: accessible_blocks[round_rob % accessible_blocks.length]
-                        });
-                        round_rob += 1;
-                    });
-                });
+                var chunk_blocks = blocks_by_chunk[chunk._id];
+                var chunk_status = analyze_chunk_status(chunk, chunk_blocks);
+                array_push_all(blocks_to_remove, chunk_status.blocks_to_remove);
+                array_push_all(blocks_info_to_allocate, chunk_status.blocks_info_to_allocate);
             });
 
             return Q.all([
@@ -605,7 +538,7 @@ function build_chunks(chunks) {
 
                             // append new blocks to build list
                             var new_blocks = _.flatten(res);
-                            Array.prototype.push.apply(blocks_to_build, new_blocks);
+                            array_push_all(blocks_to_build, new_blocks);
 
                             // create in db (in building mode)
                             dbg.log0('build_chunks:', 'creating', new_blocks.length, 'blocks');
@@ -669,8 +602,22 @@ function build_chunks(chunks) {
         });
 }
 
+/**
+ * create a timeout promise that does not block the event loop from exiting
+ * in case there are no other events waiting.
+ * see http://nodejs.org/api/timers.html#timers_unref
+ */
+function delay_unblocking(delay) {
+    var defer = Q.defer();
+    var timer = setTimeout(defer.resolve, delay);
+    timer.unref();
+    return defer.promise;
+}
 
-setTimeout(build_worker, 5000);
+// for the same of tests we schedule the worker with unblocking delay
+// so that it won't prevent the process from existing if it's the only timer left
+delay_unblocking(5000).then(build_worker);
+
 
 function build_worker() {
     var last_chunk_id;
@@ -682,10 +629,10 @@ function build_worker() {
     function run() {
         return run_batch()
             .then(function() {
-                return Q.delay(last_chunk_id ? 1000 : 60000);
+                return delay_unblocking(last_chunk_id ? 1000 : 60000);
             }, function(err) {
                 dbg.log0('build_worker:', 'ERROR', err, err.stack);
-                return Q.delay(10000);
+                return delay_unblocking(10000);
             })
             .then(run);
     }
@@ -748,61 +695,211 @@ function build_worker() {
 
 
 
+
+// TODO take config of desired replicas from tier/bucket
+var OPTIMAL_REPLICAS = 3;
+// TODO move times to config constants/env
+var LONG_GONE_THRESHOLD = 3600000;
+var SHORT_GONE_THRESHOLD = 300000;
+var LONG_BUILD_THRESHOLD = 300000;
+
+
 /**
  *
- * load_chunk_fragments
+ * analyze_chunk_status
+ *
+ * compute the status in terms of availability
+ * of the chunk blocks per fragment and as a whole.
  *
  */
-function load_chunk_fragments(chunk_id) {
-    return Q.when(db.DataBlock
-            .find({
-                chunk: chunk_id,
-                deleted: null,
-            })
-            .populate('node')
-            .exec())
-        .then(function(blocks) {
-            var fragments = _.groupBy(blocks, 'fragment');
-            return fragments;
+function analyze_chunk_status(chunk, all_blocks) {
+
+    var now = Date.now();
+    var blocks_by_fragments = _.groupBy(all_blocks, 'fragment');
+    var blocks_info_to_allocate;
+    var blocks_to_remove;
+
+    // TODO loop over parity fragments too
+    var fragments = _.times(chunk.kfrag, function(fragment_index) {
+
+        var fragment = {
+            index: fragment_index,
+            blocks: blocks_by_fragments[fragment_index] || []
+        };
+
+        // sorting the blocks by last node heartbeat time and by srvmode and building,
+        // so that reading will be served by most available node.
+        // TODO better randomize order of blocks for some time frame
+        // TODO need stable sorting here for parallel decision making...
+        fragment.blocks.sort(block_access_sort);
+
+        dbg.log1('analyze_chunk_status:', 'chunk', chunk._id,
+            'fragment', fragment_index, 'num blocks', fragment.blocks.length);
+
+        _.each(fragment.blocks, function(block) {
+            var since_hb = now - block.node.heartbeat.getTime();
+            if (since_hb > LONG_GONE_THRESHOLD || block.node.srvmode === 'blocked') {
+                return array_push(fragment, 'long_gone_blocks', block);
+            }
+            if (since_hb > SHORT_GONE_THRESHOLD) {
+                return array_push(fragment, 'short_gone_blocks', block);
+            }
+            if (block.building) {
+                var since_bld = now - block.building.getTime();
+                if (since_bld > LONG_BUILD_THRESHOLD) {
+                    return array_push(fragment, 'long_building_blocks', block);
+                } else {
+                    return array_push(fragment, 'building_blocks', block);
+                }
+            }
+            if (!block.node.srvmode) {
+                array_push(fragment, 'good_blocks', block);
+            }
+            // also keep list of blocks that we can use to replicate from
+            if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
+                array_push(fragment, 'accessible_blocks', block);
+            }
         });
+
+        var num_accessible_blocks = fragment.accessible_blocks ?
+            fragment.accessible_blocks.length : 0;
+        var num_good_blocks = fragment.good_blocks ?
+            fragment.good_blocks.length : 0;
+
+        if (!num_accessible_blocks) {
+            fragment.health = 'unavailable';
+        }
+
+        if (num_good_blocks > OPTIMAL_REPLICAS) {
+            blocks_to_remove = blocks_to_remove || [];
+
+            // remove all blocks that were building for too long
+            // as they most likely failed to build.
+            array_push_all(blocks_to_remove, fragment.long_building_blocks);
+
+            // remove all long gone blocks
+            // defer the short gone blocks until either back to good or become long.
+            array_push_all(blocks_to_remove, fragment.long_gone_blocks);
+
+            // remove extra good blocks when good blocks are above optimal
+            // and not just accesible blocks are above optimal
+            array_push_all(blocks_to_remove, fragment.good_blocks.slice(OPTIMAL_REPLICAS));
+        }
+
+        if (num_good_blocks < OPTIMAL_REPLICAS && num_accessible_blocks) {
+
+            fragment.health = 'repairing';
+
+            // will allocate blocks for fragment to reach optimal count
+            blocks_info_to_allocate = blocks_info_to_allocate || [];
+            var round_rob = 0;
+            var num_blocks_to_add = Math.max(0, OPTIMAL_REPLICAS - num_good_blocks);
+            _.times(num_blocks_to_add, function() {
+                blocks_info_to_allocate.push({
+                    system_id: chunk.system,
+                    tier_id: chunk.tier,
+                    chunk_id: chunk._id,
+                    chunk: chunk,
+                    fragment: fragment_index,
+                    source: fragment.accessible_blocks[
+                        round_rob % fragment.accessible_blocks.length]
+                });
+                round_rob += 1;
+            });
+        }
+
+        fragment.health = fragment.health || 'healthy';
+
+        return fragment;
+    });
+
+    return {
+        fragments: fragments,
+        blocks_info_to_allocate: blocks_info_to_allocate,
+        blocks_to_remove: blocks_to_remove,
+    };
 }
 
 
+// see http://jsperf.com/concat-vs-push-apply/39
+var _cached_array_push = Array.prototype.push;
 
-function get_part_info(part, chunk, blocks, set_obj) {
-    var fragments = [];
-    _.each(_.groupBy(blocks, 'fragment'), function(fragment_blocks, fragment) {
-        var sorted_blocks = _.sortBy(fragment_blocks, block_heartbeat_sort);
-        fragments[fragment] = _.map(sorted_blocks, function(block) {
+
+/**
+ * add to array, create it in the object if doesnt exist
+ */
+function array_push(obj, arr_name, item) {
+    var arr = obj[arr_name];
+    if (arr) {
+        _cached_array_push.call(arr, item);
+    } else {
+        obj[arr_name] = [item];
+    }
+}
+
+
+/**
+ * push list of items into array
+ */
+function array_push_all(array, items) {
+    // see http://jsperf.com/concat-vs-push-apply/39
+    // using Function.apply with items list to sends all the items
+    // to the push function which actually does: array.push(items[0], items[1], ...)
+    _cached_array_push.apply(array, items);
+}
+
+
+function get_part_info(params) {
+    var chunk_status = analyze_chunk_status(params.chunk, params.blocks);
+    var p = _.pick(params.part, 'start', 'end', 'chunk_offset');
+
+    p.fragments = _.map(chunk_status.fragments, function(fragment) {
+        var blocks = params.building && fragment.building_blocks ||
+            params.details && fragment.blocks ||
+            fragment.accessible_blocks;
+
+        var part_fragment = {};
+
+        if (params.details) {
+            part_fragment.details = {
+                health: fragment.health,
+            };
+        }
+
+        part_fragment.blocks = _.map(blocks, function(block) {
             var block_info = {
                 address: get_block_address(block),
             };
-            // TODO send details only to admin!
-            block_info.details = {
-                tier_name: 'devices', // TODO get tier name
-                node_name: block.node.name,
-                online: node_monitor.is_node_online(block.node),
-            };
-            if (block.node.srvmode) {
-                block_info.details.srvmode = block.node.srvmode;
-            }
-            if (block.building) {
-                block_info.details.building = true;
+            var node = block.node;
+            if (params.details) {
+                var details = {
+                    tier_name: 'devices', // TODO get tier name
+                    node_name: node.name,
+                    online: node.is_online(),
+                };
+                if (node.srvmode) {
+                    details.srvmode = node.srvmode;
+                }
+                if (block.building) {
+                    details.building = true;
+                }
+                block_info.details = details;
             }
             return block_info;
         });
+        return part_fragment;
     });
-    var p = _.pick(part, 'start', 'end', 'chunk_offset');
-    p.fragments = fragments;
-    p.kfrag = chunk.kfrag;
-    p.crypt = _.pick(chunk.crypt, 'hash_type', 'hash_val', 'cipher_type', 'cipher_val');
-    p.chunk_size = chunk.size;
+
+    p.kfrag = params.chunk.kfrag;
+    p.crypt = _.pick(params.chunk.crypt, 'hash_type', 'hash_val', 'cipher_type', 'cipher_val');
+    p.chunk_size = params.chunk.size;
     p.chunk_offset = p.chunk_offset || 0;
-    if (set_obj === 'set_obj') {
-        p.obj = part.obj;
+    if (params.set_obj) {
+        p.obj = params.part.obj;
     }
     return p;
 }
+
 
 function get_block_address(block) {
     var b = {};
@@ -852,6 +949,18 @@ function sanitize_object_range(obj, start, end) {
 /**
  * sorting function for sorting blocks with most recent heartbeat first
  */
-function block_heartbeat_sort(block) {
-    return -block.node.heartbeat.getTime();
+function block_access_sort(block1, block2) {
+    if (block1.building) {
+        return 1;
+    }
+    if (block2.building) {
+        return -1;
+    }
+    if (block1.node.srvmode) {
+        return 1;
+    }
+    if (block2.node.srvmode) {
+        return -1;
+    }
+    return block2.node.heartbeat.getTime() - block1.node.heartbeat.getTime();
 }

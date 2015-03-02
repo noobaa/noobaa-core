@@ -332,9 +332,11 @@ ClientCLI.prototype.object_maps = function(key) {
             console.log('-------------------\n');
             var i = 1;
             _.each(mappings.parts, function(part) {
-                var nodes_list = _.map(part.fragments[0], function(block) {
-                    return block.address.host.slice(7); // slice 'http://' prefix
-                }).join(',\t');
+                var nodes_list = _.flatten(_.map(part.fragments, function(fragment) {
+                    return _.map(fragment.blocks, function(block) {
+                        return block.address.host.slice(7); // slice 'http://' prefix
+                    });
+                })).join(',\t');
                 console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);
                 i += 1;
             });

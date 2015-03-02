@@ -10,7 +10,6 @@ var db = require('./db');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
-var node_monitor = require('./node_monitor');
 
 
 /**
@@ -81,7 +80,6 @@ function create_system(req) {
  */
 function read_system(req) {
     return Q.fcall(function() {
-        var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
         var by_system_id = {
             system: req.system.id
         };
@@ -98,7 +96,7 @@ function read_system(req) {
             db.Tier.find(by_system_id_undeleted).exec(),
 
             // nodes - count, online count, allocated/used storage
-            db.Node.aggregate_nodes(by_system_id_undeleted, minimum_online_heartbeat),
+            db.Node.aggregate_nodes(by_system_id_undeleted),
 
             // objects - size, count
             db.ObjectMD.aggregate_objects(by_system_id_undeleted),

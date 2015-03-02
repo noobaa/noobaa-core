@@ -31,17 +31,18 @@ var tier_server = require('../server/tier_server');
 var node_server = require('../server/node_server');
 var bucket_server = require('../server/bucket_server');
 var object_server = require('../server/object_server');
+var config = require('../../config.js');
 
 var client = new api.Client();
 
-// use http only for test
-var config = require('../../config.js');
-config.use_ws_when_possible = false;
-config.use_ice_when_possible = false;
-
-
 before(function(done) {
     Q.fcall(function() {
+        
+        // use http only for test
+        config.use_ws_when_possible = false;
+        config.use_ice_when_possible = false;
+
+
         utilitest.router.use(auth_server.authorize());
         auth_server.install_rest(utilitest.router);
         account_server.install_rest(utilitest.router);

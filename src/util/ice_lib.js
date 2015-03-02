@@ -561,7 +561,9 @@ function onDataChannelCreated(socket, requestId, channel) {
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }
-            socket.icemap[requestId].done = true;
+            if (socket.icemap[requestId]) {
+                socket.icemap[requestId].done = true;
+            }
 
             if (socket.p2p_context && socket.p2p_context.iceSockets[channel.peerId]) {
                 delete socket.p2p_context.iceSockets[channel.peerId];
@@ -573,7 +575,9 @@ function onDataChannelCreated(socket, requestId, channel) {
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }
-            socket.icemap[requestId].done = true;
+            if (socket.icemap[requestId]) {
+                socket.icemap[requestId].done = true;
+            }
 
             if (socket.p2p_context && socket.p2p_context.iceSockets[channel.peerId]) {
                 delete socket.p2p_context.iceSockets[channel.peerId].usedBy[requestId];

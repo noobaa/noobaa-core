@@ -311,7 +311,9 @@ module.exports.initiateIce = initiateIce;
 var closeIce = function closeIce(socket, requestId, dataChannel) {
 
     try {
-        delete dataChannel.msgs[requestId];
+        if (dataChannel.msgs && dataChannel.msgs[requestId]) {
+            delete dataChannel.msgs[requestId];
+        }
 
         var channelObj = socket.icemap[requestId];
         channelObj.done = true;
@@ -319,7 +321,7 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 
         if (obj && obj.dataChannel === dataChannel) {
             obj.lastUsed = (new Date()).getTime();
-            delete socket.p2p_context.iceSockets[channelObj.peerId].usedBy[requestId];
+            delete obj.usedBy[requestId];
         } else if (dataChannel) {
             dataChannel.close();
         }

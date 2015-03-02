@@ -174,7 +174,9 @@ describe('on ice message', function() {
                 answers: 0,
                 createDataChannel: function () {
                     this.dataChannels += 1;
-                    return {};
+                    return {
+                        close: function () {}
+                    };
                 },
                 createOffer: function (descCB) {
                     this.offers += 1;
@@ -278,19 +280,40 @@ describe('on ice message', function() {
         assert(socket.icemap[reqId].peerConn.candidates === 0, 'addIceCandidate called before ?');
         socket.ws.onmessage({sigType: 'ice', requestId: reqId, from: peerId, to: agentId, data: {type: 'candidate', candidate:'gaga'}});
         assert(socket.icemap[reqId].peerConn.candidates === 1, 'addIceCandidate not called');
-        assert(global.RTCIceCandidate.called, 'global.RTCIceCandidate not called');
+        assert(global.RTCIceCandidate.calledOnce, 'global.RTCIceCandidate not called');
 
         // offer ws msg handling
         assert(socket.icemap[reqId].peerConn.answers === 0, 'ice offer answer called before: '+socket.icemap[reqId].peerConn.offers+' should be 0');
         socket.ws.onmessage({sigType: 'ice', requestId: reqId, from: peerId, to: agentId, data: {type: 'offer', offer:'gaga'}});
         assert(socket.icemap[reqId].peerConn.answers === 1, 'ice answer not called');
-        assert(global.RTCSessionDescription.called, 'global.RTCSessionDescription not called');
+        assert(global.RTCSessionDescription.calledOnce, 'global.RTCSessionDescription not called');
 
         // answer ws msg handling
         assert(socket.icemap[reqId].peerConn.remoteDesk === 1, 'ice set remote desc called before: '+socket.icemap[reqId].peerConn.remoteDesk+' should be 1');
         socket.ws.onmessage({sigType: 'ice', requestId: reqId, from: peerId, to: agentId, data: {type: 'answer', answer:'gaga'}});
         assert(socket.icemap[reqId].peerConn.remoteDesk === 2, 'ice handle answer not called');
-        assert(global.RTCSessionDescription.called, 'global.RTCSessionDescription not called');
+        assert(global.RTCSessionDescription.calledTwice, 'global.RTCSessionDescription not called');
+
+        // test peer conn onicecandidate
+        socket.icemap[reqId].peerConn.onicecandidate({candidate: {
+                sdpMLineIndex: 1,
+                sdpMid: 2,
+                candidate: 'fgfgfhf'
+            }
+        });
+        var intervalChk = setInterval(function() {
+            if (socket.ws.msgsSent.length >= 4) {
+                assert.ok(socket.ws.msgsSent[3].indexOf('sigType') >= 0);
+                assert.ok(socket.ws.msgsSent[3].indexOf('ice') >= 0);
+                clearInterval(intervalChk);
+            }
+        },1000);
+
+        // check close
+        ice_lib.closeIce(socket, reqId, socket.icemap[reqId].dataChannel);
+        assert.ok(socket.icemap[reqId].done, 'close ice didnt mark req as done is: '+socket.icemap[reqId].done);
+        assert.ok(!p2p_context.iceSockets[peerId] || !p2p_context.iceSockets[peerId].usedBy ||
+                        !p2p_context.iceSockets[peerId].usedBy[reqId], 'close ice didnt delete used by');
 
     });
 

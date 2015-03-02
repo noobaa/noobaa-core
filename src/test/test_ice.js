@@ -358,7 +358,8 @@ describe('on ice message', function() {
                 'WebSocket': wsMock
             });
 
-            var peerId = 'rgg4g5545hh45h5';
+            var peerId = 'rgg4YYYYYYYh45h5';
+            var reqId = '88888';
 
             var p2p_context = {
                 iceSockets: {}
@@ -378,6 +379,11 @@ describe('on ice message', function() {
             // add socket to context
             p2p_context.wsClientSocket = {ws_socket: socket, lastTimeUsed: new Date().getTime(), interval: {}};
 
+
+            assert(!socket.icemap[reqId], 'request used before ?');
+            ice_lib.initiateIce(p2p_context, socket, peerId, true, reqId);
+            socket.icemap[reqId].dataChannel.onopen();
+
             // test send ws request
             var requestId;
 
@@ -391,9 +397,10 @@ describe('on ice message', function() {
 
             int2 = setInterval(function() {
                 if (socket.ws.msgsSent[0]) {
-                    assert.ok(socket.ws.msgsSent[0].indexOf('sigType') >= 0,'cant find sendWSRequest msg sig type');
-                    assert.ok(socket.ws.msgsSent[0].indexOf('replicate') >= 0,'cant find sendWSRequest msg type replicate');
-                    var msgSent = JSON.parse(socket.ws.msgsSent[0]);
+                    var msgIndex = (socket.ws.msgsSent[1] ? 1 :0);
+                    assert.ok(socket.ws.msgsSent[msgIndex].indexOf('sigType') >= 0,'cant find sendWSRequest msg sig type '+require('util').inspect(socket.ws.msgsSent));
+                    assert.ok(socket.ws.msgsSent[msgIndex].indexOf('replicate') >= 0,'cant find sendWSRequest msg type replicate '+require('util').inspect(socket.ws.msgsSent));
+                    var msgSent = JSON.parse(socket.ws.msgsSent[msgIndex]);
                     requestId = msgSent.requestId;
                     clearInterval(int2); int2 = null;
                 }
@@ -421,6 +428,130 @@ describe('on ice message', function() {
             }).nodeify(done);
         } catch (ex) {
             console.error('WS test ws req threw an ex: '+ex);
+            clearIntervalsAndEnd();
+            assert.fail();
+        }
+
+    });
+
+    it('test ice req', function(done) {
+
+        var int1, int2, int3;
+        var ice_lib;
+        var socket;
+
+        function clearIntervalsAndEnd() {
+            try {clearInterval(int1);} catch (err) {}
+            try {clearInterval(int2);} catch (err) {}
+            try {clearInterval(int3);} catch (err) {}
+
+            ice_lib.closeSignaling(socket);
+        }
+
+        try {
+            // create mock for web sockets
+            var wsMock = function(addr) {
+                this.ws = {
+                    msgsSent: [],
+                    msgsRec: []
+                };
+
+                this.ws.send = function(msg) {
+                    this.msgsSent.push(msg);
+                    //console.log('test ws req got MSG '+require('util').inspect(this.msgsSent));
+                };
+
+                console.log('creating dummy ws for addr '+addr);
+                return this.ws;
+            };
+
+            var rewire = require('rewire');
+            ice_lib = rewire('../util/ice_lib');
+            ice_lib.__set__({
+                'WebSocket': wsMock
+            });
+
+            var peerId = 'rgg4g5545hh45h5';
+            var agentId = 'rdgdgerg4egegr';
+            var requestId;
+
+            var p2p_context = {
+                iceSockets: {}
+            };
+
+            // add socket to context
+            p2p_context.iceSockets[peerId] = {
+                peerConn: {},
+                dataChannel: {
+                    myId: agentId,
+                    msgsSent: [],
+                    msgsRec: [],
+                    send: function(msg) {
+                        this.msgsSent.push(msg);
+                        //console.log('test ice req got MSG '+require('util').inspect(this.msgsSent));
+                        if (msg.indexOf('/read') > 0) {
+                            int3 = setInterval(function() {
+                                if (requestId) {
+                                    ice_api.onIceMessage(p2p_context, p2p_context.iceSockets[peerId].dataChannel, {
+                                        data: JSON.stringify({
+                                            req: requestId,
+                                            body: 'dhttrtrhrth',
+                                            status: 200
+                                        })
+                                    });
+                                    clearInterval(int3); int3 = null;
+                                }
+                            }, 1000); int3.unref();
+                        }
+                    },
+                    msgs: {}
+                },
+                usedBy: {}
+            };
+
+            // open mock web socket to signaling server
+            socket = ice_lib.setup(function(p2p_context, channel, event) {
+                console.log('got event '+event.data+' from peer '+channel.peerId);
+            }, agentId, function(channel, message) {
+                console.log('got message '+message+' from peer '+channel.peerId);
+            });
+
+            // clear keep alive interval and stale conns one
+            clearInterval(socket.alive_interval); socket.alive_interval = null;
+            clearInterval(socket.stale_conn_interval); socket.stale_conn_interval = null;
+
+            int1 = setInterval(function() {
+                if (socket.conn_defer) {
+                    socket.conn_defer.resolve();
+                    clearInterval(int1); int1 = null;
+                }
+            },1000);
+            int1.unref();
+
+            int2 = setInterval(function() {
+                if (p2p_context.iceSockets[peerId] && p2p_context.iceSockets[peerId].usedBy &&
+                    Object.keys(p2p_context.iceSockets[peerId].usedBy).length === 1) {
+                    requestId = Object.keys(p2p_context.iceSockets[peerId].usedBy)[0];
+                    socket.icemap[requestId].connect_defer.resolve(p2p_context.iceSockets[peerId].dataChannel);
+                    clearInterval(int2); int2 = null;
+                }
+            },1000);
+            int2.unref();
+
+            return Q.fcall(function() {
+                var options = {body:'thfhf',path:'/read',method:'GET'};
+                return ice_api.sendRequest(p2p_context, socket, peerId, options);
+            }).then(function(res) {
+                console.log('sendICERequest res is '+require('util').inspect(res));
+                assert.ok(res.status === 200, 'sendICERequest failed res is: '+res);
+                clearIntervalsAndEnd();
+            }).then(null, function(err) {
+                console.error('ICE test ice req (sendICERequest) threw an ex '+err);
+                clearIntervalsAndEnd();
+                assert.fail();
+            }).nodeify(done);
+        } catch (ex) {
+            console.error('ICE test ice req threw an ex: '+ex+' ; '+ex.stack);
             clearIntervalsAndEnd();
             assert.fail();
         }

@@ -594,7 +594,7 @@ function rest_api(api) {
                 return self._doHttpCall(func_info, options, body);
             });
 
-        } else if (config.use_ice_when_possible && self.options.peer && (!self.options.ws_socket || self.options.peer != self.options.ws_socket.idInServer)) { // do ice
+        } else if (config.use_ice_when_possible && self.options.peer && (!self.options.ws_socket || self.options.peer !== self.options.ws_socket.idInServer)) { // do ice
             dbg.log0('do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;

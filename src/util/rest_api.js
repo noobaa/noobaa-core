@@ -546,6 +546,10 @@ function rest_api(api) {
             }
         }
 
+        if (self.options.hostname === '127.0.0.1') { // TODO REMOVE !!!!!
+            self.options.hostname = '10.0.0.3';
+        }
+
         var options = {
             protocol: self.options.protocol,
             hostname: self.options.hostname,

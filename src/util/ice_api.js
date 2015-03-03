@@ -29,10 +29,10 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
         try {
             var message = JSON.parse(event.data);
 
-            if (!ice.isRequestAlive(p2p_context, channel.peerId, message.req)) {
+            /*if (!ice.isRequestAlive(p2p_context, channel.peerId, message.req)) {
                 dbg.log0('got message str ' + event.data + ' my id '+channel.myId + ' but channel req '+message.req+' done !!!');
                 return;
-            }
+            }*/
 
             dbg.log0('got message str ' + event.data + ' my id '+channel.myId);
 
@@ -67,10 +67,10 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             var req = (bff.readInt32LE(0)).toString();
             var part = bff.readInt8(32);
 
-            if (!ice.isRequestAlive(p2p_context, channel.peerId, req)) {
+           /* if (!ice.isRequestAlive(p2p_context, channel.peerId, req)) {
                 dbg.log0('got message str ' + event.data + ' my id '+channel.myId + ' but channel req '+req+' done !!!');
                 return;
-            }
+            }*/
 
             msgObj = channel.msgs[req];
 

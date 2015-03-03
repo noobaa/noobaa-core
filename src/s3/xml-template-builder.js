@@ -24,9 +24,15 @@ var xml = function() {
             Prefix: options.prefix || '',
             Marker: options.marker || '',
             MaxKeys: options.maxKeys,
-            IsTruncated: false
+            IsTruncated: false,
+            CommonPrefixes: options.common_prefixes &&
+                _.map(options.common_prefixes, function(prefix) {
+                    return {
+                        Prefix: prefix || ''
+                    };
+                })
         });
-        //console.log('content:', content, ' opts', options, 'items:', items);
+        console.log('content:', content, ' opts', options, 'items:', items);
 
         return content;
     };

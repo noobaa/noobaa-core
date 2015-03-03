@@ -66,6 +66,7 @@ module.exports = function(rootDirectory) {
     var buildXmlResponse = function(res, status, template) {
         res.header('Content-Type', 'application/xml');
         res.status(status);
+        //console.log('template:',template,'headers',res);
         return res.send(template);
     };
 
@@ -94,7 +95,7 @@ module.exports = function(rootDirectory) {
                 bucket: params.bucket,
                 key: file_key_name,
                 size: parseInt(req.headers['content-length']),
-                content_type: req.headers['content-type'],
+                content_type: req.headers['content-type'] || mime.lookup(file_key_name),
                 source_stream: md5_calc,
             }).then(function() {
                 try {
@@ -144,9 +145,9 @@ module.exports = function(rootDirectory) {
         getBucket: function(req, res) {
             var options = {
                 marker: req.query.marker || null,
-                prefix: req.query.prefix || null,
+                prefix: req.query.prefix || '',
                 maxKeys: parseInt(req.query['max-keys']) || 1000,
-                delimiter: req.query.delimiter || null
+                delimiter: req.query.delimiter || '/'
             };
             console.info('Fetched bucket "%s" with options', req.bucket.name);
             //  fileStore.getObjects(req.bucket, options, function(err, results) {
@@ -157,20 +158,39 @@ module.exports = function(rootDirectory) {
             //  });
 
             return Q.fcall(function() {
-                    return client.object.list_objects({
-                        bucket: params.bucket
-                    });
+                    var list_params = {
+                        bucket: params.bucket,
+                    };
+                    if (options.prefix) {
+                        list_params.key = options.prefix;
+                    }
+                    return client.object.list_objects(list_params);
                 })
                 .then(function(results) {
-                    //console.log('objects in bucket', params.bucket, ':',results);
+                    console.log('objects in bucket', params.bucket, ':',results);
                     var i = 0;
-                    _.each(results.objects, function(obj) {
-                        obj.modifiedDate = new Date().toISOString();
-                        obj.md5 = 9999999;
+                    var folders = {};
+                    var objects = _.filter(results.objects, function(obj) {
+                        var date = new Date(obj.info.create_time);
+                        date.setMilliseconds(0);
+                        obj.modifiedDate = date.toISOString();//toUTCString();//.toISOString();
+                        obj.md5 = 100;
                         obj.size = obj.info.size;
+                        obj.key = obj.key.slice(options.prefix.length);
+                        if (obj.key.indexOf(req.query.delimiter) >=0) {
+                            var folder = obj.key.split(req.query.delimiter, 1)[0];
+                            folders[folder] = true;
+                            return false;
+                        }
+                        if (!obj.key) {
+                            // empty key - might beobject created as a folder
+                            return false;
+                        }
+                        return true;
                     });
                     options.bucketName = req.bucket.name;
-                    var template = templateBuilder.buildBucketQuery(options, results.objects);
+                    options.common_prefixes = _.isEmpty(folders) ? null : _.keys(folders);
+                    var template = templateBuilder.buildBucketQuery(options, objects);
                     return buildXmlResponse(res, 200, template);
                 })
                 .then(function() {
@@ -233,6 +253,7 @@ module.exports = function(rootDirectory) {
         getObject: function(req, res) {
             var keyName = req.params.key;
             var acl = req.query.acl;
+
             if (acl !== undefined) {
                 var template = templateBuilder.buildAcl();
                 console.log('ACL:', acl, 'template', template);
@@ -265,20 +286,18 @@ module.exports = function(rootDirectory) {
                         //stream.once('error', defer.reject);
                         //client.object.open_read_stream(object_path).pipe(stream);
                         //return defer.promise;
-                        return client.object.open_read_stream(object_path).pipe(res);
-                    })
-                    .then(function(stream) {
-                        console.log('COMPLETED: download of ', keyName,md5(stream));
-                        res.header('Etag', md5(stream));
-                        res.status(200);
+
                         if (req.method === 'HEAD') {
                             return res.end();
                         } else {
-                            res.write(stream);
-                            return res.end();
+                            var stream = client.object.open_read_stream(object_path).pipe(res);
+                            // var stream_md5 = md5(stream);
+                            // console.log('COMPLETED: download of ', keyName,stream_md5);
+                            // res.header('Etag', stream_md5);
+                            // return res.end();
                         }
 
-                    }, function(err) {
+                    }).then(null, function(err) {
                         console.log('ERROR: while download from noobaa', err);
                         var template = templateBuilder.buildKeyNotFound(keyName);
                         console.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);

@@ -234,6 +234,9 @@ function delete_object(req) {
 }
 
 
+function escapeRegExp(str) {
+    return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
+}
 
 /**
  *
@@ -245,7 +248,7 @@ function list_objects(req) {
         .then(function() {
             var info = _.omit(object_md_query(req), 'key');
             if (req.rest_params.key) {
-                info.key = new RegExp(req.rest_params.key);
+                info.key = new RegExp('^' + escapeRegExp(req.rest_params.key));
             }
             var skip = req.rest_params.skip;
             var limit = req.rest_params.limit;

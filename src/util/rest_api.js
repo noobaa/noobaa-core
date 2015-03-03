@@ -630,6 +630,7 @@ function rest_api(api) {
 
             if (config.use_ice_when_possible && self.options.peer && (self.options.ws_socket && self.options.peer === self.options.ws_socket.idInServer)) {
                 dbg.log0(self.options, 'do http to self req '+options.path);
+                self.options.hostname = '127.0.0.1';
             }
 
             return self._doHttpCall(func_info, options, body);

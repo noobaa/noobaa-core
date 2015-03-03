@@ -627,6 +627,11 @@ function rest_api(api) {
                 return self._doHttpCall(func_info, options, body);
             });
         } else { // do http
+
+            if (config.use_ice_when_possible && self.options.peer && (self.options.ws_socket && self.options.peer === self.options.ws_socket.idInServer)) {
+                dbg.log0(self.options, 'do http to self req '+options.path);
+            }
+
             return self._doHttpCall(func_info, options, body);
         }
 
@@ -647,6 +652,7 @@ function rest_api(api) {
             return self._handle_http_reply(func_info, res);
         })
         .then(null, function(err) {
+            dbg.log0(self.options+ ' do http req FAILED '+options.path+' err '+err);
             console.error('HTTP REST REQUEST FAILED', err);
             throw err;
         });

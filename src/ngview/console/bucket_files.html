@@ -18,7 +18,8 @@
                     <!-- <th></th> -->
                     <th>
                         <div class="form-group">
-                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="File Name (click to search)" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)" />
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="File Name (click to search)" ng-model="files_query.search" ng-model-options="{debounce: 700}" ng-change="bucket_router.set_query('search',files_query.search)"
+                            />
                         </div>
                     </th>
                     <th>Size</th>
@@ -42,8 +43,15 @@
                     <td style="white-space: nowrap; max-width: 100px; text-overflow: ellipsis; overflow: hidden; display: block">
                         {{file.content_type}}
                     </td>
-                    <td style="white-space: nowrap" ng-attr-title="{{file.create_time.format('LLL')}}">
-                        {{file.create_time.fromNow()}}
+                    <td style="white-space: nowrap">
+                        <span ng-attr-title="{{file.create_time.format('LLL')}}" rel="tooltip">
+                            <span ng-if="_.isNumber(file.upload_size)" class="text-info">
+                                uploading {{human_percent(file.upload_size/file.size)}}%
+                            </span>
+                            <span ng-if="!_.isNumber(file.upload_size)">
+                                {{file.create_time.fromNow()}}
+                            </span>
+                        </span>
                     </td>
                     <!-- <td>{{file.access_time}}</td> -->
                 </tr>

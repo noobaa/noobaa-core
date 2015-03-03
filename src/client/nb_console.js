@@ -486,7 +486,7 @@ nb_console.controller('FileViewCtrl', [
                     return nbFiles.get_file({
                         bucket: $routeParams.bucket_name,
                         key: $routeParams.file_name,
-                    });
+                    }, 'cache_miss');
                 })
                 .then(function(res) {
                     $scope.file = res;

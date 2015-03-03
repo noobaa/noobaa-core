@@ -52,7 +52,7 @@ function create_multipart_upload(req) {
                 key: req.rest_params.key,
                 size: req.rest_params.size,
                 content_type: req.rest_params.content_type || 'application/octet-stream',
-                upload_mode: true,
+                upload_size: 0,
             };
             return db.ObjectMD.create(info);
         }).thenResolve();
@@ -68,9 +68,12 @@ function create_multipart_upload(req) {
 function complete_multipart_upload(req) {
     return find_object_md(req)
         .then(function(obj) {
+            if (!_.isNumber(obj.upload_size)) {
+                throw new Error('object not in upload mode ' + obj.key);
+            }
             return obj.update({
                     $unset: {
-                        upload_mode: 1
+                        upload_size: 1
                     }
                 })
                 .exec();
@@ -99,8 +102,8 @@ function abort_multipart_upload(req) {
 function allocate_object_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
-            if (!obj.upload_mode) {
-                throw new Error('object not in upload mode');
+            if (!_.isNumber(obj.upload_size)) {
+                throw new Error('object not in upload mode ' + obj.key);
             }
             return object_mapper.allocate_object_parts(
                 req.bucket,
@@ -118,8 +121,8 @@ function allocate_object_parts(req) {
 function finalize_object_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
-            if (!obj.upload_mode) {
-                throw new Error('object not in upload mode');
+            if (!_.isNumber(obj.upload_size)) {
+                throw new Error('object not in upload mode ' + obj.key);
             }
             return object_mapper.finalize_object_parts(
                 req.bucket,
@@ -289,8 +292,8 @@ function get_object_info(md) {
     info.size = info.size || 0;
     info.content_type = info.content_type || '';
     info.create_time = md.create_time.toString();
-    if (md.upload_mode) {
-        info.upload_mode = md.upload_mode;
+    if (_.isNumber(md.upload_size)) {
+        info.upload_size = md.upload_size;
     }
     return info;
 }

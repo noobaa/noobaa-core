@@ -42,10 +42,10 @@ nb_api.factory('nbFiles', [
                 });
         }
 
-        function get_file(params) {
+        function get_file(params, cache_miss) {
             return $q.when()
                 .then(function() {
-                    return nbClient.client.object.get_object_md(params);
+                    return nbClient.client.object.get_object_md(params, cache_miss);
                 })
                 .then(function(res) {
                     console.log('FILE', res);

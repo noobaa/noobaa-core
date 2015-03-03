@@ -33,7 +33,13 @@
                 <tr>
                     <!-- <td></td> -->
                     <th>Status</th>
-                    <td>Healthy <i class="fa fa-check fa-lg"></i>
+                    <td>
+                        <span ng-if="_.isNumber(file.upload_size)" class="text-info">
+                            uploading {{human_percent(file.upload_size/file.size)}}%
+                        </span>
+                        <span ng-if="!_.isNumber(file.upload_size)">
+                            Healthy <i class="fa fa-check fa-lg"></i>
+                        </span>
                     </td>
                     <th>Bucket</th>
                     <td>{{bucket.name}}</td>

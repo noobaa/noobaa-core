@@ -155,6 +155,7 @@ function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.map(parts, 'block_ids'));
     var chunks;
     return Q.all([
+
             // find parts by start offset
             db.ObjectPart
             .find({
@@ -165,14 +166,17 @@ function finalize_object_parts(bucket, obj, parts) {
             })
             .populate('chunks.chunk')
             .exec(),
+
             // find blocks by list of ids
-            db.DataBlock
-            .find({
-                _id: {
-                    $in: block_ids
-                }
-            })
-            .exec()
+            (block_ids.length ?
+                db.DataBlock
+                .find({
+                    _id: {
+                        $in: block_ids
+                    }
+                })
+                .exec() : null
+            )
         ])
         .spread(function(parts_res, blocks) {
             var blocks_by_id = _.indexBy(blocks, '_id');
@@ -197,22 +201,32 @@ function finalize_object_parts(bucket, obj, parts) {
                     throw new Error('missing block chunk');
                 }
             });
-            return db.DataBlock
-                .update({
-                    _id: {
-                        $in: block_ids
-                    }
-                }, {
-                    $unset: {
-                        building: 1
-                    }
-                }, {
-                    multi: true
-                })
-                .exec();
+            if (block_ids.length) {
+                return db.DataBlock
+                    .update({
+                        _id: {
+                            $in: block_ids
+                        }
+                    }, {
+                        $unset: {
+                            building: 1
+                        }
+                    }, {
+                        multi: true
+                    })
+                    .exec();
+            }
         })
         .then(function() {
             return build_chunks(chunks);
+        })
+        .then(function() {
+            var end = parts[parts.length - 1].end;
+            if (end > obj.upload_size) {
+                return obj.update({
+                    upload_size: end
+                }).exec();
+            }
         });
 }
 

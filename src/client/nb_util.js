@@ -168,6 +168,7 @@ nb_util.directive('nbPieChart', [
             link: function(scope, element, attrs) {
                 var google;
                 scope.$watch(attrs.nbPieChart, redraw, true);
+
                 function redraw(pie_chart) {
                     if (!google) {
                         return nbGoogle.then(function(google_arg) {
@@ -739,12 +740,7 @@ function safe_callback(func) {
 }
 
 
-function human_percent(percent) {
-    var str = Number(percent || 0).toFixed(1);
-    var n = str.length;
-    if (str[n - 1] === '0' && str[n - 2] === '.') {
-        return str.substr(0, n - 2) + ' %';
-    } else {
-        return str + ' %';
-    }
+function human_percent(fraction) {
+    var percent = 100 * (Number(fraction) || 0);
+    return percent < 10 ? percent.toFixed(1) : percent.toFixed(0);
 }

@@ -201,7 +201,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                             highWaterMark: 30
                         },
                         transform: function(part) {
-                            if (part.dedup) return;
+                            if (part.dedup) return part;
                             return self._write_part_blocks(
                                     params.bucket, params.key, part)
                                 .thenResolve(part);
@@ -231,21 +231,19 @@ ObjectClient.prototype.upload_stream = function(params) {
                             return self.finalize_object_parts({
                                     bucket: params.bucket,
                                     key: params.key,
-                                    parts: _.compact(_.map(parts, function(part) {
-                                        if (part.dedup) return;
-                                        var block_ids = _.flatten(
-                                            _.map(part.fragments, function(fragment) {
-                                                return _.map(fragment.blocks, function(block) {
-                                                    return block.address.id;
-                                                });
-                                            })
-                                        );
-                                        return {
-                                            start: part.start,
-                                            end: part.end,
-                                            block_ids: block_ids
-                                        };
-                                    }))
+                                    parts: _.map(parts, function(part) {
+                                        var p = _.pick(part, 'start', 'end');
+                                        if (!part.dedup) {
+                                            p.block_ids = _.flatten(
+                                                _.map(part.fragments, function(fragment) {
+                                                    return _.map(fragment.blocks, function(block) {
+                                                        return block.address.id;
+                                                    });
+                                                })
+                                            );
+                                        }
+                                        return p;
+                                    })
                                 })
                                 .then(function() {
                                     // push parts down the pipe
@@ -416,10 +414,10 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
  * @param params (Object):
  *   - bucket (String)
  *   - key (String)
- *
+ * @param cache_miss (String): pass 'cache_miss' to force read
  */
-ObjectClient.prototype.get_object_md = function(params) {
-    return this._object_md_cache.get(params);
+ObjectClient.prototype.get_object_md = function(params, cache_miss) {
+    return this._object_md_cache.get(params, cache_miss);
 };
 
 
@@ -433,7 +431,7 @@ ObjectClient.prototype._init_object_md_cache = function() {
     self._object_md_cache = new LRUCache({
         name: 'MDCache',
         max_length: 1000,
-        expiry_ms: 600000, // 10 minutes
+        expiry_ms: 60000, // 1 minute
         make_key: function(params) {
             return params.bucket + ':' + params.key;
         },

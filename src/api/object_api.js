@@ -160,7 +160,7 @@ module.exports = rest_api({
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['start', 'end', 'block_ids'],
+                            required: ['start', 'end'],
                             properties: {
                                 start: {
                                     type: 'integer',
@@ -404,8 +404,8 @@ module.exports = rest_api({
                     type: 'string',
                     format: 'date',
                 },
-                upload_mode: {
-                    type: 'boolean',
+                upload_size: {
+                    type: 'integer',
                 }
             }
         },

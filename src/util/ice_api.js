@@ -69,7 +69,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             var partBuf = event.data.slice(partSize);
             msgObj.chunks_map[part] = partBuf;
 
-            //dbg.log0('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size);
+            dbg.log0('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size+' req '+req);
 
             msgObj.chunk_num++;
 
@@ -138,17 +138,17 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
 
         while (end < block.byteLength) {
             channel.send(createBufferToSend(block.slice(begin, end), counter, reqId));
-            //dbg.log0('send chunk '+counter+ ' size: ' + config.chunk_size);
+            dbg.log0('send chunk '+counter+ ' size: ' + config.chunk_size+' req '+reqId);
             begin = end;
             end = end + config.chunk_size;
             counter++;
         }
         var bufToSend = block.slice(begin);
         channel.send(createBufferToSend(bufToSend, counter, reqId));
-        dbg.log0('send last chunk '+counter+ ' size: ' + bufToSend.byteLength);
+        dbg.log0('send last chunk '+counter+ ' size: ' + bufToSend.byteLength+' req '+reqId);
 
     } else {
-        dbg.log0('send chunk all at one, size: '+block.byteLength);
+        dbg.log0('send chunk all at one, size: '+block.byteLength+' req '+reqId);
         channel.send(createBufferToSend(block, counter, reqId));
     }
 };

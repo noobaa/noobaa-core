@@ -269,7 +269,7 @@ function rest_api(api) {
                     reqBody = JSON.parse(reqBody);
                 }
             } catch (ex) {
-                console.error('problem parsing body as json '+ex);
+                console.error('problem parsing body as json '+ex+' req '+reqId);
             }
         }
 
@@ -291,7 +291,7 @@ function rest_api(api) {
                         replyBuffer = buf.toArrayBuffer(replyBuffer);
                     }
 
-                    dbg.log0('done manual status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0));
+                    dbg.log0('done manual status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0)+' req '+reqId);
 
                     var reply = {
                         status: status,
@@ -313,7 +313,7 @@ function rest_api(api) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);
                     }
                 } catch (ex) {
-                    console.error('ERROR sending ice response '+ex);
+                    console.error('ERROR sending ice response '+ex+' req '+reqId);
                 }
 
             },
@@ -332,7 +332,7 @@ function rest_api(api) {
         };
 
         this.ice_router.handle(req, res, function(err) {
-            console.error('SHOULD NOT BE HERE done status: '+status+" reply: "+replyJSON+" replyBuffer: "+replyBuffer+' if err '+err);
+            console.error('SHOULD NOT BE HERE done status: '+status+" reply: "+replyJSON+" replyBuffer: "+replyBuffer+' if err '+err+' req '+reqId);
         });
 
     };

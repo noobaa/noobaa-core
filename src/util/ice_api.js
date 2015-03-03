@@ -29,11 +29,6 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
         try {
             var message = JSON.parse(event.data);
 
-            /*if (!ice.isRequestAlive(p2p_context, channel.peerId, message.req)) {
-                dbg.log0('got message str ' + event.data + ' my id '+channel.myId + ' but channel req '+message.req+' done !!!');
-                return;
-            }*/
-
             dbg.log0('got message str ' + event.data + ' my id '+channel.myId);
 
             if (!channel.msgs[message.req]) {
@@ -67,11 +62,6 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             var req = (bff.readInt32LE(0)).toString();
             var part = bff.readInt8(32);
 
-           /* if (!ice.isRequestAlive(p2p_context, channel.peerId, req)) {
-                dbg.log0('got message str ' + event.data + ' my id '+channel.myId + ' but channel req '+req+' done !!!');
-                return;
-            }*/
-
             msgObj = channel.msgs[req];
 
             var partBuf = event.data.slice(partSize);
@@ -87,7 +77,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
 
                 dbg.log0('all chunks received last '+part+' with size ' +
                 event.data.byteLength + " total size so far " + msgObj.received_size
-                + ' my id '+channel.myId);
+                + ' my id '+channel.myId+ ' request '+req);
 
                 var chunksParts = [];
                 var chunk_counter;
@@ -97,12 +87,14 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                 msgObj.buffer = Buffer.concat(chunksParts, msgObj.msg_size);
 
                 if (msgObj.action_defer) {
+                    dbg.log0('set action defer resolve for req '+req);
                     msgObj.action_defer.resolve(channel);
                 } else {
                     try {
+                        dbg.log0('call handleRequestMethod resolve for req '+req);
                         channel.handleRequestMethod(channel, event.data);
                     } catch (ex) {
-                        writeLog('ex on ArrayBuffer req ' + ex);
+                        writeLog('ex on ArrayBuffer req ' + ex+' for req '+req);
                     }
                 }
             }

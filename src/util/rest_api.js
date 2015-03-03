@@ -628,9 +628,9 @@ function rest_api(api) {
             });
         } else { // do http
 
-            if (config.use_ice_when_possible && self.options.peer && (self.options.ws_socket && self.options.peer === self.options.ws_socket.idInServer)) {
-                dbg.log0(self.options, 'do http to self req '+options.path);
-                self.options.hostname = '127.0.0.1';
+            if (config.use_ice_when_possible && self.options.peer) {
+                dbg.log0(options, 'do http to self req '+options.path);
+                options.hostname = '127.0.0.1';
             }
 
             return self._doHttpCall(func_info, options, body);
@@ -640,7 +640,7 @@ function rest_api(api) {
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        dbg.log0(self.options, 'do http req '+options.path);
+        dbg.log0(options, 'do http req '+options.path);
 
         if (options.body) {
             delete options.body;
@@ -653,8 +653,8 @@ function rest_api(api) {
             return self._handle_http_reply(func_info, res);
         })
         .then(null, function(err) {
-            dbg.log0(self.options+ ' do http req FAILED '+options.path+' err '+err);
-            console.error('HTTP REST REQUEST FAILED', err);
+            dbg.log0(options.hostname+':'+options.port+ ' do http req FAILED '+options.method+' '+options.path+' err '+err);
+            console.error('HTTP REST REQUEST FAILED '+ err);
             throw err;
         });
     };

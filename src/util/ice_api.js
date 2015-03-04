@@ -24,10 +24,12 @@ function writeLog(msg) {
 var onIceMessage = function onIceMessage(p2p_context, channel, event) {
     dbg.log2('Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
+    var req;
 
     if (typeof event.data === 'string' || event.data instanceof String) {
         try {
             var message = JSON.parse(event.data);
+            req = message.req;
 
             dbg.log0('got message str ' + event.data + ' my id '+channel.myId);
 
@@ -44,7 +46,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                     dbg.log3('message str set action defer resolve for req '+message.req);
                     msgObj.action_defer.resolve(channel);
                 } else {
-                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod);
+                    dbg.log2('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO REM
                     channel.handleRequestMethod(channel, message);
                 }
             } else {
@@ -55,13 +57,13 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             }
 
         } catch (ex) {
-            writeLog('ex on string req ' + ex + ' ; ' + ex.stack);
+            writeLog('ex on string req ' + ex + ' ; ' + ex.stack+' for req '+req);
         }
     } else if (event.data instanceof ArrayBuffer) {
 
         try {
             var bff = buf.toBuffer(event.data);
-            var req = (bff.readInt32LE(0)).toString();
+            req = (bff.readInt32LE(0)).toString();
             var part = bff.readInt8(32);
 
             msgObj = channel.msgs[req];
@@ -101,7 +103,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                 }
             }
         } catch (ex) {
-            writeLog('ex on ab got ' + ex.stack);
+            writeLog('ex on ab got ' + ex.stack+' for req '+req+' and msg '+Object.keys(channel.msgs));
         }
     } else {
         writeLog('WTF got ' + event.data);

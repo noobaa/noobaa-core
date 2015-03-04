@@ -311,7 +311,7 @@ module.exports.initiateIce = initiateIce;
 var closeIce = function closeIce(socket, requestId, dataChannel) {
 
     try {
-        if (dataChannel.msgs && dataChannel.msgs[requestId]) {
+        if (dataChannel && dataChannel.msgs && dataChannel.msgs[requestId]) {
             delete dataChannel.msgs[requestId];
         }
 

@@ -668,7 +668,7 @@ function rest_api(api) {
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        dbg.log3('do http req to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
+        dbg.log2('do http req to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
 
         if (options.body) {
             delete options.body;

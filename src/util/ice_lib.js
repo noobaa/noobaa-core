@@ -320,11 +320,6 @@ var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
         }
     }
 
-    var obj = channel && channel.peerId && p2p_context && p2p_context.iceSockets ? p2p_context.iceSockets[channel.peerId] : null;
-    if (obj) {
-        return !(obj.usedBy[requestId]);
-    }
-
     return false;
 };
 module.exports.isRequestEnded = isRequestEnded;

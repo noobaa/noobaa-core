@@ -615,7 +615,7 @@ function rest_api(api) {
             });
         } else { // do http
 
-            console.error('Do Http Call to '+require('util').inspect(options));
+            dbg.log3('Do Http Call to '+require('util').inspect(options));
 
             if (config.use_ice_when_possible && self.options.peer) {
                 dbg.log0(options, 'do http to self req '+options.path);
@@ -634,7 +634,7 @@ function rest_api(api) {
         }).then(function(res) {
             return res;
         }, function(err) {
-            if (retry < config.ice_retry) {
+            if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
                 console.error('ICE REST REQUEST FAILED '+ err+' retry '+retry);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
@@ -646,7 +646,7 @@ function rest_api(api) {
     };
 
     Client.prototype._doICECall = function doICECall(self_options, peerId, options, buffer, func_info) {
-        dbg.log0('do ice req '+require('util').inspect(self_options));
+        dbg.log3('do ice req '+require('util').inspect(self_options));
 
         return Q.fcall(function () {
                 return ice_api.sendRequest(self_options.p2p_context, self_options.ws_socket, peerId, options, null, buffer, self_options.timeout);
@@ -654,8 +654,7 @@ function rest_api(api) {
             .then(function (res) {
                 dbg.log0(self_options, 'res is: ' + require('util').inspect(res));
                 if (res && res.status && res.status === 500) {
-                    dbg.log0('failed ' + options.path + ' in ice, try http instead');
-                    console.error('ICE REST REQUEST FAILED 500 try http instead');
+                    dbg.log0('failed ' + options.path + ' in ice, got 500');
                     throw new Error('Do retry with http - ice failure 500');
                 } else {
 

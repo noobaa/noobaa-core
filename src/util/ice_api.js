@@ -138,7 +138,7 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
 
         while (end < block.byteLength) {
             channel.send(createBufferToSend(block.slice(begin, end), counter, reqId));
-            dbg.log0('send chunk '+counter+ ' size: ' + config.chunk_size+' req '+reqId);
+            dbg.log3('send chunk '+counter+ ' size: ' + config.chunk_size+' req '+reqId);
             begin = end;
             end = end + config.chunk_size;
             counter++;

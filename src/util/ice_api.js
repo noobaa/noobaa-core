@@ -44,7 +44,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                     dbg.log3('message str set action defer resolve for req '+message.req);
                     msgObj.action_defer.resolve(channel);
                 } else {
-                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req);
+                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod);
                     channel.handleRequestMethod(channel, message);
                 }
             } else {
@@ -55,7 +55,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             }
 
         } catch (ex) {
-            writeLog('ex on string req ' + ex.stack);
+            writeLog('ex on string req ' + ex + ' ; ' + ex.stack);
         }
     } else if (event.data instanceof ArrayBuffer) {
 

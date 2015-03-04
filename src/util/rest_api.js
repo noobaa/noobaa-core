@@ -606,27 +606,16 @@ function rest_api(api) {
                     buffer = body;
                 }
 
-                return ice_api.sendRequest(self.options.p2p_context,self.options.ws_socket, peerId, options, null, buffer, self.options.timeout);
-            })
-            .then(function(res) {
-                dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
-
-                if (res && res.status && res.status === 500) {
-                    dbg.log0('failed '+options.path+' in ice, try http instead');
-                    return self._doHttpCall(func_info, options, body);
-                } else {
-                    if (!func_info.reply_raw) {
-                        // check the json reply
-                        validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
-                    }
-                    return res.data;
-                }
-            })
-            .then(null, function(err) {
+                return self._doICECallWithRetry(self.options, peerId, options, buffer, func_info, 0);
+            }).then(function(res) {
+                return res;
+            }, function(err) {
                 console.error('ICE REST REQUEST FAILED '+ err+' try http instead');
                 return self._doHttpCall(func_info, options, body);
             });
         } else { // do http
+
+            console.error('Do Http Call to '+require('util').inspect(options));
 
             if (config.use_ice_when_possible && self.options.peer) {
                 dbg.log0(options, 'do http to self req '+options.path);
@@ -635,12 +624,57 @@ function rest_api(api) {
 
             return self._doHttpCall(func_info, options, body);
         }
+        console.error('YaEL SHOULD NOT REACH HERE');
+    };
 
+    Client.prototype._doICECallWithRetry = function doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry) {
+        var self = this;
+        return Q.fcall(function () {
+            return self._doICECall(self_options, peerId, options, buffer, func_info);
+        }).then(function(res) {
+            return res;
+        }, function(err) {
+            if (retry < 3) {
+                ++retry;
+                console.error('ICE REST REQUEST FAILED '+ err+' retry '+retry);
+                return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
+            } else {
+                throw new Error('ICE REST REQUEST FAILED '+ err);
+            }
+
+        });
+    };
+
+    Client.prototype._doICECall = function doICECall(self_options, peerId, options, buffer, func_info) {
+        dbg.log0('do ice req '+require('util').inspect(self_options));
+
+        return Q.fcall(function () {
+                return ice_api.sendRequest(self_options.p2p_context, self_options.ws_socket, peerId, options, null, buffer, self_options.timeout);
+            })
+            .then(function (res) {
+                dbg.log0(self_options, 'res is: ' + require('util').inspect(res));
+                if (res && res.status && res.status === 500) {
+                    dbg.log0('failed ' + options.path + ' in ice, try http instead');
+                    console.error('ICE REST REQUEST FAILED 500 try http instead');
+                    throw new Error('Do retry with http - ice failure 500');
+                } else {
+
+                    if (!func_info.reply_raw) {
+                        // check the json reply
+                        validate_schema(res.data, func_info.reply_schema, func_info, 'client reply');
+                    }
+                    return res.data;
+                }
+            })
+            .then(null, function (err) {
+                console.error('ICE REST REQUEST FAILED ' + err);
+                throw new Error('Do retry with http - ice failure ex');
+            });
     };
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        dbg.log0(options, 'do http req '+options.path);
+        dbg.log0('do http req '+require('util').inspect(options));
 
         if (options.body) {
             delete options.body;
@@ -654,7 +688,7 @@ function rest_api(api) {
         })
         .then(null, function(err) {
             dbg.log0(options.hostname+':'+options.port+ ' do http req FAILED '+options.method+' '+options.path+' err '+err);
-            console.error('HTTP REST REQUEST FAILED '+ err);
+            console.error('HTTP REST REQUEST FAILED '+ require('util').inspect(err));
             throw err;
         });
     };

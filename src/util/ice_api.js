@@ -124,7 +124,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                 }
             }
         } catch (ex) {
-            writeLog('ex on ab got ' + ex.stack+' for req '+req+' and msg '+Object.keys(channel.msgs));
+            writeLog('ex on ab got ' + ex.stack+' for req '+req+' and msg '+(channel && channel.msgs ? Object.keys(channel.msgs) : 'N/A'));
         }
     } else {
         writeLog('WTF got ' + event.data);

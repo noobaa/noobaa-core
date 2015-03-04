@@ -398,19 +398,39 @@ function createPeerConnection(socket, requestId, config) {
         channelObj.peerConn.onicecandidate = function (event) {
             if (event.candidate) {
 
-                dbg.log3(channelObj.peerId+' onIceCandidate event: '+
+                if (!channelObj.peerConn.candidates) {
+                    channelObj.peerConn.candidates = [];
+                }
+                if (event.candidate.indexOf('tcp') >= 0) {
+                    dbg.log3(channelObj.peerId+' onIceCandidate event: '+
                     require('util').inspect(event.candidate.candidate) +
                     ' state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
 
+                    sendMessage(socket, channelObj.peerId, channelObj.requestId, JSON.stringify({
+                        type: 'candidate',
+                        label: event.candidate.sdpMLineIndex,
+                        id: event.candidate.sdpMid,
+                        candidate: event.candidate.candidate
+                    }));
+                } else {
+                    channelObj.peerConn.candidates.push(event.candidate);
+                }
 
-                sendMessage(socket, channelObj.peerId, channelObj.requestId, JSON.stringify({
-                    type: 'candidate',
-                    label: event.candidate.sdpMLineIndex,
-                    id: event.candidate.sdpMid,
-                    candidate: event.candidate.candidate
-                }));
             } else {
-                dbg.log3(channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
+                dbg.log3(channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
+                if (channelObj.peerConn.candidates) {
+                    var cand;
+                    for (cand in channelObj.peerConn.candidates) {
+                        dbg.log3(channelObj.peerId+' send onIceCandidate event: '+ require('util').inspect(cand.candidate));
+
+                        sendMessage(socket, channelObj.peerId, channelObj.requestId, JSON.stringify({
+                            type: 'candidate',
+                            label: cand.sdpMLineIndex,
+                            id: cand.sdpMid,
+                            candidate: cand.candidate
+                        }));
+                    }
+                }
             }
         };
 
@@ -431,8 +451,8 @@ function createPeerConnection(socket, requestId, config) {
         if (channelObj.isInitiator) {
             dbg.log3('Creating Data Channel');
             try {
-                //var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};
-                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa"); // TODO  ? dtConfig
+                var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};
+                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig); // TODO  ? dtConfig
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating Data Channel ' + ex);
@@ -440,16 +460,16 @@ function createPeerConnection(socket, requestId, config) {
             }
 
             dbg.log3('Creating an offer');
-            /*var mediaConstraints = {
+            var mediaConstraints = {
                 mandatory: {
                     OfferToReceiveAudio: false,
                     OfferToReceiveVideo: false
                 }
-            };*/
+            };
             try {
                 channelObj.peerConn.createOffer(function (desc) {
                     return onLocalSessionCreated(socket, requestId, desc);
-                }, logError); // TODO ? mediaConstraints
+                }, logError, mediaConstraints); // TODO ? mediaConstraints
             } catch (ex) {
                 writeLog(socket, 'Ex on Creating an offer ' + ex.stack);
                 if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}

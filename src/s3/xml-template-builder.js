@@ -32,7 +32,7 @@ var xml = function() {
                     };
                 })
         });
-        console.log('content:', content, ' opts', options, 'items:', items);
+        //console.log('content:', content, ' opts', options, 'items:', items);
 
         return content;
     };

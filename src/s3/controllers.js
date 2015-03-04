@@ -30,7 +30,7 @@ var S3Object = require('./models/s3-object');
 
 
 process.on('uncaughtException', function(err) {
-    console.log(err.stack);
+    console.log('rrrrr:', err.stack);
 });
 
 var params = {
@@ -126,15 +126,14 @@ module.exports = function(rootDirectory) {
          */
         bucketExists: function(req, res, next) {
             var bucketName = req.params.bucket;
-            fileStore.getBucket(bucketName, function(err, bucket) {
-                if (err) {
-                    console.error('No bucket found for "%s"', bucketName);
-                    var template = templateBuilder.buildBucketNotFound(bucketName);
-                    return buildXmlResponse(res, 404, template);
-                }
-                req.bucket = bucket;
-                return next();
-            });
+            if (bucketName !== params.bucket) {
+                console.error('(1) No bucket found for "%s"', bucketName);
+                var template = templateBuilder.buildBucketNotFound(bucketName);
+                return buildXmlResponse(res, 404, template);
+            }
+            req.bucket = bucketName;
+            return next();
+
         },
         getBuckets: function(req, res) {
             var buckets = fileStore.getBuckets();
@@ -167,17 +166,17 @@ module.exports = function(rootDirectory) {
                     return client.object.list_objects(list_params);
                 })
                 .then(function(results) {
-                    console.log('objects in bucket', params.bucket, ':',results);
+                    console.log('objects in bucket', params.bucket, ':', results);
                     var i = 0;
                     var folders = {};
                     var objects = _.filter(results.objects, function(obj) {
                         var date = new Date(obj.info.create_time);
                         date.setMilliseconds(0);
-                        obj.modifiedDate = date.toISOString();//toUTCString();//.toISOString();
+                        obj.modifiedDate = date.toISOString(); //toUTCString();//.toISOString();
                         obj.md5 = 100;
                         obj.size = obj.info.size;
                         obj.key = obj.key.slice(options.prefix.length);
-                        if (obj.key.indexOf(req.query.delimiter) >=0) {
+                        if (obj.key.indexOf(req.query.delimiter) >= 0) {
                             var folder = obj.key.split(req.query.delimiter, 1)[0];
                             folders[folder] = true;
                             return false;
@@ -202,6 +201,11 @@ module.exports = function(rootDirectory) {
         putBucket: function(req, res) {
             var bucketName = req.params.bucket;
             var template;
+            template = templateBuilder.buildError('InvalidBucketName',
+                'Creating new bucket is not supported');
+            console.error('Error creating bucket "%s" because it is not supported', bucketName);
+            return buildXmlResponse(res, 400, template);
+
             /**
              * Derived from http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
              */
@@ -252,16 +256,22 @@ module.exports = function(rootDirectory) {
 
         getObject: function(req, res) {
             var keyName = req.params.key;
-            var acl = req.query.acl;
 
+            var acl = req.query.acl;
+            var template;
             if (acl !== undefined) {
-                var template = templateBuilder.buildAcl();
+                template = templateBuilder.buildAcl();
                 console.log('ACL:', acl, 'template', template);
                 return buildXmlResponse(res, 200, template);
 
             } else {
-
-
+                console.log('path:', req.path);
+                if (req.path.indexOf('Thumbs.db', req.path.length - 9) !== -1) {
+                    console.log('Thumbs up');
+                    console.error('Object "%s" in bucket "%s" does not exist', keyName, params.bucket);
+                    template = templateBuilder.buildKeyNotFound(keyName);
+                    return buildXmlResponse(res, 404, template);
+                }
                 //S3 browser format - maybe future use.
                 // keyName = keyName.replace('..chunk..map','');
 
@@ -308,6 +318,7 @@ module.exports = function(rootDirectory) {
         putObject: function(req, res) {
             var template;
             var acl = req.query.acl;
+            var delimiter = req.query.delimiter || '%2F';
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
                 console.log('ACL:', acl, 'template', template);
@@ -315,37 +326,91 @@ module.exports = function(rootDirectory) {
             }
             var copy = req.headers['x-amz-copy-source'];
             if (copy) {
-                var srcObjectParams = copy.split('/'),
-                    srcBucket = srcObjectParams[1],
-                    srcObject = srcObjectParams.slice(2).join('/');
-                fileStore.getBucket(srcBucket, function(err, bucket) {
-                    if (err) {
-                        console.error('No bucket found for "%s"', srcBucket);
-                        template = templateBuilder.buildBucketNotFound(srcBucket);
-                        return buildXmlResponse(res, 404, template);
-                    }
-                    fileStore.getObject(bucket, srcObject, function(err) {
-                        if (err) {
-                            console.error('Object "%s" in bucket "%s" does not exist', srcObject, bucket.name);
-                            template = templateBuilder.buildKeyNotFound(srcObject);
-                            return buildXmlResponse(res, 404, template);
-                        }
-                        fileStore.copyObject(bucket, srcObject, req.bucket, req.params.key, function(err, key) {
-                            if (err) {
-                                console.error('Error copying object "%s" from bucket "%s" into bucket "%s" with key of "%s"',
-                                    srcObject, bucket.name, req.bucket.name, req.params.key);
-                                template = templateBuilder.buildError('InternalError',
-                                    'We encountered an internal error. Please try again.');
-                                return buildXmlResponse(res, 500, template);
-                            }
+                if (copy.indexOf('/') === 0) {
+                    delimiter = '/';
+                    copy = copy.substring(1);
+                }
+                var srcObjectParams = copy.split(delimiter);
 
-                            console.info('Copied object "%s" from bucket "%s"  into bucket "%s" with key of "%s"',
-                                srcObject, bucket.name, req.bucket.name, req.params.key);
-                            template = templateBuilder.buildCopyObject(key);
-                            return buildXmlResponse(res, 200, template);
-                        });
-                    });
-                });
+                var srcBucket = srcObjectParams[0];
+                var srcObject = srcObjectParams.slice(1).join(delimiter);
+                //console.log(srcObjectParams);
+                if (srcBucket !== params.bucket) {
+                    console.error('(2)No bucket found for "%s"', srcBucket, params.bucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
+                    template = templateBuilder.buildBucketNotFound(srcBucket);
+                    return buildXmlResponse(res, 404, template);
+                }
+
+                var object_path = {
+                    bucket: params.bucket,
+                    key: srcObject
+                };
+                var create_params = {};
+                Q.fcall(client.object.get_object_md(object_path)
+                    .then(function(md) {
+                        console.log('md', md);
+
+                        create_params.content_type = md.content_type;
+                        create_params.size = md.size;
+                        client.object.read_object_mappings({
+                                bucket: params.bucket,
+                                key: srcObject,
+                            })
+                            .then(function(mappings) {
+                                console.log('\n\nListing object maps:', srcObject);
+
+                                var i = 1;
+                                _.each(mappings.parts, function(part) {
+                                    console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', part);
+                                    i += 1;
+                                });
+                                //copy
+
+                                var new_obj_parts = {
+                                    bucket: params.bucket,
+                                    key: req.params.key,
+                                    parts: _.map(mappings.parts, function(part) {
+                                        return {
+                                            start: part.start,
+                                            end: part.end,
+                                            crypt: part.crypt,
+                                            chunk_size: part.chunk_size
+                                        };
+                                    })
+                                };
+                                console.log("new_obj_parts", new_obj_parts);
+
+
+                                create_params.bucket = params.bucket;
+                                create_params.key = req.params.key,
+
+                                console.log('upload_stream: create multipart', create_params);
+
+                                client.object.create_multipart_upload(create_params)
+                                    .then(function(info) {
+                                        console.log('info:', info);
+                                        client.object.allocate_object_parts(new_obj_parts)
+                                            .then(function(res) {
+                                                try {
+                                                    console.log('res:', res);
+
+                                                } catch (err) {
+                                                    console.log('errrrr:aaaa:', err);
+                                                }
+                                            })
+                                            .then(function() {
+                                                console.log('COMPLETED: object_maps');
+                                                return res.status(200).end();
+                                            }).then(null, function(err) {
+                                                console.log('Err: object_maps', err);
+                                                template = templateBuilder.buildKeyNotFound(srcObject);
+                                                return buildXmlResponse(res, 404, template);
+                                            });
+                                    });
+
+                            });
+
+                    }));
             } else {
 
                 console.log('About to store object "%s" in bucket "%s" ', req.params.key, req.bucket.name, req.headers);
@@ -363,7 +428,7 @@ module.exports = function(rootDirectory) {
                 //     file_key_name = file_key_name + '_' + serial;
                 // }
 
-                var client = new api.Client();
+                //                var client = new api.Client();
 
                 client.options.set_address(params.address);
 

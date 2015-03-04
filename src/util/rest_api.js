@@ -674,7 +674,7 @@ function rest_api(api) {
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        dbg.log0('do http req '+require('util').inspect(options));
+        dbg.log3('do http req '+require('util').inspect(options));
 
         if (options.body) {
             delete options.body;
@@ -687,8 +687,8 @@ function rest_api(api) {
             return self._handle_http_reply(func_info, res);
         })
         .then(null, function(err) {
-            dbg.log0(options.hostname+':'+options.port+ ' do http req FAILED '+options.method+' '+options.path+' err '+err);
-            console.error('HTTP REST REQUEST FAILED '+ require('util').inspect(err));
+            console.error('HTTP REST REQUEST FAILED '+ require('util').inspect(err) +
+            ' to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
             throw err;
         });
     };

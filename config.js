@@ -17,6 +17,8 @@ config.ice_retry = 3;
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;
 
+config.dbg_log_level = 0;
+
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;

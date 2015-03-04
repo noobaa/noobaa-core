@@ -15,8 +15,7 @@ var buf = require('./buffer_utils');
 var dbg = require('./dbg')(__filename);
 var config = require('../../config.js');
 
-// dbg.log_level = 3;
-
+dbg.log_level = config.dbg_log_level;
 
 module.exports = rest_api;
 

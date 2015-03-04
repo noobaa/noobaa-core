@@ -24,8 +24,6 @@ var config = require('../../config.js');
 
 module.exports = ObjectClient;
 
-//dbg.log_level = 3;
-
 /**
  *
  * OBJECT CLIENT

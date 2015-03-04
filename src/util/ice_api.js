@@ -73,6 +73,10 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                 return;
             }
 
+            if (!channel.msgs[req]) {
+                channel.msgs[req] = {};
+            }
+
             msgObj = channel.msgs[req];
 
             if (!msgObj.received_size) {

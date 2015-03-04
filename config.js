@@ -11,13 +11,13 @@ config.chunk_size = 60 * 1000;
 config.doDedup = false;
 config.buildWorkerOn = false;
 config.connection_default_timeout = 60 * 1000;
-config.get_response_default_timeout = 25 * 1000;
+config.get_response_default_timeout = 10 * 1000;
 config.ice_retry = 3;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;
 
-config.dbg_log_level = 0;
+config.dbg_log_level = 2;
 
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;

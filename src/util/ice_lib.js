@@ -120,16 +120,16 @@ var connect = function (socket) {
                         signalingMessageCallback(socket, message.from, msgData, message.requestId);
                     });
                 } else {
-                    dbg.log3('Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
+                    dbg.log2('Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
                     signalingMessageCallback(socket, message.from, message.data, message.requestId);
                 }
             } else if (message.sigType === 'accept') {
-                dbg.log3('Got accept ' + message + ' from '+message.from+' to '+message.to+' i am '+socket.idInServer);
+                dbg.log2('Got accept ' + message + ' from '+message.from+' to '+message.to+' i am '+socket.idInServer);
                 initiateIce(socket.p2p_context ,socket, message.from, false, message.requestId);
             } else if (message.sigType === 'keepalive') {
                 dbg.log3('Got keepalive from ' + message.from);
             } else if (message.sigType && message.requestId) {
-                dbg.log3('Got ' + message.sigType + ' from web server '+message.from+' to '+message.to+' i am '+socket.idInServer);
+                dbg.log0('Got ' + message.sigType + ' from web server '+message.from+' to '+message.to+' i am '+socket.idInServer);
                 if (socket.action_defer && socket.action_defer[message.requestId]) {
                     socket.action_defer[message.requestId].resolve(message);
                     delete socket.action_defer[message.requestId];

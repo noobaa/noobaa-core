@@ -22,7 +22,7 @@ function writeLog(msg) {
 }
 
 var onIceMessage = function onIceMessage(p2p_context, channel, event) {
-    dbg.log3('Got event '+event.data+' ; my id: '+channel.myId);
+    dbg.log2('Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
 
     if (typeof event.data === 'string' || event.data instanceof String) {

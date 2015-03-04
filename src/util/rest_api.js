@@ -610,7 +610,7 @@ function rest_api(api) {
             });
         } else { // do http
 
-            dbg.log3('Do Http Call to '+require('util').inspect(options));
+            dbg.log2('Do Http Call to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
 
             if (config.use_ice_when_possible && self.options.peer) {
                 dbg.log0(options, 'do http to self req '+options.path);
@@ -641,7 +641,7 @@ function rest_api(api) {
     };
 
     Client.prototype._doICECall = function doICECall(self_options, peerId, options, buffer, func_info) {
-        dbg.log3('do ice req '+require('util').inspect(self_options));
+        dbg.log3('do ice req '+require('util').inspect(options));
 
         return Q.fcall(function () {
                 return ice_api.sendRequest(self_options.p2p_context, self_options.ws_socket, peerId, options, null, buffer, self_options.timeout);
@@ -668,7 +668,7 @@ function rest_api(api) {
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        dbg.log3('do http req '+require('util').inspect(options));
+        dbg.log3('do http req to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
 
         if (options.body) {
             delete options.body;
@@ -692,7 +692,7 @@ function rest_api(api) {
         var req = options.protocol === 'https:' ?
             https.request(options) :
             http.request(options);
-        dbg.log3('HTTP request', req);
+        dbg.log3('HTTP request', req.path, req.method, req._headers);
 
         var defer = Q.defer();
         req.on('error', defer.reject);

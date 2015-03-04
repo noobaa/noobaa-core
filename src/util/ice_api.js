@@ -51,9 +51,6 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                 }
             } else {
                 msgObj.msg_size = parseInt(message.size, 10);
-                msgObj.received_size = 0;
-                msgObj.chunk_num = 0;
-                msgObj.chunks_map = {};
             }
 
         } catch (ex) {
@@ -68,6 +65,16 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
 
             msgObj = channel.msgs[req];
 
+            if (!msgObj.received_size) {
+                msgObj.received_size = 0;
+            }
+            if (!msgObj.chunk_num) {
+                msgObj.chunk_num = 0;
+            }
+            if (!msgObj.chunks_map) {
+                msgObj.chunks_map = {};
+            }
+
             var partBuf = event.data.slice(partSize);
             msgObj.chunks_map[part] = partBuf;
 
@@ -77,7 +84,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
 
             msgObj.received_size += (event.data.byteLength - partSize);
 
-            if (msgObj.received_size === msgObj.msg_size) {
+            if (msgObj.msg_size && msgObj.received_size === msgObj.msg_size) {
 
                 dbg.log0('all chunks received last '+part+' with size ' +
                 event.data.byteLength + " total size so far " + msgObj.received_size

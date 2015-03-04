@@ -46,13 +46,14 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             msgObj.peer_msg = message;
 
             if (!message.size || parseInt(message.size, 10) === 0) {
-
                 if (msgObj.action_defer) {
                     dbg.log3('message str set action defer resolve for req '+message.req);
                     msgObj.action_defer.resolve(channel);
-                } else {
-                    dbg.log2('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO cng to dbg3
+                } else if (channel.handleRequestMethod) {
+                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO cng to dbg3
                     channel.handleRequestMethod(channel, message);
+                } else {
+                    dbg.log2('ab NO 1 to call for req '+req);
                 }
             } else {
                 msgObj.msg_size = parseInt(message.size, 10);
@@ -114,13 +115,15 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                 if (msgObj.action_defer) {
                     dbg.log3('ab set action defer resolve for req '+req);
                     msgObj.action_defer.resolve(channel);
-                } else {
+                } else if (channel.handleRequestMethod) {
                     try {
                         dbg.log3('ab call handleRequestMethod resolve for req '+req);
                         channel.handleRequestMethod(channel, event.data);
                     } catch (ex) {
                         writeLog('ex on ArrayBuffer req ' + ex+' for req '+req);
                     }
+                } else {
+                    dbg.log2('ab NO 1 to call for req '+req);
                 }
             }
         } catch (ex) {

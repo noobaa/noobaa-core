@@ -398,38 +398,43 @@ function createPeerConnection(socket, requestId, config) {
         channelObj.peerConn.onicecandidate = function (event) {
             if (event.candidate) {
 
-                if (!channelObj.peerConn.candidates) {
-                    channelObj.peerConn.candidates = [];
-                }
-                if (event.candidate.indexOf('tcp') >= 0) {
-                    dbg.log3(channelObj.peerId+' onIceCandidate event: '+
-                    require('util').inspect(event.candidate.candidate) +
-                    ' state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
+                try {
+                    if (!channelObj.peerConn.candidates) {
+                        channelObj.peerConn.candidates = [];
+                    }
 
-                    sendMessage(socket, channelObj.peerId, channelObj.requestId, JSON.stringify({
+                    var candidateMsg = JSON.stringify({
                         type: 'candidate',
                         label: event.candidate.sdpMLineIndex,
                         id: event.candidate.sdpMid,
                         candidate: event.candidate.candidate
-                    }));
-                } else {
-                    channelObj.peerConn.candidates.push(event.candidate);
+                    });
+
+                    if (candidateMsg.indexOf('tcp') >= 0) {
+                        dbg.log2(channelObj.peerId+' onIceCandidate event: '+
+                        require('util').inspect(event.candidate.candidate) +
+                        ' state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
+
+                        sendMessage(socket, channelObj.peerId, channelObj.requestId, candidateMsg);
+                    } else {
+                        channelObj.peerConn.candidates.push(candidateMsg);
+                    }
+                } catch (ex) {
+                    console.error('candidates issue '+ex+' ; '+ex.stack);
                 }
 
             } else {
-                dbg.log3(channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
-                if (channelObj.peerConn.candidates) {
-                    var cand;
-                    for (cand in channelObj.peerConn.candidates) {
-                        dbg.log3(channelObj.peerId+' send onIceCandidate event: '+ require('util').inspect(cand.candidate));
-
-                        sendMessage(socket, channelObj.peerId, channelObj.requestId, JSON.stringify({
-                            type: 'candidate',
-                            label: cand.sdpMLineIndex,
-                            id: cand.sdpMid,
-                            candidate: cand.candidate
-                        }));
+                try {
+                    dbg.log2(channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
+                    if (channelObj.peerConn.candidates) {
+                        var candidateMsg;
+                        for (candidateMsg in channelObj.peerConn.candidates) {
+                            dbg.log3(channelObj.peerId+' send onIceCandidate event: '+ candidateMsg);
+                            sendMessage(socket, channelObj.peerId, channelObj.requestId, candidateMsg);
+                        }
                     }
+                } catch (ex) {
+                    console.error('all candidates issue '+ex+' ; '+ex.stack);
                 }
             }
         };
@@ -533,14 +538,14 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
     } else if (message.type === 'candidate') {
         try {
-            dbg.log3('Got candidate.' + peerId + ' and channel ' + requestId);
+            dbg.log2('Got candidate.' + peerId + ' and channel ' + requestId+' ; '+require('util').inspect(message));
             if (channelObj && !channelObj.done) {
                 channelObj.peerConn.addIceCandidate(new Candidate({candidate: message.candidate}));
             } else {
                 dbg.log0('Got candidate.' + peerId + ' and channel ' + requestId + ' CANNOT HANDLE connection removed/done');
             }
         } catch (ex) {
-            writeLog(socket, 'problem in candidate fro req '+ requestId +' ex:' + ex+ ', msg was: '+message.candidate);
+            writeLog(socket, 'problem in candidate from req '+ requestId +' ex:' + ex+ ', msg was: '+message.candidate);
             channelObj = socket.icemap[requestId];
             if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
         }

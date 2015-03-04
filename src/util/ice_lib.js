@@ -308,6 +308,27 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
 };
 module.exports.initiateIce = initiateIce;
 
+var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
+    if (channel && channel.msgs && channel.msgs[requestId]) {
+        return false;
+    }
+
+    if (p2p_context && p2p_context.socket && p2p_context.socket.icemap) {
+        var channelObj = p2p_context.socket.icemap[requestId];
+        if (channelObj) {
+            return channelObj.done;
+        }
+    }
+
+    var obj = channel && channel.peerId && p2p_context && p2p_context.iceSockets ? p2p_context.iceSockets[channel.peerId] : null;
+    if (obj) {
+        return !(obj.usedBy[requestId]);
+    }
+
+    return false;
+};
+module.exports.isRequestEnded = isRequestEnded;
+
 var closeIce = function closeIce(socket, requestId, dataChannel) {
 
     try {

@@ -31,6 +31,11 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             var message = JSON.parse(event.data);
             req = message.req;
 
+            if (ice.isRequestEnded(p2p_context, req, channel)) {
+                dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
+                return;
+            }
+
             dbg.log0('got message str ' + event.data + ' my id '+channel.myId);
 
             if (!channel.msgs[message.req]) {
@@ -46,7 +51,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                     dbg.log3('message str set action defer resolve for req '+message.req);
                     msgObj.action_defer.resolve(channel);
                 } else {
-                    dbg.log2('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO REM
+                    dbg.log2('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO cng to dbg3
                     channel.handleRequestMethod(channel, message);
                 }
             } else {
@@ -62,6 +67,11 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             var bff = buf.toBuffer(event.data);
             req = (bff.readInt32LE(0)).toString();
             var part = bff.readInt8(32);
+
+            if (ice.isRequestEnded(p2p_context, req, channel)) {
+                dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
+                return;
+            }
 
             msgObj = channel.msgs[req];
 

@@ -11,7 +11,7 @@ config.chunk_size = 60 * 1000;
 config.doDedup = false;
 config.buildWorkerOn = false;
 config.connection_default_timeout = 60 * 1000;
-config.get_response_default_timeout = 5 * 1000;
+config.get_response_default_timeout = 10 * 1000;
 config.ice_retry = 6;
 
 config.use_ws_when_possible = true;

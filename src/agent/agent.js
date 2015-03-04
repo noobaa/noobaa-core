@@ -19,7 +19,6 @@ var api = require('../api');
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var AgentStore = require('./agent_store');
-var Tracer = require('noobaa-util/tracer');
 
 module.exports = Agent;
 
@@ -128,8 +127,6 @@ function Agent(params) {
         'Israel', 'Romania', 'Russia',
         'Germany', 'England', 'France', 'Spain',
     ]);
-
-    self.tracer = new Tracer("agent" + self.node_name + ".log", /*currently no remote host*/ "", /*log to console*/ true);
 }
 
 
@@ -236,16 +233,6 @@ Agent.prototype._init_node = function() {
             console.error('bad token', res);
             throw new Error('bad token');
         });
-};
-
-/**
- *
- * SET LOG
- *
- */
-Agent.prototype.set_log = function(mod, level) {
-    var self = this;
-    self.tracer.set_level(mod, level);
 };
 
 

@@ -17,7 +17,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
-var Tracer = require('noobaa-util/tracer');
+var DebugModule = require('noobaa-util/debug_module');
 
 Q.longStackSupport = true;
 
@@ -47,6 +47,8 @@ function AgentCLI(params) {
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);
     self.agents = {};
+    self._mod = new DebugModule(__filename);
+    self.modules = self._mod.get_module_structure();
 }
 
 
@@ -81,7 +83,7 @@ AgentCLI.prototype.init = function() {
         });
 };
 
-AgentCLI.prototype.init.helper = function () {
+AgentCLI.prototype.init.helper = function() {
     console.log("Init client");
 };
 
@@ -129,7 +131,7 @@ AgentCLI.prototype.load = function() {
         });
 };
 
-AgentCLI.prototype.load.helper = function () {
+AgentCLI.prototype.load.helper = function() {
     console.log("create token, start nodes ");
 };
 
@@ -165,7 +167,7 @@ AgentCLI.prototype.create = function() {
         });
 };
 
-AgentCLI.prototype.create.helper = function () {
+AgentCLI.prototype.create.helper = function() {
     console.log("Create a new agent and start it");
 };
 
@@ -186,7 +188,7 @@ AgentCLI.prototype.create_some = function(n) {
     }));
 };
 
-AgentCLI.prototype.create_some.helper = function () {
+AgentCLI.prototype.create_some.helper = function() {
     console.log("Create n agents:   create_some <n>");
 };
 
@@ -222,7 +224,7 @@ AgentCLI.prototype.start = function(node_name) {
     });
 };
 
-AgentCLI.prototype.start.helper = function () {
+AgentCLI.prototype.start.helper = function() {
     console.log("Start a specific agent, if agent doesn't exist, will create it:   start <agent>");
 };
 
@@ -246,7 +248,7 @@ AgentCLI.prototype.stop = function(node_name) {
     console.log('agent stopped', node_name);
 };
 
-AgentCLI.prototype.stop.helper = function () {
+AgentCLI.prototype.stop.helper = function() {
     console.log("Stop a specific agent:   stop <agent>");
 };
 
@@ -268,7 +270,7 @@ AgentCLI.prototype.list = function() {
     });
 };
 
-AgentCLI.prototype.list.helper = function () {
+AgentCLI.prototype.list.helper = function() {
     console.log("List all agents status");
 };
 
@@ -276,33 +278,18 @@ AgentCLI.prototype.list.helper = function () {
  *
  * Set Log Level
  *
- * Set logging level for a module (or "all") for a specific agent, or for all agents
+ * Set logging level for a module
  *
  */
-AgentCLI.prototype.set_log = function(node_name, mod, level) {
+AgentCLI.prototype.set_log = function(mod, level) {
     var self = this;
-    try {
-        if (node_name === "all") { //Set all agents with the log level
-            _.each(self.agents, function(agent, node_name) {
-                agent.set_log(mod, level);
-            });
-            console.log("Log for " + mod + " with level of " + level + " was set for all agents");
-        } else {
-            var agent = self.agents[node_name];
-            if (!agent) {
-                console.log('agent not found', node_name);
-                return;
-            }
-            agent.set_log(mod, level);
-            console.log("Log for " + mod + " with level of " + level + " was set for agent " + node_name);
-        }
-    } catch (e) {
-        console.log("Error while trying to set log for " + node_name + " " + e);
-    }
+    self._mod.set_level(level,mod);
+    console.log("Log for " + mod + " with level of " + level + " was set");
+
 };
 
-AgentCLI.prototype.set_log.helper = function () {
-    console.log('Setting log levels for agent:   set_log <"node_name/all"> <"module/all"> <level>');
+AgentCLI.prototype.set_log.helper = function() {
+    console.log('Setting log levels for module:   set_log <"module"> <level>');
 };
 /**
  *

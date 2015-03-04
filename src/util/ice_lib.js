@@ -429,8 +429,8 @@ function createPeerConnection(socket, requestId, config) {
                     if (channelObj.peerConn.candidates) {
                         var candidateMsg;
                         for (candidateMsg in channelObj.peerConn.candidates) {
-                            dbg.log3(channelObj.peerId+' send onIceCandidate event: '+ candidateMsg);
-                            sendMessage(socket, channelObj.peerId, channelObj.requestId, candidateMsg);
+                            dbg.log3(channelObj.peerId+' send onIceCandidate event: '+ channelObj.peerConn.candidates[candidateMsg]);
+                            sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.candidates[candidateMsg]);
                         }
                     }
                 } catch (ex) {

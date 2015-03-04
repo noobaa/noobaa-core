@@ -41,10 +41,10 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             if (!message.size || parseInt(message.size, 10) === 0) {
 
                 if (msgObj.action_defer) {
-                    dbg.log0('message str set action defer resolve for req '+message.req);
+                    dbg.log3('message str set action defer resolve for req '+message.req);
                     msgObj.action_defer.resolve(channel);
                 } else {
-                    dbg.log0('message str call handleRequestMethod resolve for req '+message.req);
+                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req);
                     channel.handleRequestMethod(channel, message);
                 }
             } else {
@@ -69,7 +69,7 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             var partBuf = event.data.slice(partSize);
             msgObj.chunks_map[part] = partBuf;
 
-            dbg.log0('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size+' req '+req);
+            dbg.log3('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size+' req '+req);
 
             msgObj.chunk_num++;
 
@@ -89,11 +89,11 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
                 msgObj.buffer = Buffer.concat(chunksParts, msgObj.msg_size);
 
                 if (msgObj.action_defer) {
-                    dbg.log0('ab set action defer resolve for req '+req);
+                    dbg.log3('ab set action defer resolve for req '+req);
                     msgObj.action_defer.resolve(channel);
                 } else {
                     try {
-                        dbg.log0('ab call handleRequestMethod resolve for req '+req);
+                        dbg.log3('ab call handleRequestMethod resolve for req '+req);
                         channel.handleRequestMethod(channel, event.data);
                     } catch (ex) {
                         writeLog('ex on ArrayBuffer req ' + ex+' for req '+req);

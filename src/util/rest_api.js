@@ -634,7 +634,7 @@ function rest_api(api) {
         }).then(function(res) {
             return res;
         }, function(err) {
-            if (retry < 3) {
+            if (retry < config.ice_retry) {
                 ++retry;
                 console.error('ICE REST REQUEST FAILED '+ err+' retry '+retry);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);

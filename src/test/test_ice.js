@@ -409,7 +409,6 @@ describe('on ice message', function() {
 
             int3 = setInterval(function() {
                 if (requestId && socket.action_defer[requestId]) {
-                    assert.ok(ice_lib.isRequestAlive(p2p_context, peerId, requestId),'request is not alive');
                     socket.action_defer[requestId].resolve('{status: 200}');
                     clearInterval(int3); int3 = null;
                 }

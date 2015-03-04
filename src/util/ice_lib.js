@@ -593,20 +593,6 @@ function onDataChannelCreated(socket, requestId, channel) {
     }
 }
 
-module.exports.isRequestAlive = function isRequestAlive(p2p_context, peerId, requestId) {
-    if (requestId && p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId]
-        && p2p_context.iceSockets[peerId].lastUsed
-        && ((new Date()).getTime() -  p2p_context.iceSockets[peerId].lastUsed > config.get_response_default_timeout)
-        && !p2p_context.iceSockets[peerId].usedBy[requestId]) {
-        console.error('REQUEST NOT ALIVE ! '+requestId +' for peer '+peerId+
-        (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId] ? require('util').inspect(p2p_context.iceSockets[peerId] + ' time: '
-            +((new Date()).getTime() -  p2p_context.iceSockets[peerId].lastUsed)
-        ) : 'N/A')); // TODO REMOVE
-        return false;
-    }
-    return true;
-};
-
 module.exports.closeSignaling = function closeSignaling(socket) {
     if (!socket.isAgent) {
         try {

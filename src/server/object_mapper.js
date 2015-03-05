@@ -11,7 +11,9 @@ var range_utils = require('../util/range_utils');
 var block_allocator = require('./block_allocator');
 var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
-var dbg = require('../util/dbg')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
+
+//dbg.set_level(3);
 
 module.exports = {
     allocate_object_parts: allocate_object_parts,

@@ -17,6 +17,21 @@ var config = require('../../config.js');
 
 dbg.log_level = config.dbg_log_level;
 
+function writeToLog(level, msg) {
+    var timeStr = (new Date()).toString();
+    if (level === 0) {
+        dbg.log0(timeStr+' '+msg);
+    } else if (level === 1) {
+        dbg.log1(timeStr+' '+msg);
+    } else if (level === 2) {
+        dbg.log2(timeStr+' '+msg);
+    } else if (level === 3) {
+        dbg.log3(timeStr+' '+msg);
+    } else {
+        console.error(timeStr+' '+msg);
+    }
+}
+
 module.exports = rest_api;
 
 var PATH_ITEM_RE = /^\S*$/;
@@ -561,7 +576,7 @@ function rest_api(api) {
 
         if (config.use_ws_when_possible && self.options.is_ws && self.options.peer) {
 
-            dbg.log0('do ws for path '+options.path);
+            writeToLog(0,'do ws for path '+options.path);
 
             var peerId = self.options.peer;
 
@@ -575,7 +590,7 @@ function rest_api(api) {
                 dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
 
                 if (res && res.status && res.status === 500) {
-                    dbg.log0('failed '+options.path+' in ws, try http instead');
+                    writeToLog(0,'failed '+options.path+' in ws, try http instead');
                     return self._doHttpCall(func_info, options, body);
                 } else {
                     if (!func_info.reply_raw) {
@@ -585,12 +600,12 @@ function rest_api(api) {
                     return res.data;
                 }
             }).then(null, function(err) {
-                console.error('WS REST REQUEST FAILED '+ err+' try http instead');
+                writeToLog(-1,'WS REST REQUEST FAILED '+ err+' try http instead');
                 return self._doHttpCall(func_info, options, body);
             });
 
         } else if (config.use_ice_when_possible && self.options.peer && (!self.options.ws_socket || self.options.peer !== self.options.ws_socket.idInServer)) { // do ice
-            dbg.log0('do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
+            writeToLog(0,'do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;
 
@@ -605,12 +620,12 @@ function rest_api(api) {
             }).then(function(res) {
                 return res;
             }, function(err) {
-                console.error('ICE REST REQUEST FAILED '+ err+' try http instead');
+                writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' try http instead');
                 return self._doHttpCall(func_info, options, body);
             });
         } else { // do http
 
-            dbg.log2('Do Http Call to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
+            writeToLog(2,'Do Http Call to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
 
             if (config.use_ice_when_possible && self.options.peer) {
                 dbg.log0(options, 'do http to self req '+options.path);
@@ -631,7 +646,7 @@ function rest_api(api) {
         }, function(err) {
             if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
-                console.error('ICE REST REQUEST FAILED '+ err+' retry '+retry);
+                writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' retry '+retry);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
             } else {
                 throw new Error('ICE REST REQUEST FAILED '+ err);
@@ -641,7 +656,7 @@ function rest_api(api) {
     };
 
     Client.prototype._doICECall = function doICECall(self_options, peerId, options, buffer, func_info) {
-        dbg.log3('do ice req '+require('util').inspect(options));
+        writeToLog(3,'do ice req '+require('util').inspect(options));
 
         return Q.fcall(function () {
                 return ice_api.sendRequest(self_options.p2p_context, self_options.ws_socket, peerId, options, null, buffer, self_options.timeout);
@@ -649,7 +664,7 @@ function rest_api(api) {
             .then(function (res) {
                 dbg.log0(self_options, 'res is: ' + require('util').inspect(res));
                 if (res && res.status && res.status === 500) {
-                    dbg.log0('failed ' + options.path + ' in ice, got 500');
+                    writeToLog(0,'failed ' + options.path + ' in ice, got 500');
                     throw new Error('Do retry with http - ice failure 500');
                 } else {
 
@@ -661,14 +676,14 @@ function rest_api(api) {
                 }
             })
             .then(null, function (err) {
-                console.error('ICE REST REQUEST FAILED ' + err);
+                writeToLog(-1,'ICE REST REQUEST FAILED ' + err);
                 throw new Error('Do retry with http - ice failure ex');
             });
     };
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        dbg.log2('do http req to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
+        writeToLog(2,'do http req to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
 
         if (options.body) {
             delete options.body;
@@ -681,7 +696,7 @@ function rest_api(api) {
             return self._handle_http_reply(func_info, res);
         })
         .then(null, function(err) {
-            console.error('HTTP REST REQUEST FAILED '+ require('util').inspect(err) +
+                writeToLog(-1,'HTTP REST REQUEST FAILED '+ require('util').inspect(err) +
             ' to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
             throw err;
         });

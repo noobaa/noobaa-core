@@ -1,12 +1,12 @@
 var config = {};
 
 // SIGNALING AND ICE
-config.address = 'ws://10.128.152.24:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
+config.address = 'ws://192.168.0.101:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
 config.connection_data_stale = 60 * 1000;
 config.check_stale_conns = 60 * 1000;
-config.stun='stun:stun.l.google.com:19302'; // stun.l.google.com:19302   192.168.59.103:3478
+config.stun='stun:192.168.59.103:3478'; // stun.l.google.com:19302   192.168.59.103:3478
 config.chunk_size = 60 * 1000;
 config.doDedup = false;
 config.buildWorkerOn = false;
@@ -26,7 +26,7 @@ config.READ_RANGE_CONCURRENCY = 8;
 config.REPLICATE_CONCURRENCY = 32;
 
 // WEB SERVER
-config.web_address = 'http://10.128.152.24:5001';
+config.web_address = 'http://192.168.0.101:5001';
 config.web_address_heroku = 'https://noobaa-core.herokuapp.com';
 
 module.exports = config;

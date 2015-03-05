@@ -283,14 +283,20 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
             p2p_context.iceSockets = {};
         }
 
-        if (isInitiator && p2p_context && !p2p_context.iceSockets[peerId]) {
-            p2p_context.iceSockets[peerId] = {
-                lastUsed: (new Date()).getTime(),
-                usedBy: {},
-                sem: new Semaphore(1),
-                connect_defer: Q.defer(),
-                status: 'new'
-            };
+        if (isInitiator && p2p_context) {
+            if (!p2p_context.iceSockets[peerId]) {
+                p2p_context.iceSockets[peerId] = {
+                    lastUsed: (new Date()).getTime(),
+                    usedBy: {},
+                    status: 'new'
+                };
+            }
+            if (!p2p_context.iceSockets[peerId].sem) {
+                p2p_context.iceSockets[peerId].sem = new Semaphore(1);
+            }
+            if (!p2p_context.iceSockets[peerId].connect_defer) {
+                p2p_context.iceSockets[peerId].connect_defer = Q.defer();
+            }
         }
 
         var channelObj = socket.icemap[requestId];

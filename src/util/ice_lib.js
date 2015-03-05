@@ -252,6 +252,7 @@ function staleConnChk(socket) {
 
             for (iceToDel in toDel) {
                 dbg.log0('remove stale ice connections to peer ' + toDel[iceToDel]);
+                console.error('Closing the ice socket to peer (stale) ' +toDel[iceToDel]);
                 socket.p2p_context.iceSockets[toDel[iceToDel]].dataChannel.close();
                 delete socket.p2p_context.iceSockets[toDel[iceToDel]];
             }
@@ -339,6 +340,7 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
             obj.lastUsed = (new Date()).getTime();
             delete obj.usedBy[requestId];
         } else if (dataChannel) {
+            console.error('Closing the ice socket to peer ' +dataChannel.peerId);
             dataChannel.close();
         }
     } catch (ex) {

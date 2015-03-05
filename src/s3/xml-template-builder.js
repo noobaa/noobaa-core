@@ -115,6 +115,19 @@ var xml = function() {
                 indent: '  '
             });
         },
+        buildFolderNotFound: function(key) {
+            return jstoxml.toXML({
+                Error: {
+                    Code: 'NoSuchKey',
+                    Message: 'The specified folder already exists',
+                    Resource: key,
+                    RequestId: 1
+                }
+            }, {
+                header: true,
+                indent: '  '
+            });
+        },
         buildError: function(code, message) {
             return jstoxml.toXML({
                 Error: {

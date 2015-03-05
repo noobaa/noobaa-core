@@ -70,6 +70,123 @@ module.exports = function(rootDirectory) {
         return res.send(template);
     };
 
+    var copy_object = function(from_object, to_object) {
+
+        var object_path = {
+            bucket: params.bucket,
+            key: from_object
+        };
+        var create_params = {};
+        return client.object.get_object_md(object_path)
+            .then(function(md) {
+                console.log('md', md);
+                //check if folder
+                if (md.size === 0) {
+                    console.log('Folder copy:', from_object, ' to ', to_object);
+                    list_objects_with_prefix(from_object, '%2F')
+                        .then(function(objects_and_folders) {
+                            //console.log('in ');
+                            //console.log('in copy for ', objects_and_folders.objects.length);
+                            return Q.all(_.times(objects_and_folders.objects.length, function(i) {
+                                console.log('copy inner objects:', from_object+objects_and_folders.objects[i].key, to_object+objects_and_folders.objects[i].key.replace(from_object, to_object));
+                                copy_object(from_object+objects_and_folders.objects[i].key, to_object+objects_and_folders.objects[i].key.replace(from_object, to_object));
+                            }));
+                        });
+                }
+                create_params.content_type = md.content_type;
+                create_params.size = md.size;
+                return client.object.read_object_mappings({
+                        bucket: params.bucket,
+                        key: from_object,
+                    })
+                    .then(function(mappings) {
+                        console.log('\n\nListing object maps:', from_object);
+                        var i = 1;
+                        _.each(mappings.parts, function(part) {
+                            console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', part);
+                            i += 1;
+                        });
+                        //copy
+                        var new_obj_parts = {
+                            bucket: params.bucket,
+                            key: to_object,
+                            parts: _.map(mappings.parts, function(part) {
+                                return {
+                                    start: part.start,
+                                    end: part.end,
+                                    crypt: part.crypt,
+                                    chunk_size: part.chunk_size
+                                };
+                            })
+                        };
+                        create_params.bucket = params.bucket;
+                        create_params.key = to_object;
+                        return client.object.create_multipart_upload(create_params)
+                            .then(function(info) {
+                                return client.object.allocate_object_parts(new_obj_parts)
+                                    .then(function(res) {
+                                        console.log('COMPLETED: copy');
+                                        return true;
+                                    });
+                            });
+                    });
+            }).then(null, function(err) {
+                console.log("Failed to upload");
+                return false;
+            });
+
+    };
+    var list_objects_with_prefix = function(prefix, delimiter) {
+        var list_params = {
+            bucket: params.bucket,
+        };
+        if (prefix) {
+            prefix = prefix.replace(/%2F/g, '/');
+            list_params.key = prefix;
+        }
+        return client.object.list_objects(list_params)
+            .then(function(results) {
+                var i = 0;
+                var folders = {};
+                var objects = _.filter(results.objects, function(obj) {
+                    try {
+                        var date = new Date(obj.info.create_time);
+                        date.setMilliseconds(0);
+                        obj.modifiedDate = date.toISOString(); //toUTCString();//.toISOString();
+                        obj.md5 = 100;
+                        obj.size = obj.info.size;
+                        obj.key = obj.key.slice(prefix.length);
+                        //console.log('obj.key:', obj.key, ' prefix ', prefix);
+                        if (obj.key.indexOf(delimiter) >= 0) {
+                            var folder = obj.key.split(delimiter, 1)[0];
+                            folders[folder] = true;
+                            return false;
+                        }
+                        if (!obj.key) {
+                            // empty key - might beobject created as a folder
+                            return false;
+                        }
+                        return true;
+                    } catch (err) {
+                        console.log('Error while listing objects:', err);
+                    }
+                });
+
+                var objects_and_folders = {
+                    objects: objects,
+                    folders: folders
+                };
+                //console.log('About to return objects and folders:', objects_and_folders);
+                return objects_and_folders;
+            }).then(null, function(err) {
+                console.log('failed to list object with prefix', err);
+                return {
+                    objects: {},
+                    folders: {}
+                };
+            });
+    };
+
     var uploadObject = function(req, res, file_key_name) {
         try {
             var md5 = 0;
@@ -105,6 +222,7 @@ module.exports = function(rootDirectory) {
                     console.log('FAILED', err, res);
 
                 }
+                console.log('upload body::::::',res.body,' headers:',res.headers);
                 return res.status(200).end();
             }, function(err) {
                 console.log('ERROR: upload', file_key_name, ' err:', util.inspect(err));
@@ -148,54 +266,18 @@ module.exports = function(rootDirectory) {
                 maxKeys: parseInt(req.query['max-keys']) || 1000,
                 delimiter: req.query.delimiter || '/'
             };
-            console.info('Fetched bucket "%s" with options', req.bucket.name);
-            //  fileStore.getObjects(req.bucket, options, function(err, results) {
-            //      console.info('Found %d objects for bucket "%s"', results.length, req.bucket.name, 'res', results);
-            //      options.bucketName = req.bucket.name;
-            //      var template = templateBuilder.buildBucketQuery(options, results);
-            //      return buildXmlResponse(res, 200, template);
-            //  });
 
-            return Q.fcall(function() {
-                    var list_params = {
-                        bucket: params.bucket,
-                    };
-                    if (options.prefix) {
-                        list_params.key = options.prefix;
-                    }
-                    return client.object.list_objects(list_params);
-                })
-                .then(function(results) {
-                    console.log('objects in bucket', params.bucket, ':', results);
-                    var i = 0;
-                    var folders = {};
-                    var objects = _.filter(results.objects, function(obj) {
-                        var date = new Date(obj.info.create_time);
-                        date.setMilliseconds(0);
-                        obj.modifiedDate = date.toISOString(); //toUTCString();//.toISOString();
-                        obj.md5 = 100;
-                        obj.size = obj.info.size;
-                        obj.key = obj.key.slice(options.prefix.length);
-                        if (obj.key.indexOf(req.query.delimiter) >= 0) {
-                            var folder = obj.key.split(req.query.delimiter, 1)[0];
-                            folders[folder] = true;
-                            return false;
-                        }
-                        if (!obj.key) {
-                            // empty key - might beobject created as a folder
-                            return false;
-                        }
-                        return true;
-                    });
+            list_objects_with_prefix(options.prefix, options.delimiter)
+                .then(function(objects_and_folders) {
                     options.bucketName = req.bucket.name;
-                    options.common_prefixes = _.isEmpty(folders) ? null : _.keys(folders);
-                    var template = templateBuilder.buildBucketQuery(options, objects);
+                    options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? null : _.keys(objects_and_folders.folders);
+                    var template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
                     return buildXmlResponse(res, 200, template);
                 })
                 .then(function() {
                     console.log('COMPLETED: list');
-                }, function(err) {
-                    console.log('ERROR: list', err);
+                }).then(null, function(err) {
+                    console.log('ERROR: list', err, err.stack, options);
                 });
         },
         putBucket: function(req, res) {
@@ -315,6 +397,7 @@ module.exports = function(rootDirectory) {
                     });
             }
         },
+
         putObject: function(req, res) {
             var template;
             var acl = req.query.acl;
@@ -336,84 +419,23 @@ module.exports = function(rootDirectory) {
                 var srcObject = srcObjectParams.slice(1).join(delimiter);
                 //console.log(srcObjectParams);
                 if (srcBucket !== params.bucket) {
-                    console.error('(2)No bucket found for "%s"', srcBucket, params.bucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
+                    console.error('No bucket found (2) for "%s"', srcBucket, params.bucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
                     template = templateBuilder.buildBucketNotFound(srcBucket);
                     return buildXmlResponse(res, 404, template);
                 }
-
-                var object_path = {
-                    bucket: params.bucket,
-                    key: srcObject
-                };
-                var create_params = {};
-                Q.fcall(client.object.get_object_md(object_path)
-                    .then(function(md) {
-                        console.log('md', md);
-
-                        create_params.content_type = md.content_type;
-                        create_params.size = md.size;
-                        client.object.read_object_mappings({
-                                bucket: params.bucket,
-                                key: srcObject,
-                            })
-                            .then(function(mappings) {
-                                console.log('\n\nListing object maps:', srcObject);
-
-                                var i = 1;
-                                _.each(mappings.parts, function(part) {
-                                    console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', part);
-                                    i += 1;
-                                });
-                                //copy
-
-                                var new_obj_parts = {
-                                    bucket: params.bucket,
-                                    key: req.params.key,
-                                    parts: _.map(mappings.parts, function(part) {
-                                        return {
-                                            start: part.start,
-                                            end: part.end,
-                                            crypt: part.crypt,
-                                            chunk_size: part.chunk_size
-                                        };
-                                    })
-                                };
-                                console.log("new_obj_parts", new_obj_parts);
-
-
-                                create_params.bucket = params.bucket;
-                                create_params.key = req.params.key,
-
-                                console.log('upload_stream: create multipart', create_params);
-
-                                client.object.create_multipart_upload(create_params)
-                                    .then(function(info) {
-                                        console.log('info:', info);
-                                        client.object.allocate_object_parts(new_obj_parts)
-                                            .then(function(res) {
-                                                try {
-                                                    console.log('res:', res);
-
-                                                } catch (err) {
-                                                    console.log('errrrr:aaaa:', err);
-                                                }
-                                            })
-                                            .then(function() {
-                                                console.log('COMPLETED: object_maps');
-                                                return res.status(200).end();
-                                            }).then(null, function(err) {
-                                                console.log('Err: object_maps', err);
-                                                template = templateBuilder.buildKeyNotFound(srcObject);
-                                                return buildXmlResponse(res, 404, template);
-                                            });
-                                    });
-
-                            });
-
-                    }));
+                copy_object(srcObject, req.params.key)
+                    .then(function(is_copied) {
+                        if (is_copied) {
+                            template = templateBuilder.buildCopyObject(req.params.key);
+                            return buildXmlResponse(res, 200, template);
+                        } else {
+                            template = templateBuilder.buildKeyNotFound(srcObject);
+                            return buildXmlResponse(res, 404, template);
+                        }
+                    });
             } else {
 
-                console.log('About to store object "%s" in bucket "%s" ', req.params.key, req.bucket.name, req.headers);
+                //console.log('About to store object "%s" in bucket "%s" ', req.params.key, req.bucket.name, req.headers);
 
                 var file_key_name = req.params.key;
 
@@ -451,7 +473,6 @@ module.exports = function(rootDirectory) {
                         key: file_key_name
                     });
                 }).then(function(list_results) {
-                    console.log('resres', list_results, list_results.objects.length, params.bucket, file_key_name);
                     //object exists. Delete and write.
                     if (list_results.objects.length > 0) {
                         var obj_index = _.findIndex(list_results.objects, function(chr) {
@@ -494,14 +515,13 @@ module.exports = function(rootDirectory) {
                     });
                 })
                 .then(function(res) {
-                    console.log('res', res);
-
+                    
                     if (res.objects.length === 0) {
                         console.error('Could not delete object "%s"', key);
                         var template = templateBuilder.buildKeyNotFound(key);
                         return buildXmlResponse(res, 404, template);
                     }
-                    console.log('objects in bucket', params.bucket, ' with key ', key, ':');
+                    //console.log('objects in bucket', params.bucket, ' with key ', key, ':');
                     var i = 0;
                     _.each(res.objects, function(obj) {
                         console.log('#' + i, obj.key, '\t', obj.info.size, 'bytes');

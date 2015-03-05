@@ -6,6 +6,7 @@ var dbg = require('../util/dbg')(__filename);
 var config = require('../../config.js');
 var zlib = require('zlib');
 var _ = require('lodash');
+var Semaphore = require('noobaa-util/semaphore');
 
 var configuration = {
     'iceServers': [{'url': config.stun}]
@@ -219,6 +220,8 @@ module.exports.sendWSMessage = sendMessage;
  ********************************/
 function staleConnChk(socket) {
 
+    return;
+
     var now = (new Date()).getTime();
     var toDel = [];
     var iceObjChk, iceToDel;
@@ -280,23 +283,49 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
             p2p_context.iceSockets = {};
         }
 
+        if (isInitiator && p2p_context && !p2p_context.iceSockets[peerId]) {
+            p2p_context.iceSockets[peerId] = {
+                lastUsed: (new Date()).getTime(),
+                usedBy: {},
+                sem: new Semaphore(1),
+                connect_defer: Q.defer(),
+                status: 'new'
+            };
+        }
+
         var channelObj = socket.icemap[requestId];
 
         if (isInitiator) {
-            channelObj.connect_defer = Q.defer();
-            if (!p2p_context || !p2p_context.iceSockets[peerId]) {
+            if (p2p_context) {
+                return p2p_context.iceSockets[peerId].sem.surround(function() {
+                    if (p2p_context.iceSockets[peerId].status === 'new') {
+                        dbg.log3('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+                        socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
+                        createPeerConnection(socket, requestId, configuration);
+                        p2p_context.iceSockets[peerId].status = 'start';
+                        channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
+                    } else if (p2p_context.iceSockets[peerId].status === 'open') {
+                        channelObj.dataChannel = p2p_context.iceSockets[peerId].dataChannel;
+                        channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
+                        p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
+                        p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
+                        channelObj.connect_defer = Q.defer();
+                        channelObj.connect_defer.resolve(channelObj.dataChannel);
+                    } else if (p2p_context.iceSockets[peerId].status === 'start') {
+                        channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
+                        p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
+                        p2p_context.iceSockets[peerId].usedBy[requestId] = 1;
+                        channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
+                    }
+                    return channelObj.connect_defer.promise;
+                });
+            } else {
+                channelObj.connect_defer = Q.defer();
                 dbg.log3('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                 socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
                 createPeerConnection(socket, requestId, configuration);
-            } else {
-                channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
-                channelObj.dataChannel = p2p_context.iceSockets[peerId].dataChannel;
-                channelObj.connect_defer.resolve(channelObj.dataChannel);
-
-                p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
-                p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
+                return channelObj.connect_defer.promise;
             }
-            return channelObj.connect_defer.promise;
         }
 
         // not isInitiator
@@ -326,7 +355,7 @@ var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
 module.exports.isRequestEnded = isRequestEnded;
 
 var closeIce = function closeIce(socket, requestId, dataChannel) {
-
+    return;
     try {
         if (dataChannel && dataChannel.msgs && dataChannel.msgs[requestId]) {
             delete dataChannel.msgs[requestId];
@@ -569,17 +598,33 @@ function onDataChannelCreated(socket, requestId, channel) {
 
             if (socket.p2p_context) {
 
-                if (socket.p2p_context && !socket.p2p_context.iceSockets) {
+                if (!socket.p2p_context.iceSockets) {
                     socket.p2p_context.iceSockets = {};
                 }
 
-                socket.p2p_context.iceSockets[channelObj.peerId] = {
-                    peerConn: channelObj.peerConn,
-                    dataChannel : channelObj.dataChannel,
-                    lastUsed: (new Date()).getTime(),
-                    usedBy: {}
-                };
+                if (!socket.p2p_context.iceSockets[channelObj.peerId]) {
+                    socket.p2p_context.iceSockets[channelObj.peerId] = {
+                        lastUsed: (new Date()).getTime(),
+                        usedBy: {}
+                    };
+                }
+
+                socket.p2p_context.iceSockets[channelObj.peerId].peerConn = channelObj.peerConn;
+                socket.p2p_context.iceSockets[channelObj.peerId].dataChannel = channelObj.dataChannel;
                 socket.p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
+                socket.p2p_context.iceSockets[channelObj.peerId].status = 'open';
+
+
+                console.log('YAEL 1 '+require('util').inspect(socket.p2p_context.iceSockets[channelObj.peerId].usedBy));
+                for (var req in socket.p2p_context.iceSockets[channelObj.peerId].usedBy) {
+                    console.log('YAEL 2 '+req);
+                    if (socket.icemap[req]) {
+                        socket.icemap[req].dataChannel = channelObj.dataChannel;
+                    } else {
+                        console.error('YAEL 3 NOO '+req);
+                    }
+                }
+
             }
 
             dbg.log0('ICE CHANNEL opened ' + channelObj.peerId+' i am '+socket.idInServer + ' for request '+requestId);

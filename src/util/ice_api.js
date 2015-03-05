@@ -6,6 +6,7 @@ var buf = require('./buffer_utils');
 var rand = require('./random_utils');
 var dbg = require('../util/dbg')(__filename);
 var config = require('../../config.js');
+var Semaphore = require('noobaa-util/semaphore');
 
 function writeToLog(level, msg) {
     var timeStr = (new Date()).toString();
@@ -192,6 +193,9 @@ module.exports.writeBufferToSocket = writeBufferToSocket;
  * handle stale connections
  ********************************/
 function staleConnChk(p2p_context) {
+
+    return;
+
     if (isAgent || !p2p_context || !p2p_context.wsClientSocket) {
         return;
     }
@@ -206,47 +210,61 @@ function staleConnChk(p2p_context) {
     }
 }
 
+function createNewWS() {
+    var prob = function(channel, event) {
+        console.error('ERROR Should never receive ice msgs ! got: '+event.data+' from '+channel.peerId);};
+    return ice.setup(prob, null, prob);
+}
+
 module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, options, timeout) {
 
     var sigSocket;
-    var requestId;
+    var interval;
+    var requestId = generateRequestId();
 
     if (!timeout) {
         timeout = config.connection_default_timeout;
     }
 
+    if (p2p_context && !p2p_context.sem) {
+        p2p_context.sem = new Semaphore(1);
+    }
+
     return Q.fcall(function() {
 
-        if (p2p_context && p2p_context.wsClientSocket) {
-            sigSocket = p2p_context.wsClientSocket.ws_socket;
-        }
+        if (p2p_context) {
+            return p2p_context.sem.surround(function() {
+                if (p2p_context.wsClientSocket) {
+                    sigSocket = p2p_context.wsClientSocket.ws_socket;
 
-        if (!sigSocket) {
-            writeToLog(0,'CREATE NEW WS CONN');
-            var prob = function(channel, event) {
-                console.error('ERROR Should never receive ice msgs ! got: '+event.data+' from '+channel.peerId);};
-            sigSocket = ice.setup(prob, null, prob);
-        }
+                    if (!isAgent) {
+                        interval = p2p_context.wsClientSocket.interval;
+                        p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+                    }
+                } else {
+                    writeToLog(0,'CREATE NEW WS CONN (with context) - peer '+peerId+' req '+requestId);
+                    sigSocket = createNewWS();
+                    if (!isAgent) {
+                        interval = setInterval(function(){staleConnChk(p2p_context);}, config.check_stale_conns);
+                        p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+                    }
+                }
+                if (sigSocket.conn_defer) {
+                    return sigSocket.conn_defer.promise;
+                }
+                return Q.fcall(function() {return sigSocket;});
+            });
+        } else {
+            writeToLog(0,'CREATE NEW WS CONN (no context) - peer '+peerId+' req '+requestId);
+            sigSocket = createNewWS();
 
-        if (!isAgent && p2p_context) {
-            var interval;
-            if (!p2p_context.wsClientSocket) {
-                writeToLog(3,'SET INTERVAL stale ws connection');
-                interval = setInterval(function(){staleConnChk(p2p_context);}, config.check_stale_conns);
-            } else {
-                interval = p2p_context.wsClientSocket.interval;
+            if (sigSocket.conn_defer) {
+                return sigSocket.conn_defer.promise;
             }
-            p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+            return Q.fcall(function() {return sigSocket;});
         }
-
-        if (sigSocket.conn_defer) {
-            return sigSocket.conn_defer.promise;
-        }
-        return Q.fcall(function() {return sigSocket;});
-
     }).timeout(timeout).then(function() {
-        requestId = generateRequestId();
-        writeToLog(0,'send ws request too peer for request '+requestId+ ' and peer '+peerId);
+        writeToLog(0,'send ws request to peer for request '+requestId+ ' and peer '+peerId);
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
         if (!sigSocket.action_defer) {
@@ -256,6 +274,11 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         return sigSocket.action_defer[requestId].promise;
     }).timeout(config.get_response_default_timeout).then(function(response) {
         writeToLog(0,'return response data '+require('util').inspect(response)+' for request '+requestId+ ' and peer '+peerId);
+
+        if (!isAgent && !p2p_context) {
+            ice.closeSignaling(sigSocket);
+        }
+
         return response;
     }).then(null, function(err) {
         console.error('WS REST REQUEST FAILED '+err+' for request '+requestId+ ' and peer '+peerId);

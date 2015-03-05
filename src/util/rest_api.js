@@ -11,9 +11,9 @@ var URL = require('url');
 var PATH = require('path');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
-var dbg = require('./dbg')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 
-// dbg.log_level = 3;
+// dbg.set_level(3);
 
 module.exports = rest_api;
 

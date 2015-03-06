@@ -219,52 +219,52 @@ function rest_api(api) {
                 return next();
             }
             Q.fcall(function() {
-                /**
-                 * mark the request to respond with error
-                 * @param status <Number> optional status code.
-                 * @param data <String> the error response data to send
-                 * @param reason <Any> a reason for logging only
-                 */
-                req.rest_error = function(status, data, reason) {
-                    if (typeof(status) === 'string') {
-                        reason = data;
-                        data = status;
-                        status = 500;
-                    }
-                    if (!req._rest_error_data) {
-                        req._rest_error_status = status;
-                        req._rest_error_data = data;
-                        req._rest_error_reason = reason;
-                    }
-                    return new Error('rest_error');
-                };
-                req.rest_clear_error = function() {
-                    req._rest_error_status = undefined;
-                    req._rest_error_data = undefined;
-                    req._rest_error_reason = undefined;
-                };
-                req.rest_params = {};
-                _.each(req.query, function(v, k) {
-                    req.rest_params[k] =
-                        component_to_param(v, func_info.params_properties[k].type);
-                });
-                if (!func_info.param_raw) {
-                    _.each(req.body, function(v, k) {
-                        req.rest_params[k] = v;
+                    /**
+                     * mark the request to respond with error
+                     * @param status <Number> optional status code.
+                     * @param data <String> the error response data to send
+                     * @param reason <Any> a reason for logging only
+                     */
+                    req.rest_error = function(status, data, reason) {
+                        if (typeof(status) === 'string') {
+                            reason = data;
+                            data = status;
+                            status = 500;
+                        }
+                        if (!req._rest_error_data) {
+                            req._rest_error_status = status;
+                            req._rest_error_data = data;
+                            req._rest_error_reason = reason;
+                        }
+                        return new Error('rest_error');
+                    };
+                    req.rest_clear_error = function() {
+                        req._rest_error_status = undefined;
+                        req._rest_error_data = undefined;
+                        req._rest_error_reason = undefined;
+                    };
+                    req.rest_params = {};
+                    _.each(req.query, function(v, k) {
+                        req.rest_params[k] =
+                            component_to_param(v, func_info.params_properties[k].type);
                     });
-                }
-                _.each(req.params, function(v, k) {
-                    req.rest_params[k] =
-                        component_to_param(v, func_info.params_properties[k].type);
-                });
-                validate_schema(req.rest_params, func_info.params_schema, func_info, 'server request');
-                if (func_info.param_raw) {
-                    req.rest_params[func_info.param_raw] = req.body;
-                }
-                if (func_info.auth !== false) {
-                    return req.load_auth(func_info.auth);
-                }
-            })
+                    if (!func_info.param_raw) {
+                        _.each(req.body, function(v, k) {
+                            req.rest_params[k] = v;
+                        });
+                    }
+                    _.each(req.params, function(v, k) {
+                        req.rest_params[k] =
+                            component_to_param(v, func_info.params_properties[k].type);
+                    });
+                    validate_schema(req.rest_params, func_info.params_schema, func_info, 'server request');
+                    if (func_info.param_raw) {
+                        req.rest_params[func_info.param_raw] = req.body;
+                    }
+                    if (func_info.auth !== false) {
+                        return req.load_auth(func_info.auth);
+                    }
+                })
                 .then(function() {
                     // server functions are expected to return a promise
                     return func(req, res, next);
@@ -332,8 +332,8 @@ function rest_api(api) {
     Client.prototype._client_request = function(func_info, params) {
         var self = this;
         return Q.fcall(function() {
-            return self._http_request(func_info, params);
-        })
+                return self._http_request(func_info, params);
+            })
             .then(read_http_response)
             .then(function(res) {
                 return self._handle_http_reply(func_info, res);
@@ -623,7 +623,7 @@ function component_to_param(component, type) {
     } else if (type === 'string') {
         return decodeURIComponent(String(component));
     } else if (type === 'integer') {
-        return Number(component) | 0;
+        return parseInt(component, 10);
     } else if (type === 'number') {
         return Number(component);
     } else if (type === 'boolean') {
@@ -638,8 +638,14 @@ function component_to_param(component, type) {
 function read_http_response(res) {
     var chunks = [];
     var chunks_length = 0;
-    var defer = Q.defer();
     dbg.log3('HTTP response headers', res.statusCode, res.headers);
+
+    // statusCode = 0 means we don't even have a response to work with
+    if (!res.statusCode) {
+        throw new Error('HTTP ERROR CONNECTION REFUSED');
+    }
+
+    var defer = Q.defer();
     res.on('error', defer.reject);
     res.on('data', add_chunk);
     res.on('end', finish);

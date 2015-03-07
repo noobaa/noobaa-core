@@ -634,7 +634,7 @@ function rest_api(api) {
 
             return self._doHttpCall(func_info, options, body);
         }
-        console.error('YaEL SHOULD NOT REACH HERE');
+        console.error('YaEL SHOULD NOT REACH HERE '+require('util').inspect(options));
     };
 
     Client.prototype._doICECallWithRetry = function doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry) {
@@ -646,6 +646,7 @@ function rest_api(api) {
         }, function(err) {
             if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
+                forceCloseIce(self_options.p2p_context, peerId);
                 writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' retry '+retry);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
             } else {

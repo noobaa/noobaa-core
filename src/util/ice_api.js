@@ -29,6 +29,11 @@ var isAgent;
 
 var partSize = 40;
 
+var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
+    ice.forceCloseIce(p2p_context, peerId);
+};
+module.exports.forceCloseIce = forceCloseIce;
+
 var onIceMessage = function onIceMessage(p2p_context, channel, event) {
     writeToLog(2, 'Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
@@ -222,10 +227,6 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
     var interval;
     var requestId = generateRequestId();
 
-    if (!timeout) {
-        timeout = config.connection_default_timeout;
-    }
-
     if (p2p_context && !p2p_context.sem) {
         p2p_context.sem = new Semaphore(1);
     }
@@ -263,7 +264,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             }
             return Q.fcall(function() {return sigSocket;});
         }
-    }).timeout(timeout).then(function() {
+    }).then(function() {
         writeToLog(0,'send ws request to peer for request '+requestId+ ' and peer '+peerId);
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
@@ -272,7 +273,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         }
         sigSocket.action_defer[requestId] = Q.defer();
         return sigSocket.action_defer[requestId].promise;
-    }).timeout(config.get_response_default_timeout).then(function(response) {
+    }).timeout(config.connection_default_timeout).then(function(response) {
         writeToLog(0,'return response data '+require('util').inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {
@@ -299,10 +300,6 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
     if (agentId || (ws_socket && ws_socket.isAgent)) {
         isAgent = true;
-    }
-
-    if (!timeout) {
-        timeout = config.connection_default_timeout;
     }
 
     return Q.fcall(function() {
@@ -332,11 +329,11 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         if (sigSocket.conn_defer) {return sigSocket.conn_defer.promise;}
         return Q.fcall(function() {return sigSocket;});
-    }).timeout(timeout).then(function() {
+    }).then(function() {
         requestId = generateRequestId();
         writeToLog(0,'starting to initiate ice to '+peerId+' request '+requestId);
         return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
-    }).timeout(timeout).then(function(newSocket) {
+    }).then(function(newSocket) {
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};
@@ -360,7 +357,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
 
         return msgObj.action_defer.promise;
-    }).timeout(config.get_response_default_timeout).then(function() {
+    }).timeout(config.connection_default_timeout).then(function() {
 
         var msgObj = iceSocket.msgs[requestId];
 

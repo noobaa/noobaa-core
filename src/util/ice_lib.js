@@ -391,6 +391,15 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 };
 module.exports.closeIce = closeIce;
 
+var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
+    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId]) {
+        console.error('forceCloseIce peer '+peerId);
+        p2p_context.iceSockets[peerId].dataChannel.close();
+        delete p2p_context.iceSockets[peerId];
+    }
+};
+module.exports.forceCloseIce = forceCloseIce;
+
 function logError(err) {
     console.error('logError called: '+ err);
 }
@@ -435,6 +444,7 @@ function createPeerConnection(socket, requestId, config) {
 
         // send any ice candidates to the other peer
         channelObj.peerConn.onicecandidate = function (event) {
+            var candidateMsg;
             if (event.candidate) {
 
                 try {
@@ -442,7 +452,7 @@ function createPeerConnection(socket, requestId, config) {
                         channelObj.peerConn.candidates = [];
                     }
 
-                    var candidateMsg = JSON.stringify({
+                    candidateMsg = JSON.stringify({
                         type: 'candidate',
                         label: event.candidate.sdpMLineIndex,
                         id: event.candidate.sdpMid,
@@ -466,7 +476,6 @@ function createPeerConnection(socket, requestId, config) {
                 try {
                     dbg.log2(channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
                     if (channelObj.peerConn.candidates) {
-                        var candidateMsg;
                         for (candidateMsg in channelObj.peerConn.candidates) {
                             dbg.log3(channelObj.peerId+' send onIceCandidate event: '+ channelObj.peerConn.candidates[candidateMsg]);
                             sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.candidates[candidateMsg]);
@@ -487,13 +496,24 @@ function createPeerConnection(socket, requestId, config) {
              closed:
              The ICE agent has shut down and is no longer responding to STUN requests.
              */
-            if (evt.target && evt.target.iceConnectionState === 'failed') {
-                dbg.log0(channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
+            if (evt.target && evt.target.iceConnectionState &&
+                'checking' !== evt.target.iceConnectionState &&
+                'connected' !== evt.target.iceConnectionState &&
+                'completed' !== evt.target.iceConnectionState
+            ) {
+                writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
+                if ('disconnected' === evt.target.iceConnectionState) {
+                    forceCloseIce(socket.p2p_context, channelObj.peerId);
+                }
             }
         };
 
+        channelObj.peerConn.onremovestream = function(evt) {
+            writeToLog(0,'onremovestream Data Channel req '+requestId+' evt '+require('util').inspect(evt));
+        };
+
         if (channelObj.isInitiator) {
-            dbg.log3('Creating Data Channel');
+            writeToLog(3,'Creating Data Channel req '+requestId);
             try {
                 var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig); // TODO  ? dtConfig
@@ -503,7 +523,7 @@ function createPeerConnection(socket, requestId, config) {
                 if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
             }
 
-            dbg.log3('Creating an offer');
+            writeToLog(3, 'Creating an offer req '+requestId);
             var mediaConstraints = {
                 mandatory: {
                     OfferToReceiveAudio: false,
@@ -628,13 +648,9 @@ function onDataChannelCreated(socket, requestId, channel) {
                 socket.p2p_context.iceSockets[channelObj.peerId].status = 'open';
 
 
-                console.log('YAEL 1 '+require('util').inspect(socket.p2p_context.iceSockets[channelObj.peerId].usedBy));
                 for (var req in socket.p2p_context.iceSockets[channelObj.peerId].usedBy) {
-                    console.log('YAEL 2 '+req);
                     if (socket.icemap[req]) {
                         socket.icemap[req].dataChannel = channelObj.dataChannel;
-                    } else {
-                        console.error('YAEL 3 NOO '+req);
                     }
                 }
 
@@ -657,7 +673,21 @@ function onDataChannelCreated(socket, requestId, channel) {
 
         channel.onmessage = onIceMessage(socket, channel);
 
+
+        channel.ondatachannel = function(event) {
+            var dataChannel = event.channel;
+
+            dataChannel.onclose = function () {
+                console.error('ICE CHANNEL closed 2');
+            };
+
+            dataChannel.onerror = function () {
+                console.error('ICE CHANNEL err 2');
+            };
+        };
+
         channel.onclose = function () {
+            console.error('ICE CHANNEL closed ' + channel.peerId);
             writeToLog(0,'ICE CHANNEL closed ' + channel.peerId);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
@@ -671,7 +701,12 @@ function onDataChannelCreated(socket, requestId, channel) {
             }
         };
 
+        channel.onleave = function () {
+            console.error('ICE CHANNEL onleave ' + channel.peerId);
+        };
+
         channel.onerror = function (err) {
+            console.error('ICE CHANNEL err ' + channel.peerId);
             writeToLog(0,socket, 'CHANNEL ERR ' + channel.peerId + ' ' + err);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();

@@ -19,18 +19,61 @@ var xml = function() {
                 }
             };
         });
-        content.unshift({
+
+
+        //console.log('cp value:',common_prefixes_value);
+        var additional_data = {
             Name: options.bucketName,
             Prefix: options.prefix || '',
             Marker: options.marker || '',
             MaxKeys: options.maxKeys,
-            IsTruncated: false,
-            CommonPrefixes: options.common_prefixes &&
-                _.map(options.common_prefixes, function(prefix) {
-                    return {
+            Delimiter: options.delimiter,
+            IsTruncated: false
+        };
+        content.unshift(_.map(options.common_prefixes, function(prefix) {
+                return [{
+                    _name: 'CommonPrefixes',
+                    _content: {
                         Prefix: prefix || ''
-                    };
-                })
+                    }
+                }];
+            }));
+
+        content.unshift(additional_data);
+        return content;
+    };
+    var buildVersionQueryContentXML = function(items, options) {
+        console.log('items:', items);
+        var date = new Date();
+        date.setMilliseconds(0);
+        date = date.toISOString();
+        var content = _.map(items, function(item) {
+            return {
+                    Version : {
+                    Key: item.key,
+                    VersionId: '1',
+                    IsLatest: true,
+                    LastModified: item.modifiedDate,
+                    ETag: item.md5,
+                    Size: item.size,
+                    StorageClass: 'Standard',
+                    Owner: {
+                        ID: 123,
+                        DisplayName: DISPLAY_NAME
+                    }
+                }
+            };
+        });
+
+        content.unshift({
+            Name: options.bucketName,
+            Prefix: options.prefix || '',
+            LastModified: date,
+            Marker: options.marker || '',
+            KeyMarker: '',
+            MaxKeys: options.maxKeys,
+            VersionIdMarker: '',
+            IsTruncated: false,
         });
         //console.log('content:', content, ' opts', options, 'items:', items);
 
@@ -52,7 +95,7 @@ var xml = function() {
                         return {
                             Bucket: {
                                 Name: bucket.name,
-                                CreationDate: bucket.creationDate.toISOString()
+                                CreationDate: bucket.creationDate
                             }
                         };
                     })
@@ -139,6 +182,37 @@ var xml = function() {
                 header: true,
                 indent: '  '
             });
+        },
+        buildLocation: function() {
+
+            return jstoxml.toXML({
+
+                _name: 'LocationConstraint',
+                _attrs: {
+                    'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
+                },
+                _content: 'EU'
+            }, {
+                header: true,
+                indent: '  '
+
+            });
+        },
+        buildBucketVersionQuery: function(options, items) {
+            var jxml = {
+                _name: 'ListVersionsResult',
+                _attrs: {
+                    'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
+                },
+                _content: buildVersionQueryContentXML(items, options)
+            };
+
+            var xml = jstoxml.toXML(jxml, {
+                header: true,
+                indent: '  '
+            });
+            console.log('version:', xml);
+            return xml;
         },
         buildAcl: function() {
             return jstoxml.toXML({

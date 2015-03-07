@@ -71,7 +71,7 @@ module.exports = function(rootDirectory) {
     };
 
     var copy_object = function(from_object, to_object) {
-
+        from_object = decodeURIComponent(from_object);
         var object_path = {
             bucket: params.bucket,
             key: from_object
@@ -83,14 +83,20 @@ module.exports = function(rootDirectory) {
                 //check if folder
                 if (md.size === 0) {
                     console.log('Folder copy:', from_object, ' to ', to_object);
-                    list_objects_with_prefix(from_object, '%2F')
+                    list_objects_with_prefix(from_object, '/')
                         .then(function(objects_and_folders) {
                             //console.log('in ');
                             //console.log('in copy for ', objects_and_folders.objects.length);
                             return Q.all(_.times(objects_and_folders.objects.length, function(i) {
-                                console.log('copy inner objects:', from_object+objects_and_folders.objects[i].key, to_object+objects_and_folders.objects[i].key.replace(from_object, to_object));
-                                copy_object(from_object+objects_and_folders.objects[i].key, to_object+objects_and_folders.objects[i].key.replace(from_object, to_object));
-                            }));
+                                console.log('copy inner objects:', objects_and_folders.objects[i].key,  objects_and_folders.objects[i].key.replace(from_object, to_object));
+                                copy_object(objects_and_folders.objects[i].key,  objects_and_folders.objects[i].key.replace(from_object, to_object));
+                            })).then(function(){
+//                                console.log('folders......',_.keys(objects_and_folders.folders));
+                                return Q.all(_.each(_.keys(objects_and_folders.folders), function(folder) {
+                                        console.log('copy inner folders:', folder,  folder.replace(from_object, to_object));
+                                        copy_object(folder,folder.replace(from_object, to_object));
+                                }));
+                            });
                         });
                 }
                 create_params.content_type = md.content_type;
@@ -141,9 +147,15 @@ module.exports = function(rootDirectory) {
             bucket: params.bucket,
         };
         if (prefix) {
-            prefix = prefix.replace(/%2F/g, '/');
+            //prefix = prefix.replace(/%2F/g, '/');
+            prefix = decodeURI(prefix);
             list_params.key = prefix;
         }
+        if (delimiter)
+        {
+            delimiter = decodeURI(delimiter);
+        }
+        console.log('Listing objects with', list_params,delimiter);
         return client.object.list_objects(list_params)
             .then(function(results) {
                 var i = 0;
@@ -155,15 +167,22 @@ module.exports = function(rootDirectory) {
                         obj.modifiedDate = date.toISOString(); //toUTCString();//.toISOString();
                         obj.md5 = 100;
                         obj.size = obj.info.size;
-                        obj.key = obj.key.slice(prefix.length);
+
+                        //we will keep the full path for CloudBerry online cloud backup tool
+
+                        var obj_sliced_key = obj.key.slice(prefix.length);
                         //console.log('obj.key:', obj.key, ' prefix ', prefix);
-                        if (obj.key.indexOf(delimiter) >= 0) {
-                            var folder = obj.key.split(delimiter, 1)[0];
-                            folders[folder] = true;
+                        if (obj_sliced_key.indexOf(delimiter) >= 0) {
+                            var folder = obj_sliced_key.split(delimiter, 1)[0];
+                            folders[prefix+folder+"/"] = true;
+                            return false;
+                        }
+                        if (list_params.key===obj.key)
+                        {
                             return false;
                         }
                         if (!obj.key) {
-                            // empty key - might beobject created as a folder
+                            // empty key - might be object created as a folder
                             return false;
                         }
                         return true;
@@ -176,7 +195,7 @@ module.exports = function(rootDirectory) {
                     objects: objects,
                     folders: folders
                 };
-                //console.log('About to return objects and folders:', objects_and_folders);
+//                console.log('About to return objects and folders:', objects_and_folders);
                 return objects_and_folders;
             }).then(null, function(err) {
                 console.log('failed to list object with prefix', err);
@@ -222,7 +241,7 @@ module.exports = function(rootDirectory) {
                     console.log('FAILED', err, res);
 
                 }
-                console.log('upload body::::::',res.body,' headers:',res.headers);
+                console.log('upload body::::::', res.body, ' headers:', res.headers);
                 return res.status(200).end();
             }, function(err) {
                 console.log('ERROR: upload', file_key_name, ' err:', util.inspect(err));
@@ -254,9 +273,16 @@ module.exports = function(rootDirectory) {
 
         },
         getBuckets: function(req, res) {
-            var buckets = fileStore.getBuckets();
+            var date = new Date();
+            date.setMilliseconds(0);
+            date = date.toISOString();
+            var buckets = [{
+                name: params.bucket,
+                creationDate: date
+            }];
             console.info('Fetched %d buckets', buckets.length);
             var template = templateBuilder.buildBuckets(buckets);
+            console.log('bucket response:',template);
             return buildXmlResponse(res, 200, template);
         },
         getBucket: function(req, res) {
@@ -264,21 +290,52 @@ module.exports = function(rootDirectory) {
                 marker: req.query.marker || null,
                 prefix: req.query.prefix || '',
                 maxKeys: parseInt(req.query['max-keys']) || 1000,
-                delimiter: req.query.delimiter || '/'
+                delimiter: req.query.delimiter // removed default value - shouldn't be such || '/'
             };
+            console.log('get bucket (list objects) with options:',options);
+            var template;
 
-            list_objects_with_prefix(options.prefix, options.delimiter)
-                .then(function(objects_and_folders) {
-                    options.bucketName = req.bucket.name;
-                    options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? null : _.keys(objects_and_folders.folders);
-                    var template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
-                    return buildXmlResponse(res, 200, template);
-                })
-                .then(function() {
-                    console.log('COMPLETED: list');
-                }).then(null, function(err) {
-                    console.log('ERROR: list', err, err.stack, options);
-                });
+            if (req.query.location !== undefined) {
+                template = templateBuilder.buildLocation();
+                console.log('tem:', template);
+                return buildXmlResponse(res, 200, template);
+
+            } else {
+
+                list_objects_with_prefix(options.prefix, options.delimiter)
+                    .then(function(objects_and_folders) {
+                        options.bucketName = req.bucket.name || params.bucket;
+                        options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
+                        console.log('total of objects:', objects_and_folders.objects.length, ' folders:',options.common_prefixes, 'bucket:', options.bucketName);
+
+                        if (req.query.versioning !== undefined) {
+                            if (!_.isEmpty(options.common_prefixes)) {
+                                var date = new Date();
+                                date.setMilliseconds(0);
+                                date = date.toISOString();
+                                _.each(options.common_prefixes, function(folder) {
+                                    console.log('adding common_prefixe (folder):', folder);
+                                    objects_and_folders.objects.unshift({
+                                        key: folder,
+                                        modifiedDate: date,
+                                        md5: 100,
+                                        size: 0
+                                    })
+                                });
+                            }
+                            template = templateBuilder.buildBucketVersionQuery(options, objects_and_folders.objects);
+                        } else {
+                            template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
+                        }
+                        return buildXmlResponse(res, 200, template);
+                    })
+                    .then(function() {
+                        console.log('COMPLETED: list');
+                    }).then(null, function(err) {
+                        console.log('ERROR: list', err, err.stack, options);
+                    });
+            }
+
         },
         putBucket: function(req, res) {
             var bucketName = req.params.bucket;
@@ -338,70 +395,69 @@ module.exports = function(rootDirectory) {
 
         getObject: function(req, res) {
             var keyName = req.params.key;
-
             var acl = req.query.acl;
             var template;
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
-                console.log('ACL:', acl, 'template', template);
                 return buildXmlResponse(res, 200, template);
-
             } else {
-                console.log('path:', req.path);
-                if (req.path.indexOf('Thumbs.db', req.path.length - 9) !== -1) {
-                    console.log('Thumbs up');
-                    console.error('Object "%s" in bucket "%s" does not exist', keyName, params.bucket);
-                    template = templateBuilder.buildKeyNotFound(keyName);
-                    return buildXmlResponse(res, 404, template);
-                }
-                //S3 browser format - maybe future use.
-                // keyName = keyName.replace('..chunk..map','');
-
-                Q.fcall(function() {
-                        var object_path = {
-                            bucket: params.bucket,
-                            key: keyName
-                        };
-                        return client.object.get_object_md(object_path);
-                    })
-                    .then(function(object_md) {
-                        res.header('Last-Modified', new Date().toISOString());
-                        res.header('Content-Type', object_md.content_type);
-                        res.header('Content-Length', object_md.size);
-                        res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
-                        var defer = Q.defer();
-                        var object_path = {
-                            bucket: params.bucket,
-                            key: keyName
-                        };
-                        //var stream = concat_stream(defer.resolve);
-                        //stream.once('error', defer.reject);
-                        //client.object.open_read_stream(object_path).pipe(stream);
-                        //return defer.promise;
-
-                        if (req.method === 'HEAD') {
-                            return res.end();
-                        } else {
-                            var stream = client.object.open_read_stream(object_path).pipe(res);
-                            // var stream_md5 = md5(stream);
-                            // console.log('COMPLETED: download of ', keyName,stream_md5);
-                            // res.header('Etag', stream_md5);
-                            // return res.end();
-                        }
-
-                    }).then(null, function(err) {
-                        console.log('ERROR: while download from noobaa', err);
-                        var template = templateBuilder.buildKeyNotFound(keyName);
-                        console.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
+                if (req.query.location !== undefined) {
+                    template = templateBuilder.buildLocation();
+                    return buildXmlResponse(res, 200, template);
+                } else {
+                    if (req.path.indexOf('Thumbs.db', req.path.length - 9) !== -1) {
+                        console.log('Thumbs up "%s" in bucket "%s" does not exist', keyName, params.bucket);
+                        template = templateBuilder.buildKeyNotFound(keyName);
                         return buildXmlResponse(res, 404, template);
-                    });
+                    }
+                    //S3 browser format - maybe future use.
+                    // keyName = keyName.replace('..chunk..map','');
+                    var object_path = {
+                        bucket: params.bucket,
+                        key: keyName
+                    };
+                    return client.object.get_object_md(object_path)
+                        .then(function(object_md) {
+                            res.header('Last-Modified', new Date().toISOString());
+                            res.header('Content-Type', object_md.content_type);
+                            res.header('Content-Length', object_md.size);
+                            res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
+                            if (req.method === 'HEAD') {
+                                return res.end();
+                            } else {
+                                var stream = client.object.open_read_stream(object_path).pipe(res);
+                            }
+
+                        }).then(null, function(err) {
+                            console.log('Cannot find file. will retry as folder', err);
+                            //retry as folder name
+                            object_path.key = object_path.key + '/';
+                            return client.object.get_object_md(object_path)
+                                .then(function(object_md) {
+                                    res.header('Last-Modified', new Date().toISOString());
+                                    res.header('Content-Type', object_md.content_type);
+                                    res.header('Content-Length', object_md.size);
+                                    res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
+                                    if (req.method === 'HEAD') {
+                                        return res.end();
+                                    } else {
+                                        var stream = client.object.open_read_stream(object_path).pipe(res);
+                                    }
+                                }).then(null, function(err) {
+                                    console.log('ERROR: while download from noobaa', err);
+                                    var template = templateBuilder.buildKeyNotFound(keyName);
+                                    console.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
+                                    return buildXmlResponse(res, 404, template);
+                                });
+                        });
+                }
             }
         },
 
         putObject: function(req, res) {
             var template;
             var acl = req.query.acl;
-            var delimiter = req.query.delimiter || '%2F';
+            var delimiter = req.query.delimiter;
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
                 console.log('ACL:', acl, 'template', template);
@@ -409,6 +465,7 @@ module.exports = function(rootDirectory) {
             }
             var copy = req.headers['x-amz-copy-source'];
             if (copy) {
+                delimiter = req.query.delimiter || '%2F';
                 if (copy.indexOf('/') === 0) {
                     delimiter = '/';
                     copy = copy.substring(1);
@@ -417,7 +474,7 @@ module.exports = function(rootDirectory) {
 
                 var srcBucket = srcObjectParams[0];
                 var srcObject = srcObjectParams.slice(1).join(delimiter);
-                //console.log(srcObjectParams);
+                console.log('Attempt to copy object:',srcObject, ' from bucket:', srcBucket,' to ',req.params.key, ' srcObjectParams: ',srcObjectParams, ' delimiter:', delimiter);
                 if (srcBucket !== params.bucket) {
                     console.error('No bucket found (2) for "%s"', srcBucket, params.bucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
                     template = templateBuilder.buildBucketNotFound(srcBucket);
@@ -515,7 +572,7 @@ module.exports = function(rootDirectory) {
                     });
                 })
                 .then(function(res) {
-                    
+
                     if (res.objects.length === 0) {
                         console.error('Could not delete object "%s"', key);
                         var template = templateBuilder.buildKeyNotFound(key);

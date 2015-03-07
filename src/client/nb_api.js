@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var moment = require('moment');
 var api = require('../api');
 
 var nb_api = angular.module('nb_api', [
@@ -134,6 +135,16 @@ nb_api.factory('nbSystem', [
         $scope.connect_system = connect_system;
         $scope.refresh_system = refresh_system;
 
+        $scope.read_activity_log = read_activity_log;
+        $scope.read_activity_log_newest = read_activity_log_newest;
+        $scope.read_activity_log_newer = read_activity_log_newer;
+        $scope.read_activity_log_older = read_activity_log_older;
+        $scope.read_activity_log_by_date = read_activity_log_by_date;
+        $scope.read_activity_log_subject = read_activity_log_subject;
+        $scope.activity_log_params = {
+            limit: 10
+        };
+
         $scope.init_systems = refresh_systems();
 
         function refresh_systems() {
@@ -159,6 +170,7 @@ nb_api.factory('nbSystem', [
                     _.each(sys.tiers, function(tier) {
                         tier.used_percent = Math.ceil(100 * tier.storage.used / tier.storage.alloc);
                     });
+                    return read_activity_log();
                 }, function(err) {
                     console.error('READ SYSTEM FAILED', err);
                     return $scope.init_systems.then(function() {
@@ -166,6 +178,110 @@ nb_api.factory('nbSystem', [
                         return connect_system(sys.name);
                     });
                 });
+        }
+
+        function read_activity_log() {
+            return nbClient.init_promise
+                .then(function() {
+                    return nbClient.client.system.read_activity_log($scope.activity_log_params);
+                })
+                .then(function(res) {
+                    if (!res.logs.length) {
+                        console.log('ACTIVITY LOG EMPTY REPLY', $scope.activity_log_params);
+                        if ($scope.activity_log_params.since) {
+                            $scope.activity_log_params.till = $scope.activity_log_params.since;
+                            delete $scope.activity_log_params.since;
+                            return read_activity_log();
+                        } else if ($scope.activity_log_params.till) {
+                            return read_activity_log_newest();
+                        }
+                    }
+                    var day_format = 'MMM DD';
+                    var time_format = 'HH:mm:ss';
+                    // var now_moment = moment();
+                    // var today = now_moment.format(day_format);
+                    // var yesterday = now_moment.subtract(1, 'day').format(day_format);
+                    $scope.activity_log = _.filter(res.logs, function(l) {
+                        l.time = new Date(l.time);
+                        l.time_moment = moment(l.time);
+                        l.day_of_year = l.time_moment.format(day_format);
+                        /*
+                        if (l.day_of_year === today) {
+                            l.day_of_year = 'Today';
+                        } else if (l.day_of_year === yesterday) {
+                            l.day_of_year = 'Yesterday';
+                        }
+                        */
+                        l.time_of_day = l.time_moment.format(time_format);
+                        switch (l.event) {
+                            case 'node.create':
+                                l.category = 'nodes';
+                                l.text = 'Added node ' + l.node.name;
+                                break;
+                            case 'obj.uploaded':
+                                l.category = 'files';
+                                l.text = 'Upload completed ' + l.obj.key;
+                                break;
+                            default:
+                                console.log('filtered unrecognized event', l.event);
+                                return false;
+                        }
+                        return true;
+                    });
+                    console.log('ACTIVITY LOG', $scope.activity_log_params, $scope.activity_log);
+                });
+        }
+
+        function read_activity_log_newest() {
+            delete $scope.activity_log_params.since;
+            delete $scope.activity_log_params.till;
+            return read_activity_log();
+        }
+
+        function read_activity_log_newer() {
+            if ($scope.activity_log && $scope.activity_log.length) {
+                var last = $scope.activity_log[$scope.activity_log.length - 1];
+                $scope.activity_log_params.since = last.time.getTime();
+                delete $scope.activity_log_params.till;
+            }
+            return read_activity_log()
+                .then(function() {
+                    if ($scope.activity_log.length < $scope.activity_log_params.limit) {
+                        return read_activity_log_newest();
+                    }
+                });
+        }
+
+        function read_activity_log_older() {
+            if ($scope.activity_log && $scope.activity_log.length) {
+                var first = $scope.activity_log[0];
+                $scope.activity_log_params.till = first.time.getTime();
+                delete $scope.activity_log_params.since;
+            }
+            return read_activity_log();
+        }
+
+        function read_activity_log_by_date(date) {
+            $scope.activity_log_params.since = (new Date(date)).getTime();
+            delete $scope.activity_log_params.till;
+            return read_activity_log();
+        }
+
+        function read_activity_log_subject(subject) {
+            if (subject === 'files') {
+                $scope.activity_log_params.event = '^bucket\\.|^obj\\.';
+            } else if (subject === 'nodes') {
+                $scope.activity_log_params.event = '^node\\.';
+            } else if (subject === 'pools') {
+                $scope.activity_log_params.event = '^tier\\.';
+            } else if (subject === 'repos') {
+                $scope.activity_log_params.event = '^bucket\\.';
+            } else {
+                delete $scope.activity_log_params.event;
+            }
+            return read_activity_log().then(function() {
+                $scope.activity_log_subject = subject;
+            });
         }
 
         function new_system() {

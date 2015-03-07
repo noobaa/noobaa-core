@@ -15,6 +15,7 @@ var ObjectMD = require('./object_md');
 var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
+var ActivityLog = require('./activity_log');
 
 /**
  *
@@ -41,6 +42,7 @@ module.exports = {
     ObjectPart: ObjectPart,
     DataChunk: DataChunk,
     DataBlock: DataBlock,
+    ActivityLog: ActivityLog,
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,

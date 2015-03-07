@@ -621,84 +621,87 @@ function build_chunks(chunks) {
 
 /**
  *
- * BUILD_WORKER
+ * BUILD_CHUNKS_WORKER
  *
  * background worker that scans chunks and builds them according to their blocks status
  *
  */
-var build_worker = promise_utils.run_background_worker({
+var build_chunks_worker =
+    (process.env.BUILD_WORKER_DISABLED === 'true') ||
+    promise_utils.run_background_worker({
 
-    name: 'build_worker',
-    batch_size: 100,
-    time_since_last_build: 3000, // TODO increase...
-    building_timeout: 60000, // TODO increase...
+        name: 'build_chunks_worker',
+        batch_size: 50,
+        time_since_last_build: 60000, // TODO increase...
+        building_timeout: 300000, // TODO increase...
 
-    /**
-     * run the next batch of build_chunks
-     */
-    run_batch: function() {
-        var self = this;
-        return Q.fcall(function() {
-                var query = {
-                    $and: [{
-                        $or: [{
-                            last_build: null
+        /**
+         * run the next batch of build_chunks
+         */
+        run_batch: function() {
+            var self = this;
+            return Q.fcall(function() {
+                    var now = Date.now();
+                    var query = {
+                        $and: [{
+                            $or: [{
+                                last_build: null
+                            }, {
+                                last_build: {
+                                    $lt: new Date(now - self.time_since_last_build)
+                                }
+                            }]
                         }, {
-                            last_build: {
-                                $lt: new Date(Date.now() - self.time_since_last_build)
-                            }
+                            $or: [{
+                                building: null
+                            }, {
+                                building: {
+                                    $lt: new Date(now - self.building_timeout)
+                                }
+                            }]
                         }]
-                    }, {
-                        $or: [{
-                            building: null
-                        }, {
-                            building: {
-                                $lt: new Date(Date.now() - self.building_timeout)
-                            }
-                        }]
-                    }]
-                };
-                if (self.last_chunk_id) {
-                    query._id = {
-                        $gt: self.last_chunk_id
                     };
-                } else {
-                    dbg.log0('BUILD_WORKER:', 'BEGIN');
-                }
+                    if (self.last_chunk_id) {
+                        query._id = {
+                            $gt: self.last_chunk_id
+                        };
+                    } else {
+                        dbg.log0('BUILD_WORKER:', 'BEGIN');
+                    }
 
-                return db.DataChunk.find(query)
-                    .limit(self.batch_size)
-                    .exec();
-            })
-            .then(function(chunks) {
+                    return db.DataChunk.find(query)
+                        .limit(self.batch_size)
+                        .exec();
+                })
+                .then(function(chunks) {
 
-                // update the last_chunk_id for next time
-                if (chunks.length === self.batch_size) {
-                    self.last_chunk_id = chunks[chunks.length - 1]._id;
-                } else {
-                    self.last_chunk_id = undefined;
-                }
+                    // update the last_chunk_id for next time
+                    if (chunks.length === self.batch_size) {
+                        self.last_chunk_id = chunks[chunks.length - 1]._id;
+                    } else {
+                        self.last_chunk_id = undefined;
+                    }
 
-                if (chunks.length) {
-                    return build_chunks(chunks);
-                }
-            })
-            .then(function() {
-                // return the delay before next batch
-                if (self.last_chunk_id) {
-                    dbg.log0('BUILD_WORKER:', 'CONTINUE', self.last_chunk_id);
-                    return 1000;
-                } else {
-                    dbg.log0('BUILD_WORKER:', 'END');
-                    return 60000;
-                }
-            }, function(err) {
-                // return the delay before next batch
-                dbg.log0('BUILD_WORKER:', 'ERROR', err, err.stack);
-                return 10000;
-            });
-    }
-});
+                    if (chunks.length) {
+                        return build_chunks(chunks);
+                    }
+                })
+                .then(function() {
+                    // return the delay before next batch
+                    if (self.last_chunk_id) {
+                        dbg.log0('BUILD_WORKER:', 'CONTINUE', self.last_chunk_id);
+                        return 250;
+                    } else {
+                        dbg.log0('BUILD_WORKER:', 'END');
+                        return 60000;
+                    }
+                }, function(err) {
+                    // return the delay before next batch
+                    dbg.log0('BUILD_WORKER:', 'ERROR', err, err.stack);
+                    return 10000;
+                });
+        }
+    });
 
 
 

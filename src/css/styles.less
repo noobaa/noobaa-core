@@ -6,6 +6,8 @@
 @import (less)"../../bower_components/bootstrap-material-design/less/material.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
 @import (less)"../../bower_components/bootstrap-sidebar/dist/css/sidebar.css";
+@import (less)"../../bower_components/datetimepicker/jquery.datetimepicker.css";
+// @import (less)"../../node_modules/selectize/dist/less/selectize.bootstrap3.less";
 // importing less as css to be able to extend it's classes, because it uses
 // interpolated selectors for it's prefix definition ('fa-') and less can't extend that
 // see http://stackoverflow.com/questions/20394032/less-using-font-awesome-in-before
@@ -65,8 +67,15 @@ table {
     }
 }
 .sidebar.sidebar-left {
-    top: 0;
     width: 250px;
+}
+.sidebar.sidebar-right {
+    width: 700px;
+    overflow-y: scroll !important;
+}
+.sidebar.sidebar-left,
+.sidebar.sidebar-right {
+    top: 0;
     overflow: initial;
     background-color: @navbar-default-bg;
     @sidebar-color: lighten(desaturate(@navbar-default-bg, 5%), 57%);

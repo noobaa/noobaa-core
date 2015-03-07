@@ -142,6 +142,91 @@
         </div>
     </div>
 
+    <div class="row">
+        <div class="sidebar sidebar-right sidebar-animate">
+            <a class="pull-right btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 20px 14px; margin: 0">
+                <i class="fa fa-times fa-lg text-muted"></i>
+            </a>
+
+            <h3 style="margin-bottom: 20px">ACTIVITY LOG</h3>
+
+            <div class="text-muted" style="margin: 10px 0">
+                <div class="clearfix">
+                    <span style="width: 80px; display: inline-block">Go to time:</span>
+                    <div class="form-control-wrapper" style="display: inline-block">
+                        <input type="text" class="form-control text-center datetimepicker" ng-model="goto_date" ng-change="nbSystem.read_activity_log_by_date(goto_date)" />
+                    </div>
+                    <i class="fa fa-calendar fa-lg fa-fw"></i>
+                    <!--
+                     <span style="width: 50px; display: inline-block; margin-left: 30px">Zoom:</span>
+                    <span>
+                        <a>1 hour</a> &nbsp;
+                        <a>1 day</a> &nbsp;
+                        <a>1 week</a> &nbsp;
+                        <a>1 month</a>
+                    </span>
+                    -->
+                </div>
+                <div class="clearfix">
+                    <span style="width: 80px; display: inline-block">Filter:</span>
+                    <div class="btn-group">
+                        <button class="btn btn-xs btn-raised {{!nbSystem.activity_log_subject && 'btn-primary' || 'btn-default'}} btn-default" nb-click-ladda="nbSystem.read_activity_log_subject()">
+                            Show all
+                        </button>
+                        <button class="btn btn-xs btn-raised {{nbSystem.activity_log_subject=='files' && 'btn-primary' || 'btn-default'}} btn-default" nb-click-ladda="nbSystem.read_activity_log_subject('files')">
+                            Files
+                        </button>
+                        <button class="btn btn-xs btn-raised {{nbSystem.activity_log_subject=='nodes' && 'btn-primary' || 'btn-default'}} btn-default" nb-click-ladda="nbSystem.read_activity_log_subject('nodes')">
+                            Nodes
+                        </button>
+                    </div>
+                    <span ng-if="false">
+                        &nbsp;&nbsp; Level: &nbsp;
+                        <div class="form-control-wrapper text-muted" style="display: inline-block; width: 100px">
+                            <select class="form-control" ng-model="level" ng-init="level='all'" style="color: inherit">
+                                <option value="all">ALL</option>
+                                <option value="info">INFO</option>
+                                <option value="warning">WARNING</option>
+                                <option value="alert">ALERT</option>
+                            </select>
+                        </div>
+                    </span>
+                </div>
+            </div>
+
+            <div class="well well-sm" style="min-height: 300px; margin: 30px 0">
+                <div ng-if="!nbSystem.activity_log.length" class="text-center">
+                    <br/></br>
+                    <h4>No activity</h4>
+                </div>
+                <table class="Xtext-muted">
+                    <tr ng-repeat="log in nbSystem.activity_log">
+                        <td class="" style="width: 1px; padding: 5px; white-space: nowrap">{{log.day_of_year}}</td>
+                        <td class="" style="width: 1px; padding: 5px; white-space: nowrap">{{log.time_of_day}}</td>
+                        <td class="capitalize text-{{log.level}}" style="width: 1px; padding: 5px; ">{{log.level}}</td>
+                        <td class="capitalize" style="width: 1px; padding: 5px; ">{{log.category}}</td>
+                        <td class="text-left" style="padding: 5px">{{log.text}}</td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="clearfix text-center" style="margin-bottom: 10px">
+                <button class="btn btn-xs btn-default btn-raised" nb-click-ladda="nbSystem.read_activity_log_older()">
+                    <i class="fa fa-angle-left fa-lg fa-fw"></i> Older
+                </button>
+                <button class="btn btn-xs btn-default btn-raised" nb-click-ladda="nbSystem.read_activity_log_newer()">
+                    Newer
+                    <i class="fa fa-angle-right fa-lg fa-fw"></i>
+                </button>
+                <button class="btn btn-xs btn-default btn-raised" nb-click-ladda="nbSystem.read_activity_log_newest()">
+                    Now
+                    <i class="fa fa-angle-double-right fa-lg fa-fw"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+
     <div class="sidebar-content">
         <div class="container-fluid">
 
@@ -151,18 +236,11 @@
                 </a>
             </div>
             <div class="pull-right">
-                <span class="dropdown">
-                    <a class="btn btn-default Xbtn-flat dropdown-toggle" data-toggle="dropdown" style="padding: 20px 14px; margin: 0">
-                        <i class="fa fa-bell fa-lg text-muted"></i>
-                    </a>
-                    <ul class="dropdown-menu pull-right" role="menu" style="top: auto">
-                        <li class="text-center" style="padding: 30px 15px">
-                            <i class="text-muted">No new messages</i>
-                        </li>
-                    </ul>
-                </span>
                 <a class="btn btn-default Xbtn-flat" style="padding: 20px 14px; margin: 0" ng-if="nav.reload_view" nb-click-ladda="nav.reload_view()">
                     <i class="fa fa-repeat fa-lg text-muted"></i>
+                </a>
+                <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 20px 14px; margin: 0">
+                    <i class="fa fa-clock-o fa-lg text-muted"></i>
                 </a>
             </div>
 

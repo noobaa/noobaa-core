@@ -84,6 +84,14 @@ function create_node(req) {
         .then(null, db.check_already_exists(req, 'node'))
         .then(function(node) {
 
+            // create async
+            db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'node.create',
+                node: node,
+            });
+
             // a token for the agent authorized to use the new node id.
             var token = req.make_auth_token({
                 account_id: req.account.id,
@@ -361,6 +369,8 @@ function heartbeat(req) {
         req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress;
 
+    params.system = req.system;
+
     return node_monitor.heartbeat(params);
 }
 
@@ -396,7 +406,7 @@ function get_node_full_info(node) {
     info.peer_id = node.peer_id || '';
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
-    info.heartbeat = node.heartbeat.toString();
+    info.heartbeat = node.heartbeat.getTime();
     info.storage = {
         alloc: node.storage.alloc || 0,
         used: node.storage.used || 0,

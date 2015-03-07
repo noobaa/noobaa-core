@@ -401,7 +401,7 @@ module.exports = rest_api({
                     type: 'string',
                 },
                 create_time: {
-                    type: 'string',
+                    type: 'integer',
                     format: 'date',
                 },
                 upload_size: {

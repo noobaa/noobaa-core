@@ -71,6 +71,14 @@ function complete_multipart_upload(req) {
             if (!_.isNumber(obj.upload_size)) {
                 throw new Error('object not in upload mode ' + obj.key);
             }
+
+            db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'obj.uploaded',
+                obj: obj,
+            });
+
             return obj.update({
                     $unset: {
                         upload_size: 1
@@ -291,7 +299,7 @@ function get_object_info(md) {
     var info = _.pick(md, 'size', 'content_type');
     info.size = info.size || 0;
     info.content_type = info.content_type || '';
-    info.create_time = md.create_time.toString();
+    info.create_time = md.create_time.getTime();
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }

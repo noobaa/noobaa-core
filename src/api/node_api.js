@@ -372,7 +372,7 @@ module.exports = rest_api({
                     type: 'boolean',
                 },
                 heartbeat: {
-                    type: 'string',
+                    type: 'integer',
                     format: 'date',
                 },
                 storage: {

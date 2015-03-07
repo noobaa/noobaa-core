@@ -30,6 +30,8 @@ nb_util.run(['$rootScope', function($rootScope) {
         selector: '[rel=popover]'
     });
     $.material.init();
+    $('.datetimepicker').datetimepicker();
+    $('select').selectize();
 }]);
 
 
@@ -613,35 +615,36 @@ nb_util.directive('nbClickLadda', [
         return {
             restrict: 'A',
             link: function(scope, element, attrs) {
-                element.addClass('ladda-button');
-                if (angular.isUndefined(element.attr('data-style'))) {
-                    element.attr('data-style', 'zoom-out');
-                }
                 /* global Ladda */
                 var ladda = Ladda.create(element[0]);
-                $compile(angular.element(element.children()[0]).contents())(scope);
+                var stop_ladda = ladda.stop.bind(ladda);
+                $compile(element.contents())(scope);
 
-                element.on('click', function() {
-                    var promise = scope.$eval(attrs.nbClickLadda);
-                    if (promise && !ladda.isLoading()) {
-                        ladda.start();
+                // changing DOM on timeout or else other directives override the class
+                $timeout(function() {
+                    element.addClass('ladda-button');
+                    if (angular.isUndefined(element.attr('data-style'))) {
+                        element.attr('data-style', 'zoom-out');
                     }
-                    $q.when(promise).then(
-                        function() {
-                            return $timeout(function() {
-                                ladda.stop();
-                            }, 300); // human delay for fast runs
-                        },
-                        function() {
-                            return $timeout(function() {
-                                ladda.stop();
-                            }, 300); // human delay for fast runs
-                        },
-                        function(progress) {
-                            ladda.setProgress(progress);
-                        }
-                    );
-                });
+                    element.on('click', function() {
+                        // start human delay timeout on click to smoothen fast runs
+                        var min_human_delay = $timeout(angular.noop, 100);
+                        $q.when().then(function() {
+                                if (!ladda.isLoading()) {
+                                    ladda.start();
+                                }
+                                return scope.$eval(attrs.nbClickLadda);
+                            })
+                            .then(function() {
+                                return min_human_delay.then(stop_ladda);
+                            }, function(err) {
+                                return min_human_delay.then(stop_ladda);
+                            }, function(progress) {
+                                ladda.setProgress(progress);
+                            });
+                    });
+                }, 1);
+
             }
         };
     }

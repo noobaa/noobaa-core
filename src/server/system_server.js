@@ -28,6 +28,8 @@ module.exports = new api.system_api.Server({
 
     add_role: add_role,
     remove_role: remove_role,
+
+    read_activity_log: read_activity_log
 });
 
 
@@ -284,6 +286,76 @@ function remove_role(req) {
         })
         .thenResolve();
 }
+
+
+
+/**
+ *
+ * READ_ACTIVITY_LOG
+ *
+ */
+function read_activity_log(req) {
+    var q = db.ActivityLog.find({
+        system: req.system.id,
+    });
+
+    var reverse = true;
+    if (req.rest_params.till) {
+        // query backwards from given time
+        req.rest_params.till = new Date(req.rest_params.till);
+        q.where('time').lt(req.rest_params.till).sort('-time');
+
+    } else if (req.rest_params.since) {
+        // query forward from given time
+        req.rest_params.since = new Date(req.rest_params.since);
+        q.where('time').gte(req.rest_params.since).sort('time');
+        reverse = false;
+    } else {
+        // query backward from last time
+        q.sort('-time');
+    }
+    if (req.rest_params.event) {
+        q.where({
+            event: new RegExp(req.rest_params.event)
+        });
+    }
+    if (req.rest_params.events) {
+        q.where('event').in(req.rest_params.events);
+    }
+    if (req.rest_params.skip) q.skip(req.rest_params.skip);
+    q.limit(req.rest_params.limit || 10);
+    q.populate('tier', 'name');
+    q.populate('node', 'name');
+    q.populate('bucket', 'name');
+    q.populate('obj', 'key');
+    return Q.when(q.exec())
+        .then(function(logs) {
+            logs = _.map(logs, function(log_item) {
+                var l = _.pick(log_item, 'id', 'level', 'event');
+                l.time = log_item.time.getTime();
+                if (log_item.tier) {
+                    l.tier = _.pick(log_item.tier, 'name');
+                }
+                if (log_item.node) {
+                    l.node = _.pick(log_item.node, 'name');
+                }
+                if (log_item.bucket) {
+                    l.bucket = _.pick(log_item.bucket, 'name');
+                }
+                if (log_item.obj) {
+                    l.obj = _.pick(log_item.obj, 'key');
+                }
+                return l;
+            });
+            if (reverse) {
+                logs.reverse();
+            }
+            return {
+                logs: logs
+            };
+        });
+}
+
 
 
 

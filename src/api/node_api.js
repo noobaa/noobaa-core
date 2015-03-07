@@ -325,7 +325,7 @@ module.exports = rest_api({
 
         srvmode: {
             type: 'string',
-            enum: ['connect', 'blocked', 'decommissioning', 'decommissioned']
+            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
         },
 
         node_full_info: {

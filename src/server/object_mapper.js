@@ -756,7 +756,7 @@ function analyze_chunk_status(chunk, all_blocks) {
 
         _.each(fragment.blocks, function(block) {
             var since_hb = now - block.node.heartbeat.getTime();
-            if (since_hb > LONG_GONE_THRESHOLD || block.node.srvmode === 'blocked') {
+            if (since_hb > LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
                 return array_push(fragment, 'long_gone_blocks', block);
             }
             if (since_hb > SHORT_GONE_THRESHOLD) {

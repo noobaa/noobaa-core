@@ -21,7 +21,7 @@ nb_api.factory('nbNodes', [
         $scope.read_node = read_node;
         $scope.goto_node_by_block = goto_node_by_block;
         $scope.reconnect_node = reconnect_node;
-        $scope.block_node = block_node;
+        $scope.disable_node = disable_node;
         $scope.decommission_node = decommission_node;
         $scope.remove_node = remove_node;
 
@@ -110,10 +110,10 @@ nb_api.factory('nbNodes', [
                 });
         }
 
-        function block_node(node) {
-            return update_srvmode(node, 'blocked')
+        function disable_node(node) {
+            return update_srvmode(node, 'disabled')
                 .then(function() {
-                    node.srvmode = 'blocked';
+                    node.srvmode = 'disabled';
                 });
         }
 

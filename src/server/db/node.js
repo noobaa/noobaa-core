@@ -61,7 +61,7 @@ var node_schema = new Schema({
 
     srvmode: {
         type: String,
-        enum: ['blocked', 'decommissioning', 'decommisioned']
+        enum: ['disabled', 'decommissioning', 'decommisioned']
     },
 
     // the identifier used for p2p signaling

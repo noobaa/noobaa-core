@@ -499,16 +499,28 @@ function createPeerConnection(socket, requestId, config) {
              closed:
              The ICE agent has shut down and is no longer responding to STUN requests.
              */
+            writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
             if (evt.target && evt.target.iceConnectionState &&
                 'checking' !== evt.target.iceConnectionState &&
                 'connected' !== evt.target.iceConnectionState &&
                 'completed' !== evt.target.iceConnectionState
             ) {
-                writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
                 if ('disconnected' === evt.target.iceConnectionState) {
                     forceCloseIce(socket.p2p_context, channelObj);
                 }
             }
+        };
+
+        channelObj.peerConn.signalingstatechange = function(evt) {
+            writeToLog(0,channelObj.peerId+" NOTICE ICE signalingstatechange: " + require('util').inspect(evt));
+        };
+
+        channelObj.peerConn.onidpassertionerror = function(evt) {
+            writeToLog(0,channelObj.peerId+" NOTICE ICE onidpassertionerror: " + require('util').inspect(evt));
+        };
+
+        channelObj.peerConn.onidpvalidationerror = function(evt) {
+            writeToLog(0,channelObj.peerId+" NOTICE ICE onidpvalidationerror: " + require('util').inspect(evt));
         };
 
         channelObj.peerConn.onremovestream = function(evt) {

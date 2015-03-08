@@ -486,7 +486,7 @@ function rest_api(api) {
         return Q.fcall(function() {
             return self._peer_request(func_info, params);
         }).then(null, function(err) {
-            console.error('REST REQUEST FAILED '+ err);
+            console.error('REST REQUEST FAILED '+ require('util').inspect(err));
             throw err;
         });
     };

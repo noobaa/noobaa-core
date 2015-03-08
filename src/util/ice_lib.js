@@ -505,7 +505,7 @@ function createPeerConnection(socket, requestId, config) {
                 'connected' !== evt.target.iceConnectionState &&
                 'completed' !== evt.target.iceConnectionState
             ) {
-                if ('disconnected' === evt.target.iceConnectionState) {
+                if ('disconnected' === evt.target.iceConnectionState || 'failed' === evt.target.iceConnectionState) {
                     forceCloseIce(socket.p2p_context, channelObj);
                 }
             }

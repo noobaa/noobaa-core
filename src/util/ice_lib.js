@@ -544,7 +544,7 @@ function createPeerConnection(socket, requestId, config) {
         }
 
         channelObj.peerConn.ondatachannel = function (event) {
-            writeToLog(2, 'ondatachannel:'+ event.channel);
+            writeToLog(-1, 'ondatachannel:'+ event.channel);
             try {
                 channelObj.dataChannel = event.channel;
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);

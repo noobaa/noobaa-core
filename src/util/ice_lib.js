@@ -225,7 +225,9 @@ module.exports.sendWSMessage = sendMessage;
  ********************************/
 function staleConnChk(socket) {
 
-    return;
+    if (!config.doStaleCheck) {
+        return;
+    }
 
     var now = (new Date()).getTime();
     var toDel = [];

@@ -205,7 +205,9 @@ module.exports.writeBufferToSocket = writeBufferToSocket;
  ********************************/
 function staleConnChk(p2p_context) {
 
-    return;
+    if (!config.doStaleCheck) {
+        return;
+    }
 
     if (isAgent || !p2p_context || !p2p_context.wsClientSocket) {
         return;

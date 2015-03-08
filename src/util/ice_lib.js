@@ -34,7 +34,7 @@ module.exports = {};
  ********************************/
 
 function keepalive(socket) {
-    writeToLog(0, 'send keepalive from '+socket.idInServer);
+    writeToLog(3, 'send keepalive from '+socket.idInServer);
     try {
         socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
     } catch (ex) {

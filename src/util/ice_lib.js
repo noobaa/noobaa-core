@@ -394,8 +394,8 @@ module.exports.closeIce = closeIce;
 var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, socket) {
     if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId]) {
         console.error('forceCloseIce peer '+peerId);
-        p2p_context.iceSockets[channelObj.peerId].dataChannel.close();
-        delete p2p_context.iceSockets[channelObj.peerId];
+        p2p_context.iceSockets[peerId].dataChannel.close();
+        delete p2p_context.iceSockets[peerId];
     } else if (channelObj && channelObj.dataChannel) {
         console.error('forceCloseIce (no context) peer '+peerId);
         channelObj.dataChannel.close();

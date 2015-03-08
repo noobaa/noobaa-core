@@ -392,7 +392,8 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 module.exports.closeIce = closeIce;
 
 var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, socket) {
-    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId]) {
+    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId] &&
+        p2p_context.iceSockets[peerId].dataChannel) {
         console.error('forceCloseIce peer '+peerId);
         p2p_context.iceSockets[peerId].dataChannel.close();
         delete p2p_context.iceSockets[peerId];
@@ -400,7 +401,8 @@ var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, sock
         console.error('forceCloseIce (no context) peer '+peerId);
         channelObj.dataChannel.close();
     } else if (socket && socket.p2p_context && socket.p2p_context.iceSockets &&
-               socket.p2p_context.iceSockets[peerId] && socket.p2p_context.iceSockets[peerId].dataChannel) {
+               socket.p2p_context.iceSockets[peerId] &&
+               socket.p2p_context.iceSockets[peerId].dataChannel) {
         console.error('forceCloseIce (no general context, got socket) peer '+peerId);
         socket.p2p_context.iceSockets[peerId].dataChannel.close();
     } else {

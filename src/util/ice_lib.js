@@ -196,7 +196,7 @@ function reconnect(socket) {
 }
 
 var sendMessage = function sendMessage(socket, peerId, requestId, message) {
-    writeToLog(0, 'Client sending message: '+ message);
+    writeToLog(0, 'Client sending message: '+ message + ' tp peer '+peerId+' for req '+requestId+' i am '+socket.idInServer);
 
     var toSend = {
         sigType: 'ice',
@@ -499,12 +499,12 @@ function createPeerConnection(socket, requestId, config) {
              closed:
              The ICE agent has shut down and is no longer responding to STUN requests.
              */
-            writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
             if (evt.target && evt.target.iceConnectionState &&
                 'checking' !== evt.target.iceConnectionState &&
                 'connected' !== evt.target.iceConnectionState &&
                 'completed' !== evt.target.iceConnectionState
             ) {
+                writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
                 if ('disconnected' === evt.target.iceConnectionState || 'failed' === evt.target.iceConnectionState) {
                     forceCloseIce(socket.p2p_context, channelObj);
                 }

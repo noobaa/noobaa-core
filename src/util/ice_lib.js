@@ -8,9 +8,7 @@ var zlib = require('zlib');
 var _ = require('lodash');
 var Semaphore = require('noobaa-util/semaphore');
 
-var configuration = {
-    'iceServers': [{'url': config.stun}]
-};
+var configuration = config.ice_servers;
 
 function writeToLog(level, msg) {
     var timeStr = (new Date()).toString();

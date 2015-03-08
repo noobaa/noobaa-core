@@ -646,7 +646,7 @@ function rest_api(api) {
         }, function(err) {
             if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
-                //forceCloseIce(self_options.p2p_context, peerId);
+                ice_api.forceCloseIce(self_options.p2p_context, peerId);
                 writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' retry '+retry);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
             } else {
@@ -678,7 +678,7 @@ function rest_api(api) {
             })
             .then(null, function (err) {
                 writeToLog(-1,'ICE REST REQUEST FAILED ' + err);
-                throw new Error('Do retry with http - ice failure ex');
+                throw new Error('ice failure ex '+ err);
             });
     };
 

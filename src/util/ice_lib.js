@@ -196,7 +196,7 @@ function reconnect(socket) {
 }
 
 var sendMessage = function sendMessage(socket, peerId, requestId, message) {
-    writeToLog(0, 'Client sending message: '+ message + ' tp peer '+peerId+' for req '+requestId+' i am '+socket.idInServer);
+    writeToLog(0, 'Client sending message: '+ message + ' to peer '+peerId+' for req '+requestId+' i am '+socket.idInServer+' init: '+socket.icemap[requestId].isInitiator);
 
     var toSend = {
         sigType: 'ice',
@@ -312,7 +312,7 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
             if (p2p_context) {
                 return p2p_context.iceSockets[peerId].sem.surround(function() {
                     if (p2p_context.iceSockets[peerId].status === 'new') {
-                        writeToLog(2, 'send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+                        writeToLog(0, 'send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                         socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
                         createPeerConnection(socket, requestId, configuration);
                         p2p_context.iceSockets[peerId].status = 'start';
@@ -334,7 +334,7 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
                 });
             } else {
                 channelObj.connect_defer = Q.defer();
-                writeToLog(2, 'send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+                writeToLog(0, 'send accept to peer (no context) ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                 socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
                 createPeerConnection(socket, requestId, configuration);
                 return channelObj.connect_defer.promise;
@@ -399,6 +399,8 @@ var forceCloseIce = function forceCloseIce(p2p_context, channelObj) {
     } else if (channelObj.dataChannel) {
         console.error('forceCloseIce (no context) peer '+channelObj.peerId);
         channelObj.dataChannel.close();
+    } else {
+        console.error('forceCloseIce No context and NO dataChannel - peer '+channelObj.peerId);
     }
 };
 module.exports.forceCloseIce = forceCloseIce;
@@ -451,9 +453,9 @@ function createPeerConnection(socket, requestId, config) {
             if (event.candidate) {
 
                 try {
-                    if (!channelObj.peerConn.candidates) {
-                        channelObj.peerConn.candidates = [];
-                    }
+                    //if (!channelObj.peerConn.candidates) {
+                    //    channelObj.peerConn.candidates = [];
+                    //}
 
                     candidateMsg = JSON.stringify({
                         type: 'candidate',
@@ -462,15 +464,15 @@ function createPeerConnection(socket, requestId, config) {
                         candidate: event.candidate.candidate
                     });
 
-                    if (candidateMsg.indexOf('tcp') >= 0) {
+                    //if (candidateMsg.indexOf('tcp') >= 0) {
                         writeToLog(2, channelObj.peerId+' onIceCandidate event: '+
                         require('util').inspect(event.candidate.candidate) +
                         ' state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
 
                         sendMessage(socket, channelObj.peerId, channelObj.requestId, candidateMsg);
-                    } else {
-                        channelObj.peerConn.candidates.push(candidateMsg);
-                    }
+                    //} else {
+                    //    channelObj.peerConn.candidates.push(candidateMsg);
+                    //}
                 } catch (ex) {
                     console.error('candidates issue '+ex+' ; '+ex.stack);
                 }

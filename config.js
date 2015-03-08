@@ -1,7 +1,7 @@
 var config = {};
 
 // SIGNALING AND ICE
-config.address = 'ws://192.168.1.7:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
+config.address = 'ws://10.0.0.6:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
 config.connection_data_stale = 60 * 1000;
@@ -25,7 +25,7 @@ config.READ_RANGE_CONCURRENCY = 8;
 config.REPLICATE_CONCURRENCY = 32;
 
 // WEB SERVER
-config.web_address = 'http://192.168.1.7:5001';
+config.web_address = 'http://10.0.0.6:5001';
 config.web_address_heroku = 'https://noobaa-core.herokuapp.com';
 
 module.exports = config;

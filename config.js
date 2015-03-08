@@ -25,7 +25,7 @@ config.READ_RANGE_CONCURRENCY = 8;
 config.REPLICATE_CONCURRENCY = 32;
 
 // WEB SERVER
-config.web_address = 'http://10.0.0.2s:5001';
+config.web_address = 'http://10.0.0.2:5001';
 config.web_address_heroku = 'https://noobaa-core.herokuapp.com';
 
 module.exports = config;

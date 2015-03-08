@@ -30,7 +30,13 @@ var isAgent;
 var partSize = 40;
 
 var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
-    ice.forceCloseIce(p2p_context, peerId);
+
+    var sigSocket;
+    if (p2p_context && p2p_context.wsClientSocket) {
+        sigSocket = p2p_context.wsClientSocket.ws_socket;
+    }
+
+    ice.forceCloseIce(p2p_context, peerId, null, sigSocket);
 };
 module.exports.forceCloseIce = forceCloseIce;
 

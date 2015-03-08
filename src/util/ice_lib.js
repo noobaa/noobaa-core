@@ -391,16 +391,20 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 };
 module.exports.closeIce = closeIce;
 
-var forceCloseIce = function forceCloseIce(p2p_context, channelObj) {
-    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[channelObj.peerId]) {
-        console.error('forceCloseIce peer '+channelObj.peerId);
+var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, socket) {
+    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId]) {
+        console.error('forceCloseIce peer '+peerId);
         p2p_context.iceSockets[channelObj.peerId].dataChannel.close();
         delete p2p_context.iceSockets[channelObj.peerId];
-    } else if (channelObj.dataChannel) {
-        console.error('forceCloseIce (no context) peer '+channelObj.peerId);
+    } else if (channelObj && channelObj.dataChannel) {
+        console.error('forceCloseIce (no context) peer '+peerId);
         channelObj.dataChannel.close();
+    } else if (socket && socket.p2p_context && socket.p2p_context.iceSockets &&
+               socket.p2p_context.iceSockets[peerId] && socket.p2p_context.iceSockets[peerId].dataChannel) {
+        console.error('forceCloseIce (no general context, got socket) peer '+peerId);
+        socket.p2p_context.iceSockets[peerId].dataChannel.close();
     } else {
-        console.error('forceCloseIce No context and NO dataChannel - peer '+channelObj.peerId);
+        console.error('forceCloseIce No context and NO dataChannel - peer '+channelObj);
     }
 };
 module.exports.forceCloseIce = forceCloseIce;
@@ -508,7 +512,7 @@ function createPeerConnection(socket, requestId, config) {
             ) {
                 writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
                 if ('disconnected' === evt.target.iceConnectionState || 'failed' === evt.target.iceConnectionState) {
-                    forceCloseIce(socket.p2p_context, channelObj);
+                    forceCloseIce(socket.p2p_context, channelObj.peerId, channelObj, socket);
                 }
             }
         };

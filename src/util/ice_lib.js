@@ -404,9 +404,7 @@ var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, sock
         console.error('forceCloseIce (no general context, got socket) peer '+peerId);
         socket.p2p_context.iceSockets[peerId].dataChannel.close();
     } else {
-        console.error('forceCloseIce No context and NO dataChannel - peer '+peerId+' and cobj '+channelObj+' socket '+socket+' cont '+p2p_context);
-        console.error('forceCloseIce socket '+require('util').inspect(socket));
-        console.error('forceCloseIce p2p_context '+require('util').inspect(p2p_context));
+        console.error('forceCloseIce nothing to close - peer '+peerId);
     }
 };
 module.exports.forceCloseIce = forceCloseIce;

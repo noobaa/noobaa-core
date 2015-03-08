@@ -391,11 +391,14 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 };
 module.exports.closeIce = closeIce;
 
-var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
-    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId]) {
-        console.error('forceCloseIce peer '+peerId);
-        p2p_context.iceSockets[peerId].dataChannel.close();
-        delete p2p_context.iceSockets[peerId];
+var forceCloseIce = function forceCloseIce(p2p_context, channelObj) {
+    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[channelObj.peerId]) {
+        console.error('forceCloseIce peer '+channelObj.peerId);
+        p2p_context.iceSockets[channelObj.peerId].dataChannel.close();
+        delete p2p_context.iceSockets[channelObj.peerId];
+    } else if (channelObj.dataChannel) {
+        console.error('forceCloseIce (no context) peer '+channelObj.peerId);
+        channelObj.dataChannel.close();
     }
 };
 module.exports.forceCloseIce = forceCloseIce;
@@ -503,7 +506,7 @@ function createPeerConnection(socket, requestId, config) {
             ) {
                 writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
                 if ('disconnected' === evt.target.iceConnectionState) {
-                    forceCloseIce(socket.p2p_context, channelObj.peerId);
+                    forceCloseIce(socket.p2p_context, channelObj);
                 }
             }
         };

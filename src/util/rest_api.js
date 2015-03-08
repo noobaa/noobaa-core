@@ -646,7 +646,7 @@ function rest_api(api) {
         }, function(err) {
             if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
-                forceCloseIce(self_options.p2p_context, peerId);
+                //forceCloseIce(self_options.p2p_context, peerId);
                 writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' retry '+retry);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
             } else {

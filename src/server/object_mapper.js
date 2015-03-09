@@ -661,14 +661,28 @@ function build_chunks(chunks) {
                         }).then(function() {
                             dbg.log3('replicated block', block._id);
                         }, function(err) {
-                            dbg.log0('ERROR replicate block', block._id, block_addr.host, err);
-                            throw err;
+
+                            if (err && (typeof err === 'string' || err instanceof String) && err.indexOf('ECONNRESET') >= 0) {
+                                dbg.log0('ERROR replicate block 1', block._id, block_addr.host, err);
+                                throw err;
+                            } else {
+                                dbg.log0('ERROR replicate block 2', block._id, block_addr.host, err);
+                                throw err;
+                            }
                         })
                         .thenResolve(block._id);
                     });
                 }))
                 .then(function(built_block_ids) {
-                    dbg.log3('replicated blocks', built_block_ids);
+                    dbg.log0('replicated blocks', built_block_ids);
+
+                    if (built_block_ids.length < blocks_to_build.length) {
+                        for (var blockObj in blocks_to_build) {
+                            if (!_.indexOf(built_block_ids, blockObj._id)) {
+                                dbg.log0('replicated blocks block not handled', blockObj._id);
+                            }
+                        }
+                    }
 
                     // update building blocks to remove the building mode timestamp
                     return db.DataBlock.update({

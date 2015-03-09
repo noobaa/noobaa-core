@@ -128,6 +128,10 @@ function define_transformer(params) {
      * forward error to pipes
      */
     Transformer.prototype.transformer_forward_error = function(err) {
+
+        // TODO unneeded with pipeline ??
+        if (true) return;
+
         var state = this._readableState;
         if (!state || !state.pipes) return;
 

@@ -20,6 +20,7 @@ nb_util.run(['$rootScope', function($rootScope) {
     $rootScope._ = _;
     $rootScope.human_size = size_utils.human_size;
     $rootScope.human_percent = human_percent;
+    $rootScope.leading_zeros = leading_zeros;
     $rootScope.safe_apply = safe_apply;
     $rootScope.safe_callback = safe_callback;
     $rootScope.moment = moment;
@@ -746,4 +747,16 @@ function safe_callback(func) {
 function human_percent(fraction) {
     var percent = 100 * (Number(fraction) || 0);
     return percent < 10 ? percent.toFixed(1) : percent.toFixed(0);
+}
+
+function leading_zeros(num, min_len) {
+    var s = '' + num;
+    var zeros = Math.max(min_len - s.length, 0);
+    var lead = '';
+    while (zeros > 0) {
+        var z = '00000000000000000000000000000000'.slice(0, zeros);
+        zeros -= z.length;
+        lead += z;
+    }
+    return lead;
 }

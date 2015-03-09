@@ -14,21 +14,24 @@
 
             <div class="clearfix">
                 <h4 class="hflow" style="margin: 0">
-                    <a class="btn btn-link btn-block" href="/console/">
-                        <img src="/public/images/noobaa_dragon_logo.png" width="120" style="vertical-align: middle; margin-right: 5px" />
+                    <a href="/console/">
+                        <img src="/public/images/noobaa_dragon_logo.png" width="100" style="vertical-align: middle; margin: 10px" />
                     </a>
                 </h4>
             </div>
             <hr/>
 
-            <div ng-if="nbClient.account">
-                <div class="dropdown clearfix">
-                    <a class="btn btn-link btn-block dropdown-toggle" data-toggle="dropdown">
-                        <i class="mdi-action-account-circle pull-left" style="font-size: 30px; margin: -6px 5px 0 0"></i>
-                        <small>{{nbClient.account.email}}</small>
-                        <i class="fa fa-angle-down fa-lg pull-right"></i>
+            <div ng-if="nbClient.account" class="text-center" style="position: absolute; bottom: 10px; left: 0; right: 0">
+                <div class="dropup clearfix">
+                    <a class="dropdown-toggle" data-toggle="dropdown">
+                        <i class="mdi-action-account-circle fa-3x"></i>
+                        <br/>
+                        <small>
+                            {{nbClient.account.email}}
+                            <i class="fa fa-angle-right"></i>
+                        </small>
                     </a>
-                    <ul class="dropdown-menu" role="menu" style="right:0">
+                    <ul class="dropdown-menu text-left" role="menu" style="right:0">
                         <li ng-if="nbClient.account.is_support">
                             <a href="/console/support">Support page</a>
                         </li>
@@ -50,27 +53,18 @@
                         </li>
                     </ul>
                 </div>
-                <hr style="margin:0" />
             </div>
 
 
             <ul class="nav nav-pills nav-stacked" ng-if="nbSystem.system">
-                <li>
-                    <p>
-                        <a style="cursor:default">
-                            <small>SYSTEM</small>
-                            <!-- <small class="pull-right">
-                                Health <i class="fa fa-check fa-lg"></i>
-                            </small> -->
-                        </a>
-                    </p>
-                </li>
-                <li ng-class="{active: nav.active=='overview'}">
+                <li class="text-center" ng-class="{active: nav.active=='overview'}">
                     <a href="/console/overview">
-                        <i class="fa fa-globe fa-fw fa-lg pull-left"></i> Overview
+                        <i class="fa fa-globe fa-fw fa-3x"></i>
+                        <br/>Overview
                     </a>
                 </li>
 
+                <!--
                 <li>
                     <p>
                         <a href="/console/data" class="btn-block">
@@ -78,13 +72,17 @@
                         </a>
                     </p>
                 </li>
-                <li ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
+                -->
+
+                <li class="text-center" ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
                     <a ng-href="/console/bucket/{{bucket.name}}">
-                        <i class="fa fa-folder-o fa-fw fa-lg pull-left"></i>
+                        <i class="fa fa-folder-o fa-fw fa-3x"></i>
+                        <br/>
                         <span class="capitalize">{{bucket.name}}</span>
                     </a>
                 </li>
 
+                <!--
                 <li>
                     <p>
                         <a href="/console/resource" class="btn-block">
@@ -92,9 +90,12 @@
                         </a>
                     </p>
                 </li>
-                <li ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tier'}">
+                -->
+
+                <li class="text-center" ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tier'}">
                     <a ng-href="/console/tier/{{tier.name}}">
-                        <i class="fa fa-spinner fa-fw fa-lg pull-left"></i>
+                        <i class="fa fa-spinner fa-fw fa-3x"></i>
+                        <br/>
                         <span class="capitalize">{{tier.name}}</span>
                     </a>
                 </li>

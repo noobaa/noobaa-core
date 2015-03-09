@@ -41,8 +41,8 @@ function AgentCLI(params) {
         email: 'demo@noobaa.com',
         password: 'DeMo',
         system: 'demo@noobaa.com',
-        tier: 'my devices',
-        bucket: 'my files',
+        tier: 'nodes',
+        bucket: 'files',
     });
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);

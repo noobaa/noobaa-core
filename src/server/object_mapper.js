@@ -893,7 +893,7 @@ function get_part_info(params) {
             var node = block.node;
             if (params.details) {
                 var details = {
-                    tier_name: 'my devices', // TODO get tier name
+                    tier_name: 'nodes', // TODO get tier name
                     node_name: node.name,
                     online: node.is_online(),
                 };

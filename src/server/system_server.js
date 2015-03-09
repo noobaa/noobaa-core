@@ -72,7 +72,7 @@ function create_system(req) {
             tier_req.system = system;
             tier_req.role = 'admin';
             tier_req.rest_params = {
-                name: 'my devices',
+                name: 'nodes',
                 kind: 'edge',
             };
             return tier_server.methods.create_tier(tier_req);
@@ -83,8 +83,8 @@ function create_system(req) {
             bucket_req.system = system;
             bucket_req.role = 'admin';
             bucket_req.rest_params = {
-                name: 'my files',
-                tiering: ['my devices']
+                name: 'files',
+                tiering: ['nodes']
             };
             return bucket_server.methods.create_bucket(bucket_req);
         })

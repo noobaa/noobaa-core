@@ -663,7 +663,7 @@ function build_chunks(chunks) {
                         }, function(err) {
 
                             if (err && (typeof err === 'string' || err instanceof String) && err.indexOf('ECONNRESET') >= 0) {
-                                dbg.log0('ERROR replicate block 1', block._id, block_addr.host, err);
+                                dbg.log0('ERROR replicate block 1', block._id, block_addr.host, err); // TODO retry options
                                 throw err;
                             } else {
                                 dbg.log0('ERROR replicate block 2', block._id, block_addr.host, err);

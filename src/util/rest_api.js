@@ -620,8 +620,9 @@ function rest_api(api) {
             }).then(function(res) {
                 return res;
             }, function(err) {
-                writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' try http instead');
-                return self._doHttpCall(func_info, options, body);
+                writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' DONT try http instead');
+                throw err;
+                //return self._doHttpCall(func_info, options, body);
             });
         } else { // do http
 
@@ -705,6 +706,7 @@ function rest_api(api) {
 
     // create a REST api call and return the options for http request.
     Client.prototype._http_request = function(options, body) {
+
         var req = options.protocol === 'https:' ?
             https.request(options) :
             http.request(options);
@@ -720,7 +722,6 @@ function rest_api(api) {
         }
         if (options.timeout) {
             if (req.setTimeout) {
-
                 try {
                     req.setTimeout(options.timeout, function() {
                         console.error('REQUEST TIMEOUT');

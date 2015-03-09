@@ -338,7 +338,7 @@ ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
  */
 ObjectClient.prototype._attempt_write_block = function(params) {
     var self = this;
-
+    dbg.log3('write block _attempt_write_block',params);
     return self._write_block(params.block_address, params.buffer, params.offset)
         .then(null, function(err) {
             if (params.remaining_attempts <= 0) {
@@ -348,13 +348,14 @@ ObjectClient.prototype._attempt_write_block = function(params) {
             var bad_block_params =
                 _.extend(_.pick(params, 'bucket', 'key', 'start', 'end', 'fragment'), {
                     block_id: params.block_address.id,
-                    is_write: true,
+                    is_write: true
                 });
             dbg.log0('write block remaining attempts',
                 params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
             return self.report_bad_block(bad_block_params)
                 .then(function(res) {
-                    params.block_address = res.new_block.address;
+                    dbg.log2('write block _attempt_write_block retry with',res.new_block);
+                    params.block_address = res.new_block;
                     return self._attempt_write_block(params);
                 });
         });

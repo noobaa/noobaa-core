@@ -10,8 +10,8 @@ config.chunk_size = 60 * 1000;
 config.doStaleCheck = false;
 config.doDedup = false;
 config.buildWorkerOn = false;
-config.connection_default_timeout = 10 * 1000;
-config.ice_retry = 3;
+config.connection_default_timeout = 6 * 1000;
+config.ice_retry = 2;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

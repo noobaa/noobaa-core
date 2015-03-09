@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * AUTH API
  *
+ * client (currently web client) talking to the web server to authenticate
  */
 module.exports = rest_api({
 

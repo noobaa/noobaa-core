@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * AGENT API
  *
+ * commands that are sent to an agent (read/write/replicate)
  */
 module.exports = rest_api({
 

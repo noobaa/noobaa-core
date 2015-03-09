@@ -484,3 +484,20 @@ function main() {
 if (require.main === module) {
     main();
 }
+
+
+process.stdin.resume();//so the program will not close instantly
+
+function exitHandler() {
+    console.log('exiting');
+    process.exit();
+}
+
+process.on('exit', function(code) {
+    console.log('About to exit with code:', code);
+});
+
+process.on('uncaughtException', function(err) {
+    console.log('Caught exception: ' + err + ' ; ' + err.stack);
+    //exitHandler();
+});

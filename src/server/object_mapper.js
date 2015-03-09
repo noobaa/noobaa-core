@@ -11,10 +11,25 @@ var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
 var Semaphore = require('noobaa-util/semaphore');
+var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 //dbg.set_level(3);
 
+var p2p_context = {};
+
+/**
+ *
+ * General:
+ *
+ * object = file
+ * part = part of a file logically, points to a chunk
+ * chunk = actual data of the part can be used by several object parts if identical
+ * block = representation of a chunk on a specific node
+ * fragment = if we use erasure coding than a chunk is divided to fragments where if we lose one we can rebuild it using the rest.
+ *            each fragment will be replicated to x nodes as blocks
+ *
+ */
 module.exports = {
     allocate_object_parts: allocate_object_parts,
     finalize_object_parts: finalize_object_parts,
@@ -32,7 +47,7 @@ var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
 
 /**
  *
- * allocate_object_parts
+ * allocate_object_parts - allocates the object parts, chunks and blocks and writes it to the db
  *
  */
 function allocate_object_parts(bucket, obj, parts) {
@@ -53,7 +68,7 @@ function allocate_object_parts(bucket, obj, parts) {
 
     // dedup with existing chunks by lookup of crypt.hash_val
     return Q.fcall(function() {
-            if (process.env.DEDUP_DISABLED) {
+            if (process.env.DEDUP_DISABLED === 'true') {
                 return;
             }
             return db.DataChunk
@@ -150,11 +165,13 @@ function allocate_object_parts(bucket, obj, parts) {
 
 /**
  *
- * finalize_object_parts
+ * finalize_object_parts - after the 1st block was uploaded, this creates more blocks on other nodes to replicate to
+ * but only in the db
  *
  */
 function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.map(parts, 'block_ids'));
+    dbg.log3('finalize_object_parts', block_ids);
     var chunks;
     return Q.all([
 
@@ -195,6 +212,7 @@ function finalize_object_parts(bucket, obj, parts) {
             }));
             var chunk_by_id = _.indexBy(chunks, '_id');
             _.each(blocks, function(block) {
+                dbg.log3('going to finalize block ', block);
                 if (!block.building) {
                     throw new Error('block not in building mode');
                 }
@@ -229,6 +247,10 @@ function finalize_object_parts(bucket, obj, parts) {
                     upload_size: end
                 }).exec();
             }
+        })
+        .then(null, function(err) {
+            console.error('error finalize_object_parts ' + err + ' ; ' + err.stack);
+            throw err;
         });
 }
 
@@ -570,7 +592,7 @@ function build_chunks(chunks) {
             // send to the agent a request to replicate from the source
 
             if (!blocks_to_build.length) return;
-            var sem = new Semaphore(32);
+            var sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 
             dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
             return Q.all(_.map(blocks_to_build, function(block) {
@@ -579,14 +601,39 @@ function build_chunks(chunks) {
                         var source_addr = get_block_address(block.source);
                         var agent = new api.agent_api.Client();
                         agent.options.set_address(block_addr.host);
+                        agent.options.set_peer(block_addr.peer);
+                        agent.options.set_is_ws();
+                        agent.options.set_p2p_context(p2p_context);
+                        agent.options.set_timeout(30000);
 
                         return agent.replicate_block({
-                            block_id: block._id.toString(),
-                            source: source_addr
-                        }).thenResolve(block._id);
+                                block_id: block._id.toString(),
+                                source: source_addr
+                            }).then(function() {
+                                dbg.log3('replicated block', block._id);
+                            }, function(err) {
+
+                                if (err && (typeof err === 'string' || err instanceof String) && err.indexOf('ECONNRESET') >= 0) {
+                                    dbg.log0('ERROR replicate block 1', block._id, block_addr.host, err); // TODO retry options
+                                    throw err;
+                                } else {
+                                    dbg.log0('ERROR replicate block 2', block._id, block_addr.host, err);
+                                    throw err;
+                                }
+                            })
+                            .thenResolve(block._id);
                     });
                 }))
                 .then(function(built_block_ids) {
+                    dbg.log0('replicated blocks', built_block_ids);
+
+                    if (built_block_ids.length < blocks_to_build.length) {
+                        _.each(blocks_to_build, function(blockObj) {
+                            if (!_.indexOf(built_block_ids, blockObj._id)) {
+                                dbg.log0('replicated blocks block not handled', blockObj._id);
+                            }
+                        });
+                    }
 
                     // update building blocks to remove the building mode timestamp
                     return db.DataBlock.update({
@@ -618,6 +665,7 @@ function build_chunks(chunks) {
             }).exec();
         });
 }
+
 
 
 
@@ -925,6 +973,7 @@ function get_block_address(block) {
     var b = {};
     b.id = block._id.toString();
     b.host = 'http://' + block.node.ip + ':' + block.node.port;
+
     if (block.node.peer_id) {
         if (process.env.JWT_SECRET_PEER) {
             var jwt_options = {

@@ -26,6 +26,7 @@
   "dependencies": {
     "animate.css": "~3.1.1",
     "async": "~0.9.0",
+    "atom-shell": "1.0.1",
     "aws-sdk": "~2.1.8",
     "bcrypt": "~0.8.1",
     "body-parser": "~1.11.0",
@@ -86,14 +87,17 @@
     "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git",
     "q": "~1.1.2",
     "request": "~2.53.0",
+    "rewire": "^2.3.1",
     "rimraf": "~2.2.8",
     "selectize": "^0.12.0",
+    "sinon": "^1.12.2",
     "static-favicon": "~2.0.0-alpha",
     "through2": "~0.6.3",
     "tv4": "~1.1.9",
     "video.js": "~4.11.4",
     "vinyl-buffer": "~1.0.0",
-    "vinyl-source-stream": "~1.0.0"
+    "vinyl-source-stream": "~1.0.0",
+    "ws": "^0.7.0"
   },
   "devDependencies": {
     "node-inspector": "~0.8.3"

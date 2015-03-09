@@ -19,6 +19,8 @@ var api = require('../api');
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var AgentStore = require('./agent_store');
+var ice_api = require('../util/ice_api');
+var config = require('../../config.js');
 
 module.exports = Agent;
 
@@ -51,7 +53,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 10,
-            load: self.store.read_block.bind(self.store),
+            load: self.store.read_block.bind(self.store)
         });
     } else {
         assert(self.token, 'missing param: token. ' +
@@ -61,7 +63,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 1,
-            load: self.store.read_block.bind(self.store),
+            load: self.store.read_block.bind(self.store)
         });
     }
 
@@ -108,12 +110,15 @@ function Agent(params) {
         check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
     });
+    self.agent_server = agent_server;
     agent_server.install_rest(app);
 
     var http_server = http.createServer(app);
     http_server.on('listening', self._server_listening_handler.bind(self));
     http_server.on('close', self._server_close_handler.bind(self));
     http_server.on('error', self._server_error_handler.bind(self));
+
+
 
     self.agent_app = app;
     self.agent_server = agent_server;
@@ -125,8 +130,9 @@ function Agent(params) {
         'United States', 'Canada', 'Brazil', 'Mexico',
         'China', 'Japan', 'Korea', 'India', 'Australia',
         'Israel', 'Romania', 'Russia',
-        'Germany', 'England', 'France', 'Spain',
+        'Germany', 'England', 'France', 'Spain'
     ]);
+
 }
 
 
@@ -139,7 +145,6 @@ Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
-    console.log('start agent', self.node_id);
 
     return Q.fcall(function() {
             return self._init_node();
@@ -149,6 +154,16 @@ Agent.prototype.start = function() {
         })
         .then(function() {
             return self.send_heartbeat();
+        })
+        .then(function() {
+            if (config.use_ice_when_possible || config.use_ws_when_possible) {
+                console.log('start ws agent id: '+ self.node_id+' peer id: '+ self.peer_id);
+
+                self.sigSocket = ice_api.signalingSetup(self.agent_server.ice_server_handler.bind(self.agent_server),
+                    self.peer_id);
+                self.client.options.set_ws(self.sigSocket);
+                return self.sigSocket;
+            }
         })
         .then(null, function(err) {
             console.error('AGENT server failed to start', err);
@@ -165,7 +180,7 @@ Agent.prototype.start = function() {
  */
 Agent.prototype.stop = function() {
     var self = this;
-    console.log('stop agent', self.node_id);
+    console.log('stop agent '+ self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
     self._start_stop_heartbeats();
@@ -203,8 +218,8 @@ Agent.prototype._init_node = function() {
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
                 self.peer_id = res.extra.peer_id;
-                console.log('authorized node', self.node_name,
-                    'id', self.node_id, 'peer_id', self.peer_id);
+                console.log('authorized node '+ self.node_name+
+                    ' id '+ self.node_id+ ' peer_id '+ self.peer_id);
                 return;
             }
 
@@ -217,7 +232,7 @@ Agent.prototype._init_node = function() {
                     name: self.node_name,
                     tier: res.extra.tier,
                     geolocation: self.geolocation,
-                    storage_alloc: 100 * size_utils.GIGABYTE,
+                    storage_alloc: 100 * size_utils.GIGABYTE
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.client.headers.set_auth_token(node.token);
@@ -270,7 +285,7 @@ Agent.prototype._start_stop_http_server = function() {
  */
 Agent.prototype._server_listening_handler = function() {
     this.http_port = this.http_server.address().port;
-    console.log('AGENT server listening on port', this.http_port);
+    console.log('AGENT server listening on port '+ this.http_port);
 };
 
 
@@ -325,8 +340,8 @@ Agent.prototype.send_heartbeat = function() {
                 port: self.http_port,
                 storage: {
                     alloc: store_stats.alloc,
-                    used: store_stats.used,
-                },
+                    used: store_stats.used
+                }
             };
             var now_time = Date.now();
             if (!self.device_info_send_time ||
@@ -343,7 +358,7 @@ Agent.prototype.send_heartbeat = function() {
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
                     cpus: os.cpus(),
-                    networkInterfaces: os.networkInterfaces(),
+                    networkInterfaces: os.networkInterfaces()
                 };
             }
             return self.client.node.heartbeat(params);
@@ -446,9 +461,16 @@ Agent.prototype.replicate_block = function(req) {
     console.log('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
+    if (!self.p2p_context) {
+        self.p2p_context = {};
+    }
+
     // read from source agent
     var agent = new api.agent_api.Client();
     agent.options.set_address(source.host);
+    agent.options.set_peer(source.peer);
+    agent.options.set_ws(self.sigSocket);
+    agent.options.set_p2p_context(self.p2p_context);
     return agent.read_block({
             block_id: source.id
         })

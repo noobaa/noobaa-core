@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * SYSTEM API
  *
+ * client (currently web client) talking to the web server to work on system (per client group - contains nodes, tiers abd bckets etc)
  */
 module.exports = rest_api({
 

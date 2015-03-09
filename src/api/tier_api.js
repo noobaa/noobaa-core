@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * TIER API
  *
+ * client (currently web client) talking to the web server to work on tier
  */
 module.exports = rest_api({
 

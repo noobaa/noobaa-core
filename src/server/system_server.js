@@ -1,4 +1,4 @@
-// this module is written for both nodejs.
+// this module is written for nodejs.
 'use strict';
 
 var _ = require('lodash');
@@ -6,10 +6,12 @@ var Q = require('q');
 var assert = require('assert');
 var moment = require('moment');
 var LRU = require('noobaa-util/lru');
-var db = require('./db');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
+var db = require('./db');
 var api = require('../api');
+var tier_server = require('./tier_server');
+var bucket_server = require('./bucket_server');
 
 
 /**
@@ -58,6 +60,34 @@ function create_system(req) {
             });
         })
         .then(null, db.check_already_exists(req, 'role'))
+        .then(function() {
+            // filling reply_token
+            if (req.reply_token) {
+                req.reply_token.system_id = system.id;
+                req.reply_token.role = 'admin';
+            }
+
+            // create a new request that inherits from current req
+            var tier_req = Object.create(req);
+            tier_req.system = system;
+            tier_req.role = 'admin';
+            tier_req.rest_params = {
+                name: 'my devices',
+                kind: 'edge',
+            };
+            return tier_server.methods.create_tier(tier_req);
+        })
+        .then(function() {
+            // create a new request that inherits from current req
+            var bucket_req = Object.create(req);
+            bucket_req.system = system;
+            bucket_req.role = 'admin';
+            bucket_req.rest_params = {
+                name: 'my files',
+                tiering: ['my devices']
+            };
+            return bucket_server.methods.create_bucket(bucket_req);
+        })
         .then(function() {
 
             // a token for the new system
@@ -202,34 +232,23 @@ function delete_system(req) {
  */
 function list_systems(req) {
 
-    // special case for support accounts - list all systems
-    if (req.account.is_support) {
-        return Q.when(
-                db.System
-                .find({
-                    deleted: null
-                })
-                .exec())
-            .then(function(systems) {
-                return _.map(systems, function(system) {
-                    return get_system_info(system);
-                });
-            });
+    // support gets to see all systems
+    var query = {};
+    if (!req.account.is_support) {
+        query.account = req.account.id;
     }
 
-    // for normal accounts, get list from roles
     return Q.when(
-            db.Role
-            .find({
-                account: req.account.id
-            })
+            db.Role.find(query)
             .populate('system')
             .exec())
         .then(function(roles) {
-            return _.compact(_.map(roles, function(role) {
-                if (role.system.deleted) return null;
-                return get_system_info(role.system);
-            }));
+            return {
+                systems: _.compact(_.map(roles, function(role) {
+                    if (!role.system || role.system.deleted) return null;
+                    return get_system_info(role.system);
+                }))
+            };
         });
 }
 

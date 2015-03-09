@@ -29,6 +29,13 @@
                         <i class="fa fa-angle-down fa-lg pull-right"></i>
                     </a>
                     <ul class="dropdown-menu" role="menu" style="right:0">
+                        <li ng-if="nbClient.account.is_support">
+                            <a href="/console/support">Support page</a>
+                        </li>
+                        <li class="divider" ng-if="nbClient.account.is_support"></li>
+                        <li style="padding: 0 10px">
+                            <span class="label label-default">Systems</span>
+                        </li>
                         <li ng-repeat="sys in nbSystem.systems">
                             <a ng-click="nbSystem.connect_system(sys.name)">
                                 <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}

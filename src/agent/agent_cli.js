@@ -39,9 +39,9 @@ function AgentCLI(params) {
         port: params.prod ? 5050 : 0,
         email: 'demo@noobaa.com',
         password: 'DeMo',
-        system: 'demo',
-        tier: 'devices',
-        bucket: 'files',
+        system: 'demo@noobaa.com',
+        tier: 'my devices',
+        bucket: 'my files',
     });
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);
@@ -60,7 +60,9 @@ AgentCLI.prototype.init = function() {
     var self = this;
 
     if (self.params.setup) {
-        return self.client.setup(self.params)
+        var account_params = _.pick(self.params, 'email', 'password');
+        account_params.name = account_params.email;
+        return self.client.account.create_account(account_params)
             .then(function() {
                 console.log('COMPLETED: setup', self.params);
             }, function(err) {

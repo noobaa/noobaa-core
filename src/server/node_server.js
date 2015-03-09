@@ -7,7 +7,6 @@ var mongoose = require('mongoose');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
-var system_server = require('./system_server');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');

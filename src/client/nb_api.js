@@ -71,13 +71,6 @@ nb_api.factory('nbClient', [
                     if (err.status === 401) return $timeout(login, 10);
                     var q = 'Oy, there\'s a problem. Would you like to reload?';
                     return nbAlertify.confirm(q).then(logout);
-                })
-                .then(function() {
-                    if ($scope.system) {
-                        $scope.client.system.read_system().then(function(res) {
-                            _.merge($scope.system, res);
-                        });
-                    }
                 });
         }
 
@@ -125,15 +118,14 @@ nb_api.factory('nbClient', [
 
 
 nb_api.factory('nbSystem', [
-    '$q', '$timeout', '$rootScope', 'nbAlertify', 'nbClient',
-    function($q, $timeout, $rootScope, nbAlertify, nbClient) {
+    '$q', '$timeout', '$rootScope', '$location', 'nbAlertify', 'nbClient',
+    function($q, $timeout, $rootScope, $location, nbAlertify, nbClient) {
         var $scope = {};
 
-        $scope.refresh_systems = refresh_systems;
+        $scope.reload_system = reload_system;
         $scope.new_system = new_system;
         $scope.create_system = create_system;
         $scope.connect_system = connect_system;
-        $scope.refresh_system = refresh_system;
 
         $scope.read_activity_log = read_activity_log;
         $scope.read_activity_log_newest = read_activity_log_newest;
@@ -145,40 +137,94 @@ nb_api.factory('nbSystem', [
             limit: 10
         };
 
-        $scope.init_systems = refresh_systems();
+        $scope.init_system = reload_system();
 
-        function refresh_systems() {
+        function reload_system() {
             return nbClient.init_promise
                 .then(function() {
-                    return nbClient.client.system.list_systems();
-                })
-                .then(function(res) {
-                    console.log('SYSTEMS', res);
-                    $scope.systems = res;
-                });
-        }
+                    if (!nbClient.account) return;
 
-        function refresh_system() {
-            return nbClient.init_promise
-                .then(function() {
-                    return nbClient.client.system.read_system();
+                    return nbClient.client.system.list_systems()
+                        .then(function(res) {
+                            console.log('SYSTEMS', res.systems);
+                            $scope.systems = res.systems;
+
+                            // if we are already connected to a system then read it
+                            if (nbClient.system) {
+                                return nbClient.client.system.read_system();
+                            }
+
+                            // for support account - go to list of systems
+                            if (nbClient.account.is_support) {
+                                // TODO this service shouldn't really mess with app locations
+                                $location.path('support');
+                                return;
+                            }
+
+                            // if not then just connect to the first one
+                            var sys = $scope.systems[0];
+                            if (!sys) {
+                                // TODO this service shouldn't really mess with app locations
+                                // $location.path('new_system');
+                                return;
+                            }
+                            return nbClient.create_auth({
+                                    system: sys.name
+                                })
+                                .then(function() {
+                                    return nbClient.client.system.read_system();
+                                });
+                        });
                 })
                 .then(function(sys) {
+                    if (!sys) {
+                        console.log('NO SYSTEM', nbClient.account);
+                        return;
+                    }
                     console.log('READ SYSTEM', sys);
                     $scope.system = sys;
+
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
                     _.each(sys.tiers, function(tier) {
                         tier.used_percent = Math.ceil(100 * tier.storage.used / tier.storage.alloc);
                     });
                     return read_activity_log();
-                }, function(err) {
-                    console.error('READ SYSTEM FAILED', err);
-                    return $scope.init_systems.then(function() {
-                        var sys = $scope.systems[0];
-                        return connect_system(sys.name);
-                    });
+                })
+                .then(null, function(err) {
+                    console.error('RELOAD SYSTEM FAILED', err);
+                });
+
+
+        }
+
+        function new_system() {
+            nbAlertify.prompt('Enter name for new system')
+                .then(function(str) {
+                    if (str) {
+                        return create_system(str);
+                    }
                 });
         }
+
+        function create_system(name) {
+            return $q.when()
+                .then(function() {
+                    return nbClient.client.system.create_system({
+                        name: name
+                    });
+                })
+                .then(reload_system);
+        }
+
+        function connect_system(system_name) {
+            return nbClient.create_auth({
+                    system: system_name
+                })
+                .then(reload_system);
+        }
+
+
+        // ACTIVITY LOG
 
         function read_activity_log() {
             return nbClient.init_promise
@@ -282,32 +328,6 @@ nb_api.factory('nbSystem', [
             return read_activity_log().then(function() {
                 $scope.activity_log_subject = subject;
             });
-        }
-
-        function new_system() {
-            nbAlertify.prompt('Enter name for new system')
-                .then(function(str) {
-                    if (str) {
-                        return create_system(str);
-                    }
-                });
-        }
-
-        function create_system(name) {
-            return $q.when()
-                .then(function() {
-                    return nbClient.client.system.create_system({
-                        name: name
-                    });
-                })
-                .then(refresh_systems);
-        }
-
-        function connect_system(system_name) {
-            return nbClient.create_auth({
-                    system: system_name
-                })
-                .then(refresh_system);
         }
 
         return $scope;

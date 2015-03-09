@@ -5,10 +5,8 @@ var _ = require('lodash');
 var Q = require('q');
 var rest_api = require('../util/rest_api');
 var api = require('../api');
-var system_server = require('./system_server');
-var LRU = require('noobaa-util/lru');
-var object_mapper = require('./object_mapper');
 var db = require('./db');
+var object_mapper = require('./object_mapper');
 
 
 /**

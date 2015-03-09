@@ -36,9 +36,9 @@ function ClientCLI(params) {
         streamer: params.prod ? 5005 : 5006,
         email: 'demo@noobaa.com',
         password: 'DeMo',
-        system: 'demo',
-        tier: 'devices',
-        bucket: 'files',
+        system: 'demo@noobaa.com',
+        tier: 'my devices',
+        bucket: 'my files',
     });
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);
@@ -56,7 +56,9 @@ ClientCLI.prototype.init = function() {
     var self = this;
 
     if (self.params.setup) {
-        return self.client.setup(self.params)
+        var account_params = _.pick(self.params, 'email', 'password');
+        account_params.name = account_params.email;
+        return self.client.account.create_account(account_params)
             .then(function() {
                 console.log('COMPLETED: setup', self.params);
             }, function(err) {
@@ -94,11 +96,6 @@ ClientCLI.prototype.load = function() {
     return Q.fcall(function() {
             var auth_params = _.pick(self.params,
                 'email', 'password', 'system', 'role');
-            if (self.params.bucket) {
-                auth_params.extra = {
-                    bucket: self.params.bucket
-                };
-            }
             dbg.log1('create auth', auth_params);
             return self.client.create_auth_token(auth_params);
         })

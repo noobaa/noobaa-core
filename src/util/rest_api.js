@@ -130,11 +130,11 @@ function rest_api(api) {
      */
     function Server(methods, options) {
         var self = this;
+        self.methods = methods;
         options = options || {};
         if (options.allow_missing_methods) {
             assert.strictEqual(options.allow_missing_methods, 'allow_missing_methods');
         }
-        self._impl = {};
         self._handlers = {};
         self._log = console.log.bind(console);
 
@@ -149,7 +149,6 @@ function rest_api(api) {
             }
             assert.strictEqual(typeof(func), 'function',
                 'rest_api: server method should be a function - ' + func_info.fullname);
-            self._impl[func_name] = func;
             self._handlers[func_name] = self._create_server_handler(func, func_info);
         });
     }
@@ -199,13 +198,6 @@ function rest_api(api) {
      */
     Server.prototype.set_logger = function(logger) {
         this._log = logger;
-    };
-
-    /**
-     * directly call a server func with the given request.
-     */
-    Server.prototype.call_rest_func = function(func_name, req) {
-        return this._impl[func_name](req);
     };
 
     /**

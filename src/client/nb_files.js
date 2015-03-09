@@ -274,8 +274,10 @@ nb_api.factory('nbFiles', [
             };
             var defer = $q.defer();
             var stream = concat_stream(defer.resolve);
+            var source = nbClient.client.object.open_read_stream(object_path);
+            source.once('error', defer.reject);
             stream.once('error', defer.reject);
-            nbClient.client.object.open_read_stream(object_path).pipe(stream);
+            source.pipe(stream);
             return defer.promise;
         }
 

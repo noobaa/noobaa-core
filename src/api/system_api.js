@@ -80,9 +80,15 @@ module.exports = rest_api({
             method: 'GET',
             path: '/systems',
             reply: {
-                type: 'array',
-                items: {
-                    $ref: '/system_api/definitions/system_info'
+                type: 'object',
+                required: ['systems'],
+                properties: {
+                    systems: {
+                        type: 'array',
+                        items: {
+                            $ref: '/system_api/definitions/system_info'
+                        }                        
+                    }
                 }
             },
             auth: {

@@ -196,6 +196,9 @@ function read_auth(req) {
     var reply = _.pick(req.auth, 'role', 'extra');
     if (req.account) {
         reply.account = _.pick(req.account, 'name', 'email');
+        if (req.account.is_support) {
+            reply.account.is_support = true;
+        }
     }
     if (req.system) {
         reply.system = _.pick(req.system, 'name');

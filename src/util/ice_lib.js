@@ -2,7 +2,7 @@
 
 var WebSocket = require('ws');
 var Q = require('q');
-var dbg = require('../util/dbg')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var zlib = require('zlib');
 var _ = require('lodash');

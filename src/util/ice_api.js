@@ -4,7 +4,7 @@ var ice = require('./ice_lib');
 var Q = require('q');
 var buf = require('./buffer_utils');
 var rand = require('./random_utils');
-var dbg = require('../util/dbg')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
 

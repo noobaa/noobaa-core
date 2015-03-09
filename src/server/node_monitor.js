@@ -6,7 +6,7 @@ var Q = require('q');
 var moment = require('moment');
 var db = require('./db');
 var Barrier = require('../util/barrier');
-var dbg = require('../util/dbg')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 

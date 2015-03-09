@@ -267,7 +267,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                     transform: function(part) {
                         dbg.log0('upload_stream: completed part offset', part.start);
                         dbg.log_progress(part.end / params.size);
-                        notify({
+                        pipeline.notify({
                             event: 'part:after',
                             part: part
                         });

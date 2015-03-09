@@ -23,6 +23,9 @@ function Pipeline(source_stream) {
     this._defer = Q.defer();
 }
 
+Pipeline.prototype.notify = function(progress){
+    this._defer.notify(progress);
+};
 Pipeline.prototype.pipe = function(next) {
     next.on('error', this.on_error.bind(this));
     next.on('close', this.on_close.bind(this));

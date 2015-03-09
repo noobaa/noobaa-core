@@ -18,6 +18,7 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
 var config = require('../../config.js');
+var DebugModule = require('noobaa-util/debug_module');
 
 Q.longStackSupport = true;
 
@@ -47,6 +48,8 @@ function AgentCLI(params) {
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);
     self.agents = {};
+    self._mod = new DebugModule(__filename);
+    self.modules = self._mod.get_module_structure();
 }
 
 
@@ -90,6 +93,9 @@ try {
     console.error("prob xxxxxxx");
 }
 
+AgentCLI.prototype.init.helper = function() {
+    console.log("Init client");
+};
 
 /**
  *
@@ -135,7 +141,9 @@ AgentCLI.prototype.load = function() {
         });
 };
 
-
+AgentCLI.prototype.load.helper = function() {
+    console.log("create token, start nodes ");
+};
 
 /**
  *
@@ -169,6 +177,9 @@ AgentCLI.prototype.create = function() {
         });
 };
 
+AgentCLI.prototype.create.helper = function() {
+    console.log("Create a new agent and start it");
+};
 
 /**
  *
@@ -187,7 +198,9 @@ AgentCLI.prototype.create_some = function(n) {
     }));
 };
 
-
+AgentCLI.prototype.create_some.helper = function() {
+    console.log("Create n agents:   create_some <n>");
+};
 
 /**
  *
@@ -221,7 +234,9 @@ AgentCLI.prototype.start = function(node_name) {
     });
 };
 
-
+AgentCLI.prototype.start.helper = function() {
+    console.log("Start a specific agent, if agent doesn't exist, will create it:   start <agent>");
+};
 
 /**
  *
@@ -243,7 +258,9 @@ AgentCLI.prototype.stop = function(node_name) {
     console.log('agent stopped', node_name);
 };
 
-
+AgentCLI.prototype.stop.helper = function() {
+    console.log("Stop a specific agent:   stop <agent>");
+};
 
 /**
  *
@@ -263,7 +280,51 @@ AgentCLI.prototype.list = function() {
     });
 };
 
+AgentCLI.prototype.list.helper = function() {
+    console.log("List all agents status");
+};
 
+/**
+ *
+ * Set Log Level
+ *
+ * Set logging level for a module
+ *
+ */
+AgentCLI.prototype.set_log = function(mod, level) {
+    var self = this;
+    self._mod.set_level(level,mod);
+    console.log("Log for " + mod + " with level of " + level + " was set");
+
+};
+
+AgentCLI.prototype.set_log.helper = function() {
+    console.log('Setting log levels for module:   set_log <"module"> <level>');
+};
+/**
+ *
+ * Show
+ *
+ * help for specific API
+ *
+ */
+
+AgentCLI.prototype.show = function(func_name) {
+    var func = this[func_name];
+    var helper = func && func.helper;
+
+    // in the common case the helper is a function - so call it
+    if (typeof(helper) === 'function') {
+        return helper.call(this);
+    }
+
+    // if helper is string or something else we just print it
+    if (helper) {
+        console.log(helper);
+    } else {
+        console.log('help not found for function', func_name);
+    }
+};
 
 function file_must_not_exist(path) {
     return Q.nfcall(fs.stat, path)
@@ -278,6 +339,9 @@ function file_must_exist(path) {
     return Q.nfcall(fs.stat, path).thenResolve();
 }
 
+function populate_general_help(general) {
+    general.push('show("<function>"") to show help on a specific API');
+}
 
 function main() {
 
@@ -293,7 +357,8 @@ function main() {
         });
         var help = {
             functions: [],
-            variables: []
+            variables: [],
+            general: [],
         };
         _.forIn(cli, function(val, key) {
             if (typeof(val) === 'function') {
@@ -304,6 +369,7 @@ function main() {
                 help.variables.push(key);
             }
         });
+        populate_general_help(help.general);
         repl_srv.context.help = help;
     }, function(err) {
         console.error(err);

@@ -23,5 +23,6 @@ ionic-app/
 # heapdump files
 heapdump-*
 
-# log files
+# logs
 *.log
+logs/

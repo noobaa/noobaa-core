@@ -12,10 +12,10 @@ var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
 var ice_api = require('./ice_api');
 var buf = require('./buffer_utils');
-var dbg = require('./dbg')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 
-dbg.log_level = config.dbg_log_level;
+dbg.set_level(config.dbg_log_level);
 
 function writeToLog(level, msg) {
     var timeStr = (new Date()).toString();
@@ -31,6 +31,7 @@ function writeToLog(level, msg) {
         console.error(timeStr+' '+msg);
     }
 }
+
 
 module.exports = rest_api;
 

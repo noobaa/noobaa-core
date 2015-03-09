@@ -8,6 +8,7 @@ var assert = require('assert');
 var path = require('path');
 var utilitest = require('noobaa-util/utilitest');
 var rimraf = require('rimraf');
+var mongoose = require('mongoose');
 var Semaphore = require('noobaa-util/semaphore');
 var api = require('../api');
 var db = require('../server/db');
@@ -16,6 +17,8 @@ var Agent = require('../agent/agent');
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
 // Q.longStackSupport = true;
+
+mongoose.set('debug', true);
 
 process.env.JWT_SECRET = 'coretest';
 

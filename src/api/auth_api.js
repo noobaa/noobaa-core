@@ -78,7 +78,7 @@ module.exports = rest_api({
                 properties: {
                     account: {
                         type: 'object',
-                        required: [],
+                        required: ['name', 'email'],
                         properties: {
                             name: {
                                 type: 'string',
@@ -86,11 +86,14 @@ module.exports = rest_api({
                             email: {
                                 type: 'string',
                             },
-                        }
+                            is_support: {
+                                type: 'boolean',
+                            },
+                        },
                     },
                     system: {
                         type: 'object',
-                        required: [],
+                        required: ['name'],
                         properties: {
                             name: {
                                 type: 'string',

@@ -57,6 +57,10 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/file_view.html',
                 reloadOnSearch: false,
             })
+            .when('/support', {
+                templateUrl: 'console/support.html',
+                reloadOnSearch: false,
+            })
             .otherwise({
                 redirectTo: '/overview'
             });
@@ -85,53 +89,122 @@ nb_console.controller('ConsoleCtrl', [
 
 
 
-nb_console.controller('OverviewCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'overview';
-    $scope.nav.reload_view = reload_view;
-    if (!$scope.nbSystem.system) {
-        $scope.nbSystem.refresh_system()
-            .then(function() {
-                return $scope.nbNodes.refresh_node_groups();
+nb_console.controller('SupportViewCtrl', [
+    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
+    'nbClient', 'nbSystem', 'nbNodes', 'nbHashRouter', 'nbAlertify', 'nbModal',
+    function($scope, $q, $timeout, $window, $location, $routeParams,
+        nbClient, nbSystem, nbNodes, nbHashRouter, nbAlertify, nbModal) {
+        $scope.nav.active = 'support';
+        $scope.nav.reload_view = reload_view;
+        $scope.create_account = create_account;
+
+        var support_router = $scope.support_router =
+            nbHashRouter($scope)
+            .when('accounts', {
+                templateUrl: 'console/support_accounts.html',
+                reload: reload_accounts
+            })
+            .when('stats', {
+                templateUrl: 'console/support_stats.html',
+            })
+            .when('settings', {
+                templateUrl: 'console/support_settings.html',
+            })
+            .otherwise({
+                redirectTo: 'accounts'
             });
-    } else {
-        $scope.nbNodes.draw_nodes_map();
+
+        reload_view(true);
+
+        function reload_view(init_only) {
+            return nbSystem.init_system
+                .then(function() {
+                    if (!nbClient.account || !nbClient.account.is_support) {
+                        $location.path('/');
+                        return;
+                    }
+                    support_router.done();
+                });
+        }
+
+        function reload_accounts() {
+            return $q.when(nbClient.client.account.list_accounts())
+                .then(function(res) {
+                    console.log('ACCOUNTS', res);
+                    $scope.accounts = res.accounts;
+                });
+        }
+
+        function create_account() {
+            var scope = $scope.$new();
+            scope.create = function() {
+                return $q.when(nbClient.client.account.create_account({
+                    name: scope.name,
+                    email: scope.email,
+                    password: scope.password
+                })).then(reload_accounts);
+            };
+            scope.modal = nbModal({
+                template: 'console/account_create_dialog.html',
+                scope: scope,
+            });
+        }
     }
+]);
 
-    function reload_view() {
-        return $q.all([
-            $scope.nbSystem.refresh_system(),
-            $scope.nbNodes.refresh_node_groups()
-        ]);
+
+
+nb_console.controller('OverviewCtrl', [
+    '$scope', '$q',
+    function($scope, $q) {
+        $scope.nav.active = 'overview';
+        $scope.nav.reload_view = reload_view;
+
+        return $scope.nbSystem.init_system
+            .then(function() {
+                return $scope.nbNodes.draw_nodes_map();
+            });
+
+        function reload_view() {
+            return $q.all([
+                $scope.nbSystem.reload_system(),
+                $scope.nbNodes.refresh_node_groups()
+            ]);
+        }
     }
-}]);
+]);
 
 
 
-nb_console.controller('SystemResourceCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'resource';
-    $scope.nav.reload_view = reload_view;
-    if (!$scope.nbSystem.system) {
-        reload_view();
+nb_console.controller('SystemResourceCtrl', [
+    '$scope', '$q', 'nbSystem',
+    function($scope, $q, nbSystem) {
+        $scope.nav.active = 'resource';
+        $scope.nav.reload_view = reload_view;
+
+        reload_view(true);
+
+        function reload_view(init_only) {
+            return init_only ? nbSystem.init_system : nbSystem.reload_system();
+        }
     }
+]);
 
-    function reload_view() {
-        return $scope.nbSystem.refresh_system();
+
+
+nb_console.controller('SystemDataCtrl', [
+    '$scope', '$q', 'nbSystem',
+    function($scope, $q, nbSystem) {
+        $scope.nav.active = 'data';
+        $scope.nav.reload_view = reload_view;
+
+        reload_view(true);
+
+        function reload_view(init_only) {
+            return init_only ? nbSystem.init_system : nbSystem.reload_system();
+        }
     }
-}]);
-
-
-
-nb_console.controller('SystemDataCtrl', ['$scope', '$q', function($scope, $q) {
-    $scope.nav.active = 'data';
-    $scope.nav.reload_view = reload_view;
-    if (!$scope.nbSystem.system) {
-        reload_view();
-    }
-
-    function reload_view() {
-        return $scope.nbSystem.refresh_system();
-    }
-}]);
+]);
 
 
 
@@ -168,8 +241,7 @@ nb_console.controller('TierViewCtrl', [
         function reload_view(init_only) {
             return $q.when()
                 .then(function() {
-                    if (init_only && nbSystem.system) return;
-                    return nbSystem.refresh_system();
+                    return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
                     $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
@@ -247,8 +319,7 @@ nb_console.controller('NodeViewCtrl', [
         function reload_view(init_only) {
             return $q.when()
                 .then(function() {
-                    if (init_only && nbSystem.system) return;
-                    return nbSystem.refresh_system();
+                    return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
                     $scope.tier = _.find(nbSystem.system.tiers, function(tier) {
@@ -262,6 +333,7 @@ nb_console.controller('NodeViewCtrl', [
                 })
                 .then(function(res) {
                     $scope.node = res;
+                    $scope.my_host = 'http://' + $scope.node.ip + ':' + $scope.node.port;
 
                     var used = $scope.node.storage.used;
                     var unused = $scope.node.storage.alloc - used;
@@ -278,11 +350,11 @@ nb_console.controller('NodeViewCtrl', [
                             sliceVisibilityThreshold: 0,
                             slices: [{
                                 color: '#03a9f4'
-                            },{
+                            }, {
                                 color: '#ff008b'
-                            },{
+                            }, {
                                 color: '#ffa0d3'
-                            },{
+                            }, {
                                 color: '#81d4fa'
                             }]
                         },
@@ -323,20 +395,15 @@ nb_console.controller('NodeViewCtrl', [
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
             };
-            var my_host = 'http://' + $scope.node.ip + ':' + $scope.node.port;
             return $q.when(nbClient.client.node.read_node_maps(query))
                 .then(function(res) {
                     $scope.parts = [];
                     _.each(res.objects, function(object) {
                         _.each(object.parts, function(part) {
-                            _.each(part.fragments, function(frag) {
-                                frag.sort(function(block1, block2) {
-                                    if (block1.host === my_host) {
-                                        return -1;
-                                    } else {
-                                        return 1;
-                                    }
-                                });
+                            var frag_size = part.chunk_size / part.kfrag;
+                            _.each(part.fragments, function(fragment, fragment_index) {
+                                fragment.start = part.start + (frag_size * fragment_index);
+                                fragment.size = frag_size;
                             });
                             part.file = object.key;
                             $scope.parts.push(part);
@@ -392,8 +459,7 @@ nb_console.controller('BucketViewCtrl', [
         function reload_view(init_only) {
             return $q.when()
                 .then(function() {
-                    if (init_only && nbSystem.system) return;
-                    return nbSystem.refresh_system();
+                    return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
@@ -476,8 +542,7 @@ nb_console.controller('FileViewCtrl', [
         function reload_view(init_only) {
             return $q.when()
                 .then(function() {
-                    if (init_only && nbSystem.system) return;
-                    return nbSystem.refresh_system();
+                    return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
@@ -490,7 +555,7 @@ nb_console.controller('FileViewCtrl', [
                     return nbFiles.get_file({
                         bucket: $routeParams.bucket_name,
                         key: $routeParams.file_name,
-                    });
+                    }, 'cache_miss');
                 })
                 .then(function(res) {
                     $scope.file = res;
@@ -521,6 +586,7 @@ nb_console.controller('FileViewCtrl', [
                 key: $routeParams.file_name,
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
+                details: true
             };
             return nbFiles.list_file_parts(params)
                 .then(function(res) {

@@ -57,7 +57,10 @@ var debug_mode = (process.env.DEBUG_MODE === 'true');
 
 
 // connect to the database
-mongoose.connect(process.env.MONGOHQ_URL || process.env.MONGOLAB_URI);
+mongoose.connect(
+    process.env.MONGOHQ_URL ||
+    process.env.MONGOLAB_URI ||
+    'mongodb://localhost/nbcore');
 mongoose.set('debug', debug_mode);
 
 // create express app
@@ -137,6 +140,9 @@ app.use(api_router);
 
 
 // agent package json
+
+// address means the address of the server as reachable from the internet
+process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
 
 app.get('/agent/package.json', function(req, res) {
     res.status(200).send({

@@ -4,7 +4,6 @@
 var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
-var node_monitor = require('./node_monitor');
 var db = require('./db');
 
 
@@ -100,7 +99,7 @@ function new_block(chunk, node, fragment, size) {
 var tier_alloc_nodes = {};
 
 function update_tier_alloc_nodes(system, tier) {
-    var min_heartbeat = node_monitor.get_minimum_alloc_heartbeat();
+    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
     var info = tier_alloc_nodes[tier.id] = tier_alloc_nodes[tier.id] || {
         last_refresh: new Date(0),
         nodes: [],

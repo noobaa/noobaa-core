@@ -20,6 +20,7 @@ nb_util.run(['$rootScope', function($rootScope) {
     $rootScope._ = _;
     $rootScope.human_size = size_utils.human_size;
     $rootScope.human_percent = human_percent;
+    $rootScope.leading_zeros = leading_zeros;
     $rootScope.safe_apply = safe_apply;
     $rootScope.safe_callback = safe_callback;
     $rootScope.moment = moment;
@@ -30,6 +31,8 @@ nb_util.run(['$rootScope', function($rootScope) {
         selector: '[rel=popover]'
     });
     $.material.init();
+    $('.datetimepicker').datetimepicker();
+    $('select').selectize();
 }]);
 
 
@@ -168,6 +171,7 @@ nb_util.directive('nbPieChart', [
             link: function(scope, element, attrs) {
                 var google;
                 scope.$watch(attrs.nbPieChart, redraw, true);
+
                 function redraw(pie_chart) {
                     if (!google) {
                         return nbGoogle.then(function(google_arg) {
@@ -612,35 +616,36 @@ nb_util.directive('nbClickLadda', [
         return {
             restrict: 'A',
             link: function(scope, element, attrs) {
-                element.addClass('ladda-button');
-                if (angular.isUndefined(element.attr('data-style'))) {
-                    element.attr('data-style', 'zoom-out');
-                }
                 /* global Ladda */
                 var ladda = Ladda.create(element[0]);
-                $compile(angular.element(element.children()[0]).contents())(scope);
+                var stop_ladda = ladda.stop.bind(ladda);
+                $compile(element.contents())(scope);
 
-                element.on('click', function() {
-                    var promise = scope.$eval(attrs.nbClickLadda);
-                    if (promise && !ladda.isLoading()) {
-                        ladda.start();
+                // changing DOM on timeout or else other directives override the class
+                $timeout(function() {
+                    element.addClass('ladda-button');
+                    if (angular.isUndefined(element.attr('data-style'))) {
+                        element.attr('data-style', 'zoom-out');
                     }
-                    $q.when(promise).then(
-                        function() {
-                            return $timeout(function() {
-                                ladda.stop();
-                            }, 300); // human delay for fast runs
-                        },
-                        function() {
-                            return $timeout(function() {
-                                ladda.stop();
-                            }, 300); // human delay for fast runs
-                        },
-                        function(progress) {
-                            ladda.setProgress(progress);
-                        }
-                    );
-                });
+                    element.on('click', function() {
+                        // start human delay timeout on click to smoothen fast runs
+                        var min_human_delay = $timeout(angular.noop, 100);
+                        $q.when().then(function() {
+                                if (!ladda.isLoading()) {
+                                    ladda.start();
+                                }
+                                return scope.$eval(attrs.nbClickLadda);
+                            })
+                            .then(function() {
+                                return min_human_delay.then(stop_ladda);
+                            }, function(err) {
+                                return min_human_delay.then(stop_ladda);
+                            }, function(progress) {
+                                ladda.setProgress(progress);
+                            });
+                    });
+                }, 1);
+
             }
         };
     }
@@ -739,12 +744,19 @@ function safe_callback(func) {
 }
 
 
-function human_percent(percent) {
-    var str = Number(percent || 0).toFixed(1);
-    var n = str.length;
-    if (str[n - 1] === '0' && str[n - 2] === '.') {
-        return str.substr(0, n - 2) + ' %';
-    } else {
-        return str + ' %';
+function human_percent(fraction) {
+    var percent = 100 * (Number(fraction) || 0);
+    return percent < 10 ? percent.toFixed(1) : percent.toFixed(0);
+}
+
+function leading_zeros(num, min_len) {
+    var s = '' + num;
+    var zeros = Math.max(min_len - s.length, 0);
+    var lead = '';
+    while (zeros > 0) {
+        var z = '00000000000000000000000000000000'.slice(0, zeros);
+        zeros -= z.length;
+        lead += z;
     }
+    return lead;
 }

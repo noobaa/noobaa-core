@@ -1,17 +1,19 @@
 {
-  "libs": [
-    "browser",
-    "jquery"
-  ],
   "loadEagerly": [
-    "./src/**/*.js"
+    "src/**/*.js"
   ],
   "plugins": {
     "node": {},
-    "angular": {},
     "complete_strings": {},
     "doc_comment": {
       "fullDocs": true
     }
-  }
+  },
+  "###plugins": {
+    "angular": {}
+  },
+  "###libs": [
+    "browser",
+    "jquery"
+  ]
 }

@@ -86,8 +86,16 @@
                 <i class="fa fa-cog fa-2x"></i>
             </a>
             <ul class="dropdown-menu pull-right" role="menu">
-                <li><a ng-click="nbNodes.block_node(node)">Block device</a></li>
-                <li><a ng-click="nbNodes.decommission_node(node)">Decommission device</a></li>
+                <li>
+                    <a ng-click="nbNodes.disable_node(node)">
+                        <i class="fa fa-ban fa-lg fa-fw text-muted"></i> Disable this device
+                    </a>
+                </li>
+                <li>
+                    <a ng-click="nbNodes.decommission_node(node)">
+                        <i class="fa fa-flag fa-lg fa-fw text-info"></i> Decommission this device
+                    </a>
+                </li>
             </ul>
         </span>
     </div>

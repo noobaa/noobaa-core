@@ -161,7 +161,7 @@ module.exports = rest_api({
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['start', 'end', 'block_ids'],
+                            required: ['start', 'end'],
                             properties: {
                                 start: {
                                     type: 'integer',
@@ -251,6 +251,9 @@ module.exports = rest_api({
                     },
                     limit: {
                         type: 'integer',
+                    },
+                    details: {
+                        type: 'boolean',
                     },
                 },
             },
@@ -399,11 +402,11 @@ module.exports = rest_api({
                     type: 'string',
                 },
                 create_time: {
-                    type: 'string',
+                    type: 'integer',
                     format: 'date',
                 },
-                upload_mode: {
-                    type: 'boolean',
+                upload_size: {
+                    type: 'integer',
                 }
             }
         },
@@ -442,37 +445,55 @@ module.exports = rest_api({
                     // the fragments composing the data chunk
                     type: 'array',
                     items: {
-                        // each fragment contains an array of blocks
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['address'],
-                            properties: {
-                                address: {
-                                    $ref: '/common_api/definitions/block_address'
-                                },
-                                details: {
-                                    type: 'object',
-                                    required: ['tier_name', 'node_name'],
-                                    properties: {
-                                        tier_name: {
-                                            type: 'string',
-                                        },
-                                        node_name: {
-                                            type: 'string',
-                                        },
-                                        srvmode: {
-                                            $ref: '/node_api/definitions/srvmode'
-                                        },
-                                        online: {
-                                            type: 'boolean'
-                                        },
-                                        building: {
-                                            type: 'boolean',
-                                        }
+                        type: 'object',
+                        required: ['blocks'],
+                        properties: {
+                            blocks: {
+                                type: 'array',
+                                items: {
+                                    $ref: '/object_api/definitions/object_block_info'
+                                }
+                            },
+                            details: {
+                                type: 'object',
+                                required: ['health'],
+                                properties: {
+                                    health: {
+                                        type: 'string'
                                     }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+        },
+
+        object_block_info: {
+            type: 'object',
+            required: ['address'],
+            properties: {
+                address: {
+                    $ref: '/common_api/definitions/block_address'
+                },
+                details: {
+                    type: 'object',
+                    required: ['tier_name', 'node_name'],
+                    properties: {
+                        tier_name: {
+                            type: 'string',
+                        },
+                        node_name: {
+                            type: 'string',
+                        },
+                        srvmode: {
+                            $ref: '/node_api/definitions/srvmode'
+                        },
+                        online: {
+                            type: 'boolean'
+                        },
+                        building: {
+                            type: 'boolean',
                         }
                     }
                 }

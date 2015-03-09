@@ -37,12 +37,12 @@ function AgentCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
         root_path: './agent_storage/',
-        address: params.prod ? config.web_address_heroku  : config.web_address,
+        address: params.prod ? config.web_address_heroku : config.web_address,
         port: params.prod ? 5050 : 0,
         email: 'demo@noobaa.com',
         password: 'DeMo',
-        system: 'demo',
-        tier: 'devices',
+        system: 'demo@noobaa.com',
+        tier: 'nodes',
         bucket: 'files'
     });
     self.client = new api.Client();
@@ -64,7 +64,9 @@ AgentCLI.prototype.init = function() {
     var self = this;
 
     if (self.params.setup) {
-        return self.client.setup(self.params)
+        var account_params = _.pick(self.params, 'email', 'password');
+        account_params.name = account_params.email;
+        return self.client.account.create_account(account_params)
             .then(function() {
                 console.log('COMPLETED: setup', self.params);
             }, function(err) {
@@ -87,7 +89,7 @@ AgentCLI.prototype.init = function() {
 try {
     setInterval(function() {
         console.log(
-            'memory '+ JSON.stringify(process.memoryUsage()));
+            'memory ' + JSON.stringify(process.memoryUsage()));
     }, 30000);
 } catch (ex) {
     console.error("prob xxxxxxx");
@@ -108,17 +110,6 @@ AgentCLI.prototype.load = function() {
     var self = this;
 
     return Q.fcall(function() {
-            var auth_params = _.pick(self.params,
-                'email', 'password', 'system', 'role');
-            if (self.params.tier) {
-                auth_params.extra = {
-                    tier: self.params.tier
-                };
-            }
-            return self.client.create_auth_token(auth_params);
-        })
-        .then(function(res) {
-            self.create_node_token = res.token;
             return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
@@ -136,7 +127,7 @@ AgentCLI.prototype.load = function() {
             }
         })
         .then(null, function(err) {
-            console.error('load failed '+err.stack);
+            console.error('load failed ' + err.stack);
             throw err;
         });
 };
@@ -164,6 +155,21 @@ AgentCLI.prototype.create = function() {
             return Q.nfcall(mkdirp, node_path);
         })
         .then(function() {
+            if (self.create_node_token) return;
+            // authenticate and create a token for new nodes
+            var auth_params = _.pick(self.params,
+                'email', 'password', 'system', 'role');
+            if (self.params.tier) {
+                auth_params.extra = {
+                    tier: self.params.tier
+                };
+            }
+            return self.client.create_auth_token(auth_params);
+        })
+        .then(function(res) {
+            if (res) {
+                self.create_node_token = res.token;
+            }
             return Q.nfcall(fs.writeFile, token_path, self.create_node_token);
         })
         .then(function() {
@@ -293,7 +299,7 @@ AgentCLI.prototype.list.helper = function() {
  */
 AgentCLI.prototype.set_log = function(mod, level) {
     var self = this;
-    self._mod.set_level(level,mod);
+    self._mod.set_level(level, mod);
     console.log("Log for " + mod + " with level of " + level + " was set");
 
 };
@@ -345,10 +351,7 @@ function populate_general_help(general) {
 
 function main() {
 
-    var args = {
-      address: config.web_address
-    };
-    var cli = new AgentCLI(args);
+    var cli = new AgentCLI(argv);
     cli.init().done(function() {
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
@@ -381,7 +384,7 @@ if (require.main === module) {
 }
 
 
-process.stdin.resume();//so the program will not close instantly
+process.stdin.resume(); //so the program will not close instantly
 
 function exitHandler() {
     console.log('exiting');

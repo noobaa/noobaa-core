@@ -42,10 +42,10 @@ nb_api.factory('nbFiles', [
                 });
         }
 
-        function get_file(params) {
+        function get_file(params, cache_miss) {
             return $q.when()
                 .then(function() {
-                    return nbClient.client.object.get_object_md(params);
+                    return nbClient.client.object.get_object_md(params, cache_miss);
                 })
                 .then(function(res) {
                     console.log('FILE', res);
@@ -69,6 +69,13 @@ nb_api.factory('nbFiles', [
                     return nbClient.client.object.read_object_mappings(params);
                 })
                 .then(function(res) {
+                    _.each(res.parts, function(part) {
+                        var frag_size = part.chunk_size / part.kfrag;
+                        _.each(part.fragments, function(fragment, fragment_index) {
+                            fragment.start = part.start + (frag_size * fragment_index);
+                            fragment.size = frag_size;
+                        });
+                    });
                     console.log('LIST FILE PARTS', res);
                     return res;
                 });
@@ -270,8 +277,10 @@ nb_api.factory('nbFiles', [
             };
             var defer = $q.defer();
             var stream = concat_stream(defer.resolve);
+            var source = nbClient.client.object.open_read_stream(object_path);
+            source.once('error', defer.reject);
             stream.once('error', defer.reject);
-            nbClient.client.object.open_read_stream(object_path).pipe(stream);
+            source.pipe(stream);
             return defer.promise;
         }
 

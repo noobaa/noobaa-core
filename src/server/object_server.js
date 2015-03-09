@@ -5,10 +5,8 @@ var _ = require('lodash');
 var Q = require('q');
 var rest_api = require('../util/rest_api');
 var api = require('../api');
-var system_server = require('./system_server');
-var LRU = require('noobaa-util/lru');
-var object_mapper = require('./object_mapper');
 var db = require('./db');
+var object_mapper = require('./object_mapper');
 
 
 /**
@@ -52,7 +50,7 @@ function create_multipart_upload(req) {
                 key: req.rest_params.key,
                 size: req.rest_params.size,
                 content_type: req.rest_params.content_type || 'application/octet-stream',
-                upload_mode: true,
+                upload_size: 0,
             };
             return db.ObjectMD.create(info);
         }).thenResolve();
@@ -68,9 +66,20 @@ function create_multipart_upload(req) {
 function complete_multipart_upload(req) {
     return find_object_md(req)
         .then(function(obj) {
+            if (!_.isNumber(obj.upload_size)) {
+                throw new Error('object not in upload mode ' + obj.key);
+            }
+
+            db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'obj.uploaded',
+                obj: obj,
+            });
+
             return obj.update({
                     $unset: {
-                        upload_mode: 1
+                        upload_size: 1
                     }
                 })
                 .exec();
@@ -99,8 +108,8 @@ function abort_multipart_upload(req) {
 function allocate_object_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
-            if (!obj.upload_mode) {
-                throw new Error('object not in upload mode');
+            if (!_.isNumber(obj.upload_size)) {
+                throw new Error('object not in upload mode ' + obj.key);
             }
             return object_mapper.allocate_object_parts(
                 req.bucket,
@@ -118,8 +127,8 @@ function allocate_object_parts(req) {
 function finalize_object_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
-            if (!obj.upload_mode) {
-                throw new Error('object not in upload mode');
+            if (!_.isNumber(obj.upload_size)) {
+                throw new Error('object not in upload mode ' + obj.key);
             }
             return object_mapper.finalize_object_parts(
                 req.bucket,
@@ -132,13 +141,14 @@ function finalize_object_parts(req) {
 function report_bad_block(req) {
     return find_object_md(req)
         .then(function(obj) {
-            return object_mapper.bad_block_in_part(
-                obj,
-                req.rest_params.start,
-                req.rest_params.end,
-                req.rest_params.fragment,
-                req.rest_params.block_id,
-                req.rest_params.is_write);
+            var params = _.pick(req.rest_params,
+                'start',
+                'end',
+                'fragment',
+                'block_id',
+                'is_write');
+            params.obj = obj;
+            return object_mapper.bad_block_in_part(params);
         })
         .then(function(new_block) {
             if (new_block) {
@@ -161,12 +171,18 @@ function read_object_mappings(req) {
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
-            return object_mapper.read_object_mappings(
-                obj,
-                req.rest_params.start,
-                req.rest_params.end,
-                req.rest_params.skip,
-                req.rest_params.limit);
+            var params = _.pick(req.rest_params,
+                'start',
+                'end',
+                'skip',
+                'limit',
+                'details');
+            params.obj = obj;
+            // allow details only to admin!
+            if (params.details && req.role !== 'admin') {
+                params.details = false;
+            }
+            return object_mapper.read_object_mappings(params);
         })
         .then(function(parts) {
             return {
@@ -281,9 +297,9 @@ function get_object_info(md) {
     var info = _.pick(md, 'size', 'content_type');
     info.size = info.size || 0;
     info.content_type = info.content_type || '';
-    info.create_time = md.create_time.toString();
-    if (md.upload_mode) {
-        info.upload_mode = md.upload_mode;
+    info.create_time = md.create_time.getTime();
+    if (_.isNumber(md.upload_size)) {
+        info.upload_size = md.upload_size;
     }
     return info;
 }

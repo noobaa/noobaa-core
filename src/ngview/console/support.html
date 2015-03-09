@@ -1,0 +1,25 @@
+<div ng-controller="SupportViewCtrl">
+
+    <div class="page-header page-tier">
+
+        <h1 class="capitalize">
+            Support
+        </h1>
+
+        <ul class="nav nav-tabs">
+            <li ng-class="{active: support_router.route == 'accounts'}">
+                <a ng-click="support_router.set('accounts')">Accounts</a>
+            </li>
+            <!-- <li ng-class="{active: support_router.route == 'settings'}">
+                <a ng-click="support_router.set('settings')">Settings</a>
+            </li> -->
+            <!-- <li ng-class="{active: support_router.route == 'stats'}">
+                <a ng-click="support_router.set('stats')">Statistics</a>
+            </li> -->
+        </ul>
+
+    </div>
+
+    <div nb-hash-router-view="support_router"></div>
+
+</div>

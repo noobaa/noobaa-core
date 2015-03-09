@@ -1,0 +1,26 @@
+<div>
+
+    <div style="padding: 20px 0">
+        <button class="btn btn-primary" ng-click="create_account()" rel="tooltip">New Account</button>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-no-borders">
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Systems</th>
+            </tr>
+            <tr ng-repeat="account in accounts">
+                <td>{{account.name}}</td>
+                <td>{{account.email}}</td>
+                <td>
+                    <button class="btn btn-default btn-raised btn-xs" ng-repeat="sys in account.systems" nb-click-ladda="nbSystem.connect_system(sys.name)">
+                        {{sys.name}} ({{sys.roles.join(', ')}})
+                    </button>
+                </td>
+            </tr>
+        </table>
+    </div>
+
+</div>

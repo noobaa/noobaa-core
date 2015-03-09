@@ -2,36 +2,41 @@
 
     <div class="clearfix"></div>
 
-    <div class="container-fluid">
-        <div class="row">
-            <div ng-repeat="tier in nbSystem.system.tiers" class="{{$first && $last && 'col-md-offset-4 col-md-4' || 'col-md-3'}} col-xs-6">
-                <div class="pull-left" ng-init="selected=true">
-                    <button class="btn btn-fab {{selected && 'btn-material-deeppurple mdi-maps-place Xmdi-toggle-check-box' || 'btn-default mdi-maps-place X-layers-clear Xmdi-toggle-check-box-outline-blank'}}" style="margin: 10px 1px" ng-click="selected=!selected" title="Toggle Map Display" rel="tooltip" data-placement="bottom">
-                    </button>
-                </div>
-                <div style="padding-left: 58px">
-                    <a class="btn btn-primary btn-flat btn-block" style="text-align: left; padding-left: 10px; padding-right: 10px" ng-href="tier/{{tier.name}}" title="Open Tier's Page" rel="tooltip" data-placement="bottom">
-                        <h4 class="capitalize" style="margin-top: 5px">
-                            <span ng-switch="tier.kind" class="text-muted">
-                                <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
-                                <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
-                            </span>
-                            {{tier.name}}
-                            <!-- <i class="fa fa-angle-right fa-lg pull-right"></i> -->
-                        </h4>
-                        <div class="progress" style="margin: 7px 0 0 0; height: 8px">
-                            <div class="progress-bar" role="progressbar" aria-valuenow="{{tier.used_percent}}" aria-valuemin="0" aria-valuemax="100" style="width: {{tier.used_percent}}%">
-                            </div>
-                        </div>
-                    </a>
-                </div>
+    <div class="clearfix" style="padding-bottom: 30px">
+        <h1>
+            OVERVIEW
+            <small style="white-space: nowrap; font-size: 0.35em">
+                Welcome to NooBaa! &nbsp; Add nodes (computers) to the system to get more storage space.
+            </small>
+        </h1>
+    </div>
+
+    <div class="row">
+
+        <div class="col-sm-6">
+            <div class="well clearfix" style="padding: 50px; font-size: 0">
+                <b style="font-size: 35px">NODES &nbsp;&nbsp;</b>
+                <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.tiers[0].nodes.online,6)}}</span>
+                <span style="font-size: 35px" class="text-muted">{{nbSystem.system.tiers[0].nodes.online}}</span>
+                <span style="font-size: 35px">&nbsp;&nbsp;&nbsp;</span>
+                <button class="btn btn-default btn-material-pink" style="margin-top: -20px">Add Node</button>
+            </div>
+        </div>
+
+        <div class="col-sm-6">
+            <div class="well clearfix" style="padding: 50px; font-size: 0">
+                <b style="font-size: 35px">FILES &nbsp;&nbsp;</b>
+                <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.buckets[0].num_objects,6)}}</span>
+                <span style="font-size: 35px" class="text-muted">{{nbSystem.system.buckets[0].num_objects}}</span>
+                <span style="font-size: 35px">&nbsp;&nbsp;&nbsp;</span>
+                <button class="btn btn-default btn-material-pink" style="margin-top: -20px">Upload File</button>
             </div>
         </div>
     </div>
 
-    <div class="relpos container-fluid" style="min-height: 550px; margin-top: 10px; overflow: hidden">
+    <div class="relpos map-area">
 
-        <div id="nodes_map" style="margin-top: -150px"></div>
+        <div id="nodes_map" style="margin-top: -50px; height: 500px"></div>
 
         <div class="abspos" style="bottom: 0">
             <h1 class="text-muted">Capacity</h1>

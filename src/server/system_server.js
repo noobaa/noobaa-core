@@ -1,4 +1,4 @@
-// this module is written for both nodejs.
+// this module is written for nodejs.
 'use strict';
 
 var _ = require('lodash');
@@ -6,11 +6,12 @@ var Q = require('q');
 var assert = require('assert');
 var moment = require('moment');
 var LRU = require('noobaa-util/lru');
-var db = require('./db');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
+var db = require('./db');
 var api = require('../api');
-var node_monitor = require('./node_monitor');
+var tier_server = require('./tier_server');
+var bucket_server = require('./bucket_server');
 
 
 /**
@@ -29,6 +30,8 @@ module.exports = new api.system_api.Server({
 
     add_role: add_role,
     remove_role: remove_role,
+
+    read_activity_log: read_activity_log
 });
 
 
@@ -58,6 +61,34 @@ function create_system(req) {
         })
         .then(null, db.check_already_exists(req, 'role'))
         .then(function() {
+            // filling reply_token
+            if (req.reply_token) {
+                req.reply_token.system_id = system.id;
+                req.reply_token.role = 'admin';
+            }
+
+            // create a new request that inherits from current req
+            var tier_req = Object.create(req);
+            tier_req.system = system;
+            tier_req.role = 'admin';
+            tier_req.rest_params = {
+                name: 'nodes',
+                kind: 'edge',
+            };
+            return tier_server.methods.create_tier(tier_req);
+        })
+        .then(function() {
+            // create a new request that inherits from current req
+            var bucket_req = Object.create(req);
+            bucket_req.system = system;
+            bucket_req.role = 'admin';
+            bucket_req.rest_params = {
+                name: 'files',
+                tiering: ['nodes']
+            };
+            return bucket_server.methods.create_bucket(bucket_req);
+        })
+        .then(function() {
 
             // a token for the new system
             /* TODO add the token to the response
@@ -81,7 +112,6 @@ function create_system(req) {
  */
 function read_system(req) {
     return Q.fcall(function() {
-        var minimum_online_heartbeat = node_monitor.get_minimum_online_heartbeat();
         var by_system_id = {
             system: req.system.id
         };
@@ -98,7 +128,7 @@ function read_system(req) {
             db.Tier.find(by_system_id_undeleted).exec(),
 
             // nodes - count, online count, allocated/used storage
-            db.Node.aggregate_nodes(by_system_id_undeleted, minimum_online_heartbeat),
+            db.Node.aggregate_nodes(by_system_id_undeleted),
 
             // objects - size, count
             db.ObjectMD.aggregate_objects(by_system_id_undeleted),
@@ -202,34 +232,23 @@ function delete_system(req) {
  */
 function list_systems(req) {
 
-    // special case for support accounts - list all systems
-    if (req.account.is_support) {
-        return Q.when(
-                db.System
-                .find({
-                    deleted: null
-                })
-                .exec())
-            .then(function(systems) {
-                return _.map(systems, function(system) {
-                    return get_system_info(system);
-                });
-            });
+    // support gets to see all systems
+    var query = {};
+    if (!req.account.is_support) {
+        query.account = req.account.id;
     }
 
-    // for normal accounts, get list from roles
     return Q.when(
-            db.Role
-            .find({
-                account: req.account.id
-            })
+            db.Role.find(query)
             .populate('system')
             .exec())
         .then(function(roles) {
-            return _.compact(_.map(roles, function(role) {
-                if (role.system.deleted) return null;
-                return get_system_info(role.system);
-            }));
+            return {
+                systems: _.compact(_.map(roles, function(role) {
+                    if (!role.system || role.system.deleted) return null;
+                    return get_system_info(role.system);
+                }))
+            };
         });
 }
 
@@ -286,6 +305,76 @@ function remove_role(req) {
         })
         .thenResolve();
 }
+
+
+
+/**
+ *
+ * READ_ACTIVITY_LOG
+ *
+ */
+function read_activity_log(req) {
+    var q = db.ActivityLog.find({
+        system: req.system.id,
+    });
+
+    var reverse = true;
+    if (req.rest_params.till) {
+        // query backwards from given time
+        req.rest_params.till = new Date(req.rest_params.till);
+        q.where('time').lt(req.rest_params.till).sort('-time');
+
+    } else if (req.rest_params.since) {
+        // query forward from given time
+        req.rest_params.since = new Date(req.rest_params.since);
+        q.where('time').gte(req.rest_params.since).sort('time');
+        reverse = false;
+    } else {
+        // query backward from last time
+        q.sort('-time');
+    }
+    if (req.rest_params.event) {
+        q.where({
+            event: new RegExp(req.rest_params.event)
+        });
+    }
+    if (req.rest_params.events) {
+        q.where('event').in(req.rest_params.events);
+    }
+    if (req.rest_params.skip) q.skip(req.rest_params.skip);
+    q.limit(req.rest_params.limit || 10);
+    q.populate('tier', 'name');
+    q.populate('node', 'name');
+    q.populate('bucket', 'name');
+    q.populate('obj', 'key');
+    return Q.when(q.exec())
+        .then(function(logs) {
+            logs = _.map(logs, function(log_item) {
+                var l = _.pick(log_item, 'id', 'level', 'event');
+                l.time = log_item.time.getTime();
+                if (log_item.tier) {
+                    l.tier = _.pick(log_item.tier, 'name');
+                }
+                if (log_item.node) {
+                    l.node = _.pick(log_item.node, 'name');
+                }
+                if (log_item.bucket) {
+                    l.bucket = _.pick(log_item.bucket, 'name');
+                }
+                if (log_item.obj) {
+                    l.obj = _.pick(log_item.obj, 'key');
+                }
+                return l;
+            });
+            if (reverse) {
+                logs.reverse();
+            }
+            return {
+                logs: logs
+            };
+        });
+}
+
 
 
 

@@ -20,15 +20,15 @@ dbg.set_level(config.dbg_log_level);
 function writeToLog(level, msg) {
     var timeStr = (new Date()).toString();
     if (level === 0) {
-        dbg.log0(timeStr+' '+msg);
+        dbg.log0(timeStr + ' ' + msg);
     } else if (level === 1) {
-        dbg.log1(timeStr+' '+msg);
+        dbg.log1(timeStr + ' ' + msg);
     } else if (level === 2) {
-        dbg.log2(timeStr+' '+msg);
+        dbg.log2(timeStr + ' ' + msg);
     } else if (level === 3) {
-        dbg.log3(timeStr+' '+msg);
+        dbg.log3(timeStr + ' ' + msg);
     } else {
-        console.error(timeStr+' '+msg);
+        console.error(timeStr + ' ' + msg);
     }
 }
 
@@ -148,11 +148,11 @@ function rest_api(api) {
      */
     function Server(methods, options) {
         var self = this;
+        self.methods = methods;
         options = options || {};
         if (options.allow_missing_methods) {
             assert.strictEqual(options.allow_missing_methods, 'allow_missing_methods');
         }
-        self._impl = {};
         self._handlers = {};
         self._log = console.log.bind(console);
 
@@ -167,7 +167,6 @@ function rest_api(api) {
             }
             assert.strictEqual(typeof func, 'function',
                 'rest_api: server method should be a function - ' + func_info.fullname);
-            self._impl[func_name] = func;
             self._handlers[func_name] = self._create_server_handler(func, func_info);
         });
     }
@@ -224,12 +223,8 @@ function rest_api(api) {
     };
 
     /**
-     * directly call a server func with the given request.
+     *
      */
-    Server.prototype.call_rest_func = function(func_name, req) {
-        return this._impl[func_name](req);
-    };
-
     Server.prototype.ice_server_handler = function(channel, message) {
         if (!this.ice_router) {
             try {
@@ -237,7 +232,7 @@ function rest_api(api) {
                 this.ice_router = express.Router();
                 this.install_rest(this.ice_router);
             } catch (ex) {
-                console.error('do express ice router ex '+ex);
+                console.error('do express ice router ex ' + ex);
             }
         }
 
@@ -250,25 +245,24 @@ function rest_api(api) {
             msg = JSON.parse(message);
             reqId = msg.req || msg.requestId;
             body = msg.body;
-            dbg.log0('ice do something '+require("util").inspect(msg));
-        }  else if (message instanceof ArrayBuffer) {
+            dbg.log0('ice do something ' + require("util").inspect(msg));
+        } else if (message instanceof ArrayBuffer) {
             try {
-                reqId = (buf.toBuffer(message.slice(0,32)).readInt32LE(0)).toString();
+                reqId = (buf.toBuffer(message.slice(0, 32)).readInt32LE(0)).toString();
             } catch (ex) {
-                console.error('problem reading req id rest_api '+ex);
+                console.error('problem reading req id rest_api ' + ex);
             }
             var msgObj = channel.msgs[reqId];
             body = msgObj.buffer;
             msg = msgObj.peer_msg;
-            dbg.log0('ice do something with buffer '+require("util").inspect(msg)+' for req '+reqId);
+            dbg.log0('ice do something with buffer ' + require("util").inspect(msg) + ' for req ' + reqId);
         } else if (message.method) {
             msg = message;
             body = msg.body;
             reqId = msg.req || msg.requestId;
-            dbg.log0('ice do something json '+require("util").inspect(message)+' req '+reqId);
-        }
-        else {
-            console.error('ice got weird msg '+require("util").inspect(message));
+            dbg.log0('ice do something json ' + require("util").inspect(message) + ' req ' + reqId);
+        } else {
+            console.error('ice got weird msg ' + require("util").inspect(message));
         }
 
         if (msg.sigType) {
@@ -284,12 +278,12 @@ function rest_api(api) {
                     reqBody = JSON.parse(reqBody);
                 }
             } catch (ex) {
-                console.error('problem parsing body as json '+ex+' req '+reqId);
+                console.error('problem parsing body as json ' + ex + ' req ' + reqId);
             }
         }
 
         var req = {
-            url: 'http://127.0.0.1'+(msg.path || body.path),
+            url: 'http://127.0.0.1' + (msg.path || body.path),
             method: msg.method,
             body: reqBody,
             load_auth: function() {} // TODO
@@ -306,7 +300,7 @@ function rest_api(api) {
                         replyBuffer = buf.toArrayBuffer(replyBuffer);
                     }
 
-                    dbg.log0('done manual status: '+status+" reply: "+replyJSON + ' buffer: '+ (replyBuffer ? replyBuffer.byteLength : 0)+' req '+reqId);
+                    dbg.log0('done manual status: ' + status + " reply: " + replyJSON + ' buffer: ' + (replyBuffer ? replyBuffer.byteLength : 0) + ' req ' + reqId);
 
                     var reply = {
                         status: status,
@@ -328,7 +322,7 @@ function rest_api(api) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);
                     }
                 } catch (ex) {
-                    console.error('ERROR sending ice response '+ex+' req '+reqId);
+                    console.error('ERROR sending ice response ' + ex + ' req ' + reqId);
                 }
 
             },
@@ -347,11 +341,10 @@ function rest_api(api) {
         };
 
         this.ice_router.handle(req, res, function(err) {
-            console.error('SHOULD NOT BE HERE done status: '+status+" reply: "+replyJSON+" replyBuffer: "+replyBuffer+' if err '+err+' req '+reqId);
+            console.error('SHOULD NOT BE HERE done status: ' + status + " reply: " + replyJSON + " replyBuffer: " + replyBuffer + ' if err ' + err + ' req ' + reqId);
         });
 
     };
-
 
 
     /**
@@ -366,52 +359,52 @@ function rest_api(api) {
                 return next();
             }
             Q.fcall(function() {
-                /**
-                 * mark the request to respond with error
-                 * @param status <Number> optional status code.
-                 * @param data <String> the error response data to send
-                 * @param reason <Any> a reason for logging only
-                 */
-                req.rest_error = function(status, data, reason) {
-                    if (typeof status === 'string') {
-                        reason = data;
-                        data = status;
-                        status = 500;
-                    }
-                    if (!req._rest_error_data) {
-                        req._rest_error_status = status;
-                        req._rest_error_data = data;
-                        req._rest_error_reason = reason;
-                    }
-                    return new Error('rest_error');
-                };
-                req.rest_clear_error = function() {
-                    req._rest_error_status = undefined;
-                    req._rest_error_data = undefined;
-                    req._rest_error_reason = undefined;
-                };
-                req.rest_params = {};
-                _.each(req.query, function(v, k) {
-                    req.rest_params[k] =
-                        component_to_param(v, func_info.params_properties[k].type);
-                });
-                if (!func_info.param_raw) {
-                    _.each(req.body, function(v, k) {
-                        req.rest_params[k] = v;
+                    /**
+                     * mark the request to respond with error
+                     * @param status <Number> optional status code.
+                     * @param data <String> the error response data to send
+                     * @param reason <Any> a reason for logging only
+                     */
+                    req.rest_error = function(status, data, reason) {
+                        if (typeof(status) === 'string') {
+                            reason = data;
+                            data = status;
+                            status = 500;
+                        }
+                        if (!req._rest_error_data) {
+                            req._rest_error_status = status;
+                            req._rest_error_data = data;
+                            req._rest_error_reason = reason;
+                        }
+                        return new Error('rest_error');
+                    };
+                    req.rest_clear_error = function() {
+                        req._rest_error_status = undefined;
+                        req._rest_error_data = undefined;
+                        req._rest_error_reason = undefined;
+                    };
+                    req.rest_params = {};
+                    _.each(req.query, function(v, k) {
+                        req.rest_params[k] =
+                            component_to_param(v, func_info.params_properties[k].type);
                     });
-                }
-                _.each(req.params, function(v, k) {
-                    req.rest_params[k] =
-                        component_to_param(v, func_info.params_properties[k].type);
-                });
-                validate_schema(req.rest_params, func_info.params_schema, func_info, 'server request');
-                if (func_info.param_raw) {
-                    req.rest_params[func_info.param_raw] = req.body;
-                }
-                if (func_info.auth !== false) {
-                    return req.load_auth(func_info.auth);
-                }
-            })
+                    if (!func_info.param_raw) {
+                        _.each(req.body, function(v, k) {
+                            req.rest_params[k] = v;
+                        });
+                    }
+                    _.each(req.params, function(v, k) {
+                        req.rest_params[k] =
+                            component_to_param(v, func_info.params_properties[k].type);
+                    });
+                    validate_schema(req.rest_params, func_info.params_schema, func_info, 'server request');
+                    if (func_info.param_raw) {
+                        req.rest_params[func_info.param_raw] = req.body;
+                    }
+                    if (func_info.auth !== false) {
+                        return req.load_auth(func_info.auth);
+                    }
+                })
                 .then(function() {
                     // server functions are expected to return a promise
                     return func(req, res, next);
@@ -441,7 +434,7 @@ function rest_api(api) {
                     var data = req._rest_error_data || 'error';
                     return res.status(status).json(data);
                 })
-                .then(function(){
+                .then(function() {
                     if (res.manual) {
                         res.manual();
                     }
@@ -487,7 +480,7 @@ function rest_api(api) {
         return Q.fcall(function() {
             return self._peer_request(func_info, params);
         }).then(null, function(err) {
-            console.error('REST REQUEST FAILED '+ require('util').inspect(err));
+            console.error('REST REQUEST FAILED ' + require('util').inspect(err));
             throw err;
         });
     };
@@ -506,7 +499,9 @@ function rest_api(api) {
 
         // using forIn to enumerate headers that may be inherited from base headers (see Client ctor).
         _.forIn(self.headers, function(val, key) {
-            if (typeof val === 'function') {return;}
+            if (typeof val === 'function') {
+                return;
+            }
             headers[key] = val;
         });
 
@@ -577,7 +572,7 @@ function rest_api(api) {
 
         if (config.use_ws_when_possible && self.options.is_ws && self.options.peer) {
 
-            writeToLog(0,'do ws for path '+options.path);
+            writeToLog(0, 'do ws for path ' + options.path);
 
             var peerId = self.options.peer;
 
@@ -588,10 +583,10 @@ function rest_api(api) {
             return Q.fcall(function() {
                 return ice_api.sendWSRequest(self.options.p2p_context, peerId, options, self.options.timeout);
             }).then(function(res) {
-                dbg.log0(self.options, 'res is: '+ require('util').inspect(res));
+                dbg.log0(self.options, 'res is: ' + require('util').inspect(res));
 
                 if (res && res.status && res.status === 500) {
-                    writeToLog(0,'failed '+options.path+' in ws, try http instead');
+                    writeToLog(0, 'failed ' + options.path + ' in ws, try http instead');
                     return self._doHttpCall(func_info, options, body);
                 } else {
                     if (!func_info.reply_raw) {
@@ -601,12 +596,12 @@ function rest_api(api) {
                     return res.data;
                 }
             }).then(null, function(err) {
-                writeToLog(-1,'WS REST REQUEST FAILED '+ err+' try http instead');
+                writeToLog(-1, 'WS REST REQUEST FAILED ' + err + ' try http instead');
                 return self._doHttpCall(func_info, options, body);
             });
 
         } else if (config.use_ice_when_possible && self.options.peer && (!self.options.ws_socket || self.options.peer !== self.options.ws_socket.idInServer)) { // do ice
-            writeToLog(0,'do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path '+options.path);
+            writeToLog(0, 'do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path ' + options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;
 
@@ -621,27 +616,27 @@ function rest_api(api) {
             }).then(function(res) {
                 return res;
             }, function(err) {
-                writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' DONT try http instead');
+                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err + ' DONT try http instead');
                 throw err;
                 //return self._doHttpCall(func_info, options, body);
             });
         } else { // do http
 
-            writeToLog(2,'Do Http Call to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
+            writeToLog(2, 'Do Http Call to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
 
             if (config.use_ice_when_possible && self.options.peer) {
-                dbg.log0(options, 'do http to self req '+options.path);
+                dbg.log0(options, 'do http to self req ' + options.path);
                 options.hostname = '127.0.0.1';
             }
 
             return self._doHttpCall(func_info, options, body);
         }
-        console.error('YaEL SHOULD NOT REACH HERE '+require('util').inspect(options));
+        console.error('YaEL SHOULD NOT REACH HERE ' + require('util').inspect(options));
     };
 
     Client.prototype._doICECallWithRetry = function doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry) {
         var self = this;
-        return Q.fcall(function () {
+        return Q.fcall(function() {
             return self._doICECall(self_options, peerId, options, buffer, func_info);
         }).then(function(res) {
             return res;
@@ -649,25 +644,25 @@ function rest_api(api) {
             if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
                 ice_api.forceCloseIce(self_options.p2p_context, peerId);
-                writeToLog(-1,'ICE REST REQUEST FAILED '+ err+' retry '+retry);
+                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err + ' retry ' + retry);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
             } else {
-                throw new Error('ICE REST REQUEST FAILED '+ err);
+                throw new Error('ICE REST REQUEST FAILED ' + err);
             }
 
         });
     };
 
     Client.prototype._doICECall = function doICECall(self_options, peerId, options, buffer, func_info) {
-        writeToLog(3,'do ice req '+require('util').inspect(options));
+        writeToLog(3, 'do ice req ' + require('util').inspect(options));
 
-        return Q.fcall(function () {
+        return Q.fcall(function() {
                 return ice_api.sendRequest(self_options.p2p_context, self_options.ws_socket, peerId, options, null, buffer, self_options.timeout);
             })
-            .then(function (res) {
+            .then(function(res) {
                 dbg.log0(self_options, 'res is: ' + require('util').inspect(res));
                 if (res && res.status && res.status === 500) {
-                    writeToLog(0,'failed ' + options.path + ' in ice, got 500');
+                    writeToLog(0, 'failed ' + options.path + ' in ice, got 500');
                     throw new Error('Do retry with http - ice failure 500');
                 } else {
 
@@ -678,31 +673,31 @@ function rest_api(api) {
                     return res.data;
                 }
             })
-            .then(null, function (err) {
-                writeToLog(-1,'ICE REST REQUEST FAILED ' + err);
-                throw new Error('ice failure ex '+ err);
+            .then(null, function(err) {
+                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err);
+                throw new Error('ice failure ex ' + err);
             });
     };
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        writeToLog(2,'do http req to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
+        writeToLog(2, 'do http req to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
 
         if (options.body) {
             delete options.body;
         }
 
         return Q.fcall(function() {
-            return self._http_request(options, body);
-        }).then(read_http_response)
-        .then(function(res) {
-            return self._handle_http_reply(func_info, res);
-        })
-        .then(null, function(err) {
-                writeToLog(-1,'HTTP REST REQUEST FAILED '+ require('util').inspect(err) +
-            ' to '+options.hostname+':'+options.port+' for '+options.method+' '+options.path);
-            throw err;
-        });
+                return self._http_request(options, body);
+            }).then(read_http_response)
+            .then(function(res) {
+                return self._handle_http_reply(func_info, res);
+            })
+            .then(null, function(err) {
+                writeToLog(-1, 'HTTP REST REQUEST FAILED ' + require('util').inspect(err) +
+                    ' to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
+                throw err;
+            });
     };
 
     // create a REST api call and return the options for http request.
@@ -729,7 +724,7 @@ function rest_api(api) {
                         req.abort();
                     });
                 } catch (ex) {
-                    console.error("prob with set request timeout "+ex);
+                    console.error("prob with set request timeout " + ex);
                 }
             } else {
                 // TODO browserify doesn't implement req.setTimeout...
@@ -796,7 +791,7 @@ rest_api.global_client_options = {
         this.hostname = u.hostname;
         this.port = u.port;
     },
-    set_peer: function (peer) {
+    set_peer: function(peer) {
         this.peer = peer;
     },
 
@@ -921,7 +916,7 @@ function component_to_param(component, type) {
     } else if (type === 'string') {
         return decodeURIComponent(String(component));
     } else if (type === 'integer') {
-        return Number(component) | 0;
+        return parseInt(component, 10);
     } else if (type === 'number') {
         return Number(component);
     } else if (type === 'boolean') {
@@ -936,8 +931,14 @@ function component_to_param(component, type) {
 function read_http_response(res) {
     var chunks = [];
     var chunks_length = 0;
-    var defer = Q.defer();
     dbg.log3('HTTP response headers', res.statusCode, res.headers);
+
+    // statusCode = 0 means we don't even have a response to work with
+    if (!res.statusCode) {
+        throw new Error('HTTP ERROR CONNECTION REFUSED');
+    }
+
+    var defer = Q.defer();
     res.on('error', defer.reject);
     res.on('data', add_chunk);
     res.on('end', finish);

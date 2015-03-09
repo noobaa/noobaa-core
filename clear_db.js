@@ -1,0 +1,10 @@
+conn = new Mongo();
+//db = conn.getDB("nb");
+//db.addUser( { user: "admin", pwd: "admin", roles: [ "readWrite" ] } );
+db = conn.getDB("nbcore");
+db.datablocks.drop();
+db.datachunks.drop();
+db.objectparts.drop();
+db.objectmds.drop();
+db.nodes.drop();
+printjson(db.getCollectionNames());

@@ -17,6 +17,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
+var config = require('../../config.js');
 var DebugModule = require('noobaa-util/debug_module');
 
 Q.longStackSupport = true;
@@ -36,13 +37,13 @@ function AgentCLI(params) {
     var self = this;
     self.params = _.defaults(params, {
         root_path: './agent_storage/',
-        address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
+        address: params.prod ? config.web_address_heroku  : config.web_address,
         port: params.prod ? 5050 : 0,
         email: 'demo@noobaa.com',
         password: 'DeMo',
         system: 'demo',
         tier: 'devices',
-        bucket: 'files',
+        bucket: 'files'
     });
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);
@@ -67,7 +68,7 @@ AgentCLI.prototype.init = function() {
             .then(function() {
                 console.log('COMPLETED: setup', self.params);
             }, function(err) {
-                console.log('ERROR: setup', self.params, err);
+                console.log('ERROR: setup', self.params, err.stack);
             })
             .then(function() {
                 process.exit();
@@ -78,10 +79,19 @@ AgentCLI.prototype.init = function() {
         .then(function() {
             console.log('COMPLETED: load');
         }, function(err) {
-            console.log('ERROR: load', self.params, err);
+            console.log('ERROR: load', self.params, err.stack);
 
         });
 };
+
+try {
+    setInterval(function() {
+        console.log(
+            'memory '+ JSON.stringify(process.memoryUsage()));
+    }, 30000);
+} catch (ex) {
+    console.error("prob xxxxxxx");
+}
 
 AgentCLI.prototype.init.helper = function() {
     console.log("Init client");
@@ -126,7 +136,7 @@ AgentCLI.prototype.load = function() {
             }
         })
         .then(null, function(err) {
-            console.error('load failed');
+            console.error('load failed '+err.stack);
             throw err;
         });
 };
@@ -208,7 +218,7 @@ AgentCLI.prototype.start = function(node_name) {
             address: self.params.address,
             node_name: node_name,
             prefered_port: self.params.port,
-            storage_path: path.join(self.params.root_path, node_name),
+            storage_path: path.join(self.params.root_path, node_name)
         });
         console.log('agent inited', node_name);
     }
@@ -334,12 +344,16 @@ function populate_general_help(general) {
 }
 
 function main() {
-    var cli = new AgentCLI(argv);
+
+    var args = {
+      address: config.web_address
+    };
+    var cli = new AgentCLI(args);
     cli.init().done(function() {
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
             prompt: 'agent-cli > ',
-            useGlobal: false,
+            useGlobal: false
         });
         var help = {
             functions: [],
@@ -365,3 +379,20 @@ function main() {
 if (require.main === module) {
     main();
 }
+
+
+process.stdin.resume();//so the program will not close instantly
+
+function exitHandler() {
+    console.log('exiting');
+    process.exit();
+}
+
+process.on('exit', function(code) {
+    console.log('About to exit with code:', code);
+});
+
+process.on('uncaughtException', function(err) {
+    console.log('Caught exception: ' + err + ' ; ' + err.stack);
+    //exitHandler();
+});

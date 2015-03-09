@@ -49,31 +49,100 @@ transformer.ctor = function(params) {
  *
  */
 function define_transformer(params) {
+
     function Transformer(options) {
-        stream.Transform.call(this, options);
-        this._init(options);
+        var self = this;
+        stream.Transform.call(self, options);
+        self._init(options);
+        self.transformer = true;
+
+        // set error handler to forward errors to pipes
+        // otherwise pipelines are harder to write without missing error events
+        // that are emitted on middle transform streams.
+        self.on('error', function(err) {
+            self.transformer_forward_error(err);
+        });
     }
+
     util.inherits(Transformer, stream.Transform);
+
     if (params.init) {
         Transformer.prototype._init = params.init;
     } else {
         Transformer.prototype._init = function() {};
     }
+
     if (params.transform) {
         Transformer.prototype._transform = function(data, encoding, callback) {
             var self = this;
             Q.fcall(function() {
-                return params.transform.call(self, data, encoding);
-            }).nodeify(callback);
+                    return params.transform.call(self, data, encoding);
+                })
+                .done(function(data) {
+                    callback(null, data);
+                }, function(err) {
+                    console.log('transformer error', self, err);
+                    self.transformer_error(err);
+                });
         };
     }
+
     if (params.flush) {
         Transformer.prototype._flush = function(callback) {
             var self = this;
             Q.fcall(function() {
-                return params.flush.call(self);
-            }).nodeify(callback);
+                    return params.flush.call(self);
+                })
+                .done(function() {
+                    callback();
+                }, function(err) {
+                    console.log('transformer flush error', self, err);
+                    self.transformer_error(err);
+                });
         };
     }
+
+    Transformer.prototype.transformer_error = function(err) {
+        var self = this;
+
+        // emit error is deferred with setTimeout to avoid skiping
+        // error handlers that want to register in the current stack
+        setTimeout(function() {
+
+            // emit error always throws the err immediately,
+            // so we catch and ignore
+            try {
+                self.emit('error', err);
+            } catch (e) {}
+
+            // transformers already know to forward by their error handler
+            // but for non transformer streams we manualy forward here
+            if (!self.transformer) {
+                Transformer.prototype.transformer_forward_error.call(self, err);
+            }
+
+        }, 0);
+    };
+
+    /**
+     * forward error to pipes
+     */
+    Transformer.prototype.transformer_forward_error = function(err) {
+
+        // TODO unneeded with pipeline ??
+        if (true) return;
+
+        var state = this._readableState;
+        if (!state || !state.pipes) return;
+
+        if (state.pipesCount === 1) {
+            Transformer.prototype.transformer_error.call(state.pipes, err);
+        } else {
+            for (var i = 0; i < state.pipes.length; ++i) {
+                Transformer.prototype.transformer_error.call(state.pipes[i], err);
+            }
+        }
+    };
+
     return Transformer;
 }

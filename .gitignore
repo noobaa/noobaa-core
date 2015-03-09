@@ -9,6 +9,7 @@ build/
 *.sublime-project
 .idea/
 tags
+*.iml
 
 ## istanbul coverage
 coverage/

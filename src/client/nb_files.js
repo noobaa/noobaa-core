@@ -177,6 +177,7 @@ nb_api.factory('nbFiles', [
                         progress: 0,
                     };
                     tx.promise = $q(function(resolve, reject, progress) {
+
                         var reader = nbClient.client.object.open_read_stream({
                                 bucket: bucket_name,
                                 key: file.name,
@@ -185,6 +186,7 @@ nb_api.factory('nbFiles', [
 
                         reader.pipe(res.writer)
                             .on('progress', function(pos) {
+
                                 tx.progress = (100 * pos / file.size);
                                 if (progress) {
                                     progress(pos);
@@ -192,6 +194,7 @@ nb_api.factory('nbFiles', [
                                 $rootScope.safe_apply();
                             })
                             .once('finish', function() {
+
                                 tx.done = true;
                                 tx.progress = 100;
                                 tx.end_time = Date.now();
@@ -216,7 +219,7 @@ nb_api.factory('nbFiles', [
 
                         function on_error(err) {
                             tx.error = err;
-                            console.error('download failed', err);
+                            console.error('download failed '+err+ ' ; '+ err.stack);
                             nbAlertify.error('download failed. ' + err.toString());
                             reject(err);
                             $rootScope.safe_apply();

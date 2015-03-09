@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * OBJECT API
  *
+ * client (currently web client) talking to the web server to work on object
  */
 module.exports = rest_api({
 

@@ -13,8 +13,8 @@ var Semaphore = require('noobaa-util/semaphore');
 var Agent = require('../agent/agent');
 var db = require('./db');
 var Barrier = require('../util/barrier');
-var dbg = require('../util/dbg')(__filename);
-dbg.log_level = parseInt(process.env.LOG_LEVEL, 10) || 0;
+var dbg = require('noobaa-util/debug_module')(__filename);
+dbg.set_level(parseInt(process.env.LOG_LEVEL, 10) || 0);
 
 
 /**

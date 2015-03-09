@@ -373,9 +373,7 @@ function serve() {
     console.log('~~~~~~~~~~~~~~~~~~~~~~');
     console.log(' ');
     active_server = child_process.fork(
-        path.basename(PATHS.server_main), [], {
-            cwd: path.dirname(PATHS.server_main)
-        }
+        PATHS.server_main, []
     );
     active_server.on('error', function(err) {
         console.error(' ');

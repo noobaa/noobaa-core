@@ -18,7 +18,8 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
 var config = require('../../config.js');
-var DebugModule = require('noobaa-util/debug_module')(__filename);
+var DebugModule = require('noobaa-util/debug_module');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 Q.longStackSupport = true;
 
@@ -34,24 +35,11 @@ Q.longStackSupport = true;
  *
  */
 function AgentCLI(params) {
-    var self = this;
-    self.params = _.defaults(params, {
-        root_path: './agent_storage/',
-        address: params.prod ? config.web_address_heroku : config.web_address,
-        port: params.prod ? 5050 : 0,
-        email: 'yossi@ness.com',
-        password: 'yossi',
-        system: 'ness',
-        tier: 'nodes',
-        bucket: 'files'
-    });
-    self.client = new api.Client();
-    self.client.options.set_address(self.params.address);
-    self.agents = {};
-
-
-    //self._mod = new DebugModule(__filename);
-    //self.modules = self._mod.get_module_structure();
+    this.params = params;
+    this.client = new api.Client();
+    this.agents = {};
+    this._mod = dbg;
+    this.modules = this._mod.get_module_structure();
 }
 
 
@@ -64,34 +52,37 @@ function AgentCLI(params) {
  */
 AgentCLI.prototype.init = function() {
     var self = this;
-    var agent_conf;
-    return Q.nfcall(fs.readFile, 'agent.conf', 'utf8')
+
+    return Q.nfcall(fs.readFile, 'agent_conf.json')
         .then(function(data) {
-            agent_conf = JSON.parse(data);
-            self.params.prod = true;
-            self.params.web_address_heroku = agent_conf.noobaa_address;
-            //self.params.create_node_token = agent_conf.noobaa_access_key;
-            self.params.address = agent_conf.noobaa_address;
-            self.params.email = agent_conf.email;
-            self.params.password = agent_conf.password;
-            self.params.system = agent_conf.system;
-            self.params.tier = agent_conf.tier;
-            self.params.bucket = agent_conf.bucket;
-            DebugModule.log0('agent_conf', agent_conf);
-            return;
-        }, function(err) {
-            DebugModule.log0('cannot find configuration file. Using defaults.');
+            var agent_conf = JSON.parse(data);
+            dbg.log0('using agent_conf.json', util.inspect(agent_conf));
+            self.params = _.defaults(self.params, agent_conf);
+        }).then(null, function(err) {
+            dbg.log0('cannot find configuration file. Using defaults.');
+            self.params = _.defaults(self.params, {
+                root_path: './agent_storage/',
+                address: 'http://localhost:5001',
+                port: 0,
+                email: 'demo@noobaa.com',
+                password: 'DeMo',
+                system: 'demo',
+                tier: 'nodes',
+                bucket: 'files'
+            });
         })
         .then(function() {
+            self.client.options.set_address(self.params.address);
+
             if (self.params.setup) {
-                DebugModule.log0('Setup');
+                dbg.log0('Setup');
                 var account_params = _.pick(self.params, 'email', 'password');
                 account_params.name = account_params.email;
                 return self.client.account.create_account(account_params)
                     .then(function() {
-                        DebugModule.log0('COMPLETED: setup', self.params);
+                        dbg.log0('COMPLETED: setup', self.params);
                     }, function(err) {
-                        DebugModule.log0('ERROR: setup', self.params, err.stack);
+                        dbg.log0('ERROR: setup', self.params, err.stack);
                     })
                     .then(function() {
                         process.exit();
@@ -101,9 +92,9 @@ AgentCLI.prototype.init = function() {
 
             return self.load()
                 .then(function() {
-                    DebugModule.log0('COMPLETED: load');
+                    dbg.log0('COMPLETED: load');
                 }, function(err) {
-                    DebugModule.log0('ERROR: load', self.params, err.stack);
+                    dbg.log0('ERROR: load', self.params, err.stack);
 
                 });
         });
@@ -111,15 +102,15 @@ AgentCLI.prototype.init = function() {
 
 try {
     setInterval(function() {
-        DebugModule.log0(
+        dbg.log0(
             'memory ' + JSON.stringify(process.memoryUsage()));
     }, 30000);
 } catch (ex) {
-    DebugModule.log0("prob xxxxxxx");
+    dbg.log0("prob xxxxxxx");
 }
 
 AgentCLI.prototype.init.helper = function() {
-    DebugModule.log0("Init client");
+    dbg.log0("Init client");
 };
 
 /**
@@ -136,7 +127,7 @@ AgentCLI.prototype.load = function() {
             return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
-            DebugModule.log0('os:', os.type());
+            dbg.log0('os:', os.type());
             if (typeof process !== 'undefined' &&
                 process.versions &&
                 process.versions['atom-shell']) {
@@ -144,10 +135,10 @@ AgentCLI.prototype.load = function() {
                     require('fswin').setAttributesSync(self.params.root_path, {
                         IS_HIDDEN: true
                     });
-                    DebugModule.log0('Windows - hide1');
+                    dbg.log0('Windows - hide1');
 
                 } catch (err) {
-                    DebugModule.log0('Windows - hide failed ', err);
+                    dbg.log0('Windows - hide failed ', err);
 
                 }
             }
@@ -156,10 +147,10 @@ AgentCLI.prototype.load = function() {
                     require('fswin').setAttributesSync(self.params.root_path, {
                         IS_HIDDEN: true
                     });
-                    DebugModule.log0('Windows - hide');
+                    dbg.log0('Windows - hide');
 
                 } catch (err) {
-                    DebugModule.log0('Windows - hide2 failed ', err);
+                    dbg.log0('Windows - hide2 failed ', err);
 
                 }
 
@@ -172,19 +163,19 @@ AgentCLI.prototype.load = function() {
             }));
         })
         .then(function(res) {
-            DebugModule.log0('loaded', res.length, 'agents. show details with: list()');
+            dbg.log0('loaded', res.length, 'agents. show details with: list()');
             if (self.params.prod && !res.length) {
                 return self.create();
             }
         })
         .then(null, function(err) {
-            DebugModule.log0('load failed ' + err.stack);
+            dbg.log0('load failed ' + err.stack);
             throw err;
         });
 };
 
 AgentCLI.prototype.load.helper = function() {
-    DebugModule.log0("create token, start nodes ");
+    dbg.log0("create token, start nodes ");
 };
 
 /**
@@ -200,7 +191,7 @@ AgentCLI.prototype.create = function() {
     var node_name = os.hostname() + '-' + Date.now();
     var node_path = path.join(self.params.root_path, node_name);
     var token_path = path.join(node_path, 'token');
-    DebugModule.log0('create new node');
+    dbg.log0('create new node');
     return file_must_not_exist(token_path)
         .then(function() {
             return Q.nfcall(mkdirp, node_path);
@@ -219,26 +210,26 @@ AgentCLI.prototype.create = function() {
         })
         .then(function(res) {
             if (res) {
-                DebugModule.log0('eee:', res);
+                dbg.log0('eee:', res);
                 self.create_node_token = res.token;
             } else {
-                DebugModule.log0('has token', self.create_node_token);
+                dbg.log0('has token', self.create_node_token);
             }
             return Q.nfcall(fs.writeFile, token_path, self.create_node_token);
         })
         .then(function() {
             return self.start(node_name);
         }).then(function(res) {
-            DebugModule.log0('created', node_name);
+            dbg.log0('created', node_name);
             return res;
         }, function(err) {
-            DebugModule.log0('create failed', node_name, err, err.stack);
+            dbg.log0('create failed', node_name, err, err.stack);
             throw err;
         });
 };
 
 AgentCLI.prototype.create.helper = function() {
-    DebugModule.log0("Create a new agent and start it");
+    dbg.log0("Create a new agent and start it");
 };
 
 /**
@@ -259,7 +250,7 @@ AgentCLI.prototype.create_some = function(n) {
 };
 
 AgentCLI.prototype.create_some.helper = function() {
-    DebugModule.log0("Create n agents:   create_some <n>");
+    dbg.log0("Create n agents:   create_some <n>");
 };
 
 /**
@@ -280,22 +271,22 @@ AgentCLI.prototype.start = function(node_name) {
             prefered_port: self.params.port,
             storage_path: path.join(self.params.root_path, node_name)
         });
-        DebugModule.log0('agent inited', node_name);
+        dbg.log0('agent inited', node_name);
     }
 
     return Q.fcall(function() {
         return agent.start();
     }).then(function(res) {
-        DebugModule.log0('agent started', node_name);
+        dbg.log0('agent started', node_name);
         return res;
     }, function(err) {
-        DebugModule.log0('FAILED TO START AGENT', node_name, err);
+        dbg.log0('FAILED TO START AGENT', node_name, err);
         throw err;
     });
 };
 
 AgentCLI.prototype.start.helper = function() {
-    DebugModule.log0("Start a specific agent, if agent doesn't exist, will create it:   start <agent>");
+    dbg.log0("Start a specific agent, if agent doesn't exist, will create it:   start <agent>");
 };
 
 /**
@@ -310,16 +301,16 @@ AgentCLI.prototype.stop = function(node_name) {
 
     var agent = self.agents[node_name];
     if (!agent) {
-        DebugModule.log0('agent not found', node_name);
+        dbg.log0('agent not found', node_name);
         return;
     }
 
     agent.stop();
-    DebugModule.log0('agent stopped', node_name);
+    dbg.log0('agent stopped', node_name);
 };
 
 AgentCLI.prototype.stop.helper = function() {
-    DebugModule.log0("Stop a specific agent:   stop <agent>");
+    dbg.log0("Stop a specific agent:   stop <agent>");
 };
 
 /**
@@ -334,14 +325,14 @@ AgentCLI.prototype.list = function() {
 
     var i = 1;
     _.each(self.agents, function(agent, node_name) {
-        DebugModule.log0('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
+        dbg.log0('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
             'node', node_name, 'port', agent.http_port);
         i++;
     });
 };
 
 AgentCLI.prototype.list.helper = function() {
-    DebugModule.log0("List all agents status");
+    dbg.log0("List all agents status");
 };
 
 /**
@@ -354,12 +345,12 @@ AgentCLI.prototype.list.helper = function() {
 AgentCLI.prototype.set_log = function(mod, level) {
     var self = this;
     self._mod.set_level(level, mod);
-    DebugModule.log0("Log for " + mod + " with level of " + level + " was set");
+    dbg.log0("Log for " + mod + " with level of " + level + " was set");
 
 };
 
 AgentCLI.prototype.set_log.helper = function() {
-    DebugModule.log0('Setting log levels for module:   set_log <"module"> <level>');
+    dbg.log0('Setting log levels for module:   set_log <"module"> <level>');
 };
 /**
  *
@@ -380,9 +371,9 @@ AgentCLI.prototype.show = function(func_name) {
 
     // if helper is string or something else we just print it
     if (helper) {
-        DebugModule.log0(helper);
+        dbg.log0(helper);
     } else {
-        DebugModule.log0('help not found for function', func_name);
+        dbg.log0('help not found for function', func_name);
     }
 };
 
@@ -429,7 +420,7 @@ function main() {
         populate_general_help(help.general);
         repl_srv.context.help = help;
     }, function(err) {
-        DebugModule.log0(err);
+        dbg.log0(err);
     });
 }
 
@@ -441,15 +432,15 @@ if (require.main === module) {
 process.stdin.resume(); //so the program will not close instantly
 
 function exitHandler() {
-    DebugModule.log0('exiting');
+    dbg.log0('exiting');
     process.exit();
 }
 
 process.on('exit', function(code) {
-    DebugModule.log0('About to exit with code:', code);
+    dbg.log0('About to exit with code:', code);
 });
 
 process.on('uncaughtException', function(err) {
-    DebugModule.log0('Caught exception: ' + err + ' ; ' + err.stack);
+    dbg.log0('Caught exception: ' + err + ' ; ' + err.stack);
     //exitHandler();
 });

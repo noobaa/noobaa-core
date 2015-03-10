@@ -114,15 +114,6 @@ node_schema.index({
     sparse: true
 });
 
-node_schema.index({
-    ip: 1,
-    port: 1,
-    deleted: 1, // allow to filter deleted
-}, {
-    unique: true,
-    sparse: true
-});
-
 
 function get_minimum_online_heartbeat() {
     return moment().subtract(5, 'minutes').toDate();

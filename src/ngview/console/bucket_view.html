@@ -14,15 +14,10 @@
 
         <div class="clearfix"></div>
 
-        <h1 class="capitalize">
-            <i class="fa fa-folder-o fa-lg fa-fw text-primary pull-left"></i>
-            <div class="hflow">
-                {{bucket.name}} &nbsp;
-                <small>
-                    <i>Data Bucket</i> &nbsp;
-                    <i class="fa fa-info-circle fa-fw" rel="tooltip" title="A bucket is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom" data-container="body"></i>
-                </small>
-            </div>
+        <h1 class="uppercase">
+            {{bucket.name}} &nbsp;
+            <small><i class="fa fa-question-circle fa-fw text-muted" rel="tooltip" title="This is a bucket which is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom" data-container="body"></i>
+            </small>
         </h1>
 
         <div class="page-properties">

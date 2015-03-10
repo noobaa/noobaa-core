@@ -341,12 +341,18 @@ nb_console.controller('NodeViewCtrl', [
                     var free_disk = 100 * 1024 * 1024 * 1024;
                     $scope.pie_chart = {
                         options: {
+                            is3D: true,
                             legend: {
                                 position: 'right',
                                 alignment: 'start',
-                                maxLines: 10
+                                maxLines: 10,
+                                textStyle: {
+                                    color: 'white'
+                                }
                             },
-                            is3D: true,
+                            backgroundColor: {
+                                fill: 'transparent',
+                            },
                             sliceVisibilityThreshold: 0,
                             slices: [{
                                 color: '#03a9f4'

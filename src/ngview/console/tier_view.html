@@ -14,18 +14,9 @@
 
         <div class="clearfix"></div>
 
-        <h1 class="capitalize">
-            <span ng-switch="tier.kind" class="text-primary pull-left">
-                <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
-                <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
-            </span>
-            <div class="hflow">
-                {{tier.name}} &nbsp;
-                <small>
-                    <i>Distributed Tier</i> &nbsp;
-                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="Distributed tiers are composed of devices, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets" data-placement="bottom" data-container="body"></i>
-                </small>
-            </div>
+        <h1 class="uppercase">
+            {{tier.name}} &nbsp;
+            <small><i class="fa fa-question-circle fa-fw text-muted" rel="tooltip" title="Distributed tiers are composed of devices, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets" data-placement="bottom" data-container="body"></i></small>
         </h1>
 
         <div class="page-properties">

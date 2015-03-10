@@ -20,6 +20,7 @@
                             />
                         </div>
                     </th>
+                    <th>IP</th>
                     <th>Raw Storage</th>
                     <th>Status</th>
                 </tr>
@@ -35,6 +36,7 @@
                             <span class="text-primary">{{node.name}}</span>
                         </a>
                     </td>
+                    <td>{{node.ip}}</td>
                     <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
                     <td>
                         <span ng-switch="node.srvmode">

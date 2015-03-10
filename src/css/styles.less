@@ -3,7 +3,7 @@
  ******************************************************************************/
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/_colors.less";
-@import (less)"../../bower_components/bootstrap-material-design/less/material.less";
+@import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
 @import (less)"../../bower_components/bootstrap-sidebar/dist/css/sidebar.css";
 @import (less)"../../bower_components/datetimepicker/jquery.datetimepicker.css";
@@ -30,7 +30,7 @@
 @body-bg: darken(@blue-grey-50, 70%);
 @navbar-default-bg: darken(@blue-grey-50, 75%);
 @gray-light: hsl(0, 0%, 67%);
-@border-color: lighten(@body-bg, 15%);
+@border-color: hsla(0,0%,100%,0.1);
 @modal-backdrop-opacity: 0.6;
 @grid-float-breakpoint: 0;
 @grid-gutter-width: 60px;
@@ -135,9 +135,13 @@ table {
         }
         >li >a {
             color: @sidebar-color;
-            padding: 10px 20px;
+            padding: 15px;
             margin: 0;
             border-radius: 0;
+            >.fa.fa-3x {
+                .transition-normal;
+                margin: 5px;
+            }
         }
         >li:hover >a,
         >li.open >a {
@@ -145,6 +149,9 @@ table {
         }
         >li.active >a {
             background-color: hsla(0, 0%, 100%, 0.13);
+            >.fa.fa-3x {
+                color: @primary;
+            }
         }
     }
 }
@@ -156,8 +163,8 @@ table {
 }
 .page-header {
     .clearfix;
-    margin: 0 -(@grid-gutter-width/2);
-    padding: 0 (@grid-gutter-width/2);
+    margin: 0 -(@grid-gutter-width/6);
+    padding: 0 (@grid-gutter-width/6);
     margin-bottom: 30px;
     border: none;
     border-bottom: 1px solid @border-color;
@@ -175,6 +182,7 @@ table {
     h1 {
         /* margin-top: 15px; */
         /* margin-bottom: 5px; */
+        /*
         small {
             white-space: nowrap;
             font-size: @font-size-small;
@@ -182,6 +190,7 @@ table {
             line-height: (@headings-line-height * @font-size-h1);
             .pull-right;
         }
+        */
     }
     .page-properties {
         /* background-color: lighten(@navbar-default-bg, 77%); */
@@ -438,6 +447,9 @@ table th {
 }
 .capitalize {
     text-transform: capitalize;
+}
+.uppercase {
+    text-transform: uppercase;
 }
 .form-control-wrapper {
 

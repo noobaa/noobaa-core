@@ -18,8 +18,7 @@ var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
 var config = require('../../config.js');
-var DebugModule = require('noobaa-util/debug_module');
-
+var DebugModule = require('noobaa-util/debug_module')(__filename);
 
 Q.longStackSupport = true;
 
@@ -49,8 +48,10 @@ function AgentCLI(params) {
     self.client = new api.Client();
     self.client.options.set_address(self.params.address);
     self.agents = {};
-    self._mod = new DebugModule(__filename);
-    self.modules = self._mod.get_module_structure();
+
+
+    //self._mod = new DebugModule(__filename);
+    //self.modules = self._mod.get_module_structure();
 }
 
 
@@ -76,21 +77,21 @@ AgentCLI.prototype.init = function() {
             self.params.system = agent_conf.system;
             self.params.tier = agent_conf.tier;
             self.params.bucket = agent_conf.bucket;
-            console.log('agent_conf',agent_conf);
+            DebugModule.log0('agent_conf', agent_conf);
             return;
         }, function(err) {
-            console.log('cannot find configuration file. Using defaults.');
+            DebugModule.log0('cannot find configuration file. Using defaults.');
         })
         .then(function() {
             if (self.params.setup) {
-                console.log('Setup');
+                DebugModule.log0('Setup');
                 var account_params = _.pick(self.params, 'email', 'password');
                 account_params.name = account_params.email;
                 return self.client.account.create_account(account_params)
                     .then(function() {
-                        console.log('COMPLETED: setup', self.params);
+                        DebugModule.log0('COMPLETED: setup', self.params);
                     }, function(err) {
-                        console.log('ERROR: setup', self.params, err.stack);
+                        DebugModule.log0('ERROR: setup', self.params, err.stack);
                     })
                     .then(function() {
                         process.exit();
@@ -100,9 +101,9 @@ AgentCLI.prototype.init = function() {
 
             return self.load()
                 .then(function() {
-                    console.log('COMPLETED: load');
+                    DebugModule.log0('COMPLETED: load');
                 }, function(err) {
-                    console.log('ERROR: load', self.params, err.stack);
+                    DebugModule.log0('ERROR: load', self.params, err.stack);
 
                 });
         });
@@ -110,15 +111,15 @@ AgentCLI.prototype.init = function() {
 
 try {
     setInterval(function() {
-        console.log(
+        DebugModule.log0(
             'memory ' + JSON.stringify(process.memoryUsage()));
     }, 30000);
 } catch (ex) {
-    console.error("prob xxxxxxx");
+    DebugModule.log0("prob xxxxxxx");
 }
 
 AgentCLI.prototype.init.helper = function() {
-    console.log("Init client");
+    DebugModule.log0("Init client");
 };
 
 /**
@@ -135,9 +136,33 @@ AgentCLI.prototype.load = function() {
             return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
-            if (os.type().indexOf('Windows')>0){
-                require('fswin').setAttributesSync(self.params.root_path, { IS_HIDDEN: true });
-                console.log('Windows - hide');
+            DebugModule.log0('os:', os.type());
+            if (typeof process !== 'undefined' &&
+                process.versions &&
+                process.versions['atom-shell']) {
+                try {
+                    require('fswin').setAttributesSync(self.params.root_path, {
+                        IS_HIDDEN: true
+                    });
+                    DebugModule.log0('Windows - hide1');
+
+                } catch (err) {
+                    DebugModule.log0('Windows - hide failed ', err);
+
+                }
+            }
+            if (os.type().indexOf('Windows') > 0) {
+                try {
+                    require('fswin').setAttributesSync(self.params.root_path, {
+                        IS_HIDDEN: true
+                    });
+                    DebugModule.log0('Windows - hide');
+
+                } catch (err) {
+                    DebugModule.log0('Windows - hide2 failed ', err);
+
+                }
+
             }
             return Q.nfcall(fs.readdir, self.params.root_path);
         })
@@ -147,19 +172,19 @@ AgentCLI.prototype.load = function() {
             }));
         })
         .then(function(res) {
-            console.log('loaded', res.length, 'agents. show details with: list()');
+            DebugModule.log0('loaded', res.length, 'agents. show details with: list()');
             if (self.params.prod && !res.length) {
                 return self.create();
             }
         })
         .then(null, function(err) {
-            console.error('load failed ' + err.stack);
+            DebugModule.log0('load failed ' + err.stack);
             throw err;
         });
 };
 
 AgentCLI.prototype.load.helper = function() {
-    console.log("create token, start nodes ");
+    DebugModule.log0("create token, start nodes ");
 };
 
 /**
@@ -175,7 +200,7 @@ AgentCLI.prototype.create = function() {
     var node_name = os.hostname() + '-' + Date.now();
     var node_path = path.join(self.params.root_path, node_name);
     var token_path = path.join(node_path, 'token');
-    console.log('create new node');
+    DebugModule.log0('create new node');
     return file_must_not_exist(token_path)
         .then(function() {
             return Q.nfcall(mkdirp, node_path);
@@ -194,28 +219,26 @@ AgentCLI.prototype.create = function() {
         })
         .then(function(res) {
             if (res) {
-                console.log('eee:',res);
+                DebugModule.log0('eee:', res);
                 self.create_node_token = res.token;
-            }
-            else
-            {
-                console.log('has token',self.create_node_token);
+            } else {
+                DebugModule.log0('has token', self.create_node_token);
             }
             return Q.nfcall(fs.writeFile, token_path, self.create_node_token);
         })
         .then(function() {
             return self.start(node_name);
         }).then(function(res) {
-            console.log('created', node_name);
+            DebugModule.log0('created', node_name);
             return res;
         }, function(err) {
-            console.error('create failed', node_name, err, err.stack);
+            DebugModule.log0('create failed', node_name, err, err.stack);
             throw err;
         });
 };
 
 AgentCLI.prototype.create.helper = function() {
-    console.log("Create a new agent and start it");
+    DebugModule.log0("Create a new agent and start it");
 };
 
 /**
@@ -236,7 +259,7 @@ AgentCLI.prototype.create_some = function(n) {
 };
 
 AgentCLI.prototype.create_some.helper = function() {
-    console.log("Create n agents:   create_some <n>");
+    DebugModule.log0("Create n agents:   create_some <n>");
 };
 
 /**
@@ -257,22 +280,22 @@ AgentCLI.prototype.start = function(node_name) {
             prefered_port: self.params.port,
             storage_path: path.join(self.params.root_path, node_name)
         });
-        console.log('agent inited', node_name);
+        DebugModule.log0('agent inited', node_name);
     }
 
     return Q.fcall(function() {
         return agent.start();
     }).then(function(res) {
-        console.log('agent started', node_name);
+        DebugModule.log0('agent started', node_name);
         return res;
     }, function(err) {
-        console.error('FAILED TO START AGENT', node_name, err);
+        DebugModule.log0('FAILED TO START AGENT', node_name, err);
         throw err;
     });
 };
 
 AgentCLI.prototype.start.helper = function() {
-    console.log("Start a specific agent, if agent doesn't exist, will create it:   start <agent>");
+    DebugModule.log0("Start a specific agent, if agent doesn't exist, will create it:   start <agent>");
 };
 
 /**
@@ -287,16 +310,16 @@ AgentCLI.prototype.stop = function(node_name) {
 
     var agent = self.agents[node_name];
     if (!agent) {
-        console.log('agent not found', node_name);
+        DebugModule.log0('agent not found', node_name);
         return;
     }
 
     agent.stop();
-    console.log('agent stopped', node_name);
+    DebugModule.log0('agent stopped', node_name);
 };
 
 AgentCLI.prototype.stop.helper = function() {
-    console.log("Stop a specific agent:   stop <agent>");
+    DebugModule.log0("Stop a specific agent:   stop <agent>");
 };
 
 /**
@@ -311,14 +334,14 @@ AgentCLI.prototype.list = function() {
 
     var i = 1;
     _.each(self.agents, function(agent, node_name) {
-        console.log('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
+        DebugModule.log0('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
             'node', node_name, 'port', agent.http_port);
         i++;
     });
 };
 
 AgentCLI.prototype.list.helper = function() {
-    console.log("List all agents status");
+    DebugModule.log0("List all agents status");
 };
 
 /**
@@ -331,12 +354,12 @@ AgentCLI.prototype.list.helper = function() {
 AgentCLI.prototype.set_log = function(mod, level) {
     var self = this;
     self._mod.set_level(level, mod);
-    console.log("Log for " + mod + " with level of " + level + " was set");
+    DebugModule.log0("Log for " + mod + " with level of " + level + " was set");
 
 };
 
 AgentCLI.prototype.set_log.helper = function() {
-    console.log('Setting log levels for module:   set_log <"module"> <level>');
+    DebugModule.log0('Setting log levels for module:   set_log <"module"> <level>');
 };
 /**
  *
@@ -357,9 +380,9 @@ AgentCLI.prototype.show = function(func_name) {
 
     // if helper is string or something else we just print it
     if (helper) {
-        console.log(helper);
+        DebugModule.log0(helper);
     } else {
-        console.log('help not found for function', func_name);
+        DebugModule.log0('help not found for function', func_name);
     }
 };
 
@@ -406,7 +429,7 @@ function main() {
         populate_general_help(help.general);
         repl_srv.context.help = help;
     }, function(err) {
-        console.error(err);
+        DebugModule.log0(err);
     });
 }
 
@@ -418,15 +441,15 @@ if (require.main === module) {
 process.stdin.resume(); //so the program will not close instantly
 
 function exitHandler() {
-    console.log('exiting');
+    DebugModule.log0('exiting');
     process.exit();
 }
 
 process.on('exit', function(code) {
-    console.log('About to exit with code:', code);
+    DebugModule.log0('About to exit with code:', code);
 });
 
 process.on('uncaughtException', function(err) {
-    console.log('Caught exception: ' + err + ' ; ' + err.stack);
+    DebugModule.log0('Caught exception: ' + err + ' ; ' + err.stack);
     //exitHandler();
 });

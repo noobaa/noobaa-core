@@ -27,7 +27,7 @@
 // @primary: @blue-grey-500;
 @darkbg-text: white;
 @text-color: @darkbg-text;
-@body-bg: darken(@blue-grey-50, 70%);
+@body-bg: darken(@blue-grey-50, 72%);
 @navbar-default-bg: darken(@blue-grey-50, 75%);
 @gray-light: hsl(0, 0%, 67%);
 @border-color: hsla(0,0%,100%,0.1);
@@ -71,11 +71,11 @@ table {
 }
 .well,
 .jumbotron {
-    background-color: hsla(0,0%,100%,0.1) !important;
+    background-color: hsla(0,0%,0%,0.05) !important;
     color: @darkbg-text !important;
 }
 .sidebar-content {
-    @media (min-width: @screen-md) {
+    @media (min-width: @screen-sm) {
         margin-left: 120px;
     }
 }
@@ -140,7 +140,7 @@ table {
         }
         >li >a {
             color: @sidebar-color;
-            padding: 15px;
+            padding: 10px;
             margin: 0;
             border-radius: 0;
             >.fa.fa-3x {
@@ -148,12 +148,16 @@ table {
                 margin: 5px;
             }
         }
+        >li >a:active,
+        >li >a:focus {
+            background-color: initial;
+        }
         >li:hover >a,
         >li.open >a {
             background-color: hsla(0, 0%, 100%, 0.07);
         }
         >li.active >a {
-            background-color: hsla(0, 0%, 100%, 0.13);
+            background-color: hsla(0, 0%, 100%, 0.17);
             >.fa.fa-3x {
                 color: @primary;
             }
@@ -168,14 +172,17 @@ table {
 }
 .page-header {
     .clearfix;
-    margin: 0 -(@grid-gutter-width/6);
-    padding: 0 (@grid-gutter-width/6);
+    margin: 0 -(@grid-gutter-width/2);
+    padding: 0 (@grid-gutter-width/2);
     margin-bottom: 30px;
     border: none;
-    border-bottom: 1px solid @border-color;
+    // border-top: 1px solid @border-color;
     .breadcrumb {
-        margin: 7px 0;
-        padding-left: 5px;
+        margin: 15px 0 0;
+        padding: 5px 0;
+        // background-color: hsla(0,0%,0%,0.05);
+        // margin: 7px 0;
+        // padding-left: 5px;
         background-color: transparent;
         li {
             max-width: 150px;

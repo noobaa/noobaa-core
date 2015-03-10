@@ -2,6 +2,11 @@
 
     <div class="page-header page-node">
 
+        <h1 class="Xcapitalize">
+            {{node.name}} &nbsp;
+            <small>[{{node.ip}}]</small>
+        </h1>
+
         <ol class="breadcrumb capitalize">
             <li>
                 <a href="/console/">System</a>
@@ -12,18 +17,9 @@
             <li>
                 <a ng-href="/console/tier/{{tier.name}}">{{tier.name}}</a>
             </li>
-            <li class="active">{{node.name}}</li>
+            <li class="active">This node</li>
         </ol>
 
-        <div class="clearfix"></div>
-
-        <h1 class="Xcapitalize">
-            {{node.name}}
-        </h1>
-
-        <h2>
-            <small>{{node.ip}}</small>
-        </h2>
 
         <!--
         <div class="page-properties">
@@ -74,7 +70,7 @@
     </div>
 
     <div class="text-center clearfix" style="margin: -10px 0 20px 0">
-        <b>Device Details</b>
+        <!-- <b>Device Details</b> -->
         <span class="dropdown pull-right">
             <a class="dropdown-toggle" data-toggle="dropdown">
                 <i class="fa fa-cog fa-2x"></i>

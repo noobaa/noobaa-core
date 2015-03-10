@@ -2,6 +2,12 @@
 
     <div class="page-header page-bucket">
 
+        <h1 class="uppercase">
+            {{bucket.name}} &nbsp;
+            <small><i class="fa fa-question-circle fa-fw text-muted" rel="tooltip" title="This is a bucket which is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="right" data-container="body"></i>
+            </small>
+        </h1>
+
         <ol class="breadcrumb capitalize">
             <li>
                 <a href="/console/">System</a>
@@ -12,18 +18,10 @@
             <li class="active">{{bucket.name}}</li>
         </ol>
 
-        <div class="clearfix"></div>
-
-        <h1 class="uppercase">
-            {{bucket.name}} &nbsp;
-            <small><i class="fa fa-question-circle fa-fw text-muted" rel="tooltip" title="This is a bucket which is a container for storing files that can be configured with policies for tiering, quota, retention, etc." data-placement="bottom" data-container="body"></i>
-            </small>
-        </h1>
-
+        <!--
         <div class="page-properties">
             <table class="table table-properties">
                 <tr>
-                    <!-- <td></td> -->
                     <th>Status</th>
                     <td>Healthy <i class="fa fa-check fa-lg"></i>
                     </td>
@@ -31,18 +29,20 @@
                     <td>{{bucket.num_objects}}</td>
                     <th>Storage</th>
                     <td>{{human_size(bucket.storage.used)}}
-                        <!-- of {{human_size(bucket.storage.alloc)}} -->
+                        of {{human_size(bucket.storage.alloc)}}
                     </td>
                     <td></td>
                 </tr>
             </table>
         </div>
+        -->
 
+        <!--
         <ul class="nav nav-tabs">
             <li ng-class="{active:bucket_router.route=='files'}">
                 <a ng-click="bucket_router.set('files')">Files List</a>
             </li>
-            <!-- <li ng-class="{active:bucket_router.route=='transfers'}">
+            <li ng-class="{active:bucket_router.route=='transfers'}">
                 <a ng-click="bucket_router.set('transfers')">Transfers</a>
             </li> -->
             <!-- <li ng-class="{active: bucket_router.route=='settings'}">
@@ -56,8 +56,9 @@
             </li> -->
             <!-- <li ng-class="{active: bucket_router.route=='link'}">
                 <a ng-click="bucket_router.set('link')">Link</a>
-            </li> -->
+            </li>
         </ul>
+        -->
 
     </div>
 
@@ -75,7 +76,7 @@
                 </span>
                 <i ng-show="tx.done" class="fa fa-check" style="font-size: 14px; line-height: 36px"></i>
             </button>
-            <ul class="dropdown-menu pull-right well" style="Xpadding: 15px; width: auto; background-color: hsl(0,0%,95%); text-align: center">
+            <ul class="dropdown-menu pull-right well" style="Xpadding: 15px; width: auto; background-color: hsl(0,0%,20%); text-align: center">
                 <li style="white-space: nowrap">{{tx.name}}</li>
                 <li>
                     <div class="progress" Xstyle="margin: 7px 0 0 0">
@@ -85,7 +86,7 @@
                 </li>
                 <li>{{human_size(tx.size)}} {{tx.content_type}}</li>
                 <li>{{tx.error}}</li>
-                <li ng-if="tx.done">
+                <li ng-if="tx.done || tx.error">
                     <button class="btn btn-primary btn-flat" ng-click="nbFiles.clear_transfer(tx)">
                         Dismiss
                     </button>

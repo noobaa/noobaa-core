@@ -1,11 +1,11 @@
 <div ng-cloak class="row">
 
     <div class="heading-col col-sm-3">
-        <h4 class="text-primary">
-            Devices in this tier
+        <h4 class="Xtext-primary">
+            Nodes in this resource pool
         </h4>
         <p class="text-muted">
-            Click a device name to get more information.
+            Click a node name to get more information.
         </p>
     </div>
 
@@ -16,7 +16,7 @@
                     <!-- <th></th> -->
                     <th>
                         <div class="form-group">
-                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="Device Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="Node Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
                             />
                         </div>
                     </th>

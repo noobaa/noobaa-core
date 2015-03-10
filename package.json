@@ -26,7 +26,6 @@
   "dependencies": {
     "animate.css": "~3.1.1",
     "async": "~0.9.0",
-    "atom-shell": "1.0.1",
     "aws-sdk": "~2.1.8",
     "bcrypt": "~0.8.1",
     "body-parser": "~1.11.0",
@@ -101,6 +100,7 @@
     "ws": "^0.7.0"
   },
   "devDependencies": {
+    "atom-shell": "1.0.1",
     "node-inspector": "~0.8.3"
   }
 }

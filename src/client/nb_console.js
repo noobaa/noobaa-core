@@ -183,7 +183,8 @@ nb_console.controller('OverviewCtrl', [
         }
 
         function add_node() {
-
+            var tier_name = $scope.nbSystem.system.tiers[0].name;
+            $location.path('tier/' + tier_name);
         }
     }
 ]);
@@ -235,6 +236,9 @@ nb_console.controller('TierViewCtrl', [
 
         var tier_router = $scope.tier_router =
             nbHashRouter($scope)
+            .when('overview', {
+                templateUrl: 'console/tier_overview.html',
+            })
             .when('nodes', {
                 templateUrl: 'console/tier_nodes.html',
                 pagination: true,
@@ -247,7 +251,7 @@ nb_console.controller('TierViewCtrl', [
                 templateUrl: 'console/tier_settings.html',
             })
             .otherwise({
-                redirectTo: 'nodes'
+                redirectTo: 'overview'
             });
 
         reload_view(true);

@@ -10,16 +10,8 @@
 
 
     <div class="row">
-        <div class="sidebar sidebar-left sidebar-animate sidebar-sm-show sidebar-md-show sidebar-lg-show">
 
-            <div class="clearfix">
-                <h4 class="hflow" style="margin: 0">
-                    <a href="/console/">
-                        <img src="/public/images/noobaa_dragon_logo.png" width="100" height="50" style="vertical-align: middle; margin: 25px 10px" />
-                    </a>
-                </h4>
-            </div>
-            <hr/>
+        <div class="sidebar sidebar-left sidebar-animate sidebar-sm-show sidebar-md-show sidebar-lg-show">
 
             <ul class="nav nav-pills nav-stacked" ng-if="nbClient.account" style="position: absolute; bottom: 10px; left: 0; right: 0">
                 <li class="text-center dropup">
@@ -53,8 +45,14 @@
             </ul>
 
 
-            <ul class="nav nav-pills nav-stacked" ng-if="nbSystem.system">
-                <li class="text-center" ng-class="{active: nav.active=='overview'}">
+            <ul class="nav nav-pills nav-stacked">
+                <li class="text-center">
+                    <a href="/console/">
+                        <img src="/public/images/noobaa_dragon_logo.png" width="100" height="50" style="vertical-align: middle; margin: 10px 0" />
+                    </a>
+                </li>
+
+                <li ng-if="nbSystem.system" class="text-center" ng-class="{active: nav.active=='overview'}">
                     <a href="/console/overview">
                         <i class="fa fa-globe fa-fw fa-3x"></i>
                         <br/>OVERVIEW
@@ -71,7 +69,7 @@
                 </li>
                 -->
 
-                <li class="text-center" ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tier'}">
+                <li ng-if="nbSystem.system" class="text-center" ng-repeat="tier in nbSystem.system.tiers" ng-class="{active: nav.active=='tier'}">
                     <a ng-href="/console/tier/{{tier.name}}">
                         <i class="fa fa-spinner fa-fw fa-3x"></i>
                         <br/>
@@ -89,7 +87,7 @@
                 </li>
                 -->
 
-                <li class="text-center" ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
+                <li ng-if="nbSystem.system" class="text-center" ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
                     <a ng-href="/console/bucket/{{bucket.name}}">
                         <i class="fa fa-folder-o fa-fw fa-3x"></i>
                         <br/>
@@ -149,8 +147,8 @@
 
     <div class="row">
         <div class="sidebar sidebar-right sidebar-animate">
-            <a class="pull-right btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 20px 14px; margin: 0">
-                <i class="fa fa-times fa-lg text-muted"></i>
+            <a class="pull-right btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 25px 20px; margin: 0">
+                <i class="fa fa-times fa-2x text-muted"></i>
             </a>
 
             <h3 style="margin-bottom: 20px">ACTIVITY LOG</h3>
@@ -172,6 +170,7 @@
                     </span>
                     -->
                 </div>
+                <br/>
                 <div class="clearfix">
                     <span style="width: 80px; display: inline-block">Filter:</span>
                     <div class="btn-group">
@@ -199,7 +198,9 @@
                 </div>
             </div>
 
-            <div class="well well-sm" style="min-height: 300px; margin: 30px 0">
+            <br/>
+
+            <div class="well well-sm" style="min-height: 300px">
                 <div ng-if="!nbSystem.activity_log.length" class="text-center">
                     <br/></br>
                     <h4>No activity</h4>
@@ -214,6 +215,8 @@
                     </tr>
                 </table>
             </div>
+
+            <br/>
 
             <div class="clearfix text-center" style="margin-bottom: 10px">
                 <button class="btn btn-xs btn-default btn-raised" nb-click-ladda="nbSystem.read_activity_log_older()">
@@ -233,22 +236,24 @@
 
 
     <div class="sidebar-content">
-        <div class="container-fluid">
 
+        <div class="Xclearfix">
             <div class="pull-left">
-                <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left visible-xs" data-toggle="sidebar" data-target=".sidebar-left" style="padding: 20px 14px; margin: 0 10px 0 0">
-                    <i class="fa fa-bars fa-lg text-primary"></i>
+                <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left visible-xs" data-toggle="sidebar" data-target=".sidebar-left" style="padding: 25px 20px; margin: 0 10px 0 0">
+                    <i class="fa fa-bars fa-2x text-primary"></i>
                 </a>
             </div>
             <div class="pull-right">
-                <a class="btn btn-default Xbtn-flat" style="padding: 20px 14px; margin: 0" ng-if="nav.reload_view" nb-click-ladda="nav.reload_view()">
-                    <i class="fa fa-repeat fa-lg text-muted"></i>
+                <a class="btn btn-default Xbtn-flat" style="padding: 25px 20px; margin: 0" ng-if="nav.reload_view" nb-click-ladda="nav.reload_view()">
+                    <i class="fa fa-repeat fa-2x text-muted"></i>
                 </a>
-                <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 20px 14px; margin: 0">
-                    <i class="fa fa-clock-o fa-lg text-muted"></i>
+                <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 25px 20px; margin: 0">
+                    <i class="fa fa-clock-o fa-2x text-muted"></i>
                 </a>
             </div>
+        </div>
 
+        <div class="container" style="padding-top: 50px">
             <div ng-view></div>
         </div>
     </div>

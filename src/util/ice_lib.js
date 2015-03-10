@@ -11,7 +11,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var configuration = config.ice_servers;
 
 function writeToLog(level, msg) {
-    var timeStr = '';
+    var timeStr = (new Date()).toString();
     if (level === 0) {
         dbg.log0(timeStr+' '+msg);
     } else if (level === 1) {
@@ -172,23 +172,13 @@ var connect = function (socket) {
         ws.onclose = function () {
             writeToLog(-1,  'onclose ws');
             if (socket.isAgent) {
-                writeToLog(-1,  'onclose ws agent');
                 disconnect(socket);
                 setTimeout(
                     function () {
                         connect(socket);
                     }, config.reconnect_delay);
-            } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
-                writeToLog(-1,  'onclose ws context');
-                if (socket.p2p_context.wsClientSocket.interval) {
-                    clearInterval(socket.p2p_context.wsClientSocket.interval);
-                }
-                delete socket.p2p_context.wsClientSocket;
-            } else {
-                writeToLog(-1,  'onclose ws - doing nothing');
             }
         };
-
 
         socket.ws = ws;
     } catch (ex) {

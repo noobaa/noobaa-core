@@ -14,9 +14,7 @@ var Agent = require('../agent/agent');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var config = require('../../config.js');
-
-dbg.set_level(process.env.LOG_LEVEL ? parseInt(process.env.LOG_LEVEL, 10) : config.dbg_log_level);
+dbg.set_level(parseInt(process.env.LOG_LEVEL, 10) || 0);
 
 
 /**

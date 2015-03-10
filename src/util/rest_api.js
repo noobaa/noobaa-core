@@ -18,7 +18,7 @@ var config = require('../../config.js');
 dbg.set_level(config.dbg_log_level);
 
 function writeToLog(level, msg) {
-    var timeStr = '';
+    var timeStr = (new Date()).toString();
     if (level === 0) {
         dbg.log0(timeStr + ' ' + msg);
     } else if (level === 1) {
@@ -581,7 +581,7 @@ function rest_api(api) {
             }
 
             return Q.fcall(function() {
-                return self._sendWSRequestWithRetry(self.options, peerId, options, 0);
+                return ice_api.sendWSRequest(self.options.p2p_context, peerId, options, self.options.timeout);
             }).then(function(res) {
                 dbg.log0(self.options, 'res is: ' + require('util').inspect(res));
 
@@ -632,25 +632,6 @@ function rest_api(api) {
             return self._doHttpCall(func_info, options, body);
         }
         console.error('YaEL SHOULD NOT REACH HERE ' + require('util').inspect(options));
-    };
-
-    Client.prototype._sendWSRequestWithRetry = function sendWSRequestWithRetry(self_options, peerId, options, retry) {
-        var self = this;
-        return Q.fcall(function () {
-            return ice_api.sendWSRequest(self_options.p2p_context, peerId, options, self_options.timeout);
-        }).then(function(res) {
-            return res;
-        }, function(err) {
-            if (err && err.status && err.status === 500) {
-                return err;
-            } else if (retry < config.ice_retry) {
-                ++retry;
-                writeToLog(-1,'WS REST REQUEST FAILED '+ err+' retry '+retry);
-                return self._sendWSRequestWithRetry(self_options, peerId, options, retry);
-            } else {
-                throw new Error('WS REST REQUEST FAILED '+ err);
-            }
-        });
     };
 
     Client.prototype._doICECallWithRetry = function doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry) {

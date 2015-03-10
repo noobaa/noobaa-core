@@ -20,6 +20,7 @@ var range_utils = require('../util/range_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
 var dbg = require('noobaa-util/debug_module')(__filename);
+//dbg.set_level(3);
 
 Q.longStackSupport = true;
 

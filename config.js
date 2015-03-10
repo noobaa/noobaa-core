@@ -1,7 +1,7 @@
 var config = {};
 
 // SIGNALING AND ICE
-config.address = 'ws://10.0.0.2:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
+config.address = 'ws://ec2-52-10-244-78.us-west-2.compute.amazonaws.com:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
 config.connection_data_stale = 10 * 60 * 1000;

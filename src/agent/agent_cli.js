@@ -39,9 +39,9 @@ function AgentCLI(params) {
         root_path: './agent_storage/',
         address: params.prod ? config.web_address_heroku : config.web_address,
         port: params.prod ? 5050 : 0,
-        email: 'demo@noobaa.com',
-        password: 'DeMo',
-        system: 'demo@noobaa.com',
+        email: config.email,
+        password: config.password,
+        system: config.system,
         tier: 'nodes',
         bucket: 'files'
     });

@@ -18,6 +18,7 @@ var express_compress = require('compression');
 var api = require('../api');
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
+var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var ice_api = require('../util/ice_api');
 var config = require('../../config.js');
@@ -333,10 +334,11 @@ Agent.prototype.send_heartbeat = function() {
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
+            var ip = ifconfig.get_main_external_ipv4();
             var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
-                // ip: '',
+                ip: ip,
                 port: self.http_port,
                 storage: {
                     alloc: store_stats.alloc,

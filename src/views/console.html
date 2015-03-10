@@ -15,23 +15,20 @@
             <div class="clearfix">
                 <h4 class="hflow" style="margin: 0">
                     <a href="/console/">
-                        <img src="/public/images/noobaa_dragon_logo.png" width="100" style="vertical-align: middle; margin: 10px" />
+                        <img src="/public/images/noobaa_dragon_logo.png" width="100" height="50" style="vertical-align: middle; margin: 25px 10px" />
                     </a>
                 </h4>
             </div>
             <hr/>
 
-            <div ng-if="nbClient.account" class="text-center" style="position: absolute; bottom: 10px; left: 0; right: 0">
-                <div class="dropup clearfix">
-                    <a class="dropdown-toggle" data-toggle="dropdown">
+            <ul class="nav nav-pills nav-stacked" ng-if="nbClient.account" style="position: absolute; bottom: 10px; left: 0; right: 0">
+                <li class="text-center dropup">
+                    <a class="dropdown-toggle" data-toggle="dropdown" style="text-overflow: ellipsis; overflow: hidden">
                         <i class="mdi-action-account-circle fa-3x"></i>
                         <br/>
-                        <small>
-                            {{nbClient.account.email}}
-                            <i class="fa fa-angle-right"></i>
-                        </small>
+                        <small>{{nbClient.account.email}}</small>
                     </a>
-                    <ul class="dropdown-menu text-left" role="menu" style="right:0">
+                    <ul class="dropdown-menu text-left" role="menu" style="left: 100%; bottom:0">
                         <li ng-if="nbClient.account.is_support">
                             <a href="/console/support">Support page</a>
                         </li>
@@ -52,33 +49,15 @@
                             <a ng-click="nbClient.logout()">Logout</a>
                         </li>
                     </ul>
-                </div>
-            </div>
+                </li>
+            </ul>
 
 
             <ul class="nav nav-pills nav-stacked" ng-if="nbSystem.system">
                 <li class="text-center" ng-class="{active: nav.active=='overview'}">
                     <a href="/console/overview">
                         <i class="fa fa-globe fa-fw fa-3x"></i>
-                        <br/>Overview
-                    </a>
-                </li>
-
-                <!--
-                <li>
-                    <p>
-                        <a href="/console/data" class="btn-block">
-                            <small>DATA</small>
-                        </a>
-                    </p>
-                </li>
-                -->
-
-                <li class="text-center" ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
-                    <a ng-href="/console/bucket/{{bucket.name}}">
-                        <i class="fa fa-folder-o fa-fw fa-3x"></i>
-                        <br/>
-                        <span class="capitalize">{{bucket.name}}</span>
+                        <br/>OVERVIEW
                     </a>
                 </li>
 
@@ -96,7 +75,25 @@
                     <a ng-href="/console/tier/{{tier.name}}">
                         <i class="fa fa-spinner fa-fw fa-3x"></i>
                         <br/>
-                        <span class="capitalize">{{tier.name}}</span>
+                        <span class="uppercase">{{tier.name}}</span>
+                    </a>
+                </li>
+
+                <!--
+                <li>
+                    <p>
+                        <a href="/console/data" class="btn-block">
+                            <small>DATA</small>
+                        </a>
+                    </p>
+                </li>
+                -->
+
+                <li class="text-center" ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
+                    <a ng-href="/console/bucket/{{bucket.name}}">
+                        <i class="fa fa-folder-o fa-fw fa-3x"></i>
+                        <br/>
+                        <span class="uppercase">{{bucket.name}}</span>
                     </a>
                 </li>
 
@@ -162,7 +159,7 @@
                 <div class="clearfix">
                     <span style="width: 80px; display: inline-block">Go to time:</span>
                     <div class="form-control-wrapper" style="display: inline-block">
-                        <input type="text" class="form-control text-center datetimepicker" ng-model="goto_date" ng-change="nbSystem.read_activity_log_by_date(goto_date)" />
+                        <input type="text" class="form-control text-center datetimepicker" ng-model="goto_date" tabindex="-1" ng-change="nbSystem.read_activity_log_by_date(goto_date)" />
                     </div>
                     <i class="fa fa-calendar fa-lg fa-fw"></i>
                     <!--

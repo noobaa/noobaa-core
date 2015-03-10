@@ -40,7 +40,7 @@ var client = new api.Client();
 
 before(function(done) {
     Q.fcall(function() {
-        
+
         // use http only for test
         config.use_ws_when_possible = false;
         config.use_ice_when_possible = false;
@@ -102,6 +102,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
                         node_name: '' + Date.now(),
                         // passing token instead of storage_path to use memory storage
                         token: create_node_token,
+                        use_http_server: true,
                     });
                     return agent.start().thenResolve(agent);
                 });

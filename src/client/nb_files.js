@@ -106,7 +106,7 @@ nb_api.factory('nbFiles', [
         }
 
         function input_file_chooser() {
-            return $q(function(resolve, reject, notify) {
+            return $q(function(resolve, reject) {
                 var chooser = angular.element('<input type="file">');
                 chooser.on('change', function(e) {
                     var file = e.target.files[0];

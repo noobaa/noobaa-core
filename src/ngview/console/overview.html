@@ -2,47 +2,55 @@
 
     <div class="clearfix"></div>
 
-    <div class="clearfix" style="padding-bottom: 30px">
+    <div class="page-header" style="Xpadding-bottom: 30px">
         <h1>
             OVERVIEW
-            <small style="white-space: nowrap; font-size: 0.35em">
-                Welcome to NooBaa! &nbsp; Add nodes (computers) to the system to get more storage space.
-            </small>
         </h1>
+        <h3>
+            <small Xstyle="white-space: nowrap; font-size: 0.35em">
+                Welcome to NooBaa!&nbsp; Add nodes (workstations) to the system to use their storage space.
+            </small>
+        </h3>
+        <br/>
     </div>
 
-    <div class="row">
+
+    <div class="row" style="padding-top: 15px; padding-bottom: 15px">
 
         <div class="col-sm-6">
-            <div class="well clearfix" style="padding: 50px; font-size: 0">
-                <b style="font-size: 35px">NODES &nbsp;&nbsp;</b>
-                <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.tiers[0].nodes.online,6)}}</span>
-                <span style="font-size: 35px" class="text-muted">{{nbSystem.system.tiers[0].nodes.online}}</span>
-                <span style="font-size: 35px">&nbsp;&nbsp;&nbsp;</span>
-                <button class="btn btn-default btn-material-pink" style="margin-top: -20px">Add Node</button>
+            <div class="well clearfix" style="padding: 50px; font-size: 35px">
+                <b class="uppercase">{{nbSystem.system.tiers[0].name}}</b> &nbsp;&nbsp;
+                <span style="font-size: 0; white-space: nowrap">
+                    <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.tiers[0].nodes.online,7)}}</span>
+                    <span style="font-size: 35px" class="text-muted">{{nbSystem.system.tiers[0].nodes.online}}</span>
+                </span>
+                &nbsp;&nbsp;&nbsp;
+                <button class="btn btn-default btn-material-pink" ng-click="add_node()">Add Node</button>
             </div>
         </div>
 
         <div class="col-sm-6">
-            <div class="well clearfix" style="padding: 50px; font-size: 0">
-                <b style="font-size: 35px">FILES &nbsp;&nbsp;</b>
-                <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.buckets[0].num_objects,6)}}</span>
-                <span style="font-size: 35px" class="text-muted">{{nbSystem.system.buckets[0].num_objects}}</span>
-                <span style="font-size: 35px">&nbsp;&nbsp;&nbsp;</span>
-                <button class="btn btn-default btn-material-pink" style="margin-top: -20px">Upload File</button>
+            <div class="well clearfix" style="padding: 50px; font-size: 35px">
+                <b class="uppercase">{{nbSystem.system.buckets[0].name}}</b> &nbsp;&nbsp;
+                <span style="font-size: 0; white-space: nowrap">
+                    <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.buckets[0].num_objects,7)}}</span>
+                    <span style="font-size: 35px" class="text-muted">{{nbSystem.system.buckets[0].num_objects}}</span>
+                </span>
+                &nbsp;&nbsp;&nbsp;
+                <button class="btn btn-default btn-material-pink" ng-click="upload()">Upload File</button>
             </div>
         </div>
     </div>
 
     <div class="relpos map-area">
 
-        <div id="nodes_map" style="margin-top: -50px; height: 500px"></div>
+        <div id="nodes_map" style="margin-top: -100px; margin-right: 50px; height: 500px"></div>
 
-        <div class="abspos" style="bottom: 0">
-            <h1 class="text-muted">Capacity</h1>
-            <h1 style="font-size: 4em">{{human_size(nbSystem.system.storage.alloc)}}</h1>
-            <h1 class="text-muted">Devices</h1>
-            <h1 style="font-size: 4em">{{nbSystem.system.nodes.online}}</h1>
+        <div class="abspos text-right" style="top: 15px; left: 15px; right: 15px">
+            <h2>{{human_size(nbSystem.system.storage.alloc)}}</h2>
+            <h2>
+                <small>CAPACITY</small>
+            </h2>
         </div>
 
     </div>

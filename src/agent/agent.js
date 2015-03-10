@@ -18,6 +18,7 @@ var express_compress = require('compression');
 var api = require('../api');
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
+var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var ice_api = require('../util/ice_api');
 var config = require('../../config.js');
@@ -44,6 +45,7 @@ function Agent(params) {
     self.token = params.token;
     self.prefered_port = params.prefered_port;
     self.storage_path = params.storage_path;
+    self.use_http_server = params.use_http_server;
 
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
@@ -118,8 +120,6 @@ function Agent(params) {
     http_server.on('close', self._server_close_handler.bind(self));
     http_server.on('error', self._server_error_handler.bind(self));
 
-
-
     self.agent_app = app;
     self.agent_server = agent_server;
     self.http_server = http_server;
@@ -153,17 +153,18 @@ Agent.prototype.start = function() {
             return self._start_stop_http_server();
         })
         .then(function() {
-            return self.send_heartbeat();
-        })
-        .then(function() {
             if (config.use_ice_when_possible || config.use_ws_when_possible) {
                 console.log('start ws agent id: '+ self.node_id+' peer id: '+ self.peer_id);
 
-                self.sigSocket = ice_api.signalingSetup(self.agent_server.ice_server_handler.bind(self.agent_server),
+                self.sigSocket = ice_api.signalingSetup(
+                    self.agent_server.ice_server_handler.bind(self.agent_server),
                     self.peer_id);
                 self.client.options.set_ws(self.sigSocket);
                 return self.sigSocket;
             }
+        })
+        .then(function() {
+            return self.send_heartbeat();
         })
         .then(null, function(err) {
             console.error('AGENT server failed to start', err);
@@ -264,7 +265,7 @@ Agent.prototype._start_stop_http_server = function() {
     var self = this;
     if (self.is_started) {
         // using port to determine if the server is already listening
-        if (!self.http_port) {
+        if (!self.http_port && self.use_http_server) {
             return Q.Promise(function(resolve, reject) {
                 self.http_server.once('listening', resolve);
                 self.http_server.listen(self.prefered_port);
@@ -333,10 +334,11 @@ Agent.prototype.send_heartbeat = function() {
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
+            var ip = ifconfig.get_main_external_ipv4();
             var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
-                // ip: '',
+                ip: ip,
                 port: self.http_port,
                 storage: {
                     alloc: store_stats.alloc,

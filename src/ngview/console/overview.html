@@ -1,8 +1,6 @@
 <div ng-controller="OverviewCtrl">
 
-    <div class="clearfix"></div>
-
-    <div class="page-header" style="Xpadding-bottom: 30px">
+    <div class="page-header">
         <h1>
             OVERVIEW
         </h1>
@@ -11,33 +9,32 @@
                 Welcome to NooBaa!&nbsp; Add nodes (workstations) to the system to use their storage space.
             </small>
         </h3>
-        <br/>
     </div>
 
 
-    <div class="row" style="padding-top: 15px; padding-bottom: 15px">
+    <div class="row" style="Xpadding-top: 15px; padding-bottom: 15px">
 
         <div class="col-sm-6">
-            <div class="well clearfix" style="padding: 50px; font-size: 35px">
+            <div class="well clearfix" style="padding: 40px; font-size: 35px">
                 <b class="uppercase">{{nbSystem.system.tiers[0].name}}</b> &nbsp;&nbsp;
                 <span style="font-size: 0; white-space: nowrap">
                     <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.tiers[0].nodes.online,7)}}</span>
                     <span style="font-size: 35px" class="text-muted">{{nbSystem.system.tiers[0].nodes.online}}</span>
                 </span>
                 &nbsp;&nbsp;&nbsp;
-                <button class="btn btn-default btn-material-pink" ng-click="add_node()">Add Node</button>
+                <button class="btn btn-primary btn-raised" ng-click="add_node()">Add Node</button>
             </div>
         </div>
 
         <div class="col-sm-6">
-            <div class="well clearfix" style="padding: 50px; font-size: 35px">
+            <div class="well clearfix" style="padding: 40px; font-size: 35px">
                 <b class="uppercase">{{nbSystem.system.buckets[0].name}}</b> &nbsp;&nbsp;
                 <span style="font-size: 0; white-space: nowrap">
                     <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.buckets[0].num_objects,7)}}</span>
                     <span style="font-size: 35px" class="text-muted">{{nbSystem.system.buckets[0].num_objects}}</span>
                 </span>
                 &nbsp;&nbsp;&nbsp;
-                <button class="btn btn-default btn-material-pink" ng-click="upload()">Upload File</button>
+                <button class="btn btn-primary btn-raised" ng-click="upload()">Upload File</button>
             </div>
         </div>
     </div>

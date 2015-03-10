@@ -1,7 +1,7 @@
 <div class="row text-center">
 
     <div class="col-sm-6">
-        <div class="well well-sm clearfix">
+        <div class="well well-sm clearfix" style="height: 475px">
             <div class="clearfix">
                 <a class="btn btn-flat btn-info btn-sm pull-right" ng-click="node_router.set('parts')">See file parts list</a>
             </div>
@@ -56,8 +56,8 @@
                         </div>
                     </div>
                     <p>
-                        <button ng-if="node.srvmode=='disabled'" class="btn btn-warning btn-raised" nb-click-ladda="nbNodes.reconnect_node(node)">Enable</button>
-                        <button ng-if="node.srvmode=='decommissioning'" class="btn btn-warning btn-raised" nb-click-ladda="nbNodes.reconnect_node(node)">Recommission</button>
+                        <button ng-if="node.srvmode=='disabled'" class="btn btn-primary btn-raised" nb-click-ladda="nbNodes.reconnect_node(node)">Enable</button>
+                        <button ng-if="node.srvmode=='decommissioning'" class="btn btn-primary btn-raised" nb-click-ladda="nbNodes.reconnect_node(node)">Recommission</button>
                     </p>
                 </div>
             </div>
@@ -65,7 +65,7 @@
     </div>
 
     <div class="col-sm-6">
-        <div class="well well-sm clearfix">
+        <div class="well well-sm clearfix" style="height: 475px">
             <div class="clearfix">
                 <a class="btn btn-flat btn-info btn-sm pull-right" ng-click="node_router.set('properties')">See more</a>
             </div>

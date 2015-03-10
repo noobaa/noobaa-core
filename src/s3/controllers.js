@@ -418,7 +418,10 @@ module.exports = function(rootDirectory) {
                     };
                     return client.object.get_object_md(object_path)
                         .then(function(object_md) {
-                            res.header('Last-Modified', new Date().toISOString());
+                            var create_date = new Date(object_md.create_time);
+                            create_date.setMilliseconds(0);
+
+                            res.header('Last-Modified', create_date);
                             res.header('Content-Type', object_md.content_type);
                             res.header('Content-Length', object_md.size);
                             res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
@@ -429,12 +432,29 @@ module.exports = function(rootDirectory) {
                             }
 
                         }).then(null, function(err) {
-                            console.log('Cannot find file. will retry as folder', err);
-                            //retry as folder name
-                            object_path.key = object_path.key + '/';
+                            //if cloudberry tool is looking for its own format for large files and can find it,
+                            //we will try with standard format
+
+                            if (object_path.key.indexOf('..chunk..map')>0)
+                            {
+                                console.log('Identified cloudberry format, return error 404');
+                                object_path.key = object_path.key.replace('..chunk..map','');
+                                var template = templateBuilder.buildKeyNotFound(keyName);
+                                return buildXmlResponse(res, 404, template);
+                            }else
+                            {
+                                console.log('Cannot find file. will retry as folder', err);
+                                //retry as folder name
+                                object_path.key = object_path.key + '/';
+                            }
+
                             return client.object.get_object_md(object_path)
                                 .then(function(object_md) {
-                                    res.header('Last-Modified', new Date().toISOString());
+                                    console.log('obj_md2',object_md);
+                                    var create_date = new Date(object_md.create_time);
+                                    create_date.setMilliseconds(0);
+
+                                    res.header('Last-Modified', create_date);
                                     res.header('Content-Type', object_md.content_type);
                                     res.header('Content-Length', object_md.size);
                                     res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);

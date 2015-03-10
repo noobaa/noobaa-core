@@ -22,7 +22,6 @@ var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
-//dbg.set_level(3);
 
 module.exports = ObjectClient;
 

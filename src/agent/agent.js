@@ -329,8 +329,10 @@ Agent.prototype.send_heartbeat = function() {
     var self = this;
     var store_stats;
     var device_info_send_time;
-    console.log('send heartbeat by agent', self.node_id);
-
+    console.log('send heartbeat by agent', self.node_id,self.http_port);
+    if (self.http_port===0){
+        self.http_port = Math.floor(Math.random() * (60000 - 20000) + 20000);
+    }
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;

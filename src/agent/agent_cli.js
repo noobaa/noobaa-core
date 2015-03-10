@@ -20,6 +20,7 @@ var Agent = require('./agent');
 var config = require('../../config.js');
 var DebugModule = require('noobaa-util/debug_module');
 
+
 Q.longStackSupport = true;
 
 
@@ -39,9 +40,9 @@ function AgentCLI(params) {
         root_path: './agent_storage/',
         address: params.prod ? config.web_address_heroku : config.web_address,
         port: params.prod ? 5050 : 0,
-        email: 'demo@noobaa.com',
-        password: 'DeMo',
-        system: 'demo@noobaa.com',
+        email: 'yossi@ness.com',
+        password: 'yossi',
+        system: 'ness',
         tier: 'nodes',
         bucket: 'files'
     });
@@ -62,27 +63,48 @@ function AgentCLI(params) {
  */
 AgentCLI.prototype.init = function() {
     var self = this;
-
-    if (self.params.setup) {
-        var account_params = _.pick(self.params, 'email', 'password');
-        account_params.name = account_params.email;
-        return self.client.account.create_account(account_params)
-            .then(function() {
-                console.log('COMPLETED: setup', self.params);
-            }, function(err) {
-                console.log('ERROR: setup', self.params, err.stack);
-            })
-            .then(function() {
-                process.exit();
-            });
-    }
-
-    return self.load()
-        .then(function() {
-            console.log('COMPLETED: load');
+    var agent_conf;
+    return Q.nfcall(fs.readFile, 'agent.conf', 'utf8')
+        .then(function(data) {
+            agent_conf = JSON.parse(data);
+            self.params.prod = true;
+            self.params.web_address_heroku = agent_conf.noobaa_address;
+            //self.params.create_node_token = agent_conf.noobaa_access_key;
+            self.params.address = agent_conf.noobaa_address;
+            self.params.email = agent_conf.email;
+            self.params.password = agent_conf.password;
+            self.params.system = agent_conf.system;
+            self.params.tier = agent_conf.tier;
+            self.params.bucket = agent_conf.bucket;
+            console.log('agent_conf',agent_conf);
+            return;
         }, function(err) {
-            console.log('ERROR: load', self.params, err.stack);
+            console.log('cannot find configuration file. Using defaults.');
+        })
+        .then(function() {
+            if (self.params.setup) {
+                console.log('Setup');
+                var account_params = _.pick(self.params, 'email', 'password');
+                account_params.name = account_params.email;
+                return self.client.account.create_account(account_params)
+                    .then(function() {
+                        console.log('COMPLETED: setup', self.params);
+                    }, function(err) {
+                        console.log('ERROR: setup', self.params, err.stack);
+                    })
+                    .then(function() {
+                        process.exit();
+                    });
+            }
+        }).then(function() {
 
+            return self.load()
+                .then(function() {
+                    console.log('COMPLETED: load');
+                }, function(err) {
+                    console.log('ERROR: load', self.params, err.stack);
+
+                });
         });
 };
 
@@ -113,6 +135,10 @@ AgentCLI.prototype.load = function() {
             return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
+            if (os.type().indexOf('Windows')>0){
+                require('fswin').setAttributesSync(self.params.root_path, { IS_HIDDEN: true });
+                console.log('Windows - hide');
+            }
             return Q.nfcall(fs.readdir, self.params.root_path);
         })
         .then(function(names) {
@@ -149,7 +175,7 @@ AgentCLI.prototype.create = function() {
     var node_name = os.hostname() + '-' + Date.now();
     var node_path = path.join(self.params.root_path, node_name);
     var token_path = path.join(node_path, 'token');
-
+    console.log('create new node');
     return file_must_not_exist(token_path)
         .then(function() {
             return Q.nfcall(mkdirp, node_path);
@@ -168,7 +194,12 @@ AgentCLI.prototype.create = function() {
         })
         .then(function(res) {
             if (res) {
+                console.log('eee:',res);
                 self.create_node_token = res.token;
+            }
+            else
+            {
+                console.log('has token',self.create_node_token);
             }
             return Q.nfcall(fs.writeFile, token_path, self.create_node_token);
         })

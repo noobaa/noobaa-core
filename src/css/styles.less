@@ -53,6 +53,11 @@
 ////////////////
 body {
     background-color: @body-bg;
+    &:active,
+    &:hover,
+    &:focus {
+        background-color: @body-bg;
+    }
     /* padding-top: 70px; */
     /* @media (max-width: @screen-lg) {
         padding-top: 60px;

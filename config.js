@@ -17,20 +17,11 @@ config.use_ice_when_possible = true;
 
 config.dbg_log_level = 2;
 
-config.email='demo@noobaa.com';
-config.password='DeMo';
-config.system='demo';
-
-
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;
 config.READ_RANGE_CONCURRENCY = 8;
 config.REPLICATE_CONCURRENCY = 32;
-
-// WEB SERVER
-config.web_address = 'http://10.0.0.2:5001';
-config.web_address_heroku = 'https://noobaa-core.herokuapp.com';
 
 config.ice_servers = {
     'iceServers': [

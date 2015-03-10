@@ -425,25 +425,6 @@ function find_node_by_name(req) {
         .then(db.check_not_deleted(req, 'node'));
 }
 
-function find_node_by_block(req) {
-    var match = req.rest_params.host.match(/http:\/\/([^:]+):([0-9]+)/);
-    if (!match) {
-        throw req.rest_error(400, 'invalid block host');
-    }
-    var ip = match[1];
-    var port = match[2];
-    return Q.when(
-            db.Node.findOne({
-                system: req.system.id,
-                ip: ip,
-                port: port,
-                deleted: null,
-            })
-            .populate('tier', 'name')
-            .exec())
-        .then(db.check_not_deleted(req, 'node'));
-}
-
 function get_node_query(req) {
     return {
         system: req.system.id,

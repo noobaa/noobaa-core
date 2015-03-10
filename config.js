@@ -1,7 +1,7 @@
 var config = {};
 
 // SIGNALING AND ICE
-config.address = 'ws://127.0.0.1:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
+config.address = 'ws://ec2-52-10-244-78.us-west-2.compute.amazonaws.com:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
 config.connection_data_stale = 10 * 60 * 1000;
@@ -17,6 +17,11 @@ config.use_ice_when_possible = true;
 
 config.dbg_log_level = 2;
 
+config.email='demo@noobaa.com';
+config.password='DeMo';
+config.system='demo';
+
+
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;
@@ -24,7 +29,7 @@ config.READ_RANGE_CONCURRENCY = 8;
 config.REPLICATE_CONCURRENCY = 32;
 
 // WEB SERVER
-config.web_address = 'http://127.0.0.1:5001';
+config.web_address = 'http://10.0.0.2:5001';
 config.web_address_heroku = 'https://noobaa-core.herokuapp.com';
 
 config.ice_servers = {

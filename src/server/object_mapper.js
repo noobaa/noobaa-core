@@ -14,8 +14,6 @@ var Semaphore = require('noobaa-util/semaphore');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-//dbg.set_level(3);
-
 var p2p_context = {};
 
 /**

@@ -17,6 +17,7 @@ var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var api = require('../api');
+var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
@@ -157,7 +158,7 @@ Agent.prototype.start = function() {
         })
         .then(function() {
             if (config.use_ice_when_possible || config.use_ws_when_possible) {
-                console.log('start ws agent id: ' + self.node_id + ' peer id: ' + self.peer_id);
+                dbg.log0('start ws agent id: ' + self.node_id + ' peer id: ' + self.peer_id);
 
                 // register my peer id in rpc to get local calls redirected to me directly
                 self.agent_server.install_local_rpc_for_peer(self.peer_id);
@@ -187,7 +188,7 @@ Agent.prototype.start = function() {
  */
 Agent.prototype.stop = function() {
     var self = this;
-    console.log('stop agent ' + self.node_id);
+    dbg.log0('stop agent ' + self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
     self._start_stop_heartbeats();
@@ -225,7 +226,7 @@ Agent.prototype._init_node = function() {
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
                 self.peer_id = res.extra.peer_id;
-                console.log('authorized node ' + self.node_name +
+                dbg.log0('authorized node ' + self.node_name +
                     ' id ' + self.node_id + ' peer_id ' + self.peer_id);
                 return;
             }
@@ -234,7 +235,7 @@ Agent.prototype._init_node = function() {
             if (res.account && res.system &&
                 _.contains(['admin', 'create_node'], res.role) &&
                 res.extra && res.extra.tier) {
-                console.log('create node', self.node_name, 'tier', res.extra.tier);
+                dbg.log0('create node', self.node_name, 'tier', res.extra.tier);
                 return self.client.node.create_node({
                     name: self.node_name,
                     tier: res.extra.tier,
@@ -243,9 +244,9 @@ Agent.prototype._init_node = function() {
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.client.headers.set_auth_token(node.token);
-                    console.log('created node', self.node_name, 'id', node.id);
+                    dbg.log0('created node', self.node_name, 'id', node.id);
                     if (self.storage_path) {
-                        console.log('save node token', self.node_name, 'id', node.id);
+                        dbg.log0('save node token', self.node_name, 'id', node.id);
                         var token_path = path.join(self.storage_path, 'token');
                         return Q.nfcall(fs.writeFile, token_path, node.token);
                     }
@@ -292,7 +293,7 @@ Agent.prototype._start_stop_http_server = function() {
  */
 Agent.prototype._server_listening_handler = function() {
     this.http_port = this.http_server.address().port;
-    console.log('AGENT server listening on port ' + this.http_port);
+    dbg.log0('AGENT server listening on port ' + this.http_port);
 };
 
 
@@ -302,7 +303,7 @@ Agent.prototype._server_listening_handler = function() {
  *
  */
 Agent.prototype._server_close_handler = function() {
-    console.log('AGENT server closed');
+    dbg.log0('AGENT server closed');
     this.http_port = 0;
     // set timer to check the state and react by restarting or not
     setTimeout(this._start_stop_http_server.bind(this), 1000);
@@ -335,7 +336,7 @@ Agent.prototype.send_heartbeat = function() {
     var self = this;
     var store_stats;
     var device_info_send_time;
-    console.log('send heartbeat by agent', self.node_id);
+    dbg.log0('send heartbeat by agent', self.node_id);
 
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
@@ -380,20 +381,20 @@ Agent.prototype.send_heartbeat = function() {
                 // report only if used storage mismatch
                 // TODO compare with some accepted error and handle
                 if (store_stats.used !== res.storage.used) {
-                    console.log('AGENT used storage not in sync',
+                    dbg.log0('AGENT used storage not in sync',
                         store_stats.used, 'expected', res.storage.used);
                 }
 
                 // update the store when allocated size change
                 if (store_stats.alloc !== res.storage.alloc) {
-                    console.log('AGENT update alloc storage from',
+                    dbg.log0('AGENT update alloc storage from',
                         store_stats.alloc, 'to', res.storage.alloc);
                     self.store.set_alloc(res.storage.alloc);
                 }
             }
 
             if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
-                console.log('AGENT version changed, exiting');
+                dbg.log0('AGENT version changed, exiting');
                 process.exit();
             }
             self.heartbeat_version = res.version;
@@ -443,7 +444,7 @@ Agent.prototype._start_stop_heartbeats = function() {
 Agent.prototype.read_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
-    console.log('AGENT read_block', block_id);
+    dbg.log0('AGENT read_block', block_id);
     return self.store_cache.get(block_id)
         .then(null, function(err) {
             if (err === 'TAMPERING DETECTED') {
@@ -457,7 +458,7 @@ Agent.prototype.write_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
     var data = req.rest_params.data;
-    console.log('AGENT write_block', block_id, data.length);
+    dbg.log0('AGENT write_block', block_id, data.length);
     self.store_cache.invalidate(block_id);
     return self.store.write_block(block_id, data);
 };
@@ -466,7 +467,7 @@ Agent.prototype.replicate_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
     var source = req.rest_params.source;
-    console.log('AGENT replicate_block', block_id);
+    dbg.log0('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
     if (!self.p2p_context) {
@@ -490,7 +491,7 @@ Agent.prototype.replicate_block = function(req) {
 Agent.prototype.delete_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
-    console.log('AGENT delete_block', block_id);
+    dbg.log0('AGENT delete_block', block_id);
     self.store_cache.invalidate(block_id);
     return self.store.delete_block(block_id);
 };
@@ -498,7 +499,7 @@ Agent.prototype.delete_block = function(req) {
 Agent.prototype.check_block = function(req) {
     var self = this;
     var block_id = req.rest_params.block_id;
-    console.log('AGENT check_block', block_id);
+    dbg.log0('AGENT check_block', block_id);
     var slices = req.rest_params.slices;
     return self.store_cache.get(block_id)
         .then(function(data) {
@@ -516,19 +517,19 @@ Agent.prototype.check_block = function(req) {
 };
 
 Agent.prototype.kill_agent = function(req) {
-    console.log('AGENT kill requested, exiting');
+    dbg.log0('AGENT kill requested, exiting');
     process.exit();
 };
 
 Agent.prototype.self_test_io = function(req) {
-    console.log('SELF TEST IO got ' + req.rest_params.data.length + ' reply ' + req.rest_params.response_length);
+    dbg.log0('SELF TEST IO got ' + req.rest_params.data.length + ' reply ' + req.rest_params.response_length);
     return new Buffer(req.rest_params.response_length);
 };
 
 Agent.prototype.self_test_peer = function(req) {
     var self = this;
     var target = req.rest_params.target;
-    console.log('SELF TEST PEER req ' + req.rest_params.request_length +
+    dbg.log0('SELF TEST PEER req ' + req.rest_params.request_length +
         ' res ' + req.rest_params.response_length +
         ' target ' + util.inspect(target));
 

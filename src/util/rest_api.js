@@ -157,7 +157,6 @@ function rest_api(api) {
             assert.strictEqual(options.allow_missing_methods, 'allow_missing_methods');
         }
         self._handlers = {};
-        self._log = console.log.bind(console);
 
         _.each(api.methods, function(func_info, func_name) {
             var func = methods[func_name];
@@ -215,14 +214,6 @@ function rest_api(api) {
      */
     Server.prototype.disable_rest = function() {
         this._disabled = true;
-    };
-
-    /**
-     * replace the server logger.
-     * logger (Object) is expected to have functions like the console object (log, error, etc).
-     */
-    Server.prototype.set_logger = function(logger) {
-        this._log = logger;
     };
 
     /**
@@ -934,7 +925,7 @@ rest_api.global_client_headers = {
             // probably in another inherited headers object. not sure how/why...
             // delete this.authorization;
         }
-        console.log('set_auth_token', typeof token,
+        dbg.log0('set_auth_token', typeof token,
             token ? token.slice(0, 20) + '...' : '\'\'');
     },
 

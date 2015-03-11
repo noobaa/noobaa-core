@@ -7,6 +7,7 @@ var querystring = require('querystring');
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
+var util = require('util');
 var URL = require('url');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
@@ -127,6 +128,8 @@ function rest_api(api) {
     api.Client = Client;
     api.Server = Server;
 
+    // map of peer ids used for direct call when a peer sends rpc to itself
+    api.local_rpc_per_peer = {};
 
 
     // SERVER /////////////////////////////////////////////////////////////////
@@ -245,7 +248,7 @@ function rest_api(api) {
             msg = JSON.parse(message);
             reqId = msg.req || msg.requestId;
             body = msg.body;
-            dbg.log0('ice do something ' + require("util").inspect(msg));
+            dbg.log0('ice do something ' + util.inspect(msg));
         } else if (message instanceof ArrayBuffer) {
             try {
                 reqId = (buf.toBuffer(message.slice(0, 32)).readInt32LE(0)).toString();
@@ -255,36 +258,35 @@ function rest_api(api) {
             var msgObj = channel.msgs[reqId];
             body = msgObj.buffer;
             msg = msgObj.peer_msg;
-            dbg.log0('ice do something with buffer ' + require("util").inspect(msg) + ' for req ' + reqId);
+            dbg.log0('ice do something with buffer ' + util.inspect(msg) + ' for req ' + reqId);
         } else if (message.method) {
             msg = message;
             body = msg.body;
             reqId = msg.req || msg.requestId;
-            dbg.log0('ice do something json ' + require("util").inspect(message) + ' req ' + reqId);
+            dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
         } else {
-            console.error('ice got weird msg ' + require("util").inspect(message));
+            console.error('ice got weird msg ' + util.inspect(message));
         }
 
         if (msg.sigType) {
             isWs = true;
         }
 
+        var headers = msg.headers;
         var reqBody = body;
         if (body && body.body) {
+            headers = body.headers;
             reqBody = body.body;
-
-            try {
-                if (typeof reqBody === 'string' || reqBody instanceof String) {
-                    reqBody = JSON.parse(reqBody);
-                }
-            } catch (ex) {
-                console.error('problem parsing body as json ' + ex + ' req ' + reqId);
-            }
+        }
+        try {
+            reqBody = decode_response(headers, reqBody);
+        } catch (ex) {
+            console.error('problem decoding body ' + ex);
         }
 
         var req = {
             url: 'http://127.0.0.1' + (msg.path || body.path),
-            method: msg.method,
+            method: (msg.method || body.method),
             body: reqBody,
             load_auth: function() {} // TODO
         };
@@ -344,6 +346,60 @@ function rest_api(api) {
             console.error('SHOULD NOT BE HERE done status: ' + status + " reply: " + replyJSON + " replyBuffer: " + replyBuffer + ' if err ' + err + ' req ' + reqId);
         });
 
+    };
+
+    /**
+     *
+     */
+    Server.prototype.install_local_rpc_for_peer = function(peer_id) {
+        var express = require('express');
+        var local_rpc = api.local_rpc_per_peer[peer_id] = api.local_rpc_per_peer[peer_id] || {};
+        var router = local_rpc.router = local_rpc.router || express.Router();
+        this.install_rest(router);
+        local_rpc.local_call = local_rpc_call;
+
+        function local_rpc_call(options) {
+            return Q.Promise(function(resolve, reject) {
+                var url = URL.parse('http://127.0.0.1' + options.path, true);
+                var req = {
+                    method: options.method,
+                    url: url.href,
+                    query: url.query,
+                    path: url.path,
+                    body: decode_response(options.headers, options.body),
+                    headers: options.headers,
+                    load_auth: function() {} // TODO
+                };
+                var status = 200;
+                var replyJSON;
+                var replyBuffer;
+                var res = {
+                    status: function(code) {
+                        status = code;
+                        return this;
+                    },
+                    json: function(msg) {
+                        replyJSON = msg;
+                        return this;
+                    },
+                    send: function(buffer) {
+                        replyBuffer = buffer;
+                        return this;
+                    },
+                    manual: function() {
+                        if (status !== 200) {
+                            reject(replyJSON || replyBuffer);
+                        } else {
+                            resolve(replyJSON || replyBuffer);
+                        }
+                    },
+                };
+
+                router.handle(req, res, function(err) {
+                    console.error('local router failed', err);
+                });
+            });
+        }
     };
 
 
@@ -570,7 +626,16 @@ function rest_api(api) {
             responseType: 'arraybuffer'
         };
 
-        if (config.use_ws_when_possible && self.options.is_ws && self.options.peer) {
+        var local_rpc = api.local_rpc_per_peer[self.options.peer];
+        if (local_rpc) {
+            // local rpc call
+
+            // TODO validate schema for client reply for local_rpc path
+            dbg.log0('local_rpc peer', self.options.peer);
+            options.body = body;
+            return local_rpc.local_call(options);
+
+        } else if (config.use_ws_when_possible && self.options.is_ws && self.options.peer) {
 
             writeToLog(0, 'do ws for path ' + options.path);
 
@@ -636,7 +701,7 @@ function rest_api(api) {
 
     Client.prototype._sendWSRequestWithRetry = function sendWSRequestWithRetry(self_options, peerId, options, retry) {
         var self = this;
-        return Q.fcall(function () {
+        return Q.fcall(function() {
             return ice_api.sendWSRequest(self_options.p2p_context, peerId, options, self_options.timeout);
         }).then(function(res) {
             return res;
@@ -645,10 +710,10 @@ function rest_api(api) {
                 return err;
             } else if (retry < config.ice_retry) {
                 ++retry;
-                writeToLog(-1,'WS REST REQUEST FAILED '+ err+' retry '+retry);
+                writeToLog(-1, 'WS REST REQUEST FAILED ' + err + ' retry ' + retry);
                 return self._sendWSRequestWithRetry(self_options, peerId, options, retry);
             } else {
-                throw new Error('WS REST REQUEST FAILED '+ err);
+                throw new Error('WS REST REQUEST FAILED ' + err);
             }
         });
     };
@@ -908,7 +973,7 @@ function validate_schema(obj, schema, info, desc) {
         true /*checkRecursive*/ ,
         true /*banUnknownProperties*/ );
     if (!result.valid) {
-        console.error('INVALID SCHEMA', desc, schema, obj);
+        dbg.log0('INVALID SCHEMA', desc, util.inspect(schema), util.inspect(obj));
         result.info = info;
         result.desc = desc;
         throw result;
@@ -985,16 +1050,10 @@ function read_http_response(res) {
         return Buffer.concat(chunks, chunks_length);
     }
 
-    function decode_response(data) {
-        var content_type = res.headers['content-type'];
-        var is_json = content_type && content_type.split(';')[0] === 'application/json';
-        return is_json && data && JSON.parse(data.toString()) || data;
-    }
-
     function finish() {
         dbg.log3('HTTP response finish', res);
         try {
-            var data = decode_response(concat_chunks());
+            var data = decode_response(res.headers, concat_chunks());
             if (res.statusCode !== 200) {
                 defer.reject({
                     status: res.statusCode,
@@ -1011,6 +1070,13 @@ function read_http_response(res) {
         }
     }
 }
+
+function decode_response(headers, data) {
+    var content_type = headers && headers['content-type'];
+    var is_json = content_type && content_type.split(';')[0] === 'application/json';
+    return is_json && data && JSON.parse(data.toString()) || data;
+}
+
 
 function url_path_join() {
     return _.reduce(arguments, function(path, item) {

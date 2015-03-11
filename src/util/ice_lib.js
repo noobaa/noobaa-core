@@ -111,7 +111,7 @@ var connect = function (socket) {
                 if (socket.isAgent) {
                     writeToLog(3, 'id '+ message.id+' from server ignored, i am '+socket.idInServer);
                 } else {
-                    writeToLog(3, 'id ' + message.id);
+                    writeToLog(2, 'got ws id from server id ' + message.id);
                     socket.idInServer = message.id;
                     if (socket.conn_defer) {
                         socket.conn_defer.resolve();

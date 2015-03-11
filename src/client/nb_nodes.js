@@ -24,6 +24,7 @@ nb_api.factory('nbNodes', [
         $scope.disable_node = disable_node;
         $scope.decommission_node = decommission_node;
         $scope.remove_node = remove_node;
+        $scope.self_test = self_test;
 
 
         function refresh_node_groups(selected_geo) {
@@ -135,6 +136,47 @@ nb_api.factory('nbNodes', [
             );
         }
 
+        function self_test(node, options) {
+            return list_nodes({
+                    limit: 10
+                })
+                .then(function(nodes) {
+                    return _.reduce(nodes, function(promise, target_node) {
+                        return promise.then(function() {
+                            console.log('SELF TEST', node.name, 'to', target_node.name);
+                            var node_host = 'http://' + node.host + ':' + node.port;
+                            var target_host = 'http://' + target_node.host + ':' + target_node.port;
+
+                            var agent = new api.agent_api.Client();
+                            agent.options.set_address(node_host);
+                            agent.options.set_peer(node.peer_id);
+                            agent.options.set_p2p_context(nbClient.client.p2p_context);
+
+                            var timestamp = Date.now();
+                            return agent.self_test_peer({
+                                    target: {
+                                        id: target_node.id,
+                                        host: target_host,
+                                        peer: target_node.peer_id
+                                    },
+                                    request_length: 100 * 1024,
+                                    response_length: 100 * 1024,
+                                })
+                                .then(function() {
+                                    var elapsed = Date.now() - timestamp;
+                                    console.log('SELF TEST TOOK', elapsed / 1000, 'sec');
+                                }, function(err) {
+                                    console.error('SELF TEST FAILED', err);
+                                });
+                        });
+                    }, Q.resolve());
+                })
+                .then(function() {
+                    nbAlertify.log('Self test completed :)');
+                }, function(err) {
+                    nbAlertify.error('Self test failed :(');
+                });
+        }
 
 
 

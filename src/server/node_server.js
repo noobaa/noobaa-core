@@ -6,6 +6,7 @@ var Q = require('q');
 var mongoose = require('mongoose');
 var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 var api = require('../api');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
@@ -369,6 +370,7 @@ function heartbeat(req) {
     params.ip = params.ip ||
         req.headers['x-forwarded-for'] ||
         req.connection.remoteAddress;
+    params.port = params.port || 0;
 
     params.system = req.system;
 

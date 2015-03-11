@@ -5,6 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var os = require('os');
+var util = require('util');
 var path = require('path');
 var http = require('http');
 var assert = require('assert');
@@ -111,6 +112,8 @@ function Agent(params) {
         delete_block: self.delete_block.bind(self),
         check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
+        self_test_io: self.self_test_io.bind(self),
+        self_test_peer: self.self_test_peer.bind(self),
     });
     self.agent_server = agent_server;
     agent_server.install_rest(app);
@@ -154,7 +157,10 @@ Agent.prototype.start = function() {
         })
         .then(function() {
             if (config.use_ice_when_possible || config.use_ws_when_possible) {
-                console.log('start ws agent id: '+ self.node_id+' peer id: '+ self.peer_id);
+                console.log('start ws agent id: ' + self.node_id + ' peer id: ' + self.peer_id);
+
+                // register my peer id in rpc to get local calls redirected to me directly
+                self.agent_server.install_local_rpc_for_peer(self.peer_id);
 
                 self.sigSocket = ice_api.signalingSetup(
                     self.agent_server.ice_server_handler.bind(self.agent_server),
@@ -181,7 +187,7 @@ Agent.prototype.start = function() {
  */
 Agent.prototype.stop = function() {
     var self = this;
-    console.log('stop agent '+ self.node_id);
+    console.log('stop agent ' + self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
     self._start_stop_heartbeats();
@@ -219,8 +225,8 @@ Agent.prototype._init_node = function() {
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
                 self.peer_id = res.extra.peer_id;
-                console.log('authorized node '+ self.node_name+
-                    ' id '+ self.node_id+ ' peer_id '+ self.peer_id);
+                console.log('authorized node ' + self.node_name +
+                    ' id ' + self.node_id + ' peer_id ' + self.peer_id);
                 return;
             }
 
@@ -286,7 +292,7 @@ Agent.prototype._start_stop_http_server = function() {
  */
 Agent.prototype._server_listening_handler = function() {
     this.http_port = this.http_server.address().port;
-    console.log('AGENT server listening on port '+ this.http_port);
+    console.log('AGENT server listening on port ' + this.http_port);
 };
 
 
@@ -339,7 +345,7 @@ Agent.prototype.send_heartbeat = function() {
                 id: self.node_id,
                 geolocation: self.geolocation,
                 ip: ip,
-                port: self.http_port,
+                port: self.http_port || 0,
                 storage: {
                     alloc: store_stats.alloc,
                     used: store_stats.used
@@ -512,4 +518,37 @@ Agent.prototype.check_block = function(req) {
 Agent.prototype.kill_agent = function(req) {
     console.log('AGENT kill requested, exiting');
     process.exit();
+};
+
+Agent.prototype.self_test_io = function(req) {
+    console.log('SELF TEST IO got ' + req.rest_params.data.length + ' reply ' + req.rest_params.response_length);
+    return new Buffer(req.rest_params.response_length);
+};
+
+Agent.prototype.self_test_peer = function(req) {
+    var self = this;
+    var target = req.rest_params.target;
+    console.log('SELF TEST PEER req ' + req.rest_params.request_length +
+        ' res ' + req.rest_params.response_length +
+        ' target ' + util.inspect(target));
+
+    if (!self.p2p_context) {
+        self.p2p_context = {};
+    }
+
+    // read from target agent
+    var agent = new api.agent_api.Client();
+    agent.options.set_address(target.host);
+    agent.options.set_peer(target.peer);
+    agent.options.set_ws(self.sigSocket);
+    agent.options.set_p2p_context(self.p2p_context);
+    return agent.self_test_io({
+            data: new Buffer(req.rest_params.request_length),
+            response_length: req.rest_params.response_length,
+        })
+        .then(function(data) {
+            if (data.length !== req.rest_params.response_length) {
+                throw new Error('SELF TEST PEER response_length mismatch');
+            }
+        });
 };

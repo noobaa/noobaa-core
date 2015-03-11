@@ -38,8 +38,8 @@ function AgentCLI(params) {
     this.params = params;
     this.client = new api.Client();
     this.agents = {};
-    this._mod = dbg;
-    this.modules = this._mod.get_module_structure();
+    // this._mod = dbg;
+    // this.modules = this._mod.get_module_structure();
 }
 
 

@@ -65,6 +65,8 @@ function ObjectClient(base) {
         cipher_type: 'aes256',
     };
 
+    self.p2p_context = {};
+
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
 
@@ -368,10 +370,6 @@ ObjectClient.prototype._attempt_write_block = function(params) {
  */
 ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
     var self = this;
-
-    if (!self.p2p_context) {
-        self.p2p_context = {};
-    }
 
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
@@ -835,10 +833,6 @@ ObjectClient.prototype._init_blocks_cache = function() {
  */
 ObjectClient.prototype._read_block = function(block_address, block_size, offset) {
     var self = this;
-
-    if (!self.p2p_context) {
-        self.p2p_context = {};
-    }
 
     // use semaphore to surround the IO
     return self._block_read_sem.surround(function() {

@@ -121,8 +121,8 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             if (msgObj.msg_size && msgObj.received_size === msgObj.msg_size) {
 
                 writeToLog(0,'all chunks received last '+part+' with size ' +
-                event.data.byteLength + " total size so far " + msgObj.received_size
-                + ' my id '+channel.myId+ ' request '+req);
+                event.data.byteLength + " total size so far " + msgObj.received_size +
+                ' my id '+channel.myId+ ' request '+req);
 
                 var chunksParts = [];
                 var chunk_counter;

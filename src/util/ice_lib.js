@@ -401,7 +401,6 @@ var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
 module.exports.isRequestEnded = isRequestEnded;
 
 var closeIce = function closeIce(socket, requestId, dataChannel) {
-    return;
     try {
         if (dataChannel && dataChannel.msgs && dataChannel.msgs[requestId]) {
             delete dataChannel.msgs[requestId];
@@ -425,22 +424,33 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
 module.exports.closeIce = closeIce;
 
 var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, socket) {
-    if (p2p_context && p2p_context.iceSockets && p2p_context.iceSockets[peerId] &&
-        p2p_context.iceSockets[peerId].dataChannel) {
+
+    var context = p2p_context;
+    if (!context && socket) {
+        context = socket.p2p_context;
+    }
+
+    if (context && context.iceSockets && context.iceSockets[peerId] &&
+        context.iceSockets[peerId].dataChannel) {
         console.error('forceCloseIce peer '+peerId);
-        p2p_context.iceSockets[peerId].dataChannel.close();
-        p2p_context.iceSockets[peerId].peerConn.close();
-        delete p2p_context.iceSockets[peerId];
+        context.iceSockets[peerId].dataChannel.close();
+        context.iceSockets[peerId].peerConn.close();
+
+        if (socket && socket.icemap && context.iceSockets[peerId].usedBy) {
+            for (var req in context.iceSockets[peerId].usedBy) {
+                if (socket.icemap[req]) {
+                    console.error('mark peer '+peerId+' req '+req+' as done so will be removed');
+                    socket.icemap[req].done = true;
+                }
+            }
+        }
+
+        delete context.iceSockets[peerId];
     } else if (channelObj && channelObj.dataChannel) {
         console.error('forceCloseIce (no context) peer '+peerId);
         channelObj.dataChannel.close();
         channelObj.peerConn.close();
-    } else if (socket && socket.p2p_context && socket.p2p_context.iceSockets &&
-               socket.p2p_context.iceSockets[peerId] &&
-               socket.p2p_context.iceSockets[peerId].dataChannel) {
-        console.error('forceCloseIce (no general context, got socket) peer '+peerId);
-        socket.p2p_context.iceSockets[peerId].dataChannel.close();
-        socket.p2p_context.iceSockets[peerId].peerConn.close();
+        channelObj.done = true;
     } else {
         console.error('forceCloseIce nothing to close - peer '+peerId);
     }

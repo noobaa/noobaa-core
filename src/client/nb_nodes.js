@@ -141,7 +141,13 @@ nb_api.factory('nbNodes', [
                     limit: 10
                 })
                 .then(function(nodes) {
+                    $scope.self_test = [];
                     return _.reduce(nodes, function(promise, target_node) {
+                        var target_node_test = {
+                            node: target_node
+                        };
+                        $scope.self_test.push(target_node_test);
+
                         return promise.then(function() {
                             console.log('SELF TEST', node.name, 'to', target_node.name);
                             var node_host = 'http://' + node.host + ':' + node.port;
@@ -163,13 +169,16 @@ nb_api.factory('nbNodes', [
                                     response_length: 100 * 1024,
                                 })
                                 .then(function() {
-                                    var elapsed = Date.now() - timestamp;
-                                    console.log('SELF TEST TOOK', elapsed / 1000, 'sec');
+                                    target_node_test.done = true;
+                                    target_node_test.elapsed = Date.now() - timestamp;
+                                    console.log('SELF TEST TOOK', target_node_test.elapsed / 1000, 'sec');
                                 }, function(err) {
+                                    target_node_test.error = err;
                                     console.error('SELF TEST FAILED', err);
+                                    throw err;
                                 });
                         });
-                    }, Q.resolve());
+                    }, $q.when());
                 })
                 .then(function() {
                     nbAlertify.log('Self test completed :)');

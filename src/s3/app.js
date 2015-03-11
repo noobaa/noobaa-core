@@ -68,8 +68,8 @@ var app = function(params) {
 
     return {
         serve: function(done) {
-            var privateKey = fs.readFileSync('/Users/eran/workspace/key.pem');
-            var certificate = fs.readFileSync('/Users/eran/workspace/cert.pem');
+            var privateKey = fs.readFileSync(params.s3_key);
+            var certificate = fs.readFileSync(params.s3_cert);
             http.createServer(app.handle.bind(app)).listen(params.port);
             https.createServer({
                 key: privateKey,

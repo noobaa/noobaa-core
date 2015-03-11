@@ -352,6 +352,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         msgObj.action_defer = Q.defer();
 
         if (buffer) {
+            buffer = buf.toArrayBuffer(buffer);
             request.size = buffer.byteLength;
         }
         request.req = requestId;

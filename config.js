@@ -1,7 +1,7 @@
 var config = {};
 
 // SIGNALING AND ICE
-config.address = 'ws://ec2-52-10-244-78.us-west-2.compute.amazonaws.com:5002'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
+config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
 config.connection_data_stale = 10 * 60 * 1000;
@@ -25,9 +25,7 @@ config.REPLICATE_CONCURRENCY = 32;
 
 config.ice_servers = {
     'iceServers': [
-        {'url': 'stun:stun.l.google.com:19302'},
-        {'url': 'stun:stun.stunprotocol.org:3478'},
-        {'url': 'stun:192.168.59.103:3478'}
+        {'url': 'stun:54.93.86.231:3478'}
     ]
 };
 

@@ -199,14 +199,14 @@ module.exports = function(params) {
         try {
             var md5 = 0;
             //
-            // // tranform stream that calculates md5 on-the-fly
-            // var md5_calc = new md5_stream();
-            // req.pipe(md5_calc);
-            //
-            // md5_calc.on('finish', function() {
-            //     md5 = md5_calc.toString();
-            //     dbg.log0('MD5 data (end)', md5);
-            // });
+            // tranform stream that calculates md5 on-the-fly
+            var md5_calc = new md5_stream();
+            req.pipe(md5_calc);
+
+            md5_calc.on('finish', function() {
+                md5 = md5_calc.toString();
+                dbg.log0('MD5 data (end)', md5);
+            });
 
             // md5_calc.on('data', function(data) {
             //     md5Hash.update(data);
@@ -216,16 +216,16 @@ module.exports = function(params) {
             //     dbg.log0('go data (end)', md5);
             // });
 
-            console.error('before chunk:'+require('util').inspect(req));
+        //console.error('before chunk:'+require('util').inspect(req));
           //var buffer = require('../util/buffer_utils').chunkToBuffer(req);
-        //  console.error('after chunk:'+Buffer.isBuffer(buffer));
+         //console.error('after chunk:'+Buffer.isBuffer(md5_calc));
 
             return client.object.upload_stream({
                 bucket: params.bucket,
                 key: file_key_name,
                 size: parseInt(req.headers['content-length']),
                 content_type: req.headers['content-type'] || mime.lookup(file_key_name),
-                source_stream: req,
+                source_stream: md5_calc,
             }).then(function() {
                 try {
                     dbg.log0('COMPLETED: upload', file_key_name, md5);

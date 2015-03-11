@@ -41,6 +41,8 @@ function encrypt_chunk(plain_buffer, crypt_info) {
 
     }).then(function(hash_val) {
 
+
+
         // convergent encryption - use data hash as cipher key
         crypt_info.cipher_val = hash_val;
         crypt_info.hash_val = hash_val;
@@ -50,20 +52,33 @@ function encrypt_chunk(plain_buffer, crypt_info) {
         // over pure js code from crypto-browserify
         if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
             var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
-            return subtle_crypto.importKey('raw', keys.key, {
+
+            var keyToUse = buf_utils.toArrayBuffer(keys.key);
+
+            return subtle_crypto.importKey('raw', keyToUse, {
                     name: "AES-CBC",
                     length: 256
                 }, false, ['encrypt'])
                 .then(function(key) {
+                    var iv;
+                    if (buf_utils.isAbv(keys.iv)) {
+                        iv = keys.iv;
+                    } else {
+                        iv = buf_utils.toArrayBufferView(keys.iv);
+                    }
+                    var plnBuf = buf_utils.toArrayBuffer(plain_buffer);
+
                     return subtle_crypto.encrypt({
                         name: "AES-CBC",
                         length: 256,
-                        iv: keys.iv,
-                    }, key, plain_buffer.toArrayBuffer());
+                        iv: iv,
+                    }, key, plnBuf);
                 })
                 .then(function(encrypted_array) {
                     var encrypted_buffer = new Buffer(new Uint8Array(encrypted_array));
                     return encrypted_buffer;
+                }).then(null, function(err){
+                    console.error('eeeee:'+err);
                 });
         }
 

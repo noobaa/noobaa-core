@@ -9,7 +9,8 @@ config.check_stale_conns = 60 * 1000;
 config.chunk_size = 8 * 1024;
 config.doStaleCheck = false;
 config.buildWorkerOn = false;
-config.connection_default_timeout = 10 * 1000;
+config.connection_default_timeout = 25 * 1000;
+config.ws_default_timeout = 25 * 1000;
 config.ice_retry = 0;
 
 config.use_ws_when_possible = true;

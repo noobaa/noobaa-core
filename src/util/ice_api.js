@@ -283,7 +283,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         }
         sigSocket.action_defer[requestId] = Q.defer();
         return sigSocket.action_defer[requestId].promise;
-    }).timeout(config.connection_default_timeout).then(function(response) {
+    }).timeout(config.ws_default_timeout).then(function(response) {
         writeToLog(0,'return response data '+require('util').inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {

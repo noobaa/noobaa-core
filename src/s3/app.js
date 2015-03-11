@@ -2,44 +2,19 @@
 var fs = require('fs');
 var https = require('https');
 var http = require('http');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
-var params = {
-    address: 'http://localhost:5001',
-    streamer: 5006,
-    email: 'demo@noobaa.com',
-    password: 'DeMo',
-    system: 'demo',
-    tier: 'devices',
-    bucket: 'files',
-};
-var app = function(hostname, port, directory, silent) {
+var app = function(params) {
+
+
     var express = require('express'),
         app = express(),
         //logger = require('./logger')(false),
         Controllers = require('./controllers'),
-        controllers = new Controllers(directory),
+        controllers = new Controllers(params),
         concat = require('concat-stream');
 
-    /**
-     * Log all requests
-     */
-    app.use(require('morgan')('tiny', {
-        'stream': {
-            write: function(message) {
-                console.error(message.slice(0, -1));
-            }
-        }
-    }));
 
-    // create a write stream (in append mode)
-    var accessLogStream = fs.createWriteStream(directory + '/access.log', {
-        flags: 'a'
-    });
-
-    // setup the logger
-    app.use(require('morgan')('combined', {
-        stream: accessLogStream
-    }));
 
     // app.use(function(req, res, next) {
     //
@@ -50,26 +25,26 @@ var app = function(hostname, port, directory, silent) {
     // });
 
     app.use(function (req, res, next) {
-      console.log('Time:', Date.now(),req.headers,req.query,req.query.prefix,req.query.delimiter);
+        dbg.log0('Time:', Date.now(),req.headers,req.query,req.query.prefix,req.query.delimiter);
       if (req.headers.host)
       {
           if (req.headers.host.indexOf(params.bucket)===0)
           {
               req.url = req.url.replace('/','/'+params.bucket+'/');
-              console.log('update path with bucket name',req.url,req.path,params.bucket);
+              dbg.log0('update path with bucket name',req.url,req.path,params.bucket);
           }
           if (req.query.prefix && req.query.delimiter){
               if (req.query.prefix.indexOf(req.query.delimiter)<0)
               {
                   req.url = req.url.replace(req.query.prefix,req.query.prefix+req.query.delimiter);
-                  console.log('updated prefix',req.url,req.query.prefix);
+                  dbg.log0('updated prefix',req.url,req.query.prefix);
                   req.query.prefix = req.query.prefix+req.query.delimiter;
 
               }
           }
           if (req.url.indexOf('/'+params.bucket+'?')>=0){
               //req.url = req.url.replace(params.bucket,params.bucket+'/');
-              console.log('updated bucket name with delimiter',req.url);
+              dbg.log0('updated bucket name with delimiter',req.url);
           }
 
 
@@ -95,17 +70,19 @@ var app = function(hostname, port, directory, silent) {
         serve: function(done) {
             var privateKey = fs.readFileSync('/Users/eran/workspace/key.pem');
             var certificate = fs.readFileSync('/Users/eran/workspace/cert.pem');
-            http.createServer(app.handle.bind(app)).listen(80);
+            http.createServer(app.handle.bind(app)).listen(params.port);
             https.createServer({
                 key: privateKey,
                 cert: certificate
-            }, app.handle.bind(app)).listen(port, hostname, function(err) {
-                return done(err, hostname, port, directory);
+            }, app.handle.bind(app)).listen(params.ssl_port, params.hostname, function(err) {
+                return done(err, params.hostname, params.port);
             }).on('error', function(err) {
                 return done(err);
             });
         }
     };
+
+
 };
 
 module.exports = app;

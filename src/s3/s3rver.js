@@ -1,35 +1,15 @@
 'use strict';
 var App = require('./app');
-var S3rver = function() {
-    this.port = 4578;
-    this.hostname = 'localhost';
-    this.silent = false;
+var S3rver = function(params) {
+    this.params = params;
+    //console.log('ppp0:',this.params);
 };
 
-S3rver.prototype.setPort = function(port) {
-    this.port = port;
-    return this;
-};
-
-S3rver.prototype.setHostname = function(hostname) {
-    this.hostname = hostname;
-    return this;
-};
-
-S3rver.prototype.setDirectory = function(directory) {
-    this.directory = directory;
-    return this;
-};
-
-S3rver.prototype.setSilent = function(silent) {
-    this.silent = null;
-    return this;
-};
 
 S3rver.prototype.run = function(done) {
-    var app = new App(this.hostname, this.port, this.directory, this.silent);
+    //console.log('ppp1:',this.params);
+    var app = new App(this.params);
     return app.serve(done);
-
 };
 
 module.exports = S3rver;

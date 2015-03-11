@@ -1,36 +1,45 @@
-#!/usr/bin/env node
-
 'use strict';
-var program = require('commander'),
-    fs = require('fs'),
-    S3rver = require('./s3rver');
+var a=1;
+var fs = require('fs');
+var S3rver = require('./s3rver');
+var util = require('util');
+var Q = require('q');
+var _ = require('lodash');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
-program.option('-h, --hostname [value]', 'Set the host name or ip for the server', 'localhost')
-    .option('-p, --port <n>', 'Set the port of the http server', 4568)
-    .option('-s, --silent', 'Suppress log messages', false)
-    .option('-d, --directory [path]', 'Data directory')
-    .parse(process.argv);
 
-if (program.directory === undefined) {
-    console.error('Data directory is required');
-    return;
-}
+var params = {};
+Q.nfcall(fs.readFile, 'agent_conf.json')
+    .then(function(data) {
+        var agent_conf = JSON.parse(data);
+        dbg.log0('using agent_conf.json', util.inspect(agent_conf));
+        params = _.defaults(params, agent_conf);
+        return;
+    }).then(null, function(err) {
+        dbg.log0('cannot find configuration file. Using defaults.'+err);
+        params = _.defaults(params, {
+            address: 'http://localhost:5001',
+            email: 'demo@noobaa.com',
+            password: 'DeMo',
+            system: 'demo',
+            tier: 'nodes',
+            bucket: 'files',
+            port: 80,
+            ssl_port: 443,
+            ssl_hostname: '127.0.0.1'
 
-try {
-    var stats = fs.lstatSync(program.directory);
-    if (stats.isDirectory() === false) {
-        throw Error();
-    }
-} catch (e) {
-    console.error('Directory does not exist. Please create it and then run the command again');
-    return;
-}
+        });
+        return;
+    }).then(function(){
+    var s3rver = new S3rver(params);
 
-var s3rver = new S3rver();
-s3rver.setHostname(program.hostname)
-    .setPort(program.port)
-    .setDirectory(program.directory)
-    .setSilent(program.silent)
-    .run(function(err, host, port) {
-        console.log('S3 is listening on host %s and port %d', host, port);
+    return Q.nfcall(function(){
+        s3rver
+        .run(function(err, host, port) {
+            dbg.log0('S3 is listening on host %s and port %d', host, port);
+        });
+    }).then(null,function(err){
+        dbg.log0('err',err,err.stack);
     });
+
+});

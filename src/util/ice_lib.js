@@ -252,20 +252,25 @@ function staleConnChk(socket) {
         return;
     }
 
+    writeToLog(-1,'RUNNING staleConnChk ICE YAEL');
+
     var now = (new Date()).getTime();
     var toDel = [];
-    var iceObjChk, iceToDel;
+    var requestId;
+    var peerId;
+    var pos;
     try {
-        for (iceObjChk in socket.icemap) {
+        for (requestId in socket.icemap) {
             //dbg.log0('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
-            if (now - socket.icemap[iceObjChk].created.getTime() > config.connection_data_stale && socket.icemap[iceObjChk].done) {
-                toDel.push(iceObjChk);
+            if (now - socket.icemap[requestId].created.getTime() > config.connection_data_stale && socket.icemap[requestId].done) {
+                toDel.push(requestId);
             }
         }
 
-        for (iceToDel in toDel) {
-            writeToLog(0, 'remove stale connections to peer ' + socket.icemap[toDel[iceToDel]].peerId);
-            delete socket.icemap[toDel[iceToDel]];
+        for (pos in toDel) {
+            requestId = toDel[pos];
+            writeToLog(0, 'remove stale connections to peer ' + socket.icemap[requestId].peerId);
+            delete socket.icemap[requestId];
         }
     } catch (ex) {
         console.error('Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
@@ -276,18 +281,20 @@ function staleConnChk(socket) {
             now = (new Date()).getTime();
             toDel = [];
 
-            for (iceObjChk in socket.p2p_context.iceSockets) {
-                if (now - socket.p2p_context.iceSockets[iceObjChk].lastUsed > config.connection_data_stale &&
-                    (_.isEmpty(socket.p2p_context.iceSockets[iceObjChk].usedBy))) {
-                    toDel.push(iceObjChk);
+            for (peerId in socket.p2p_context.iceSockets) {
+                if (now - socket.p2p_context.iceSockets[peerId].lastUsed > config.connection_data_stale &&
+                    (_.isEmpty(socket.p2p_context.iceSockets[peerId].usedBy))) {
+                    toDel.push(peerId);
                 }
             }
 
-            for (iceToDel in toDel) {
-                writeToLog(0, 'remove stale ice connections to peer ' + toDel[iceToDel]);
-                console.error('Closing the ice socket to peer (stale) ' +toDel[iceToDel]);
-                socket.p2p_context.iceSockets[toDel[iceToDel]].dataChannel.close();
-                delete socket.p2p_context.iceSockets[toDel[iceToDel]];
+            for (pos in toDel) {
+                peerId = toDel[pos];
+                writeToLog(0, 'remove stale ice connections to peer ' + peerId);
+                console.error('Closing the ice socket to peer (stale) ' +peerId);
+                socket.p2p_context.iceSockets[peerId].dataChannel.close();
+                socket.p2p_context.iceSockets[peerId].peerConn.close();
+                delete socket.p2p_context.iceSockets[peerId];
             }
         }
     } catch (ex) {

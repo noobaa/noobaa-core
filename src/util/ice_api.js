@@ -172,7 +172,7 @@ var createBufferToSend = function createBufferToSend(block, seq, reqId) {
 module.exports.createBufferToSend = createBufferToSend;
 
 function generateRequestId() {
-    return rand.getRandomInt(10000,90000).toString();
+    return rand.getRandomInt(10000,9000000).toString();
 }
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
@@ -213,13 +213,15 @@ function staleConnChk(p2p_context) {
         return;
     }
 
+    writeToLog(-1,'RUNNING staleConnChk WS YAEL');
+
     var now = (new Date()).getTime();
 
     if (now - p2p_context.wsClientSocket.lastTimeUsed > config.connection_data_stale) {
-        writeToLog(0,'REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
+        writeToLog(-1,'REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
         ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
-        clearInterval(p2p_context.wsClientSocket.interval);
-        p2p_context.wsClientSocket = null;
+        //clearInterval(p2p_context.wsClientSocket.interval);
+        //p2p_context.wsClientSocket = null;
     }
 }
 

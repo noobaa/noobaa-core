@@ -11,7 +11,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var configuration = config.ice_servers;
 
 function writeToLog(level, msg) {
-    var timeStr = '';
+    var timeStr = (new Date()).toString();
     if (level === 0) {
         dbg.log0(timeStr+' '+msg);
     } else if (level === 1) {
@@ -261,7 +261,8 @@ function staleConnChk(socket) {
     var pos;
     try {
         for (requestId in socket.icemap) {
-            //dbg.log0('chk connections to peer ' + socket.icemap[iceObjChk].peerId + ' from ' + socket.icemap[iceObjChk].created.getTime());
+            dbg.log0('chk stale connections 1111 to peer ' + socket.icemap[requestId].peerId + ' from ' +
+                socket.icemap[requestId].created+' for req '+requestId+' is done '+socket.icemap[requestId].done);
             if (now - socket.icemap[requestId].created.getTime() > config.connection_data_stale && socket.icemap[requestId].done) {
                 toDel.push(requestId);
             }
@@ -269,7 +270,7 @@ function staleConnChk(socket) {
 
         for (pos in toDel) {
             requestId = toDel[pos];
-            writeToLog(0, 'remove stale connections to peer ' + socket.icemap[requestId].peerId);
+            writeToLog(0, 'remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
             delete socket.icemap[requestId];
         }
     } catch (ex) {
@@ -282,6 +283,8 @@ function staleConnChk(socket) {
             toDel = [];
 
             for (peerId in socket.p2p_context.iceSockets) {
+                dbg.log0('chk stale connections 22222 to peer '+peerId+' last used '+socket.p2p_context.iceSockets[peerId].lastUsed+
+                'used by '+socket.p2p_context.iceSockets[peerId].usedBy);
                 if (now - socket.p2p_context.iceSockets[peerId].lastUsed > config.connection_data_stale &&
                     (_.isEmpty(socket.p2p_context.iceSockets[peerId].usedBy))) {
                     toDel.push(peerId);

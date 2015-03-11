@@ -9,7 +9,7 @@ var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
 
 function writeToLog(level, msg) {
-    var timeStr = '';
+    var timeStr = (new Date()).toString();
     if (level === 0) {
         dbg.log0(timeStr+' '+msg);
     } else if (level === 1) {

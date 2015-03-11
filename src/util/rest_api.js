@@ -272,21 +272,24 @@ function rest_api(api) {
             isWs = true;
         }
 
-        var headers = msg.headers;
+        var reqMsg = msg;
         var reqBody = body;
         if (body && body.body) {
-            headers = body.headers;
+            reqMsg = body;
             reqBody = body.body;
         }
         try {
-            reqBody = decode_response(headers, reqBody);
+            reqBody = decode_response(reqMsg.headers, reqBody);
         } catch (ex) {
             console.error('problem decoding body ' + ex);
         }
-
+        var url = URL.parse('http://127.0.0.1' + reqMsg.path, true);
         var req = {
-            url: 'http://127.0.0.1' + (msg.path || body.path),
-            method: (msg.method || body.method),
+            method: reqMsg.method,
+            url: url.href,
+            query: url.query,
+            path: url.path,
+            headers: reqMsg.headers,
             body: reqBody,
             load_auth: function() {} // TODO
         };

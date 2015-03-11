@@ -2,6 +2,10 @@
 
     <div class="page-header page-file">
 
+        <h1 class="hflow" style="word-break: break-all; text-overflow: ellipsis">
+            {{file.name}}
+        </h1>
+
         <ol class="breadcrumb">
             <li>
                 <a href="/console/">System</a>
@@ -12,28 +16,21 @@
             <li class="capitalize">
                 <a ng-href="/console/bucket/{{bucket.name}}">{{bucket.name}}</a>
             </li>
-            <li class="active">{{file.name}}</li>
+            <li class="active capitalize">This File</li>
         </ol>
 
-        <div class="clearfix"></div>
-
-        <h1>
-            <i class="fa fa-file-o fa-lg fa-fw text-primary pull-left"></i>
-            <div class="hflow" style="word-break: break-all; text-overflow: ellipsis">
-                {{file.name}} &nbsp;
-                <small>
-                    <i>File Object</i> &nbsp;
-                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="A file object is a file content stored on the system" data-placement="bottom" data-container="body"></i>
-                </small>
-            </div>
-        </h1>
-
+        <!--
         <div class="page-properties">
             <table class="table table-properties">
                 <tr>
-                    <!-- <td></td> -->
                     <th>Status</th>
-                    <td>Healthy <i class="fa fa-check fa-lg"></i>
+                    <td>
+                        <span ng-if="_.isNumber(file.upload_size)" class="text-info">
+                            uploading {{human_percent(file.upload_size/file.size)}}%
+                        </span>
+                        <span ng-if="!_.isNumber(file.upload_size)">
+                            Healthy <i class="fa fa-check fa-lg"></i>
+                        </span>
                     </td>
                     <th>Bucket</th>
                     <td>{{bucket.name}}</td>
@@ -49,12 +46,14 @@
                 </tr>
             </table>
         </div>
+        -->
 
+        <!--
         <ul class="nav nav-tabs">
             <li ng-class="{active:file_router.route=='parts'}">
                 <a ng-click="file_router.set('parts')">Parts List</a>
             </li>
-            <!-- <li ng-class="{active: file_router.route=='settings'}">
+            <li ng-class="{active: file_router.route=='settings'}">
                 <a ng-click="file_router.set('settings')">Settings</a>
             </li> -->
             <!-- <li ng-class="{active: file_router.route=='properties'}">
@@ -65,8 +64,9 @@
             </li> -->
             <!-- <li ng-class="{active: file_router.route=='link'}">
                 <a ng-click="file_router.set('link')">Link</a>
-            </li> -->
+            </li>
         </ul>
+        -->
 
     </div>
 

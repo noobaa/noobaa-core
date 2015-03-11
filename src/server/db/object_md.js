@@ -47,10 +47,10 @@ var objmd_schema = new Schema({
         required: true,
     },
 
-    // upload_mode flag for objects that were created but not written yet,
-    // and this means they cannot be read yet.
-    upload_mode: {
-        type: Boolean,
+    // upload_size is filled for objects while uploading,
+    // and ultimatly removed once the write is done
+    upload_size: {
+        type: Number,
     },
 
     create_time: {

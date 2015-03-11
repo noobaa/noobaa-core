@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * AUTH API
  *
+ * client (currently web client) talking to the web server to authenticate
  */
 module.exports = rest_api({
 
@@ -77,7 +78,7 @@ module.exports = rest_api({
                 properties: {
                     account: {
                         type: 'object',
-                        required: [],
+                        required: ['name', 'email'],
                         properties: {
                             name: {
                                 type: 'string',
@@ -85,11 +86,14 @@ module.exports = rest_api({
                             email: {
                                 type: 'string',
                             },
-                        }
+                            is_support: {
+                                type: 'boolean',
+                            },
+                        },
                     },
                     system: {
                         type: 'object',
-                        required: [],
+                        required: ['name'],
                         properties: {
                             name: {
                                 type: 'string',

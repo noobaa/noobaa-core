@@ -2,6 +2,24 @@
 
     <div class="row">
         <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Self test</h4>
+        </div>
+        <div class="content-col col-sm-9">
+            <p>
+                <button class="btn btn-primary" nb-click-ladda="nbNodes.self_test(node)">Run</button>
+            </p>
+            <div ng-repeat="test in nbNodes.self_test">
+                {{test.node.name}}
+                <i ng-if="test.done" class="fa fa-check fa-lg fa-fw text-success"></i>
+                <i ng-if="test.error" class="fa fa-times fa-lg fa-fw text-danger"></i>
+            </div>
+        </div>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
             <h4 class="text-primary">Last heartbeat</h4>
         </div>
         <div class="content-col col-sm-3">
@@ -31,5 +49,7 @@
             </table>
         </div>
     </div>
+
+    <hr/>
 
 </div>

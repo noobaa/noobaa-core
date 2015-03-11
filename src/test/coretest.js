@@ -8,6 +8,7 @@ var assert = require('assert');
 var path = require('path');
 var utilitest = require('noobaa-util/utilitest');
 var rimraf = require('rimraf');
+var mongoose = require('mongoose');
 var Semaphore = require('noobaa-util/semaphore');
 var api = require('../api');
 var db = require('../server/db');
@@ -16,6 +17,8 @@ var Agent = require('../agent/agent');
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
 // Q.longStackSupport = true;
+
+mongoose.set('debug', true);
 
 process.env.JWT_SECRET = 'coretest';
 
@@ -31,12 +34,18 @@ var tier_server = require('../server/tier_server');
 var node_server = require('../server/node_server');
 var bucket_server = require('../server/bucket_server');
 var object_server = require('../server/object_server');
+var config = require('../../config.js');
 
 var client = new api.Client();
 
-
 before(function(done) {
     Q.fcall(function() {
+
+        // use http only for test
+        config.use_ws_when_possible = false;
+        config.use_ice_when_possible = false;
+
+
         utilitest.router.use(auth_server.authorize());
         auth_server.install_rest(utilitest.router);
         account_server.install_rest(utilitest.router);
@@ -93,6 +102,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
                         node_name: '' + Date.now(),
                         // passing token instead of storage_path to use memory storage
                         token: create_node_token,
+                        use_http_server: true,
                     });
                     return agent.start().thenResolve(agent);
                 });

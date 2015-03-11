@@ -1,11 +1,11 @@
 <div ng-cloak class="row">
 
     <div class="heading-col col-sm-3">
-        <h4 class="text-primary">
-            Devices in this tier
+        <h4 class="Xtext-primary">
+            Nodes in this resource pool
         </h4>
         <p class="text-muted">
-            Click a device name to get more information.
+            Click a node name to get more information.
         </p>
     </div>
 
@@ -16,10 +16,11 @@
                     <!-- <th></th> -->
                     <th>
                         <div class="form-group">
-                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="Device Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
+                            <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="Node Name (click to search)" ng-model="nodes_query.search" ng-model-options="{debounce: 700}" ng-change="tier_router.set_query('search',nodes_query.search)"
                             />
                         </div>
                     </th>
+                    <th>IP</th>
                     <th>Raw Storage</th>
                     <th>Status</th>
                 </tr>
@@ -35,10 +36,11 @@
                             <span class="text-primary">{{node.name}}</span>
                         </a>
                     </td>
+                    <td>{{node.ip}}</td>
                     <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
                     <td>
                         <span ng-switch="node.srvmode">
-                            <span ng-switch-when="blocked" class="text-danger">Blocked</span>
+                            <span ng-switch-when="disabled" class="text-muted">Disabled</span>
                             <span ng-switch-when="decommissioning" class="text-info">Decommissioning</span>
                             <span ng-switch-when="decommissioned" class="text-muted">Decommissioned</span>
                             <span ng-switch-default>

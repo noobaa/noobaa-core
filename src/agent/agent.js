@@ -5,6 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var os = require('os');
+var util = require('util');
 var path = require('path');
 var http = require('http');
 var assert = require('assert');
@@ -18,7 +19,10 @@ var express_compress = require('compression');
 var api = require('../api');
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
+var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
+var ice_api = require('../util/ice_api');
+var config = require('../../config.js');
 
 module.exports = Agent;
 
@@ -42,6 +46,7 @@ function Agent(params) {
     self.token = params.token;
     self.prefered_port = params.prefered_port;
     self.storage_path = params.storage_path;
+    self.use_http_server = params.use_http_server;
 
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
@@ -51,7 +56,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 10,
-            load: self.store.read_block.bind(self.store),
+            load: self.store.read_block.bind(self.store)
         });
     } else {
         assert(self.token, 'missing param: token. ' +
@@ -61,7 +66,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 1,
-            load: self.store.read_block.bind(self.store),
+            load: self.store.read_block.bind(self.store)
         });
     }
 
@@ -107,7 +112,10 @@ function Agent(params) {
         delete_block: self.delete_block.bind(self),
         check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
+        self_test_io: self.self_test_io.bind(self),
+        self_test_peer: self.self_test_peer.bind(self),
     });
+    self.agent_server = agent_server;
     agent_server.install_rest(app);
 
     var http_server = http.createServer(app);
@@ -125,8 +133,9 @@ function Agent(params) {
         'United States', 'Canada', 'Brazil', 'Mexico',
         'China', 'Japan', 'Korea', 'India', 'Australia',
         'Israel', 'Romania', 'Russia',
-        'Germany', 'England', 'France', 'Spain',
+        'Germany', 'England', 'France', 'Spain'
     ]);
+
 }
 
 
@@ -139,13 +148,26 @@ Agent.prototype.start = function() {
     var self = this;
 
     self.is_started = true;
-    console.log('start agent', self.node_id);
 
     return Q.fcall(function() {
             return self._init_node();
         })
         .then(function() {
             return self._start_stop_http_server();
+        })
+        .then(function() {
+            if (config.use_ice_when_possible || config.use_ws_when_possible) {
+                console.log('start ws agent id: ' + self.node_id + ' peer id: ' + self.peer_id);
+
+                // register my peer id in rpc to get local calls redirected to me directly
+                self.agent_server.install_local_rpc_for_peer(self.peer_id);
+
+                self.sigSocket = ice_api.signalingSetup(
+                    self.agent_server.ice_server_handler.bind(self.agent_server),
+                    self.peer_id);
+                self.client.options.set_ws(self.sigSocket);
+                return self.sigSocket;
+            }
         })
         .then(function() {
             return self.send_heartbeat();
@@ -165,7 +187,7 @@ Agent.prototype.start = function() {
  */
 Agent.prototype.stop = function() {
     var self = this;
-    console.log('stop agent', self.node_id);
+    console.log('stop agent ' + self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
     self._start_stop_heartbeats();
@@ -203,8 +225,8 @@ Agent.prototype._init_node = function() {
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
                 self.peer_id = res.extra.peer_id;
-                console.log('authorized node', self.node_name,
-                    'id', self.node_id, 'peer_id', self.peer_id);
+                console.log('authorized node ' + self.node_name +
+                    ' id ' + self.node_id + ' peer_id ' + self.peer_id);
                 return;
             }
 
@@ -217,7 +239,7 @@ Agent.prototype._init_node = function() {
                     name: self.node_name,
                     tier: res.extra.tier,
                     geolocation: self.geolocation,
-                    storage_alloc: 100 * size_utils.GIGABYTE,
+                    storage_alloc: 100 * size_utils.GIGABYTE
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.client.headers.set_auth_token(node.token);
@@ -249,7 +271,7 @@ Agent.prototype._start_stop_http_server = function() {
     var self = this;
     if (self.is_started) {
         // using port to determine if the server is already listening
-        if (!self.http_port) {
+        if (!self.http_port && self.use_http_server) {
             return Q.Promise(function(resolve, reject) {
                 self.http_server.once('listening', resolve);
                 self.http_server.listen(self.prefered_port);
@@ -270,7 +292,7 @@ Agent.prototype._start_stop_http_server = function() {
  */
 Agent.prototype._server_listening_handler = function() {
     this.http_port = this.http_server.address().port;
-    console.log('AGENT server listening on port', this.http_port);
+    console.log('AGENT server listening on port ' + this.http_port);
 };
 
 
@@ -318,15 +340,16 @@ Agent.prototype.send_heartbeat = function() {
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
+            var ip = ifconfig.get_main_external_ipv4();
             var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
-                // ip: '',
-                port: self.http_port,
+                ip: ip,
+                port: self.http_port || 0,
                 storage: {
                     alloc: store_stats.alloc,
-                    used: store_stats.used,
-                },
+                    used: store_stats.used
+                }
             };
             var now_time = Date.now();
             if (!self.device_info_send_time ||
@@ -343,7 +366,7 @@ Agent.prototype.send_heartbeat = function() {
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
                     cpus: os.cpus(),
-                    networkInterfaces: os.networkInterfaces(),
+                    networkInterfaces: os.networkInterfaces()
                 };
             }
             return self.client.node.heartbeat(params);
@@ -446,9 +469,16 @@ Agent.prototype.replicate_block = function(req) {
     console.log('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
+    if (!self.p2p_context) {
+        self.p2p_context = {};
+    }
+
     // read from source agent
     var agent = new api.agent_api.Client();
     agent.options.set_address(source.host);
+    agent.options.set_peer(source.peer);
+    agent.options.set_ws(self.sigSocket);
+    agent.options.set_p2p_context(self.p2p_context);
     return agent.read_block({
             block_id: source.id
         })
@@ -488,4 +518,37 @@ Agent.prototype.check_block = function(req) {
 Agent.prototype.kill_agent = function(req) {
     console.log('AGENT kill requested, exiting');
     process.exit();
+};
+
+Agent.prototype.self_test_io = function(req) {
+    console.log('SELF TEST IO got ' + req.rest_params.data.length + ' reply ' + req.rest_params.response_length);
+    return new Buffer(req.rest_params.response_length);
+};
+
+Agent.prototype.self_test_peer = function(req) {
+    var self = this;
+    var target = req.rest_params.target;
+    console.log('SELF TEST PEER req ' + req.rest_params.request_length +
+        ' res ' + req.rest_params.response_length +
+        ' target ' + util.inspect(target));
+
+    if (!self.p2p_context) {
+        self.p2p_context = {};
+    }
+
+    // read from target agent
+    var agent = new api.agent_api.Client();
+    agent.options.set_address(target.host);
+    agent.options.set_peer(target.peer);
+    agent.options.set_ws(self.sigSocket);
+    agent.options.set_p2p_context(self.p2p_context);
+    return agent.self_test_io({
+            data: new Buffer(req.rest_params.request_length),
+            response_length: req.rest_params.response_length,
+        })
+        .then(function(data) {
+            if (data.length !== req.rest_params.response_length) {
+                throw new Error('SELF TEST PEER response_length mismatch');
+            }
+        });
 };

@@ -97,9 +97,11 @@ var PATHS = {
         'bower_components/bootstrap-material-design/scripts/material.js',
         'bower_components/bootstrap-material-design/scripts/ripples.js',
         'bower_components/bootstrap-sidebar/dist/js/sidebar.js',
+        'bower_components/datetimepicker/jquery.datetimepicker.js',
         'bower_components/ladda/js/spin.js',
         'bower_components/ladda/js/ladda.js',
         'bower_components/alertify.js/lib/alertify.js',
+        'node_modules/selectize/dist/js/standalone/selectize.js',
         'node_modules/video.js/dist/video-js/video.dev.js',
         // 'vendor/flowplayer-5.4.6/flowplayer.js',
     ],
@@ -371,9 +373,7 @@ function serve() {
     console.log('~~~~~~~~~~~~~~~~~~~~~~');
     console.log(' ');
     active_server = child_process.fork(
-        path.basename(PATHS.server_main), [], {
-            cwd: path.dirname(PATHS.server_main)
-        }
+        PATHS.server_main, []
     );
     active_server.on('error', function(err) {
         console.error(' ');

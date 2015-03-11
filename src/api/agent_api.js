@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * AGENT API
  *
+ * commands that are sent to an agent (read/write/replicate)
  */
 module.exports = rest_api({
 
@@ -112,6 +113,42 @@ module.exports = rest_api({
                     block_id: {
                         type: 'string',
                     },
+                },
+            },
+        },
+
+        self_test_io: {
+            method: 'POST',
+            path: '/self_test/io',
+            param_raw: 'data',
+            params: {
+                type: 'object',
+                required: ['response_length'],
+                properties: {
+                    response_length: {
+                        type: 'integer'
+                    }
+                },
+            },
+            reply_raw: true,
+        },
+
+        self_test_peer: {
+            method: 'POST',
+            path: '/self_test/peer',
+            params: {
+                type: 'object',
+                required: ['target', 'request_length', 'response_length'],
+                properties: {
+                    target: {
+                        $ref: '/common_api/definitions/block_address'
+                    },
+                    request_length: {
+                        type: 'integer'
+                    },
+                    response_length: {
+                        type: 'integer'
+                    }
                 },
             },
         },

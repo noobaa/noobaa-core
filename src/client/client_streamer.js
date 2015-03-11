@@ -98,7 +98,11 @@ function client_streamer(client, port) {
                             ' <td>' + o.info.content_type + '</td>',
                             ' <td title="' + create_time.toLocaleString() + '">' +
                             moment(create_time).fromNow() + '</td>',
-                            ' <td>' + (o.info.upload_mode ? 'uploading...' : '') + '</td>',
+                            ' <td>' + (_.isNumber(o.info.upload_size) ?
+                                'uploading ' +
+                                (100 * o.info.upload_size / o.info.size).toFixed(0) +
+                                '% ...' :
+                                '') + '</td>',
                             '</tr>'
                         ];
                     }),

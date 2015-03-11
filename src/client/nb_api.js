@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var moment = require('moment');
 var api = require('../api');
 
 var nb_api = angular.module('nb_api', [
@@ -70,13 +71,6 @@ nb_api.factory('nbClient', [
                     if (err.status === 401) return $timeout(login, 10);
                     var q = 'Oy, there\'s a problem. Would you like to reload?';
                     return nbAlertify.confirm(q).then(logout);
-                })
-                .then(function() {
-                    if ($scope.system) {
-                        $scope.client.system.read_system().then(function(res) {
-                            _.merge($scope.system, res);
-                        });
-                    }
                 });
         }
 
@@ -124,48 +118,83 @@ nb_api.factory('nbClient', [
 
 
 nb_api.factory('nbSystem', [
-    '$q', '$timeout', '$rootScope', 'nbAlertify', 'nbClient',
-    function($q, $timeout, $rootScope, nbAlertify, nbClient) {
+    '$q', '$timeout', '$rootScope', '$location', 'nbAlertify', 'nbClient',
+    function($q, $timeout, $rootScope, $location, nbAlertify, nbClient) {
         var $scope = {};
 
-        $scope.refresh_systems = refresh_systems;
+        $scope.reload_system = reload_system;
         $scope.new_system = new_system;
         $scope.create_system = create_system;
         $scope.connect_system = connect_system;
-        $scope.refresh_system = refresh_system;
 
-        $scope.init_systems = refresh_systems();
+        $scope.read_activity_log = read_activity_log;
+        $scope.read_activity_log_newest = read_activity_log_newest;
+        $scope.read_activity_log_newer = read_activity_log_newer;
+        $scope.read_activity_log_older = read_activity_log_older;
+        $scope.read_activity_log_by_date = read_activity_log_by_date;
+        $scope.read_activity_log_subject = read_activity_log_subject;
+        $scope.activity_log_params = {
+            limit: 10
+        };
 
-        function refresh_systems() {
+        $scope.init_system = reload_system();
+
+        function reload_system() {
             return nbClient.init_promise
                 .then(function() {
-                    return nbClient.client.system.list_systems();
-                })
-                .then(function(res) {
-                    console.log('SYSTEMS', res);
-                    $scope.systems = res;
-                });
-        }
+                    if (!nbClient.account) return;
 
-        function refresh_system() {
-            return nbClient.init_promise
-                .then(function() {
-                    return nbClient.client.system.read_system();
+                    return nbClient.client.system.list_systems()
+                        .then(function(res) {
+                            console.log('SYSTEMS', res.systems);
+                            $scope.systems = res.systems;
+
+                            // if we are already connected to a system then read it
+                            if (nbClient.system) {
+                                return nbClient.client.system.read_system();
+                            }
+
+                            // for support account - go to list of systems
+                            if (nbClient.account.is_support) {
+                                // TODO this service shouldn't really mess with app locations
+                                $location.path('support');
+                                return;
+                            }
+
+                            // if not then just connect to the first one
+                            var sys = $scope.systems[0];
+                            if (!sys) {
+                                // TODO this service shouldn't really mess with app locations
+                                // $location.path('new_system');
+                                return;
+                            }
+                            return nbClient.create_auth({
+                                    system: sys.name
+                                })
+                                .then(function() {
+                                    return nbClient.client.system.read_system();
+                                });
+                        });
                 })
                 .then(function(sys) {
+                    if (!sys) {
+                        console.log('NO SYSTEM', nbClient.account);
+                        return;
+                    }
                     console.log('READ SYSTEM', sys);
                     $scope.system = sys;
+
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
                     _.each(sys.tiers, function(tier) {
                         tier.used_percent = Math.ceil(100 * tier.storage.used / tier.storage.alloc);
                     });
-                }, function(err) {
-                    console.error('READ SYSTEM FAILED', err);
-                    return $scope.init_systems.then(function() {
-                        var sys = $scope.systems[0];
-                        return connect_system(sys.name);
-                    });
+                    return read_activity_log();
+                })
+                .then(null, function(err) {
+                    console.error('RELOAD SYSTEM FAILED', err);
                 });
+
+
         }
 
         function new_system() {
@@ -184,14 +213,121 @@ nb_api.factory('nbSystem', [
                         name: name
                     });
                 })
-                .then(refresh_systems);
+                .then(reload_system);
         }
 
         function connect_system(system_name) {
             return nbClient.create_auth({
                     system: system_name
                 })
-                .then(refresh_system);
+                .then(reload_system);
+        }
+
+
+        // ACTIVITY LOG
+
+        function read_activity_log() {
+            return nbClient.init_promise
+                .then(function() {
+                    return nbClient.client.system.read_activity_log($scope.activity_log_params);
+                })
+                .then(function(res) {
+                    if (!res.logs.length) {
+                        console.log('ACTIVITY LOG EMPTY REPLY', $scope.activity_log_params);
+                        if ($scope.activity_log_params.since) {
+                            $scope.activity_log_params.till = $scope.activity_log_params.since;
+                            delete $scope.activity_log_params.since;
+                            return read_activity_log();
+                        } else if ($scope.activity_log_params.till) {
+                            return read_activity_log_newest();
+                        }
+                    }
+                    var day_format = 'MMM DD';
+                    var time_format = 'HH:mm:ss';
+                    // var now_moment = moment();
+                    // var today = now_moment.format(day_format);
+                    // var yesterday = now_moment.subtract(1, 'day').format(day_format);
+                    $scope.activity_log = _.filter(res.logs, function(l) {
+                        l.time = new Date(l.time);
+                        l.time_moment = moment(l.time);
+                        l.day_of_year = l.time_moment.format(day_format);
+                        /*
+                        if (l.day_of_year === today) {
+                            l.day_of_year = 'Today';
+                        } else if (l.day_of_year === yesterday) {
+                            l.day_of_year = 'Yesterday';
+                        }
+                        */
+                        l.time_of_day = l.time_moment.format(time_format);
+                        switch (l.event) {
+                            case 'node.create':
+                                l.category = 'nodes';
+                                l.text = 'Added node ' + l.node.name;
+                                break;
+                            case 'obj.uploaded':
+                                l.category = 'files';
+                                l.text = 'Upload completed ' + l.obj.key;
+                                break;
+                            default:
+                                console.log('filtered unrecognized event', l.event);
+                                return false;
+                        }
+                        return true;
+                    });
+                    console.log('ACTIVITY LOG', $scope.activity_log_params, $scope.activity_log);
+                });
+        }
+
+        function read_activity_log_newest() {
+            delete $scope.activity_log_params.since;
+            delete $scope.activity_log_params.till;
+            return read_activity_log();
+        }
+
+        function read_activity_log_newer() {
+            if ($scope.activity_log && $scope.activity_log.length) {
+                var last = $scope.activity_log[$scope.activity_log.length - 1];
+                $scope.activity_log_params.since = last.time.getTime();
+                delete $scope.activity_log_params.till;
+            }
+            return read_activity_log()
+                .then(function() {
+                    if ($scope.activity_log.length < $scope.activity_log_params.limit) {
+                        return read_activity_log_newest();
+                    }
+                });
+        }
+
+        function read_activity_log_older() {
+            if ($scope.activity_log && $scope.activity_log.length) {
+                var first = $scope.activity_log[0];
+                $scope.activity_log_params.till = first.time.getTime();
+                delete $scope.activity_log_params.since;
+            }
+            return read_activity_log();
+        }
+
+        function read_activity_log_by_date(date) {
+            $scope.activity_log_params.since = (new Date(date)).getTime();
+            delete $scope.activity_log_params.till;
+            return read_activity_log();
+        }
+
+        function read_activity_log_subject(subject) {
+            if (subject === 'files') {
+                $scope.activity_log_params.event = '^bucket\\.|^obj\\.';
+            } else if (subject === 'nodes') {
+                $scope.activity_log_params.event = '^node\\.';
+            } else if (subject === 'pools') {
+                $scope.activity_log_params.event = '^tier\\.';
+            } else if (subject === 'repos') {
+                $scope.activity_log_params.event = '^bucket\\.';
+            } else {
+                delete $scope.activity_log_params.event;
+            }
+            return read_activity_log().then(function() {
+                $scope.activity_log_subject = subject;
+            });
         }
 
         return $scope;

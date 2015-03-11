@@ -32,7 +32,7 @@ describe('rest_api', function() {
                         type: 'boolean',
                     },
                     param4: {
-                        type: 'string',
+                        type: 'integer',
                         format: 'date',
                     },
                     param5: {
@@ -107,7 +107,7 @@ describe('rest_api', function() {
         param1: '1',
         param2: 2,
         param3: true,
-        param4: (new Date()).toISOString(),
+        param4: Date.now(),
         param5: [1, 2, 3],
     };
     var REPLY = {

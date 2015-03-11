@@ -1,30 +1,36 @@
 /******************************************************************************
     IMPORTS
  ******************************************************************************/
-
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/_colors.less";
-@import (less)"../../bower_components/bootstrap-material-design/less/material.less";
+@import (less)"../../bower_components/bootstrap-material-design/less/material-wfont.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
 @import (less)"../../bower_components/bootstrap-sidebar/dist/css/sidebar.css";
-@import (less)"../../node_modules/font-awesome/less/font-awesome.less";
+@import (less)"../../bower_components/datetimepicker/jquery.datetimepicker.css";
+// @import (less)"../../node_modules/selectize/dist/less/selectize.bootstrap3.less";
+// importing less as css to be able to extend it's classes, because it uses
+// interpolated selectors for it's prefix definition ('fa-') and less can't extend that
+// see http://stackoverflow.com/questions/20394032/less-using-font-awesome-in-before
+// @import (less)"../../node_modules/font-awesome/less/font-awesome.less";
+@import (less)"../../node_modules/font-awesome/css/font-awesome.css";
 @import (less)"../../bower_components/alertify.js/themes/alertify.core.css";
 /* @import (less)"../../bower_components/alertify.js/themes/alertify.default.css"; */
 @import (inline)"../../node_modules/video.js/dist/video-js/video-js.css";
 @import (less)"../../bower_components/ladda/dist/ladda-themeless.min.css";
 @import (less)"../../node_modules/animate.css/animate.min.css";
 @import (less)"../../vendor/animations.css";
-
 ///////////////
 // variables //
 ///////////////
-
-@primary: @blue-grey-500;
-/* @primary: @deep-purple-200; */
-@body-bg: hsl(0, 0%, 100%);
-@navbar-default-bg: darken(@blue-grey-600, 18%);
+@primary: #ed2190;
+// magenta
+// @primary: @blue-grey-500;
+@darkbg-text: white;
+@text-color: @darkbg-text;
+@body-bg: darken(@blue-grey-50, 72%);
+@navbar-default-bg: darken(@blue-grey-50, 75%);
 @gray-light: hsl(0, 0%, 67%);
-@border-color: darken(@body-bg, 15%);
+@border-color: hsla(0,0%,100%,0.1);
 @modal-backdrop-opacity: 0.6;
 @grid-float-breakpoint: 0;
 @grid-gutter-width: 60px;
@@ -33,7 +39,6 @@
 @brand-danger: @danger;
 @brand-warning: @warning;
 @brand-info: @info;
-
 /* @font-family-sans-serif: "Helvetica Neue", Helvetica, Arial, sans-serif; */
 /* @font-family-sans-serif: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif; */
 @font-size-base: 15px;
@@ -43,35 +48,53 @@
     text-transform: uppercase !important;
     font-weight: 500;
 } */
-
 ////////////////
 // components //
 ////////////////
-
 body {
     background-color: @body-bg;
+    &:active,
+    &:hover,
+    &:focus {
+        background-color: @body-bg;
+    }
     /* padding-top: 70px; */
     /* @media (max-width: @screen-lg) {
         padding-top: 60px;
     } */
-
 }
 table {
     font-size: 1em;
     th {
         font-weight: normal;
     }
-
+}
+.well,
+.jumbotron {
+    background-color: hsla(0,0%,0%,0.05) !important;
+    color: @darkbg-text !important;
 }
 .sidebar-content {
-    @media (min-width: @screen-md) {
-        margin-left: 250px;
+    @media (min-width: @screen-sm) {
+        margin-left: 120px;
     }
-
+}
+.map-area {
+    min-height: 400px;
+    margin-top: 10px;
+    overflow: hidden;
 }
 .sidebar.sidebar-left {
+    width: 120px;
+}
+.sidebar.sidebar-right {
+    width: 700px;
+    overflow-y: scroll !important;
+    padding: 0 20px;
+}
+.sidebar.sidebar-left,
+.sidebar.sidebar-right {
     top: 0;
-    width: 250px;
     overflow: initial;
     background-color: @navbar-default-bg;
     @sidebar-color: lighten(desaturate(@navbar-default-bg, 5%), 57%);
@@ -79,12 +102,11 @@ table {
     /* @sidebar-color: @navbar-color; */
     /* @sidebar-color: hsl(0, 0%, 75%); */
     color: @sidebar-color;
-    padding: 0 20px;
     .btn.btn-block {
         color: @sidebar-color;
         text-transform: initial;
         padding: 15px 20px;
-        margin: 0 -20px;
+        margin: 0;
         width: auto;
         text-align: left;
         text-decoration: none;
@@ -102,10 +124,9 @@ table {
             margin-right: 5px;
             margin-left: 5px;
         }
-
     }
     hr {
-        margin: 0 -20px;
+        margin: 0;
         border-top: 1px solid hsla(0, 0%, 100%, 0.1);
     }
     .nav-pills {
@@ -119,54 +140,49 @@ table {
         }
         >li >a {
             color: @sidebar-color;
-            padding: 10px 20px;
-            margin: 0 -20px;
+            padding: 10px;
+            margin: 0;
             border-radius: 0;
+            >.fa.fa-3x {
+                .transition-normal;
+                margin: 5px;
+            }
+        }
+        >li >a:active,
+        >li >a:focus {
+            background-color: initial;
         }
         >li:hover >a,
         >li.open >a {
             background-color: hsla(0, 0%, 100%, 0.07);
         }
         >li.active >a {
-            background-color: hsla(0, 0%, 100%, 0.13);
+            background-color: hsla(0, 0%, 100%, 0.17);
+            >.fa.fa-3x {
+                color: @primary;
+            }
         }
     }
-
 }
 .nav-pills:not(.nav-stacked) {
     >li {
         display: inline-block;
         float: none;
     }
-
 }
 .page-header {
     .clearfix;
-    background-color: hsl(hue(@primary), saturation(@primary), 99%);
-    /*
-    &.page-data,
-    &.page-bucket {
-        background-color: hsl(hue(@purple), saturation(@purple), 99%);
-    }
-    &.page-file {
-        background-color: hsl(hue(@purple), saturation(@purple), 96%);
-    }
-    &.page-resources,
-    &.page-tier {
-        background-color: hsl(hue(@teal), saturation(@teal), 99%);
-    }
-    &.page-node {
-        background-color: hsl(hue(@teal), saturation(@teal), 98%);
-    }
-    */
     margin: 0 -(@grid-gutter-width/2);
     padding: 0 (@grid-gutter-width/2);
     margin-bottom: 30px;
     border: none;
-    border-bottom: 1px solid @border-color;
+    // border-top: 1px solid @border-color;
     .breadcrumb {
-        margin: 7px 0;
-        padding-left: 5px;
+        margin: 15px 0 0;
+        padding: 5px 0;
+        // background-color: hsla(0,0%,0%,0.05);
+        // margin: 7px 0;
+        // padding-left: 5px;
         background-color: transparent;
         li {
             max-width: 150px;
@@ -174,11 +190,11 @@ table {
             overflow: hidden;
             white-space: nowrap;
         }
-
     }
     h1 {
         /* margin-top: 15px; */
         /* margin-bottom: 5px; */
+        /*
         small {
             white-space: nowrap;
             font-size: @font-size-small;
@@ -186,7 +202,7 @@ table {
             line-height: (@headings-line-height * @font-size-h1);
             .pull-right;
         }
-
+        */
     }
     .page-properties {
         /* background-color: lighten(@navbar-default-bg, 77%); */
@@ -205,7 +221,6 @@ table {
                 font-style: italic;
             }
         }
-
     }
     .nav-tabs {
         margin: 0 -(@grid-gutter-width/2);
@@ -221,7 +236,6 @@ table {
         }
         */
     }
-
 }
 .nav-tabs {
     .noselect;
@@ -233,7 +247,6 @@ table {
             display: inline-block;
             float: none;
         }
-
     }
     >li >a,
     >li:hover >a {
@@ -246,7 +259,6 @@ table {
         font-weight: 700 !important;
         border-bottom: 2px solid @primary !important;
     }
-
 }
 .heading-col {
     padding-top: 15px;
@@ -279,7 +291,6 @@ table {
             >td:first-child {
                 width: auto;
             }
-
         }
         @media (max-width: @screen-sm) {
             display: block;
@@ -298,7 +309,6 @@ table {
             }
         }
     }
-
 }
 .table-no-borders {
     &,
@@ -309,7 +319,6 @@ table {
             border-bottom: none;
         }
     }
-
 }
 .table-minimal-borders {
     &,
@@ -324,7 +333,6 @@ table {
             border-bottom: 1px solid #ddd;
         }
     }
-
 }
 .table-center {
     &,
@@ -334,7 +342,6 @@ table {
             text-align: center;
         }
     }
-
 }
 .table-btn {
     padding: 0;
@@ -349,35 +356,29 @@ table {
         padding-right: 10px;
         text-align: left;
     }
-
 }
 .text-center-xs {
     @media (max-width: @screen-sm) {
         text-align: center;
     }
-
 }
 .text-center-sm {
     @media (max-width: @screen-md) {
         text-align: center;
     }
-
 }
 .text-center-md {
     @media (max-width: @screen-lg) {
         text-align: center;
     }
-
 }
 table.table td.table-btn {
     .table-btn;
-
 }
 .btn.btn-flat {
     &:hover {
         background-color: hsla(0, 0%, 0%, 0.07);
     }
-
 }
 .inverse {
     /* elements which are left un-inverted */
@@ -389,7 +390,6 @@ table.table td.table-btn {
             background-color: initial;
             color: initial;
         }
-
     }
     .btn-default {
         color: @darkbg-text;
@@ -397,7 +397,6 @@ table.table td.table-btn {
             background-color: hsla(0, 0%, 100%, 0.2);
         }
     }
-
 }
 .navbar.navbar-default {
     background-color: @navbar-default-bg;
@@ -409,7 +408,6 @@ table.table td.table-btn {
             background-color: hsla(0, 0%, 0%, 0.15);
         }
     }
-
 }
 .navbar {
     .navbar-nav .open .dropdown-menu > li > a {
@@ -428,7 +426,6 @@ table.table td.table-btn {
             margin-bottom: 14.5px;
         }
     }
-
 }
 hr {
     border-color: @border-color;
@@ -445,7 +442,6 @@ hr {
 }
 table th {
     .text-muted;
-
 }
 .progress {
     /* background-color: darken(@gray-lighter, 3%); */
@@ -464,8 +460,10 @@ table th {
 .capitalize {
     text-transform: capitalize;
 }
+.uppercase {
+    text-transform: uppercase;
+}
 .form-control-wrapper {
-
 
 }
 .form-control > select {
@@ -476,7 +474,6 @@ table th {
     box-shadow: none;
     background-color: transparent;
     outline: none;
-
 }
 /*
 .dropdown-menu {
@@ -503,7 +500,6 @@ table th {
 }
 .modal-backdrop.in {
     display: block;
-
 }
 /* not working with new bootstrap because the backdrop is now inside the modal
 .modal {
@@ -516,11 +512,66 @@ table th {
 }
 */
 /**/
-
+/////////////
+// console //
+/////////////
+.status-icon-base {
+    .fa;
+    .fa-lg;
+    .fa-fw;
+}
+.srvmode-none {
+    &.block-online-true {
+        &.block-building-false {
+            .status-icon-base;
+            &:extend(.fa-check all);
+            .text-success;
+        }
+        &.block-building-true {
+            .status-icon-base;
+            &:extend(.fa-wrench all);
+            .text-muted;
+        }
+    }
+    &.block-online-false {
+        .status-icon-base;
+        &:extend(.fa-moon-o all);
+        .text-warning;
+    }
+}
+.srvmode-disabled {
+    .status-icon-base;
+    &:extend(.fa-ban all);
+    .text-danger;
+}
+.srvmode-decommissioning {
+    .status-icon-base;
+    &:extend(.fa-flag all);
+    .text-info;
+}
+.srvmode-decommissioned {
+    .status-icon-base;
+    &:extend(.fa-flag-checkered all);
+    .text-muted;
+}
+.health-healthy {
+    // .status-icon-base;
+    // &:extend(.fa-check all);
+    .text-success;
+}
+.health-unavailable {
+    // .status-icon-base;
+    // &:extend(.fa-moon-o all);
+    .text-danger;
+}
+.health-repairing {
+    // .status-icon-base;
+    // &:extend(.fa-wrench all);
+    .text-info;
+}
 /////////////
 // layouts //
 /////////////
-
 .hflow {
     overflow: hidden;
 }
@@ -539,7 +590,6 @@ table th {
     bottom: 0;
     left: 0;
     right: 0;
-
 }
 .abscenter {
     /* use negative margin-top and margin-left to adjust */
@@ -560,10 +610,8 @@ table.grid {
         vertical-align: middle;
         text-align: center;
     }
-
 }
 /**/
-
 /////////////////
 // transitions //
 /////////////////
@@ -574,7 +622,6 @@ table.grid {
         /* border-color: white; */
         /* box-shadow: 0 0 7px 0 black; */
     }
-
 }
 .transition-time(@time) {
     transition: all @time;
@@ -590,10 +637,8 @@ table.grid {
 }
 .transition-slow {
     .transition-time(1.5s);
-
 }
 /**/
-
 ////////////////////////////
 // ladda progress buttons //
 ////////////////////////////
@@ -612,7 +657,6 @@ table.grid {
             background-color: hsla(0,0%,0%,0.3);
         }
     }
-
 }
 .ladda-button .ladda-progress {
     background-color: hsla(0,0%,0%,0.8);
@@ -624,14 +668,11 @@ table.grid {
     -o-transform: none;
     -moz-transform: none;
     -webkit-transform: none;
-
 }
 /**/
-
 /////////////
 // angular //
 /////////////
-
 // use pointer cursor for clickable elements
 *[ng-click],
 *[nb-click-ladda],
@@ -639,7 +680,6 @@ table.grid {
 *[data-toggle],
 .dropdown-toggle {
     cursor: pointer;
-
 }
 /* Allow angular.js to be loaded in body, hiding cloaked elements until
  * templates compile.  The !important is important given that there may be
@@ -649,14 +689,11 @@ table.grid {
 [ng-cloak],
 .ng-cloak {
     display: none !important;
-
 }
 /**/
-
 //////////////
 // alertify //
 //////////////
-
 // style alertify from bootstrap theme
 .alertify {
     border-radius: @border-radius-base;
@@ -678,7 +715,6 @@ table.grid {
         .btn;
         .btn-primary;
     }
-
 }
 .alertify-button.alertify-button-cancel {
     &,
@@ -686,7 +722,6 @@ table.grid {
         .btn;
         .btn-default;
     }
-
 }
 .alertify-text-wrapper {
     .form-control-wrapper;

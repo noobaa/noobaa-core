@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * SYSTEM API
  *
+ * client (currently web client) talking to the web server to work on system (per client group - contains nodes, tiers abd bckets etc)
  */
 module.exports = rest_api({
 
@@ -80,9 +81,15 @@ module.exports = rest_api({
             method: 'GET',
             path: '/systems',
             reply: {
-                type: 'array',
-                items: {
-                    $ref: '/system_api/definitions/system_info'
+                type: 'object',
+                required: ['systems'],
+                properties: {
+                    systems: {
+                        type: 'array',
+                        items: {
+                            $ref: '/system_api/definitions/system_info'
+                        }                        
+                    }
                 }
             },
             auth: {
@@ -129,6 +136,107 @@ module.exports = rest_api({
                 system: 'admin',
             }
         },
+
+        read_activity_log: {
+            method: 'GET',
+            path: '/activity_log',
+            params: {
+                type: 'object',
+                requires: [],
+                properties: {
+                    event: {
+                        type: 'string',
+                    },
+                    events: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
+                    till: {
+                        type: 'integer',
+                        format: 'date',
+                    },
+                    since: {
+                        type: 'integer',
+                        format: 'date',
+                    },
+                    skip: {
+                        type: 'integer',
+                    },
+                    limit: {
+                        type: 'integer',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                requires: ['logs'],
+                properties: {
+                    logs: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            requires: ['id', 'time', 'level', 'event'],
+                            properties: {
+                                id: {
+                                    type: 'string',
+                                },
+                                time: {
+                                    type: 'integer',
+                                    format: 'date',
+                                },
+                                level: {
+                                    type: 'string',
+                                },
+                                event: {
+                                    type: 'string',
+                                },
+                                tier: {
+                                    type: 'object',
+                                    required: ['name'],
+                                    properties: {
+                                        name: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
+                                node: {
+                                    type: 'object',
+                                    required: ['name'],
+                                    properties: {
+                                        name: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
+                                bucket: {
+                                    type: 'object',
+                                    required: ['name'],
+                                    properties: {
+                                        name: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
+                                obj: {
+                                    type: 'object',
+                                    required: ['key'],
+                                    properties: {
+                                        key: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        }
     },
 
 

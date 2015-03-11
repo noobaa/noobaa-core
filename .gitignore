@@ -12,15 +12,21 @@ agent_conf.json
 *.sublime-project
 .idea/
 tags
+*.iml
 
 ## istanbul coverage
 coverage/
 
 ## testing agent storage
-agent_storage/
+agent_storage*
+agent_conf.json*
 
 ## mobile
 ionic-app/
 
 # heapdump files
 heapdump-*
+
+# logs
+*.log
+logs/

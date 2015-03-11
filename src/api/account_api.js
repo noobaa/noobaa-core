@@ -6,6 +6,7 @@ var rest_api = require('../util/rest_api');
 /**
  *
  * ACCOUNT API
+ * admin on web client sends commands to web server
  *
  */
 module.exports = rest_api({
@@ -53,16 +54,7 @@ module.exports = rest_api({
             method: 'GET',
             path: '/account',
             reply: {
-                type: 'object',
-                required: ['name', 'email'],
-                properties: {
-                    name: {
-                        type: 'string',
-                    },
-                    email: {
-                        type: 'string',
-                    },
-                },
+                $ref: '/definitions/account_api/account_info'
             },
             auth: {
                 system: false,
@@ -102,6 +94,67 @@ module.exports = rest_api({
             }
         },
 
+        list_accounts: {
+            doc: 'List accounts',
+            method: 'GET',
+            path: '/accounts',
+            reply: {
+                type: 'object',
+                require: 'accounts',
+                properties: {
+                    accounts: {
+                        type: 'array',
+                        items: {
+                            $ref: '/definitions/account_api/account_info'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
     },
+
+
+    definitions: {
+
+        account_info: {
+            type: 'object',
+            required: ['name', 'email'],
+            properties: {
+                name: {
+                    type: 'string',
+                },
+                email: {
+                    type: 'string',
+                },
+                is_support: {
+                    type: 'boolean',
+                },
+                systems: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name', 'roles'],
+                        properties: {
+                            name: {
+                                type: 'string'
+                            },
+                            roles: {
+                                type: 'array',
+                                items: {
+                                    type: 'string',
+                                    enum: ['admin', 'user', 'viewer']
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        }
+
+    }
 
 });

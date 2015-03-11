@@ -72,40 +72,4 @@ function Client(base) {
         });
     };
 
-    /**
-     * easy setup of account, system, tier, bucket
-     */
-    self.setup = function(params) {
-        return Q.fcall(function() {
-            return self.account.create_account({
-                name: params.email,
-                email: params.email,
-                password: params.password,
-            });
-        }).then(function() {
-            return self.create_auth_token({
-                email: params.email,
-                password: params.password,
-            });
-        }).then(function() {
-            return self.system.create_system({
-                name: params.system,
-            });
-        }).then(function() {
-            return self.create_auth_token({
-                system: params.system,
-            });
-        }).then(function() {
-            return self.tier.create_tier({
-                name: params.tier,
-                kind: 'edge',
-            });
-        }).then(function() {
-            return self.bucket.create_bucket({
-                name: params.bucket,
-                tiering: [params.tier]
-            });
-        });
-    };
-
 }

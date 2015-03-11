@@ -21,9 +21,10 @@ nb_api.factory('nbNodes', [
         $scope.read_node = read_node;
         $scope.goto_node_by_block = goto_node_by_block;
         $scope.reconnect_node = reconnect_node;
-        $scope.block_node = block_node;
+        $scope.disable_node = disable_node;
         $scope.decommission_node = decommission_node;
         $scope.remove_node = remove_node;
+        $scope.self_test = self_test;
 
 
         function refresh_node_groups(selected_geo) {
@@ -110,10 +111,10 @@ nb_api.factory('nbNodes', [
                 });
         }
 
-        function block_node(node) {
-            return update_srvmode(node, 'blocked')
+        function disable_node(node) {
+            return update_srvmode(node, 'disabled')
                 .then(function() {
-                    node.srvmode = 'blocked';
+                    node.srvmode = 'disabled';
                 });
         }
 
@@ -135,6 +136,56 @@ nb_api.factory('nbNodes', [
             );
         }
 
+        function self_test(node, options) {
+            return list_nodes({
+                    limit: 10
+                })
+                .then(function(nodes) {
+                    $scope.self_test = [];
+                    return _.reduce(nodes, function(promise, target_node) {
+                        var target_node_test = {
+                            node: target_node
+                        };
+                        $scope.self_test.push(target_node_test);
+
+                        return promise.then(function() {
+                            console.log('SELF TEST', node.name, 'to', target_node.name);
+                            var node_host = 'http://' + node.host + ':' + node.port;
+                            var target_host = 'http://' + target_node.host + ':' + target_node.port;
+
+                            var agent = new api.agent_api.Client();
+                            agent.options.set_address(node_host);
+                            agent.options.set_peer(node.peer_id);
+                            agent.options.set_p2p_context(nbClient.client.p2p_context);
+
+                            var timestamp = Date.now();
+                            return agent.self_test_peer({
+                                    target: {
+                                        id: target_node.id,
+                                        host: target_host,
+                                        peer: target_node.peer_id
+                                    },
+                                    request_length: 100 * 1024,
+                                    response_length: 100 * 1024,
+                                })
+                                .then(function() {
+                                    target_node_test.done = true;
+                                    target_node_test.elapsed = Date.now() - timestamp;
+                                    console.log('SELF TEST TOOK', target_node_test.elapsed / 1000, 'sec');
+                                }, function(err) {
+                                    target_node_test.error = err;
+                                    console.error('SELF TEST FAILED', err);
+                                    throw err;
+                                });
+                        });
+                    }, $q.when());
+                })
+                .then(function() {
+                    nbAlertify.log('Self test completed :)');
+                }, function(err) {
+                    nbAlertify.error('Self test failed :(');
+                });
+        }
 
 
 
@@ -184,7 +235,8 @@ nb_api.factory('nbNodes', [
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
                 backgroundColor: 'transparent',
-                datalessRegionColor: '#cfd8dc', // blue-grey-100
+                datalessRegionColor: '#283136', // darker than body bg
+                // datalessRegionColor: '#cfd8dc', // blue-grey-100
                 // datalessRegionColor: '#b2dfdb', // teal-100
                 // datalessRegionColor: '#10312D', // ~teal
                 colorAxis: {

@@ -15,6 +15,7 @@ var ObjectMD = require('./object_md');
 var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
+var ActivityLog = require('./activity_log');
 
 /**
  *
@@ -41,10 +42,12 @@ module.exports = {
     ObjectPart: ObjectPart,
     DataChunk: DataChunk,
     DataBlock: DataBlock,
+    ActivityLog: ActivityLog,
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,
     check_already_exists: check_already_exists,
+    is_err_exists: is_err_exists,
 
     AccountCache: new LRUCache({
         name: 'AccountCache',
@@ -118,7 +121,13 @@ function check_not_deleted(req, entity) {
 
 function check_already_exists(req, entity) {
     return function(err) {
-        if (err.code === 11000) throw req.rest_error(entity + ' already exists');
+        if (is_err_exists(err)) {
+            throw req.rest_error(entity + ' already exists');
+        }
         throw err;
     };
+}
+
+function is_err_exists(err) {
+    return err && err.code === 11000;
 }

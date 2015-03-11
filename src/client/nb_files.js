@@ -42,10 +42,10 @@ nb_api.factory('nbFiles', [
                 });
         }
 
-        function get_file(params) {
+        function get_file(params, cache_miss) {
             return $q.when()
                 .then(function() {
-                    return nbClient.client.object.get_object_md(params);
+                    return nbClient.client.object.get_object_md(params, cache_miss);
                 })
                 .then(function(res) {
                     console.log('FILE', res);
@@ -69,6 +69,13 @@ nb_api.factory('nbFiles', [
                     return nbClient.client.object.read_object_mappings(params);
                 })
                 .then(function(res) {
+                    _.each(res.parts, function(part) {
+                        var frag_size = part.chunk_size / part.kfrag;
+                        _.each(part.fragments, function(fragment, fragment_index) {
+                            fragment.start = part.start + (frag_size * fragment_index);
+                            fragment.size = frag_size;
+                        });
+                    });
                     console.log('LIST FILE PARTS', res);
                     return res;
                 });
@@ -99,7 +106,7 @@ nb_api.factory('nbFiles', [
         }
 
         function input_file_chooser() {
-            return $q(function(resolve, reject, notify) {
+            return $q(function(resolve, reject) {
                 var chooser = angular.element('<input type="file">');
                 chooser.on('change', function(e) {
                     var file = e.target.files[0];
@@ -177,6 +184,7 @@ nb_api.factory('nbFiles', [
                         progress: 0,
                     };
                     tx.promise = $q(function(resolve, reject, progress) {
+
                         var reader = nbClient.client.object.open_read_stream({
                                 bucket: bucket_name,
                                 key: file.name,
@@ -185,6 +193,7 @@ nb_api.factory('nbFiles', [
 
                         reader.pipe(res.writer)
                             .on('progress', function(pos) {
+
                                 tx.progress = (100 * pos / file.size);
                                 if (progress) {
                                     progress(pos);
@@ -192,6 +201,7 @@ nb_api.factory('nbFiles', [
                                 $rootScope.safe_apply();
                             })
                             .once('finish', function() {
+
                                 tx.done = true;
                                 tx.progress = 100;
                                 tx.end_time = Date.now();
@@ -216,7 +226,7 @@ nb_api.factory('nbFiles', [
 
                         function on_error(err) {
                             tx.error = err;
-                            console.error('download failed', err);
+                            console.error('download failed '+err+ ' ; '+ err.stack);
                             nbAlertify.error('download failed. ' + err.toString());
                             reject(err);
                             $rootScope.safe_apply();
@@ -267,8 +277,10 @@ nb_api.factory('nbFiles', [
             };
             var defer = $q.defer();
             var stream = concat_stream(defer.resolve);
+            var source = nbClient.client.object.open_read_stream(object_path);
+            source.once('error', defer.reject);
             stream.once('error', defer.reject);
-            nbClient.client.object.open_read_stream(object_path).pipe(stream);
+            source.pipe(stream);
             return defer.promise;
         }
 

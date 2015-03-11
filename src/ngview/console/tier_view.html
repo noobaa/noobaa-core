@@ -2,6 +2,11 @@
 
     <div class="page-header page-tier">
 
+        <h1 class="uppercase">
+            {{tier.name}} &nbsp;
+            <small><i class="fa fa-question-circle fa-fw text-muted" rel="tooltip" title="This is a resource pool composed from nodes added to the system. It aggregates storage resources from nodes to provide a persistent storage tier that can be used as object storage." data-placement="right" data-container="body"></i></small>
+        </h1>
+
         <ol class="breadcrumb capitalize">
             <li>
                 <a href="/console/">System</a>
@@ -12,30 +17,14 @@
             <li class="active">{{tier.name}}</li>
         </ol>
 
-        <div class="clearfix"></div>
-
-        <h1 class="capitalize">
-            <span ng-switch="tier.kind" class="text-primary pull-left">
-                <i ng-switch-when="edge" class="fa fa-spinner fa-lg fa-fw"></i>
-                <i ng-switch-when="cloud" class="fa fa-cube fa-lg fa-fw"></i>
-            </span>
-            <div class="hflow">
-                {{tier.name}} &nbsp;
-                <small>
-                    <i>Distributed Tier</i> &nbsp;
-                    <i class="fa fa-info-circle fa-fw text-muted" rel="tooltip" title="Distributed tiers are composed of devices, and aggregate their storage resources to provide a persistent storage tier that can be used by data buckets" data-placement="bottom" data-container="body"></i>
-                </small>
-            </div>
-        </h1>
-
+        <!--
         <div class="page-properties">
             <table class="table table-properties">
                 <tr>
-                    <!-- <td></td> -->
                     <th>Status</th>
                     <td>Healthy <i class="fa fa-check fa-lg"></i>
                     </td>
-                    <th>Devices</th>
+                    <th>Nodes</th>
                     <td>{{tier.nodes.online}}</td>
                     <th>Net Storage</th>
                     <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
@@ -45,18 +34,23 @@
                 </tr>
             </table>
         </div>
+        -->
 
+        <!--
         <ul class="nav nav-tabs">
             <li ng-class="{active: tier_router.route == 'nodes'}">
-                <a ng-click="tier_router.set('nodes')">Devices List</a>
+                <a ng-click="tier_router.set('nodes')">Nodes List</a>
             </li>
-            <!-- <li ng-class="{active: tier_router.route == 'settings'}">
+            <li ng-class="{active: tier_router.route == 'settings'}">
                 <a ng-click="tier_router.set('settings')">Settings</a>
-            </li> -->
-            <!-- <li ng-class="{active: tier_router.route == 'stats'}">
+            </li>
+            -->
+            <!--
+             <li ng-class="{active: tier_router.route == 'stats'}">
                 <a ng-click="tier_router.set('stats')">Statistics</a>
-            </li> -->
+            </li>
         </ul>
+        -->
 
     </div>
 

@@ -1,7 +1,7 @@
 <div ng-cloak class="row">
 
     <div class="heading-col col-sm-3">
-        <h4 class="text-primary">
+        <h4 class="Xtext-primary">
             File parts stored by this node
         </h4>
         <p class="text-muted">
@@ -15,81 +15,37 @@
     <div class="content-col col-sm-9">
 
         <div ng-repeat="part in parts">
-            <div class="clearfix" style="border-top: 1px solid hsl(0,0%,85%); padding: 10px 0">
-                <div class="pull-left text-center" style="padding: 20px 20px 20px 0">
-                    <span class="badge" rel="tooltip" ng-attr-title="Offset {{human_size(part.start)}}" data-placement="bottom" data-container="body">
-                        {{human_size(part.end-part.start)}}
-                    </span>
-                </div>
-                <div class="pull-right text-center" style="padding: 20px 0 20px 20px">
-                    <!-- <span class="badge">#{{(parts_query.page*parts_page_size) + $index + 1}}</span> -->
-                    <span>Healthy</span>
-                </div>
-                <div class="hflow" style="border-left: 1px solid hsl(0,0%,85%); border-right: 1px solid hsl(0,0%,85%); margin: 5px 0">
-                    <div>
-                        <a ng-href="bucket/{{part.bucket || 'files'}}/{{part.file}}" class="btn-sm btn-block" style="word-break: break-all">
-                            <i class="fa fa-file-o fa-lg fa-fw text-muted"></i>
-                            <span class="text-primary">{{part.file}}</span>
-                        </a>
+            <div ng-repeat="fragment in part.fragments">
+                <div class="clearfix" style="border-top: 1px solid hsl(0,0%,85%); padding: 10px 0">
+                    <div class="pull-left text-center" style="padding: 20px 20px 20px 0">
+                        <span class="badge" rel="tooltip" ng-attr-title="Offset {{human_size(fragment.start)}}" data-placement="bottom" data-container="body">
+                            {{human_size(fragment.size)}}
+                        </span>
                     </div>
-                    <span ng-repeat="frag in part.fragments">
-                        <span ng-repeat="block in frag">
+                    <div class="pull-right text-center" style="padding: 20px 0 20px 20px">
+                        <!-- <span class="badge">#{{(parts_query.page*parts_page_size) + $index + 1}}</span> -->
+                        <span class="capitalize health-{{fragment.details.health}}">
+                            {{fragment.details.health}}
+                        </span>
+                    </div>
+                    <div class="hflow" style="border-left: 1px solid hsl(0,0%,85%); border-right: 1px solid hsl(0,0%,85%); margin: 5px 0">
+                        <div>
+                            <a ng-href="bucket/{{part.bucket || 'files'}}/{{part.file}}" class="btn-sm btn-block" style="word-break: break-all">
+                                <i class="fa fa-file-o fa-lg fa-fw text-muted"></i>
+                                <span class="text-primary">{{part.file}}</span>
+                            </a>
+                        </div>
+                        <span ng-repeat="block in fragment.blocks">
+                            <div ng-if="!($index % 3)"></div>
                             <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)">
-                                <span ng-switch="block.details.srvmode">
-                                    <i ng-switch-when="blocked" class="fa fa-ban fa-lg fa-fw text-danger"></i>
-                                    <i ng-switch-when="decommissioning" class="fa fa-flag fa-lg fa-fw text-info"></i>
-                                    <i ng-switch-when="decommissioned" class="fa fa-flag-checkered fa-lg fa-fw text-muted"></i>
-                                    <span ng-switch-default>
-                                        <i ng-if="!block.details.online" class="fa fa-moon-o fa-lg fa-fw text-warning"></i>
-                                        <i ng-if="block.details.online && block.details.building" class="fa fa-wrench fa-lg fa-fw text-muted"></i>
-                                        <i ng-if="block.details.online && !block.details.building" class="fa fa-check fa-lg fa-fw text-success"></i>
-                                    </span>
-                                </span>
-                                {{block.address.host.slice(7)}}
+                                <i class="srvmode-{{block.details.srvmode || 'none'}} block-online-{{!!block.details.online}} block-building-{{!!block.details.building}}"></i> {{block.address.host.slice(7)}}
+                                <b ng-if="my_host==block.address.host" style="margin-right: -0.6em">*</b>
                             </a>
                         </span>
-                    </span>
+                    </div>
                 </div>
             </div>
         </div>
-
-        <!-- <div class="table-responsive">
-            <table class="table table-no-borders">
-                <tr>
-                    <th>#</th>
-                    <th>Bucket</th>
-                    <th>File</th>
-                    <th>Size</th>
-                    <th>Devices</th>
-                    <th>Status</th>
-                </tr>
-                <tr ng-repeat="part in parts">
-                    <td>{{(parts_query.page*parts_page_size) + \$index + 1}}</td>
-                    <td class="table-btn text-left">
-                        <a ng-href="bucket/{{part.bucket}}" class="btn btn-primary btn-flat btn-block" style="text-transform: none">
-                            <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> {{part.bucket}}
-                        </a>
-                    </td>
-                    <td class="table-btn text-left">
-                        <a ng-href="bucket/{{part.bucket}}/{{part.file}}" class="btn btn-primary btn-flat btn-block" style="text-transform: none">
-                            <i class="fa fa-file-o fa-lg fa-fw text-muted"></i> {{part.file}}
-                        </a>
-                    </td>
-                    <td>{{human_size(part.end-part.start)}}</td>
-                    <td style="padding: 0">
-                        <span ng-repeat="frag in part.fragments">
-                            <div ng-repeat="block in frag">
-                                <a class="btn btn-flat btn-default" style="padding: 10px; margin: 0 10px 5px 0" nb-click-ladda="nbNodes.goto_node_by_block(block)">
-                                    <i class="fa fa-check fa-lg fa-fw text-success pull-left"></i>
-                                    <small>{{block.address.host.slice(7)}}</small>
-                                </a>
-                            </div>
-                        </span>
-                    </td>
-                    <td>Healthy</td>
-                </tr>
-            </table>
-        </div> -->
 
         <nav class="noselect">
             <ul class="pagination">

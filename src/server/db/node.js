@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var moment = require('moment');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -60,7 +61,7 @@ var node_schema = new Schema({
 
     srvmode: {
         type: String,
-        enum: ['blocked', 'decommissioning', 'decommisioned']
+        enum: ['disabled', 'decommissioning', 'decommisioned']
     },
 
     // the identifier used for p2p signaling
@@ -113,14 +114,21 @@ node_schema.index({
     sparse: true
 });
 
-node_schema.index({
-    ip: 1,
-    port: 1,
-    deleted: 1, // allow to filter deleted
-}, {
-    unique: true,
-    sparse: true
-});
+
+function get_minimum_online_heartbeat() {
+    return moment().subtract(5, 'minutes').toDate();
+}
+
+function get_minimum_alloc_heartbeat() {
+    return moment().subtract(2, 'minutes').toDate();
+}
+
+node_schema.methods.is_online = function() {
+    return !this.srvmode && this.heartbeat >= get_minimum_online_heartbeat();
+};
+
+node_schema.statics.get_minimum_online_heartbeat = get_minimum_online_heartbeat;
+node_schema.statics.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
 
 
 /**
@@ -134,7 +142,8 @@ node_schema.index({
  *      each tier value is an object with properties: alloc, used, count, online.
  *
  */
-node_schema.statics.aggregate_nodes = function(query, minimum_online_heartbeat) {
+node_schema.statics.aggregate_nodes = function(query) {
+    var minimum_online_heartbeat = get_minimum_online_heartbeat();
     return this.mapReduce({
         query: query,
         scope: {

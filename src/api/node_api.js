@@ -7,6 +7,8 @@ var rest_api = require('../util/rest_api');
  *
  * NODE API
  *
+ * most are client (currently web client) talking to the web server to work on node usually as admin
+ * the heartbeat is sent from an agent to the web server
  */
 module.exports = rest_api({
 
@@ -325,7 +327,7 @@ module.exports = rest_api({
 
         srvmode: {
             type: 'string',
-            enum: ['connect', 'blocked', 'decommissioning', 'decommissioned']
+            enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
         },
 
         node_full_info: {
@@ -372,7 +374,7 @@ module.exports = rest_api({
                     type: 'boolean',
                 },
                 heartbeat: {
-                    type: 'string',
+                    type: 'integer',
                     format: 'date',
                 },
                 storage: {

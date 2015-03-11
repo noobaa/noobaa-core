@@ -8,6 +8,7 @@ var rest_api = require('../util/rest_api');
  *
  * COMMON API
  *
+ * general defenitions used by other api's
  */
 module.exports = rest_api({
 

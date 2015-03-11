@@ -19,7 +19,7 @@ var size_utils = require('../util/size_utils');
 var range_utils = require('../util/range_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
-var dbg = require('../util/dbg')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 Q.longStackSupport = true;
 
@@ -36,8 +36,8 @@ function ClientCLI(params) {
         streamer: params.prod ? 5005 : 5006,
         email: 'demo@noobaa.com',
         password: 'DeMo',
-        system: 'demo',
-        tier: 'devices',
+        system: 'demo@noobaa.com',
+        tier: 'nodes',
         bucket: 'files',
     });
     self.client = new api.Client();
@@ -56,7 +56,9 @@ ClientCLI.prototype.init = function() {
     var self = this;
 
     if (self.params.setup) {
-        return self.client.setup(self.params)
+        var account_params = _.pick(self.params, 'email', 'password');
+        account_params.name = account_params.email;
+        return self.client.account.create_account(account_params)
             .then(function() {
                 console.log('COMPLETED: setup', self.params);
             }, function(err) {
@@ -94,11 +96,6 @@ ClientCLI.prototype.load = function() {
     return Q.fcall(function() {
             var auth_params = _.pick(self.params,
                 'email', 'password', 'system', 'role');
-            if (self.params.bucket) {
-                auth_params.extra = {
-                    bucket: self.params.bucket
-                };
-            }
             dbg.log1('create auth', auth_params);
             return self.client.create_auth_token(auth_params);
         })
@@ -332,9 +329,11 @@ ClientCLI.prototype.object_maps = function(key) {
             console.log('-------------------\n');
             var i = 1;
             _.each(mappings.parts, function(part) {
-                var nodes_list = _.map(part.fragments[0], function(block) {
-                    return block.address.host.slice(7); // slice 'http://' prefix
-                }).join(',\t');
+                var nodes_list = _.flatten(_.map(part.fragments, function(fragment) {
+                    return _.map(fragment.blocks, function(block) {
+                        return block.address.host.slice(7); // slice 'http://' prefix
+                    });
+                })).join(',\t');
                 console.log('#' + i, '[' + part.start + '..' + part.end + ']:\t', nodes_list);
                 i += 1;
             });
@@ -484,3 +483,20 @@ function main() {
 if (require.main === module) {
     main();
 }
+
+
+process.stdin.resume();//so the program will not close instantly
+
+function exitHandler() {
+    console.log('exiting');
+    process.exit();
+}
+
+process.on('exit', function(code) {
+    console.log('About to exit with code:', code);
+});
+
+process.on('uncaughtException', function(err) {
+    console.log('Caught exception: ' + err + ' ; ' + err.stack);
+    //exitHandler();
+});

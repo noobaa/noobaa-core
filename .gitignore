@@ -15,7 +15,7 @@ tags
 coverage/
 
 ## testing agent storage
-agent_storage/
+agent_storage*
 
 ## mobile
 ionic-app/

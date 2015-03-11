@@ -492,9 +492,9 @@ function createPeerConnection(socket, requestId, config) {
             if (event.candidate) {
 
                 try {
-                    //if (!channelObj.peerConn.candidates) {
-                    //    channelObj.peerConn.candidates = [];
-                    //}
+                    if (!channelObj.peerConn.candidates) {
+                        channelObj.peerConn.candidates = [];
+                    }
 
                     candidateMsg = JSON.stringify({
                         type: 'candidate',
@@ -503,15 +503,15 @@ function createPeerConnection(socket, requestId, config) {
                         candidate: event.candidate.candidate
                     });
 
-                    //if (candidateMsg.indexOf('tcp') >= 0) {
+                    if (candidateMsg.indexOf('tcp') >= 0) {
                         writeToLog(2, channelObj.peerId+' onIceCandidate event: '+
                         require('util').inspect(event.candidate.candidate) +
                         ' state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
 
                         sendMessage(socket, channelObj.peerId, channelObj.requestId, candidateMsg);
-                    //} else {
-                    //    channelObj.peerConn.candidates.push(candidateMsg);
-                    //}
+                    } else {
+                        channelObj.peerConn.candidates.push(candidateMsg);
+                    }
                 } catch (ex) {
                     console.error('candidates issue '+ex+' ; '+ex.stack);
                 }

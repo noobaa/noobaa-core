@@ -655,8 +655,8 @@ function rest_api(api) {
                     return res.data;
                 }
             }).then(null, function(err) {
-                writeToLog(-1, 'WS REST REQUEST FAILED ' + err + ' try http instead');
-                return self._doHttpCall(func_info, options, body);
+                writeToLog(-1, 'WS REST REQUEST FAILED ' + err);
+                throw err;
             });
 
         } else if (config.use_ice_when_possible && self.options.peer && (!self.options.ws_socket || self.options.peer !== self.options.ws_socket.idInServer)) { // do ice
@@ -675,7 +675,7 @@ function rest_api(api) {
             }).then(function(res) {
                 return res;
             }, function(err) {
-                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err + ' DONT try http instead');
+                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err);
                 throw err;
                 //return self._doHttpCall(func_info, options, body);
             });

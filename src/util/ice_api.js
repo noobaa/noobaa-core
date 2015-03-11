@@ -41,7 +41,7 @@ var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
 module.exports.forceCloseIce = forceCloseIce;
 
 var onIceMessage = function onIceMessage(p2p_context, channel, event) {
-    writeToLog(2, 'Got event '+event.data+' ; my id: '+channel.myId);
+    writeToLog(3, 'Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
     var req;
 

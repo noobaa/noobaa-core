@@ -45,7 +45,7 @@ function ObjectClient(base) {
 
     // some constants that might be provided as options to the client one day
 
-    self.OBJECT_RANGE_ALIGN_NBITS = 19; // log2( 512 KB )
+    self.OBJECT_RANGE_ALIGN_NBITS = 20; // log2( 512 KB )
     self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 512 KB
 
     self.MAP_RANGE_ALIGN_NBITS = 24; // log2( 16 MB )

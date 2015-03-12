@@ -7,11 +7,11 @@ config.reconnect_delay = 5000;
 config.connection_data_stale = 60 * 1000;
 config.check_stale_conns = 60 * 1000;
 
-config.chunk_size = 8 * 1024;
+config.chunk_size = 16 * 1024;
 config.doStaleCheck = false;
-config.connection_default_timeout = 25 * 1000;
+config.connection_default_timeout = 15 * 1000;
 config.ws_default_timeout = 25 * 1000;
-config.ice_retry = 0;
+config.ice_retry = 1;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

@@ -401,6 +401,11 @@ var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
 module.exports.isRequestEnded = isRequestEnded;
 
 var closeIce = function closeIce(socket, requestId, dataChannel) {
+
+    if (!config.doStaleCheck) {
+        return;
+    }
+
     try {
         if (dataChannel && dataChannel.msgs && dataChannel.msgs[requestId]) {
             delete dataChannel.msgs[requestId];

@@ -2,7 +2,10 @@ node_modules/
 bower_components/
 build/
 .env
+agent_conf.json
 *.pem
+*.iml
+*.log
 
 ## IDE
 *.sublime-workspace

@@ -41,7 +41,7 @@ var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
 module.exports.forceCloseIce = forceCloseIce;
 
 var onIceMessage = function onIceMessage(p2p_context, channel, event) {
-    writeToLog(2, 'Got event '+event.data+' ; my id: '+channel.myId);
+    writeToLog(3, 'Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
     var req;
 
@@ -283,7 +283,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         }
         sigSocket.action_defer[requestId] = Q.defer();
         return sigSocket.action_defer[requestId].promise;
-    }).timeout(config.connection_default_timeout).then(function(response) {
+    }).timeout(config.ws_default_timeout).then(function(response) {
         writeToLog(0,'return response data '+require('util').inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {
@@ -352,6 +352,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         msgObj.action_defer = Q.defer();
 
         if (buffer) {
+            buffer = buf.toArrayBuffer(buffer);
             request.size = buffer.byteLength;
         }
         request.req = requestId;

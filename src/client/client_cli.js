@@ -31,17 +31,7 @@ Q.longStackSupport = true;
  */
 function ClientCLI(params) {
     var self = this;
-    self.params = _.defaults(params, {
-        address: params.prod ? 'https://noobaa-core.herokuapp.com' : 'http://localhost:5001',
-        streamer: params.prod ? 5005 : 5006,
-        email: 'demo@noobaa.com',
-        password: 'DeMo',
-        system: 'demo@noobaa.com',
-        tier: 'nodes',
-        bucket: 'files',
-    });
-    self.client = new api.Client();
-    self.client.options.set_address(self.params.address);
+    self.params = params;
 }
 
 
@@ -55,31 +45,53 @@ function ClientCLI(params) {
 ClientCLI.prototype.init = function() {
     var self = this;
 
-    if (self.params.setup) {
-        var account_params = _.pick(self.params, 'email', 'password');
-        account_params.name = account_params.email;
-        return self.client.account.create_account(account_params)
-            .then(function() {
-                console.log('COMPLETED: setup', self.params);
-            }, function(err) {
-                console.log('ERROR: setup', self.params, err);
-            })
-            .then(function() {
-                process.exit();
+    return Q.nfcall(fs.readFile, 'agent_conf.json')
+        .then(function(data) {
+            var agent_conf = JSON.parse(data);
+            dbg.log0('using agent_conf.json', util.inspect(agent_conf));
+            self.params = _.defaults(self.params, agent_conf);
+        }).then(null, function(err) {
+            dbg.log0('cannot find configuration file. Using defaults.');
+            self.params = _.defaults(self.params, {
+                address: 'http://localhost:5001',
+                streamer: params.prod ? 5005 : 5006,
+                email: 'demo@noobaa.com',
+                password: 'DeMo',
+                system: 'demo',
+                tier: 'nodes',
+                bucket: 'files'
             });
-    }
-
-    return self.load()
+        })
         .then(function() {
-            console.log('COMPLETED: load');
-        }, function(err) {
-            console.log('ERROR: load', self.params, err.stack);
-            process.exit();
-        }).then(function() {
-            if (argv.upload) {
-                // not returning the promise on purpose - to allow the repl to start
-                self.upload(argv.upload);
+            self.client = new api.Client();
+            self.client.options.set_address(self.params.address);
+
+            if (self.params.setup) {
+                var account_params = _.pick(self.params, 'email', 'password');
+                account_params.name = account_params.email;
+                return self.client.account.create_account(account_params)
+                    .then(function() {
+                        console.log('COMPLETED: setup', self.params);
+                    }, function(err) {
+                        console.log('ERROR: setup', self.params, err);
+                    })
+                    .then(function() {
+                        process.exit();
+                    });
             }
+
+            return self.load()
+                .then(function() {
+                    console.log('COMPLETED: load');
+                }, function(err) {
+                    console.log('ERROR: load', self.params, err.stack);
+                    process.exit();
+                }).then(function() {
+                    if (argv.upload) {
+                        // not returning the promise on purpose - to allow the repl to start
+                        self.upload(argv.upload);
+                    }
+                });
         });
 };
 

@@ -10,6 +10,7 @@ var crypto = require('crypto');
 var mkdirp = require('mkdirp');
 var size_utils = require('../util/size_utils');
 var Semaphore = require('noobaa-util/semaphore');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = AgentStore;
 
@@ -110,7 +111,7 @@ AgentStore.prototype.read_block = function(block_id) {
     var self = this;
     var block_path = self._get_block_path(block_id);
     var hash_path = path.join(self.hash_path, block_id);
-    console.log('fs read block', block_path);
+    dbg.log0('fs read block', block_path);
     return Q.all([
             Q.nfcall(fs.readFile, block_path),
             Q.nfcall(fs.readFile, hash_path)
@@ -155,7 +156,7 @@ AgentStore.prototype.write_block = function(block_id, data) {
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;
-            console.log('fs write block', block_path, data.length, typeof(data), file_stats);
+            dbg.log0('fs write block', block_path, data.length, typeof(data), file_stats);
 
             // create/replace the block on fs
             return Q.all([
@@ -189,7 +190,7 @@ AgentStore.prototype.delete_block = function(block_id) {
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;
-            console.log('delete block', block_path, file_stats);
+            dbg.log0('delete block', block_path, file_stats);
             if (file_stats) {
                 return Q.nfcall(fs.unlink(block_path));
             }
@@ -282,7 +283,7 @@ AgentStore.prototype._count_usage = function() {
     var sem = new Semaphore(10);
     return disk_usage(self.blocks_path, sem, true)
         .then(function(usage) {
-            console.log('counted disk usage', usage);
+            dbg.log0('counted disk usage', usage);
             self._usage = usage; // object with properties size and count
             return usage;
         });

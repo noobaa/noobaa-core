@@ -6,11 +6,12 @@ config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
 config.connection_data_stale = 60 * 1000;
 config.check_stale_conns = 60 * 1000;
-config.chunk_size = 60 * 1000;
-config.doStaleCheck = true;
-config.buildWorkerOn = false;
-config.connection_default_timeout = 6 * 1000;
-config.ice_retry = 2;
+
+config.chunk_size = 8 * 1024;
+config.doStaleCheck = false;
+config.connection_default_timeout = 25 * 1000;
+config.ws_default_timeout = 25 * 1000;
+config.ice_retry = 0;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

@@ -625,7 +625,7 @@ function createPeerConnection(socket, requestId, config) {
         if (channelObj.isInitiator) {
             writeToLog(3,'Creating Data Channel req '+requestId);
             try {
-                var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5, maxRetransmitTime: 3000};
+                var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};//, maxRetransmitTime: 3000};
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig); // TODO  ? dtConfig
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {

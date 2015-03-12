@@ -18,6 +18,8 @@ config.use_ice_when_possible = true;
 
 config.dbg_log_level = 2;
 
+config.min_node_number = 3;
+
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;

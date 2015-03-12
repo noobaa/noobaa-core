@@ -4,7 +4,7 @@ var config = {};
 config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
-config.connection_data_stale = 60 * 1000;
+config.connection_data_stale = 5 * 60 * 1000;
 config.check_stale_conns = 60 * 1000;
 
 config.chunk_size = 16 * 1024;

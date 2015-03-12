@@ -625,6 +625,7 @@ function createPeerConnection(socket, requestId, config) {
         if (channelObj.isInitiator) {
             writeToLog(3,'Creating Data Channel req '+requestId);
             try {
+                // you can only specify maxRetransmits or maxRetransmitTime, not both
                 var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};//, maxRetransmitTime: 3000};
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig); // TODO  ? dtConfig
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);

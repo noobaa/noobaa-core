@@ -637,8 +637,8 @@ function createPeerConnection(socket, requestId, config) {
             writeToLog(3, 'Creating an offer req '+requestId);
             var mediaConstraints = {
                 mandatory: {
-                    offerToReceiveAudio: false,
-                    offerToReceiveVideo: false
+                    OfferToReceiveAudio: false,
+                    OfferToReceiveVideo: false
                 }
             };
             try {

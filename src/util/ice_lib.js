@@ -344,6 +344,15 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
         if (isInitiator) {
             if (p2p_context) {
                 return p2p_context.iceSockets[peerId].sem.surround(function() {
+
+                    if (p2p_context.iceSockets[peerId].status === 'open') {
+                        var state = p2p_context.iceSockets[peerId].dataChannel.readyState;
+                        if (state && (state === 'closing' || state === 'closed')) {
+                            writeToLog(0, 'state of ice conn to peer ' + peerId+ ' is: '+state+' force close');
+                            forceCloseIce(p2p_context, peerId, channelObj, socket);
+                        }
+                    }
+
                     if (p2p_context.iceSockets[peerId].status === 'new') {
                         writeToLog(0, 'send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                         socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
@@ -383,6 +392,17 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
 
 };
 module.exports.initiateIce = initiateIce;
+
+var writeToChannel = function writeToChannel(channel, data, requestId) {
+    var state = channel.readyState;
+    if (state && (state === 'closing' || state === 'closed')) {
+        console.error('ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
+        throw new Error('ERROR writing to channel state is '+state);
+    }
+    channel.send(data);
+};
+module.exports.writeToChannel = writeToChannel;
+
 
 var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
     if (channel && channel.msgs && channel.msgs[requestId]) {

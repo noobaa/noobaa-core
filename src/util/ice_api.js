@@ -177,24 +177,28 @@ function generateRequestId() {
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
     var counter = 0;
+    var data;
     if (block.byteLength > config.chunk_size) {
         var begin = 0;
         var end = config.chunk_size;
 
         while (end < block.byteLength) {
-            channel.send(createBufferToSend(block.slice(begin, end), counter, reqId));
+            data = createBufferToSend(block.slice(begin, end), counter, reqId);
+            ice.writeToChannel(channel, data, reqId);
             writeToLog(3,'send chunk '+counter+ ' size: ' + config.chunk_size+' req '+reqId);
             begin = end;
             end = end + config.chunk_size;
             counter++;
         }
         var bufToSend = block.slice(begin);
-        channel.send(createBufferToSend(bufToSend, counter, reqId));
+        data = createBufferToSend(bufToSend, counter, reqId);
+        ice.writeToChannel(channel, data, reqId);
         writeToLog(0,'send last chunk '+counter+ ' size: ' + bufToSend.byteLength+' req '+reqId);
 
     } else {
         writeToLog(0,'send chunk all at one, size: '+block.byteLength+' req '+reqId);
-        channel.send(createBufferToSend(block, counter, reqId));
+        data = createBufferToSend(block, counter, reqId);
+        ice.writeToChannel(channel, data, reqId);
     }
 };
 module.exports.writeBufferToSocket = writeBufferToSocket;
@@ -359,7 +363,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         writeToLog(0,'send request ice to '+peerId+' request '+requestId);
 
-        iceSocket.send(JSON.stringify(request));
+        ice.writeToChannel(iceSocket, JSON.stringify(request), requestId);
 
         if (buffer) {
             writeBufferToSocket(iceSocket, buffer, requestId);

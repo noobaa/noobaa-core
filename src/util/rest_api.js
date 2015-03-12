@@ -12,6 +12,7 @@ var URL = require('url');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
 var ice_api = require('./ice_api');
+var ice_lib = require('./ice_lib');
 var buf = require('./buffer_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
@@ -312,7 +313,7 @@ function rest_api(api) {
                         reply.to = msg.from;
                     }
 
-                    channel.send(JSON.stringify(reply));
+                    ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
 
                     if (replyBuffer) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);

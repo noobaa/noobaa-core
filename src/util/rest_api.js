@@ -647,8 +647,8 @@ function rest_api(api) {
                 dbg.log0(self.options, 'res is: ' + require('util').inspect(res));
 
                 if (res && res.status && res.status === 500) {
-                    writeToLog(0, 'failed ' + options.path + ' in ws, try http instead');
-                    return self._doHttpCall(func_info, options, body);
+                    writeToLog(0, 'failed ' + options.path + ' in ws for peer '+peerId);
+                    throw new Error(res);
                 } else {
                     if (!func_info.reply_raw) {
                         // check the json reply
@@ -657,7 +657,7 @@ function rest_api(api) {
                     return res.data;
                 }
             }).then(null, function(err) {
-                writeToLog(-1, 'WS REST REQUEST FAILED ' + err);
+                writeToLog(-1, 'WS REST REQUEST FAILED peer '+peerId+', err: ' + err);
                 throw err;
             });
 

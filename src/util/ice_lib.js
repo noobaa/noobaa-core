@@ -263,7 +263,7 @@ function staleConnChk(socket) {
         return;
     }
 
-    writeToLog(-1,'RUNNING staleConnChk ICE YAEL');
+    writeToLog(2,'RUNNING staleConnChk ICE');
 
     var now = (new Date()).getTime();
     var toDel = [];
@@ -272,7 +272,7 @@ function staleConnChk(socket) {
     var pos;
     try {
         for (requestId in socket.icemap) {
-            dbg.log0('chk stale connections 1111 to peer ' + socket.icemap[requestId].peerId + ' from ' +
+            writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' from ' +
                 socket.icemap[requestId].created+' for req '+requestId+' is done '+socket.icemap[requestId].done);
             if (now - socket.icemap[requestId].created.getTime() > config.connection_data_stale && socket.icemap[requestId].done) {
                 toDel.push(requestId);
@@ -294,7 +294,7 @@ function staleConnChk(socket) {
             toDel = [];
 
             for (peerId in socket.p2p_context.iceSockets) {
-                dbg.log0('chk stale connections 22222 to peer '+peerId+' last used '+socket.p2p_context.iceSockets[peerId].lastUsed+
+                writeToLog(2,'chk stale connections to peer '+peerId+' last used '+socket.p2p_context.iceSockets[peerId].lastUsed+
                 'used by '+socket.p2p_context.iceSockets[peerId].usedBy);
                 if (now - socket.p2p_context.iceSockets[peerId].lastUsed > config.connection_data_stale &&
                     (_.isEmpty(socket.p2p_context.iceSockets[peerId].usedBy))) {
@@ -305,7 +305,6 @@ function staleConnChk(socket) {
             for (pos in toDel) {
                 peerId = toDel[pos];
                 writeToLog(0, 'remove stale ice connections to peer ' + peerId);
-                console.error('Closing the ice socket to peer (stale) ' +peerId);
                 socket.p2p_context.iceSockets[peerId].dataChannel.close();
                 socket.p2p_context.iceSockets[peerId].peerConn.close();
                 delete socket.p2p_context.iceSockets[peerId];
@@ -444,14 +443,26 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
             delete dataChannel.msgs[requestId];
         }
 
+        var peerId;
+        if (dataChannel) {
+            peerId = dataChannel.peerId;
+        }
+
+        var obj;
         var channelObj = socket.icemap[requestId];
-        channelObj.done = true;
-        var obj = socket.p2p_context ? socket.p2p_context.iceSockets[channelObj.peerId] : null;
+        if (channelObj) {
+            channelObj.done = true;
+            if (!peerId) {
+                peerId = channelObj.peerId;
+            }
+        }
+
+        obj = socket.p2p_context ? socket.p2p_context.iceSockets[peerId] : null;
 
         if (obj && obj.dataChannel === dataChannel) {
             obj.lastUsed = (new Date()).getTime();
             delete obj.usedBy[requestId];
-        } else if (dataChannel) {
+        } else if (socket && !socket.p2p_context && dataChannel) {
             console.error('Closing the ice socket to peer ' +dataChannel.peerId);
             if (channelObj && channelObj.peerConn) {
                 channelObj.peerConn.close();

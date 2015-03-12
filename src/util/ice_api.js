@@ -218,15 +218,15 @@ function staleConnChk(p2p_context) {
         return;
     }
 
-    writeToLog(-1,'RUNNING staleConnChk WS YAEL');
+    writeToLog(2,'RUNNING staleConnChk WS');
 
     var now = (new Date()).getTime();
 
     if (now - p2p_context.wsClientSocket.lastTimeUsed > config.connection_data_stale) {
-        writeToLog(-1,'REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
+        writeToLog(0,'REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
         ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
-        //clearInterval(p2p_context.wsClientSocket.interval);
-        //p2p_context.wsClientSocket = null;
+        clearInterval(p2p_context.wsClientSocket.interval);
+        p2p_context.wsClientSocket = null;
     }
 }
 

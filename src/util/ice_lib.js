@@ -295,7 +295,7 @@ function staleConnChk(socket) {
 
             for (peerId in socket.p2p_context.iceSockets) {
                 writeToLog(2,'chk stale connections to peer '+peerId+' last used '+socket.p2p_context.iceSockets[peerId].lastUsed+
-                'used by '+socket.p2p_context.iceSockets[peerId].usedBy);
+                'used by '+require('util').inspect(socket.p2p_context.iceSockets[peerId].usedBy));
                 if (now - socket.p2p_context.iceSockets[peerId].lastUsed > config.connection_data_stale &&
                     (_.isEmpty(socket.p2p_context.iceSockets[peerId].usedBy))) {
                     toDel.push(peerId);
@@ -796,18 +796,6 @@ function onDataChannelCreated(socket, requestId, channel) {
         channel.onmessage = onIceMessage(socket, channel);
 
 
-        channel.ondatachannel = function(event) {
-            var dataChannel = event.channel;
-
-            dataChannel.onclose = function () {
-                console.error('ICE CHANNEL closed 2');
-            };
-
-            dataChannel.onerror = function () {
-                console.error('ICE CHANNEL err 2');
-            };
-        };
-
         channel.onclose = function () {
             console.error('ICE CHANNEL closed ' + channel.peerId);
             writeToLog(0,'ICE CHANNEL closed ' + channel.peerId);
@@ -818,7 +806,11 @@ function onDataChannelCreated(socket, requestId, channel) {
                 socket.icemap[requestId].done = true;
             }
 
-            if (socket.p2p_context && socket.p2p_context.iceSockets[channel.peerId]) {
+            var iceSocketObj = socket.p2p_context && socket.p2p_context.iceSockets[channel.peerId];
+            if (iceSocketObj) {
+                if (iceSocketObj.peerConn) {
+                    try {iceSocketObj.peerConn.close(); } catch (err)  {}
+                }
                 delete socket.p2p_context.iceSockets[channel.peerId];
             }
         };

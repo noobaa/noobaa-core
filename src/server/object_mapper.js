@@ -238,21 +238,18 @@ function finalize_object_parts(bucket, obj, parts) {
         .then(function() {
             var retries = 0;
             function call_build_chunk() {
-
-                try {
+                return Q.fcall(function() {
                     return build_chunks(chunks);
-
-                } catch (e) {
-                    dbg.log0("Caught ", e, " Retrying replicate to another node...");
+                }).then(function(res) {
+                    return res;
+                }, function(err) {
+                    dbg.log0("Caught ", eee, " Retrying replicate to another node... ");
                     ++retries;
-                    if (retries === 3) {
-                        throw new Error("Failed replicate (after retries)",e,e.stack);
+                    if (retries >= config.replicate_retry) {
+                        throw new Error("Failed replicate (after retries)",err,err.stack);
                     }
-                    return Q.nfcall(
-                        call_build_chunk
-
-                    );
-                }
+                    return call_build_chunk();
+                });
             }
             return call_build_chunk();
         })

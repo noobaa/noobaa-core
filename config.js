@@ -12,6 +12,7 @@ config.doStaleCheck = false;
 config.connection_default_timeout = 15 * 1000;
 config.ws_default_timeout = 25 * 1000;
 config.ice_retry = 1;
+config.replicate_retry = 3;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

@@ -30,6 +30,7 @@ function writeToLog(level, msg) {
     } else if (level === 3) {
         dbg.log3(timeStr + ' ' + msg);
     } else {
+        timeStr = (new Date()).toString();
         console.error(timeStr + ' ' + msg);
     }
 }

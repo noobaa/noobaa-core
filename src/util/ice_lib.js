@@ -11,7 +11,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var configuration = config.ice_servers;
 
 function writeToLog(level, msg) {
-    var timeStr = (new Date()).toString();
+    var timeStr = '';
     if (level === 0) {
         dbg.log0(timeStr+' '+msg);
     } else if (level === 1) {
@@ -21,6 +21,7 @@ function writeToLog(level, msg) {
     } else if (level === 3) {
         dbg.log3(timeStr+' '+msg);
     } else {
+        timeStr = (new Date()).toString();
         console.error(timeStr+' '+msg);
     }
 }
@@ -440,6 +441,9 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
             delete obj.usedBy[requestId];
         } else if (dataChannel) {
             console.error('Closing the ice socket to peer ' +dataChannel.peerId);
+            if (channelObj && channelObj.peerConn) {
+                channelObj.peerConn.close();
+            }
             dataChannel.close();
         }
     } catch (ex) {

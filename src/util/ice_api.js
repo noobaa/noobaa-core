@@ -221,8 +221,9 @@ function staleConnChk(p2p_context) {
     writeToLog(2,'RUNNING staleConnChk WS');
 
     var now = (new Date()).getTime();
+    var timePassed = now - p2p_context.wsClientSocket.lastTimeUsed;
 
-    if (now - p2p_context.wsClientSocket.lastTimeUsed > config.connection_data_stale) {
+    if (timePassed > config.connection_data_stale) {
         writeToLog(0,'REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
         ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
         clearInterval(p2p_context.wsClientSocket.interval);

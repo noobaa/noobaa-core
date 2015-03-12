@@ -270,11 +270,13 @@ function staleConnChk(socket) {
     var requestId;
     var peerId;
     var pos;
+    var timePassed;
     try {
         for (requestId in socket.icemap) {
-            writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' from ' +
-                socket.icemap[requestId].created+' for req '+requestId+' is done '+socket.icemap[requestId].done);
-            if (now - socket.icemap[requestId].created.getTime() > config.connection_data_stale && socket.icemap[requestId].done) {
+            timePassed = now - socket.icemap[requestId].created.getTime();
+            writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' time passed ' +
+            timePassed+' for req '+requestId+' is done '+socket.icemap[requestId].done);
+            if (timePassed > config.connection_data_stale && socket.icemap[requestId].done) {
                 toDel.push(requestId);
             }
         }
@@ -293,11 +295,13 @@ function staleConnChk(socket) {
             now = (new Date()).getTime();
             toDel = [];
 
+
             for (peerId in socket.p2p_context.iceSockets) {
-                writeToLog(2,'chk stale connections to peer '+peerId+' last used '+socket.p2p_context.iceSockets[peerId].lastUsed+
-                'used by '+require('util').inspect(socket.p2p_context.iceSockets[peerId].usedBy));
-                if (now - socket.p2p_context.iceSockets[peerId].lastUsed > config.connection_data_stale &&
-                    (_.isEmpty(socket.p2p_context.iceSockets[peerId].usedBy))) {
+                timePassed = now - socket.p2p_context.iceSockets[peerId].lastUsed;
+                    writeToLog(2,'chk stale connections to peer '+peerId+' time passed '+timePassed+
+                ' used by '+require('util').inspect(socket.p2p_context.iceSockets[peerId].usedBy));
+                if (timePassed > config.connection_data_stale &&
+                    Object.keys(socket.p2p_context.iceSockets[peerId].usedBy).length === 0) {
                     toDel.push(peerId);
                 }
             }

@@ -236,7 +236,25 @@ function finalize_object_parts(bucket, obj, parts) {
             }
         })
         .then(function() {
-            return build_chunks(chunks);
+            var retries = 0;
+            function call_build_chunk() {
+
+                try {
+                    return build_chunks(chunks);
+
+                } catch (e) {
+                    dbg.log0("Caught ", e, " Retrying replicate to another node...");
+                    ++retries;
+                    if (retries === 3) {
+                        throw new Error("Failed replicate (after retries)",e,e.stack);
+                    }
+                    return Q.nfcall(
+                        call_build_chunk
+
+                    );
+                }
+            }
+            return call_build_chunk();
         })
         .then(function() {
             var end = parts[parts.length - 1].end;

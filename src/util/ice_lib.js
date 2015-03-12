@@ -172,9 +172,14 @@ var connect = function (socket) {
                         connect(socket);
                     }, config.reconnect_delay);
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
+                var currWs = socket.p2p_context.wsClientSocket;
                 writeToLog(-1,  'onerror ws context');
-                if (socket.p2p_context.wsClientSocket.interval) {
-                    clearInterval(socket.p2p_context.wsClientSocket.interval);
+                if (currWs.interval) {
+                    clearInterval(currWs.interval);
+                }
+                if (currWs.ws_socket && currWs.ws_socket.alive_interval) {
+                    clearInterval(currWs.ws_socket.alive_interval);
+                    currWs.ws_socket.alive_interval = null;
                 }
                 delete socket.p2p_context.wsClientSocket;
             } else {
@@ -194,9 +199,14 @@ var connect = function (socket) {
                         connect(socket);
                     }, config.reconnect_delay);
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
+                var currWs = socket.p2p_context.wsClientSocket;
                 writeToLog(-1,  'onclose ws context');
-                if (socket.p2p_context.wsClientSocket.interval) {
-                    clearInterval(socket.p2p_context.wsClientSocket.interval);
+                if (currWs.interval) {
+                    clearInterval(currWs.interval);
+                }
+                if (currWs.ws_socket && currWs.ws_socket.alive_interval) {
+                    clearInterval(currWs.ws_socket.alive_interval);
+                    currWs.ws_socket.alive_interval = null;
                 }
                 delete socket.p2p_context.wsClientSocket;
             } else {
@@ -400,7 +410,9 @@ var writeToChannel = function writeToChannel(channel, data, requestId) {
         console.error('ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
         throw new Error('ERROR writing to channel state is '+state);
     }
+    writeToLog(2,'channel buffer amount on before send for req '+requestId+' is '+channel.bufferedAmount);
     channel.send(data);
+    writeToLog(2,'channel buffer amount on after send for req '+requestId+' is '+channel.bufferedAmount);
 };
 module.exports.writeToChannel = writeToChannel;
 
@@ -613,7 +625,7 @@ function createPeerConnection(socket, requestId, config) {
         if (channelObj.isInitiator) {
             writeToLog(3,'Creating Data Channel req '+requestId);
             try {
-                var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};
+                var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5, maxRetransmitTime: 3000};
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig); // TODO  ? dtConfig
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
@@ -624,8 +636,8 @@ function createPeerConnection(socket, requestId, config) {
             writeToLog(3, 'Creating an offer req '+requestId);
             var mediaConstraints = {
                 mandatory: {
-                    OfferToReceiveAudio: false,
-                    OfferToReceiveVideo: false
+                    offerToReceiveAudio: false,
+                    offerToReceiveVideo: false
                 }
             };
             try {

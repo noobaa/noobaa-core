@@ -410,9 +410,9 @@ var writeToChannel = function writeToChannel(channel, data, requestId) {
         console.error('ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
         throw new Error('ERROR writing to channel state is '+state);
     }
-    writeToLog(2,'channel buffer amount on before send for req '+requestId+' is '+channel.bufferedAmount);
+    writeToLog(3,'channel buffer amount on before send for req '+requestId+' is '+channel.bufferedAmount);
     channel.send(data);
-    writeToLog(2,'channel buffer amount on after send for req '+requestId+' is '+channel.bufferedAmount);
+    writeToLog(3,'channel buffer amount on after send for req '+requestId+' is '+channel.bufferedAmount);
 };
 module.exports.writeToChannel = writeToChannel;
 

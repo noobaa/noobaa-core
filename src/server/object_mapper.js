@@ -243,7 +243,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 }).then(function(res) {
                     return res;
                 }, function(err) {
-                    dbg.log0("Caught ", eee, " Retrying replicate to another node... ");
+                    dbg.log0("Caught ", err, " Retrying replicate to another node... ");
                     ++retries;
                     if (retries >= config.replicate_retry) {
                         throw new Error("Failed replicate (after retries)",err,err.stack);

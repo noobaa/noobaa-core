@@ -432,25 +432,29 @@ function createBufferToSend(block, seq, reqId) {
 module.exports.createBufferToSend = createBufferToSend;
 
 function handleFlush(channel, lastBufferSize, requestId) {
-    var bufferEstSize = 1000 * 1024;
-    var maxSizeToSend = bufferEstSize - channel.bufferedAmount;
+    try {
+        var bufferEstSize = 1000 * 1024;
+        var maxSizeToSend = bufferEstSize - channel.bufferedAmount;
 
-    if (channel.bufferedAmount > 0 && channel.bufferedAmount === lastBufferSize) {
-        writeToLog(2,'wr X seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
+        if (channel.bufferedAmount > 0 && channel.bufferedAmount === lastBufferSize) {
+            writeToLog(2,'wr X seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
 
-        var bufToSend = require('crypto').randomBytes(config.chunk_size-config.iceBufferMetaPartSize);
-        bufToSend = buf.toArrayBuffer(bufToSend);
-        bufToSend = createBufferToSend(bufToSend, 1, config.junkRequestId);
-        var sentSoFar = 0;
+            var bufToSend = require('crypto').randomBytes(config.chunk_size-config.iceBufferMetaPartSize);
+            bufToSend = buf.toArrayBuffer(bufToSend);
+            bufToSend = createBufferToSend(bufToSend, 1, config.junkRequestId);
+            var sentSoFar = 0;
 
-        while (sentSoFar < maxSizeToSend || channel.bufferedAmount < lastBufferSize) {
-            channel.send(bufToSend);
-            sentSoFar += bufToSend.byteLength();
+            while (sentSoFar < maxSizeToSend || channel.bufferedAmount < lastBufferSize) {
+                channel.send(bufToSend);
+                sentSoFar += bufToSend.byteLength();
+            }
+
+            writeToLog(2,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId+' sent total '+sentSoFar);
+        } else if (channel.bufferedAmount > lastBufferSize) {
+            writeToLog(2,'wr X seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
         }
-
-        writeToLog(2,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId+' sent total '+sentSoFar);
-    } else if (channel.bufferedAmount > lastBufferSize) {
-        writeToLog(2,'wr X seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
+    } catch (err) {
+        writeToLog(-1, 'err in flush for peer '+channel.peerId+' for req '+requestId+' err: '+err+' '+err.stack);
     }
 }
 module.exports.handleFlush = handleFlush;

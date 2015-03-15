@@ -227,7 +227,7 @@ function reconnect(socket) {
     connect(socket);
 }
 
-var sendMessage = function sendMessage(socket, peerId, requestId, message) {
+function sendMessage(socket, peerId, requestId, message) {
     writeToLog(0, 'Client sending message: '+ message + ' to peer '+peerId+' for req '+requestId+' i am '+socket.idInServer+' init: '+socket.icemap[requestId].isInitiator);
 
     var toSend = {
@@ -251,7 +251,7 @@ var sendMessage = function sendMessage(socket, peerId, requestId, message) {
         toSend.data = message;
         socket.ws.send(JSON.stringify(toSend));
     }
-};
+}
 module.exports.sendWSMessage = sendMessage;
 
 /********************************
@@ -326,7 +326,7 @@ function staleConnChk(socket) {
 /* /////////////////////////////////////////// */
 /* ICE */
 /* /////////////////////////////////////////// */
-var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
+function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
 
     try {
         socket.icemap[requestId] = {
@@ -408,23 +408,28 @@ var initiateIce = function initiateIce(p2p_context, socket, peerId, isInitiator,
         throw ex;
     }
 
-};
+}
 module.exports.initiateIce = initiateIce;
 
-var writeToChannel = function writeToChannel(channel, data, requestId) {
+function chkChannelState(channel, requestId) {
     var state = channel.readyState;
     if (state && (state === 'closing' || state === 'closed')) {
         console.error('ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
         throw new Error('ERROR writing to channel state is '+state);
     }
+}
+module.exports.chkChannelState = chkChannelState;
+
+function writeToChannel(channel, data, requestId) {
+    chkChannelState(channel, requestId);
     writeToLog(3,'channel buffer amount on before send for req '+requestId+' is '+channel.bufferedAmount);
     channel.send(data);
     writeToLog(3,'channel buffer amount on after send for req '+requestId+' is '+channel.bufferedAmount);
-};
+}
 module.exports.writeToChannel = writeToChannel;
 
 
-var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
+function isRequestEnded(p2p_context, requestId, channel) {
     if (channel && channel.msgs && channel.msgs[requestId]) {
         return false;
     }
@@ -437,10 +442,10 @@ var isRequestEnded = function isRequestEnded(p2p_context, requestId, channel) {
     }
 
     return false;
-};
+}
 module.exports.isRequestEnded = isRequestEnded;
 
-var closeIce = function closeIce(socket, requestId, dataChannel) {
+function closeIce(socket, requestId, dataChannel) {
 
     if (!config.doStaleCheck) {
         return;
@@ -480,10 +485,10 @@ var closeIce = function closeIce(socket, requestId, dataChannel) {
     } catch (ex) {
        console.error('Error on close ice socket for request '+requestId+' ex '+ex);
     }
-};
+}
 module.exports.closeIce = closeIce;
 
-var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, socket) {
+function forceCloseIce(p2p_context, peerId, channelObj, socket) {
 
     var context = p2p_context;
     if (!context && socket) {
@@ -514,7 +519,7 @@ var forceCloseIce = function forceCloseIce(p2p_context, peerId, channelObj, sock
     } else {
         console.error('forceCloseIce nothing to close - peer '+peerId);
     }
-};
+}
 module.exports.forceCloseIce = forceCloseIce;
 
 function logError(err) {
@@ -690,8 +695,16 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
     var channelObj = socket.icemap[requestId];
     if (!channelObj || channelObj.done) {
-        writeToLog(-1, 'problem NO channelObj or already done for req '+requestId+' and peer '+peerId);
-        return;
+
+        // got candidate for peer conn after finished request but has context - handle anyway
+        if (socket && socket.p2p_context && message.type === 'candidate') {
+            channelObj = socket.p2p_context.iceSockets[peerId];
+        }
+
+        if (!channelObj || channelObj.done) {
+            writeToLog(-1, 'problem NO channelObj or already done for req '+requestId+' and peer '+peerId);
+            return;
+        }
     }
 
     var Desc = RTCSessionDescription;

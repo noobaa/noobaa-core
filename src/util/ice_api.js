@@ -32,7 +32,7 @@ var partSize = 40;
 
 var junkRequestId = '0000';
 
-var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
+function forceCloseIce(p2p_context, peerId) {
 
     var sigSocket;
     if (p2p_context && p2p_context.wsClientSocket) {
@@ -40,10 +40,10 @@ var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
     }
 
     ice.forceCloseIce(p2p_context, peerId, null, sigSocket);
-};
+}
 module.exports.forceCloseIce = forceCloseIce;
 
-var onIceMessage = function onIceMessage(p2p_context, channel, event) {
+function onIceMessage(p2p_context, channel, event) {
     writeToLog(3, 'Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
     var req;
@@ -158,31 +158,31 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
     } else {
         writeToLog(-1,'WTF got ' + event.data);
     }
-};
+}
 module.exports.onIceMessage = onIceMessage;
 
-module.exports.signalingSetup = function signalingSetup(handleRequestMethodTemp, agentId) {
+module.exports.signalingSetup = function (handleRequestMethodTemp, agentId) {
     if (agentId) {
         isAgent = true;
     }
     return ice.setup(onIceMessage, agentId, handleRequestMethodTemp);
 };
 
-var createBufferToSend = function createBufferToSend(block, seq, reqId) {
+function createBufferToSend(block, seq, reqId) {
     var bufToSend = new Buffer(partSize);
     try {reqId = parseInt(reqId, 10);}  catch (ex){console.error('fail parse req id '+ex);}
     bufToSend.writeInt32LE(reqId,0);
     bufToSend.writeInt8(seq,32);
     bufToSend = buf.addToBuffer(bufToSend, block);
     return buf.toArrayBuffer(bufToSend);
-};
+}
 module.exports.createBufferToSend = createBufferToSend;
 
 function generateRequestId() {
     return rand.getRandomInt(10000,9000000).toString();
 }
 
-var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId, defer) {
+function writeBufferToSocket(channel, block, reqId) {
 
     var sequence = 0;
     var begin = 0;
@@ -196,20 +196,16 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId, de
             writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);
             var currentBufferSize = channel.bufferedAmount;
             setTimeout(function() {
-                if (channel.bufferedAmount === currentBufferSize) {
+                if (channel.bufferedAmount > 0 && channel.bufferedAmount === currentBufferSize) {
                     writeToLog(0,'2 seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId);
                     var stamData = {"protocol":"http:","hostname":"1.1.1.1","port":null,"method":"POST",
                         "path":"/blat/stam","headers":{"accept":"*/*", "authorization":"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTIzIiwic3lzdGVtX2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTI0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNDI2MDc1ODM4fQ.ks1fw-8nF_zNNpHw66lMd8vnP_Ky9JHsQb_lii-cKnw",
                             "content-type":"application/octet-stream","content-length":391024},"withCredentials":false,
-                        "responseType":"arraybuffer","size":391024,"req":junkRequestId} ;
+                        "responseType":"arraybuffer","size":0,"req":junkRequestId} ;
                     ice.writeToChannel(channel, JSON.stringify(stamData), junkRequestId);
                 }
             }, 2000);
 
-            if (defer) {
-                writeToLog(0,'wait for response ice to '+channel.peerId+' request '+requestId);
-                return defer.promise;
-            }
             return;
         }
 
@@ -225,11 +221,12 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId, de
         }
 
         // send and recurse
-        writeToLog(2,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
+        ice.chkChannelState(channel, reqId);
+        writeToLog(3,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
         return Q.nfcall(channel.send.bind(channel), chunk)
             .then(send_next(begin, end))
             .then(null, function(err) {
-                console.error('send_next recur err '+err+' '+err.stack);
+                writeToLog(-1, 'send_next recur err '+err+' '+err.stack);
                 throw err;
             });
     }
@@ -237,11 +234,11 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId, de
     // start sending (recursive async loop)
     return Q.fcall(send_next(begin, end))
         .then(null, function(err) {
-            console.error('send_next general err '+err+' '+err.stack);
+            writeToLog(-1, 'send_next general err '+err+' '+err.stack);
             throw err;
         });
 
-};
+}
 module.exports.writeBufferToSocket = writeBufferToSocket;
 
 
@@ -409,7 +406,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         ice.writeToChannel(iceSocket, JSON.stringify(request), requestId);
 
         if (buffer) {
-            return writeBufferToSocket(iceSocket, buffer, requestId, msgObj.action_defer);
+            writeBufferToSocket(iceSocket, buffer, requestId);
         }
 
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);

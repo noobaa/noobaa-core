@@ -177,7 +177,7 @@ function generateRequestId() {
 }
 
 var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
-    var counter = 0;
+    /*var counter = 0;
     var data;
     if (block.byteLength > config.chunk_size) {
         var begin = 0;
@@ -200,7 +200,48 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
         writeToLog(0,'send chunk all at one, size: '+block.byteLength+' req '+reqId);
         data = createBufferToSend(block, counter, reqId);
         ice.writeToChannel(channel, data, reqId);
+    }*/
+
+    /*var currentBufferSize = channel.bufferedAmount;
+    setTimeout(function() {
+        if (channel.bufferedAmount === currentBufferSize) {
+            writeToLog(0,'second later and the buffer isnt changed !!! YAEL');
+        }
+    }, 1000);*/
+
+
+    var sequence = 0;
+
+    // define the loop func
+    function send_next() {
+
+        // end recursion when done sending the entire buffer
+        if (!block.length) {
+            var currentBufferSize = channel.bufferedAmount;
+            setTimeout(function() {
+                if (channel.bufferedAmount === currentBufferSize) {
+                    writeToLog(0,'2 seconds later and the buffer is not changed !!! YAEL');
+                }
+            }, 2000);
+            return;
+        }
+
+        // slice the current chunk
+        var chunk = createBufferToSend(
+            block.slice(0, config.chunk_size), sequence, reqId);
+
+        // increment sequence and slice buffer to rest of data
+        block = block.slice(config.chunk_size);
+        sequence += 1;
+
+        // send and recurse
+        return Q.nfcall(ice.writeToChannel(channel, chunk, reqId))
+            .then(send_next);
     }
+
+    // start sending (recursive async loop)
+    return Q.fcall(send_next);
+
 };
 module.exports.writeBufferToSocket = writeBufferToSocket;
 

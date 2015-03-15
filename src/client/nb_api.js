@@ -126,6 +126,7 @@ nb_api.factory('nbSystem', [
         $scope.new_system = new_system;
         $scope.create_system = create_system;
         $scope.connect_system = connect_system;
+        $scope.toggle_system = toggle_system;
 
         $scope.read_activity_log = read_activity_log;
         $scope.read_activity_log_newest = read_activity_log_newest;
@@ -177,12 +178,12 @@ nb_api.factory('nbSystem', [
                         });
                 })
                 .then(function(sys) {
+                    $scope.system = sys;
                     if (!sys) {
                         console.log('NO SYSTEM', nbClient.account);
                         return;
                     }
                     console.log('READ SYSTEM', sys);
-                    $scope.system = sys;
 
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
                     _.each(sys.tiers, function(tier) {
@@ -223,6 +224,14 @@ nb_api.factory('nbSystem', [
                 .then(reload_system);
         }
 
+        function toggle_system(system_name) {
+            if ($scope.system && $scope.system.name === system_name) {
+                return connect_system('');
+            } else {
+                return connect_system(system_name);
+            }
+        }
+
 
         // ACTIVITY LOG
 
@@ -248,31 +257,44 @@ nb_api.factory('nbSystem', [
                     // var today = now_moment.format(day_format);
                     // var yesterday = now_moment.subtract(1, 'day').format(day_format);
                     $scope.activity_log = _.filter(res.logs, function(l) {
-                        l.time = new Date(l.time);
-                        l.time_moment = moment(l.time);
-                        l.day_of_year = l.time_moment.format(day_format);
-                        /*
-                        if (l.day_of_year === today) {
-                            l.day_of_year = 'Today';
-                        } else if (l.day_of_year === yesterday) {
-                            l.day_of_year = 'Yesterday';
+                        try {
+                            l.time = new Date(l.time);
+                            l.time_moment = moment(l.time);
+                            l.day_of_year = l.time_moment.format(day_format);
+                            /*
+                            if (l.day_of_year === today) {
+                                l.day_of_year = 'Today';
+                            } else if (l.day_of_year === yesterday) {
+                                l.day_of_year = 'Yesterday';
+                            }
+                            */
+                            l.time_of_day = l.time_moment.format(time_format);
+                            switch (l.event) {
+                                case 'node.create':
+                                    if (!l.node) {
+                                        console.log('filtered event with missing node info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'nodes';
+                                    l.text = 'Added node ' + l.node.name;
+                                    break;
+                                case 'obj.uploaded':
+                                    if (!l.obj) {
+                                        console.log('filtered event with missing obj info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'files';
+                                    l.text = 'Upload completed ' + l.obj.key;
+                                    break;
+                                default:
+                                    console.log('filtered unrecognized event', l.event);
+                                    return false;
+                            }
+                            return true;
+                        } catch (err) {
+                            console.log('filtered event on exception', err, l);
+                            return false;
                         }
-                        */
-                        l.time_of_day = l.time_moment.format(time_format);
-                        switch (l.event) {
-                            case 'node.create':
-                                l.category = 'nodes';
-                                l.text = 'Added node ' + l.node.name;
-                                break;
-                            case 'obj.uploaded':
-                                l.category = 'files';
-                                l.text = 'Upload completed ' + l.obj.key;
-                                break;
-                            default:
-                                console.log('filtered unrecognized event', l.event);
-                                return false;
-                        }
-                        return true;
                     });
                     console.log('ACTIVITY LOG', $scope.activity_log_params, $scope.activity_log);
                 });

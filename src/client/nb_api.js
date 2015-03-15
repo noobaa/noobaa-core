@@ -248,31 +248,44 @@ nb_api.factory('nbSystem', [
                     // var today = now_moment.format(day_format);
                     // var yesterday = now_moment.subtract(1, 'day').format(day_format);
                     $scope.activity_log = _.filter(res.logs, function(l) {
-                        l.time = new Date(l.time);
-                        l.time_moment = moment(l.time);
-                        l.day_of_year = l.time_moment.format(day_format);
-                        /*
-                        if (l.day_of_year === today) {
-                            l.day_of_year = 'Today';
-                        } else if (l.day_of_year === yesterday) {
-                            l.day_of_year = 'Yesterday';
+                        try {
+                            l.time = new Date(l.time);
+                            l.time_moment = moment(l.time);
+                            l.day_of_year = l.time_moment.format(day_format);
+                            /*
+                            if (l.day_of_year === today) {
+                                l.day_of_year = 'Today';
+                            } else if (l.day_of_year === yesterday) {
+                                l.day_of_year = 'Yesterday';
+                            }
+                            */
+                            l.time_of_day = l.time_moment.format(time_format);
+                            switch (l.event) {
+                                case 'node.create':
+                                    if (!l.node) {
+                                        console.log('filtered event with missing node info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'nodes';
+                                    l.text = 'Added node ' + l.node.name;
+                                    break;
+                                case 'obj.uploaded':
+                                    if (!l.obj) {
+                                        console.log('filtered event with missing obj info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'files';
+                                    l.text = 'Upload completed ' + l.obj.key;
+                                    break;
+                                default:
+                                    console.log('filtered unrecognized event', l.event);
+                                    return false;
+                            }
+                            return true;
+                        } catch (err) {
+                            console.log('filtered event on exception', err, l);
+                            return false;
                         }
-                        */
-                        l.time_of_day = l.time_moment.format(time_format);
-                        switch (l.event) {
-                            case 'node.create':
-                                l.category = 'nodes';
-                                l.text = 'Added node ' + l.node.name;
-                                break;
-                            case 'obj.uploaded':
-                                l.category = 'files';
-                                l.text = 'Upload completed ' + l.obj.key;
-                                break;
-                            default:
-                                console.log('filtered unrecognized event', l.event);
-                                return false;
-                        }
-                        return true;
                     });
                     console.log('ACTIVITY LOG', $scope.activity_log_params, $scope.activity_log);
                 });

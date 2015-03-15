@@ -28,10 +28,6 @@ module.exports = {};
 
 var isAgent;
 
-var partSize = 40;
-
-var junkRequestId = '0000';
-
 function forceCloseIce(p2p_context, peerId) {
 
     var sigSocket;
@@ -53,7 +49,7 @@ function onIceMessage(p2p_context, channel, event) {
             var message = JSON.parse(event.data);
             req = message.req;
 
-            if (req === junkRequestId) {
+            if (req === config.junkRequestId) {
                 writeToLog(0,'got junkRequestId IGNORE');
                 return;
             }
@@ -95,6 +91,10 @@ function onIceMessage(p2p_context, channel, event) {
             req = (bff.readInt32LE(0)).toString();
             var part = bff.readInt8(32);
 
+            if (req === config.junkRequestId) {
+                writeToLog(0,'got junkRequestId IGNORE');
+                return;
+            }
             if (ice.isRequestEnded(p2p_context, req, channel)) {
                 writeToLog(0,'got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
                 return;
@@ -116,14 +116,14 @@ function onIceMessage(p2p_context, channel, event) {
                 msgObj.chunks_map = {};
             }
 
-            var partBuf = event.data.slice(partSize);
+            var partBuf = event.data.slice(config.iceBufferMetaPartSize);
             msgObj.chunks_map[part] = partBuf;
 
             writeToLog(3,'got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size+' req '+req);
 
             msgObj.chunk_num++;
 
-            msgObj.received_size += (event.data.byteLength - partSize);
+            msgObj.received_size += (event.data.byteLength - config.iceBufferMetaPartSize);
 
             if (msgObj.msg_size && msgObj.received_size === msgObj.msg_size) {
 
@@ -168,16 +168,6 @@ module.exports.signalingSetup = function (handleRequestMethodTemp, agentId) {
     return ice.setup(onIceMessage, agentId, handleRequestMethodTemp);
 };
 
-function createBufferToSend(block, seq, reqId) {
-    var bufToSend = new Buffer(partSize);
-    try {reqId = parseInt(reqId, 10);}  catch (ex){console.error('fail parse req id '+ex);}
-    bufToSend.writeInt32LE(reqId,0);
-    bufToSend.writeInt8(seq,32);
-    bufToSend = buf.addToBuffer(bufToSend, block);
-    return buf.toArrayBuffer(bufToSend);
-}
-module.exports.createBufferToSend = createBufferToSend;
-
 function generateRequestId() {
     return rand.getRandomInt(10000,9000000).toString();
 }
@@ -201,23 +191,14 @@ function writeBufferToSocket(channel, block, reqId) {
             writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);
             var currentBufferSize = channel.bufferedAmount;
             setTimeout(function() {
-                if (channel.bufferedAmount > 0 && channel.bufferedAmount === currentBufferSize) {
-                    writeToLog(0,'2 seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+reqId);
-                    var stamData = {"protocol":"http:","hostname":"1.1.1.1","port":null,"method":"POST",
-                        "path":"/blat/stam","headers":{"accept":"*/*", "authorization":"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTIzIiwic3lzdGVtX2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTI0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNDI2MDc1ODM4fQ.ks1fw-8nF_zNNpHw66lMd8vnP_Ky9JHsQb_lii-cKnw",
-                            "content-type":"application/octet-stream","content-length":391024},"withCredentials":false,
-                        "responseType":"arraybuffer","size":0,"req":junkRequestId} ;
-                    ice.writeToChannel(channel, JSON.stringify(stamData), junkRequestId);
-                } else if (channel.bufferedAmount > currentBufferSize) {
-                    writeToLog(0,'2 seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+reqId);
-                }
-            }, 2000);
+                ice.handleFlush(channel, currentBufferSize, reqId);
+            }, config.timeoutToFlush);
 
             return;
         }
 
         // slice the current chunk
-        var chunk = createBufferToSend(block.slice(begin, end), sequence, reqId);
+        var chunk = ice.createBufferToSend(block.slice(begin, end), sequence, reqId);
 
         // increment sequence and slice buffer to rest of data
         sequence += 1;
@@ -423,7 +404,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         return msgObj.action_defer.promise;
     }).timeout(config.connection_default_timeout).then(function() {
 
-        var msgObj = iceSocket.msgs[requestId];
+        msgObj = iceSocket.msgs[requestId];
 
         writeToLog(0,'got response ice to '+peerId+' request '+requestId+' resp: '+msgObj);
 

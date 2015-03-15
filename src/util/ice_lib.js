@@ -7,6 +7,7 @@ var config = require('../../config.js');
 var zlib = require('zlib');
 var _ = require('lodash');
 var Semaphore = require('noobaa-util/semaphore');
+var buf = require('./buffer_utils');
 
 var configuration = config.ice_servers;
 
@@ -420,28 +421,50 @@ function chkChannelState(channel, requestId) {
 }
 module.exports.chkChannelState = chkChannelState;
 
+function createBufferToSend(block, seq, reqId) {
+    var bufToSend = new Buffer(config.iceBufferMetaPartSize);
+    try {reqId = parseInt(reqId, 10);}  catch (ex){console.error('fail parse req id '+ex);}
+    bufToSend.writeInt32LE(reqId,0);
+    bufToSend.writeInt8(seq,32);
+    bufToSend = buf.addToBuffer(bufToSend, block);
+    return buf.toArrayBuffer(bufToSend);
+}
+module.exports.createBufferToSend = createBufferToSend;
+
+function handleFlush(channel, lastBufferSize, requestId) {
+    var bufferEstSize = 1000 * 1024;
+    var maxSizeToSend = bufferEstSize - channel.bufferedAmount;
+
+    if (channel.bufferedAmount > 0 && channel.bufferedAmount === lastBufferSize) {
+        writeToLog(0,'wr X seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
+
+        var buf = require('crypto').randomBytes(config.chunk_size-config.iceBufferMetaPartSize);
+        var data = createBufferToSend(buf, 1, config.junkRequestId);
+        var sentSoFar = 0;
+
+        while (sentSoFar < maxSizeToSend || channel.bufferedAmount < lastBufferSize) {
+            channel.send(data);
+            sentSoFar += data.byteLength();
+        }
+
+        writeToLog(0,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId);
+    } else if (channel.bufferedAmount > lastBufferSize) {
+        writeToLog(0,'wr X seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
+    }
+}
+module.exports.handleFlush = handleFlush;
+
 function writeToChannel(channel, data, requestId) {
     chkChannelState(channel, requestId);
 
     channel.send(data);
 
-    var junkRequestId = '0000';
     var currentBufferSize = channel.bufferedAmount;
     setTimeout(function() {
-        if (channel.bufferedAmount > 0 && channel.bufferedAmount === currentBufferSize) {
-            writeToLog(0,'wr 2 seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
-            var stamData = {"protocol":"http:","hostname":"1.1.1.1","port":null,"method":"POST",
-                "path":"/blat/stam","headers":{"accept":"*/*", "authorization":"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTIzIiwic3lzdGVtX2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTI0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNDI2MDc1ODM4fQ.ks1fw-8nF_zNNpHw66lMd8vnP_Ky9JHsQb_lii-cKnw",
-                    "content-type":"application/octet-stream","content-length":391024},"withCredentials":false,
-                "responseType":"arraybuffer","size":0,"req":junkRequestId} ;
-            channel.send(JSON.stringify(stamData));
-        } else if (channel.bufferedAmount > currentBufferSize) {
-            writeToLog(0,'wr 2 seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
-        }
-    }, 2000);
+        handleFlush(channel, currentBufferSize, requestId);
+    }, config.timeoutToFlush);
 }
 module.exports.writeToChannel = writeToChannel;
-
 
 function isRequestEnded(p2p_context, requestId, channel) {
     if (channel && channel.msgs && channel.msgs[requestId]) {
@@ -516,7 +539,8 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
         context.iceSockets[peerId].peerConn.close();
 
         if (socket && socket.icemap && context.iceSockets[peerId].usedBy) {
-            for (var req in context.iceSockets[peerId].usedBy) {
+            var req;
+            for (req in context.iceSockets[peerId].usedBy) {
                 if (socket.icemap[req]) {
                     console.error('mark peer '+peerId+' req '+req+' as done so will be removed');
                     socket.icemap[req].done = true;
@@ -805,7 +829,8 @@ function onDataChannelCreated(socket, requestId, channel) {
                 socket.p2p_context.iceSockets[channelObj.peerId].status = 'open';
 
 
-                for (var req in socket.p2p_context.iceSockets[channelObj.peerId].usedBy) {
+                var req;
+                for (req in socket.p2p_context.iceSockets[channelObj.peerId].usedBy) {
                     if (socket.icemap[req]) {
                         socket.icemap[req].dataChannel = channelObj.dataChannel;
                     }

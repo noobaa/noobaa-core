@@ -202,12 +202,14 @@ function writeBufferToSocket(channel, block, reqId) {
             var currentBufferSize = channel.bufferedAmount;
             setTimeout(function() {
                 if (channel.bufferedAmount > 0 && channel.bufferedAmount === currentBufferSize) {
-                    writeToLog(0,'2 seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId);
+                    writeToLog(0,'2 seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+reqId);
                     var stamData = {"protocol":"http:","hostname":"1.1.1.1","port":null,"method":"POST",
                         "path":"/blat/stam","headers":{"accept":"*/*", "authorization":"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTIzIiwic3lzdGVtX2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTI0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNDI2MDc1ODM4fQ.ks1fw-8nF_zNNpHw66lMd8vnP_Ky9JHsQb_lii-cKnw",
                             "content-type":"application/octet-stream","content-length":391024},"withCredentials":false,
                         "responseType":"arraybuffer","size":0,"req":junkRequestId} ;
                     ice.writeToChannel(channel, JSON.stringify(stamData), junkRequestId);
+                } else if (channel.bufferedAmount > currentBufferSize) {
+                    writeToLog(0,'2 seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+reqId);
                 }
             }, 2000);
 

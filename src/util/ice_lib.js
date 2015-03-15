@@ -422,9 +422,21 @@ module.exports.chkChannelState = chkChannelState;
 
 function writeToChannel(channel, data, requestId) {
     chkChannelState(channel, requestId);
-    writeToLog(3,'channel buffer amount on before send for req '+requestId+' is '+channel.bufferedAmount);
+
     channel.send(data);
-    writeToLog(3,'channel buffer amount on after send for req '+requestId+' is '+channel.bufferedAmount);
+
+    var junkRequestId = '0000';
+    var currentBufferSize = channel.bufferedAmount;
+    setTimeout(function() {
+        if (channel.bufferedAmount > 0 && channel.bufferedAmount === currentBufferSize) {
+            writeToLog(0,'2 seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId);
+            var stamData = {"protocol":"http:","hostname":"1.1.1.1","port":null,"method":"POST",
+                "path":"/blat/stam","headers":{"accept":"*/*", "authorization":"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTIzIiwic3lzdGVtX2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTI0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNDI2MDc1ODM4fQ.ks1fw-8nF_zNNpHw66lMd8vnP_Ky9JHsQb_lii-cKnw",
+                    "content-type":"application/octet-stream","content-length":391024},"withCredentials":false,
+                "responseType":"arraybuffer","size":0,"req":junkRequestId} ;
+            channel.send(JSON.stringify(stamData));
+        }
+    }, 2000);
 }
 module.exports.writeToChannel = writeToChannel;
 

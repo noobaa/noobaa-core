@@ -222,7 +222,7 @@ function writeBufferToSocket(channel, block, reqId) {
 
         // send and recurse
         ice.chkChannelState(channel, reqId);
-        writeToLog(3,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
+        writeToLog(2,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
         return Q.nfcall(channel.send.bind(channel), chunk)
             .then(send_next)
             .then(null, function(err) {

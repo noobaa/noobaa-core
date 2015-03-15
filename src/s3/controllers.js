@@ -30,7 +30,7 @@ var S3Object = require('./models/s3-object');
 
 
 process.on('uncaughtException', function(err) {
-    dbg.log0('rrrrr:'+err+' '+ require('util').inspect(err));
+    dbg.log0('process uncaughtException: '+err+' '+ require('util').inspect(err));
 });
 
 

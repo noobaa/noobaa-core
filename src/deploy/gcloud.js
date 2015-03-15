@@ -167,7 +167,7 @@ function get_zones(func) {
             auth: authClient
         }).then(func)
         .fail(function(err) {
-            console.log('errrrr:', err);
+            console.log('get_zones err:', err);
             if (err.errors > 0 && err.errors[0].reason === 'notFound') {
                 console.log('Setup issue. Make sure you have the right credentials (https://console.developers.google.com/project/<project_name>/apiui/credential)', err);
             } else {

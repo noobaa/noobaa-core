@@ -78,7 +78,7 @@ function encrypt_chunk(plain_buffer, crypt_info) {
                     var encrypted_buffer = new Buffer(new Uint8Array(encrypted_array));
                     return encrypted_buffer;
                 }).then(null, function(err){
-                    console.error('eeeee:'+err);
+                    console.error('encrypt_chunk error:'+err);
                 });
         }
 

@@ -310,10 +310,10 @@ function staleConnChk(socket) {
                 peerId = toDel[pos];
                 writeToLog(0, 'remove stale ice connections to peer ' + peerId);
                 if (socket.p2p_context.iceSockets[peerId].dataChannel) {
-                    socket.p2p_context.iceSockets[peerId].dataChannel.close();
+                    try {socket.p2p_context.iceSockets[peerId].dataChannel.close();} catch (err){}
                 }
                 if (socket.p2p_context.iceSockets[peerId].peerConn) {
-                    socket.p2p_context.iceSockets[peerId].peerConn.close();
+                    try{socket.p2p_context.iceSockets[peerId].peerConn.close();} catch (err){}
                 }
                 delete socket.p2p_context.iceSockets[peerId];
             }

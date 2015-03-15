@@ -182,52 +182,22 @@ function generateRequestId() {
     return rand.getRandomInt(10000,9000000).toString();
 }
 
-var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
-    /*var counter = 0;
-    var data;
-    if (block.byteLength > config.chunk_size) {
-        var begin = 0;
-        var end = config.chunk_size;
-
-        while (end < block.byteLength) {
-            data = createBufferToSend(block.slice(begin, end), counter, reqId);
-            ice.writeToChannel(channel, data, reqId);
-            writeToLog(3,'send chunk '+counter+ ' size: ' + config.chunk_size+' req '+reqId);
-            begin = end;
-            end = end + config.chunk_size;
-            counter++;
-        }
-        var bufToSend = block.slice(begin);
-        data = createBufferToSend(bufToSend, counter, reqId);
-        ice.writeToChannel(channel, data, reqId);
-        writeToLog(0,'send last chunk '+counter+ ' size: ' + bufToSend.byteLength+' req '+reqId);
-
-    } else {
-        writeToLog(0,'send chunk all at one, size: '+block.byteLength+' req '+reqId);
-        data = createBufferToSend(block, counter, reqId);
-        ice.writeToChannel(channel, data, reqId);
-    }*/
-
-    /*var currentBufferSize = channel.bufferedAmount;
-    setTimeout(function() {
-        if (channel.bufferedAmount === currentBufferSize) {
-            writeToLog(0,'second later and the buffer isnt changed !!! YAEL');
-        }
-    }, 1000);*/
-
+var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId, defer) {
 
     var sequence = 0;
+    var begin = 0;
+    var end = config.chunk_size;
 
     // define the loop func
-    function send_next() {
+    function send_next(begin, end) { // https://noobaa-alpha.herokuapp.com:443
 
         // end recursion when done sending the entire buffer
-        if (!block.length && (!block.byteLength || block.byteLength === 0)) {
+        if (begin === end) {
             writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);
             var currentBufferSize = channel.bufferedAmount;
             setTimeout(function() {
                 if (channel.bufferedAmount === currentBufferSize) {
-                    writeToLog(0,'2 seconds later and the buffer is not changed !!! YAEL');
+                    writeToLog(0,'2 seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId);
                     var stamData = {"protocol":"http:","hostname":"1.1.1.1","port":null,"method":"POST",
                         "path":"/blat/stam","headers":{"accept":"*/*", "authorization":"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTIzIiwic3lzdGVtX2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTI0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNDI2MDc1ODM4fQ.ks1fw-8nF_zNNpHw66lMd8vnP_Ky9JHsQb_lii-cKnw",
                             "content-type":"application/octet-stream","content-length":391024},"withCredentials":false,
@@ -235,25 +205,41 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
                     ice.writeToChannel(channel, JSON.stringify(stamData), junkRequestId);
                 }
             }, 2000);
+
+            if (defer) {
+                writeToLog(0,'wait for response ice to '+channel.peerId+' request '+requestId);
+                return defer.promise;
+            }
             return;
         }
 
         // slice the current chunk
-        var chunk = createBufferToSend(
-            block.slice(0, config.chunk_size), sequence, reqId);
+        var chunk = createBufferToSend(block.slice(begin, end), sequence, reqId);
 
         // increment sequence and slice buffer to rest of data
-        block = block.slice(config.chunk_size);
         sequence += 1;
+        begin = end;
+        end = end + config.chunk_size;
+        if (end > block.byteLength) {
+            end = block.byteLength;
+        }
 
         // send and recurse
-        writeToLog(2,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.length+' '+chunk.byteLength);
-        return Q.nfcall(ice.writeToChannel(channel, chunk, reqId))
-            .then(send_next);
+        writeToLog(2,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
+        return Q.nfcall(channel.send.bind(channel), chunk)
+            .then(send_next(begin, end))
+            .then(null, function(err) {
+                console.error('send_next recur err '+err+' '+err.stack);
+                throw err;
+            });
     }
 
     // start sending (recursive async loop)
-    return Q.fcall(send_next);
+    return Q.fcall(send_next(begin, end))
+        .then(null, function(err) {
+            console.error('send_next general err '+err+' '+err.stack);
+            throw err;
+        });
 
 };
 module.exports.writeBufferToSocket = writeBufferToSocket;
@@ -367,6 +353,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
     var iceSocket;
     var sigSocket;
     var requestId;
+    var msgObj;
 
     if (agentId || (ws_socket && ws_socket.isAgent)) {
         isAgent = true;
@@ -407,7 +394,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};
-        var msgObj = iceSocket.msgs[requestId];
+        msgObj = iceSocket.msgs[requestId];
 
         msgObj.action_defer = Q.defer();
 
@@ -422,7 +409,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         ice.writeToChannel(iceSocket, JSON.stringify(request), requestId);
 
         if (buffer) {
-            writeBufferToSocket(iceSocket, buffer, requestId);
+            return writeBufferToSocket(iceSocket, buffer, requestId, msgObj.action_defer);
         }
 
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
@@ -445,7 +432,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         return response;
     }).then(null, function(err) {
-        writeToLog(-1,'ice_api.sendRequest ERROR '+err+' for request '+requestId+ ' and peer '+peerId);
+        writeToLog(-1,'ice_api.sendRequest ERROR '+err+' for request '+requestId+ ' and peer '+peerId+' stack '+err.stack);
 
         if (iceSocket && sigSocket) {
             writeToLog(0,'close ice socket if needed for request '+requestId+ ' and peer '+peerId);

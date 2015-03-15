@@ -223,6 +223,7 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
 
         // end recursion when done sending the entire buffer
         if (!block.length) {
+            writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);
             var currentBufferSize = channel.bufferedAmount;
             setTimeout(function() {
                 if (channel.bufferedAmount === currentBufferSize) {

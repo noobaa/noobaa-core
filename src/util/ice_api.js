@@ -189,7 +189,7 @@ function writeBufferToSocket(channel, block, reqId) {
     var end = config.chunk_size;
 
     // define the loop func
-    function send_next(begin, end) { // https://noobaa-alpha.herokuapp.com:443
+    function send_next() { // https://noobaa-alpha.herokuapp.com:443
 
         // end recursion when done sending the entire buffer
         if (begin === end) {
@@ -224,7 +224,7 @@ function writeBufferToSocket(channel, block, reqId) {
         ice.chkChannelState(channel, reqId);
         writeToLog(3,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
         return Q.nfcall(channel.send.bind(channel), chunk)
-            .then(send_next(begin, end))
+            .then(send_next)
             .then(null, function(err) {
                 writeToLog(-1, 'send_next recur err '+err+' '+err.stack);
                 throw err;
@@ -232,7 +232,7 @@ function writeBufferToSocket(channel, block, reqId) {
     }
 
     // start sending (recursive async loop)
-    return Q.fcall(send_next(begin, end))
+    return Q.fcall(send_next)
         .then(null, function(err) {
             writeToLog(-1, 'send_next general err '+err+' '+err.stack);
             throw err;

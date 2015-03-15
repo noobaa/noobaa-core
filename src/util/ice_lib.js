@@ -799,6 +799,9 @@ function onDataChannelCreated(socket, requestId, channel) {
 
         channel.onmessage = onIceMessage(socket, channel);
 
+        channel.onleave = function (userid) {
+            console.error('ICE CHANNEL onleave !!!! this ever called ??? ' + channel.peerId+ ' userid: '+userid);
+        };
 
         channel.onclose = function () {
             console.error('ICE CHANNEL closed ' + channel.peerId);

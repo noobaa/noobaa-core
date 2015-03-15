@@ -436,7 +436,7 @@ function handleFlush(channel, lastBufferSize, requestId) {
     var maxSizeToSend = bufferEstSize - channel.bufferedAmount;
 
     if (channel.bufferedAmount > 0 && channel.bufferedAmount === lastBufferSize) {
-        writeToLog(0,'wr X seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
+        writeToLog(2,'wr X seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
 
         var buf = require('crypto').randomBytes(config.chunk_size-config.iceBufferMetaPartSize);
         var data = createBufferToSend(buf, 1, config.junkRequestId);
@@ -447,9 +447,9 @@ function handleFlush(channel, lastBufferSize, requestId) {
             sentSoFar += data.byteLength();
         }
 
-        writeToLog(0,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId);
+        writeToLog(2,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId+' sent total '+sentSoFar);
     } else if (channel.bufferedAmount > lastBufferSize) {
-        writeToLog(0,'wr X seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
+        writeToLog(2,'wr X seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
     }
 }
 module.exports.handleFlush = handleFlush;

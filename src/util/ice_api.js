@@ -30,6 +30,8 @@ var isAgent;
 
 var partSize = 40;
 
+var junkRequestId = '0000';
+
 var forceCloseIce = function forceCloseIce(p2p_context, peerId) {
 
     var sigSocket;
@@ -51,6 +53,10 @@ var onIceMessage = function onIceMessage(p2p_context, channel, event) {
             var message = JSON.parse(event.data);
             req = message.req;
 
+            if (req === junkRequestId) {
+                writeToLog(0,'got junkRequestId IGNORE');
+                return;
+            }
             if (ice.isRequestEnded(p2p_context, req, channel)) {
                 writeToLog(0,'got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
                 return;
@@ -221,6 +227,11 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
             setTimeout(function() {
                 if (channel.bufferedAmount === currentBufferSize) {
                     writeToLog(0,'2 seconds later and the buffer is not changed !!! YAEL');
+                    var stamData = {"protocol":"http:","hostname":"1.1.1.1","port":null,"method":"POST",
+                        "path":"/blat/stam","headers":{"accept":"*/*", "authorization":"Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJhY2NvdW50X2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTIzIiwic3lzdGVtX2lkIjoiNTRmZjA5ODBkYjg2MmQwZTAwNGI1ZTI0Iiwicm9sZSI6ImFkbWluIiwiaWF0IjoxNDI2MDc1ODM4fQ.ks1fw-8nF_zNNpHw66lMd8vnP_Ky9JHsQb_lii-cKnw",
+                            "content-type":"application/octet-stream","content-length":391024},"withCredentials":false,
+                        "responseType":"arraybuffer","size":391024,"req":junkRequestId} ;
+                    ice.writeToChannel(channel, JSON.stringify(stamData), junkRequestId);
                 }
             }, 2000);
             return;

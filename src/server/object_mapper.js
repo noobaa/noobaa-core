@@ -970,7 +970,10 @@ function get_part_info(params) {
 function get_block_address(block) {
     var b = {};
     b.id = block._id.toString();
-    b.host = 'http://' + block.node.ip + ':' + block.node.port;
+    b.host = 'http://' + block.node.ip;
+    if (block.node.port) {
+        b.host += ':' + block.node.port;
+    }
 
     if (block.node.peer_id) {
         if (process.env.JWT_SECRET_PEER) {

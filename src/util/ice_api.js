@@ -187,6 +187,9 @@ function writeBufferToSocket(channel, block, reqId) {
     var sequence = 0;
     var begin = 0;
     var end = config.chunk_size;
+    if (end > block.byteLength) {
+        end = block.byteLength;
+    }
 
     // define the loop func
     function send_next() { // https://noobaa-alpha.herokuapp.com:443

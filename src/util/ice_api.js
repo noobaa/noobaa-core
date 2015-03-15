@@ -250,11 +250,14 @@ function staleConnChk(p2p_context) {
     var now = (new Date()).getTime();
     var timePassed = now - p2p_context.wsClientSocket.lastTimeUsed;
 
-    if (timePassed > config.connection_data_stale) {
+    if (timePassed > config.connection_ws_stale &&
+        Object.keys(p2p_context.wsClientSocket.usedBy).length === 0) {
         writeToLog(0,'REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
         ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
         clearInterval(p2p_context.wsClientSocket.interval);
         p2p_context.wsClientSocket = null;
+    } else if (timePassed > config.connection_ws_stale) {
+        writeToLog(0,'CANT REMOVE stale ws connection used by: '+require('util').inspect(p2p_context.wsClientSocket.usedBy));
     }
 }
 
@@ -268,6 +271,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
 
     var sigSocket;
     var interval;
+    var usedBy;
     var requestId = generateRequestId();
 
     if (p2p_context && !p2p_context.sem) {
@@ -283,14 +287,18 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
 
                     if (!isAgent) {
                         interval = p2p_context.wsClientSocket.interval;
-                        p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+                        usedBy = p2p_context.wsClientSocket.usedBy;
+                        usedBy[requestId] = 1;
+                        p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval, usedBy: usedBy};
                     }
                 } else {
                     writeToLog(0,'CREATE NEW WS CONN (with context) - peer '+peerId+' req '+requestId);
                     sigSocket = createNewWS();
                     if (!isAgent) {
                         interval = setInterval(function(){staleConnChk(p2p_context);}, config.check_stale_conns);
-                        p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval};
+                        usedBy = {};
+                        usedBy[requestId] = 1;
+                        p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval, usedBy: usedBy};
                     }
                 }
                 if (sigSocket.conn_defer) {
@@ -321,6 +329,8 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
 
         if (!isAgent && !p2p_context) {
             ice.closeSignaling(sigSocket);
+        } else if (p2p_context) {
+            delete p2p_context.wsClientSocket.usedBy[requestId];
         }
 
         return response;

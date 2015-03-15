@@ -314,7 +314,11 @@ function rest_api(api) {
                         reply.to = msg.from;
                     }
 
-                    ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
+                    if (isWs) {
+                        channel.send(JSON.stringify(reply));
+                    } else {
+                        ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
+                    }
 
                     if (replyBuffer) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);

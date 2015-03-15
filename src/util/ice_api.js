@@ -222,7 +222,7 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
     function send_next() {
 
         // end recursion when done sending the entire buffer
-        if (!block.length) {
+        if (!block.length && (!block.byteLength || block.byteLength === 0)) {
             writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);
             var currentBufferSize = channel.bufferedAmount;
             setTimeout(function() {
@@ -247,6 +247,7 @@ var writeBufferToSocket = function writeBufferToSocket(channel, block, reqId) {
         sequence += 1;
 
         // send and recurse
+        writeToLog(2,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.length+' '+chunk.byteLength);
         return Q.nfcall(ice.writeToChannel(channel, chunk, reqId))
             .then(send_next);
     }

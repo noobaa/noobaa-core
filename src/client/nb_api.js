@@ -126,6 +126,7 @@ nb_api.factory('nbSystem', [
         $scope.new_system = new_system;
         $scope.create_system = create_system;
         $scope.connect_system = connect_system;
+        $scope.toggle_system = toggle_system;
 
         $scope.read_activity_log = read_activity_log;
         $scope.read_activity_log_newest = read_activity_log_newest;
@@ -177,12 +178,12 @@ nb_api.factory('nbSystem', [
                         });
                 })
                 .then(function(sys) {
+                    $scope.system = sys;
                     if (!sys) {
                         console.log('NO SYSTEM', nbClient.account);
                         return;
                     }
                     console.log('READ SYSTEM', sys);
-                    $scope.system = sys;
 
                     // TODO handle bigint type (defined at system_api) for sizes > petabyte
                     _.each(sys.tiers, function(tier) {
@@ -221,6 +222,14 @@ nb_api.factory('nbSystem', [
                     system: system_name
                 })
                 .then(reload_system);
+        }
+
+        function toggle_system(system_name) {
+            if ($scope.system && $scope.system.name === system_name) {
+                return connect_system('');
+            } else {
+                return connect_system(system_name);
+            }
         }
 
 

@@ -15,9 +15,18 @@
                 <td>{{account.name}}</td>
                 <td>{{account.email}}</td>
                 <td>
-                    <button class="btn btn-default btn-raised btn-xs" ng-repeat="sys in account.systems" nb-click-ladda="nbSystem.connect_system(sys.name)">
-                        {{sys.name}} ({{sys.roles.join(', ')}})
-                    </button>
+                    <span ng-repeat="sys in account.systems">
+                        <span ng-if="nbSystem.system.name==sys.name">
+                            <button class="btn btn-primary btn-raised btn-xs" nb-click-ladda="nbSystem.connect_system('')">
+                                {{sys.name}} ({{sys.roles.join(', ')}})
+                            </button>
+                        </span>
+                        <span ng-if="nbSystem.system.name!=sys.name">
+                            <button class="btn btn-default btn-raised btn-xs" nb-click-ladda="nbSystem.connect_system(sys.name)">
+                                {{sys.name}} ({{sys.roles.join(', ')}})
+                            </button>
+                        </span>
+                    </span>
                 </td>
             </tr>
         </table>

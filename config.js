@@ -29,8 +29,11 @@ config.REPLICATE_CONCURRENCY = 32;
 
 config.ice_servers = {
     'iceServers': [
-        {'url': 'stun:54.93.86.231:3478'}
+        {'url': 'stun:stun.l.google.com:19302'}
     ]
 };
+
+//{'url': 'stun:stun.stunprotocol.org:3478'},
+//{'url': 'stun:54.93.86.231:3478'}
 
 module.exports = config;

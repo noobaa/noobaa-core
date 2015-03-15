@@ -451,7 +451,7 @@ function handleFlush(channel, lastBufferSize, requestId) {
 
             while (sentSoFar < maxSizeToSend || channel.bufferedAmount < lastBufferSize) {
                 channel.send(bufToSend);
-                sentSoFar += bufToSend.byteLength();
+                sentSoFar += bufToSend.byteLength;
             }
 
             writeToLog(2,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId+' sent total '+sentSoFar);

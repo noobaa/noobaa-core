@@ -7,6 +7,7 @@ var rest_api = require('../util/rest_api');
 var api = require('../api');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
+var glob_to_regexp = require('glob-to-regexp');
 
 
 /**
@@ -265,6 +266,10 @@ function list_objects(req) {
             var info = _.omit(object_md_query(req), 'key');
             if (req.rest_params.key) {
                 info.key = new RegExp('^' + escapeRegExp(req.rest_params.key));
+            } else if (req.rest_params.key_regexp) {
+                info.key = new RegExp(req.rest_params.key_regexp);
+            } else if (req.rest_params.key_glob) {
+                info.key = glob_to_regexp(req.rest_params.key_glob);
             }
             var skip = req.rest_params.skip;
             var limit = req.rest_params.limit;

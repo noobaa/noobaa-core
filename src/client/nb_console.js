@@ -185,6 +185,7 @@ nb_console.controller('OverviewCtrl', [
         function add_node() {
             var tier_name = $scope.nbSystem.system.tiers[0].name;
             $location.path('tier/' + tier_name);
+            $location.hash('overview&add_node=1');
         }
     }
 ]);
@@ -225,11 +226,12 @@ nb_console.controller('SystemDataCtrl', [
 
 nb_console.controller('TierViewCtrl', [
     '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
-    'nbSystem', 'nbNodes', 'nbHashRouter',
+    'nbSystem', 'nbNodes', 'nbHashRouter', 'nbModal',
     function($scope, $q, $timeout, $window, $location, $routeParams,
-        nbSystem, nbNodes, nbHashRouter) {
+        nbSystem, nbNodes, nbHashRouter, nbModal) {
         $scope.nav.active = 'tier';
         $scope.nav.reload_view = reload_view;
+        $scope.add_node = add_node;
         $scope.nodes_num_pages = 0;
         $scope.nodes_page_size = 10;
         $scope.nodes_query = {};
@@ -238,6 +240,7 @@ nb_console.controller('TierViewCtrl', [
             nbHashRouter($scope)
             .when('overview', {
                 templateUrl: 'console/tier_overview.html',
+                reload: reload_overview
             })
             .when('nodes', {
                 templateUrl: 'console/tier_nodes.html',
@@ -291,6 +294,22 @@ nb_console.controller('TierViewCtrl', [
                 limit: $scope.nodes_page_size,
             }).then(function(res) {
                 $scope.nodes = res;
+            });
+        }
+
+        function reload_overview(hash_query) {
+            console.log('RELOAD OVERVIEW', hash_query);
+            if (hash_query.add_node) {
+                $location.hash('');
+                add_node();
+            }
+        }
+
+        function add_node() {
+            var scope = $scope.$new();
+            scope.modal = nbModal({
+                template: 'console/add_node_dialog.html',
+                scope: scope,
             });
         }
     }
@@ -351,7 +370,6 @@ nb_console.controller('NodeViewCtrl', [
                 })
                 .then(function(res) {
                     $scope.node = res;
-                    $scope.my_host = 'http://' + $scope.node.ip + ':' + $scope.node.port;
 
                     var used = $scope.node.storage.used;
                     var unused = $scope.node.storage.alloc - used;
@@ -509,7 +527,7 @@ nb_console.controller('BucketViewCtrl', [
                 limit: $scope.files_page_size,
             };
             if ($scope.files_query.search) {
-                params.key = $scope.files_query.search;
+                params.key_glob = $scope.files_query.search;
             }
             return nbFiles.list_files(params)
                 .then(function(res) {

@@ -657,7 +657,7 @@ function rest_api(api) {
                     return res.data;
                 }
             }).then(null, function(err) {
-                writeToLog(-1, 'WS REST REQUEST FAILED peer '+peerId+', err: ' + err);
+                writeToLog(-1, 'WS REST REQUEST FAILED peer '+peerId+', err: ' + require('util').inspect(err));
                 throw err;
             });
 

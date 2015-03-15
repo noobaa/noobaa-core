@@ -15,7 +15,7 @@ config.ws_default_timeout = 25 * 1000;
 config.ice_retry = 1;
 config.replicate_retry = 3;
 
-config.junkRequestId = '0000';
+config.junkRequestId = '999';
 config.iceBufferMetaPartSize = 40;
 config.timeoutToFlush = 2000;
 

@@ -422,12 +422,17 @@ function chkChannelState(channel, requestId) {
 module.exports.chkChannelState = chkChannelState;
 
 function createBufferToSend(block, seq, reqId) {
-    var bufToSend = new Buffer(config.iceBufferMetaPartSize);
-    try {reqId = parseInt(reqId, 10);}  catch (ex){console.error('fail parse req id '+ex);}
-    bufToSend.writeInt32LE(reqId,0);
-    bufToSend.writeInt8(seq,32);
-    bufToSend = buf.addToBuffer(bufToSend, block);
-    return buf.toArrayBuffer(bufToSend);
+    try {
+        var bufToSend = new Buffer(config.iceBufferMetaPartSize);
+        reqId = parseInt(reqId, 10);
+        bufToSend.writeInt32LE(reqId,0);
+        bufToSend.writeInt8(seq,32);
+        bufToSend = buf.addToBuffer(bufToSend, block);
+        return buf.toArrayBuffer(bufToSend);
+    } catch (err) {
+        writeToLog(-1, 'err in createBufferToSend for req '+reqId+' err: '+err+' '+err.stack);
+        throw err;
+    }
 }
 module.exports.createBufferToSend = createBufferToSend;
 

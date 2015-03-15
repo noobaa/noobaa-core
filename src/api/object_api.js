@@ -338,6 +338,12 @@ module.exports = rest_api({
                     key: {
                         type: 'string',
                     },
+                    key_regexp: {
+                        type: 'string',
+                    },
+                    key_glob: {
+                        type: 'string',
+                    },
                     skip: {
                         type: 'integer'
                     },

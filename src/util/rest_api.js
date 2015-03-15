@@ -12,6 +12,7 @@ var URL = require('url');
 var Cookie = require('cookie-jar');
 var tv4 = require('tv4').freshApi();
 var ice_api = require('./ice_api');
+var ice_lib = require('./ice_lib');
 var buf = require('./buffer_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
@@ -29,6 +30,7 @@ function writeToLog(level, msg) {
     } else if (level === 3) {
         dbg.log3(timeStr + ' ' + msg);
     } else {
+        timeStr = (new Date()).toString();
         console.error(timeStr + ' ' + msg);
     }
 }
@@ -312,7 +314,7 @@ function rest_api(api) {
                         reply.to = msg.from;
                     }
 
-                    channel.send(JSON.stringify(reply));
+                    ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
 
                     if (replyBuffer) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);
@@ -645,8 +647,8 @@ function rest_api(api) {
                 dbg.log0(self.options, 'res is: ' + require('util').inspect(res));
 
                 if (res && res.status && res.status === 500) {
-                    writeToLog(0, 'failed ' + options.path + ' in ws, try http instead');
-                    return self._doHttpCall(func_info, options, body);
+                    writeToLog(0, 'failed ' + options.path + ' in ws for peer '+peerId);
+                    throw new Error(res);
                 } else {
                     if (!func_info.reply_raw) {
                         // check the json reply
@@ -655,7 +657,7 @@ function rest_api(api) {
                     return res.data;
                 }
             }).then(null, function(err) {
-                writeToLog(-1, 'WS REST REQUEST FAILED ' + err);
+                writeToLog(-1, 'WS REST REQUEST FAILED peer '+peerId+', err: ' + err);
                 throw err;
             });
 

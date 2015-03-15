@@ -5,6 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
 var db = require('./db');
+var config = require('../../config.js');
 
 
 module.exports = {
@@ -144,7 +145,7 @@ function update_tier_alloc_nodes(system, tier) {
 
 
 function pop_round_robin(nodes, count) {
-    if (nodes.length < 5) {
+    if (nodes.length < config.min_node_number ) {
         throw new Error('not enough nodes: ' + nodes.length);
     }
 

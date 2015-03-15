@@ -210,7 +210,7 @@ AgentCLI.prototype.create = function() {
         })
         .then(function(res) {
             if (res) {
-                dbg.log0('eee:', res);
+                dbg.log0('result create:', res);
                 self.create_node_token = res.token;
             } else {
                 dbg.log0('has token', self.create_node_token);

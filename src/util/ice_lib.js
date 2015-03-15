@@ -439,8 +439,8 @@ function handleFlush(channel, lastBufferSize, requestId) {
         writeToLog(2,'wr X seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
 
         var bufToSend = require('crypto').randomBytes(config.chunk_size-config.iceBufferMetaPartSize);
-        bufToSend = bufToSend.toArrayBuffer(buf);
-        bufToSend = createBufferToSend(buf, 1, config.junkRequestId);
+        bufToSend = buf.toArrayBuffer(bufToSend);
+        bufToSend = createBufferToSend(bufToSend, 1, config.junkRequestId);
         var sentSoFar = 0;
 
         while (sentSoFar < maxSizeToSend || channel.bufferedAmount < lastBufferSize) {

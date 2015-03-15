@@ -194,6 +194,8 @@ function writeBufferToSocket(channel, block, reqId) {
     // define the loop func
     function send_next() { // https://noobaa-alpha.herokuapp.com:443
 
+        writeToLog(2,'send_next req '+reqId+' chunks '+sequence+' begin '+begin+' end '+end);
+
         // end recursion when done sending the entire buffer
         if (begin === end) {
             writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);

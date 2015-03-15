@@ -228,12 +228,14 @@ function writeBufferToSocket(channel, block, reqId) {
         // send and recurse
         ice.chkChannelState(channel, reqId);
         writeToLog(2,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
-        return Q.nfcall(channel.send.bind(channel), chunk)
-            .then(send_next)
-            .then(null, function(err) {
-                writeToLog(-1, 'send_next recur err '+err+' '+err.stack);
-                throw err;
-            });
+        return Q.fcall(function() {
+            channel.send(chunk);
+        })
+        .then(send_next)
+        .then(null, function(err) {
+            writeToLog(-1, 'send_next recur err '+err+' '+err.stack);
+            throw err;
+        });
     }
 
     // start sending (recursive async loop)

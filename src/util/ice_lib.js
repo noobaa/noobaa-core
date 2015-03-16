@@ -559,7 +559,7 @@ function logError(err) {
 }
 
 function onLocalSessionCreated(socket, requestId, desc) {
-    writeToLog(2, 'local session created:'+ desc);
+    writeToLog(3, 'local session created:'+ desc);
     var channelObj = socket.icemap[requestId];
 
     if (!channelObj || channelObj.done) {
@@ -569,7 +569,7 @@ function onLocalSessionCreated(socket, requestId, desc) {
 
     try {
         channelObj.peerConn.setLocalDescription(desc, function () {
-            writeToLog(2, 'sending local desc:' + require('util').inspect(channelObj.peerConn.localDescription));
+            writeToLog(3, 'sending local desc:' + require('util').inspect(channelObj.peerConn.localDescription));
             sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.localDescription);
         }, logError);
     } catch (ex) {
@@ -629,7 +629,7 @@ function createPeerConnection(socket, requestId, config) {
                     });
 
                     //if (candidateMsg.indexOf('tcp') >= 0) {
-                        writeToLog(2, channelObj.peerId+' onIceCandidate event: '+
+                        writeToLog(3, channelObj.peerId+' onIceCandidate event: '+
                         require('util').inspect(event.candidate.candidate) +
                         ' state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
 
@@ -643,7 +643,7 @@ function createPeerConnection(socket, requestId, config) {
 
             } else {
                 try {
-                    writeToLog(2, channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
+                    writeToLog(3, channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
                     if (channelObj.peerConn.candidates) {
                         for (candidateMsg in channelObj.peerConn.candidates) {
                             writeToLog(2, channelObj.peerId+' send onIceCandidate event: '+ channelObj.peerConn.candidates[candidateMsg]);
@@ -715,7 +715,7 @@ function createPeerConnection(socket, requestId, config) {
             try {
                 channelObj.peerConn.createOffer(function (desc) {
                     desc = handleCngSDP(desc);
-                    writeToLog(2,  'Creating an offer ' + require('util').inspect(desc));
+                    writeToLog(3,  'Creating an offer ' + require('util').inspect(desc));
                     return onLocalSessionCreated(socket, requestId, desc);
                 }, logError, mediaConstraints); // TODO ? mediaConstraints
             } catch (ex) {
@@ -760,15 +760,15 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
     var Candidate = RTCIceCandidate;
 
     if (message.type === 'offer') {
-        writeToLog(2, 'Got offer. Sending answer to peer. ' + peerId + ' and channel ' + requestId);
+        writeToLog(3, 'Got offer. Sending answer to peer. ' + peerId + ' and channel ' + requestId);
 
         try {
             channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
-                writeToLog(2, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
+                writeToLog(3, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
             }, logError);
             channelObj.peerConn.createAnswer(function (desc) {
                 desc = handleCngSDP(desc);
-                writeToLog(2, 'createAnswer for peer '+peerId+' is '+require('util').inspect(desc));
+                writeToLog(3, 'createAnswer for peer '+peerId+' is '+require('util').inspect(desc));
                 return onLocalSessionCreated(socket, requestId, desc);
             }, logError);
         } catch (ex) {
@@ -779,9 +779,9 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
     } else if (message.type === 'answer') {
         try {
-            writeToLog(2, 'Got answer.' + peerId + ' and channel ' + requestId+' is '+require('util').inspect(message));
+            writeToLog(3, 'Got answer.' + peerId + ' and channel ' + requestId+' is '+require('util').inspect(message));
             channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
-                writeToLog(2, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
+                writeToLog(3, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
             }, logError);
         } catch (ex) {
             writeToLog(-1,  'problem in answer ' + ex);
@@ -791,7 +791,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
     } else if (message.type === 'candidate') {
         try {
-            writeToLog(2, 'Got candidate.' + peerId + ' and channel ' + requestId+' ; '+require('util').inspect(message));
+            writeToLog(3, 'Got candidate.' + peerId + ' and channel ' + requestId+' ; '+require('util').inspect(message));
             if (channelObj && !channelObj.done) {
                 channelObj.peerConn.addIceCandidate(new Candidate({candidate: message.candidate}));
             } else {
@@ -803,7 +803,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
             if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
         }
     } else if (message === 'bye') {
-        writeToLog(2, 'Got bye.');
+        writeToLog(3, 'Got bye.');
     }
 }
 
@@ -816,7 +816,7 @@ function onIceMessage(socket, channel) {
 function onDataChannelCreated(socket, requestId, channel) {
 
     try {
-        writeToLog(2, 'onDataChannelCreated:'+ channel);
+        writeToLog(3, 'onDataChannelCreated:'+ channel);
 
         channel.onopen = function () {
 

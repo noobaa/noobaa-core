@@ -11,6 +11,12 @@ var buf = require('./buffer_utils');
 
 var configuration = config.ice_servers;
 
+var optionalRtpDataChannels = {
+    optional: [{
+        RtpDataChannels: false
+    }]
+};
+
 function writeToLog(level, msg) {
     var timeStr = '';
     if (level === 0) {
@@ -606,7 +612,7 @@ function createPeerConnection(socket, requestId, config) {
         var FuncPerrConn = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
 
         try {
-            channelObj.peerConn = new FuncPerrConn(config);
+            channelObj.peerConn = new FuncPerrConn(config, optionalRtpDataChannels);
         } catch (ex) {
             writeToLog(-1,  'prob win create '+ex.stack);
         }
@@ -697,7 +703,7 @@ function createPeerConnection(socket, requestId, config) {
             writeToLog(3,'Creating Data Channel req '+requestId);
             try {
                 // you can only specify maxRetransmits or maxRetransmitTime, not both
-                var dtConfig = {ordered: true, reliable: true, maxRetransmits: 5};//, maxRetransmitTime: 3000};
+                var dtConfig = {ordered: false, reliable: false, maxRetransmits: 2};//, maxRetransmitTime: 3000};
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig); // TODO  ? dtConfig
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {

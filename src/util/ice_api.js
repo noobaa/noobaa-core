@@ -20,7 +20,7 @@ function writeToLog(level, msg) {
         dbg.log3(timeStr+' '+msg);
     } else {
         timeStr = (new Date()).toString();
-        console.error(timeStr+' '+msg);
+        dbg.log0(timeStr+' ERROR '+msg);
     }
 }
 
@@ -263,7 +263,7 @@ function staleConnChk(p2p_context) {
 
 function createNewWS() {
     var prob = function(channel, event) {
-        console.error('ERROR Should never receive ice msgs ! got: '+event.data+' from '+channel.peerId);};
+        writeToLog(-1,'ERROR Should never receive ice msgs ! got: '+event.data+' from '+channel.peerId);};
     return ice.setup(prob, null, prob);
 }
 
@@ -335,7 +335,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
 
         return response;
     }).then(null, function(err) {
-        console.error('WS REST REQUEST FAILED '+err+' for request '+requestId+ ' and peer '+peerId);
+        writeToLog(-1,'WS REST REQUEST FAILED '+err+' for request '+requestId+ ' and peer '+peerId);
 
         if (sigSocket) {
             writeToLog(0,'close ws socket for request '+requestId+ ' and peer '+peerId);

@@ -23,7 +23,7 @@ function writeToLog(level, msg) {
         dbg.log3(timeStr+' '+msg);
     } else {
         timeStr = (new Date()).toString();
-        console.error(timeStr+' '+msg);
+        dbg.log0(timeStr+' ERROR '+msg);
     }
 }
 
@@ -243,7 +243,7 @@ function sendMessage(socket, peerId, requestId, message) {
         zlib.gzip(buf, function (err, result) {
             result = result.toString('binary');
             if (err) {
-                console.error('sending ice msg gzip error '+err);
+                writeToLog(-1,'sending ice msg gzip error '+err);
             }
             toSend.data = result;
             socket.ws.send(JSON.stringify(toSend));
@@ -288,7 +288,7 @@ function staleConnChk(socket) {
             delete socket.icemap[requestId];
         }
     } catch (ex) {
-        console.error('Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
+        writeToLog(-1,'Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
     }
 
     try {
@@ -320,7 +320,7 @@ function staleConnChk(socket) {
             }
         }
     } catch (ex) {
-        console.error('Error on staleConnChk of p2p_context iceSockets ex '+ex+' ; '+ex.stack);
+        writeToLog(-1,'Error on staleConnChk of p2p_context iceSockets ex '+ex+' ; '+ex.stack);
     }
 }
 
@@ -405,7 +405,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
         // not isInitiator
         createPeerConnection(socket, requestId, configuration);
     } catch (ex) {
-        console.error('Error on initiateIce '+(isInitiator ? 'to' : 'for')+' peer '+peerId+' ex '+ex+' ; '+ex.stack);
+        writeToLog(-1,'Error on initiateIce '+(isInitiator ? 'to' : 'for')+' peer '+peerId+' ex '+ex+' ; '+ex.stack);
         throw ex;
     }
 
@@ -415,7 +415,7 @@ module.exports.initiateIce = initiateIce;
 function chkChannelState(channel, requestId) {
     var state = channel.readyState;
     if (state && (state === 'closing' || state === 'closed')) {
-        console.error('ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
+        writeToLog(-1,'ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
         throw new Error('ERROR writing to channel state is '+state);
     }
 }
@@ -438,6 +438,9 @@ module.exports.createBufferToSend = createBufferToSend;
 
 function handleFlush(channel, lastBufferSize, requestId) {
     try {
+
+        writeToLog(2,'handleFlush for peer '+channel.peerId+' for req '+requestId+' current buffer '+channel.bufferedAmount+' last amount '+lastBufferSize);
+
         var bufferEstSize = 1000 * 1024;
         var maxSizeToSend = bufferEstSize - channel.bufferedAmount;
 
@@ -449,12 +452,12 @@ function handleFlush(channel, lastBufferSize, requestId) {
             bufToSend = createBufferToSend(bufToSend, 1, config.junkRequestId);
             var sentSoFar = 0;
 
-            while (sentSoFar < maxSizeToSend || channel.bufferedAmount < lastBufferSize) {
+            while (sentSoFar < maxSizeToSend && channel.bufferedAmount >= lastBufferSize) {
                 channel.send(bufToSend);
                 sentSoFar += bufToSend.byteLength;
             }
 
-            writeToLog(2,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId+' sent total '+sentSoFar);
+            writeToLog(2,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId+' sent total '+sentSoFar+' ch buf '+channel.bufferedAmount);
         } else if (channel.bufferedAmount > lastBufferSize) {
             writeToLog(2,'wr X seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
         }
@@ -523,14 +526,14 @@ function closeIce(socket, requestId, dataChannel) {
             obj.lastUsed = (new Date()).getTime();
             delete obj.usedBy[requestId];
         } else if (socket && !socket.p2p_context && dataChannel) {
-            console.error('Closing the ice socket to peer ' +dataChannel.peerId);
+            writeToLog(-1,'Closing the ice socket to peer ' +dataChannel.peerId);
             if (channelObj && channelObj.peerConn) {
                 channelObj.peerConn.close();
             }
             dataChannel.close();
         }
     } catch (ex) {
-       console.error('Error on close ice socket for request '+requestId+' ex '+ex);
+        writeToLog(-1,'Error on close ice socket for request '+requestId+' ex '+ex);
     }
 }
 module.exports.closeIce = closeIce;
@@ -544,7 +547,7 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
 
     if (context && context.iceSockets && context.iceSockets[peerId] &&
         context.iceSockets[peerId].dataChannel) {
-        console.error('forceCloseIce peer '+peerId);
+        writeToLog(-1,'forceCloseIce peer '+peerId);
         context.iceSockets[peerId].dataChannel.close();
         context.iceSockets[peerId].peerConn.close();
 
@@ -552,7 +555,7 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
             var req;
             for (req in context.iceSockets[peerId].usedBy) {
                 if (socket.icemap[req]) {
-                    console.error('mark peer '+peerId+' req '+req+' as done so will be removed');
+                    writeToLog(-1,'mark peer '+peerId+' req '+req+' as done so will be removed');
                     socket.icemap[req].done = true;
                 }
             }
@@ -560,18 +563,18 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
 
         delete context.iceSockets[peerId];
     } else if (channelObj && channelObj.dataChannel) {
-        console.error('forceCloseIce (no context) peer '+peerId);
+        writeToLog(-1,'forceCloseIce (no context) peer '+peerId);
         channelObj.dataChannel.close();
         channelObj.peerConn.close();
         channelObj.done = true;
     } else {
-        console.error('forceCloseIce nothing to close - peer '+peerId);
+        writeToLog(-1,'forceCloseIce nothing to close - peer '+peerId);
     }
 }
 module.exports.forceCloseIce = forceCloseIce;
 
 function logError(err) {
-    console.error('logError called: '+ err);
+    writeToLog(-1,'logError called: '+ err);
 }
 
 function onLocalSessionCreated(socket, requestId, desc) {
@@ -639,7 +642,7 @@ function createPeerConnection(socket, requestId, config) {
                     //    channelObj.peerConn.candidates.push(candidateMsg);
                     //}
                 } catch (ex) {
-                    console.error('candidates issue '+ex+' ; '+ex.stack);
+                    writeToLog(-1,'candidates issue '+ex+' ; '+ex.stack);
                 }
 
             } else {
@@ -652,7 +655,7 @@ function createPeerConnection(socket, requestId, config) {
                         }
                     }
                 } catch (ex) {
-                    console.error('all candidates issue '+ex+' ; '+ex.stack);
+                    writeToLog(-1,'all candidates issue '+ex+' ; '+ex.stack);
                 }
             }
         };
@@ -866,11 +869,10 @@ function onDataChannelCreated(socket, requestId, channel) {
         channel.onmessage = onIceMessage(socket, channel);
 
         channel.onleave = function (userid) {
-            console.error('ICE CHANNEL onleave !!!! this ever called ??? ' + channel.peerId+ ' userid: '+userid);
+            writeToLog(-1,'ICE CHANNEL onleave !!!! this ever called ??? ' + channel.peerId+ ' userid: '+userid);
         };
 
         channel.onclose = function () {
-            console.error('ICE CHANNEL closed ' + channel.peerId);
             writeToLog(0,'ICE CHANNEL closed ' + channel.peerId);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
@@ -889,12 +891,11 @@ function onDataChannelCreated(socket, requestId, channel) {
         };
 
         channel.onleave = function () {
-            console.error('ICE CHANNEL onleave ' + channel.peerId);
+            writeToLog(-1,'ICE CHANNEL onleave ' + channel.peerId);
         };
 
         channel.onerror = function (err) {
-            console.error('ICE CHANNEL err ' + channel.peerId);
-            writeToLog(0,socket, 'CHANNEL ERR ' + channel.peerId + ' ' + err);
+            writeToLog(0, 'CHANNEL ERR ' + channel.peerId + ' ' + err);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }

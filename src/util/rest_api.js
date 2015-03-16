@@ -31,7 +31,7 @@ function writeToLog(level, msg) {
         dbg.log3(timeStr + ' ' + msg);
     } else {
         timeStr = (new Date()).toString();
-        console.error(timeStr + ' ' + msg);
+        dbg.log0(timeStr + ' ERROR ' + msg);
     }
 }
 
@@ -228,7 +228,7 @@ function rest_api(api) {
                 this.ice_router = express.Router();
                 this.install_rest(this.ice_router);
             } catch (ex) {
-                console.error('do express ice router ex ' + ex);
+                writeToLog(-1,'do express ice router ex ' + ex);
             }
         }
 
@@ -246,7 +246,7 @@ function rest_api(api) {
             try {
                 reqId = (buf.toBuffer(message.slice(0, 32)).readInt32LE(0)).toString();
             } catch (ex) {
-                console.error('problem reading req id rest_api ' + ex);
+                writeToLog(-1,'problem reading req id rest_api ' + ex);
             }
             var msgObj = channel.msgs[reqId];
             body = msgObj.buffer;
@@ -258,7 +258,7 @@ function rest_api(api) {
             reqId = msg.req || msg.requestId;
             dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
         } else {
-            console.error('ice got weird msg ' + util.inspect(message));
+            writeToLog(-1,'ice got weird msg ' + util.inspect(message));
         }
 
         if (msg.sigType) {
@@ -274,7 +274,7 @@ function rest_api(api) {
         try {
             reqBody = decode_response(reqMsg.headers, reqBody);
         } catch (ex) {
-            console.error('problem decoding body ' + ex);
+            writeToLog(-1,'problem decoding body ' + ex);
         }
         var url = URL.parse('http://127.0.0.1' + reqMsg.path, true);
         var req = {
@@ -324,7 +324,7 @@ function rest_api(api) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);
                     }
                 } catch (ex) {
-                    console.error('ERROR sending ice response ' + ex + ' req ' + reqId);
+                    writeToLog(-1,'ERROR sending ice response ' + ex + ' req ' + reqId);
                 }
 
             },
@@ -343,7 +343,7 @@ function rest_api(api) {
         };
 
         this.ice_router.handle(req, res, function(err) {
-            console.error('SHOULD NOT BE HERE done status: ' + status + " reply: " + replyJSON + " replyBuffer: " + replyBuffer + ' if err ' + err + ' req ' + reqId);
+            writeToLog(-1,'SHOULD NOT BE HERE done status: ' + status + " reply: " + replyJSON + " replyBuffer: " + replyBuffer + ' if err ' + err + ' req ' + reqId);
         });
 
     };
@@ -396,7 +396,7 @@ function rest_api(api) {
                 };
 
                 router.handle(req, res, function(err) {
-                    console.error('local router failed', err);
+                    writeToLog(-1,'local router failed', err);
                 });
             });
         }
@@ -470,7 +470,7 @@ function rest_api(api) {
                     if (req._rest_error_data) {
                         throw new Error('rethrow_rest_error');
                     }
-                    console.error('SERVER COMPLETED', func_info.name);
+                    writeToLog(-1,'SERVER COMPLETED', func_info.name);
                     if (func_info.reply_raw) {
                         return res.status(200).send(reply);
                     } else {
@@ -479,10 +479,10 @@ function rest_api(api) {
                     }
                 })
                 .then(null, function(err) {
-                    console.error('SERVER ERROR', func_info.name,
+                    writeToLog(-1,'SERVER ERROR', func_info.name,
                         ':', req._rest_error_status, req._rest_error_data,
                         '-', req._rest_error_reason);
-                    console.error(err.stack || err);
+                    writeToLog(-1,err.stack || err);
                     var status = req._rest_error_status || err.status || err.statusCode;
                     if (typeof status !== 'number' || status < 100 || status >= 600) {
                         status = 500;
@@ -496,7 +496,7 @@ function rest_api(api) {
                     }
                 })
                 .done(null, function(err) {
-                    console.error('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
+                    writeToLog(-1,'SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
                     return next(err);
                 });
         };
@@ -536,7 +536,7 @@ function rest_api(api) {
         return Q.fcall(function() {
             return self._peer_request(func_info, params);
         }).then(null, function(err) {
-            console.error('REST REQUEST FAILED ' + require('util').inspect(err));
+            writeToLog(-1,'REST REQUEST FAILED ' + require('util').inspect(err));
             throw err;
         });
     };
@@ -696,7 +696,7 @@ function rest_api(api) {
 
             return self._doHttpCall(func_info, options, body);
         }
-        console.error('YaEL SHOULD NOT REACH HERE ' + require('util').inspect(options));
+        writeToLog(-1,'YaEL SHOULD NOT REACH HERE ' + require('util').inspect(options));
     };
 
     Client.prototype._sendWSRequestWithRetry = function sendWSRequestWithRetry(self_options, peerId, options, retry) {
@@ -804,11 +804,11 @@ function rest_api(api) {
             if (req.setTimeout) {
                 try {
                     req.setTimeout(options.timeout, function() {
-                        console.error('REQUEST TIMEOUT');
+                        writeToLog(-1,'REQUEST TIMEOUT');
                         req.abort();
                     });
                 } catch (ex) {
-                    console.error("prob with set request timeout " + ex);
+                    writeToLog(-1,"prob with set request timeout " + ex);
                 }
             } else {
                 // TODO browserify doesn't implement req.setTimeout...

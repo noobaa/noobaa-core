@@ -14,6 +14,10 @@ config.ws_default_timeout = 25 * 1000;
 config.ice_retry = 1;
 config.replicate_retry = 3;
 
+config.junkRequestId = '0000';
+config.iceBufferMetaPartSize = 40;
+config.timeoutToFlush = 2000;
+
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;
 
@@ -29,6 +33,8 @@ config.REPLICATE_CONCURRENCY = 32;
 
 config.ice_servers = {
     'iceServers': [
+        {'url': 'stun:stun.l.google.com:19302'},
+        {'url': 'stun:stun.stunprotocol.org:3478'},
         {'url': 'stun:54.93.86.231:3478'}
     ]
 };

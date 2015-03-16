@@ -87,7 +87,7 @@
     "morgan": "~1.5.1",
     "newrelic": "~1.15.1",
     "nodetime": "~0.8.15",
-    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#31b70b215d36b0cab8f749ee719ba27cd22e7716",
+    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#22ee8215b2e39f20c9faf072e192c7aedf437acf",
     "q": "~1.1.2",
     "request": "~2.53.0",
     "rewire": "^2.3.1",

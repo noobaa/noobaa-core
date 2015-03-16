@@ -49,10 +49,6 @@ function onIceMessage(p2p_context, channel, event) {
             var message = JSON.parse(event.data);
             req = message.req;
 
-            if (req === config.junkRequestId) {
-                writeToLog(0,'got junkRequestId IGNORE');
-                return;
-            }
             if (ice.isRequestEnded(p2p_context, req, channel)) {
                 writeToLog(0,'got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
                 return;
@@ -91,10 +87,6 @@ function onIceMessage(p2p_context, channel, event) {
             req = (bff.readInt32LE(0)).toString();
             var part = bff.readInt8(32);
 
-            if (req === config.junkRequestId) {
-                writeToLog(0,'got junkRequestId IGNORE');
-                return;
-            }
             if (ice.isRequestEnded(p2p_context, req, channel)) {
                 writeToLog(0,'got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
                 return;
@@ -182,18 +174,13 @@ function writeBufferToSocket(channel, block, reqId) {
     }
 
     // define the loop func
-    function send_next() { // https://noobaa-alpha.herokuapp.com:443
+    function send_next() {
 
         writeToLog(3,'send_next req '+reqId+' chunks '+sequence+' begin '+begin+' end '+end);
 
         // end recursion when done sending the entire buffer
         if (begin === end) {
             writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);
-            var currentBufferSize = channel.bufferedAmount;
-            setTimeout(function() {
-                ice.handleFlush(channel, currentBufferSize, reqId);
-            }, config.timeoutToFlush);
-
             return;
         }
 
@@ -212,11 +199,11 @@ function writeBufferToSocket(channel, block, reqId) {
         ice.chkChannelState(channel, reqId);
         writeToLog(3,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
         return Q.fcall(function() {
-            channel.send(chunk);
+            ice.writeToChannel(channel, chunk, reqId);
         })
         .then(send_next)
         .then(null, function(err) {
-            writeToLog(-1, 'send_next recur err '+err+' '+err.stack);
+            writeToLog(-1, 'send_next recur err '+err+' '+err.stack+' req '+reqId);
             throw err;
         });
     }
@@ -224,7 +211,7 @@ function writeBufferToSocket(channel, block, reqId) {
     // start sending (recursive async loop)
     return Q.fcall(send_next)
         .then(null, function(err) {
-            writeToLog(-1, 'send_next general err '+err+' '+err.stack);
+            writeToLog(-1, 'send_next general err '+err+' '+err.stack+' req '+reqId);
             throw err;
         });
 

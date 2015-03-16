@@ -1,7 +1,7 @@
 var config = {};
 
 // SIGNALING AND ICE
-config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: ws://noobaa-signaling.herokuapp.com)
+config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: wss://noobaa-signaling.herokuapp.com) ws://192.168.1.6:5002
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 5000;
 config.connection_data_stale = 5 * 60 * 1000;
@@ -15,9 +15,8 @@ config.ws_default_timeout = 25 * 1000;
 config.ice_retry = 1;
 config.replicate_retry = 3;
 
-config.junkRequestId = '999';
 config.iceBufferMetaPartSize = 40;
-config.timeoutToFlush = 2000;
+config.timeoutToBufferWait = 10;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

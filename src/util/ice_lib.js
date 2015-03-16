@@ -436,46 +436,17 @@ function createBufferToSend(block, seq, reqId) {
 }
 module.exports.createBufferToSend = createBufferToSend;
 
-function handleFlush(channel, lastBufferSize, requestId) {
-    try {
-
-        writeToLog(2,'handleFlush for peer '+channel.peerId+' for req '+requestId+' current buffer '+channel.bufferedAmount+' last amount '+lastBufferSize);
-
-        var bufferEstSize = 1000 * 1024;
-        var maxSizeToSend = bufferEstSize - channel.bufferedAmount;
-
-        if (channel.bufferedAmount > 0 && channel.bufferedAmount === lastBufferSize) {
-            writeToLog(2,'wr X seconds later and the buffer is not changed !!! send junk msg to peer '+channel.peerId+' for req '+requestId);
-
-            var bufToSend = require('crypto').randomBytes(config.chunk_size-config.iceBufferMetaPartSize);
-            bufToSend = buf.toArrayBuffer(bufToSend);
-            bufToSend = createBufferToSend(bufToSend, 1, config.junkRequestId);
-            var sentSoFar = 0;
-
-            while (sentSoFar < maxSizeToSend && channel.bufferedAmount >= lastBufferSize) {
-                channel.send(bufToSend);
-                sentSoFar += bufToSend.byteLength;
-            }
-
-            writeToLog(2,'wr X seconds later - DONE peer '+channel.peerId+' for req '+requestId+' sent total '+sentSoFar+' ch buf '+channel.bufferedAmount);
-        } else if (channel.bufferedAmount > lastBufferSize) {
-            writeToLog(2,'wr X seconds later and the buffer is bigger for peer '+channel.peerId+' for req '+requestId);
-        }
-    } catch (err) {
-        writeToLog(-1, 'err in flush for peer '+channel.peerId+' for req '+requestId+' err: '+err+' '+err.stack);
-    }
-}
-module.exports.handleFlush = handleFlush;
-
 function writeToChannel(channel, data, requestId) {
     chkChannelState(channel, requestId);
 
-    channel.send(data);
-
-    var currentBufferSize = channel.bufferedAmount;
-    setTimeout(function() {
-        handleFlush(channel, currentBufferSize, requestId);
-    }, config.timeoutToFlush);
+    if (channel.bufferedAmount > 0) {
+        setTimeout(function() {
+            writeToLog(3, 'bufferedAmount>0, wait for peer '+channel.peerId+' for req '+requestId);
+            writeToChannel(channel, data, requestId);
+        }, config.timeoutToBufferWait);
+    } else {
+        channel.send(data);
+    }
 }
 module.exports.writeToChannel = writeToChannel;
 
@@ -588,7 +559,7 @@ function onLocalSessionCreated(socket, requestId, desc) {
 
     try {
         channelObj.peerConn.setLocalDescription(desc, function () {
-            writeToLog(2, 'sending local desc:' + channelObj.peerConn.localDescription);
+            writeToLog(2, 'sending local desc:' + require('util').inspect(channelObj.peerConn.localDescription));
             sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.localDescription);
         }, logError);
     } catch (ex) {
@@ -718,6 +689,7 @@ function createPeerConnection(socket, requestId, config) {
             };
             try {
                 channelObj.peerConn.createOffer(function (desc) {
+                    writeToLog(2,  'Creating an offer ' + require('util').inspect(desc));
                     return onLocalSessionCreated(socket, requestId, desc);
                 }, logError, mediaConstraints); // TODO ? mediaConstraints
             } catch (ex) {
@@ -740,6 +712,16 @@ function createPeerConnection(socket, requestId, config) {
         writeToLog(-1, 'Ex on createPeerConnection ' + ex.stack);
         if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
     }
+}
+
+function handleCngSDP(desc) {
+    var newDesc = desc;
+    var split = desc.split("b=AS:30");
+    if (split.length > 1) {
+        newDesc = split[0] + "b=AS:1638400" + split[1];
+        writeToLog(2, 'cng desc from ---- '+desc +' ----- to ------ '+newDesc);
+    }
+    return newDesc;
 }
 
 function signalingMessageCallback(socket, peerId, message, requestId) {
@@ -766,9 +748,10 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
         try {
             channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
-                writeToLog(2, 'remote desc set for peer '+peerId);
+                writeToLog(2, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
             }, logError);
             channelObj.peerConn.createAnswer(function (desc) {
+                writeToLog(2, 'createAnswer for peer '+peerId+' is '+require('util').inspect(desc));
                 return onLocalSessionCreated(socket, requestId, desc);
             }, logError);
         } catch (ex) {
@@ -779,9 +762,9 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
     } else if (message.type === 'answer') {
         try {
-            writeToLog(2, 'Got answer.' + peerId + ' and channel ' + requestId);
+            writeToLog(2, 'Got answer.' + peerId + ' and channel ' + requestId+' is '+require('util').inspect(message));
             channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
-                writeToLog(2, 'remote desc set for peer '+peerId);
+                writeToLog(2, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
             }, logError);
         } catch (ex) {
             writeToLog(-1,  'problem in answer ' + ex);

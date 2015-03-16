@@ -568,6 +568,21 @@ function onLocalSessionCreated(socket, requestId, desc) {
     }
 }
 
+function handleCngSDP(desc) {
+    try {
+        var newDesc = desc;
+        var split = desc.sdp.split("b=AS:30");
+        if (split.length > 1) {
+            newDesc.sdp = split[0] + "b=AS:1638400" + split[1];
+            writeToLog(3, 'cng desc from ---- '+desc +' ----- to ------ '+newDesc);
+        }
+        return newDesc;
+    } catch (err) {
+        writeToLog(-1, 'PROBLEM handleCngSDP '+err+' '+err.stack+' ;; '+require('util').inspect(desc));
+        return desc;
+    }
+}
+
 function createPeerConnection(socket, requestId, config) {
     var channelObj = socket.icemap[requestId];
     if (!channelObj || channelObj.done) {
@@ -689,6 +704,7 @@ function createPeerConnection(socket, requestId, config) {
             };
             try {
                 channelObj.peerConn.createOffer(function (desc) {
+                    desc = handleCngSDP(desc);
                     writeToLog(2,  'Creating an offer ' + require('util').inspect(desc));
                     return onLocalSessionCreated(socket, requestId, desc);
                 }, logError, mediaConstraints); // TODO ? mediaConstraints
@@ -712,16 +728,6 @@ function createPeerConnection(socket, requestId, config) {
         writeToLog(-1, 'Ex on createPeerConnection ' + ex.stack);
         if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
     }
-}
-
-function handleCngSDP(desc) {
-    var newDesc = desc;
-    var split = desc.split("b=AS:30");
-    if (split.length > 1) {
-        newDesc = split[0] + "b=AS:1638400" + split[1];
-        writeToLog(2, 'cng desc from ---- '+desc +' ----- to ------ '+newDesc);
-    }
-    return newDesc;
 }
 
 function signalingMessageCallback(socket, peerId, message, requestId) {
@@ -751,6 +757,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
                 writeToLog(2, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
             }, logError);
             channelObj.peerConn.createAnswer(function (desc) {
+                desc = handleCngSDP(desc);
                 writeToLog(2, 'createAnswer for peer '+peerId+' is '+require('util').inspect(desc));
                 return onLocalSessionCreated(socket, requestId, desc);
             }, logError);

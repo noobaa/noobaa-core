@@ -450,6 +450,16 @@ function writeToChannel(channel, data, requestId) {
 }
 module.exports.writeToChannel = writeToChannel;
 
+function chkIceSocketSend(channel) {
+    if (channel.bufferedAmount > 0) {
+        setTimeout(function () {
+            writeToLog(3, 'bufferedAmount>0, wait for peer ' + channel.peerId);
+            chkIceSocketSend(channel);
+        }, config.timeoutToBufferWait);
+    }
+}
+module.exports.chkIceSocketSend = chkIceSocketSend;
+
 function isRequestEnded(p2p_context, requestId, channel) {
     if (channel && channel.msgs && channel.msgs[requestId]) {
         return false;

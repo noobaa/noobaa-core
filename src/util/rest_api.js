@@ -323,6 +323,11 @@ function rest_api(api) {
                     if (replyBuffer) {
                         ice_api.writeBufferToSocket(channel, replyBuffer, reqId);
                     }
+
+                    if (!isWs) {
+                        ice_lib.chkIceSocketSend(channel);
+                    }
+
                 } catch (ex) {
                     writeToLog(-1,'ERROR sending ice response ' + ex + ' req ' + reqId);
                 }

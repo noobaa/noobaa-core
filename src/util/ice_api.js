@@ -396,6 +396,8 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
             writeBufferToSocket(iceSocket, buffer, requestId);
         }
 
+        ice.chkIceSocketSend(iceSocket);
+
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
 
         return msgObj.action_defer.promise;

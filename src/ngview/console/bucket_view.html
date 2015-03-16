@@ -69,7 +69,7 @@
 
         <button class="btn btn-material-purple btn-fab mdi-file-file-upload pull-right" ng-click="upload()" rel="tooltip" title="Upload file to bucket..." data-placement="top"></button>
 
-        <div class="dropdown dropup pull-right" ng-repeat="tx in nbFiles.transfers" style="margin-right: 15px">
+        <div class="dropdown dropup pull-right" ng-repeat="tx in nbFiles.uploads" style="margin-right: 15px">
             <button class="btn {{tx.error && 'btn-danger' || 'btn-primary'}} btn-fab dropdown-toggle" data-toggle="dropdown">
                 <span ng-hide="tx.done">
                     <span style="font-size: 14px; line-height: 36px">{{tx.progress.toFixed(0)}}%</span>
@@ -87,7 +87,7 @@
                 <li>{{human_size(tx.size)}} {{tx.content_type}}</li>
                 <li>{{tx.error}}</li>
                 <li ng-if="tx.done || tx.error">
-                    <button class="btn btn-primary btn-flat" ng-click="nbFiles.clear_transfer(tx)">
+                    <button class="btn btn-primary btn-flat" ng-click="nbFiles.clear_upload(tx)">
                         Dismiss
                     </button>
                 </li>

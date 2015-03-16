@@ -24,11 +24,36 @@ nb_api.factory('nbFiles', [
         $scope.create_bucket = create_bucket;
         $scope.upload_file = upload_file;
         $scope.download_file = download_file;
-        $scope.clear_transfer = clear_transfer;
+        $scope.clear_upload = clear_upload;
+        $scope.clear_download = clear_download;
         $scope.read_entire_object = read_entire_object;
         $scope.read_as_media_stream = read_as_media_stream;
 
+        $scope.uploads = [];
+        $scope.downloads = [];
         $scope.transfers = [];
+
+        angular.element($window).on('beforeunload', function() {
+            var num_uploads = 0;
+            var num_downloads = 0;
+            _.each($scope.transfers, function(tx) {
+                if (tx.running) {
+                    if (tx.type==='upload') {
+                        num_uploads += 1;
+                    } else {
+                        num_downloads += 1;
+                    }
+                }
+            });
+            var warning = 'Leaving this page will interrupt the transfers';
+            if (num_uploads && num_downloads) {
+                return 'Uploads and Downloads are in progress. ' + warning;
+            } else if (num_uploads) {
+                return 'Uploads are in progress. ' + warning;
+            } else if (num_downloads) {
+                return 'Downloads are in progress. ' + warning;
+            }
+        });
 
         function list_files(params) {
             return $q.when()
@@ -95,13 +120,7 @@ nb_api.factory('nbFiles', [
             return input_file_chooser()
                 .then(function(file) {
                     if (!file) return;
-                    var tx = {
-                        type: 'upload',
-                        input_file: file,
-                        bucket: bucket_name,
-                    };
-                    $scope.transfers.push(tx);
-                    return run_upload(tx);
+                    return run_upload(file, bucket_name);
                 });
         }
 
@@ -116,20 +135,23 @@ nb_api.factory('nbFiles', [
             });
         }
 
-        function run_upload(tx) {
-            console.log('upload', tx);
-            var ext_match = tx.input_file.name.match(/^(.*)(\.[^\.]*)$/);
+        function run_upload(input_file, bucket_name) {
+            var ext_match = input_file.name.match(/^(.*)(\.[^\.]*)$/);
             var serial = (((Date.now() / 1000) % 10000000) | 0).toString();
-            if (ext_match) {
-                tx.name = ext_match[1] + '_' + serial + ext_match[2];
-            } else {
-                tx.name = tx.input_file.name + '_' + serial;
-            }
-            tx.size = tx.input_file.size;
-            tx.content_type = tx.input_file.type;
-            tx.start_time = Date.now();
-            tx.progress = 0;
-            return $q.when(nbClient.client.object.upload_stream({
+            var tx = {
+                type: 'upload',
+                input_file: input_file,
+                bucket: bucket_name,
+                name: ext_match ?
+                    (ext_match[1] + '_' + serial + ext_match[2]) : (input_file.name + '_' + serial),
+                size: input_file.size,
+                content_type: input_file.type,
+                start_time: Date.now(),
+                progress: 0,
+                running: true,
+            };
+            console.log('upload', tx);
+            tx.promise = $q.when(nbClient.client.object.upload_stream({
                     bucket: tx.bucket,
                     key: tx.name,
                     size: tx.size,
@@ -140,8 +162,10 @@ nb_api.factory('nbFiles', [
                     }),
                 }))
                 .then(function() {
+                    _.pull($scope.transfers, tx);
                     tx.done = true;
                     tx.progress = 100;
+                    tx.running = false;
                     tx.end_time = Date.now();
                     var duration = (tx.end_time - tx.start_time) / 1000;
                     var elapsed = duration.toFixed(1) + 'sec';
@@ -149,7 +173,9 @@ nb_api.factory('nbFiles', [
                     console.log('upload completed', elapsed, speed);
                     nbAlertify.success('upload completed');
                 }, function(err) {
+                    _.pull($scope.transfers, tx);
                     tx.error = err;
+                    tx.running = false;
                     console.error('upload failed', err);
                     nbAlertify.error('upload failed. ' + err.toString());
                 }, function(progress) {
@@ -159,13 +185,17 @@ nb_api.factory('nbFiles', [
                     }
                     return progress;
                 });
+            $scope.uploads.push(tx);
+            $scope.transfers.push(tx);
+            return tx.promise;
         }
 
-        function clear_transfer(tx) {
-            var index = $scope.transfers.indexOf(tx);
-            if (index >= 0) {
-                $scope.transfers.splice(index, 1);
-            }
+        function clear_upload(tx) {
+            _.pull($scope.uploads, tx);
+        }
+
+        function clear_download(tx) {
+            _.pull($scope.downloads, tx);
         }
 
         function download_file(bucket_name, file) {
@@ -182,6 +212,7 @@ nb_api.factory('nbFiles', [
                         content_type: file.type,
                         start_time: Date.now(),
                         progress: 0,
+                        running: true
                     };
                     tx.promise = $q(function(resolve, reject, progress) {
 
@@ -202,8 +233,10 @@ nb_api.factory('nbFiles', [
                             })
                             .once('finish', function() {
 
+                                _.pull($scope.transfers, tx);
                                 tx.done = true;
                                 tx.progress = 100;
+                                tx.running = false;
                                 tx.end_time = Date.now();
                                 var duration = (tx.end_time - tx.start_time) / 1000;
                                 var elapsed = duration.toFixed(1) + 'sec';
@@ -225,15 +258,18 @@ nb_api.factory('nbFiles', [
                             .once('error', on_error);
 
                         function on_error(err) {
+                            _.pull($scope.transfers, tx);
                             tx.error = err;
-                            console.error('download failed '+err+ ' ; '+ err.stack);
+                            tx.running = false;
+                            console.error('download failed ' + err + ' ; ' + err.stack);
                             nbAlertify.error('download failed. ' + err.toString());
                             reject(err);
                             $rootScope.safe_apply();
                         }
                     });
                     console.log('DOWNLOAD', tx);
-                    // $scope.transfers.push(tx);
+                    $scope.downloads.push(tx);
+                    $scope.transfers.push(tx);
                     $rootScope.safe_apply();
                     return tx;
                 });

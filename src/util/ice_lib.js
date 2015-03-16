@@ -526,7 +526,7 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
             var req;
             for (req in context.iceSockets[peerId].usedBy) {
                 if (socket.icemap[req]) {
-                    writeToLog(-1,'mark peer '+peerId+' req '+req+' as done so will be removed');
+                    writeToLog(0,'mark peer '+peerId+' req '+req+' as done so will be removed');
                     socket.icemap[req].done = true;
                 }
             }
@@ -534,12 +534,12 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
 
         delete context.iceSockets[peerId];
     } else if (channelObj && channelObj.dataChannel) {
-        writeToLog(-1,'forceCloseIce (no context) peer '+peerId);
+        writeToLog(0,'forceCloseIce (no context) peer '+peerId);
         channelObj.dataChannel.close();
         channelObj.peerConn.close();
         channelObj.done = true;
     } else {
-        writeToLog(-1,'forceCloseIce nothing to close - peer '+peerId);
+        writeToLog(0,'forceCloseIce nothing to close - peer '+peerId);
     }
 }
 module.exports.forceCloseIce = forceCloseIce;
@@ -715,7 +715,7 @@ function createPeerConnection(socket, requestId, config) {
         }
 
         channelObj.peerConn.ondatachannel = function (event) {
-            writeToLog(-1, 'ondatachannel:'+ event.channel);
+            writeToLog(0, 'ondatachannel:'+ event.channel);
             try {
                 channelObj.dataChannel = event.channel;
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
@@ -878,10 +878,6 @@ function onDataChannelCreated(socket, requestId, channel) {
                 }
                 delete socket.p2p_context.iceSockets[channel.peerId];
             }
-        };
-
-        channel.onleave = function () {
-            writeToLog(-1,'ICE CHANNEL onleave ' + channel.peerId);
         };
 
         channel.onerror = function (err) {

@@ -470,7 +470,7 @@ function rest_api(api) {
                     if (req._rest_error_data) {
                         throw new Error('rethrow_rest_error');
                     }
-                    writeToLog(-1,'SERVER COMPLETED', func_info.name);
+                    writeToLog(0,'SERVER COMPLETED', func_info.name);
                     if (func_info.reply_raw) {
                         return res.status(200).send(reply);
                     } else {

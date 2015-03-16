@@ -49,7 +49,6 @@ var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
  *
  */
 function allocate_object_parts(bucket, obj, parts) {
-
     if (!bucket.tiering || bucket.tiering.length !== 1) {
         throw new Error('only single tier supported per bucket/chunk');
     }
@@ -86,14 +85,52 @@ function allocate_object_parts(bucket, obj, parts) {
             var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
                 return chunk.crypt.hash_val;
             });
+
+            //No dup chunks, no need to query their blocks
+            //console.log("   NB:: found dup chunks", dup_chunks);
+            if (!dup_chunks) {
+              return hash_val_to_dup_chunk;
+            }
+            //Query all blocks of dup chunks
+            var query_chunks_ids = _.flatten(_.map(hash_val_to_dup_chunk, '_id'));
+            return Q.when(
+                    db.DataBlock
+                    .find({
+                        chunk: {
+                            $in: query_chunks_ids
+                        }
+                    })
+                    .exec())
+                .then(function(queried_blocks) {
+                    var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
+                    _.each(blocks_by_chunk_id, function(blocks, chunk_id) {
+                        var item = hash_val_to_dup_chunk[chunk_id];
+                        if (item) {
+                            item.all_blocks = blocks;
+                        } else {
+                            //dbg.log0("Unexpected return value ", blocks, " did not find appropriate chunk");
+                        }
+                    });
+                    return hash_val_to_dup_chunk;
+                });
+        })
+        .then(function(hash_val_to_dup_chunk) {
             _.each(parts, function(part, i) {
                 // chunk size is aligned up to be an integer multiple of kfrag*block_size
                 var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
                 var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
                 var chunk;
                 if (dup_chunk) {
+                    //dbg.log0("  NB:: in dup_chunk with ", dup_chunk);
                     chunk = dup_chunk;
-                    reply.parts[i].dedup = true;
+                    //Verify chunk resides on reachable node(s)
+                    var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
+                    if (dup_chunk_status.health !== 'unavailable') {
+                        //dbg.log0("  NB:: got dup chunk available ", dup_chunk);
+                        //reply.parts[i].dedup = true; //NB
+                    } else { //create a new fragment on the same chunk
+                        //dbg.log0("  NB:: got dup chunk with unavailable status");
+                    }
                 } else {
                     chunk = new db.DataChunk({
                         system: obj.system,
@@ -103,7 +140,9 @@ function allocate_object_parts(bucket, obj, parts) {
                         crypt: part.crypt,
                     });
                     new_chunks.push(chunk);
+                    //dbg.log0("  NB:: pushing ", chunk, " into new_chunks");
                 }
+                //dbg.log0("  NB:: new ObjectPart for chunk ", chunk);
                 new_parts.push(new db.ObjectPart({
                     system: obj.system,
                     obj: obj.id,
@@ -127,6 +166,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 }));
         })
         .then(function(new_blocks) {
+          dbg.log0('  NB:: ***new blocks*** ', new_blocks, ' ***new parts*** ', new_parts, ' ***new chunks*** ', new_chunks);
             var blocks_by_chunk = _.groupBy(new_blocks, function(block) {
                 return block.chunk._id;
             });
@@ -237,6 +277,7 @@ function finalize_object_parts(bucket, obj, parts) {
         })
         .then(function() {
             var retries = 0;
+
             function call_build_chunk() {
                 return Q.fcall(function() {
                     return build_chunks(chunks);
@@ -246,7 +287,7 @@ function finalize_object_parts(bucket, obj, parts) {
                     dbg.log0("Caught ", err, " Retrying replicate to another node... ");
                     ++retries;
                     if (retries >= config.replicate_retry) {
-                        throw new Error("Failed replicate (after retries)",err,err.stack);
+                        throw new Error("Failed replicate (after retries)", err, err.stack);
                     }
                     return call_build_chunk();
                 });
@@ -848,6 +889,7 @@ function analyze_chunk_status(chunk, all_blocks) {
             fragment.good_blocks.length : 0;
 
         if (!num_accessible_blocks) {
+            //NB
             fragment.health = 'unavailable';
         }
 

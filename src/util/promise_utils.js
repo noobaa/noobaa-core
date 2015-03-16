@@ -14,6 +14,30 @@ module.exports = {
 
 /**
  *
+ * Iterate on an array, accumilate promises and return results of each
+ * invocation
+ *
+ */
+function iterate(array, func) {
+    var results = [];
+    results.length = array.legnth;
+    var i = 0;
+
+    function add_to_promise(promise, item) {
+        return promise.then(function() {
+            return Q.when(func(item))
+                .then(function(res) {
+                    results[i++] = res;
+                });
+        });
+    }
+
+    return _.reduce(array, add_to_promise, Q.resolve())
+        .thenResolve(results);
+}
+
+/**
+ *
  * simple promise loop, similar to _.times but ignores the return values,
  * and only returns a promise for completion or failure
  *

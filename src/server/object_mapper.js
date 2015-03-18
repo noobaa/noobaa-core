@@ -778,7 +778,7 @@ var build_chunks_worker =
 
 
 // TODO take config of desired replicas from tier/bucket
-var OPTIMAL_REPLICAS = 3;
+var OPTIMAL_REPLICAS = 2;
 // TODO move times to config constants/env
 var LONG_GONE_THRESHOLD = 3600000;
 var SHORT_GONE_THRESHOLD = 300000;

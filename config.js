@@ -8,7 +8,7 @@ config.connection_data_stale = 5 * 60 * 1000;
 config.connection_ws_stale = 15 * 60 * 1000;
 config.check_stale_conns = 60 * 1000;
 
-config.chunk_size = 16 * 1024;
+config.chunk_size = (16 * 1024) - 100;
 config.doStaleCheck = true;
 config.connection_default_timeout = 5 * 1000;
 config.ws_default_timeout = 10 * 1000;

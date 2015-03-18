@@ -686,7 +686,7 @@ function rest_api(api) {
             }).then(function(res) {
                 return res;
             }, function(err) {
-                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err);
+                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err+' for peer '+self.options.peer);
                 throw err;
                 //return self._doHttpCall(func_info, options, body);
             });
@@ -715,10 +715,10 @@ function rest_api(api) {
                 return err;
             } else if (retry < config.ice_retry) {
                 ++retry;
-                writeToLog(-1, 'WS REST REQUEST FAILED ' + err + ' retry ' + retry);
+                writeToLog(-1, 'WS REST REQUEST FAILED ' + err + ' retry ' + retry+' for peer '+peerId);
                 return self._sendWSRequestWithRetry(self_options, peerId, options, retry);
             } else {
-                throw new Error('WS REST REQUEST FAILED ' + err);
+                throw new Error('WS REST REQUEST FAILED ' + err+' for peer '+peerId);
             }
         });
     };
@@ -733,10 +733,10 @@ function rest_api(api) {
             if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
                 ice_api.forceCloseIce(self_options.p2p_context, peerId);
-                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err + ' retry ' + retry);
+                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err + ' retry ' + retry+' for peer '+peerId);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
             } else {
-                throw new Error('ICE REST REQUEST FAILED ' + err);
+                throw new Error('ICE REST REQUEST FAILED ' + err+' for peer '+peerId);
             }
 
         });
@@ -752,7 +752,7 @@ function rest_api(api) {
                 dbg.log0(self_options, 'res is: ' + require('util').inspect(res));
                 if (res && res.status && res.status === 500) {
                     writeToLog(0, 'failed ' + options.path + ' in ice, got 500');
-                    throw new Error('Do retry with http - ice failure 500');
+                    throw new Error('Do retry with http - ice failure 500 for peer '+peerId);
                 } else {
 
                     if (!func_info.reply_raw) {
@@ -763,7 +763,7 @@ function rest_api(api) {
                 }
             })
             .then(null, function(err) {
-                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err);
+                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err+' for peer '+peerId);
                 throw new Error('ice failure ex ' + err);
             });
     };

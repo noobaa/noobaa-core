@@ -55,6 +55,7 @@ function allocate_object_parts(bucket, obj, parts) {
     var tier_id = bucket.tiering[0].tier;
 
     var new_chunks = [];
+    var dupped_chunks = [];
     var new_parts = [];
 
     var reply = {
@@ -87,11 +88,10 @@ function allocate_object_parts(bucket, obj, parts) {
             });
 
             //No dup chunks, no need to query their blocks
-            //console.log("   NB:: found dup chunks", dup_chunks);
             if (!dup_chunks) {
-              return hash_val_to_dup_chunk;
+                return hash_val_to_dup_chunk;
             }
-            //Query all blocks of dup chunks
+            //Query all blocks of the found dup chunks
             var query_chunks_ids = _.flatten(_.map(hash_val_to_dup_chunk, '_id'));
             return Q.when(
                     db.DataBlock
@@ -100,15 +100,16 @@ function allocate_object_parts(bucket, obj, parts) {
                             $in: query_chunks_ids
                         }
                     })
+                    .populate('node')
                     .exec())
+                //Associate all the blocks with their (dup_)chunks
                 .then(function(queried_blocks) {
                     var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
                     _.each(blocks_by_chunk_id, function(blocks, chunk_id) {
-                        var item = hash_val_to_dup_chunk[chunk_id];
-                        if (item) {
-                            item.all_blocks = blocks;
-                        } else {
-                            //dbg.log0("Unexpected return value ", blocks, " did not find appropriate chunk");
+                        for (var key in hash_val_to_dup_chunk) {
+                            if (hash_val_to_dup_chunk[key]._id.toString() === chunk_id) {
+                                hash_val_to_dup_chunk[key].all_blocks = blocks;
+                            }
                         }
                     });
                     return hash_val_to_dup_chunk;
@@ -121,15 +122,24 @@ function allocate_object_parts(bucket, obj, parts) {
                 var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
                 var chunk;
                 if (dup_chunk) {
-                    //dbg.log0("  NB:: in dup_chunk with ", dup_chunk);
                     chunk = dup_chunk;
-                    //Verify chunk resides on reachable node(s)
-                    var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
-                    if (dup_chunk_status.health !== 'unavailable') {
-                        //dbg.log0("  NB:: got dup chunk available ", dup_chunk);
-                        //reply.parts[i].dedup = true; //NB
-                    } else { //create a new fragment on the same chunk
-                        //dbg.log0("  NB:: got dup chunk with unavailable status");
+                    //Verify chunk health
+                    var merged_status = false,
+                        dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
+                    for (var f = 0; f < dup_chunk_status.fragments.length; ++f) {
+                        if (dup_chunk_status.fragments[f].health !== 'unavailable') {
+                            merged_status = true;
+                            break;
+                        }
+                    }
+                    //Chunk health is ok, we can mark it as dedup
+                    if (merged_status) {
+                        dbg.log3('chunk ', dup_chunk , 'is dupped and available');
+                        reply.parts[i].dedup = true;
+                    //Chunk is not healthy, create a new fragment on it
+                    } else {
+                        dbg.log3('chunk ', dup_chunk , 'is dupped but unavailable, allocating new blocks for it');
+                        dupped_chunks.push(chunk);
                     }
                 } else {
                     chunk = new db.DataChunk({
@@ -140,9 +150,7 @@ function allocate_object_parts(bucket, obj, parts) {
                         crypt: part.crypt,
                     });
                     new_chunks.push(chunk);
-                    //dbg.log0("  NB:: pushing ", chunk, " into new_chunks");
                 }
-                //dbg.log0("  NB:: new ObjectPart for chunk ", chunk);
                 new_parts.push(new db.ObjectPart({
                     system: obj.system,
                     obj: obj.id,
@@ -158,7 +166,8 @@ function allocate_object_parts(bucket, obj, parts) {
             return block_allocator.allocate_blocks(
                 obj.system,
                 tier_id,
-                _.map(new_chunks, function(chunk) {
+                //Allocate both for the new chunks, and the unavailable dupped chunks
+                _.map(new_chunks.concat(dupped_chunks), function(chunk) {
                     return {
                         chunk: chunk,
                         fragment: 0
@@ -166,7 +175,6 @@ function allocate_object_parts(bucket, obj, parts) {
                 }));
         })
         .then(function(new_blocks) {
-          dbg.log0('  NB:: ***new blocks*** ', new_blocks, ' ***new parts*** ', new_parts, ' ***new chunks*** ', new_chunks);
             var blocks_by_chunk = _.groupBy(new_blocks, function(block) {
                 return block.chunk._id;
             });
@@ -731,9 +739,9 @@ function build_chunks(chunks) {
  *
  */
 var build_chunks_worker =
+
     (process.env.BUILD_WORKER_DISABLED === 'true') ||
     promise_utils.run_background_worker({
-
         name: 'build_chunks_worker',
         batch_size: 50,
         time_since_last_build: 60000, // TODO increase...
@@ -835,7 +843,6 @@ var LONG_BUILD_THRESHOLD = 300000;
  *
  */
 function analyze_chunk_status(chunk, all_blocks) {
-
     var now = Date.now();
     var blocks_by_fragments = _.groupBy(all_blocks, 'fragment');
     var blocks_info_to_allocate;
@@ -889,7 +896,6 @@ function analyze_chunk_status(chunk, all_blocks) {
             fragment.good_blocks.length : 0;
 
         if (!num_accessible_blocks) {
-            //NB
             fragment.health = 'unavailable';
         }
 

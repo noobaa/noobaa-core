@@ -381,14 +381,14 @@ Agent.prototype.send_heartbeat = function() {
                 // report only if used storage mismatch
                 // TODO compare with some accepted error and handle
                 if (store_stats.used !== res.storage.used) {
-                    dbg.log0('AGENT used storage not in sync',
-                        store_stats.used, 'expected', res.storage.used);
+                    dbg.log0('AGENT used storage not in sync ',
+                        store_stats.used, ' expected ', res.storage.used);
                 }
 
                 // update the store when allocated size change
                 if (store_stats.alloc !== res.storage.alloc) {
-                    dbg.log0('AGENT update alloc storage from',
-                        store_stats.alloc, 'to', res.storage.alloc);
+                    dbg.log0('AGENT update alloc storage from ',
+                        store_stats.alloc, ' to ', res.storage.alloc);
                     self.store.set_alloc(res.storage.alloc);
                 }
             }

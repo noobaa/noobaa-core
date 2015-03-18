@@ -162,14 +162,14 @@ function heartbeat(params) {
             // in order for it to perform the necessary pre-allocation,
             // so this check is here just for logging
             if (agent_storage.alloc !== node.storage.alloc) {
-                console.log('NODE change allocated storage from',
-                    agent_storage.alloc, 'to', node.storage.alloc);
+                console.log('NODE change allocated storage from ',
+                    agent_storage.alloc, ' to ', node.storage.alloc);
             }
 
             // verify the agent's reported usage
             if (agent_storage.used !== storage_used) {
-                console.log('NODE agent used storage not in sync',
-                    agent_storage.used, 'counted used', storage_used);
+                console.log('NODE agent used storage not in sync ',
+                    agent_storage.used, ' counted used ', storage_used);
                 // TODO trigger a detailed usage check / reclaiming
             }
 

@@ -10,10 +10,10 @@ config.check_stale_conns = 60 * 1000;
 
 config.chunk_size = 16 * 1024;
 config.doStaleCheck = true;
-config.connection_default_timeout = 15 * 1000;
-config.ws_default_timeout = 25 * 1000;
+config.connection_default_timeout = 5 * 1000;
+config.ws_default_timeout = 10 * 1000;
 config.ice_retry = 1;
-config.replicate_retry = 3;
+config.replicate_retry = 2;
 
 config.iceBufferMetaPartSize = 40;
 config.timeoutToBufferWait = 10;

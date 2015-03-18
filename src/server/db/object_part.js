@@ -58,7 +58,12 @@ var object_part_schema = new Schema({
         chunk_offset: {
             type: Number,
         },
-    }]
+    }],
+
+    // on delete set deletion time
+    deleted: {
+        type: Date
+    },
 
 });
 
@@ -67,18 +72,21 @@ object_part_schema.index({
     obj: 1,
     start: 1,
     end: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: false
 });
 
 object_part_schema.index({
     chunk: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: false
 });
 
 object_part_schema.index({
     system: 1,
+    deleted: 1, // allow to filter deleted
 }, {
     unique: false
 });

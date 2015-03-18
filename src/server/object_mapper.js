@@ -173,7 +173,7 @@ function finalize_object_parts(bucket, obj, parts) {
     var chunks;
     return Q.all([
 
-            // find parts by start offset
+            // find parts by start offset, deleted parts are handled later
             db.ObjectPart
             .find({
                 obj: obj.id,
@@ -184,7 +184,7 @@ function finalize_object_parts(bucket, obj, parts) {
             .populate('chunks.chunk')
             .exec(),
 
-            // find blocks by list of ids
+            // find blocks by list of ids, deleted blocks are handled later
             (block_ids.length ?
                 db.DataBlock
                 .find({
@@ -199,24 +199,34 @@ function finalize_object_parts(bucket, obj, parts) {
             var blocks_by_id = _.indexBy(blocks, '_id');
             var parts_by_start = _.groupBy(parts_res, 'start');
             chunks = _.flatten(_.map(parts, function(part) {
-                var part_res = parts_by_start[part.start];
-                if (!part_res) {
-                    throw new Error('part not found ' +
-                        obj.id + ' ' + range_utils.human_range(part));
+                if (!part.deleted) {
+                    var part_res = parts_by_start[part.start];
+                    if (!part_res) {
+                        throw new Error('part not found ' +
+                            obj.id + ' ' + range_utils.human_range(part));
+                    }
+                    return _.map(part_res, function(p) {
+                        return p.chunks[0].chunk;
+                    });
+                } else {
+                    //Part was deleted before we finalized the object, race with delete ?
+                    dbg.log0("during finalize found part marked as deleted ", part);
                 }
-                return _.map(part_res, function(p) {
-                    return p.chunks[0].chunk;
-                });
             }));
             var chunk_by_id = _.indexBy(chunks, '_id');
             _.each(blocks, function(block) {
-                dbg.log3('going to finalize block ', block);
-                if (!block.building) {
-                    throw new Error('block not in building mode');
-                }
-                var chunk = chunk_by_id[block.chunk];
-                if (!chunk) {
-                    throw new Error('missing block chunk');
+                if (!block.deleted) {
+                    dbg.log3('going to finalize block ', block);
+                    if (!block.building) {
+                        throw new Error('block not in building mode');
+                    }
+                    var chunk = chunk_by_id[block.chunk];
+                    if (!chunk) {
+                        throw new Error('missing block chunk');
+                    }
+                } else {
+                    //Block was deleted before we finalized the object, race with delete ?
+                    dbg.log0("during finalize found block marked as deleted ", block);
                 }
             });
             if (block_ids.length) {
@@ -237,6 +247,7 @@ function finalize_object_parts(bucket, obj, parts) {
         })
         .then(function() {
             var retries = 0;
+
             function call_build_chunk() {
                 return Q.fcall(function() {
                     return build_chunks(chunks);
@@ -246,7 +257,7 @@ function finalize_object_parts(bucket, obj, parts) {
                     dbg.log0("Caught ", err, " Retrying replicate to another node... ");
                     ++retries;
                     if (retries >= config.replicate_retry) {
-                        throw new Error("Failed replicate (after retries)",err,err.stack);
+                        throw new Error("Failed replicate (after retries)", err, err.stack);
                     }
                     return call_build_chunk();
                 });
@@ -299,6 +310,7 @@ function read_object_mappings(params) {
                     end: {
                         $gt: start
                     },
+                    deleted: null,
                 })
                 .sort('start')
                 .populate('chunks.chunk');
@@ -338,7 +350,8 @@ function read_node_mappings(params) {
                 .find({
                     'chunks.chunk': {
                         $in: _.map(blocks, 'chunk')
-                    }
+                    },
+                    deleted: null,
                 })
                 .populate('chunks.chunk')
                 .populate('obj')
@@ -425,6 +438,7 @@ function delete_object_mappings(obj) {
     return Q.when(db.ObjectPart
             .find({
                 obj: obj.id,
+                deleted: null,
             })
             .populate('chunks.chunk')
             .exec())
@@ -731,6 +745,7 @@ var build_chunks_worker =
                     } else {
                         dbg.log0('BUILD_WORKER:', 'BEGIN');
                     }
+                    query.deleted = null;
 
                     return db.DataChunk.find(query)
                         .limit(self.batch_size)

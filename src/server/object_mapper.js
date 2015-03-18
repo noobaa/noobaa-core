@@ -98,7 +98,8 @@ function allocate_object_parts(bucket, obj, parts) {
                     .find({
                         chunk: {
                             $in: query_chunks_ids
-                        }
+                        },
+                        deleted: null,
                     })
                     .populate('node')
                     .exec())

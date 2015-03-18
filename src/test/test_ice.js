@@ -19,12 +19,12 @@ describe('create buffer to send', function() {
 
         var bff = buf.toBuffer(res);
         var req = (bff.readInt32LE(0)).toString();
-        var part = bff.readInt8(32);
+        var part = bff.readInt32LE(32);
 
         assert.equal(req, '45344');
         assert.equal(part, 2);
 
-        var afterBuf = bff.slice(40, bff.length);
+        var afterBuf = bff.slice(64, bff.length);
         var strVal = afterBuf.toString();
         assert.equal(strVal, 'stam');
 
@@ -48,12 +48,12 @@ describe('write buffer to socket', function() {
         ice_api.writeBufferToSocket(channel, block, '45344');
 
         var req = (channel.readInt32LE(0)).toString();
-        var part = channel.readInt8(32);
+        var part = channel.readInt32LE(32);
 
         assert.equal(req, '45344');
         assert.equal(part, 0);
 
-        var afterBuf = channel.slice(40, channel.length);
+        var afterBuf = channel.slice(64, channel.length);
         var strVal = afterBuf.toString();
         assert.equal(strVal, 'stam');
 

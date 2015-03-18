@@ -432,7 +432,7 @@ function createBufferToSend(block, seq, reqId) {
         var bufToSend = new Buffer(config.iceBufferMetaPartSize);
         reqId = parseInt(reqId, 10);
         bufToSend.writeInt32LE(reqId,0);
-        bufToSend.writeInt8(seq,32);
+        bufToSend.writeInt32LE(seq,32);
         bufToSend = buf.addToBuffer(bufToSend, block);
         return buf.toArrayBuffer(bufToSend);
     } catch (err) {

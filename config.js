@@ -15,7 +15,7 @@ config.ws_default_timeout = 10 * 1000;
 config.ice_retry = 1;
 config.replicate_retry = 2;
 
-config.iceBufferMetaPartSize = 40;
+config.iceBufferMetaPartSize = 64;
 config.timeoutToBufferWait = 10;
 
 config.use_ws_when_possible = true;

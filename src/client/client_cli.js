@@ -54,7 +54,7 @@ ClientCLI.prototype.init = function() {
             dbg.log0('cannot find configuration file. Using defaults.');
             self.params = _.defaults(self.params, {
                 address: 'http://localhost:5001',
-                streamer: params.prod ? 5005 : 5006,
+                streamer: self.params.prod ? 5005 : 5006,
                 email: 'demo@noobaa.com',
                 password: 'DeMo',
                 system: 'demo',

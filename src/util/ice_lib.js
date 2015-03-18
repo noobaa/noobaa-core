@@ -184,13 +184,12 @@ var connect = function (socket) {
                 if (currWs.interval) {
                     clearInterval(currWs.interval);
                 }
-                if (currWs.ws_socket && currWs.ws_socket.alive_interval) {
-                    clearInterval(currWs.ws_socket.alive_interval);
-                    currWs.ws_socket.alive_interval = null;
+                if (currWs.ws_socket) {
+                    disconnect(currWs.ws_socket);
                 }
                 delete socket.p2p_context.wsClientSocket;
             } else {
-                writeToLog(-1,  'onerror ws - disconnect');
+                writeToLog(-1,  'onerror ws - disconnect not agent & no context');
                 disconnect(socket);
             }
 
@@ -211,13 +210,13 @@ var connect = function (socket) {
                 if (currWs.interval) {
                     clearInterval(currWs.interval);
                 }
-                if (currWs.ws_socket && currWs.ws_socket.alive_interval) {
-                    clearInterval(currWs.ws_socket.alive_interval);
-                    currWs.ws_socket.alive_interval = null;
+                if (currWs.ws_socket) {
+                    disconnect(currWs.ws_socket);
                 }
                 delete socket.p2p_context.wsClientSocket;
             } else {
-                writeToLog(-1,  'onclose ws - doing nothing');
+                writeToLog(-1,  'onclose ws - disconnect not agent & no context');
+                disconnect(socket);
             }
         };
 
@@ -228,11 +227,6 @@ var connect = function (socket) {
 
     return socket;
 };
-
-function reconnect(socket) {
-    disconnect(socket);
-    connect(socket);
-}
 
 function sendMessage(socket, peerId, requestId, message) {
     writeToLog(0, 'Client sending message: '+ message + ' to peer '+peerId+' for req '+requestId+' i am '+socket.idInServer+' init: '+socket.icemap[requestId].isInitiator);

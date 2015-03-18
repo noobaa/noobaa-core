@@ -302,7 +302,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             }
             return Q.fcall(function() {return sigSocket;});
         }
-    }).then(function() {
+    }).timeout(config.ws_default_timeout).then(function() {
         writeToLog(0,'send ws request to peer for request '+requestId+ ' and peer '+peerId);
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
@@ -311,7 +311,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         }
         sigSocket.action_defer[requestId] = Q.defer();
         return sigSocket.action_defer[requestId].promise;
-    }).timeout(config.ws_default_timeout).then(function(response) {
+    }).timeout(config.response_timeout).then(function(response) {
         writeToLog(0,'return response data '+require('util').inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {
@@ -374,7 +374,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         requestId = generateRequestId();
         writeToLog(0,'starting to initiate ice to '+peerId+' request '+requestId);
         return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
-    }).then(function(newSocket) {
+    }).timeout(config.connection_default_timeout, 'connection timeout').then(function(newSocket) {
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};
@@ -401,7 +401,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
 
         return msgObj.action_defer.promise;
-    }).timeout(config.connection_default_timeout).then(function() {
+    }).timeout(config.response_timeout, 'response timeout').then(function() {
 
         msgObj = iceSocket.msgs[requestId];
 

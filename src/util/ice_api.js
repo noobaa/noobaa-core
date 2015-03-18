@@ -85,7 +85,7 @@ function onIceMessage(p2p_context, channel, event) {
         try {
             var bff = buf.toBuffer(event.data);
             req = (bff.readInt32LE(0)).toString();
-            var part = bff.readInt32LE(32);
+            var part = bff.readInt32LE(4);
 
             if (ice.isRequestEnded(p2p_context, req, channel)) {
                 writeToLog(0,'got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');

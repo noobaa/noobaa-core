@@ -132,13 +132,13 @@ function allocate_object_parts(bucket, obj, parts) {
                             break;
                         }
                     }
-                    //Chunk health is ok, we can mark it as dedup
                     if (merged_status) {
-                        dbg.log3('chunk ', dup_chunk , 'is dupped and available');
+                        //Chunk health is ok, we can mark it as dedup
+                        dbg.log3('chunk ', dup_chunk, 'is dupped and available');
                         reply.parts[i].dedup = true;
-                    //Chunk is not healthy, create a new fragment on it
                     } else {
-                        dbg.log3('chunk ', dup_chunk , 'is dupped but unavailable, allocating new blocks for it');
+                        //Chunk is not healthy, create a new fragment on it
+                        dbg.log3('chunk ', dup_chunk, 'is dupped but unavailable, allocating new blocks for it');
                         dupped_chunks.push(chunk);
                     }
                 } else {

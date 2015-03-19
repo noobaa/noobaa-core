@@ -232,6 +232,7 @@ function finalize_object_parts(bucket, obj, parts) {
             });
 
             if (block_ids.length) {
+                dbg.log0("finalize_object_parts unset block building mode ",block_ids);
                 return db.DataBlock
                     .update({
                         _id: {
@@ -665,6 +666,7 @@ function build_chunks(chunks) {
                     }
 
                     // update building blocks to remove the building mode timestamp
+                    dbg.log0("build_chunks unset block building mode ",built_block_ids);
                     return db.DataBlock.update({
                         _id: {
                             $in: built_block_ids

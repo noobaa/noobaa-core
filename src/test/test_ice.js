@@ -9,13 +9,16 @@ var ice_api = require('../util/ice_api');
 var assert = require("assert");
 var ice_lib = require('../util/ice_lib');
 var sinon     = require('sinon');
+var dbg = require('noobaa-util/debug_module')(__filename);
+var config = require('../../config.js');
+dbg.set_level(config.dbg_log_level);
 
 describe('create buffer to send', function() {
 
     it('create test', function() {
 
         var block = new Buffer('stam','utf-8');
-        var res = ice_api.createBufferToSend(block, 2, '45344');
+        var res = ice_lib.createBufferToSend(block, 2, '45344');
 
         var bff = buf.toBuffer(res);
         var req = (bff.readInt32LE(0)).toString();
@@ -38,28 +41,36 @@ describe('write buffer to socket', function() {
 
         var block = new Buffer('stam','utf-8');
 
-        var channel = new Buffer(0);
+        var channel = {};
+        channel.buffer = new Buffer(0);
         channel.offset = 0;
+        channel.bufferedAmount = 0;
         channel.send = function(data) {
-            var bff = buf.toBuffer(data);
-            channel = Buffer.concat([channel, bff]);
+            var bff = buf.chunkToBuffer(data);
+            var old = buf.chunkToBuffer(channel.buffer);
+            channel.buffer = Buffer.concat([old, bff]);
         };
 
+        Q.fcall(function() {
         ice_api.writeBufferToSocket(channel, block, '45344');
+        }).then(function() {
 
-        var req = (channel.readInt32LE(0)).toString();
-        var part = channel.readInt32LE(4);
+            var myResultBuffer = buf.chunkToBuffer(channel.buffer);
 
-        assert.equal(req, '45344');
-        assert.equal(part, 0);
+            var req = (myResultBuffer.readInt32LE(0)).toString();
+            var part = myResultBuffer.readInt32LE(4);
 
-        var afterBuf = channel.slice(64, channel.length);
-        var strVal = afterBuf.toString();
-        assert.equal(strVal, 'stam');
+            assert.equal(req, '45344');
+            assert.equal(part, 0);
 
+            var afterBuf = myResultBuffer.slice(64, channel.length);
+            var strVal = afterBuf.toString();
+            assert.equal(strVal, 'stam');
+        });
     });
 
 });
+
 
 describe('on ice message', function() {
 
@@ -129,21 +140,20 @@ describe('on ice message', function() {
 
         ice_api.onIceMessage(null, channel, event);
 
-        var blockEvent = ice_api.createBufferToSend(block, 0, requestId);
+        var blockEvent = ice_lib.createBufferToSend(block, 0, requestId);
         event = {
             data: buf.toArrayBuffer(blockEvent)
         };
 
         ice_api.onIceMessage(null, channel, event);
 
-        blockEvent = ice_api.createBufferToSend(block, 1, requestId);
+        blockEvent = ice_lib.createBufferToSend(block, 1, requestId);
         event = {
             data: buf.toArrayBuffer(blockEvent)
         };
         ice_api.onIceMessage(null, channel, event);
 
     });
-
 
 
     it('test ws', function() {
@@ -180,7 +190,7 @@ describe('on ice message', function() {
                 },
                 createOffer: function (descCB) {
                     this.offers += 1;
-                    descCB('desc');
+                    descCB({sdp:'desc'});
                 },
                 addIceCandidate: function () {
                     this.candidates += 1;
@@ -192,7 +202,7 @@ describe('on ice message', function() {
                 },
                 createAnswer: function (descCB) {
                     this.answers += 1;
-                    descCB('desc');
+                    descCB({sdp:'desc'});
                 },
                 setLocalDescription: function () {
                     this.localDesk += 1;
@@ -265,13 +275,13 @@ describe('on ice message', function() {
         assert.ok(socket.icemap[reqId].peerId === peerId,'initiateIce issue - peer id not marked');
         assert.ok(socket.icemap[reqId].isInitiator,'initiateIce issue - initiator not marked');
         assert.ok(socket.icemap[reqId].requestId === reqId,'initiateIce issue - req id not marked');
-        assert.ok(p2p_context.iceSockets[peerId].usedBy[reqId] === 1,'initiateIce issue - used by not marked');
+        //assert.ok(p2p_context.iceSockets[peerId].usedBy[reqId] === 1,'initiateIce issue - used by not marked');
 
         // get ice connection to peer - new
         peerId = '9i9i888';
         reqId = '888';
         assert(!socket.icemap[reqId], 'request used before ?');
-        ice_lib.initiateIce(p2p_context, socket, peerId, true, reqId);
+        ice_lib.initiateIce(null, socket, peerId, true, reqId);
         assert.ok(socket.ws.msgsSent[2].indexOf('sigType') >= 0,'cant find accept msg sig type');
         assert.ok(socket.ws.msgsSent[2].indexOf('accept') >= 0,'cant find accept msg type');
         assert(socket.icemap[reqId].peerConn.offers === 1, 'ice offer not called during initiateIce');
@@ -296,7 +306,7 @@ describe('on ice message', function() {
 
         // test onopen of dataChannel
         socket.icemap[reqId].dataChannel.onopen();
-        assert.ok(p2p_context.iceSockets[peerId].usedBy[reqId] === 1,'channel open issue - used by not marked');
+        //assert.ok(p2p_context.iceSockets[peerId].usedBy[reqId] === 1,'channel open issue - used by not marked');
 
         // test peer conn onicecandidate
         socket.icemap[reqId].peerConn.onicecandidate({candidate: {
@@ -316,7 +326,7 @@ describe('on ice message', function() {
         // check close
         ice_lib.closeIce(socket, reqId, socket.icemap[reqId].dataChannel);
         assert.ok(socket.icemap[reqId].done, 'close ice didnt mark req as done is: '+socket.icemap[reqId].done);
-        assert.ok(!p2p_context.iceSockets[peerId].usedBy[reqId], 'close ice didnt delete used by');
+        //assert.ok(!p2p_context.iceSockets[peerId].usedBy[reqId], 'close ice didnt delete used by');
         ice_lib.closeSignaling(socket);
 
     });
@@ -377,11 +387,11 @@ describe('on ice message', function() {
             clearInterval(socket.stale_conn_interval); socket.stale_conn_interval = null;
 
             // add socket to context
-            p2p_context.wsClientSocket = {ws_socket: socket, lastTimeUsed: new Date().getTime(), interval: {}};
+            p2p_context.wsClientSocket = {ws_socket: socket, lastTimeUsed: new Date().getTime(), interval: {}, usedBy:{}};
 
 
             assert(!socket.icemap[reqId], 'request used before ?');
-            ice_lib.initiateIce(p2p_context, socket, peerId, true, reqId);
+            ice_lib.initiateIce(null, socket, peerId, true, reqId);
             socket.icemap[reqId].dataChannel.onopen();
 
             // test send ws request
@@ -421,12 +431,12 @@ describe('on ice message', function() {
                 assert.ok(res.indexOf('200') >= 0, 'sendWSRequest failed res is: '+res);
                 clearIntervalsAndEnd();
             }).then(null, function(err) {
-                console.error('WS test ws req (sendWSRequest) threw an ex '+err);
+                console.error('WS test ws req (sendWSRequest) threw an ex '+err+' '+err.stack);
                 clearIntervalsAndEnd();
                 assert.fail();
             }).nodeify(done);
         } catch (ex) {
-            console.error('WS test ws req threw an ex: '+ex);
+            console.error('WS test ws req threw an ex: '+ex+' '+ex.stack);
             clearIntervalsAndEnd();
             assert.fail();
         }
@@ -434,7 +444,7 @@ describe('on ice message', function() {
     });
 
     it('test ice req', function(done) {
-
+        this.timeout(20000);
         var int1, int2, int3;
         var ice_lib;
         var socket;
@@ -505,7 +515,8 @@ describe('on ice message', function() {
                     },
                     msgs: {}
                 },
-                usedBy: {}
+                usedBy: {},
+                status: 'new'
             };
 
             // open mock web socket to signaling server
@@ -528,9 +539,9 @@ describe('on ice message', function() {
             int1.unref();
 
             int2 = setInterval(function() {
-                if (p2p_context.iceSockets[peerId] && p2p_context.iceSockets[peerId].usedBy &&
-                    Object.keys(p2p_context.iceSockets[peerId].usedBy).length === 1) {
-                    requestId = Object.keys(p2p_context.iceSockets[peerId].usedBy)[0];
+                if (p2p_context.iceSockets[peerId] && p2p_context.iceSockets[peerId].status &&
+                    p2p_context.iceSockets[peerId].status === 'start') {
+                    requestId = Object.keys(socket.icemap)[0];
                     socket.icemap[requestId].connect_defer.resolve(p2p_context.iceSockets[peerId].dataChannel);
                     clearInterval(int2); int2 = null;
                 }
@@ -545,7 +556,7 @@ describe('on ice message', function() {
                 assert.ok(res.status === 200, 'sendICERequest failed res is: '+res);
                 clearIntervalsAndEnd();
             }).then(null, function(err) {
-                console.error('ICE test ice req (sendICERequest) threw an ex '+err);
+                console.error('ICE test ice req (sendICERequest) threw an ex '+err+' ; '+err.stack);
                 clearIntervalsAndEnd();
                 assert.fail();
             }).nodeify(done);

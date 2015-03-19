@@ -177,6 +177,7 @@ function finalize_object_parts(bucket, obj, parts) {
             db.ObjectPart
             .find({
                 obj: obj.id,
+                deleted: null,
                 start: {
                     $in: _.map(parts, 'start')
                 }
@@ -190,7 +191,8 @@ function finalize_object_parts(bucket, obj, parts) {
                 .find({
                     _id: {
                         $in: block_ids
-                    }
+                    },
+                    deleted: null
                 })
                 .exec() : null
             )

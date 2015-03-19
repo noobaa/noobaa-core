@@ -17,7 +17,7 @@ config.ice_retry = 1;
 config.replicate_retry = 2;
 
 config.iceBufferMetaPartSize = 64;
-config.timeoutToBufferWait = 10;
+config.timeoutToBufferWait = 100;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

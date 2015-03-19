@@ -7,6 +7,7 @@ var rand = require('./random_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
+var util = require('util');
 
 function writeToLog(level, msg) {
     var timeStr = '';
@@ -242,12 +243,12 @@ function staleConnChk(p2p_context) {
 
     if (timePassed > config.connection_ws_stale &&
         Object.keys(p2p_context.wsClientSocket.usedBy).length === 0) {
-        writeToLog(0,'REMOVE stale ws connection to remove - client as '+require('util').inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
+        writeToLog(0,'REMOVE stale ws connection to remove - client as '+util.inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
         ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
         clearInterval(p2p_context.wsClientSocket.interval);
         p2p_context.wsClientSocket = null;
     } else if (timePassed > config.connection_ws_stale) {
-        writeToLog(0,'CANT REMOVE stale ws connection used by: '+require('util').inspect(p2p_context.wsClientSocket.usedBy));
+        writeToLog(0,'CANT REMOVE stale ws connection used by: '+util.inspect(p2p_context.wsClientSocket.usedBy));
     }
 }
 
@@ -315,7 +316,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         sigSocket.action_defer[requestId] = Q.defer();
         return sigSocket.action_defer[requestId].promise;
     }).timeout(config.response_timeout).then(function(response) {
-        writeToLog(0,'return response data '+require('util').inspect(response)+' for request '+requestId+ ' and peer '+peerId);
+        writeToLog(0,'return response data '+util.inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {
             ice.closeSignaling(sigSocket);
@@ -421,7 +422,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         return response;
     }).then(null, function(err) {
-        writeToLog(-1,'ice_api.sendRequest ERROR '+err+' for request '+requestId+ ' and peer '+peerId+' stack '+(err ? err.stack : 'N/A'));
+        writeToLog(-1,'ice_api.sendRequest ERROR '+err+' for request '+requestId+ ' and peer '+peerId+' stack '+(err ? err.stack : 'N/A')+' inspect '+util.inspect(err));
 
         if (iceSocket && sigSocket) {
             writeToLog(0,'close ice socket if needed for request '+requestId+ ' and peer '+peerId);

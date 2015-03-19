@@ -107,11 +107,11 @@ function allocate_object_parts(bucket, obj, parts) {
                 .then(function(queried_blocks) {
                     var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
                     _.each(blocks_by_chunk_id, function(blocks, chunk_id) {
-                        for (var key in hash_val_to_dup_chunk) {
+                        _.each(hash_val_to_dup_chunk, function(key) {
                             if (hash_val_to_dup_chunk[key]._id.toString() === chunk_id) {
                                 hash_val_to_dup_chunk[key].all_blocks = blocks;
                             }
-                        }
+                        });
                     });
                     return hash_val_to_dup_chunk;
                 });

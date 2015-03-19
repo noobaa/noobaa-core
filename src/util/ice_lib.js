@@ -440,21 +440,42 @@ module.exports.createBufferToSend = createBufferToSend;
 function writeToChannel(channel, data, requestId) {
     chkChannelState(channel, requestId);
 
+    var startTime = (new Date()).getTime();
+    var currentTime;
+    var lastTimeLogged;
+
     if (channel.bufferedAmount > 0) {
         setTimeout(function() {
-            writeToLog(2, 'bufferedAmount>0, wait for peer '+channel.peerId+' for req '+requestId);
+            currentTime = (new Date()).getTime();
+            if (currentTime - startTime > 1000 && (!lastTimeLogged || (lastTimeLogged - currentTime > 1000))) {
+                lastTimeLogged = currentTime;
+                writeToLog(2, 'bufferedAmount>0, wait for peer '+channel.peerId+' for req '+requestId+' wait so far: '+(currentTime - startTime));
+            }
             writeToChannel(channel, data, requestId);
         }, config.timeoutToBufferWait);
     } else {
+        currentTime = (new Date()).getTime();
+        if (currentTime - startTime > 10) {
+            writeToLog(2, 'bufferedAmount==0, write for peer '+channel.peerId+' for req '+requestId+' waited: '+(currentTime - startTime));
+        }
         channel.send(data);
     }
 }
 module.exports.writeToChannel = writeToChannel;
 
 function chkIceSocketSend(channel) {
+
+    var startTime = (new Date()).getTime();
+    var currentTime;
+    var lastTimeLogged;
+
     if (channel.bufferedAmount > 0) {
         setTimeout(function () {
-            writeToLog(2, 'bufferedAmount>0, wait for peer ' + channel.peerId);
+            currentTime = (new Date()).getTime();
+            if ((currentTime - startTime) > 1000 && (!lastTimeLogged || (lastTimeLogged - currentTime > 1000))) {
+                lastTimeLogged = currentTime;
+                writeToLog(2, 'bufferedAmount>0, wait for peer ' + channel.peerId+' wait so far: '+(currentTime - startTime));
+            }
             chkIceSocketSend(channel);
         }, config.timeoutToBufferWait);
     }

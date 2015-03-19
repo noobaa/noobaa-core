@@ -318,7 +318,7 @@ ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
                 part: part,
                 fragment: fragment_index,
                 offset: part.start + (fragment_index * block_size),
-                block_address: block.address,
+                block: block,
                 buffer: buffer_per_fragment[fragment_index],
                 remaining_attempts: 20,
             });
@@ -338,7 +338,7 @@ ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
 ObjectClient.prototype._attempt_write_block = function(params) {
     var self = this;
     dbg.log3('write block _attempt_write_block', params);
-    return self._write_block(params.block_address, params.buffer, params.offset)
+    return self._write_block(params.block.address, params.buffer, params.offset)
         .then(null, function(err) {
             if (params.remaining_attempts <= 0) {
                 throw new Error('EXHAUSTED WRITE BLOCK', size_utils.human_offset(params.offset));
@@ -346,7 +346,7 @@ ObjectClient.prototype._attempt_write_block = function(params) {
             params.remaining_attempts -= 1;
             var bad_block_params =
                 _.extend(_.pick(params, 'bucket', 'key', 'start', 'end', 'fragment'), {
-                    block_id: params.block_address.id,
+                    block_id: params.block.address.id,
                     is_write: true
                 });
             dbg.log0('write block remaining attempts',
@@ -354,7 +354,9 @@ ObjectClient.prototype._attempt_write_block = function(params) {
             return self.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
-                    params.block_address = res.new_block;
+                    // update the block itself in the part so
+                    // that finalize will see this update as well.
+                    params.block.address = res.new_block;
                     return self._attempt_write_block(params);
                 });
         });

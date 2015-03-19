@@ -421,7 +421,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         return response;
     }).then(null, function(err) {
-        writeToLog(-1,'ice_api.sendRequest ERROR '+err+' for request '+requestId+ ' and peer '+peerId+' stack '+err.stack);
+        writeToLog(-1,'ice_api.sendRequest ERROR '+err+' for request '+requestId+ ' and peer '+peerId+' stack '+(err ? err.stack : 'N/A'));
 
         if (iceSocket && sigSocket) {
             writeToLog(0,'close ice socket if needed for request '+requestId+ ' and peer '+peerId);

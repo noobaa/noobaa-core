@@ -222,6 +222,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 }
                 dbg.log3('going to finalize block ', block);
                 if (!block.building) {
+                    dbg.log0("ERROR block not in building mode ", block);
                     throw new Error('block not in building mode');
                 }
                 var chunk = chunk_by_id[block.chunk];

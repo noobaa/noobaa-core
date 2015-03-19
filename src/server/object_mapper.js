@@ -230,28 +230,28 @@ function finalize_object_parts(bucket, obj, parts) {
                     throw new Error('missing block chunk');
                 }
             });
+
+            if (block_ids.length) {
+                return db.DataBlock
+                    .update({
+                        _id: {
+                            $in: block_ids
+                        }
+                    }, {
+                        $unset: {
+                            building: 1
+                        }
+                    }, {
+                        multi: true
+                    })
+                    .exec();
+            }
         })
         .then(function() {
             var retries = 0;
 
             function call_build_chunk() {
                 return Q.fcall(function() {
-                    if (block_ids.length) {
-                        return db.DataBlock
-                            .update({
-                                _id: {
-                                    $in: block_ids
-                                }
-                            }, {
-                                $unset: {
-                                    building: 1
-                                }
-                            }, {
-                                multi: true
-                            })
-                            .exec();
-                    }
-                }).then(function() {
                     return build_chunks(chunks);
                 }).then(function(res) {
                     return res;

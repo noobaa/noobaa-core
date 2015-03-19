@@ -169,7 +169,7 @@ function allocate_object_parts(bucket, obj, parts) {
  */
 function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.map(parts, 'block_ids'));
-    dbg.log3('finalize_object_parts', block_ids);
+    dbg.log0('finalize_object_parts', parts);
     var chunks;
     return Q.all([
 

@@ -249,7 +249,6 @@ function delete_object(req) {
                 deleted: new Date()
             }).exec();
         })
-        .then(db.check_not_found(req, 'object'))
         .then(function() {
             return object_mapper.delete_object_mappings(deleted_object);
         })

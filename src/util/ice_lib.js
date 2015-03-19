@@ -229,7 +229,8 @@ var connect = function (socket) {
 };
 
 function sendMessage(socket, peerId, requestId, message) {
-    writeToLog(0, 'Client sending message: '+ message + ' to peer '+peerId+' for req '+requestId+' i am '+socket.idInServer+' init: '+socket.icemap[requestId].isInitiator);
+    writeToLog(0, 'Client sending message: '+ message + ' to peer '+peerId+' for req '+requestId+' i am '+socket.idInServer
+            +' init: '+(socket.icemap[requestId] ? socket.icemap[requestId].isInitiator : 'N/A'));
 
     var toSend = {
         sigType: 'ice',
@@ -441,7 +442,7 @@ function writeToChannel(channel, data, requestId) {
 
     if (channel.bufferedAmount > 0) {
         setTimeout(function() {
-            writeToLog(3, 'bufferedAmount>0, wait for peer '+channel.peerId+' for req '+requestId);
+            writeToLog(2, 'bufferedAmount>0, wait for peer '+channel.peerId+' for req '+requestId);
             writeToChannel(channel, data, requestId);
         }, config.timeoutToBufferWait);
     } else {
@@ -453,7 +454,7 @@ module.exports.writeToChannel = writeToChannel;
 function chkIceSocketSend(channel) {
     if (channel.bufferedAmount > 0) {
         setTimeout(function () {
-            writeToLog(3, 'bufferedAmount>0, wait for peer ' + channel.peerId);
+            writeToLog(2, 'bufferedAmount>0, wait for peer ' + channel.peerId);
             chkIceSocketSend(channel);
         }, config.timeoutToBufferWait);
     }

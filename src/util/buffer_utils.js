@@ -1,6 +1,6 @@
 var exports = module.exports = {};
 
-var toArrayBuffer = function toArrayBuffer(buffer) {
+function toArrayBuffer(buffer) {
 
     if (buffer instanceof ArrayBuffer) {
         return buffer;
@@ -15,7 +15,7 @@ var toArrayBuffer = function toArrayBuffer(buffer) {
 };
 exports.toArrayBuffer = toArrayBuffer;
 
-var toBuffer = function toBuffer(ab) {
+function toBuffer(ab) {
     var buffer = new Buffer(ab.byteLength);
     var view = new Uint8Array(ab);
     for (var i = 0; i < buffer.length; ++i) {
@@ -37,8 +37,9 @@ function chunkToBuffer(chunk) {
     }
     return buffer;
 }
+exports.chunkToBuffer = chunkToBuffer;
 
-var addToBuffer = function addToBuffer(chunk1, chunk2) {
+function addToBuffer(chunk1, chunk2) {
     var buffer1 = chunkToBuffer(chunk1);
     var buffer2 = chunkToBuffer(chunk2);
 
@@ -47,12 +48,12 @@ var addToBuffer = function addToBuffer(chunk1, chunk2) {
 };
 exports.addToBuffer = addToBuffer;
 
-var isAbv = function isAbv(value) {
+function isAbv(value) {
     return value && value.buffer instanceof ArrayBuffer && value.byteLength !== undefined;
 };
 exports.isAbv = isAbv;
 
-var toArrayBufferView = function toArrayBufferView(buffer) {
+function toArrayBufferView(buffer) {
     var arrBuffer = toArrayBuffer(buffer);
     return new DataView(arrBuffer);
 };

@@ -169,6 +169,9 @@ function writeBufferToSocket(channel, block, reqId) {
     var sequence = 0;
     var begin = 0;
     var end = config.chunk_size;
+
+    block = buf.toArrayBuffer(block);
+
     if (end > block.byteLength) {
         end = block.byteLength;
     }
@@ -176,7 +179,7 @@ function writeBufferToSocket(channel, block, reqId) {
     // define the loop func
     function send_next() {
 
-        writeToLog(3,'send_next req '+reqId+' chunks '+sequence+' begin '+begin+' end '+end);
+        writeToLog(2,'send_next req '+reqId+' chunks '+sequence+' begin '+begin+' end '+end);
 
         // end recursion when done sending the entire buffer
         if (begin === end) {
@@ -197,7 +200,7 @@ function writeBufferToSocket(channel, block, reqId) {
 
         // send and recurse
         ice.chkChannelState(channel, reqId);
-        writeToLog(3,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
+        writeToLog(2,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
         return Q.fcall(function() {
             ice.writeToChannel(channel, chunk, reqId);
         })

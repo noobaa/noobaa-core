@@ -19,20 +19,13 @@ var config = require('../../config.js');
 
 dbg.set_level(config.dbg_log_level);
 
-function writeToLog(level, msg) {
-    var timeStr = '';
-    if (level === 0) {
-        dbg.log0(timeStr + ' ' + msg);
-    } else if (level === 1) {
-        dbg.log1(timeStr + ' ' + msg);
-    } else if (level === 2) {
-        dbg.log2(timeStr + ' ' + msg);
-    } else if (level === 3) {
-        dbg.log3(timeStr + ' ' + msg);
-    } else {
-        timeStr = (new Date()).toString();
-        dbg.log0(timeStr + ' ERROR ' + msg);
-    }
+// TODO temporary impl for dbg.error until we add it to debug_module
+if (!dbg.error) {
+    dbg.error = function() {
+        var args = _.toArray(arguments);
+        args.shift('ERROR:');
+        dbg.log0.apply(dbg, args);
+    };
 }
 
 
@@ -228,7 +221,7 @@ function rest_api(api) {
                 this.ice_router = express.Router();
                 this.install_rest(this.ice_router);
             } catch (ex) {
-                writeToLog(-1,'do express ice router ex ' + ex);
+                dbg.error('ice_server_handler exception', ex);
             }
         }
 
@@ -246,7 +239,7 @@ function rest_api(api) {
             try {
                 reqId = (buf.toBuffer(message.slice(0, 32)).readInt32LE(0)).toString();
             } catch (ex) {
-                writeToLog(-1,'problem reading req id rest_api ' + ex);
+                dbg.error('problem reading req id rest_api ' + ex);
             }
             var msgObj = channel.msgs[reqId];
             body = msgObj.buffer;
@@ -258,7 +251,7 @@ function rest_api(api) {
             reqId = msg.req || msg.requestId;
             dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
         } else {
-            writeToLog(-1,'ice got weird msg ' + util.inspect(message));
+            dbg.error('ice got weird msg', message);
         }
 
         if (msg.sigType) {
@@ -274,8 +267,10 @@ function rest_api(api) {
         try {
             reqBody = decode_response(reqMsg.headers, reqBody);
         } catch (ex) {
-            writeToLog(-1,'problem decoding body ' + ex);
+            dbg.error('problem decoding body', ex);
+            // TODO error handling
         }
+
         var url = URL.parse('http://127.0.0.1' + reqMsg.path, true);
         var req = {
             method: reqMsg.method,
@@ -329,7 +324,7 @@ function rest_api(api) {
                     }
 
                 } catch (ex) {
-                    writeToLog(-1,'ERROR sending ice response ' + ex + ' req ' + reqId);
+                    dbg.error('failed sending ice response for request', reqId, ex);
                 }
 
             },
@@ -348,7 +343,7 @@ function rest_api(api) {
         };
 
         this.ice_router.handle(req, res, function(err) {
-            writeToLog(-1,'SHOULD NOT BE HERE done status: ' + status + " reply: " + replyJSON + " replyBuffer: " + replyBuffer + ' if err ' + err + ' req ' + reqId);
+            dbg.error('SHOULD NOT BE HERE done status: ' + status + " reply: " + replyJSON + " replyBuffer: " + replyBuffer + ' if err ' + err + ' req ' + reqId);
         });
 
     };
@@ -401,7 +396,7 @@ function rest_api(api) {
                 };
 
                 router.handle(req, res, function(err) {
-                    writeToLog(-1,'local router failed', err);
+                    dbg.error('local router failed', err);
                 });
             });
         }
@@ -475,7 +470,7 @@ function rest_api(api) {
                     if (req._rest_error_data) {
                         throw new Error('rethrow_rest_error');
                     }
-                    writeToLog(0,'SERVER COMPLETED', func_info.name);
+                    dbg.log0('SERVER COMPLETED', func_info.name);
                     if (func_info.reply_raw) {
                         return res.status(200).send(reply);
                     } else {
@@ -484,10 +479,10 @@ function rest_api(api) {
                     }
                 })
                 .then(null, function(err) {
-                    writeToLog(-1,'SERVER ERROR', func_info.name,
+                    dbg.error('SERVER ERROR', func_info.name,
                         ':', req._rest_error_status, req._rest_error_data,
                         '-', req._rest_error_reason);
-                    writeToLog(-1,err.stack || err);
+                    dbg.error(err.stack || err);
                     var status = req._rest_error_status || err.status || err.statusCode;
                     if (typeof status !== 'number' || status < 100 || status >= 600) {
                         status = 500;
@@ -501,7 +496,7 @@ function rest_api(api) {
                     }
                 })
                 .done(null, function(err) {
-                    writeToLog(-1,'SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
+                    dbg.error('SERVER ERROR WHILE SENDING ERROR', func_info.name, ':', err, err.stack);
                     return next(err);
                 });
         };
@@ -541,7 +536,7 @@ function rest_api(api) {
         return Q.fcall(function() {
             return self._peer_request(func_info, params);
         }).then(null, function(err) {
-            writeToLog(-1,'REST REQUEST FAILED ' + require('util').inspect(err));
+            dbg.error('REST REQUEST FAILED', err);
             throw err;
         });
     };
@@ -642,7 +637,7 @@ function rest_api(api) {
 
         } else if (config.use_ws_when_possible && self.options.is_ws && self.options.peer) {
 
-            writeToLog(0, 'do ws for path ' + options.path);
+            dbg.log0('do ws for path', options.path);
 
             var peerId = self.options.peer;
 
@@ -656,7 +651,7 @@ function rest_api(api) {
                 dbg.log0(self.options, 'res is: ' + require('util').inspect(res));
 
                 if (res && res.status && res.status === 500) {
-                    writeToLog(0, 'failed ' + options.path + ' in ws for peer '+peerId);
+                    dbg.log0('failed ' + options.path + ' in ws for peer ' + peerId);
                     throw new Error(res);
                 } else {
                     if (!func_info.reply_raw) {
@@ -666,12 +661,12 @@ function rest_api(api) {
                     return res.data;
                 }
             }).then(null, function(err) {
-                writeToLog(-1, 'WS REST REQUEST FAILED peer '+peerId+', err: ' + require('util').inspect(err));
+                dbg.error('WS REST REQUEST FAILED peer ' + peerId + ', err: ' + require('util').inspect(err));
                 throw err;
             });
 
         } else if (config.use_ice_when_possible && self.options.peer && (!self.options.ws_socket || self.options.peer !== self.options.ws_socket.idInServer)) { // do ice
-            writeToLog(0, 'do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path ' + options.path);
+            dbg.log0('do ice ' + (self.options.ws_socket && self.options.ws_socket.isAgent ? self.options.ws_socket.idInServer : "not agent") + ' for path ' + options.path);
             return Q.fcall(function() {
                 var peerId = self.options.peer;
 
@@ -686,13 +681,13 @@ function rest_api(api) {
             }).then(function(res) {
                 return res;
             }, function(err) {
-                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err+' for peer '+self.options.peer);
+                dbg.error('ICE REST REQUEST FAILED ' + err + ' for peer ' + self.options.peer);
                 throw err;
                 //return self._doHttpCall(func_info, options, body);
             });
         } else { // do http
 
-            writeToLog(2, 'Do Http Call to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
+            dbg.log2('Do Http Call to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
 
             if (config.use_ice_when_possible && self.options.peer) {
                 dbg.log0(options, 'do http to self req ' + options.path);
@@ -701,7 +696,7 @@ function rest_api(api) {
 
             return self._doHttpCall(func_info, options, body);
         }
-        writeToLog(-1,'YaEL SHOULD NOT REACH HERE ' + require('util').inspect(options));
+        dbg.error('YaEL SHOULD NOT REACH HERE ' + require('util').inspect(options));
     };
 
     Client.prototype._sendWSRequestWithRetry = function sendWSRequestWithRetry(self_options, peerId, options, retry) {
@@ -715,10 +710,10 @@ function rest_api(api) {
                 return err;
             } else if (retry < config.ice_retry) {
                 ++retry;
-                writeToLog(-1, 'WS REST REQUEST FAILED ' + err + ' retry ' + retry+' for peer '+peerId);
+                dbg.error('WS REST REQUEST FAILED ' + err + ' retry ' + retry + ' for peer ' + peerId);
                 return self._sendWSRequestWithRetry(self_options, peerId, options, retry);
             } else {
-                throw new Error('WS REST REQUEST FAILED ' + err+' for peer '+peerId);
+                throw new Error('WS REST REQUEST FAILED ' + err + ' for peer ' + peerId);
             }
         });
     };
@@ -733,17 +728,17 @@ function rest_api(api) {
             if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
                 ++retry;
                 ice_api.forceCloseIce(self_options.p2p_context, peerId);
-                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err + ' retry ' + retry+' for peer '+peerId);
+                dbg.error('ICE REST REQUEST FAILED ' + err + ' retry ' + retry + ' for peer ' + peerId);
                 return self._doICECallWithRetry(self_options, peerId, options, buffer, func_info, retry);
             } else {
-                throw new Error('ICE REST REQUEST FAILED ' + err+' for peer '+peerId);
+                throw new Error('ICE REST REQUEST FAILED ' + err + ' for peer ' + peerId);
             }
 
         });
     };
 
     Client.prototype._doICECall = function doICECall(self_options, peerId, options, buffer, func_info) {
-        writeToLog(3, 'do ice req ' + require('util').inspect(options));
+        dbg.log3('do ice req ' + require('util').inspect(options));
 
         return Q.fcall(function() {
                 return ice_api.sendRequest(self_options.p2p_context, self_options.ws_socket, peerId, options, null, buffer, self_options.timeout);
@@ -751,8 +746,8 @@ function rest_api(api) {
             .then(function(res) {
                 dbg.log0(self_options, 'res is: ' + require('util').inspect(res));
                 if (res && res.status && res.status === 500) {
-                    writeToLog(0, 'failed ' + options.path + ' in ice, got 500');
-                    throw new Error('Do retry with http - ice failure 500 for peer '+peerId);
+                    dbg.log0('failed ' + options.path + ' in ice, got 500');
+                    throw new Error('Do retry with http - ice failure 500 for peer ' + peerId);
                 } else {
 
                     if (!func_info.reply_raw) {
@@ -763,14 +758,14 @@ function rest_api(api) {
                 }
             })
             .then(null, function(err) {
-                writeToLog(-1, 'ICE REST REQUEST FAILED ' + err+' for peer '+peerId);
+                dbg.error('ICE REST REQUEST FAILED ' + err + ' for peer ' + peerId);
                 throw new Error('ice failure ex ' + err);
             });
     };
 
     Client.prototype._doHttpCall = function doHttpCall(func_info, options, body) {
         var self = this;
-        writeToLog(2, 'do http req to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
+        dbg.log2('do http req to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
 
         if (options.body) {
             delete options.body;
@@ -783,7 +778,7 @@ function rest_api(api) {
                 return self._handle_http_reply(func_info, res);
             })
             .then(null, function(err) {
-                writeToLog(-1, 'HTTP REST REQUEST FAILED ' + require('util').inspect(err) +
+                dbg.error('HTTP REST REQUEST FAILED ' + require('util').inspect(err) +
                     ' to ' + options.hostname + ':' + options.port + ' for ' + options.method + ' ' + options.path);
                 throw err;
             });
@@ -809,11 +804,11 @@ function rest_api(api) {
             if (req.setTimeout) {
                 try {
                     req.setTimeout(options.timeout, function() {
-                        writeToLog(-1,'REQUEST TIMEOUT');
+                        dbg.error('REQUEST TIMEOUT', options.timeout);
                         req.abort();
                     });
                 } catch (ex) {
-                    writeToLog(-1,"prob with set request timeout " + ex);
+                    dbg.error("prob with set request timeout " + ex);
                 }
             } else {
                 // TODO browserify doesn't implement req.setTimeout...

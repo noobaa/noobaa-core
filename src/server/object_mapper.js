@@ -106,7 +106,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 //Associate all the blocks with their (dup_)chunks
                 .then(function(queried_blocks) {
                     var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
-                    _.each(hash_val_to_dup_chunk, function(hash_val, chunk) {
+                    _.each(hash_val_to_dup_chunk, function(chunk, hash_val) {
                         chunk.all_blocks = blocks_by_chunk_id[chunk._id];
                     });
                     return hash_val_to_dup_chunk;
@@ -125,11 +125,11 @@ function allocate_object_parts(bucket, obj, parts) {
 
                     if (dup_chunk_status.chunk_health !== 'unavailable') {
                         //Chunk health is ok, we can mark it as dedup
-                        dbg.log3('chunk ', dup_chunk, 'is dupped and available');
+                        dbg.log3('chunk is dupped and available', dup_chunk);
                         reply.parts[i].dedup = true;
                     } else {
                         //Chunk is not healthy, create a new fragment on it
-                        dbg.log2('chunk ', dup_chunk, 'is dupped but unavailable, allocating new blocks for it');
+                        dbg.log2('chunk is dupped but unavailable, allocating new blocks for it', dup_chunk);
                         dupped_chunks.push(chunk);
                     }
                 } else {
@@ -274,7 +274,7 @@ function finalize_object_parts(bucket, obj, parts) {
             });
 
             if (block_ids.length) {
-                dbg.log0("finalize_object_parts unset block building mode ",block_ids);
+                dbg.log0("finalize_object_parts unset block building mode ", block_ids);
                 return db.DataBlock
                     .update({
                         _id: {
@@ -708,7 +708,7 @@ function build_chunks(chunks) {
                     }
 
                     // update building blocks to remove the building mode timestamp
-                    dbg.log0("build_chunks unset block building mode ",built_block_ids);
+                    dbg.log0("build_chunks unset block building mode ", built_block_ids);
                     return db.DataBlock.update({
                         _id: {
                             $in: built_block_ids
@@ -909,7 +909,6 @@ function analyze_chunk_status(chunk, all_blocks) {
             fragment.good_blocks.length : 0;
 
         if (!num_accessible_blocks) {
-            dbg.log0("  NB:: marking chunk health unavailable due to frag", fragment);
             fragment.health = 'unavailable';
             chunk_health = 'unavailable';
         }
@@ -953,7 +952,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         fragment.health = fragment.health || 'healthy';
-        
+
         return fragment;
     });
 

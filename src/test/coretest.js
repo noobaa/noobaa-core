@@ -6,13 +6,13 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var path = require('path');
-var utilitest = require('noobaa-util/utilitest');
 var rimraf = require('rimraf');
 var mongoose = require('mongoose');
 var Semaphore = require('noobaa-util/semaphore');
 var api = require('../api');
 var db = require('../server/db');
 var Agent = require('../agent/agent');
+var config = require('../../config.js');
 
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
@@ -27,36 +27,33 @@ var account_credentials = {
     password: 'coretest',
 };
 
-var auth_server = require('../server/auth_server');
-var account_server = require('../server/account_server');
-var system_server = require('../server/system_server');
-var tier_server = require('../server/tier_server');
-var node_server = require('../server/node_server');
-var bucket_server = require('../server/bucket_server');
-var object_server = require('../server/object_server');
-var config = require('../../config.js');
-
 var client = new api.Client();
+
+// register api servers
+require('../server/api_servers');
+
+_.each(mongoose.modelNames(), function(model_name) {
+    mongoose.model(model_name).schema.set('autoIndex', false);
+});
+
+var utilitest = require('noobaa-util/utilitest');
+
 
 before(function(done) {
     Q.fcall(function() {
+        // after dropDatabase() we need to recreate the indexes
+        // otherwise we get "MongoError: ns doesn't exist"
+        // see https://github.com/LearnBoost/mongoose/issues/2671
+        // TODO move this to utilitest
+        return Q.all(_.map(mongoose.modelNames(), function(model_name) {
+            return Q.npost(mongoose.model(model_name), 'ensureIndexes');
+        }));
+    }).then(function() {
 
         // use http only for test
         config.use_ws_when_possible = false;
         config.use_ice_when_possible = false;
-
-
-        utilitest.router.use(auth_server.authorize());
-        auth_server.install_rest(utilitest.router);
-        account_server.install_rest(utilitest.router);
-        system_server.install_rest(utilitest.router);
-        tier_server.install_rest(utilitest.router);
-        node_server.install_rest(utilitest.router);
-        bucket_server.install_rest(utilitest.router);
-        object_server.install_rest(utilitest.router);
-
-        // setting the port globally for all the clients while testing
-        api.rest_api.global_client_options.port = utilitest.http_port();
+        client.options.port = utilitest.http_port();
 
         var account_params = _.clone(account_credentials);
         account_params.name = 'coretest';
@@ -67,13 +64,7 @@ before(function(done) {
 });
 
 after(function() {
-    auth_server.disable_rest();
-    account_server.disable_rest();
-    system_server.disable_rest();
-    tier_server.disable_rest();
-    node_server.disable_rest();
-    bucket_server.disable_rest();
-    object_server.disable_rest();
+    // place for cleanups
 });
 
 
@@ -99,7 +90,7 @@ function init_test_nodes(count, system, tier, storage_alloc) {
                 return sem.surround(function() {
                     var agent = new Agent({
                         address: 'http://localhost:' + utilitest.http_port(),
-                        node_name: '' + Date.now(),
+                        node_name: 'node' + i + '_' + Date.now(),
                         // passing token instead of storage_path to use memory storage
                         token: create_node_token,
                         use_http_server: true,
@@ -146,14 +137,11 @@ function clear_test_nodes() {
 
 
 module.exports = {
-    utilitest: utilitest,
-    router: utilitest.router,
-    http_port: utilitest.http_port, // function
     account_credentials: account_credentials,
-
     client: client,
+
     new_client: function() {
-        return new api.Client(client);
+        return new api.Client(client.options);
     },
 
     init_test_nodes: init_test_nodes,

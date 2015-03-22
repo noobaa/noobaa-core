@@ -7,6 +7,7 @@ var assert = require('assert');
 var jwt = require('jsonwebtoken');
 var db = require('./db');
 var api = require('../api');
+var api_servers = require('../server/api_servers');
 var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
@@ -223,7 +224,10 @@ function finalize_object_parts(bucket, obj, parts) {
                 dbg.log3('going to finalize block ', block);
                 if (!block.building) {
                     dbg.log0("ERROR block not in building mode ", block);
-                    throw new Error('block not in building mode');
+                    // for reentrancy we avoid failing if the building mode
+                    //  was already unset, and just go ahead with calling build_chunks
+                    // which will handle it all.
+                    // throw new Error('block not in building mode');
                 }
                 var chunk = chunk_by_id[block.chunk];
                 if (!chunk) {
@@ -232,7 +236,7 @@ function finalize_object_parts(bucket, obj, parts) {
             });
 
             if (block_ids.length) {
-                dbg.log0("finalize_object_parts unset block building mode ",block_ids);
+                dbg.log0("finalize_object_parts unset block building mode ", block_ids);
                 return db.DataBlock
                     .update({
                         _id: {
@@ -629,16 +633,17 @@ function build_chunks(chunks) {
                     return sem.surround(function() {
                         var block_addr = get_block_address(block);
                         var source_addr = get_block_address(block.source);
-                        var agent = new api.agent_api.Client();
-                        agent.options.set_address(block_addr.host);
-                        agent.options.set_peer(block_addr.peer);
-                        agent.options.set_is_ws();
-                        agent.options.set_p2p_context(p2p_context);
-                        agent.options.set_timeout(30000);
 
-                        return agent.replicate_block({
+                        return api_servers.client.agent.replicate_block({
                                 block_id: block._id.toString(),
                                 source: source_addr
+                            }, {
+                                address: block_addr.host,
+                                domain: block_addr.peer,
+                                peer: block_addr.peer,
+                                is_ws: true,
+                                p2p_context: p2p_context,
+                                timeout: 30000,
                             }).then(function() {
                                 dbg.log3('replicated block', block._id);
                             }, function(err) {
@@ -666,7 +671,7 @@ function build_chunks(chunks) {
                     }
 
                     // update building blocks to remove the building mode timestamp
-                    dbg.log0("build_chunks unset block building mode ",built_block_ids);
+                    dbg.log0("build_chunks unset block building mode ", built_block_ids);
                     return db.DataBlock.update({
                         _id: {
                             $in: built_block_ids
@@ -797,7 +802,7 @@ var build_chunks_worker =
 
 
 // TODO take config of desired replicas from tier/bucket
-var OPTIMAL_REPLICAS = 2;
+var OPTIMAL_REPLICAS = 3;
 // TODO move times to config constants/env
 var LONG_GONE_THRESHOLD = 3600000;
 var SHORT_GONE_THRESHOLD = 300000;

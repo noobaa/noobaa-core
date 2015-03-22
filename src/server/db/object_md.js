@@ -64,6 +64,9 @@ var objmd_schema = new Schema({
         type: Date,
     },
 
+}, {
+    // we prefer to call ensureIndexes explicitly when needed
+    autoIndex: false
 });
 
 // the combination (bucket,key) is unique

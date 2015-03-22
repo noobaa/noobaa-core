@@ -1,16 +1,13 @@
-// this module is written for both nodejs, or for client with browserify.
 'use strict';
-
-var rest_api = require('../util/rest_api');
-
 
 /**
  *
  * COMMON API
  *
  * general defenitions used by other api's
+ *
  */
-module.exports = rest_api({
+module.exports = {
 
     name: 'common_api',
 
@@ -72,4 +69,4 @@ module.exports = rest_api({
         },
 
     }
-});
+};

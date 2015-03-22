@@ -1,16 +1,16 @@
 'use strict';
 
-var rest_api = require('../util/rest_api');
-
-
 /**
  *
  * NODE API
  *
- * most are client (currently web client) talking to the web server to work on node usually as admin
+ * most are client (currently web client) talking to the web server
+ * to work on node usually as admin.
+ *
  * the heartbeat is sent from an agent to the web server
+ *
  */
-module.exports = rest_api({
+module.exports = {
 
     name: 'node_api',
 
@@ -24,9 +24,12 @@ module.exports = rest_api({
             },
             reply: {
                 type: 'object',
-                required: ['id', 'token'],
+                required: ['id', 'peer_id', 'token'],
                 properties: {
                     id: {
+                        type: 'string'
+                    },
+                    peer_id: {
                         type: 'string'
                     },
                     token: {
@@ -389,4 +392,4 @@ module.exports = rest_api({
 
     }
 
-});
+};

@@ -137,7 +137,7 @@ describe('object', function() {
                 for (var i = 0; i < size; i++) {
                     data[i] = chance.integer(CHANCE_BYTE);
                 }
-                return client.object.upload_stream({
+                return client.object_client.upload_stream({
                     bucket: BKT,
                     key: KEY,
                     size: size,
@@ -147,7 +147,7 @@ describe('object', function() {
             }).then(function() {
                 return Q.Promise(function(resolve, reject) {
                     var buffers = [];
-                    client.object.open_read_stream({
+                    client.object_client.open_read_stream({
                         bucket: BKT,
                         key: KEY,
                         start: 0,

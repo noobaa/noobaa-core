@@ -5,8 +5,6 @@ var util = require('util');
 var stream = require('stream');
 var _ = require('lodash');
 var Q = require('q');
-var object_api = require('./object_api');
-var agent_api = require('./agent_api');
 var Semaphore = require('noobaa-util/semaphore');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
@@ -36,12 +34,15 @@ module.exports = ObjectClient;
  * the client functions usually have the signature function(params), and return a promise.
  *
  *
- * this is the client side (web currently) that sends the commands defined in object_api to the web server
+ * this is the client side (web currently) that sends the commands
+ * defined in object_api to the web server.
  *
  */
-function ObjectClient(base) {
+function ObjectClient(object_rpc_client, agent_rpc_client) {
     var self = this;
-    object_api.Client.call(self, base);
+
+    self.object_rpc_client = object_rpc_client;
+    self.agent_rpc_client = agent_rpc_client;
 
     // some constants that might be provided as options to the client one day
 
@@ -76,8 +77,6 @@ function ObjectClient(base) {
     self._init_blocks_cache();
 }
 
-// proper inheritance
-util.inherits(ObjectClient, object_api.Client);
 
 
 
@@ -96,7 +95,7 @@ ObjectClient.prototype.upload_stream = function(params) {
     var bucket_key_params = _.pick(params, 'bucket', 'key');
 
     dbg.log0('upload_stream: create multipart', params.key);
-    return self.create_multipart_upload(create_params)
+    return self.object_rpc_client.create_multipart_upload(create_params)
         .then(function() {
             var pipeline = new Pipeline(params.source_stream);
 
@@ -163,7 +162,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                     var stream = this;
                     dbg.log0('upload_stream: allocating parts', parts.length);
                     // send parts to server
-                    return self.allocate_object_parts({
+                    return self.object_rpc_client.allocate_object_parts({
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
@@ -231,7 +230,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                     var stream = this;
                     dbg.log0('upload_stream: finalize parts', parts.length);
                     // send parts to server
-                    return self.finalize_object_parts({
+                    return self.object_rpc_client.finalize_object_parts({
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
@@ -282,7 +281,7 @@ ObjectClient.prototype.upload_stream = function(params) {
         })
         .then(function() {
             dbg.log0('upload_stream: complete multipart', params.key);
-            return self.complete_multipart_upload(bucket_key_params);
+            return self.object_rpc_client.complete_multipart_upload(bucket_key_params);
         }, function(err) {
             dbg.log0('upload_stream: error write stream', params.key, err);
             throw err;
@@ -351,7 +350,7 @@ ObjectClient.prototype._attempt_write_block = function(params) {
                 });
             dbg.log0('write block remaining attempts',
                 params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
-            return self.report_bad_block(bad_block_params)
+            return self.object_rpc_client.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
                     // update the block itself in the part so
@@ -376,21 +375,21 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
 
-        var agent = new agent_api.Client();
-        agent.options.set_address(block_address.host);
-        agent.options.set_timeout(30000);
-        agent.options.set_peer(block_address.peer);
-        agent.options.set_p2p_context(self.p2p_context);
-
         dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block_address.id,
             'to', block_address.host);
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
-        return agent.write_block({
+        return self.agent_rpc_client.write_block({
             block_id: block_address.id,
             data: buffer,
+        }, {
+            address: block_address.host,
+            domain: block_address.peer,
+            peer: block_address.peer,
+            p2p_context: self.p2p_context,
+            timeout: 30000,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block_address.id,
@@ -440,7 +439,7 @@ ObjectClient.prototype._init_object_md_cache = function() {
         },
         load: function(params) {
             dbg.log1('MDCache: load', params.key, 'bucket', params.bucket);
-            return self.read_object_md(params);
+            return self.object_rpc_client.read_object_md(params);
         }
     });
 };
@@ -696,7 +695,7 @@ ObjectClient.prototype._init_object_map_cache = function() {
             map_params.end = map_params.start + self.MAP_RANGE_ALIGN;
             dbg.log1('MappingsCache: load', range_utils.human_range(params),
                 'aligned', range_utils.human_range(map_params));
-            return self.read_object_mappings(map_params);
+            return self.object_rpc_client.read_object_mappings(map_params);
         },
         make_val: function(val, params) {
             var mappings = _.clone(val);
@@ -839,18 +838,18 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
     // use semaphore to surround the IO
     return self._block_read_sem.surround(function() {
 
-        var agent = new agent_api.Client();
-        agent.options.set_address(block_address.host);
-        agent.options.set_timeout(30000);
-        agent.options.set_peer(block_address.peer);
-        agent.options.set_p2p_context(self.p2p_context);
-
         dbg.log1('read_block', size_utils.human_offset(offset),
             size_utils.human_size(block_size), block_address.id,
             'from', block_address.host);
 
-        return agent.read_block({
+        return self.agent_rpc_client.read_block({
                 block_id: block_address.id
+            }, {
+                address: block_address.host,
+                domain: block_address.peer,
+                peer: block_address.peer,
+                p2p_context: self.p2p_context,
+                timeout: 30000,
             })
             .then(function(buffer) {
                 // verify the received buffer length must be full size

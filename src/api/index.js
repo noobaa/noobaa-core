@@ -2,7 +2,6 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var rest_api = require('../util/rest_api');
 var common_api = require('./common_api');
 var auth_api = require('./auth_api');
 var account_api = require('./account_api');
@@ -13,6 +12,22 @@ var bucket_api = require('./bucket_api');
 var object_api = require('./object_api');
 var ObjectClient = require('./object_client');
 var agent_api = require('./agent_api');
+var RPC = require('../rpc/rpc');
+
+
+// the api defines one global rpc instance.
+// (multiple rpc instances are used for testing).
+var rpc = new RPC();
+rpc.register_api(common_api);
+rpc.register_api(auth_api);
+rpc.register_api(account_api);
+rpc.register_api(system_api);
+rpc.register_api(tier_api);
+rpc.register_api(node_api);
+rpc.register_api(bucket_api);
+rpc.register_api(object_api);
+rpc.register_api(agent_api);
+
 
 /**
  *
@@ -21,10 +36,12 @@ var agent_api = require('./agent_api');
  */
 module.exports = {
 
+    // the api rpc instance
+    rpc: rpc,
+
     // Client is a master client (like a master key) for all apis
     Client: Client,
 
-    rest_api: rest_api,
     common_api: common_api,
     auth_api: auth_api,
     account_api: account_api,
@@ -37,6 +54,7 @@ module.exports = {
     agent_api: agent_api,
 };
 
+
 /**
  *
  * CLIENT
@@ -46,28 +64,29 @@ module.exports = {
  *
  * @param base - optional client instance to copy options and headers.
  */
-function Client(base) {
+function Client(default_options) {
     var self = this;
 
-    // using prototype dependency on base options and headers
-    rest_api.inherit_options_and_headers(self, base);
+    // use prototype inheritance to create new object but with defaults
+    self.options = _.create(default_options);
 
-    self.auth = new auth_api.Client(self);
-    self.account = new account_api.Client(self);
-    self.system = new system_api.Client(self);
-    self.tier = new tier_api.Client(self);
-    self.node = new node_api.Client(self);
-    self.agent = new agent_api.Client(self);
-    self.bucket = new bucket_api.Client(self);
-    self.object = new ObjectClient(self);
+    self.auth = rpc.create_client('auth_api', self.options);
+    self.account = rpc.create_client('account_api', self.options);
+    self.system = rpc.create_client('system_api', self.options);
+    self.tier = rpc.create_client('tier_api', self.options);
+    self.node = rpc.create_client('node_api', self.options);
+    self.agent = rpc.create_client('agent_api', self.options);
+    self.bucket = rpc.create_client('bucket_api', self.options);
+    self.object = rpc.create_client('object_api', self.options);
+    self.object_client = new ObjectClient(self.object, self.agent);
 
     /**
      * authenticate using the provided params,
-     * and save the token in headers for next calls.
+     * and save the token in options for next calls.
      */
     self.create_auth_token = function(params) {
         return self.auth.create_auth(params).then(function(res) {
-            self.headers.set_auth_token(res.token);
+            self.options.auth_token = res.token;
             return res;
         });
     };

@@ -3,7 +3,6 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var rest_api = require('../util/rest_api');
 var api = require('../api');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
@@ -12,10 +11,10 @@ var glob_to_regexp = require('glob-to-regexp');
 
 /**
  *
- * OBJECT SERVER (REST)
+ * OBJECT_SERVER
  *
  */
-module.exports = new api.object_api.Server({
+var object_server = {
 
     // object upload
     create_multipart_upload: create_multipart_upload,
@@ -33,7 +32,9 @@ module.exports = new api.object_api.Server({
     update_object_md: update_object_md,
     delete_object: delete_object,
     list_objects: list_objects,
-});
+};
+
+module.exports = object_server;
 
 
 

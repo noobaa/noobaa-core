@@ -81,7 +81,7 @@ function define_transformer(params) {
                 .done(function(data) {
                     callback(null, data);
                 }, function(err) {
-                    console.log('transformer error', self, err);
+                    console.log('transformer error', err);
                     self.transformer_error(err);
                 });
         };
@@ -96,7 +96,7 @@ function define_transformer(params) {
                 .done(function() {
                     callback();
                 }, function(err) {
-                    console.log('transformer flush error', self, err);
+                    console.log('transformer flush error', err);
                     self.transformer_error(err);
                 });
         };

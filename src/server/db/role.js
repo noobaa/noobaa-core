@@ -34,6 +34,9 @@ var role_schema = new Schema({
         required: true,
     },
 
+}, {
+    // we prefer to call ensureIndexes explicitly when needed
+    autoIndex: false
 });
 
 role_schema.index({

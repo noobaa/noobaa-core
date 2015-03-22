@@ -55,6 +55,9 @@ var activity_log_schema = new Schema({
         type: types.ObjectId,
     },
 
+}, {
+    // we prefer to call ensureIndexes explicitly when needed
+    autoIndex: false
 });
 
 activity_log_schema.index({

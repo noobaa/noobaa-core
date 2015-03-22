@@ -6,7 +6,6 @@ var Q = require('q');
 var assert = require('assert');
 var moment = require('moment');
 var LRU = require('noobaa-util/lru');
-var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var db = require('./db');
 var api = require('../api');
@@ -16,10 +15,10 @@ var bucket_server = require('./bucket_server');
 
 /**
  *
- * SYSTEM SERVER (REST)
+ * SYSTEM_SERVER
  *
  */
-module.exports = new api.system_api.Server({
+var system_server = {
 
     create_system: create_system,
     read_system: read_system,
@@ -32,7 +31,9 @@ module.exports = new api.system_api.Server({
     remove_role: remove_role,
 
     read_activity_log: read_activity_log
-});
+};
+
+module.exports = system_server;
 
 
 
@@ -75,7 +76,7 @@ function create_system(req) {
                 name: 'nodes',
                 kind: 'edge',
             };
-            return tier_server.methods.create_tier(tier_req);
+            return tier_server.create_tier(tier_req);
         })
         .then(function() {
             // create a new request that inherits from current req
@@ -86,7 +87,7 @@ function create_system(req) {
                 name: 'files',
                 tiering: ['nodes']
             };
-            return bucket_server.methods.create_bucket(bucket_req);
+            return bucket_server.create_bucket(bucket_req);
         })
         .then(function() {
 

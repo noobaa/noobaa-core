@@ -66,6 +66,9 @@ var data_block_schema = new Schema({
         type: Date
     },
 
+}, {
+    // we prefer to call ensureIndexes explicitly when needed
+    autoIndex: false
 });
 
 data_block_schema.index({

@@ -106,12 +106,8 @@ function allocate_object_parts(bucket, obj, parts) {
                 //Associate all the blocks with their (dup_)chunks
                 .then(function(queried_blocks) {
                     var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
-                    _.each(blocks_by_chunk_id, function(blocks, chunk_id) {
-                        _.each(hash_val_to_dup_chunk, function(key) {
-                            if (hash_val_to_dup_chunk[key]._id.toString() === chunk_id) {
-                                hash_val_to_dup_chunk[key].all_blocks = blocks;
-                            }
-                        });
+                    _.each(hash_val_to_dup_chunk, function(hash_val, chunk) {
+                        chunk.all_blocks = blocks_by_chunk_id[chunk._id];
                     });
                     return hash_val_to_dup_chunk;
                 });
@@ -125,21 +121,15 @@ function allocate_object_parts(bucket, obj, parts) {
                 if (dup_chunk) {
                     chunk = dup_chunk;
                     //Verify chunk health
-                    var merged_status = false,
-                        dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
-                    for (var f = 0; f < dup_chunk_status.fragments.length; ++f) {
-                        if (dup_chunk_status.fragments[f].health !== 'unavailable') {
-                            merged_status = true;
-                            break;
-                        }
-                    }
-                    if (merged_status) {
+                    var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
+
+                    if (dup_chunk_status.chunk_health !== 'unavailable') {
                         //Chunk health is ok, we can mark it as dedup
                         dbg.log3('chunk ', dup_chunk, 'is dupped and available');
                         reply.parts[i].dedup = true;
                     } else {
                         //Chunk is not healthy, create a new fragment on it
-                        dbg.log3('chunk ', dup_chunk, 'is dupped but unavailable, allocating new blocks for it');
+                        dbg.log2('chunk ', dup_chunk, 'is dupped but unavailable, allocating new blocks for it');
                         dupped_chunks.push(chunk);
                     }
                 } else {
@@ -848,6 +838,7 @@ function analyze_chunk_status(chunk, all_blocks) {
     var blocks_by_fragments = _.groupBy(all_blocks, 'fragment');
     var blocks_info_to_allocate;
     var blocks_to_remove;
+    var chunk_health = 'available';
 
     // TODO loop over parity fragments too
     var fragments = _.times(chunk.kfrag, function(fragment_index) {
@@ -897,7 +888,9 @@ function analyze_chunk_status(chunk, all_blocks) {
             fragment.good_blocks.length : 0;
 
         if (!num_accessible_blocks) {
+            dbg.log0("  NB:: marking chunk health unavailable due to frag", fragment);
             fragment.health = 'unavailable';
+            chunk_health = 'unavailable';
         }
 
         if (num_good_blocks > OPTIMAL_REPLICAS) {
@@ -917,7 +910,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         if (num_good_blocks < OPTIMAL_REPLICAS && num_accessible_blocks) {
-
+            dbg.log0("  NB:: marking frag health as repairing", fragment);
             fragment.health = 'repairing';
 
             // will allocate blocks for fragment to reach optimal count
@@ -939,7 +932,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         fragment.health = fragment.health || 'healthy';
-
+        
         return fragment;
     });
 
@@ -947,6 +940,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         fragments: fragments,
         blocks_info_to_allocate: blocks_info_to_allocate,
         blocks_to_remove: blocks_to_remove,
+        chunk_health: chunk_health,
     };
 }
 

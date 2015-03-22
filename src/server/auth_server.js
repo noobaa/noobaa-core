@@ -191,7 +191,9 @@ function create_auth(req) {
  *
  */
 function read_auth(req) {
-    if (!req.auth) return {};
+    if (!req.auth) {
+        return {}
+    }
 
     var reply = _.pick(req.auth, 'role', 'extra');
     if (req.account) {
@@ -218,23 +220,44 @@ function read_auth(req) {
  */
 function authorize(req, method_api) {
 
+    var defer = Q.defer();
+
+    function returnFailure(req, err, num) {
+        console.error('authorize '+num+' FAILED', req, err,err.stack);
+        throw {
+            statusCode: 401,
+            data: 'unauthorized'
+        };
+    }
+
+    function handleResult() {
+        if (method_api.auth !== false) {
+            return Q.fcall(function() {
+                return req.load_auth(method_api.auth);
+            }).then(function() {
+                defer.resolve(req);
+            }).then(null, function(err) {
+                returnFailure(req, err, 1);
+            });
+        }
+    }
+
     _prepare_auth_request(req);
 
     if (req.auth_token) {
         try {
-            req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
-        } catch (err) {
-            console.error('AUTH JWT VERIFY FAILED', req, err);
-            throw {
-                statusCode: 401,
-                data: 'unauthorized'
-            };
-        }
-    }
+            jwt.verify(req.auth_token, process.env.JWT_SECRET, {}, function(empty, auth){
+            req.auth = auth;
+            handleResult();
+            });
 
-    if (method_api.auth !== false) {
-        return req.load_auth(method_api.auth);
+        } catch (err) {
+            returnFailure(req, err, 2);
+        }
+    } else {
+        handleResult();
     }
+   return defer.promise;
 }
 
 

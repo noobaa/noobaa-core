@@ -33,6 +33,9 @@ var system_schema = new Schema({
         type: Date,
     },
 
+}, {
+    // we prefer to call ensureIndexes explicitly when needed
+    autoIndex: false
 });
 
 system_schema.index({

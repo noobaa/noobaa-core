@@ -3,23 +3,24 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var rest_api = require('../util/rest_api');
 var api = require('../api');
 var db = require('./db');
 
 
 /**
  *
- * BUCKET SERVER (REST)
+ * BUCKET_SERVER
  *
  */
-module.exports = new api.bucket_api.Server({
+var bucket_server = {
     create_bucket: create_bucket,
     read_bucket: read_bucket,
     update_bucket: update_bucket,
     delete_bucket: delete_bucket,
     list_buckets: list_buckets,
-});
+};
+
+module.exports = bucket_server;
 
 
 

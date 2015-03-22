@@ -63,8 +63,9 @@ ClientCLI.prototype.init = function() {
             });
         })
         .then(function() {
-            self.client = new api.Client();
-            self.client.options.set_address(self.params.address);
+            self.client = new api.Client({
+                address: self.params.address
+            });
 
             if (self.params.setup) {
                 var account_params = _.pick(self.params, 'email', 'password');
@@ -136,7 +137,7 @@ ClientCLI.prototype.upload = function(file_path) {
             return Q.nfcall(fs.stat, file_path);
         })
         .then(function(stats) {
-            return self.client.object.upload_stream({
+            return self.client.object_client.upload_stream({
                 bucket: self.params.bucket,
                 key: key,
                 size: stats.size,
@@ -410,18 +411,22 @@ ClientCLI.prototype.node_maps = function(node_name) {
 ClientCLI.prototype.write_block = function(ip, port, file_name) {
     var self = this;
 
-    return Q
-        .nfcall(fs.readFile, file_name)
+    if (true) {
+        console.log('=== TODO FIXME ===');
+        return;
+    }
+
+    return Q.nfcall(fs.readFile, file_name)
         .then(function(buffer) {
-            var agent = new api.agent_api.Client();
-            agent.options.set_address('http://' + ip + ':' + port);
-
+            var address = 'http://' + ip + ':' + port;
             var block_id = 'TEST-' + path.basename(file_name);
-            console.log('write_block', buffer.length, block_id, agent);
+            console.log('write_block', buffer.length, block_id, address);
 
-            return agent.write_block({
+            return self.client.agent.write_block({
                 block_id: block_id,
                 data: buffer,
+            }, {
+                address: address
             });
         })
         .then(function() {
@@ -440,16 +445,20 @@ ClientCLI.prototype.write_block = function(ip, port, file_name) {
 ClientCLI.prototype.read_block = function(ip, port, file_name) {
     var self = this;
 
-    return Q
-        .fcall(function() {
-            var agent = new api.agent_api.Client();
-            agent.options.set_address('http://' + ip + ':' + port);
+    if (true) {
+        console.log('=== TODO FIXME ===');
+        return;
+    }
 
+    return Q.fcall(function() {
+            var address = 'http://' + ip + ':' + port;
             var block_id = 'TEST-' + path.basename(file_name);
-            console.log('read_block', block_id, agent);
+            console.log('read_block', block_id, address);
 
-            return agent.read_block({
+            return self.client.agent.read_block({
                 block_id: block_id,
+            }, {
+                address: address
             });
         })
         .then(function(buffer) {

@@ -1,16 +1,13 @@
-// this module is written for both nodejs, or for client with browserify.
 'use strict';
-
-var rest_api = require('../util/rest_api');
-
 
 /**
  *
  * AGENT API
  *
  * commands that are sent to an agent (read/write/replicate)
+ *
  */
-module.exports = rest_api({
+module.exports = {
 
     name: 'agent_api',
 
@@ -160,4 +157,4 @@ module.exports = rest_api({
 
     }
 
-});
+};

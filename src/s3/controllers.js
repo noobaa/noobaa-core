@@ -37,8 +37,10 @@ process.on('uncaughtException', function(err) {
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
 
-    var client = new api.Client();
-    client.options.set_address(params.address);
+    var client = new api.Client({
+        address: params.address
+    });
+
     Q.fcall(function() {
         var auth_params = _.pick(params,
             'email', 'password', 'system', 'role');
@@ -66,7 +68,7 @@ module.exports = function(params) {
             key: from_object
         };
         var create_params = {};
-        return client.object.get_object_md(object_path)
+        return client.object_client.get_object_md(object_path)
             .then(function(md) {
                 dbg.log0('md', md);
                 //check if folder
@@ -220,7 +222,7 @@ module.exports = function(params) {
           //var buffer = require('../util/buffer_utils').chunkToBuffer(req);
          //console.error('after chunk:'+Buffer.isBuffer(md5_calc));
 
-            return client.object.upload_stream({
+            return client.object_client.upload_stream({
                 bucket: params.bucket,
                 key: file_key_name,
                 size: parseInt(req.headers['content-length']),
@@ -313,7 +315,7 @@ module.exports = function(params) {
                                         modifiedDate: date,
                                         md5: 100,
                                         size: 0
-                                    })
+                                    });
                                 });
                             }
                             template = templateBuilder.buildBucketVersionQuery(options, objects_and_folders.objects);
@@ -373,7 +375,7 @@ module.exports = function(params) {
                         bucket: params.bucket,
                         key: keyName
                     };
-                    return client.object.get_object_md(object_path)
+                    return client.object_client.get_object_md(object_path)
                         .then(function(object_md) {
                             var create_date = new Date(object_md.create_time);
                             create_date.setMilliseconds(0);
@@ -385,7 +387,7 @@ module.exports = function(params) {
                             if (req.method === 'HEAD') {
                                 return res.end();
                             } else {
-                                var stream = client.object.open_read_stream(object_path).pipe(res);
+                                var stream = client.object_client.open_read_stream(object_path).pipe(res);
                             }
 
                         }).then(null, function(err) {
@@ -405,7 +407,7 @@ module.exports = function(params) {
                                 object_path.key = object_path.key + '/';
                             }
 
-                            return client.object.get_object_md(object_path)
+                            return client.object_client.get_object_md(object_path)
                                 .then(function(object_md) {
                                     dbg.log0('obj_md2',object_md);
                                     var create_date = new Date(object_md.create_time);
@@ -418,7 +420,7 @@ module.exports = function(params) {
                                     if (req.method === 'HEAD') {
                                         return res.end();
                                     } else {
-                                        var stream = client.object.open_read_stream(object_path).pipe(res);
+                                        var stream = client.object_client.open_read_stream(object_path).pipe(res);
                                     }
                                 }).then(null, function(err) {
                                     dbg.log0('ERROR: while download from noobaa', err);
@@ -483,10 +485,6 @@ module.exports = function(params) {
                 // } else {
                 //     file_key_name = file_key_name + '_' + serial;
                 // }
-
-                //                var client = new api.Client();
-
-                client.options.set_address(params.address);
 
                 Q.fcall(function() {
                     var auth_params = _.pick(params,

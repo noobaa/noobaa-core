@@ -1,16 +1,13 @@
-// this module is written for both nodejs, or for client with browserify.
 'use strict';
-
-var rest_api = require('../util/rest_api');
-
 
 /**
  *
  * BUCKET API
  *
  * client (currently web client) talking to the web server to work on bucket
+ *
  */
-module.exports = rest_api({
+module.exports = {
 
     name: 'bucket_api',
 
@@ -155,4 +152,4 @@ module.exports = rest_api({
 
     },
 
-});
+};

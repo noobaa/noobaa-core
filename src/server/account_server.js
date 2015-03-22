@@ -6,7 +6,6 @@ var Q = require('q');
 var assert = require('assert');
 var moment = require('moment');
 var LRU = require('noobaa-util/lru');
-var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var db = require('./db');
 var api = require('../api');
@@ -15,17 +14,18 @@ var system_server = require('./system_server');
 
 /**
  *
- * ACCOUNT SERVER (REST)
+ * ACCOUNT_SERVER
  *
  */
-module.exports = new api.account_api.Server({
+var account_server = {
     create_account: create_account,
     read_account: read_account,
     update_account: update_account,
     delete_account: delete_account,
     list_accounts: list_accounts,
-});
+};
 
+module.exports = account_server;
 
 
 
@@ -54,7 +54,7 @@ function create_account(req) {
             system_req.rest_params = {
                 name: account.name
             };
-            return system_server.methods.create_system(system_req);
+            return system_server.create_system(system_req);
         })
         .then(function() {
             // a token for the new account

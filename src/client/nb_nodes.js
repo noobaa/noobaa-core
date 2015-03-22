@@ -137,52 +137,65 @@ nb_api.factory('nbNodes', [
         }
 
         function self_test(node, options) {
+            var had_error = false;
+            $scope.self_test_results = [];
+
+            function test_to_node(target_node_test) {
+                var target_node = target_node_test.node;
+                console.log('SELF TEST', node.name, 'to', target_node.name);
+                var node_host = 'http://' + node.host + ':' + node.port;
+                var target_host = 'http://' + target_node.host + ':' + target_node.port;
+
+                var timestamp = Date.now();
+                return nbClient.client.agent.self_test_peer({
+                        target: {
+                            id: target_node.id,
+                            host: target_host,
+                            peer: target_node.peer_id
+                        },
+                        request_length: 100 * 1024,
+                        response_length: 100 * 1024,
+                    }, {
+                        address: node_host,
+                        domain: node.peer_id,
+                        peer: node.peer_id,
+                        p2p_context: nbClient.client.p2p_context,
+                        retries: 5,
+                    })
+                    .then(function() {
+                        target_node_test.done = true;
+                        target_node_test.elapsed = Date.now() - timestamp;
+                        console.log('SELF TEST TOOK', target_node_test.elapsed / 1000, 'sec');
+                    }, function(err) {
+                        target_node_test.error = err;
+                        console.error('SELF TEST FAILED', err);
+                        throw err;
+                    });
+            }
+
             return list_nodes({
-                    limit: 10
+                    limit: 30
                 })
                 .then(function(nodes) {
-                    $scope.self_test = [];
                     return _.reduce(nodes, function(promise, target_node) {
                         var target_node_test = {
                             node: target_node
                         };
-                        $scope.self_test.push(target_node_test);
-
+                        $scope.self_test_results.push(target_node_test);
                         return promise.then(function() {
-                            console.log('SELF TEST', node.name, 'to', target_node.name);
-                            var node_host = 'http://' + node.host + ':' + node.port;
-                            var target_host = 'http://' + target_node.host + ':' + target_node.port;
-
-                            var timestamp = Date.now();
-                            return nbClient.client.agent.self_test_peer({
-                                    target: {
-                                        id: target_node.id,
-                                        host: target_host,
-                                        peer: target_node.peer_id
-                                    },
-                                    request_length: 100 * 1024,
-                                    response_length: 100 * 1024,
-                                }, {
-                                    address: node_host,
-                                    domain: node.peer_id,
-                                    peer: node.peer_id,
-                                    p2p_context: nbClient.client.p2p_context,
-                                })
-                                .then(function() {
-                                    target_node_test.done = true;
-                                    target_node_test.elapsed = Date.now() - timestamp;
-                                    console.log('SELF TEST TOOK', target_node_test.elapsed / 1000, 'sec');
-                                }, function(err) {
-                                    target_node_test.error = err;
-                                    console.error('SELF TEST FAILED', err);
-                                    throw err;
-                                });
-                        });
+                                return test_to_node(target_node_test);
+                            })
+                            .then(null, function(err) {
+                                // mark and swallow errors to run next tests
+                                had_error = true;
+                            });
                     }, $q.when());
                 })
                 .then(function() {
+                    if (had_error) throw new Error('had_error');
                     nbAlertify.log('Self test completed :)');
-                }, function(err) {
+                })
+                .then(null, function(err) {
                     nbAlertify.error('Self test failed :(');
                 });
         }

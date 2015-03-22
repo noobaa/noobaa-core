@@ -42,11 +42,19 @@ function request(rpc, api, method_api, params, options) {
             buffer,
             options.timeout)
         .then(function(res) {
-            if (res && res.status && res.status === 500) {
-                dbg.log0('RPC ICE FAILED', message.path, 'peer', options.peer);
-                throw new Error('RPC ICE FAILED ' + message.path);
+            if (res && res.status !== 200) {
+                dbg.log0('RPC ICE FAILED', message.path, 'peer', options.peer, 'status', res.status);
+                var err = new Error('RPC ICE FAILED ' + message.path + ' status ' + res.status);
+                err.statusCode = res.status;
+                throw err;
             }
             return res.data;
+        }, function(err) {
+            dbg.log0('RPC ICE EXCEPTION', message.path, err);
+            // close the channel to try and recover
+            // TODO is this really the right thing to do?
+            ice_api.forceCloseIce(options.p2p_context, options.peer);
+            throw err;
         });
 
 }
@@ -73,11 +81,16 @@ function request_ws(rpc, api, method_api, params, options) {
             message,
             options.timeout)
         .then(function(res) {
-            if (res && res.status && res.status === 500) {
-                dbg.log0('RPC WS FAILED', message.path, 'peer', options.peer);
-                throw new Error('RPC WS FAILED ' + message.path);
+            if (res && res.status !== 200) {
+                dbg.log0('RPC WS FAILED', message.path, 'peer', options.peer, 'status', res.status);
+                var err = new Error('RPC WS FAILED ' + message.path + ' status ' + res.status);
+                err.statusCode = res.status;
+                throw err;
             }
             return res.data;
+        }, function(err) {
+            dbg.log0('RPC WS EXCEPTION', message.path, err);
+            throw err;
         });
 }
 
@@ -104,7 +117,7 @@ function serve(rpc, peer_id) {
         return Q.fcall(function() {
 
                 // TODO YAEL - explain these cases. better simplify them.
-                
+
                 if (typeof message === 'string' || message instanceof String) {
                     msg = JSON.parse(message);
                     reqId = msg.req || msg.requestId;

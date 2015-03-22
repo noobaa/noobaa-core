@@ -266,7 +266,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
         '/' + api.name +
         '/' + method_api.name +
         '/' + options.domain;
-    dbg.log0('RPC request', srv_name);
+    dbg.log0('RPC REQUEST', srv_name);
 
     // if the service is registered locally,
     // dispatch to simple function call
@@ -313,18 +313,24 @@ RPC.prototype._request = function(api, method_api, params, options) {
     // and attempts below number of retries
     function send_request() {
         attempts += 1;
-        dbg.log1('RPC attempt', attempts, srv_name);
+        dbg.log1('RPC ATTEMPT', attempts, srv_name);
         return transport(self, api, method_api, params, options)
             .then(null, function(err) {
+                // error with statusCode means we got the reply from the server
+                // so there is no point to retry
+                if (err.statusCode) {
+                    dbg.log0('RPC REQUEST FAILED', err);
+                    throw err;
+                }
                 if (timed_out) {
-                    dbg.log0('RPC request timeout', attempts, srv_name);
+                    dbg.log0('RPC REQUEST TIMEOUT', attempts, srv_name);
                     throw err;
                 }
                 if (attempts >= retries) {
-                    dbg.log0('RPC retries exhausted', attempts, srv_name);
+                    dbg.log0('RPC RETRIES EXHAUSTED', attempts, srv_name);
                     throw err;
                 }
-                return send_request();
+                return Q.delay(100).then(send_request);
             });
     }
 

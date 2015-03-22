@@ -434,7 +434,6 @@ function read_parts_mappings(params) {
 }
 
 
-
 /**
  *
  * delete_object_mappings
@@ -442,6 +441,8 @@ function read_parts_mappings(params) {
  */
 function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
+    var deleted_parts;
+    var all_chunk_ids;
     return Q.when(db.ObjectPart
             .find({
                 obj: obj.id,
@@ -450,10 +451,48 @@ function delete_object_mappings(obj) {
             .populate('chunks.chunk')
             .exec())
         .then(function(parts) {
-            var chunks = _.pluck(_.flatten(_.map(parts, 'chunks')), 'chunk');
-            var chunk_ids = _.pluck(chunks, 'id');
+            deleted_parts = parts;
+            //Mark parts as deleted
+            var in_object_parts = {
+                _id: {
+                    $in: _.pluck(parts, '_id')
+                }
+            };
+            var deleted_update = {
+                deleted: new Date()
+            };
+            var multi_opt = {
+                multi: true
+            };
+            return db.ObjectPart.update(in_object_parts, deleted_update, multi_opt).exec();
+        })
+        .then(function() {
+            var chunks = _.pluck(_.flatten(
+                    _.map(deleted_parts, 'chunks')),
+                'chunk');
+            all_chunk_ids = _.pluck(chunks, '_id');
+            //For every chunk, verify if its no longer referenced
+            return db.ObjectPart
+                .find({
+                    'chunks.chunk': {
+                        $in: all_chunk_ids
+                    },
+                    deleted: null,
+                })
+                .exec();
+        })
+        .then(function(referring_parts) {
+            //Seperate non referred chunks
+            var referred_chunks_ids = _.pluck(_.flatten(
+                    _.map(referring_parts, 'chunks')),
+                'chunk');
+            var non_referred_chunks_ids = db.obj_ids_difference(
+                all_chunk_ids, referred_chunks_ids);
+            dbg.log4("all object's chunk ids are", all_chunk_ids,
+                "non referenced chunk ids are", non_referred_chunks_ids);
+            //Update non reffered chunks and their blocks as deleted
             var in_chunk_ids = {
-                $in: chunk_ids
+                $in: non_referred_chunks_ids
             };
             var chunk_query = {
                 _id: in_chunk_ids

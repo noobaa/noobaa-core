@@ -49,13 +49,13 @@ var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
  *
  */
 function allocate_object_parts(bucket, obj, parts) {
-
     if (!bucket.tiering || bucket.tiering.length !== 1) {
         throw new Error('only single tier supported per bucket/chunk');
     }
     var tier_id = bucket.tiering[0].tier;
 
     var new_chunks = [];
+    var dupped_chunks = [];
     var new_parts = [];
 
     var reply = {
@@ -86,6 +86,33 @@ function allocate_object_parts(bucket, obj, parts) {
             var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
                 return chunk.crypt.hash_val;
             });
+
+            //No dup chunks, no need to query their blocks
+            if (!dup_chunks) {
+                return hash_val_to_dup_chunk;
+            }
+            //Query all blocks of the found dup chunks
+            var query_chunks_ids = _.flatten(_.map(hash_val_to_dup_chunk, '_id'));
+            return Q.when(
+                    db.DataBlock
+                    .find({
+                        chunk: {
+                            $in: query_chunks_ids
+                        },
+                        deleted: null,
+                    })
+                    .populate('node')
+                    .exec())
+                //Associate all the blocks with their (dup_)chunks
+                .then(function(queried_blocks) {
+                    var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
+                    _.each(hash_val_to_dup_chunk, function(hash_val, chunk) {
+                        chunk.all_blocks = blocks_by_chunk_id[chunk._id];
+                    });
+                    return hash_val_to_dup_chunk;
+                });
+        })
+        .then(function(hash_val_to_dup_chunk) {
             _.each(parts, function(part, i) {
                 // chunk size is aligned up to be an integer multiple of kfrag*block_size
                 var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
@@ -93,7 +120,18 @@ function allocate_object_parts(bucket, obj, parts) {
                 var chunk;
                 if (dup_chunk) {
                     chunk = dup_chunk;
-                    reply.parts[i].dedup = true;
+                    //Verify chunk health
+                    var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
+
+                    if (dup_chunk_status.chunk_health !== 'unavailable') {
+                        //Chunk health is ok, we can mark it as dedup
+                        dbg.log3('chunk ', dup_chunk, 'is dupped and available');
+                        reply.parts[i].dedup = true;
+                    } else {
+                        //Chunk is not healthy, create a new fragment on it
+                        dbg.log2('chunk ', dup_chunk, 'is dupped but unavailable, allocating new blocks for it');
+                        dupped_chunks.push(chunk);
+                    }
                 } else {
                     chunk = new db.DataChunk({
                         system: obj.system,
@@ -119,7 +157,8 @@ function allocate_object_parts(bucket, obj, parts) {
             return block_allocator.allocate_blocks(
                 obj.system,
                 tier_id,
-                _.map(new_chunks, function(chunk) {
+                //Allocate both for the new chunks, and the unavailable dupped chunks
+                _.map(new_chunks.concat(dupped_chunks), function(chunk) {
                     return {
                         chunk: chunk,
                         fragment: 0
@@ -711,9 +750,9 @@ function build_chunks(chunks) {
  *
  */
 var build_chunks_worker =
+
     (process.env.BUILD_WORKER_DISABLED === 'true') ||
     promise_utils.run_background_worker({
-
         name: 'build_chunks_worker',
         batch_size: 50,
         time_since_last_build: 60000, // TODO increase...
@@ -816,11 +855,11 @@ var LONG_BUILD_THRESHOLD = 300000;
  *
  */
 function analyze_chunk_status(chunk, all_blocks) {
-
     var now = Date.now();
     var blocks_by_fragments = _.groupBy(all_blocks, 'fragment');
     var blocks_info_to_allocate;
     var blocks_to_remove;
+    var chunk_health = 'available';
 
     // TODO loop over parity fragments too
     var fragments = _.times(chunk.kfrag, function(fragment_index) {
@@ -870,7 +909,9 @@ function analyze_chunk_status(chunk, all_blocks) {
             fragment.good_blocks.length : 0;
 
         if (!num_accessible_blocks) {
+            dbg.log0("  NB:: marking chunk health unavailable due to frag", fragment);
             fragment.health = 'unavailable';
+            chunk_health = 'unavailable';
         }
 
         if (num_good_blocks > OPTIMAL_REPLICAS) {
@@ -890,7 +931,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         if (num_good_blocks < OPTIMAL_REPLICAS && num_accessible_blocks) {
-
+            dbg.log0("  NB:: marking frag health as repairing", fragment);
             fragment.health = 'repairing';
 
             // will allocate blocks for fragment to reach optimal count
@@ -912,7 +953,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         fragment.health = fragment.health || 'healthy';
-
+        
         return fragment;
     });
 
@@ -920,6 +961,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         fragments: fragments,
         blocks_info_to_allocate: blocks_info_to_allocate,
         blocks_to_remove: blocks_to_remove,
+        chunk_health: chunk_health,
     };
 }
 

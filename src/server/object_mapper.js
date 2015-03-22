@@ -969,7 +969,6 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         if (num_good_blocks < OPTIMAL_REPLICAS && num_accessible_blocks) {
-            dbg.log0("  NB:: marking frag health as repairing", fragment);
             fragment.health = 'repairing';
 
             // will allocate blocks for fragment to reach optimal count

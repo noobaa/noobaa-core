@@ -16,6 +16,7 @@ var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
  *
@@ -141,11 +142,13 @@ function is_err_exists(err) {
 function obj_ids_difference(base, values) {
     var map_base = {};
     for (var i = 0; i < base.length; ++i) {
-        map_base[base[i]] = 1;
+
+        map_base[base[i]] = base[i];
     }
-    for (i = 0; i < base.length; ++i) {
+    for (i = 0; i < values.length; ++i) {
+
         delete map_base[values[i]];
     }
 
-    return Object.keys(map_base);
+    return _.values(map_base);
 }

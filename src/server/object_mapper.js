@@ -470,15 +470,13 @@ function delete_object_mappings(obj) {
                     },
                     deleted: null,
                 })
-                .populate('chunks.chunk')
                 .exec();
         })
         .then(function(referring_parts) {
             //Seperate non referred chunks
-            var referred_chunks = _.pluck(_.flatten(
+            var referred_chunks_ids = _.pluck(_.flatten(
                     _.map(referring_parts, 'chunks')),
                 'chunk');
-            var referred_chunks_ids = _.pluck(referred_chunks, '_id');
             var non_referred_chunks_ids = db.obj_ids_difference(
                 all_chunk_ids, referred_chunks_ids);
             dbg.log4("all object's chunk ids are", all_chunk_ids,

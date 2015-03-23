@@ -193,7 +193,7 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
 
     _.each(block_ids, function(block) {
         delete_funcs.push(function() {
-            self._delete_block(block);
+            return self._delete_block(block);
         });
     });
 
@@ -251,14 +251,12 @@ AgentStore.prototype._delete_block = function(block_id) {
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;
-            dbg.log0('delete block', block_path, 'stats', file_stats);
             if (file_stats) {
-                return Q.nfcall(fs.unlink(block_path));
+                return Q.nfcall(fs.unlink, block_path);
             }
         })
         .then(function() {
-            dbg.log0("  NB:: in _delete with size of ", file_stats.size);
-            return file_stats.size;
+            return file_stats ? file_stats.size : 0;
         });
 };
 

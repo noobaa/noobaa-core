@@ -6,29 +6,29 @@ var Q = require('q');
 var assert = require('assert');
 var moment = require('moment');
 var db = require('./db');
-var rest_api = require('../util/rest_api');
 var api = require('../api');
-var express_jwt = require('express-jwt');
 var jwt = require('jsonwebtoken');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**
  *
- * AUTH SERVER (REST)
+ * AUTH_SERVER
  *
  */
-module.exports = new api.auth_api.Server({
+var auth_server = {
+
     create_auth: create_auth,
     read_auth: read_auth,
-});
 
+    /**
+     * authorize is exported to be used as an express middleware
+     * it reads and prepares the authorized info on the request (req.auth).
+     */
+    authorize: authorize
+};
 
-
-/**
- * authorize is exported to be used as an express middleware
- * it reads and prepares the authorized info on the request (req.auth).
- */
-module.exports.authorize = authorize;
+module.exports = auth_server;
 
 
 
@@ -208,42 +208,35 @@ function read_auth(req) {
 
 
 
-
 /**
  *
  * AUTHORIZE
  *
- * middleware for express to parse and verify the auth token
+ * rpc authorizer to parse and verify the auth token
  * and assign the info in req.auth.
  *
  */
-function authorize() {
+function authorize(req, method_api) {
 
-    // use jwt (json web token) to verify and decode the signed token
-    // the token is expected to be set in req.headers.authorization = 'Bearer ' + token
-    // which is a standard token authorization used by oauth2.
-    var jwt_middleware = express_jwt({
-        secret: process.env.JWT_SECRET,
-        userProperty: 'auth',
-        credentialsRequired: false,
-    });
+    _prepare_auth_request(req);
 
-    // return an express middleware
-    return function(req, res, next) {
-        _prepare_auth_request(req);
-        jwt_middleware(req, res, function(err) {
-            // if the verification of the token failed it might be because of expiration
-            // in any case return http code 401 (Unauthorized)
-            // hoping the client will do authenticate() again.
-            if (err && err.name === 'UnauthorizedError') {
-                console.log('UNAUTHORIZED ERROR JWT', err);
-                res.status(401).send('unauthorized');
-                return;
-            }
-            next(err);
-        });
-    };
+    if (req.auth_token) {
+        try {
+            req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
+        } catch (err) {
+            console.error('AUTH JWT VERIFY FAILED', req, err);
+            throw {
+                statusCode: 401,
+                data: 'unauthorized'
+            };
+        }
+    }
+
+    if (method_api.auth !== false) {
+        return req.load_auth(method_api.auth);
+    }
 }
+
 
 
 /**

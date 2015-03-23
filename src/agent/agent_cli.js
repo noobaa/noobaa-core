@@ -59,7 +59,8 @@ AgentCLI.prototype.init = function() {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
             self.params = _.defaults(self.params, agent_conf);
-        }).then(null, function(err) {
+        })
+        .then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.');
             self.params = _.defaults(self.params, {
                 root_path: './agent_storage/',
@@ -73,7 +74,7 @@ AgentCLI.prototype.init = function() {
             });
         })
         .then(function() {
-            self.client.options.set_address(self.params.address);
+            self.client.options.address = self.params.address;
 
             if (self.params.setup) {
                 dbg.log0('Setup');

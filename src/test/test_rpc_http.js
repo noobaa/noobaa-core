@@ -8,14 +8,14 @@ var assert = require('assert');
 var express = require('express');
 var request = require('request');
 var coretest = require('./coretest');
+var RPC = require('../rpc/rpc');
+var rpc_http = require('../rpc/rpc_http');
 
 
-describe.skip('rest_api', function() {
-
-    var rest_api = require('../util/rest_api');
+describe('RPC HTTP', function() {
 
     // init the test api
-    var test_api = rest_api({
+    var test_api = {
         name: 'test_api',
         definitions: {
             params_schema: {
@@ -100,7 +100,7 @@ describe.skip('rest_api', function() {
                 auth: false,
             },
         }
-    });
+    };
 
     // test data
     var PARAMS = {
@@ -119,20 +119,17 @@ describe.skip('rest_api', function() {
     var ERROR_STATUS = 473;
 
 
-    describe('define_api', function() {
+    describe('register_api', function() {
 
-        it('should detect api with collision paths', function() {
+        it('should detect api with bad method', function() {
             assert.throws(function() {
-                rest_api({
+                var rpc = new RPC();
+                rpc.register_api({
                     methods: {
                         a: {
-                            method: 'GET',
+                            method: 'POSTER',
                             path: '/'
                         },
-                        b: {
-                            method: 'GET',
-                            path: '/'
-                        }
                     }
                 });
             });
@@ -140,53 +137,49 @@ describe.skip('rest_api', function() {
 
     });
 
-    describe('Server', function() {
+    describe('register_service', function() {
 
-        it('should work on server inited properly', function() {
-            // init the server and add extra propoerty and check that it works
-            var router = new express.Router();
-            var server = new test_api.Server({}, {
-                allow_missing_methods: 'allow_missing_methods'
+        it('should work on empty server with allow_missing_methods', function() {
+            var rpc = new RPC();
+            rpc.register_api(test_api);
+            rpc.register_service({}, 'test_api', '', {
+                allow_missing_methods: true
             });
-            server.install_rest(router);
         });
 
         it('should detect missing api func', function() {
             // check that missing functions are detected
+            var rpc = new RPC();
+            rpc.register_api(test_api);
             assert.throws(function() {
-                var server = new test_api.Server();
+                rpc.register_service({}, 'test_api', '');
             }, Error);
         });
 
-        it('should be strict about allow_missing_methods', function() {
+        it('should throw on duplicate service', function() {
+            var rpc = new RPC();
+            rpc.register_api(test_api);
+            rpc.register_service({}, 'test_api', 17, {
+                allow_missing_methods: true
+            });
             assert.throws(function() {
-                var server = new test_api.Server({}, {
+                rpc.register_service({}, 'test_api', 17, {
                     allow_missing_methods: true
                 });
             }, Error);
         });
 
-
-        it('should work on mock router', function() {
-            var router = {
+        it('should work on mock server', function() {
+            var rpc = new RPC();
+            rpc.register_api(test_api);
+            var server = {
                 get: function() {},
                 put: function() {},
                 post: function() {},
                 delete: function() {},
                 use: function() {},
             };
-            var server = new test_api.Server({}, {
-                allow_missing_methods: 'allow_missing_methods'
-            });
-            server.install_rest(router, '/');
-        });
-
-        it('should work on express app', function() {
-            var app = express();
-            var server = new test_api.Server({}, {
-                allow_missing_methods: 'allow_missing_methods'
-            });
-            server.install_rest(app, '/base/route/path/');
+            rpc.register_service(server, 'test_api', '');
         });
 
     });
@@ -195,9 +188,12 @@ describe.skip('rest_api', function() {
     describe('test_api round trip', function() {
 
         // create a test for every api function
-        _.each(test_api.methods, function(func_info, func_name) {
+        _.each(test_api.methods, function(method_api, method_name) {
 
-            describe(func_name, function() {
+            var rpc = new RPC();
+            rpc.register_api(test_api);
+
+            describe(method_name, function() {
 
                 var reply_error = false;
                 var server;
@@ -208,7 +204,7 @@ describe.skip('rest_api', function() {
                     // we use a dedicated server per func so that all the other funcs
                     // of the server return error in order to detect calling confusions.
                     var methods = {};
-                    methods[func_name] = function(req) {
+                    methods[method_name] = function(req) {
                         // console.log('TEST SERVER REQUEST');
                         _.each(PARAMS, function(param, name) {
                             assert.deepEqual(param, req.rest_params[name]);
@@ -219,24 +215,15 @@ describe.skip('rest_api', function() {
                             return Q.resolve(REPLY);
                         }
                     };
-                    server = new test_api.Server(methods, {
-                        allow_missing_methods: 'allow_missing_methods'
+                    rpc.register_service(methods, 'test_api', '', {
+                        allow_missing_methods: true
                     });
-                    server.install_rest(coretest.router);
-
-                    client = new test_api.Client();
-                });
-
-                after(function() {
-                    // disable the server to bypass its routes,
-                    // this allows us to create a separate test for every function,
-                    // since the express middlewares cannot be removed.
-                    server.disable_rest();
+                    client = rpc.create_client('test_api');
                 });
 
                 it('should call and get reply', function(done) {
                     reply_error = false;
-                    client[func_name](PARAMS).then(function(res) {
+                    client[method_name](PARAMS).then(function(res) {
                         assert.deepEqual(res, REPLY);
                     }, function(err) {
                         console.log('UNEXPECTED ERROR', err, err.stack);
@@ -246,7 +233,7 @@ describe.skip('rest_api', function() {
 
                 it('should call and get error', function(done) {
                     reply_error = true;
-                    client[func_name](PARAMS).then(function(res) {
+                    client[method_name](PARAMS).then(function(res) {
                         console.log('UNEXPECTED REPLY', res);
                         throw 'UNEXPECTED REPLY';
                     }, function(err) {
@@ -255,13 +242,13 @@ describe.skip('rest_api', function() {
                     }).nodeify(done);
                 });
 
-                it('should return doc', function(done) {
+                it.skip('should return doc', function(done) {
                     var doc_url = 'http://localhost:' + coretest.http_port() +
-                        '/doc/api/test_api/' + func_name;
+                        '/doc/api/test_api/' + method_name;
                     request(doc_url, function(error, response, body) {
                         assert(!error);
                         assert.strictEqual(response.statusCode, 200);
-                        assert.strictEqual(body, test_api.methods[func_name].doc);
+                        assert.strictEqual(body, test_api.methods[method_name].doc);
                         done();
                     });
                 });

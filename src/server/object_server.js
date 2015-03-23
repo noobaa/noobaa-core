@@ -3,19 +3,18 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var rest_api = require('../util/rest_api');
 var api = require('../api');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
-
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
  *
- * OBJECT SERVER (REST)
+ * OBJECT_SERVER
  *
  */
-module.exports = new api.object_api.Server({
+var object_server = {
 
     // object upload
     create_multipart_upload: create_multipart_upload,
@@ -33,7 +32,9 @@ module.exports = new api.object_api.Server({
     update_object_md: update_object_md,
     delete_object: delete_object,
     list_objects: list_objects,
-});
+};
+
+module.exports = object_server;
 
 
 
@@ -96,6 +97,9 @@ function complete_multipart_upload(req) {
  *
  */
 function abort_multipart_upload(req) {
+    //TODO: Maybe mark the ul as aborted so we won't continue to allocate parts
+    //and only then delete. Thus not having currently allocated parts deleted,
+    //while continuing to ul resulting in a partial file
     return delete_object(req);
 }
 
@@ -232,6 +236,7 @@ function update_object_md(req) {
  *
  */
 function delete_object(req) {
+    var deleted_object;
     return load_bucket(req)
         .then(function() {
             var query = _.omit(object_md_query(req), 'deleted');
@@ -239,13 +244,14 @@ function delete_object(req) {
         })
         .then(db.check_not_found(req, 'object'))
         .then(function(obj) {
+            deleted_object = obj;
+            dbg.log4('deleting object', obj);
             return obj.update({
                 deleted: new Date()
             }).exec();
         })
-        .then(db.check_not_found(req, 'object'))
-        .then(function(obj) {
-            return object_mapper.delete_object_mappings(obj);
+        .then(function() {
+            return object_mapper.delete_object_mappings(deleted_object);
         })
         .thenResolve();
 }

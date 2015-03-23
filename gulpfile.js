@@ -108,6 +108,7 @@ var PATHS = {
 
     agent_sources: [
         'src/agent/**/*.js',
+        'src/rpc/**/*.js',
         'src/api/**/*.js',
         'src/util/**/*.js',
     ],
@@ -419,6 +420,7 @@ gulp.task('start_dev', ['install_and_serve'], function() {
         'src/agent/**/*'
     ], ['install_agent_and_serve']);
     gulp.watch([
+        'src/rpc/**/*',
         'src/api/**/*',
         'src/util/**/*',
     ], ['install_and_serve']);

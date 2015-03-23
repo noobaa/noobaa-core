@@ -17,12 +17,13 @@ var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var api = require('../api');
+var rpc_http = require('../rpc/rpc_http');
+var rpc_ice = require('../rpc/rpc_ice');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
-var ice_api = require('../util/ice_api');
 var config = require('../../config.js');
 
 module.exports = Agent;
@@ -38,9 +39,10 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
-    self.client = new api.Client();
     assert(params.address, 'missing param: address');
-    self.client.options.set_address(params.address);
+    self.client = new api.Client({
+        address: params.address
+    });
 
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
@@ -71,6 +73,17 @@ function Agent(params) {
         });
     }
 
+    var agent_server = {
+        write_block: self.write_block.bind(self),
+        read_block: self.read_block.bind(self),
+        replicate_block: self.replicate_block.bind(self),
+        delete_block: self.delete_block.bind(self),
+        check_block: self.check_block.bind(self),
+        kill_agent: self.kill_agent.bind(self),
+        self_test_io: self.self_test_io.bind(self),
+        self_test_peer: self.self_test_peer.bind(self),
+    };
+
     var app = express();
     app.use(express_morgan_logger('dev'));
     app.use(express_body_parser.json());
@@ -84,40 +97,7 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-
-    // TODO verify aithorized tokens in agent?
-    app.use(function(req, res, next) {
-        req.load_auth = function() {};
-        next();
-    });
-
-    // enable CORS for agent api
-    app.use('/api', function(req, res, next) {
-        res.header('Access-Control-Allow-Methods', 'POST, GET, PUT, DELETE, OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-        res.header('Access-Control-Allow-Origin', '*');
-        // note that browsers will not allow origin=* with credentials
-        // but anyway we allow it by the agent server.
-        res.header('Access-Control-Allow-Credentials', true);
-        if (req.method === 'OPTIONS') {
-            res.send(200);
-        } else {
-            next();
-        }
-    });
-
-    var agent_server = new api.agent_api.Server({
-        write_block: self.write_block.bind(self),
-        read_block: self.read_block.bind(self),
-        replicate_block: self.replicate_block.bind(self),
-        delete_block: self.delete_block.bind(self),
-        check_block: self.check_block.bind(self),
-        kill_agent: self.kill_agent.bind(self),
-        self_test_io: self.self_test_io.bind(self),
-        self_test_peer: self.self_test_peer.bind(self),
-    });
-    self.agent_server = agent_server;
-    agent_server.install_rest(app);
+    app.use(rpc_http.BASE_PATH, rpc_http.middleware(api.rpc));
 
     var http_server = http.createServer(app);
     http_server.on('listening', self._server_listening_handler.bind(self));
@@ -157,17 +137,18 @@ Agent.prototype.start = function() {
             return self._start_stop_http_server();
         })
         .then(function() {
+
+            // register agent_server in rpc, with domain as peer_id
+            // to match only calls to me
+            api.rpc.register_service(self.agent_server, 'agent_api', self.peer_id, {
+                authorize: function(req, method_api) {
+                    // TODO verify aithorized tokens in agent?
+                }
+            });
+
             if (config.use_ice_when_possible || config.use_ws_when_possible) {
                 dbg.log0('start ws agent id: ' + self.node_id + ' peer id: ' + self.peer_id);
-
-                // register my peer id in rpc to get local calls redirected to me directly
-                self.agent_server.install_local_rpc_for_peer(self.peer_id);
-
-                self.sigSocket = ice_api.signalingSetup(
-                    self.agent_server.ice_server_handler.bind(self.agent_server),
-                    self.peer_id);
-                self.client.options.set_ws(self.sigSocket);
-                return self.sigSocket;
+                self.ws_socket = rpc_ice.serve(api.rpc, self.peer_id);
             }
         })
         .then(function() {
@@ -214,9 +195,8 @@ Agent.prototype._init_node = function() {
             return Q.nfcall(fs.readFile, token_path);
         })
         .then(function(token) {
-
             // use the token as authorization and read the auth info
-            self.client.headers.set_auth_token(token);
+            self.client.options.auth_token = token;
             return self.client.auth.read_auth();
         })
         .then(function(res) {
@@ -243,8 +223,9 @@ Agent.prototype._init_node = function() {
                     storage_alloc: 100 * size_utils.GIGABYTE
                 }).then(function(node) {
                     self.node_id = node.id;
-                    self.client.headers.set_auth_token(node.token);
-                    dbg.log0('created node', self.node_name, 'id', node.id);
+                    self.peer_id = node.peer_id;
+                    self.client.options.auth_token = node.token;
+                    dbg.log0('created node', self.node_name, 'id', node.id, 'peer_id', self.peer_id);
                     if (self.storage_path) {
                         dbg.log0('save node token', self.node_name, 'id', node.id);
                         var token_path = path.join(self.storage_path, 'token');
@@ -475,13 +456,14 @@ Agent.prototype.replicate_block = function(req) {
     }
 
     // read from source agent
-    var agent = new api.agent_api.Client();
-    agent.options.set_address(source.host);
-    agent.options.set_peer(source.peer);
-    agent.options.set_ws(self.sigSocket);
-    agent.options.set_p2p_context(self.p2p_context);
-    return agent.read_block({
+    return self.client.agent.read_block({
             block_id: source.id
+        }, {
+            address: source.host,
+            domain: source.peer,
+            peer: source.peer,
+            ws_socket: self.ws_socket,
+            p2p_context: self.p2p_context,
         })
         .then(function(data) {
             return self.store.write_block(block_id, data);
@@ -538,14 +520,15 @@ Agent.prototype.self_test_peer = function(req) {
     }
 
     // read from target agent
-    var agent = new api.agent_api.Client();
-    agent.options.set_address(target.host);
-    agent.options.set_peer(target.peer);
-    agent.options.set_ws(self.sigSocket);
-    agent.options.set_p2p_context(self.p2p_context);
-    return agent.self_test_io({
+    return self.client.agent.self_test_io({
             data: new Buffer(req.rest_params.request_length),
             response_length: req.rest_params.response_length,
+        }, {
+            address: target.host,
+            domain: target.peer,
+            peer: target.peer,
+            ws_socket: self.ws_socket,
+            p2p_context: self.p2p_context,
         })
         .then(function(data) {
             if (data.length !== req.rest_params.response_length) {

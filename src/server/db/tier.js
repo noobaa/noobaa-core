@@ -57,6 +57,9 @@ var tier_schema = new Schema({
         type: Date,
     },
 
+}, {
+    // we prefer to call ensureIndexes explicitly when needed
+    autoIndex: false
 });
 
 tier_schema.index({

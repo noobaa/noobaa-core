@@ -16,6 +16,7 @@ var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
  *
@@ -48,6 +49,7 @@ module.exports = {
     check_not_deleted: check_not_deleted,
     check_already_exists: check_already_exists,
     is_err_exists: is_err_exists,
+    obj_ids_difference: obj_ids_difference,
 
     AccountCache: new LRUCache({
         name: 'AccountCache',
@@ -81,10 +83,10 @@ module.exports = {
         load: function(params) {
             console.log('BucketCache: load', params.name);
             return Q.when(Bucket.findOne({
-                    system: params.system,
-                    name: params.name,
-                    deleted: null,
-                }).exec());
+                system: params.system,
+                name: params.name,
+                deleted: null,
+            }).exec());
         }
     }),
 
@@ -96,10 +98,10 @@ module.exports = {
         load: function(params) {
             console.log('TierCache: load', params.name);
             return Q.when(Tier.findOne({
-                    system: params.system,
-                    name: params.name,
-                    deleted: null,
-                }).exec());
+                system: params.system,
+                name: params.name,
+                deleted: null,
+            }).exec());
         }
     }),
 };
@@ -130,4 +132,23 @@ function check_already_exists(req, entity) {
 
 function is_err_exists(err) {
     return err && err.code === 11000;
+}
+
+/*
+ *@param base - the array to subtract from
+ *@param values - array of values to subtract from base
+ *@out - return an array of string containing values in base which did no appear in values
+ */
+function obj_ids_difference(base, values) {
+    var map_base = {};
+    for (var i = 0; i < base.length; ++i) {
+
+        map_base[base[i]] = base[i];
+    }
+    for (i = 0; i < values.length; ++i) {
+
+        delete map_base[values[i]];
+    }
+
+    return _.values(map_base);
 }

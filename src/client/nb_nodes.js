@@ -153,13 +153,8 @@ nb_api.factory('nbNodes', [
                             var node_host = 'http://' + node.host + ':' + node.port;
                             var target_host = 'http://' + target_node.host + ':' + target_node.port;
 
-                            var agent = new api.agent_api.Client();
-                            agent.options.set_address(node_host);
-                            agent.options.set_peer(node.peer_id);
-                            agent.options.set_p2p_context(nbClient.client.p2p_context);
-
                             var timestamp = Date.now();
-                            return agent.self_test_peer({
+                            return nbClient.client.agent.self_test_peer({
                                     target: {
                                         id: target_node.id,
                                         host: target_host,
@@ -167,6 +162,11 @@ nb_api.factory('nbNodes', [
                                     },
                                     request_length: 100 * 1024,
                                     response_length: 100 * 1024,
+                                }, {
+                                    address: node_host,
+                                    domain: node.peer_id,
+                                    peer: node.peer_id,
+                                    p2p_context: nbClient.client.p2p_context,
                                 })
                                 .then(function() {
                                     target_node_test.done = true;

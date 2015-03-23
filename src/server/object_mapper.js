@@ -7,6 +7,7 @@ var assert = require('assert');
 var jwt = require('jsonwebtoken');
 var db = require('./db');
 var api = require('../api');
+var api_servers = require('../server/api_servers');
 var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
@@ -49,13 +50,13 @@ var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
  *
  */
 function allocate_object_parts(bucket, obj, parts) {
-
     if (!bucket.tiering || bucket.tiering.length !== 1) {
         throw new Error('only single tier supported per bucket/chunk');
     }
     var tier_id = bucket.tiering[0].tier;
 
     var new_chunks = [];
+    var dupped_chunks = [];
     var new_parts = [];
 
     var reply = {
@@ -86,6 +87,33 @@ function allocate_object_parts(bucket, obj, parts) {
             var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
                 return chunk.crypt.hash_val;
             });
+
+            //No dup chunks, no need to query their blocks
+            if (!dup_chunks) {
+                return hash_val_to_dup_chunk;
+            }
+            //Query all blocks of the found dup chunks
+            var query_chunks_ids = _.flatten(_.map(hash_val_to_dup_chunk, '_id'));
+            return Q.when(
+                    db.DataBlock
+                    .find({
+                        chunk: {
+                            $in: query_chunks_ids
+                        },
+                        deleted: null,
+                    })
+                    .populate('node')
+                    .exec())
+                //Associate all the blocks with their (dup_)chunks
+                .then(function(queried_blocks) {
+                    var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
+                    _.each(hash_val_to_dup_chunk, function(chunk, hash_val) {
+                        chunk.all_blocks = blocks_by_chunk_id[chunk._id];
+                    });
+                    return hash_val_to_dup_chunk;
+                });
+        })
+        .then(function(hash_val_to_dup_chunk) {
             _.each(parts, function(part, i) {
                 // chunk size is aligned up to be an integer multiple of kfrag*block_size
                 var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
@@ -93,7 +121,18 @@ function allocate_object_parts(bucket, obj, parts) {
                 var chunk;
                 if (dup_chunk) {
                     chunk = dup_chunk;
-                    reply.parts[i].dedup = true;
+                    //Verify chunk health
+                    var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
+
+                    if (dup_chunk_status.chunk_health !== 'unavailable') {
+                        //Chunk health is ok, we can mark it as dedup
+                        dbg.log3('chunk is dupped and available', dup_chunk);
+                        reply.parts[i].dedup = true;
+                    } else {
+                        //Chunk is not healthy, create a new fragment on it
+                        dbg.log2('chunk is dupped but unavailable, allocating new blocks for it', dup_chunk);
+                        dupped_chunks.push(chunk);
+                    }
                 } else {
                     chunk = new db.DataChunk({
                         system: obj.system,
@@ -119,7 +158,8 @@ function allocate_object_parts(bucket, obj, parts) {
             return block_allocator.allocate_blocks(
                 obj.system,
                 tier_id,
-                _.map(new_chunks, function(chunk) {
+                //Allocate both for the new chunks, and the unavailable dupped chunks
+                _.map(new_chunks.concat(dupped_chunks), function(chunk) {
                     return {
                         chunk: chunk,
                         fragment: 0
@@ -177,7 +217,6 @@ function finalize_object_parts(bucket, obj, parts) {
             db.ObjectPart
             .find({
                 obj: obj.id,
-                deleted: null,
                 start: {
                     $in: _.map(parts, 'start')
                 }
@@ -192,7 +231,6 @@ function finalize_object_parts(bucket, obj, parts) {
                     _id: {
                         $in: block_ids
                     },
-                    deleted: null
                 })
                 .exec() : null
             )
@@ -223,7 +261,10 @@ function finalize_object_parts(bucket, obj, parts) {
                 dbg.log3('going to finalize block ', block);
                 if (!block.building) {
                     dbg.log0("ERROR block not in building mode ", block);
-                    throw new Error('block not in building mode');
+                    // for reentrancy we avoid failing if the building mode
+                    //  was already unset, and just go ahead with calling build_chunks
+                    // which will handle it all.
+                    // throw new Error('block not in building mode');
                 }
                 var chunk = chunk_by_id[block.chunk];
                 if (!chunk) {
@@ -232,7 +273,7 @@ function finalize_object_parts(bucket, obj, parts) {
             });
 
             if (block_ids.length) {
-                dbg.log0("finalize_object_parts unset block building mode ",block_ids);
+                dbg.log0("finalize_object_parts unset block building mode ", block_ids);
                 return db.DataBlock
                     .update({
                         _id: {
@@ -430,7 +471,6 @@ function read_parts_mappings(params) {
 }
 
 
-
 /**
  *
  * delete_object_mappings
@@ -438,6 +478,8 @@ function read_parts_mappings(params) {
  */
 function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
+    var deleted_parts;
+    var all_chunk_ids;
     return Q.when(db.ObjectPart
             .find({
                 obj: obj.id,
@@ -446,10 +488,48 @@ function delete_object_mappings(obj) {
             .populate('chunks.chunk')
             .exec())
         .then(function(parts) {
-            var chunks = _.pluck(_.flatten(_.map(parts, 'chunks')), 'chunk');
-            var chunk_ids = _.pluck(chunks, 'id');
+            deleted_parts = parts;
+            //Mark parts as deleted
+            var in_object_parts = {
+                _id: {
+                    $in: _.pluck(parts, '_id')
+                }
+            };
+            var deleted_update = {
+                deleted: new Date()
+            };
+            var multi_opt = {
+                multi: true
+            };
+            return db.ObjectPart.update(in_object_parts, deleted_update, multi_opt).exec();
+        })
+        .then(function() {
+            var chunks = _.pluck(_.flatten(
+                    _.map(deleted_parts, 'chunks')),
+                'chunk');
+            all_chunk_ids = _.pluck(chunks, '_id');
+            //For every chunk, verify if its no longer referenced
+            return db.ObjectPart
+                .find({
+                    'chunks.chunk': {
+                        $in: all_chunk_ids
+                    },
+                    deleted: null,
+                })
+                .exec();
+        })
+        .then(function(referring_parts) {
+            //Seperate non referred chunks
+            var referred_chunks_ids = _.pluck(_.flatten(
+                    _.map(referring_parts, 'chunks')),
+                'chunk');
+            var non_referred_chunks_ids = db.obj_ids_difference(
+                all_chunk_ids, referred_chunks_ids);
+            dbg.log4("all object's chunk ids are", all_chunk_ids,
+                "non referenced chunk ids are", non_referred_chunks_ids);
+            //Update non reffered chunks and their blocks as deleted
             var in_chunk_ids = {
-                $in: chunk_ids
+                $in: non_referred_chunks_ids
             };
             var chunk_query = {
                 _id: in_chunk_ids
@@ -629,16 +709,17 @@ function build_chunks(chunks) {
                     return sem.surround(function() {
                         var block_addr = get_block_address(block);
                         var source_addr = get_block_address(block.source);
-                        var agent = new api.agent_api.Client();
-                        agent.options.set_address(block_addr.host);
-                        agent.options.set_peer(block_addr.peer);
-                        agent.options.set_is_ws();
-                        agent.options.set_p2p_context(p2p_context);
-                        agent.options.set_timeout(30000);
 
-                        return agent.replicate_block({
+                        return api_servers.client.agent.replicate_block({
                                 block_id: block._id.toString(),
                                 source: source_addr
+                            }, {
+                                address: block_addr.host,
+                                domain: block_addr.peer,
+                                peer: block_addr.peer,
+                                is_ws: true,
+                                p2p_context: p2p_context,
+                                timeout: 30000,
                             }).then(function() {
                                 dbg.log3('replicated block', block._id);
                             }, function(err) {
@@ -666,7 +747,7 @@ function build_chunks(chunks) {
                     }
 
                     // update building blocks to remove the building mode timestamp
-                    dbg.log0("build_chunks unset block building mode ",built_block_ids);
+                    dbg.log0("build_chunks unset block building mode ", built_block_ids);
                     return db.DataBlock.update({
                         _id: {
                             $in: built_block_ids
@@ -708,9 +789,9 @@ function build_chunks(chunks) {
  *
  */
 var build_chunks_worker =
+
     (process.env.BUILD_WORKER_DISABLED === 'true') ||
     promise_utils.run_background_worker({
-
         name: 'build_chunks_worker',
         batch_size: 50,
         time_since_last_build: 60000, // TODO increase...
@@ -797,7 +878,7 @@ var build_chunks_worker =
 
 
 // TODO take config of desired replicas from tier/bucket
-var OPTIMAL_REPLICAS = 2;
+var OPTIMAL_REPLICAS = 3;
 // TODO move times to config constants/env
 var LONG_GONE_THRESHOLD = 3600000;
 var SHORT_GONE_THRESHOLD = 300000;
@@ -813,11 +894,11 @@ var LONG_BUILD_THRESHOLD = 300000;
  *
  */
 function analyze_chunk_status(chunk, all_blocks) {
-
     var now = Date.now();
     var blocks_by_fragments = _.groupBy(all_blocks, 'fragment');
     var blocks_info_to_allocate;
     var blocks_to_remove;
+    var chunk_health = 'available';
 
     // TODO loop over parity fragments too
     var fragments = _.times(chunk.kfrag, function(fragment_index) {
@@ -868,6 +949,7 @@ function analyze_chunk_status(chunk, all_blocks) {
 
         if (!num_accessible_blocks) {
             fragment.health = 'unavailable';
+            chunk_health = 'unavailable';
         }
 
         if (num_good_blocks > OPTIMAL_REPLICAS) {
@@ -887,7 +969,6 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         if (num_good_blocks < OPTIMAL_REPLICAS && num_accessible_blocks) {
-
             fragment.health = 'repairing';
 
             // will allocate blocks for fragment to reach optimal count
@@ -917,6 +998,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         fragments: fragments,
         blocks_info_to_allocate: blocks_info_to_allocate,
         blocks_to_remove: blocks_to_remove,
+        chunk_health: chunk_health,
     };
 }
 

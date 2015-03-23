@@ -49,7 +49,7 @@ nb_api.factory('nbClient', [
 
         // return a new client based on mine - inherits auth token unless overriden
         function new_client() {
-            return new api.Client($scope.client);
+            return new api.Client($scope.client.options);
         }
 
         function refresh() {
@@ -68,7 +68,7 @@ nb_api.factory('nbClient', [
                 }, function(err) {
                     console.error(err);
                     // handle unauthorized response
-                    if (err.status === 401) return $timeout(login, 10);
+                    if (err.statusCode === 401) return $timeout(login, 10);
                     var q = 'Oy, there\'s a problem. Would you like to reload?';
                     return nbAlertify.confirm(q).then(logout);
                 });
@@ -76,12 +76,12 @@ nb_api.factory('nbClient', [
 
         function save_token(token) {
             win_storage.nb_token = token || '';
-            api.rest_api.global_client_headers.set_auth_token(token);
+            $scope.client.options.auth_token = token;
         }
 
         function init_token() {
             var token = win_storage.nb_token;
-            api.rest_api.global_client_headers.set_auth_token(token);
+            $scope.client.options.auth_token = token;
             if (!token) return $timeout(login, 10);
             return refresh();
         }

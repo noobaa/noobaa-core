@@ -12,15 +12,18 @@ var db = require('./db');
 
 /**
  *
- * TIER SERVER (REST)
+ * TIER_SERVER
  *
  */
-module.exports = new api.tier_api.Server({
+var tier_server = {
     create_tier: create_tier,
     read_tier: read_tier,
     update_tier: update_tier,
     delete_tier: delete_tier,
-});
+};
+
+module.exports = tier_server;
+
 
 
 

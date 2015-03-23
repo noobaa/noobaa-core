@@ -18,7 +18,7 @@ describe('account', function() {
     beforeEach(function() {
         // create my own account client on each test
         // to prevent contaminating the headers
-        client = new api.Client();
+        client = coretest.new_client();
     });
 
     describe('account full flow', function() {
@@ -39,7 +39,7 @@ describe('account', function() {
                     throw new Error('expected error: unauthorized');
                 }, function(err) {
                     assert.strictEqual(err.data, 'unauthorized');
-                    assert.strictEqual(err.status, 401);
+                    assert.strictEqual(err.statusCode, 401);
                 });
             }).then(function() {
                 return client.create_auth_token({

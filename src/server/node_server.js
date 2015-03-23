@@ -4,7 +4,6 @@
 var _ = require('lodash');
 var Q = require('q');
 var mongoose = require('mongoose');
-var rest_api = require('../util/rest_api');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var api = require('../api');
@@ -22,11 +21,10 @@ dbg.set_level(process.env.LOG_LEVEL ? parseInt(process.env.LOG_LEVEL, 10) : conf
 
 /**
  *
- * NODE SERVER (REST)
+ * NODE_SERVER
  *
  */
-module.exports = new api.node_api.Server({
-
+var node_server = {
     create_node: create_node,
     read_node: read_node,
     update_node: update_node,
@@ -37,8 +35,9 @@ module.exports = new api.node_api.Server({
     group_nodes: group_nodes,
 
     heartbeat: heartbeat,
-});
+};
 
+module.exports = node_server;
 
 
 
@@ -107,6 +106,7 @@ function create_node(req) {
 
             return {
                 id: node.id,
+                peer_id: node.peer_id,
                 token: token
             };
         });
@@ -368,8 +368,8 @@ function heartbeat(req) {
         'device_info');
 
     params.ip = params.ip ||
-        req.headers['x-forwarded-for'] ||
-        req.connection.remoteAddress;
+        (req.headers && req.headers['x-forwarded-for']) ||
+        (req.connection && req.connection.remoteAddress);
     params.port = params.port || 0;
 
     params.system = req.system;

@@ -1,16 +1,14 @@
-// this module is written for both nodejs, or for client with browserify.
 'use strict';
-
-var rest_api = require('../util/rest_api');
-
 
 /**
  *
  * SYSTEM API
  *
- * client (currently web client) talking to the web server to work on system (per client group - contains nodes, tiers abd bckets etc)
+ * client (currently web client) talking to the web server to work on system
+ * (per client group - contains nodes, tiers abd bckets etc)
+ *
  */
-module.exports = rest_api({
+module.exports = {
 
     name: 'system_api',
 
@@ -88,7 +86,7 @@ module.exports = rest_api({
                         type: 'array',
                         items: {
                             $ref: '/system_api/definitions/system_info'
-                        }                        
+                        }
                     }
                 }
             },
@@ -342,4 +340,4 @@ module.exports = rest_api({
 
 
     }
-});
+};

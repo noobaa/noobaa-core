@@ -37,13 +37,8 @@ var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
-var auth_server = require('./auth_server');
-var account_server = require('./account_server');
-var system_server = require('./system_server');
-var tier_server = require('./tier_server');
-var node_server = require('./node_server');
-var bucket_server = require('./bucket_server');
-var object_server = require('./object_server');
+var rpc_http = require('../rpc/rpc_http');
+var api = require('../api');
 
 
 if (!process.env.PORT) {
@@ -57,11 +52,20 @@ var debug_mode = (process.env.DEBUG_MODE === 'true');
 
 
 // connect to the database
+mongoose.set('debug', debug_mode);
+mongoose.connection.on('error', function(err) {
+    console.error('mongoose connection error:', err);
+});
+mongoose.connection.once('open', function() {
+    // call ensureIndexes explicitly for each model
+    return Q.all(_.map(mongoose.modelNames(), function(model_name) {
+        return Q.npost(mongoose.model(model_name), 'ensureIndexes');
+    }));
+});
 mongoose.connect(
     process.env.MONGOHQ_URL ||
     process.env.MONGOLAB_URI ||
     'mongodb://localhost/nbcore');
-mongoose.set('debug', debug_mode);
 
 // create express app
 var app = express();
@@ -118,7 +122,6 @@ app.use(express_cookie_session({
     maxage: 356 * 24 * 60 * 60 * 1000 // 1 year
 }));
 app.use(express_compress());
-app.use(auth_server.authorize());
 
 ////////////
 // ROUTES //
@@ -126,17 +129,10 @@ app.use(auth_server.authorize());
 // using router before static files is optimized
 // since we have less routes then files, and the routes are in memory.
 
-// setup apis
-
-var api_router = express.Router();
-auth_server.install_rest(api_router);
-account_server.install_rest(api_router);
-system_server.install_rest(api_router);
-tier_server.install_rest(api_router);
-node_server.install_rest(api_router);
-bucket_server.install_rest(api_router);
-object_server.install_rest(api_router);
-app.use(api_router);
+// register RPC servers
+require('./api_servers');
+// setup rpc http route
+app.use(rpc_http.BASE_PATH, rpc_http.middleware(api.rpc));
 
 
 // agent package json
@@ -215,13 +211,13 @@ app.use(function(err, req, res, next) {
         // show internal info only on development
         e = err;
     } else {
-        e = _.pick(err, 'status', 'message', 'reload');
+        e = _.pick(err, 'statusCode', 'message', 'reload');
     }
-    e.status = err.status || res.statusCode;
-    if (e.status < 400) {
-        e.status = 500;
+    e.statusCode = err.statusCode || res.statusCode;
+    if (e.statusCode < 400) {
+        e.statusCode = 500;
     }
-    res.status(e.status);
+    res.status(e.statusCode);
 
     if (can_accept_html(req)) {
         var ctx = { //common_api.common_server_data(req);

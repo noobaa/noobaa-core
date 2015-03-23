@@ -719,7 +719,7 @@ function build_chunks(chunks) {
                                 peer: block_addr.peer,
                                 is_ws: true,
                                 p2p_context: p2p_context,
-                                timeout: 30000,
+                                timeout: config.server_replicate_timeout,
                             }).then(function() {
                                 dbg.log3('replicated block', block._id);
                             }, function(err) {

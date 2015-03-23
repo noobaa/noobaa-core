@@ -25,6 +25,7 @@ var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
+var diskspace = require('diskspace');
 
 module.exports = Agent;
 
@@ -317,11 +318,43 @@ Agent.prototype.send_heartbeat = function() {
     var self = this;
     var store_stats;
     var device_info_send_time;
+    var now_time;
+    var drive = '/';
+    var totalSpace;
+    var freeSpace;
+    var hourlyHB = false;
+
+    // chk if windows
+    if (os.type().match(/win/i) && !os.type().match(/darwin/i)) {
+        drive ='c';
+    }
+
     dbg.log0('send heartbeat by agent', self.node_id);
 
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
+            now_time = Date.now();
+
+            if (!self.device_info_send_time ||
+                now_time > self.device_info_send_time + 3600000) {
+                hourlyHB = true;
+
+                var deferred = Q.defer();
+                diskspace.check(drive, function(err, total, free, status) {
+                    if (status && status.trim() === 'READY') {
+                        freeSpace = free;
+                        totalSpace = total;
+                    } else {
+                        dbg.log0('AGENT problem getting FS space, status: '+status+' and error: '+err);
+                    }
+                    deferred.resolve();
+                });
+                return deferred.promise;
+            }
+        })
+        .then(function() {
+
             var ip = ifconfig.get_main_external_ipv4();
             var params = {
                 id: self.node_id,
@@ -329,13 +362,12 @@ Agent.prototype.send_heartbeat = function() {
                 ip: ip,
                 port: self.http_port || 0,
                 storage: {
-                    alloc: store_stats.alloc,
+                    alloc: (freeSpace ? Math.min(store_stats.alloc, freeSpace) : store_stats.alloc),
                     used: store_stats.used
                 }
             };
-            var now_time = Date.now();
-            if (!self.device_info_send_time ||
-                now_time > self.device_info_send_time + 3600000) {
+
+            if (hourlyHB) {
                 device_info_send_time = now_time;
                 params.device_info = {
                     hostname: os.hostname(),
@@ -345,12 +377,15 @@ Agent.prototype.send_heartbeat = function() {
                     release: os.release(),
                     uptime: os.uptime(),
                     loadavg: os.loadavg(),
-                    totalmem: os.totalmem(),
-                    freemem: os.freemem(),
+                    totalmem: (totalSpace ? totalSpace : os.totalmem()),
+                    freemem: (freeSpace ? freeSpace : os.freemem()),
                     cpus: os.cpus(),
                     networkInterfaces: os.networkInterfaces()
                 };
             }
+
+            dbg.log3('AGENT HB params: ',params);
+
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {
@@ -383,7 +418,7 @@ Agent.prototype.send_heartbeat = function() {
 
         }, function(err) {
 
-            console.error('HEARTBEAT FAILED', err);
+            dbg.log0('HEARTBEAT FAILED', err, err.stack);
 
             // schedule delay to retry on error
             self.heartbeat_delay_ms = 30000 * (1 + Math.random());

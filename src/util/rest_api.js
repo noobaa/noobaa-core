@@ -708,7 +708,7 @@ function rest_api(api) {
         }, function(err) {
             if (err && err.status && err.status === 500) {
                 return err;
-            } else if (retry < config.ice_retry) {
+            } else if (retry < config.default_rpc_retries ) {
                 ++retry;
                 dbg.error('WS REST REQUEST FAILED ' + err + ' retry ' + retry + ' for peer ' + peerId);
                 return self._sendWSRequestWithRetry(self_options, peerId, options, retry);
@@ -725,7 +725,7 @@ function rest_api(api) {
         }).then(function(res) {
             return res;
         }, function(err) {
-            if (retry < config.ice_retry && err.toString().indexOf('500') < 0) {
+            if (retry < config.default_rpc_retries && err.toString().indexOf('500') < 0) {
                 ++retry;
                 ice_api.forceCloseIce(self_options.p2p_context, peerId);
                 dbg.error('ICE REST REQUEST FAILED ' + err + ' retry ' + retry + ' for peer ' + peerId);

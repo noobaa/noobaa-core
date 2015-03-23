@@ -274,26 +274,28 @@ function staleConnChk(socket) {
     var pos;
     var timePassed;
     try {
-        for (requestId in socket.icemap) {
-            timePassed = now - socket.icemap[requestId].created.getTime();
-            writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' time passed ' +
-            timePassed+' for req '+requestId+' is done '+socket.icemap[requestId].done);
-            if (timePassed > config.connection_data_stale && socket.icemap[requestId].done) {
-                toDel.push(requestId);
+        if (socket && socket.icemap) {
+            for (requestId in socket.icemap) {
+                timePassed = now - socket.icemap[requestId].created.getTime();
+                writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' time passed ' +
+                timePassed+' for req '+requestId+' is done '+socket.icemap[requestId].done);
+                if (timePassed > config.connection_data_stale && socket.icemap[requestId].done) {
+                    toDel.push(requestId);
+                }
             }
-        }
 
-        for (pos in toDel) {
-            requestId = toDel[pos];
-            writeToLog(0, 'remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
-            delete socket.icemap[requestId];
+            for (pos in toDel) {
+                requestId = toDel[pos];
+                writeToLog(0, 'remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
+                delete socket.icemap[requestId];
+            }
         }
     } catch (ex) {
         writeToLog(-1,'Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
     }
 
     try {
-        if (socket.p2p_context && socket.p2p_context.iceSockets) {
+        if (socket && socket.p2p_context && socket.p2p_context.iceSockets) {
             now = (new Date()).getTime();
             toDel = [];
 

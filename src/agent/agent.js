@@ -339,19 +339,20 @@ Agent.prototype.send_heartbeat = function() {
             if (!self.device_info_send_time ||
                 now_time > self.device_info_send_time + 3600000) {
                 hourlyHB = true;
-
-                var deferred = Q.defer();
-                diskspace.check(drive, function(err, total, free, status) {
-                    if (status && status.trim() === 'READY') {
-                        freeSpace = free;
-                        totalSpace = total;
-                    } else {
-                        dbg.log0('AGENT problem getting FS space, status: '+status+' and error: '+err);
-                    }
-                    deferred.resolve();
-                });
-                return deferred.promise;
+                return Q.nfcall(diskspace.check, drive);
             }
+        })
+        .spread(function(total, free, status) {
+            if (hourlyHB) {
+                if (status && status.trim() === 'READY') {
+                    freeSpace = free;
+                    totalSpace = total;
+                } else {
+                    dbg.log0('AGENT problem getting FS space, status: ', status);
+                }
+            }
+        }, function(err) {
+            dbg.log0('AGENT error getting FS space, result: ',err);
         })
         .then(function() {
 
@@ -377,8 +378,10 @@ Agent.prototype.send_heartbeat = function() {
                     release: os.release(),
                     uptime: os.uptime(),
                     loadavg: os.loadavg(),
-                    totalmem: (totalSpace ? totalSpace : os.totalmem()),
-                    freemem: (freeSpace ? freeSpace : os.freemem()),
+                    totalmem: os.totalmem(),
+                    freemem: os.freemem(),
+                    totalstorage: totalSpace,
+                    freestorage: freeSpace,
                     cpus: os.cpus(),
                     networkInterfaces: os.networkInterfaces()
                 };

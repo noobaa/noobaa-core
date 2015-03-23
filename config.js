@@ -10,12 +10,6 @@ config.check_stale_conns = 60 * 1000;
 
 config.chunk_size = (16 * 1024) - 100;
 config.doStaleCheck = true;
-config.connection_default_timeout = 15 * 1000;
-config.response_timeout = 30 * 1000;
-config.ws_default_timeout = 10 * 1000;
-config.ice_retry = 1;
-config.replicate_retry = 2;
-config.ice_write_timeout = 10 * 1000;
 
 config.iceBufferMetaPartSize = 64;
 config.timeoutToBufferWait = 500;
@@ -32,6 +26,19 @@ config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;
 config.READ_RANGE_CONCURRENCY = 8;
 config.REPLICATE_CONCURRENCY = 1;
+
+config.write_timeout = 30 * 1000;
+config.read_timeout = 30 * 1000;
+config.server_replicate_timeout = 30 * 1000;
+config.client_replicate_timeout = 300 * 1000;
+config.default_rpc_timeout = 120 * 1000;
+
+config.ice_conn_timeout = 10 * 1000;
+config.response_timeout = 20 * 1000;
+config.ws_conn_timeout = 10 * 1000;
+
+config.replicate_retry = 2;
+config.default_rpc_retries = 0;
 
 config.ice_servers = {
     'iceServers': [

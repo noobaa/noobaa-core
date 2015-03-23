@@ -290,11 +290,13 @@ RPC.prototype._request = function(api, method_api, params, options) {
         method_api.params_schema,
         'CLIENT PARAMS');
 
-    var timeout = options.timeout || 120000; // a default high time
-    var retries = options.retries || 0;
+    var timeout = options.timeout || config.default_rpc_timeout; // a default high time
+    var retries = options.retries || config.default_rpc_retries;
     var attempts = 0;
     var timed_out = false;
     var transport;
+
+    dbg.log2('RPC attempt at ', method_api, timeout, retries);
 
     // choose suitable transport
     if (config.use_ws_when_possible && options.is_ws && options.peer) {

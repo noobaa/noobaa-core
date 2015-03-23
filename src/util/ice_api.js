@@ -314,7 +314,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             }
             return Q.fcall(function() {return sigSocket;});
         }
-    }).timeout(config.ws_default_timeout, 'connection ws timeout').then(function() {
+    }).timeout(config.ws_conn_timeout, 'connection ws timeout').then(function() {
         writeToLog(0,'send ws request to peer for request '+requestId+ ' and peer '+peerId);
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
@@ -386,7 +386,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         requestId = generateRequestId();
         writeToLog(0,'starting to initiate ice to '+peerId+' request '+requestId);
         return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
-    }).timeout(config.connection_default_timeout, 'connection timeout').then(function(newSocket) {
+    }).timeout(config.ice_conn_timeout, 'connection timeout').then(function(newSocket) {
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};

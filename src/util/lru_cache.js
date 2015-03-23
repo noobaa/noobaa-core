@@ -76,12 +76,7 @@ LRUCache.prototype.get = function(params, cache_miss) {
  */
 LRUCache.prototype.multi_invalidate = function(params) {
     var self = this;
-    var key;
-    var results = [];
-    _.each(params, function(p) {
-        key = self.make_key(p);
-        results.push(self.invalidate_key(key));
-    });
+    return _.map(params, function(p) { return self.invalidate(p); });
 };
 
 /**

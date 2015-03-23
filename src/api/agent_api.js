@@ -100,19 +100,30 @@ module.exports = {
             },
         },
 
-        delete_block: {
+        //NB:: turn into an array of block_ids
+        delete_blocks: {
             method: 'DELETE',
             path: '/block/:block_id',
             params: {
                 type: 'object',
-                required: ['block_id'],
+                required: ['blocks'],
                 properties: {
-                    block_id: {
-                        type: 'string',
-                    },
+                    blocks: {
+                        type: 'array',
+                        ids: {
+                            type: 'object',
+                            required: ['id'],
+                            properties: {
+                                id: {
+                                    type: 'string'
+                                }
+                            }
+                        }
+                    }
                 },
             },
         },
+
 
         self_test_io: {
             method: 'POST',

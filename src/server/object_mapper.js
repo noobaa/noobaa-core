@@ -471,6 +471,68 @@ function read_parts_mappings(params) {
 }
 
 
+/*
+ * agent_delete_call_func_builder
+ * return a function that calls the agent with the delete API
+ */
+function agent_delete_call_func_builder(node, del_blocks) {
+    return function() {
+        return Q.fcall(function() {
+            var block_addr = get_block_address(del_blocks[0]);
+            return api_servers.client.agent.delete_blocks({
+                blocks: _.map(del_blocks, function(block) {
+                    return block._id.toString();
+                })
+            }, {
+                address: block_addr.host,
+                domain: block_addr.peer,
+                peer: block_addr.peer,
+                is_ws: true,
+                p2p_context: p2p_context,
+                timeout: 30000,
+            }).then(function() {
+                dbg.log4("nodeId ", node, "deleted", del_blocks);
+            }, function(err) {
+                dbg.log0("ERROR deleting blocks", del_blocks, "from nodeId", node);
+            });
+        });
+    };
+}
+
+/*
+ * delete_objects_from_agents
+ * send delete request for the deleted DataBlocks to the agents
+ */
+function delete_objects_from_agents(deleted_chunk_ids) {
+    //Find the deleted data blocks and their nodes
+    return Q.when(db.DataBlock
+            .find({
+                chunk: {
+                    $in: deleted_chunk_ids
+                },
+                //For now, query deleted as well as this gets executed in
+                //delete_object_mappings with Q.all along with the DataBlocks
+                //deletion update
+            })
+            .populate('node')
+            .exec())
+        .then(function(deleted_blocks) {
+            //arrage blocks by nodes
+            var agent_calls = [];
+            var blocks_by_node = _.groupBy(deleted_blocks, 'node');
+            //create an array of agent delete call functions
+            _.each(blocks_by_node, function(blocks, node) {
+                agent_calls.push(agent_delete_call_func_builder(node, blocks));
+            });
+            return agent_calls;
+        })
+        .then(function(agent_calls) {
+            return Q.all(_.map(agent_calls, function(call) {
+                return call();
+            }));
+        });
+}
+
 /**
  *
  * delete_object_mappings
@@ -545,7 +607,8 @@ function delete_object_mappings(obj) {
             };
             return Q.all([
                 db.DataChunk.update(chunk_query, deleted_update, multi_opt).exec(),
-                db.DataBlock.update(block_query, deleted_update, multi_opt).exec()
+                db.DataBlock.update(block_query, deleted_update, multi_opt).exec(),
+                delete_objects_from_agents(non_referred_chunks_ids),
             ]);
         });
 }
@@ -969,7 +1032,6 @@ function analyze_chunk_status(chunk, all_blocks) {
         }
 
         if (num_good_blocks < OPTIMAL_REPLICAS && num_accessible_blocks) {
-            dbg.log0("  NB:: marking frag health as repairing", fragment);
             fragment.health = 'repairing';
 
             // will allocate blocks for fragment to reach optimal count

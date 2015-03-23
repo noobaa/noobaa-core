@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = LRUCache;
 
@@ -68,6 +69,19 @@ LRUCache.prototype.get = function(params, cache_miss) {
         .then(function(item) {
             return self.make_val(item.d, params);
         });
+};
+
+/**
+ * remove multiple keys from the cache
+ */
+LRUCache.prototype.multi_invalidate = function(params) {
+    var self = this;
+    var key;
+    var results = [];
+    _.each(params, function(p) {
+        key = self.make_key(p);
+        results.push(self.invalidate_key(key));
+    });
 };
 
 /**

@@ -207,6 +207,7 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
                     tmp_usage.size += r.value;
                     tmp_usage.count += 1;
                 } else {
+                    dbg.log0("delete block failed due to ", r.reason);
                     ret = r.reason;
                 }
             });

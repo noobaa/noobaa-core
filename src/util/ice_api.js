@@ -291,6 +291,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
                         interval = setInterval(function(){staleConnChk(p2p_context);}, config.check_stale_conns);
                         usedBy = {};
                         usedBy[requestId] = 1;
+                        sigSocket.p2p_context = p2p_context;
                         p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval, usedBy: usedBy};
                     }
                 }

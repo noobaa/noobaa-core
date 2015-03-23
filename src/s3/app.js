@@ -84,8 +84,8 @@ function s3_app(params) {
                         dbg.log0('Starting HTTP', params.port);
                         http.createServer(app.handle.bind(app))
                             .listen(params.port, function(err) {
-                                dbg.log0('HTTP listen', err);
                                 if (err) {
+                                    dbg.log0('HTTP listen', err);
                                     reject(err);
                                 } else {
                                     resolve();
@@ -101,8 +101,8 @@ function s3_app(params) {
                                 cert: certificate.certificate
                             }, app.handle.bind(app))
                             .listen(params.ssl_port, function(err) {
-                                dbg.log0('HTTPS listen', err);
                                 if (err) {
+                                    dbg.log0('HTTPS listen', err);
                                     reject(err);
                                 } else {
                                     resolve();

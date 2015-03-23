@@ -6,27 +6,13 @@ var util = require('util');
 var md5 = require('MD5');
 var crypto = require('crypto');
 var md5_stream = require('../util/md5_stream');
-// var os = require('os');
-// var http = require('http');
 var path = require('path');
-// var util = require('util');
-// var repl = require('repl');
-// var assert = require('assert');
-// var crypto = require('crypto');
-// var mkdirp = require('mkdirp');
 var SliceReader = require('../util/slice_reader');
 var mime = require('mime');
 var concat_stream = require('concat-stream');
-// var argv = require('minimist')(process.argv);
-// var Semaphore = require('noobaa-util/semaphore');
-// var size_utils = require('../util/size_utils');
-// var range_utils = require('../util/range_utils');
 var api = require('../api');
-// var client_streamer = require('./client_streamer');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var S3Object = require('./models/s3-object');
-//
-// Q.longStackSupport = true;
 
 
 process.on('uncaughtException', function(err) {
@@ -37,20 +23,47 @@ process.on('uncaughtException', function(err) {
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
 
-    var client = new api.Client({
-        address: params.address
-    });
-
+    var client ;
+    dbg.log0('bbb:',params);
+    params.bucket = 'files';
     Q.fcall(function() {
         var auth_params = _.pick(params,
             'email', 'password', 'system', 'role');
-        if (params.bucket) {
-            auth_params.extra = {
-                bucket: params.bucket
-            };
+        if (_.isEmpty(auth_params)) {
+            if (_.isEmpty(params.s3_access_key)) {
+                dbg.log0('Exiting as there is no credential information.');
+
+                throw new Error("No credentials");
+
+            } else {
+                dbg.log0('Using noobaa access key.');
+                var access_res = {
+                    res: "Access Param",
+                    token: params.s3_access_key
+                };
+                client = new api.Client({
+                    address: params.address,
+                    auth_token: params.s3_access_key,
+                    bucket: params.bucket
+                });
+                return access_res;
+            }
         }
-        dbg.log1('create auth', auth_params);
-        return client.create_auth_token(auth_params);
+        else{
+            client = new api.Client({
+                address: params.address
+            });
+            if (params.bucket) {
+                auth_params.extra = {
+                    bucket: params.bucket
+                };
+            }
+            dbg.log1('create auth', auth_params);
+            var token =  client.create_auth_token(auth_params);
+            return token;
+        }
+    }).then(function(token){
+        dbg.log0('token:',token);
 
     });
 
@@ -186,7 +199,7 @@ module.exports = function(params) {
                     objects: objects,
                     folders: folders
                 };
-//                dbg.log0('About to return objects and folders:', objects_and_folders);
+                dbg.log0('About to return objects and folders:', objects_and_folders);
                 return objects_and_folders;
             }).then(null, function(err) {
                 dbg.log0('failed to list object with prefix', err);
@@ -275,7 +288,7 @@ module.exports = function(params) {
                 name: params.bucket,
                 creationDate: date
             }];
-            dbg.log0('Fetched %d buckets', buckets.length);
+            dbg.log0('Fetched %d buckets', buckets.length,' b: ' , params.bucket);
             var template = templateBuilder.buildBuckets(buckets);
             dbg.log0('bucket response:',template);
             return buildXmlResponse(res, 200, template);
@@ -486,19 +499,19 @@ module.exports = function(params) {
                 //     file_key_name = file_key_name + '_' + serial;
                 // }
 
-                Q.fcall(function() {
-                    var auth_params = _.pick(params,
-                        'email', 'password', 'system', 'role');
-                    if (params.bucket) {
-                        auth_params.extra = {
-                            bucket: params.bucket
-                        };
-                    }
-                    dbg.log1('create auth', auth_params);
-                    return client.create_auth_token(auth_params);
-
-                }).then(function() {
-                    dbg.log0('check', params.bucket, file_key_name);
+                 Q.fcall(function() {
+                //     var auth_params = _.pick(params,
+                //         'email', 'password', 'system', 'role');
+                //     if (params.bucket) {
+                //         auth_params.extra = {
+                //             bucket: params.bucket
+                //         };
+                //     }
+                //     dbg.log1('create auth', auth_params);
+                //     return client.create_auth_token(auth_params);
+                //
+                // }).then(function() {
+                //     dbg.log0('check', params.bucket, file_key_name);
 
                     return client.object.list_objects({
                         bucket: params.bucket,

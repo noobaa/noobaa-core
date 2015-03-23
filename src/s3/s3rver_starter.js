@@ -1,14 +1,19 @@
 'use strict';
-var a=1;
-var fs = require('fs');
-var S3rver = require('./s3rver');
-var util = require('util');
-var Q = require('q');
+
 var _ = require('lodash');
+var Q = require('q');
+var fs = require('fs');
+var util = require('util');
+var S3rver = require('./s3rver');
 var dbg = require('noobaa-util/debug_module')(__filename);
+
+process.on('uncaughtException', function(err) {
+    console.log('uncaughtException', err.stack || err);
+});
 
 
 var params = {};
+
 Q.nfcall(fs.readFile, 'agent_conf.json')
     .then(function(data) {
         var agent_conf = JSON.parse(data);
@@ -16,7 +21,7 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
         params = _.defaults(params, agent_conf);
         return;
     }).then(null, function(err) {
-        dbg.log0('cannot find configuration file. Using defaults.'+err);
+        dbg.log0('cannot find configuration file. Using defaults.' + err);
         params = _.defaults(params, {
             address: 'http://localhost:5001',
             email: 'demo@noobaa.com',
@@ -26,20 +31,13 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
             bucket: 'files',
             port: 80,
             ssl_port: 443,
-            ssl_hostname: '127.0.0.1'
-
         });
         return;
-    }).then(function(){
-    var s3rver = new S3rver(params);
+    }).then(function() {
+        var s3rver = new S3rver(params);
+        return Q.fcall(s3rver.run.bind(s3rver))
+            .then(null, function(err) {
+                dbg.log0('FAILED TO START S3 SERVER', err, err.stack);
+            });
 
-    return Q.nfcall(function(){
-        s3rver
-        .run(function(err, host, port) {
-            dbg.log0('S3 is listening on host %s and port %d', host, port);
-        });
-    }).then(null,function(err){
-        dbg.log0('err',err,err.stack);
     });
-
-});

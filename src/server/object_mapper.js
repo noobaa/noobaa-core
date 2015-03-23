@@ -602,6 +602,7 @@ function bad_block_in_part(params) {
         });
 }
 
+var replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 
 
 /**
@@ -702,11 +703,10 @@ function build_chunks(chunks) {
             // send to the agent a request to replicate from the source
 
             if (!blocks_to_build.length) return;
-            var sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 
             dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
             return Q.all(_.map(blocks_to_build, function(block) {
-                    return sem.surround(function() {
+                    return replicate_block_sem.surround(function() {
                         var block_addr = get_block_address(block);
                         var source_addr = get_block_address(block.source);
 

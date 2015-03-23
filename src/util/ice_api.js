@@ -9,6 +9,8 @@ var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
 var util = require('util');
 
+dbg.set_level(config.dbg_log_level);
+
 function writeToLog(level, msg) {
     var timeStr = '';
     if (level === 0) {
@@ -306,7 +308,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             }
             return Q.fcall(function() {return sigSocket;});
         }
-    }).timeout(config.ws_default_timeout).then(function() {
+    }).timeout(config.ws_default_timeout, 'connection ws timeout').then(function() {
         writeToLog(0,'send ws request to peer for request '+requestId+ ' and peer '+peerId);
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
@@ -315,7 +317,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         }
         sigSocket.action_defer[requestId] = Q.defer();
         return sigSocket.action_defer[requestId].promise;
-    }).timeout(config.response_timeout).then(function(response) {
+    }).timeout(config.response_timeout, 'response ws timeout').then(function(response) {
         writeToLog(0,'return response data '+util.inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {

@@ -15,9 +15,10 @@ config.response_timeout = 30 * 1000;
 config.ws_default_timeout = 10 * 1000;
 config.ice_retry = 1;
 config.replicate_retry = 2;
+config.ice_write_timeout = 10 * 1000;
 
 config.iceBufferMetaPartSize = 64;
-config.timeoutToBufferWait = 100;
+config.timeoutToBufferWait = 500;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;
@@ -30,7 +31,7 @@ config.min_node_number = 3;
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;
 config.READ_RANGE_CONCURRENCY = 8;
-config.REPLICATE_CONCURRENCY = 32;
+config.REPLICATE_CONCURRENCY = 1;
 
 config.ice_servers = {
     'iceServers': [

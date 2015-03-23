@@ -1,15 +1,14 @@
 'use strict';
+
 var App = require('./app');
-var S3rver = function(params) {
+
+function S3rver(params) {
     this.params = params;
-    //console.log('ppp0:',this.params);
-};
+}
 
-
-S3rver.prototype.run = function(done) {
-    //console.log('ppp1:',this.params);
+S3rver.prototype.run = function() {
     var app = new App(this.params);
-    return app.serve(done);
+    return app.serve();
 };
 
 module.exports = S3rver;

@@ -202,17 +202,14 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
             return call();
         }))
         .then(function(results) {
-            dbg.log0("  NB:: results", results);
             _.each(results, function(r) {
                 if (r.state === 'fulfilled') {
-                    dbg.log0("  NB:: fulfilled with size ", r.value, " r is ", r);
                     tmp_usage.size += r.value;
                     tmp_usage.count += 1;
                 } else {
                     ret = r.reason;
                 }
             });
-            dbg.log0("  NB:: updating size", tmp_usage.size, "count", tmp_usage.count);
             if (self._usage) {
                 self._usage.size -= tmp_usage.size;
                 self._usage.count -= tmp_usage.count;

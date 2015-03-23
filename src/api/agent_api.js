@@ -100,7 +100,6 @@ module.exports = {
             },
         },
 
-        //NB:: turn into an array of block_ids
         delete_blocks: {
             method: 'DELETE',
             path: '/block/:block_id',

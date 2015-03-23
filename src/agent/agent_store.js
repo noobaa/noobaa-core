@@ -198,7 +198,7 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
     });
 
     //TODO: use q.allSettled with 10 concurrency
-    Q.allSettled(_.map(delete_funcs, function(call) {
+    return Q.allSettled(_.map(delete_funcs, function(call) {
             return call();
         }))
         .then(function(results) {

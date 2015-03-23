@@ -20,6 +20,7 @@ var Agent = require('./agent');
 var config = require('../../config.js');
 var DebugModule = require('noobaa-util/debug_module');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var child_process = require('child_process');
 
 Q.longStackSupport = true;
 
@@ -128,29 +129,19 @@ AgentCLI.prototype.load = function() {
         })
         .then(function() {
             dbg.log0('os:', os.type());
-            if (typeof process !== 'undefined' &&
-                process.versions &&
-                process.versions['atom-shell']) {
+            if (os.type().indexOf('Windows') >= 0) {
                 try {
-                    require('fswin').setAttributesSync(self.params.root_path, {
-                        IS_HIDDEN: true
-                    });
-                    dbg.log0('Windows - hide1');
+					var current_path = self.params.root_path;
+					current_path = current_path.substring(0, current_path.length-1);
+					current_path = current_path.replace('./','');
+                    //hiding storage folder
+					child_process.spawn('attrib',['+H',current_path]);
+                    //Setting system full permissions and remove builtin users permissions.
+                    //TODO: remove other users
+					var test = child_process.spawn('icacls',[current_path,'/grant',':r','administrators:(oi)(ci)F','/grant',':r','system:F','/t','/remove:g','BUILTIN\\Users','/inheritance:r']);
 
                 } catch (err) {
-                    dbg.log0('Windows - hide failed ', err);
-
-                }
-            }
-            if (os.type().indexOf('Windows') > 0) {
-                try {
-                    require('fswin').setAttributesSync(self.params.root_path, {
-                        IS_HIDDEN: true
-                    });
-                    dbg.log0('Windows - hide');
-
-                } catch (err) {
-                    dbg.log0('Windows - hide2 failed ', err);
+                    dbg.log0('Windows - failed to hide', err);
 
                 }
 

@@ -47,7 +47,6 @@
     "express": "~4.11.2",
     "express-jwt": "~1.0.0",
     "font-awesome": "~4.3.0",
-    "fswin": "^2.14.1109",
     "glob-to-regexp": "0.0.2",
     "googleapis": "^1.1.1",
     "gulp": "~3.8.10",

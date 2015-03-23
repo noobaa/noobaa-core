@@ -42,6 +42,7 @@
     "cookie-session": "~1.1.0",
     "debug": "~2.1.1",
     "dev-null": "~0.1.1",
+    "diskspace": "^0.1.7",
     "dotenv": "~0.5.1",
     "event-stream": "~3.2.2",
     "express": "~4.11.2",

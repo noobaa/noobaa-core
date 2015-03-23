@@ -191,7 +191,9 @@ function create_auth(req) {
  *
  */
 function read_auth(req) {
-    if (!req.auth) return {};
+    if (!req.auth) {
+        return {}
+    }
 
     var reply = _.pick(req.auth, 'role', 'extra');
     if (req.account) {

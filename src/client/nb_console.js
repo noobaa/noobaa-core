@@ -660,3 +660,7 @@ nb_console.controller('FileViewCtrl', [
 
     }
 ]);
+
+process.on('uncaughtException', function(err) {
+    dbg.log0('Caught exception: ' + err + ' ; ' + err.stack);
+});

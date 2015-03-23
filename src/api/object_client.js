@@ -246,6 +246,8 @@ ObjectClient.prototype.upload_stream = function(params) {
                                 }
                                 return p;
                             })
+                        },{
+                        timeout: config.client_replicate_timeout
                         })
                         .then(function() {
                             // push parts down the pipe
@@ -389,7 +391,7 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
             domain: block_address.peer,
             peer: block_address.peer,
             p2p_context: self.p2p_context,
-            timeout: 30000,
+            timeout: config.write_timeout,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block_address.id,
@@ -849,7 +851,7 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
                 domain: block_address.peer,
                 peer: block_address.peer,
                 p2p_context: self.p2p_context,
-                timeout: 30000,
+                timeout: config.read_timeout,
             })
             .then(function(buffer) {
                 // verify the received buffer length must be full size

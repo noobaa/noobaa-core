@@ -378,8 +378,10 @@ Agent.prototype.send_heartbeat = function() {
                     release: os.release(),
                     uptime: os.uptime(),
                     loadavg: os.loadavg(),
-                    totalmem: (totalSpace ? totalSpace : os.totalmem()),
-                    freemem: (freeSpace ? freeSpace : os.freemem()),
+                    totalmem: os.totalmem(),
+                    freemem: os.freemem(),
+                    totalstorage: totalSpace,
+                    freestorage: freeSpace,
                     cpus: os.cpus(),
                     networkInterfaces: os.networkInterfaces()
                 };

@@ -240,18 +240,23 @@ function staleConnChk(p2p_context) {
 
     writeToLog(2,'RUNNING staleConnChk WS');
 
-    var now = (new Date()).getTime();
-    var timePassed = now - p2p_context.wsClientSocket.lastTimeUsed;
+    try {
+        var now = (new Date()).getTime();
+        var timePassed = now - p2p_context.wsClientSocket.lastTimeUsed;
 
-    if (timePassed > config.connection_ws_stale &&
-        Object.keys(p2p_context.wsClientSocket.usedBy).length === 0) {
-        writeToLog(0,'REMOVE stale ws connection to remove - client as '+util.inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
-        ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
-        clearInterval(p2p_context.wsClientSocket.interval);
-        p2p_context.wsClientSocket = null;
-    } else if (timePassed > config.connection_ws_stale) {
-        writeToLog(0,'CANT REMOVE stale ws connection used by: '+util.inspect(p2p_context.wsClientSocket.usedBy));
+        if (timePassed > config.connection_ws_stale &&
+            Object.keys(p2p_context.wsClientSocket.usedBy).length === 0) {
+            writeToLog(0,'REMOVE stale ws connection to remove - client as '+util.inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
+            ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
+            clearInterval(p2p_context.wsClientSocket.interval);
+            p2p_context.wsClientSocket = null;
+        } else if (timePassed > config.connection_ws_stale) {
+            writeToLog(0,'CANT REMOVE stale ws connection used by: '+util.inspect(p2p_context.wsClientSocket.usedBy));
+        }
+    } catch (ex) {
+        writeToLog(-1,'Error on staleConnChk ws ex '+ex+' ; '+ex.stack);
     }
+
 }
 
 function createNewWS() {

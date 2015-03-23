@@ -200,7 +200,7 @@ Agent.prototype._init_node = function() {
             return self.client.auth.read_auth();
         })
         .then(function(res) {
-
+            dbg.log0('res:',res);
             // if we are already authorized with our specific node_id, use it
             if (res.account && res.system &&
                 res.extra && res.extra.node_id) {

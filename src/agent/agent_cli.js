@@ -97,7 +97,7 @@ AgentCLI.prototype.init = function() {
                     dbg.log0('COMPLETED: load');
                 }, function(err) {
                     dbg.log0('ERROR: load', self.params, err.stack);
-
+                    throw new Error(err);
                 });
         });
 };
@@ -132,14 +132,14 @@ AgentCLI.prototype.load = function() {
             dbg.log0('os:', os.type());
             if (os.type().indexOf('Windows') >= 0) {
                 try {
-					var current_path = self.params.root_path;
-					current_path = current_path.substring(0, current_path.length-1);
-					current_path = current_path.replace('./','');
+                    var current_path = self.params.root_path;
+                    current_path = current_path.substring(0, current_path.length - 1);
+                    current_path = current_path.replace('./', '');
                     //hiding storage folder
-					child_process.spawn('attrib',['+H',current_path]);
+                    child_process.spawn('attrib', ['+H', current_path]);
                     //Setting system full permissions and remove builtin users permissions.
                     //TODO: remove other users
-					var test = child_process.spawn('icacls',[current_path,'/grant',':r','administrators:(oi)(ci)F','/grant',':r','system:F','/t','/remove:g','BUILTIN\\Users','/inheritance:r']);
+                    var test = child_process.spawn('icacls', [current_path, '/grant', ':r', 'administrators:(oi)(ci)F', '/grant', ':r', 'system:F', '/t', '/remove:g', 'BUILTIN\\Users', '/inheritance:r']);
 
                 } catch (err) {
                     dbg.log0('Windows - failed to hide', err);
@@ -155,7 +155,7 @@ AgentCLI.prototype.load = function() {
             }));
         })
         .then(function(res) {
-            dbg.log0('loaded', res.length, 'agents. show details with: list()');
+            dbg.log0('loaded ', res.length, 'agents. show details with: list()');
             if (self.params.prod && !res.length) {
                 return self.create();
             }
@@ -186,19 +186,34 @@ AgentCLI.prototype.create = function() {
     dbg.log0('create new node');
     return file_must_not_exist(token_path)
         .then(function() {
-            return Q.nfcall(mkdirp, node_path);
-        })
-        .then(function() {
             if (self.create_node_token) return;
             // authenticate and create a token for new nodes
+
             var auth_params = _.pick(self.params,
                 'email', 'password', 'system', 'role');
-            if (self.params.tier) {
-                auth_params.extra = {
-                    tier: self.params.tier
-                };
+            if (_.isEmpty(auth_params)) {
+                if (_.isEmpty(self.params.noobaa_access_key)) {
+                    dbg.log0('Exiting as there is no credential information.');
+
+                    throw new Error("No credentials");
+
+                } else {
+
+                    var access_res = {
+                        res: "Access Param",
+                        token: self.params.noobaa_access_key
+                    };
+                    return access_res;
+                }
+
+            } else {
+                if (self.params.tier) {
+                    auth_params.extra = {
+                        tier: self.params.tier
+                    };
+                }
+                return self.client.create_auth_token(auth_params);
             }
-            return self.client.create_auth_token(auth_params);
         })
         .then(function(res) {
             if (res) {
@@ -207,6 +222,10 @@ AgentCLI.prototype.create = function() {
             } else {
                 dbg.log0('has token', self.create_node_token);
             }
+        })
+        .then(function() {
+            return Q.nfcall(mkdirp, node_path);
+        }).then(function() {
             return Q.nfcall(fs.writeFile, token_path, self.create_node_token);
         })
         .then(function() {
@@ -412,7 +431,8 @@ function main() {
         populate_general_help(help.general);
         repl_srv.context.help = help;
     }, function(err) {
-        dbg.log0(err);
+        dbg.log0('init err:' + err);
+
     });
 }
 
@@ -425,12 +445,17 @@ process.stdin.resume(); //so the program will not close instantly
 
 function exitHandler() {
     dbg.log0('exiting');
-    process.exit();
+
 }
 
-process.on('exit', function(code) {
-    dbg.log0('About to exit with code:', code);
-});
+// process.on('exit', function(code) {
+//     dbg.log0('About to exit with code:', code,process.pid);
+//     process.stdin.pause();
+//     process.stdin.destroy();
+//     process.kill(process.pid, 'SIGTERM');
+//
+//
+// });
 
 process.on('uncaughtException', function(err) {
     dbg.log0('Caught exception: ' + err + ' ; ' + err.stack);

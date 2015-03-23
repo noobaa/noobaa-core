@@ -352,7 +352,9 @@ Agent.prototype.send_heartbeat = function() {
                 }
             }
         }, function(err) {
-            dbg.log0('AGENT error getting FS space, result: ',err);
+            if (hourlyHB) {
+                dbg.log0('AGENT error getting FS space, result: ', err);
+            }
         })
         .then(function() {
 

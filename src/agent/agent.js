@@ -340,6 +340,8 @@ Agent.prototype.send_heartbeat = function() {
                 now_time > self.device_info_send_time + 3600000) {
                 hourlyHB = true;
                 return Q.nfcall(diskspace.check, drive);
+            } else {
+                return [];
             }
         })
         .spread(function(total, free, status) {
@@ -352,9 +354,14 @@ Agent.prototype.send_heartbeat = function() {
                 }
             }
         }, function(err) {
-            dbg.log0('AGENT error getting FS space, result: ',err);
+            dbg.log0('AGENT error getting FS space, result: ', err);
         })
         .then(function() {
+
+            var alloc = store_stats.alloc;
+            if (hourlyHB && freeSpace && !isNaN(freeSpace)) {
+                alloc = Math.min(alloc, freeSpace);
+            }
 
             var ip = ifconfig.get_main_external_ipv4();
             var params = {
@@ -363,7 +370,7 @@ Agent.prototype.send_heartbeat = function() {
                 ip: ip,
                 port: self.http_port || 0,
                 storage: {
-                    alloc: (freeSpace ? Math.min(store_stats.alloc, freeSpace) : store_stats.alloc),
+                    alloc: alloc,
                     used: store_stats.used
                 }
             };
@@ -380,11 +387,14 @@ Agent.prototype.send_heartbeat = function() {
                     loadavg: os.loadavg(),
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
-                    totalstorage: totalSpace,
-                    freestorage: freeSpace,
                     cpus: os.cpus(),
                     networkInterfaces: os.networkInterfaces()
                 };
+
+                if (totalSpace && freeSpace) {
+                    params.device_info.totalstorage = totalSpace;
+                    params.device_info.freestorage = freeSpace;
+                }
             }
 
             dbg.log3('AGENT HB params: ',params);

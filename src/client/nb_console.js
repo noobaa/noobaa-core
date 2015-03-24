@@ -288,6 +288,9 @@ nb_console.controller('TierViewCtrl', [
             if ($scope.nodes_query.search) {
                 query.name = $scope.nodes_query.search;
             }
+            if ($scope.nodes_query.geo) {
+                query.geolocation = $scope.nodes_query.geo;
+            }
             return nbNodes.list_nodes({
                 query: query,
                 skip: $scope.nodes_query.page * $scope.nodes_page_size,
@@ -373,8 +376,18 @@ nb_console.controller('NodeViewCtrl', [
 
                     var used = $scope.node.storage.used;
                     var unused = $scope.node.storage.alloc - used;
-                    var operating_sys = 4 * 1024 * 1024 * 1024;
-                    var free_disk = 100 * 1024 * 1024 * 1024;
+                    var operating_sys = 0;
+                    var free_disk = 0;
+                    if ($scope.node.device_info && $scope.node.device_info.freestorage) {
+                        free_disk = Math.max(0, $scope.node.device_info.freestorage - unused);
+                    }
+                    if ($scope.node.device_info && $scope.node.device_info.totalstorage) {
+                        operating_sys = Math.max(0,
+                            $scope.node.device_info.totalstorage -
+                            free_disk -
+                            used -
+                            unused);
+                    }
                     $scope.pie_chart = {
                         options: {
                             is3D: true,
@@ -393,11 +406,11 @@ nb_console.controller('NodeViewCtrl', [
                             slices: [{
                                 color: '#03a9f4'
                             }, {
+                                color: '#81d4fa'
+                            }, {
                                 color: '#ff008b'
                             }, {
                                 color: '#ffa0d3'
-                            }, {
-                                color: '#81d4fa'
                             }]
                         },
                         data: [
@@ -406,6 +419,10 @@ nb_console.controller('NodeViewCtrl', [
                                 v: operating_sys,
                                 f: $scope.human_size(operating_sys)
                             }],
+                            ['Free disk', {
+                                v: free_disk,
+                                f: $scope.human_size(free_disk)
+                            }],
                             ['Noobaa used', {
                                 v: used,
                                 f: $scope.human_size(used)
@@ -413,10 +430,6 @@ nb_console.controller('NodeViewCtrl', [
                             ['Noobaa unused', {
                                 v: unused,
                                 f: $scope.human_size(unused)
-                            }],
-                            ['Free disk', {
-                                v: free_disk,
-                                f: $scope.human_size(free_disk)
                             }],
                         ]
                     };
@@ -660,7 +673,3 @@ nb_console.controller('FileViewCtrl', [
 
     }
 ]);
-
-process.on('uncaughtException', function(err) {
-    dbg.log0('Caught exception: ' + err + ' ; ' + err.stack);
-});

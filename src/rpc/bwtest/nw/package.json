@@ -1,0 +1,22 @@
+{
+	"name": "BWTEST",
+	"description": "BWTEST",
+	"version": "0.0.1",
+	"main": "http://localhost:5999",
+	"node-remote": "localhost:5999",
+	"single-instance": false,
+	"window": {
+		"title": "BWTEST",
+		"toolbar": true,
+		"frame": true,
+		"resizable": true,
+		"show": true,
+		"position": "center",
+		"width": 500,
+		"height": 400
+	},
+	"webkit": {
+		"plugin": true,
+		"page-cache": true
+	}
+}

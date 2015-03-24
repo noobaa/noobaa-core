@@ -218,8 +218,8 @@ nb_api.factory('nbNodes', [
             var max_num_nodes = -Infinity;
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Location');
-            data.addColumn('number', 'Capacity');
             data.addColumn('number', 'Nodes');
+            data.addColumn('number', 'Capacity');
             var selected_row = -1;
             _.each($scope.node_groups, function(stat, index) {
                 if (stat.geolocation === selected_geo) {
@@ -231,42 +231,37 @@ nb_api.factory('nbNodes', [
                 if (stat.storage.alloc < min_alloc) {
                     min_alloc = stat.storage.alloc;
                 }
-                if (stat.count > max_num_nodes) {
-                    max_num_nodes = stat.count;
+                if (stat.online > max_num_nodes) {
+                    max_num_nodes = stat.online;
                 }
-                if (stat.count < min_num_nodes) {
-                    min_num_nodes = stat.count;
+                if (stat.online < min_num_nodes) {
+                    min_num_nodes = stat.online;
                 }
                 data.addRow([stat.geolocation, {
+                    v: stat.count ? (100 * stat.online / stat.count) : 0,
+                    f: stat.online + ' online, ' + (stat.count - stat.online) + ' offline'
+                }, {
                     v: stat.storage.alloc,
                     f: $rootScope.human_size(stat.storage.alloc)
-                }, stat.count]);
-                console.log(stat, min_alloc, max_alloc);
+                }]);
+                console.log(stat, min_alloc, max_alloc, min_num_nodes, max_num_nodes);
             });
             var options = {
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
                 backgroundColor: 'transparent',
-                datalessRegionColor: '#283136', // darker than body bg
-                // datalessRegionColor: '#cfd8dc', // blue-grey-100
-                // datalessRegionColor: '#b2dfdb', // teal-100
-                // datalessRegionColor: '#10312D', // ~teal
+                datalessRegionColor: '#283136', // lighter than body bg
                 colorAxis: {
-                    // colors: ['#fff176', '#ffee58'], // yellow 300-400
-                    // colors: ['#909688', '#009688'], // teal
-                    // colors: ['#F9FFF4', '#76FF00'], // greens
-                    // colors: ['#EC407A', '#E91E63'], // pink 400-500
-                    colors: ['#7e57c2', '#673ab7'], // deep-purple 400-500
-                    // colors: ['#00bcd4', '#00acc1'], // cyan 400-500
-                    minValue: min_alloc,
-                    maxValue: max_alloc,
+                    colors: ['#888888', '#580068'], // gray to pink-purple
+                    minValue: 0,
+                    maxValue: 100,
                 },
                 sizeAxis: {
                     minSize: 10,
                     maxSize: 12,
-                    minValue: min_num_nodes,
-                    maxValue: max_num_nodes,
+                    minValue: min_alloc,
+                    maxValue: max_alloc,
                 },
                 legend: 'none' || {
                     textStyle: {
@@ -295,9 +290,8 @@ nb_api.factory('nbNodes', [
                 var selection = chart.getSelection();
                 if (selection[0]) {
                     var geo = data.getValue(selection[0].row, 0);
-                    $location.path('nodes/geo/' + geo);
-                } else {
-                    $location.path('nodes');
+                    $location.path('/tier/' + nbSystem.system.tiers[0].name);
+                    $location.hash('nodes&geo=' + geo);
                 }
                 $rootScope.safe_apply();
             });

@@ -2,7 +2,6 @@
 'use strict';
 
 var debug = require('debug');
-window.DEBUG = debug;
 debug.disable("*");
 // debug.enable("*");
 

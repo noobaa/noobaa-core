@@ -322,8 +322,8 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             sigSocket.action_defer = {};
         }
         sigSocket.action_defer[requestId] = Q.defer();
-        return sigSocket.action_defer[requestId].promise;
-    }).timeout(config.response_timeout, 'response ws timeout').then(function(response) {
+        return sigSocket.action_defer[requestId].promise.timeout(config.response_timeout, 'response ws timeout');
+    }).then(function(response) {
         writeToLog(0,'return response data '+util.inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {
@@ -412,8 +412,8 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
 
-        return msgObj.action_defer.promise;
-    }).timeout(config.response_timeout, 'response timeout').then(function() {
+        return msgObj.action_defer.promise.timeout(config.response_timeout, 'response timeout');
+    }).then(function() {
 
         msgObj = iceSocket.msgs[requestId];
 

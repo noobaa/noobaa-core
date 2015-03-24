@@ -320,6 +320,9 @@ nb_console.controller('TierViewCtrl', [
             };
             scope.prev_stage = function() {
                 scope.stage -= 1;
+                if (scope.stage < 1) {
+                    scope.stage = 1;
+                }
             };
             scope.goto_nodes_list = function() {
                 scope.modal.modal('hide');

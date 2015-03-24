@@ -24,7 +24,6 @@ module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
 
     var client ;
-    dbg.log0('bbb:',params);
     params.bucket = 'files';
     Q.fcall(function() {
         var auth_params = _.pick(params,
@@ -134,14 +133,20 @@ module.exports = function(params) {
                         return client.object.create_multipart_upload(create_params)
                             .then(function(info) {
                                 return client.object.allocate_object_parts(new_obj_parts)
+                                    .then(function(res){
+                                        dbg.log0('complete multipart copy ', create_params);
+                                        var bucket_key_params = _.pick(create_params, 'bucket', 'key');
+                                        return client.object.complete_multipart_upload(bucket_key_params);
+                                    })
                                     .then(function(res) {
                                         dbg.log0('COMPLETED: copy');
+
                                         return true;
                                     });
                             });
                     });
             }).then(null, function(err) {
-                dbg.log0("Failed to upload");
+                dbg.log0("Failed to upload",err);
                 return false;
             });
 

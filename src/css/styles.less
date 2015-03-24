@@ -25,9 +25,10 @@
 @primary: #FF008E;
 @darkbg-text: white;
 @text-color: @darkbg-text;
-@body-bg: darken(@blue-grey-50, 73%);
-@navbar-default-bg: darken(@blue-grey-50, 77%);
-@well-bg: darken(@blue-grey-50, 76%);
+@base-bg: darken(desaturate(@blue-grey-50, 3%), 74%);
+@body-bg: @base-bg;
+@navbar-default-bg: darken(@base-bg, 9%);
+@well-bg: darken(@base-bg, 9%);
 @gray-light: hsl(0, 0%, 67%);
 @border-color: hsla(0,0%,100%,0.1);
 @modal-backdrop-opacity: 0.6;
@@ -94,6 +95,7 @@ table {
 }
 .sidebar.sidebar-left,
 .sidebar.sidebar-right {
+    background-image: url('/public/images/bgtile.png') !important;
     top: 0;
     overflow: initial;
     background-color: @navbar-default-bg;

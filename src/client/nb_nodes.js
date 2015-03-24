@@ -251,15 +251,15 @@ nb_api.factory('nbNodes', [
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
                 backgroundColor: 'transparent',
-                datalessRegionColor: '#283136', // lighter than body bg
+                datalessRegionColor: '#1E252B', // darker than body bg
                 colorAxis: {
-                    colors: ['#888888', '#580068'], // gray to pink-purple
+                    colors: ['#888888', '#F500FF'], // gray to pink-purple
                     minValue: 0,
                     maxValue: 100,
                 },
                 sizeAxis: {
-                    minSize: 10,
-                    maxSize: 12,
+                    minSize: 5,
+                    maxSize: 9,
                     minValue: min_alloc,
                     maxValue: max_alloc,
                 },

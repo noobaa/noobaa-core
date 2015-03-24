@@ -165,6 +165,11 @@ nb_console.controller('OverviewCtrl', [
 
         return $scope.nbSystem.init_system
             .then(function() {
+                if (!$scope.nbNodes.node_groups) {
+                    return $scope.nbNodes.refresh_node_groups();
+                }
+            })
+            .then(function() {
                 return $scope.nbNodes.draw_nodes_map();
             });
 

@@ -320,7 +320,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
             .then(null, function(err) {
                 // error with statusCode means we got the reply from the server
                 // so there is no point to retry
-                if (err.statusCode) {
+                if (err.statusCode && err.statusCode !== 503) {
                     dbg.log0('RPC REQUEST FAILED', err);
                     throw err;
                 }
@@ -332,7 +332,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
                     dbg.log0('RPC RETRIES EXHAUSTED', attempts, srv_name);
                     throw err;
                 }
-                return Q.delay(100).then(send_request);
+                return Q.delay(config.rpc_retry_delay).then(send_request);
             });
     }
 

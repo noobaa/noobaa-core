@@ -6,7 +6,7 @@
     <base href="/console/">
 </head>
 
-<body class="Xinverse" ng-controller="ConsoleCtrl" ng-cloak>
+<body class="inverse" ng-controller="ConsoleCtrl" ng-cloak>
 
 
     <div class="row">
@@ -154,13 +154,13 @@
             <h3 style="margin-bottom: 20px">ACTIVITY LOG</h3>
 
             <div class="text-muted" style="margin: 10px 0">
+                <!--
                 <div class="clearfix">
                     <span style="width: 80px; display: inline-block">Go to time:</span>
                     <div class="form-control-wrapper" style="display: inline-block">
                         <input type="text" class="form-control text-center datetimepicker" ng-model="goto_date" tabindex="-1" ng-change="nbSystem.read_activity_log_by_date(goto_date)" />
                     </div>
                     <i class="fa fa-calendar fa-lg fa-fw"></i>
-                    <!--
                      <span style="width: 50px; display: inline-block; margin-left: 30px">Zoom:</span>
                     <span>
                         <a>1 hour</a> &nbsp;
@@ -168,19 +168,19 @@
                         <a>1 week</a> &nbsp;
                         <a>1 month</a>
                     </span>
-                    -->
                 </div>
+                -->
                 <br/>
                 <div class="clearfix">
-                    <span style="width: 80px; display: inline-block">Filter:</span>
+                    <!-- <span style="width: 80px; display: inline-block">Filter:</span> -->
                     <div class="btn-group">
-                        <button class="btn btn-xs btn-raised {{!nbSystem.activity_log_subject && 'btn-primary' || 'btn-default'}} btn-default" nb-click-ladda="nbSystem.read_activity_log_subject()">
+                        <button class="btn Xbtn-sm Xbtn-raised {{!nbSystem.activity_log_subject && 'btn-primary' || 'btn-default'}}" nb-click-ladda="nbSystem.read_activity_log_subject()">
                             Show all
                         </button>
-                        <button class="btn btn-xs btn-raised {{nbSystem.activity_log_subject=='files' && 'btn-primary' || 'btn-default'}} btn-default" nb-click-ladda="nbSystem.read_activity_log_subject('files')">
+                        <button class="btn Xbtn-sm Xbtn-raised {{nbSystem.activity_log_subject=='files' && 'btn-primary' || 'btn-default'}}" nb-click-ladda="nbSystem.read_activity_log_subject('files')">
                             Files
                         </button>
-                        <button class="btn btn-xs btn-raised {{nbSystem.activity_log_subject=='nodes' && 'btn-primary' || 'btn-default'}} btn-default" nb-click-ladda="nbSystem.read_activity_log_subject('nodes')">
+                        <button class="btn Xbtn-sm Xbtn-raised {{nbSystem.activity_log_subject=='nodes' && 'btn-primary' || 'btn-default'}}" nb-click-ladda="nbSystem.read_activity_log_subject('nodes')">
                             Nodes
                         </button>
                     </div>
@@ -219,14 +219,17 @@
             <br/>
 
             <div class="clearfix text-center" style="margin-bottom: 10px">
-                <button class="btn btn-xs btn-default btn-raised" nb-click-ladda="nbSystem.read_activity_log_older()">
+                <button style="visibility: hidden" class="pull-left btn Xbtn-sm btn-default Xbtn-raised" nb-click-ladda="nbSystem.read_activity_log_oldest()">
+                    <i class="fa fa-angle-double-left fa-lg fa-fw"></i>Start
+                </button>
+                <button class="btn Xbtn-sm btn-default Xbtn-raised" nb-click-ladda="nbSystem.read_activity_log_older()">
                     <i class="fa fa-angle-left fa-lg fa-fw"></i> Older
                 </button>
-                <button class="btn btn-xs btn-default btn-raised" nb-click-ladda="nbSystem.read_activity_log_newer()">
+                <button class="btn Xbtn-sm btn-default Xbtn-raised" nb-click-ladda="nbSystem.read_activity_log_newer()">
                     Newer
                     <i class="fa fa-angle-right fa-lg fa-fw"></i>
                 </button>
-                <button class="btn btn-xs btn-default btn-raised" nb-click-ladda="nbSystem.read_activity_log_newest()">
+                <button class="pull-right btn Xbtn-sm btn-default Xbtn-raised" nb-click-ladda="nbSystem.read_activity_log_newest()">
                     Now
                     <i class="fa fa-angle-double-right fa-lg fa-fw"></i>
                 </button>

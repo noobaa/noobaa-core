@@ -39,6 +39,7 @@ config.ws_conn_timeout = 10 * 1000;
 
 config.replicate_retry = 2;
 config.default_rpc_retries = 0;
+config.rpc_retry_delay = 500;
 
 config.ice_servers = {
     'iceServers': [

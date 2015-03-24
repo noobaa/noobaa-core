@@ -39,7 +39,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var rpc_http = require('../rpc/rpc_http');
 var api = require('../api');
-
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -50,6 +50,9 @@ var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 
+if (process.env.DEBUG_LEVEL) {
+    dbg.set_level(process.env.DEBUG_LEVEL);
+}
 
 // connect to the database
 mongoose.set('debug', debug_mode);

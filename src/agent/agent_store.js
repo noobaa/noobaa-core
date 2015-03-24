@@ -179,28 +179,45 @@ AgentStore.prototype.write_block = function(block_id, data) {
 
 /**
  *
- * DELETE_BLOCK
+ * DELETE_BLOCKS
  *
  */
-AgentStore.prototype.delete_block = function(block_id) {
+AgentStore.prototype.delete_blocks = function(block_ids) {
     var self = this;
-    var block_path = self._get_block_path(block_id);
-    var file_stats;
+    var ret = '';
+    var tmp_usage = {
+        size: 0,
+        count: 0,
+    };
+    var delete_funcs = [];
 
-    return self._stat_block_path(block_path, true)
-        .then(function(stats) {
-            file_stats = stats;
-            dbg.log0('delete block', block_path, file_stats);
-            if (file_stats) {
-                return Q.nfcall(fs.unlink(block_path));
-            }
-        })
-        .then(function() {
-            if (self._usage && file_stats) {
-                self._usage.size -= file_stats.size;
-                self._usage.count -= 1;
+    _.each(block_ids, function(block) {
+        delete_funcs.push(function() {
+            return self._delete_block(block);
+        });
+    });
+
+    //TODO: use q.allSettled with 10 concurrency
+    return Q.allSettled(_.map(delete_funcs, function(call) {
+            return call();
+        }))
+        .then(function(results) {
+            _.each(results, function(r) {
+                if (r.state === 'fulfilled') {
+                    tmp_usage.size += r.value;
+                    tmp_usage.count += 1;
+                } else {
+                    dbg.log0("delete block failed due to ", r.reason);
+                    ret = r.reason;
+                }
+            });
+            if (self._usage) {
+                self._usage.size -= tmp_usage.size;
+                self._usage.count -= tmp_usage.count;
             }
         });
+
+    //TODO: should we return ret here ?
 };
 
 
@@ -218,6 +235,28 @@ AgentStore.prototype.stat_block = function(block_id) {
 
 
 // PRIVATE //////////////////////////////////////////////////////////
+
+/**
+ *
+ * _delete_block
+ *
+ */
+AgentStore.prototype._delete_block = function(block_id) {
+    var self = this;
+    var block_path = self._get_block_path(block_id);
+    var file_stats;
+
+    return self._stat_block_path(block_path, true)
+        .then(function(stats) {
+            file_stats = stats;
+            if (file_stats) {
+                return Q.nfcall(fs.unlink, block_path);
+            }
+        })
+        .then(function() {
+            return file_stats ? file_stats.size : 0;
+        });
+};
 
 
 /**

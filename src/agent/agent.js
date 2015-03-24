@@ -25,7 +25,7 @@ var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
-var diskspace = require('diskspace');
+var diskspace = require('../util/diskspace_util');
 
 module.exports = Agent;
 
@@ -78,7 +78,7 @@ function Agent(params) {
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
         replicate_block: self.replicate_block.bind(self),
-        delete_block: self.delete_block.bind(self),
+        delete_blocks: self.delete_blocks.bind(self),
         check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
         self_test_io: self.self_test_io.bind(self),
@@ -518,12 +518,12 @@ Agent.prototype.replicate_block = function(req) {
         });
 };
 
-Agent.prototype.delete_block = function(req) {
+Agent.prototype.delete_blocks = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
-    dbg.log0('AGENT delete_block', block_id);
-    self.store_cache.invalidate(block_id);
-    return self.store.delete_block(block_id);
+    var blocks = req.rest_params.blocks;
+    dbg.log0('AGENT delete_blocks', blocks);
+    self.store_cache.multi_invalidate(blocks);
+    return self.store.delete_blocks(blocks);
 };
 
 Agent.prototype.check_block = function(req) {

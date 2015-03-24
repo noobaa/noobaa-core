@@ -469,6 +469,62 @@ function read_parts_mappings(params) {
 }
 
 
+/*
+ * agent_delete_call
+ * calls the agent with the delete API
+ */
+function agent_delete_call(node, del_blocks) {
+    return Q.fcall(function() {
+        var block_addr = get_block_address(del_blocks[0]);
+        return api_servers.client.agent.delete_blocks({
+            blocks: _.map(del_blocks, function(block) {
+                return block._id.toString();
+            })
+        }, {
+            address: block_addr.host,
+            domain: block_addr.peer,
+            peer: block_addr.peer,
+            is_ws: true,
+            p2p_context: p2p_context,
+            timeout: 30000,
+        }).then(function() {
+            dbg.log0("nodeId ", node, "deleted", del_blocks);
+        }, function(err) {
+            dbg.log0("ERROR deleting blocks", del_blocks, "from nodeId", node);
+        });
+    });
+}
+
+/*
+ * delete_objects_from_agents
+ * send delete request for the deleted DataBlocks to the agents
+ */
+function delete_objects_from_agents(deleted_chunk_ids) {
+    //Find the deleted data blocks and their nodes
+    return Q.when(db.DataBlock
+            .find({
+                chunk: {
+                    $in: deleted_chunk_ids
+                },
+                //For now, query deleted as well as this gets executed in
+                //delete_object_mappings with Q.all along with the DataBlocks
+                //deletion update
+            })
+            .populate('node')
+            .exec())
+        .then(function(deleted_blocks) {
+            //TODO: If the overload of these calls is too big, we should protect
+            //ourselves in a similar manner to the replication
+            var blocks_by_node = _.groupBy(deleted_blocks, function(b) {
+                return b.node._id;
+            });
+            
+            return Q.all(_.map(blocks_by_node, function(blocks, node) {
+                return agent_delete_call(node, blocks);
+            }));
+        });
+}
+
 /**
  *
  * delete_object_mappings
@@ -543,7 +599,8 @@ function delete_object_mappings(obj) {
             };
             return Q.all([
                 db.DataChunk.update(chunk_query, deleted_update, multi_opt).exec(),
-                db.DataBlock.update(block_query, deleted_update, multi_opt).exec()
+                db.DataBlock.update(block_query, deleted_update, multi_opt).exec(),
+                delete_objects_from_agents(non_referred_chunks_ids),
             ]);
         });
 }

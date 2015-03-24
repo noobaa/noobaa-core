@@ -615,14 +615,20 @@ nb_console.controller('FileViewCtrl', [
                 .then(function(res) {
                     $scope.file = res;
 
+                    // TODO take address from system
+                    var rest_address =
+                        ($location.protocol() === 'https') ?
+                        'https://localhost:5006' :
+                        'http://localhost:5005';
+
                     $scope.download_url = $sce.trustAsResourceUrl(
-                        'http://localhost:5006/b/' +
-                        $routeParams.bucket_name + '/o/' +
+                        rest_address + '/' +
+                        $routeParams.bucket_name + '/' +
                         $routeParams.file_name + '?download=1');
                     $scope.play_url = $sce.trustAsResourceUrl(
-                        'http://localhost:5006/b/' +
+                        rest_address + '/' +
                         $routeParams.bucket_name + '/' +
-                        (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
+                        // (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
                         $routeParams.file_name);
 
                     // TODO handle file parts pages

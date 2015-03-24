@@ -472,31 +472,29 @@ function read_parts_mappings(params) {
 
 
 /*
- * agent_delete_call_func_builder
- * return a function that calls the agent with the delete API
+ * agent_delete_call
+ * calls the agent with the delete API
  */
-function agent_delete_call_func_builder(node, del_blocks) {
-    return function() {
-        return Q.fcall(function() {
-            var block_addr = get_block_address(del_blocks[0]);
-            return api_servers.client.agent.delete_blocks({
-                blocks: _.map(del_blocks, function(block) {
-                    return block._id.toString();
-                })
-            }, {
-                address: block_addr.host,
-                domain: block_addr.peer,
-                peer: block_addr.peer,
-                is_ws: true,
-                p2p_context: p2p_context,
-                timeout: 30000,
-            }).then(function() {
-                dbg.log4("nodeId ", node, "deleted", del_blocks);
-            }, function(err) {
-                dbg.log0("ERROR deleting blocks", del_blocks, "from nodeId", node);
-            });
+function agent_delete_call(node, del_blocks) {
+    return Q.fcall(function() {
+        var block_addr = get_block_address(del_blocks[0]);
+        return api_servers.client.agent.delete_blocks({
+            blocks: _.map(del_blocks, function(block) {
+                return block._id.toString();
+            })
+        }, {
+            address: block_addr.host,
+            domain: block_addr.peer,
+            peer: block_addr.peer,
+            is_ws: true,
+            p2p_context: p2p_context,
+            timeout: 30000,
+        }).then(function() {
+            dbg.log0("nodeId ", node, "deleted", del_blocks);
+        }, function(err) {
+            dbg.log0("ERROR deleting blocks", del_blocks, "from nodeId", node);
         });
-    };
+    });
 }
 
 /*
@@ -517,18 +515,14 @@ function delete_objects_from_agents(deleted_chunk_ids) {
             .populate('node')
             .exec())
         .then(function(deleted_blocks) {
-            //arrage blocks by nodes
-            var agent_calls = [];
-            var blocks_by_node = _.groupBy(deleted_blocks, 'node');
-            //create an array of agent delete call functions
-            _.each(blocks_by_node, function(blocks, node) {
-                agent_calls.push(agent_delete_call_func_builder(node, blocks));
+            //TODO: If the overload of these calls is too big, we should protect
+            //ourselves in a similar manner to the replication
+            var blocks_by_node = _.groupBy(deleted_blocks, function(b) {
+                return b.node._id;
             });
-            return agent_calls;
-        })
-        .then(function(agent_calls) {
-            return Q.all(_.map(agent_calls, function(call) {
-                return call();
+            
+            return Q.all(_.map(blocks_by_node, function(blocks, node) {
+                return agent_delete_call(node, blocks);
             }));
         });
 }

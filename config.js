@@ -3,7 +3,7 @@ var config = {};
 // SIGNALING AND ICE
 config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: wss://noobaa-signaling.herokuapp.com) ws://192.168.1.6:5002
 config.alive_delay = 10 * 1000;
-config.reconnect_delay = 5000;
+config.reconnect_delay = 500;
 config.connection_data_stale = 5 * 60 * 1000;
 config.connection_ws_stale = 15 * 60 * 1000;
 config.check_stale_conns = 60 * 1000;
@@ -34,7 +34,7 @@ config.client_replicate_timeout = 300 * 1000;
 config.default_rpc_timeout = 120 * 1000;
 
 config.ice_conn_timeout = 10 * 1000;
-config.response_timeout = 20 * 1000;
+config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
 
 config.replicate_retry = 2;

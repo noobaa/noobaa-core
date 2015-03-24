@@ -11,6 +11,8 @@ var db = require('./db');
 var api = require('../api');
 var tier_server = require('./tier_server');
 var bucket_server = require('./bucket_server');
+var dbg = require('noobaa-util/debug_module')(__filename);
+var AWS = require('aws-sdk');
 
 
 /**
@@ -29,6 +31,8 @@ var system_server = {
 
     add_role: add_role,
     remove_role: remove_role,
+
+    get_system_resource_info: get_system_resource_info,
 
     read_activity_log: read_activity_log
 };
@@ -306,6 +310,47 @@ function remove_role(req) {
         })
         .thenResolve();
 }
+
+
+
+/**
+ *
+ * READ_ACTIVITY_LOG
+ *
+ */
+function get_system_resource_info(req) {
+    var params = {
+        Bucket: 'noobaa-download',
+        Key: req.system.name +
+            '/noobaa-setup-0.1-' +
+            req.system.name +
+            '.exe',
+        Expires: 24 * 3600 // 1 day
+    };
+
+    var agent_installer;
+    if (process.env.AWS_ACCESS_KEY_ID) {
+        var s3 = new AWS.S3({
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+            region: process.env.AWS_REGION || 'us-east-1'
+        });
+        agent_installer = s3.getSignedUrl('getObject', params);
+    } else {
+        // workaround if we didn't setup aws credentials,
+        // and just try a plain unsigned url
+        agent_installer = 'https://' +
+            params.Bucket +
+            '.s3.amazonaws.com/' +
+            params.Key;
+    }
+
+    dbg.log0('agent_installer', agent_installer);
+    return {
+        agent_installer: agent_installer
+    };
+}
+
 
 
 

@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var Q = require('q');
 
 require('./nb_util');
 require('./nb_api');
@@ -310,6 +311,39 @@ nb_console.controller('TierViewCtrl', [
 
         function add_node() {
             var scope = $scope.$new();
+            scope.stage = 1;
+            scope.next_stage = function() {
+                scope.stage += 1;
+                if (scope.stage > 3) {
+                    scope.modal.modal('hide');
+                }
+            };
+            scope.prev_stage = function() {
+                scope.stage -= 1;
+            };
+            scope.goto_nodes_list = function() {
+                scope.modal.modal('hide');
+                scope.modal.on('hidden.bs.modal', function() {
+                    $timeout(function() {
+                        $location.path('/tier/' + nbSystem.system.tiers[0].name);
+                        $location.hash('nodes');
+                        console.log('$location', $location.absUrl());
+                    }, 1);
+                });
+            };
+            scope.download_agent = function() {
+                return nbSystem.get_agent_installer()
+                    .then(function(url) {
+                        var link = $window.document.createElement("a");
+                        link.download = '';
+                        link.href = url;
+                        link.click();
+                        return Q.delay(2000);
+                    })
+                    .then(function() {
+                        scope.next_stage();
+                    });
+            };
             scope.modal = nbModal({
                 template: 'console/add_node_dialog.html',
                 scope: scope,
@@ -615,14 +649,20 @@ nb_console.controller('FileViewCtrl', [
                 .then(function(res) {
                     $scope.file = res;
 
+                    // TODO take address from system
+                    var rest_address =
+                        ($location.protocol() === 'https') ?
+                        'https://localhost:5006' :
+                        'http://localhost:5005';
+
                     $scope.download_url = $sce.trustAsResourceUrl(
-                        'http://localhost:5006/b/' +
-                        $routeParams.bucket_name + '/o/' +
+                        rest_address + '/' +
+                        $routeParams.bucket_name + '/' +
                         $routeParams.file_name + '?download=1');
                     $scope.play_url = $sce.trustAsResourceUrl(
-                        'http://localhost:5006/b/' +
+                        rest_address + '/' +
                         $routeParams.bucket_name + '/' +
-                        (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
+                        // (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
                         $routeParams.file_name);
 
                     // TODO handle file parts pages

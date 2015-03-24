@@ -25,7 +25,7 @@ var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
-var diskspace = require('diskspace');
+var diskspace = require('../util/diskspace_util');
 
 module.exports = Agent;
 

@@ -229,6 +229,9 @@ module.exports = {
                                 count: {
                                     type: 'integer'
                                 },
+                                online: {
+                                    type: 'integer'
+                                },
                                 storage: {
                                     $ref: '/common_api/definitions/storage_info'
                                 },

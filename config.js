@@ -34,7 +34,7 @@ config.client_replicate_timeout = 300 * 1000;
 config.default_rpc_timeout = 120 * 1000;
 
 config.ice_conn_timeout = 10 * 1000;
-config.response_timeout = 20 * 1000;
+config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
 
 config.replicate_retry = 2;

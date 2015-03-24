@@ -248,7 +248,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                             })
                         },{
                         timeout: config.client_replicate_timeout,
-                        retries: 1
+                        retries: 2
                         })
                         .then(function() {
                             // push parts down the pipe

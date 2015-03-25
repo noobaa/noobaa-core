@@ -505,7 +505,7 @@ function agent_delete_call(node, del_blocks) {
  */
 function delete_objects_from_agents(deleted_chunk_ids) {
     //Find the deleted data blocks and their nodes
-    return Q.when(db.DataBlock
+    Q.when(db.DataBlock
             .find({
                 chunk: {
                     $in: deleted_chunk_ids

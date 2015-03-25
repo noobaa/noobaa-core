@@ -5,14 +5,34 @@
             <h4 class="text-primary">Self test</h4>
         </div>
         <div class="content-col col-sm-9">
-            <p>
-                <button class="btn btn-primary" nb-click-ladda="nbNodes.self_test(node)">Run</button>
-            </p>
-            <div ng-repeat="test in nbNodes.self_test_results">
-                {{test.node.name}}
-                <i ng-if="test.done" class="fa fa-check fa-lg fa-fw text-success"></i>
-                <i ng-if="test.error" class="fa fa-times fa-lg fa-fw text-danger"></i>
+            <button class="btn btn-primary" nb-click-ladda="nbNodes.self_test(node, self_test_kind)">
+                Start
+            </button>
+            <div style="display: inline-block; width: 150px">
+                <select ng-init="self_test_kind='basic'" ng-model="self_test_kind" class="form-control">
+                    <option value="basic">Basic</option>
+                    <option value="rw">Read-Write</option>
+                    <option value="tx">Data Transfer</option>
+                    <option value="full">Full</option>
+                </select>
             </div>
+            <br/>
+            <table class="table table-condensed table-no-borders">
+                <tr ng-repeat="test in nbNodes.self_test_results">
+                    <td>{{test.name}}</td>
+                    <td>
+                        <span ng-if="test.progress">{{test.progress}}</span>
+                        <span ng-if="test.took">( took {{test.took.toFixed(3)}} seconds )</span>
+                    </td>
+                    <td>
+                        <span ng-if="!test.done && !test.error">
+                            <i class="fa fa-spinner fa-spin fa-lg fa-fw"></i>
+                        </span>
+                        <i ng-if="test.done" class="fa fa-check fa-lg fa-fw text-success"></i>
+                        <i ng-if="test.error" class="fa fa-times fa-lg fa-fw text-danger"></i>
+                    </td>
+                </tr>
+            </table>
         </div>
     </div>
 

@@ -234,10 +234,41 @@ Section "install"
 	;MessageBox MB_OK "Value of address parameter is $2 $3 $4 $5"
 
 
+	;Install or upgrade?
+	StrCpy $UPGRADE "false" ; default - clean installation
+	IfFileExists $INSTDIR\*.* 0 +2
+	StrCpy $UPGRADE "true"
+
+
+	${If} $UPGRADE == 'true' ;delete all files that we want to update
+		nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+		Delete "$INSTDIR\config.js"
+		Delete "$INSTDIR\package.json"
+		Delete "$INSTDIR\agent_conf.conf"
+		Delete "$INSTDIR\${ICON}"
+		Delete "$INSTDIR\uninstall-noobaa.exe"
+		RMDir "$INSTDIR\atom-shell"
+		RMDir /r "$INSTDIR\node_modules"
+		RMDir /r "$INSTDIR\src"
+		Delete "$INSTDIR\service.bat"
+		Delete "$INSTDIR\service_uninstaller.bat"
+		Delete "$INSTDIR\service_installer.bat"
+
+	${Else}
+		File "7za.exe"
+		File "NooBaa_Agnet_wd.exe"
+		File "libeay32.dll"
+		File "libiconv2.dll"
+		File "libintl3.dll"
+		File "libssl32.dll"
+		File "wget.exe"
+
+	${EndIf}
+
 	SetOutPath $INSTDIR
 	WriteUninstaller "$INSTDIR\uninstall-noobaa-S3REST.exe"
 	File "${ICON}"
-	File "nssm.exe"
+	File "NooBaa_Agnet_wd.exe"
 	File "7za.exe"
 	File "libeay32.dll"
 	File "libiconv2.dll"
@@ -247,12 +278,11 @@ Section "install"
 	File "wget.exe"
 	file "agent_conf.json"
 	file "config.js"
-	file "key.pem"
-	file "cert.pem"
 	File /r "src"
 	File /r "node_modules"
 	file /r "atom-shell"
 	${WriteFile} "$INSTDIR\service.bat" "@echo off"
+	${WriteFile} "$INSTDIR\service.bat" "rem Version 0.1"
 	${WriteFile} "$INSTDIR\service.bat" ">service.log ("
 	${WriteFile} "$INSTDIR\service.bat" "  cd $\"$INSTDIR$\""
 	${WriteFile} "$INSTDIR\service.bat" "  rem upgrade only if service is up and running"
@@ -261,15 +291,11 @@ Section "install"
 	${WriteFile} "$INSTDIR\service.bat" "  echo %elvel% "
 	${WriteFile} "$INSTDIR\service.bat" "  if $\"%elvel%$\" == $\"0$\" ("
 	${WriteFile} "$INSTDIR\service.bat" "  		echo Upgrading..."
-	${WriteFile} "$INSTDIR\service.bat" "  		wget -t 1 https://noobaa-alpha.herokuapp.com/update_S3REST.tar"
-	${WriteFile} "$INSTDIR\service.bat" "  		if exist update_S3REST.tar ("
-	${WriteFile} "$INSTDIR\service.bat" "    		rmdir /s/q $\"$INSTDIR\api$\""
-	${WriteFile} "$INSTDIR\service.bat" "    		rmdir /s/q $\"$INSTDIR\util$\""
-	${WriteFile} "$INSTDIR\service.bat" "    		rmdir /s/q $\"$INSTDIR\node_modules$\""
-	${WriteFile} "$INSTDIR\service.bat" "    		rmdir /s/q $\"$INSTDIR\agent$\""
-	${WriteFile} "$INSTDIR\service.bat" "    		7za.exe x update_S3REST.tar"
-	${WriteFile} "$INSTDIR\service.bat" "    		del update_S3REST.tar"
-	${WriteFile} "$INSTDIR\service.bat" "  		)"
+	${WriteFile} "$INSTDIR\service.bat" "  		wget -t 1 https://s3-eu-west-1.amazonaws.com/noobaa-download/ness/noobaa-setup.exe"
+	${WriteFile} "$INSTDIR\service.bat" "  		if exist noobaa-setup.exe ("
+	${WriteFile} "$INSTDIR\service.bat" "    		noobaa-setup.exe"
+	${WriteFile} "$INSTDIR\service.bat" "    		del noobaa-setup.exe"
+	{WriteFile} "$INSTDIR\service.bat" "  		)"
 	${WriteFile} "$INSTDIR\service.bat" ")"
 	${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\atom-shell\atom.exe$\" $\"$INSTDIR\src\s3\index.js$\" "
 	${WriteFile} "$INSTDIR\service.bat" ")"
@@ -284,7 +310,7 @@ SectionEnd
 Section "uninstall"
 	nsExec::ExecToStack 'nssm stop "Noobaa S3REST Service" >> "$INSTDIR\uninstall.log"'
 	nsExec::ExecToStack 'nssm remove "Noobaa S3REST Service" confirm >> "$INSTDIR\uninstall.log"'
-	Delete "$INSTDIR\nssm.exe"
+	Delete "$INSTDIR\NooBaa_Agnet_wd.exe"
 	Delete "$INSTDIR\config.js"
 	Delete "$INSTDIR\7za.exe"
 	Delete "$INSTDIR\package.json"

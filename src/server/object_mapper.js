@@ -194,7 +194,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 db.DataChunk.create(new_chunks),
             ]);
         })
-        .then(function(new_blocks) {
+        .then(function() {
             dbg.log2('create parts', new_parts);
             return db.ObjectPart.create(new_parts);
         })

@@ -362,7 +362,7 @@ nb_api.factory('nbNodes', [
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
                 backgroundColor: 'transparent',
-                datalessRegionColor: '#1E252B', // darker than body bg
+                datalessRegionColor: '#242c33', // darker than body bg
                 colorAxis: {
                     colors: ['#888888', '#F500FF'], // gray to pink-purple
                     minValue: 0,

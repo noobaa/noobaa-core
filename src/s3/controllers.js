@@ -204,7 +204,7 @@ module.exports = function(params) {
                     objects: objects,
                     folders: folders
                 };
-                dbg.log0('About to return objects and folders:', objects_and_folders);
+                //dbg.log0('About to return objects and folders:', objects_and_folders);
                 return objects_and_folders;
             }).then(null, function(err) {
                 dbg.log0('failed to list object with prefix', err);
@@ -457,7 +457,7 @@ module.exports = function(params) {
             var delimiter = req.query.delimiter;
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
-                dbg.log0('ACL:', acl, 'template', template);
+                dbg.log0('Fake ACL (200)');
                 return buildXmlResponse(res, 200, template);
             }
             var copy = req.headers['x-amz-copy-source'];

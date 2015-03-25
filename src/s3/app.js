@@ -33,7 +33,7 @@ function s3_app(params) {
     // });
 
     app.use(function(req, res, next) {
-        dbg.log0('Time:', Date.now(), req.headers, req.query, req.query.prefix, req.query.delimiter);
+        //dbg.log0('Time:', Date.now(), req.headers, req.query, req.query.prefix, req.query.delimiter);
         if (req.headers.host) {
             if (req.headers.host.indexOf(params.bucket) === 0) {
                 req.url = req.url.replace('/', '/' + params.bucket + '/');

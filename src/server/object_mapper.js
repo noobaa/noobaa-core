@@ -15,7 +15,6 @@ var Semaphore = require('noobaa-util/semaphore');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-var p2p_context = {};
 
 /**
  *
@@ -489,7 +488,6 @@ function agent_delete_call(node, del_blocks) {
             domain: block_addr.peer,
             peer: block_addr.peer,
             is_ws: true,
-            p2p_context: p2p_context,
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -777,7 +775,6 @@ function build_chunks(chunks) {
                                 domain: block_addr.peer,
                                 peer: block_addr.peer,
                                 is_ws: true,
-                                p2p_context: p2p_context,
                                 timeout: config.server_replicate_timeout,
                             }).then(function() {
                                 dbg.log3('replicated block', block._id);

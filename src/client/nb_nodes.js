@@ -205,17 +205,17 @@ nb_api.factory('nbNodes', [
                         }
                     });
                     define_phase({
-                        name: 'write 10 MB from browser to ' + node.name,
+                        name: 'write 3 MB from browser to ' + node.name,
                         kind: ['full', 'rw'],
                         func: function() {
-                            return self_test_io(node, 10 * 1024 * 1024);
+                            return self_test_io(node, 3 * 1024 * 1024);
                         }
                     });
                     define_phase({
-                        name: 'read 10 MB from ' + node.name + ' to browser',
+                        name: 'read 3 MB from ' + node.name + ' to browser',
                         kind: ['full', 'rw'],
                         func: function() {
-                            return self_test_io(node, 1024, 10 * 1024 * 1024);
+                            return self_test_io(node, 1024, 3 * 1024 * 1024);
                         }
                     });
                     define_phase({

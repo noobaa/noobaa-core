@@ -44,7 +44,7 @@ function keepalive(socket) {
     try {
         socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
     } catch (ex) {
-        writeToLog(-1, 'keepalive err '+ ex);
+        writeToLog(-1, 'keepalive error '+ ex);
     }
 }
 
@@ -433,7 +433,7 @@ function createBufferToSend(block, seq, reqId) {
         bufToSend = buf.addToBuffer(bufToSend, block);
         return buf.toArrayBuffer(bufToSend);
     } catch (err) {
-        writeToLog(-1, 'err in createBufferToSend for req '+reqId+' err: '+err+' '+err.stack);
+        writeToLog(-1, 'error in createBufferToSend for req '+reqId+' err: '+err+' '+err.stack);
         throw err;
     }
 }
@@ -915,7 +915,7 @@ function onDataChannelCreated(socket, requestId, channel) {
         };
 
         channel.onerror = function (err) {
-            writeToLog(0, 'CHANNEL ERR ' + channel.peerId + ' ' + err);
+            writeToLog(0, 'CHANNEL ERROR ' + channel.peerId + ' ' + err);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }

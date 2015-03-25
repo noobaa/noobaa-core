@@ -209,7 +209,7 @@ function writeBufferToSocket(channel, block, reqId) {
         })
         .then(send_next)
         .then(null, function(err) {
-            writeToLog(-1, 'send_next recur err '+err+' '+err.stack+' req '+reqId);
+            writeToLog(-1, 'send_next recur error '+err+' '+err.stack+' req '+reqId);
             throw err;
         });
     }
@@ -217,7 +217,7 @@ function writeBufferToSocket(channel, block, reqId) {
     // start sending (recursive async loop)
     return Q.fcall(send_next)
         .then(null, function(err) {
-            writeToLog(-1, 'send_next general err '+err+' '+err.stack+' req '+reqId);
+            writeToLog(-1, 'send_next general error '+err+' '+err.stack+' req '+reqId);
             throw err;
         });
 

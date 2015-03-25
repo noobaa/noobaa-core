@@ -187,12 +187,16 @@ function allocate_object_parts(bucket, obj, parts) {
             });
             dbg.log2('create blocks', new_blocks.length);
             dbg.log2('create chunks', new_chunks);
-            dbg.log2('create parts', new_parts);
+            // we send blocks and chunks to DB in parallel,
+            // even if we fail, it will be ignored until someday we reclaim it
             return Q.all([
                 db.DataBlock.create(new_blocks),
                 db.DataChunk.create(new_chunks),
-                db.ObjectPart.create(new_parts)
             ]);
+        })
+        .then(function(new_blocks) {
+            dbg.log2('create parts', new_parts);
+            return db.ObjectPart.create(new_parts);
         })
         .thenResolve(reply);
 }
@@ -518,7 +522,7 @@ function delete_objects_from_agents(deleted_chunk_ids) {
             var blocks_by_node = _.groupBy(deleted_blocks, function(b) {
                 return b.node._id;
             });
-            
+
             return Q.all(_.map(blocks_by_node, function(blocks, node) {
                 return agent_delete_call(node, blocks);
             }));

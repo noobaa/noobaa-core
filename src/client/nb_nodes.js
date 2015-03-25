@@ -157,6 +157,7 @@ nb_api.factory('nbNodes', [
             function run_phase(test) {
                 dbg.log0('SELF TEST running phase:', test.name);
                 test.start = Date.now();
+                $rootScope.safe_apply();
                 return Q.fcall(test.func.bind(test))
                     .then(function(res) {
                         test.done = true;
@@ -190,31 +191,6 @@ nb_api.factory('nbNodes', [
                 })
                 .then(function() {
                     define_phase({
-                        name: 'connect from browser to test agent',
-                        kind: ['full', 'basic'],
-                        func: function() {
-                            return self_test_io(node);
-                        }
-                    });
-                    _.each(online_nodes, function(target_node) {
-                        define_phase({
-                            name: 'connect from browser to ' + target_node.name,
-                            kind: ['full', 'basic'],
-                            func: function() {
-                                return self_test_io(target_node);
-                            }
-                        });
-                    });
-                    _.each(online_nodes, function(target_node) {
-                        define_phase({
-                            name: 'connect from ' + node.name + ' to ' + target_node.name,
-                            kind: ['full', 'basic'],
-                            func: function() {
-                                return self_test_to_node(node, target_node);
-                            }
-                        });
-                    });
-                    define_phase({
                         name: 'write 1 MB from browser to ' + node.name,
                         kind: ['full', 'rw'],
                         func: function() {
@@ -243,6 +219,31 @@ nb_api.factory('nbNodes', [
                         }
                     });
                     define_phase({
+                        name: 'connect from browser to test agent',
+                        kind: ['full', 'conn'],
+                        func: function() {
+                            return self_test_io(node);
+                        }
+                    });
+                    _.each(online_nodes, function(target_node) {
+                        define_phase({
+                            name: 'connect from browser to ' + target_node.name,
+                            kind: ['full', 'conn'],
+                            func: function() {
+                                return self_test_io(target_node);
+                            }
+                        });
+                    });
+                    _.each(online_nodes, function(target_node) {
+                        define_phase({
+                            name: 'connect from ' + node.name + ' to ' + target_node.name,
+                            kind: ['full', 'conn'],
+                            func: function() {
+                                return self_test_to_node(node, target_node);
+                            }
+                        });
+                    });
+                    define_phase({
                         name: 'transfer 100 MB between browser and ' + node.name,
                         kind: ['full', 'tx'],
                         total: 100 * 1024 * 1024,
@@ -255,7 +256,7 @@ nb_api.factory('nbNodes', [
                                     self.position += 512 * 1024;
                                     self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
                                     $rootScope.safe_apply();
-                                    self.func();
+                                    return self.func();
                                 });
                         }
                     });

@@ -351,7 +351,14 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
             created: new Date()
         };
 
-        socket.p2p_context = p2p_context;
+        // TODO this next part may ignore a received context and it's unclear what context to use
+        if (socket.p2p_context) {
+            dbg.log0('initiateIce: using socket.p2p_context');
+            p2p_context = socket.p2p_context;
+        } else {
+            dbg.log0('initiateIce: setting p2p_context to socket.p2p_context');
+            socket.p2p_context = p2p_context;
+        }
         if (p2p_context && !p2p_context.iceSockets) {
             p2p_context.iceSockets = {};
         }

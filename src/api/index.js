@@ -70,6 +70,8 @@ function Client(default_options) {
     // use prototype inheritance to create new object but with defaults
     self.options = _.create(default_options);
 
+    self.options.p2p_context = self.options.p2p_context || {};
+
     self.auth = rpc.create_client('auth_api', self.options);
     self.account = rpc.create_client('account_api', self.options);
     self.system = rpc.create_client('system_api', self.options);

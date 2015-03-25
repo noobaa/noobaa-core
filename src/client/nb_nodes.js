@@ -280,7 +280,6 @@ nb_api.factory('nbNodes', [
                 address: node_host,
                 domain: node.peer_id,
                 peer: node.peer_id,
-                p2p_context: nbClient.client.p2p_context,
                 retries: 3,
                 timeout: 30000
             });
@@ -304,7 +303,6 @@ nb_api.factory('nbNodes', [
                 address: node_host,
                 domain: node.peer_id,
                 peer: node.peer_id,
-                p2p_context: nbClient.client.p2p_context,
                 retries: 3,
                 timeout: 30000
             });

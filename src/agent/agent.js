@@ -499,10 +499,6 @@ Agent.prototype.replicate_block = function(req) {
     dbg.log0('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
-    if (!self.p2p_context) {
-        self.p2p_context = {};
-    }
-
     // read from source agent
     return self.client.agent.read_block({
             block_id: source.id
@@ -511,7 +507,6 @@ Agent.prototype.replicate_block = function(req) {
             domain: source.peer,
             peer: source.peer,
             ws_socket: self.ws_socket,
-            p2p_context: self.p2p_context,
         })
         .then(function(data) {
             return self.store.write_block(block_id, data);
@@ -563,10 +558,6 @@ Agent.prototype.self_test_peer = function(req) {
         ' res ' + req.rest_params.response_length +
         ' target ' + util.inspect(target));
 
-    if (!self.p2p_context) {
-        self.p2p_context = {};
-    }
-
     // read from target agent
     return self.client.agent.self_test_io({
             data: new Buffer(req.rest_params.request_length),
@@ -576,7 +567,6 @@ Agent.prototype.self_test_peer = function(req) {
             domain: target.peer,
             peer: target.peer,
             ws_socket: self.ws_socket,
-            p2p_context: self.p2p_context,
         })
         .then(function(data) {
             if (data.length !== req.rest_params.response_length) {

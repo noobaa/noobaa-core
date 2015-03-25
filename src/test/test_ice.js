@@ -156,7 +156,7 @@ describe('on ice message', function() {
     });
 
 
-    it('test ws', function() {
+    it.skip('test ws', function() {
 
         // create mock for web sockets
         var wsMock = function(addr) {

@@ -66,8 +66,6 @@ function ObjectClient(object_rpc_client, agent_rpc_client) {
         cipher_type: 'aes256',
     };
 
-    self.p2p_context = {};
-
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
 
@@ -391,7 +389,6 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
             address: block_address.host,
             domain: block_address.peer,
             peer: block_address.peer,
-            p2p_context: self.p2p_context,
             timeout: config.write_timeout,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
@@ -851,7 +848,6 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
                 address: block_address.host,
                 domain: block_address.peer,
                 peer: block_address.peer,
-                p2p_context: self.p2p_context,
                 timeout: config.read_timeout,
             })
             .then(function(buffer) {

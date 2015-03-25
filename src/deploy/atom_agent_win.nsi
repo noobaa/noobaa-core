@@ -227,7 +227,6 @@ Pop $R1
 Exch $R0 ; put the value in $R0 at the top of the stack
 FunctionEnd
 
-var UPGRADE
 
 # default section
 
@@ -235,15 +234,18 @@ Section "install"
 
 	;Debug:
 	;MessageBox MB_OK "Value of address parameter is $2 $3 $4 $5"
-
+	Var /global UPGRADE
 
 	;Install or upgrade?
-	StrCpy $UPGRADE "false" ; default - clean installation
-	IfFileExists $INSTDIR\*.* 0 +2
-	StrCpy $UPGRADE "true"
+	StrCpy $UPGRADE "false"
+	IfFileExists $INSTDIR\*.* Upgrades Standard
+		Upgrades:
+			StrCpy $UPGRADE "true"
+		Standard:
 
+	SetOutPath $INSTDIR
 
-	${If} $UPGRADE == 'true' ;delete all files that we want to update
+	${If} $UPGRADE == "true" ;delete all files that we want to update
 		nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
 		Delete "$INSTDIR\config.js"
 		Delete "$INSTDIR\package.json"
@@ -256,7 +258,6 @@ Section "install"
 		Delete "$INSTDIR\service.bat"
 		Delete "$INSTDIR\service_uninstaller.bat"
 		Delete "$INSTDIR\service_installer.bat"
-
 	${Else}
 		File "7za.exe"
 		File "NooBaa_Agnet_wd.exe"
@@ -268,7 +269,6 @@ Section "install"
 
 	${EndIf}
 
-	SetOutPath $INSTDIR
 	WriteUninstaller "$INSTDIR\uninstall-noobaa.exe"
 	File "${ICON}"
 	File "package.json"
@@ -283,9 +283,9 @@ Section "install"
 	${WriteFile} "$INSTDIR\service.bat" "  cd $\"$INSTDIR$\""
 	${WriteFile} "$INSTDIR\service.bat" "  rem upgrade only if service is up and running"
 	${WriteFile} "$INSTDIR\service.bat" "  $\"$INSTDIR\NooBaa_Agnet_wd$\" status 'Noobaa Local Service'"
-	${WriteFile} "$INSTDIR\service.bat" "  set elvel=$\"%errorlevel%$\""
-	${WriteFile} "$INSTDIR\service.bat" "  echo %elvel% "
-	${WriteFile} "$INSTDIR\service.bat" "  if $\"%elvel%$\" == $\"0$\" ("
+	${WriteFile} "$INSTDIR\service.bat" "  set level=$\"%errorlevel%$\""
+	${WriteFile} "$INSTDIR\service.bat" "  echo %level% "
+	${WriteFile} "$INSTDIR\service.bat" "  if $\"%level%$\" == $\"0$\" ("
 	${WriteFile} "$INSTDIR\service.bat" "  		echo Upgrading..."
 	${WriteFile} "$INSTDIR\service.bat" "  		wget -t 1 https://s3-eu-west-1.amazonaws.com/noobaa-download/ness/noobaa-setup.exe"
 	${WriteFile} "$INSTDIR\service.bat" "  		if exist noobaa-setup.exe ("

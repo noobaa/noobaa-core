@@ -15,6 +15,7 @@ if [ $# -eq 0 ]
         cp ../../package.json .
         cp ../../config.js .
         cp ../../agent_conf.json .
+        mkdir ./src/    
         cp -R ../../src/agent ./src/
         cp -R ../../src/util ./src/
         cp -R ../../src/rpc ./src/
@@ -25,7 +26,7 @@ if [ $# -eq 0 ]
         sed -i '' '/bower/d' package.json
         sed -i '' '/aws-sdk/d' package.json
         sed -i '' '/bootstrap/d' package.json
-        sed -i '' '/browserify/d' package.json
+        sed -i '' '/browserify"/d' package.json
         pwd
         npm install -dd
         echo "Downloading atom-shell for windows"

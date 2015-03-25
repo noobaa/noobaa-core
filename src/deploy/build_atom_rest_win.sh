@@ -3,9 +3,9 @@
 if [ $# -eq 0 ]
         then
         echo "delete old files"
-        rm -rf build/windows
-        mkdir build/windows
-        cd build/windows
+        rm -rf build/windows_s3
+        mkdir build/windows_s3
+        cd build/windows_s3
         echo "copy files"
         cp ../../images/noobaa_icon24.ico .
         cp ../../src/deploy/7za.exe .
@@ -15,7 +15,7 @@ if [ $# -eq 0 ]
         cp ../../package.json .
         cp ../../config.js .
         cp ../../agent_conf.json .
-        cp -R ../../src/agent ./src/
+        mkdir ./src/
         cp -R ../../src/util ./src/
         cp -R ../../src/s3 ./src/
         cp -R ../../src/rpc ./src/
@@ -36,9 +36,9 @@ if [ $# -eq 0 ]
         #tar -cvf update_agent.tar ./atom-shell ./node_modules ./src ./config.js ./package.json ./agent_conf.json
 fi
 echo "make installer"
-cd build/windows
+cd build/windows_s3
 pwd
-makensis -NOCD ../../src/deploy/atom_agent_win.nsi
+makensis -NOCD ../../src/deploy/atom_rest_win.nsi
 
 echo "uploading to S3"
 

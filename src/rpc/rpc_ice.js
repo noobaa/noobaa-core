@@ -200,6 +200,7 @@ function serve(rpc, peer_id) {
 
             var reply = {
                 status: status,
+                statusCode: status,
                 size: (buffer ? buffer.byteLength : 0),
                 data: data,
                 req: reqId

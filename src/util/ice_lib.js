@@ -144,7 +144,18 @@ var connect = function (socket) {
                 writeToLog(3, 'Got keepalive from ' + message.from);
             } else if (message.sigType && message.requestId) {
                 writeToLog(0, 'Got ' + message.sigType + ' from web server '+message.from+' to '+message.to+' i am '+socket.idInServer);
-                if (socket.action_defer && socket.action_defer[message.requestId]) {
+                if (message.sigType === 'response' && message.status && message.status === 500) {
+                    if (socket.p2p_context && socket.p2p_context.iceSockets && socket.p2p_context.iceSockets[message.from]
+                        && socket.p2p_context.iceSockets[message.from].connect_defer) {
+                        socket.p2p_context.iceSockets[message.from].connect_defer.reject(message);
+                    } else if (socket.icemap && socket.icemap[message.requestId]) {
+                        socket.icemap[message.requestId].connect_defer.reject(message);
+                    } else if (socket.action_defer && socket.action_defer[message.requestId]) {
+                        socket.action_defer[message.requestId].reject(message);
+                    } else {
+                        writeToLog(-1, 'got bad conn sig message that cant handle ' + require('util').inspect(message));
+                    }
+                } else if (socket.action_defer && socket.action_defer[message.requestId]) {
                     socket.action_defer[message.requestId].resolve(message);
                     delete socket.action_defer[message.requestId];
                 } else {

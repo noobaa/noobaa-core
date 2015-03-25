@@ -73,6 +73,7 @@ function get_regions(func) {
 function foreach_region(func) {
     return get_regions()
         .then(function(res) {
+//            console.log('regions:',res.Regions);
             return Q.all(_.map(res.Regions, func));
         });
 }
@@ -105,6 +106,9 @@ function describe_instances(params) {
                         }
                         return true;
                     });
+                }).then(null,function(err){
+                    console.log("Error:",err);
+                    return false;
                 });
         })
         .then(function(res) {
@@ -141,7 +145,7 @@ function describe_instance(instance_id) {
  * scale_instances
  *
  */
-function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers) {
+function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers,is_win) {
 
     return describe_instances({
         Filters: [{
@@ -192,7 +196,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
                 new_count += region_count;
             }
 
-            return scale_region(region_name, region_count, instances, allow_terminate, is_docker_host, number_of_dockers);
+            return scale_region(region_name, region_count, instances, allow_terminate, is_docker_host, number_of_dockers,is_win);
         }));
     });
 }
@@ -206,7 +210,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
  * @param instances - array of existing instances
  *
  */
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers,is_win) {
 
     // always make sure the region has the security group and key pair
     return Q
@@ -222,7 +226,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
             if (count > instances.length) {
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
-                return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers);
+                return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers,is_win);
             }
 
             // need to terminate
@@ -234,12 +238,16 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
                 }
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' --- removing', instances.length - count);
-                var death_row = _.first(instances, instances.length - count);
+                var death_row = _.slice(instances, 0,instances.length - count);
+                console.log('death:',death_row.length);
                 var ids = _.pluck(death_row, 'InstanceId');
                 return terminate_instances(region_name, ids);
             }
 
             console.log('ScaleRegion:', region_name, 'has', instances.length, ' ... unchanged');
+        })
+        .then(null,function(err){
+            console.log('Error while trying to scale region:', region_name, ', has', instances.length,' error:',err);
         });
 }
 
@@ -249,10 +257,11 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count, is_docker_host, number_of_dockers) {
+function add_region_instances(region_name, count, is_docker_host, number_of_dockers,is_win) {
     var instance_type = 't2.micro';
     // the run script to send to started instances
     var run_script = fs.readFileSync(__dirname + '/init_agent.sh', 'UTF8');
+
     var test_instances_counter;
 
     if (is_docker_host) {
@@ -268,18 +277,26 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
         run_script = run_script.replace("test", app_name);
         run_script = run_script.replace("200", number_of_dockers);
     } else {
-        test_instances_counter = (run_script.match(/test/g) || []).length;
-        console.log('test_instances_counter', test_instances_counter);
-        if (test_instances_counter !== 1) {
-            throw new Error('init_agent.sh expected to contain default env "test"', test_instances_counter);
+        if (is_win){
+            run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
+
+        }else{
+
+            test_instances_counter = (run_script.match(/test/g) || []).length;
+
+            console.log('test_instances_counter', test_instances_counter);
+            if (test_instances_counter !== 1) {
+                throw new Error('init_agent.sh expected to contain default env "test"', test_instances_counter);
+            }
+            run_script = run_script.replace("test", app_name);
         }
-        run_script = run_script.replace("test", app_name);
+
     }
     //console.log('run ',run_script);
 
 
     return Q
-        .fcall(get_ami_image_id, region_name)
+        .fcall(get_ami_image_id, region_name,is_win)
         .then(function(ami_image_id) {
 
             console.log('AddInstance:', region_name, count, ami_image_id);
@@ -312,21 +329,37 @@ var _cached_ami_image_id;
  * @return the image id and save in memory for next calls
  *
  */
-function get_ami_image_id(region_name) {
+function get_ami_image_id(region_name,is_win) {
     // if (_cached_ami_image_id) return _cached_ami_image_id;
+    if (is_win){
 
-    return ec2_region_call(region_name, 'describeImages', {
-            Filters: [{
-                Name: 'name',
-                Values: [
-                    'ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-20140927',
-                ]
-            }]
-        })
-        .then(function(res) {
-            _cached_ami_image_id = res.Images[0].ImageId;
-            return _cached_ami_image_id;
-        });
+        return ec2_region_call(region_name, 'describeImages', {
+                Filters: [{
+                    Name: 'name',
+                    Values: [
+                        'Windows_Server-2012-R2_RTM-English-64Bit-Base-2015.02.11',
+                    ]
+                }]
+            })
+            .then(function(res) {
+                _cached_ami_image_id = res.Images[0].ImageId;
+                return _cached_ami_image_id;
+            });
+    }else{
+
+        return ec2_region_call(region_name, 'describeImages', {
+                Filters: [{
+                    Name: 'name',
+                    Values: [
+                        'ubuntu/images/hvm-ssd/ubuntu-trusty-14.04-amd64-server-20140927',
+                    ]
+                }]
+            })
+            .then(function(res) {
+                _cached_ami_image_id = res.Images[0].ImageId;
+                return _cached_ami_image_id;
+            });
+    }
 }
 
 
@@ -508,6 +541,7 @@ function main() {
 
     if (!_.isUndefined(argv.scale)) {
         var is_docker_host = false;
+        var is_win = false;
         if (!_.isUndefined(argv.dockers)) {
             is_docker_host = true;
             console.log('starting ' + argv.dockers + ' dockers on each host');
@@ -522,8 +556,11 @@ function main() {
             app_name = argv.app;
         }
 
+        if (!_.isUndefined(argv.win)) {
+            is_win = true;
+        }
         // add a --term flag to allow removing nodes
-        scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers)
+        scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers,is_win)
             .then(function(res) {
                 console_inspect('Scale: completed to ' + argv.scale, res);
                 return describe_instances().then(print_instances);

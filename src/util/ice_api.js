@@ -209,7 +209,7 @@ function writeBufferToSocket(channel, block, reqId) {
         })
         .then(send_next)
         .then(null, function(err) {
-            writeToLog(-1, 'send_next recur err '+err+' '+err.stack+' req '+reqId);
+            writeToLog(-1, 'send_next recur error '+err+' '+err.stack+' req '+reqId);
             throw err;
         });
     }
@@ -217,7 +217,7 @@ function writeBufferToSocket(channel, block, reqId) {
     // start sending (recursive async loop)
     return Q.fcall(send_next)
         .then(null, function(err) {
-            writeToLog(-1, 'send_next general err '+err+' '+err.stack+' req '+reqId);
+            writeToLog(-1, 'send_next general error '+err+' '+err.stack+' req '+reqId);
             throw err;
         });
 
@@ -301,20 +301,20 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
                     }
                 }
                 if (sigSocket.conn_defer) {
-                    return sigSocket.conn_defer.promise;
+                    return sigSocket.conn_defer.promise.timeout(config.ws_conn_timeout, 'connection ws timeout');
                 }
-                return Q.fcall(function() {return sigSocket;});
+                return Q.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
             });
         } else {
             writeToLog(0,'CREATE NEW WS CONN (no context) - peer '+peerId+' req '+requestId);
             sigSocket = createNewWS();
 
             if (sigSocket.conn_defer) {
-                return sigSocket.conn_defer.promise;
+                return sigSocket.conn_defer.promise.timeout(config.ws_conn_timeout, 'connection ws timeout');
             }
-            return Q.fcall(function() {return sigSocket;});
+            return Q.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
         }
-    }).timeout(config.ws_conn_timeout, 'connection ws timeout').then(function() {
+    }).then(function() {
         writeToLog(0,'send ws request to peer for request '+requestId+ ' and peer '+peerId);
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
@@ -322,8 +322,8 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             sigSocket.action_defer = {};
         }
         sigSocket.action_defer[requestId] = Q.defer();
-        return sigSocket.action_defer[requestId].promise;
-    }).timeout(config.response_timeout, 'response ws timeout').then(function(response) {
+        return sigSocket.action_defer[requestId].promise.timeout(config.response_timeout, 'response ws timeout');
+    }).then(function(response) {
         writeToLog(0,'return response data '+util.inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
         if (!isAgent && !p2p_context) {
@@ -385,8 +385,8 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
     }).then(function() {
         requestId = generateRequestId();
         writeToLog(0,'starting to initiate ice to '+peerId+' request '+requestId);
-        return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
-    }).timeout(config.ice_conn_timeout, 'connection timeout').then(function(newSocket) {
+        return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId).timeout(config.ice_conn_timeout, 'connection timeout');
+    }).then(function(newSocket) {
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};
@@ -412,8 +412,8 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
 
-        return msgObj.action_defer.promise;
-    }).timeout(config.response_timeout, 'response timeout').then(function() {
+        return msgObj.action_defer.promise.timeout(config.response_timeout, 'response timeout');
+    }).then(function() {
 
         msgObj = iceSocket.msgs[requestId];
 

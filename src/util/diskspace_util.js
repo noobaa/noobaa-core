@@ -21,8 +21,8 @@ function check(drive, callback)
 
     if (os.type() === 'Windows_NT') //Windows
     {
-        var execCmd = path.join(__dirname, 'drivespace.exe');
-        execCmd = '"' + execCmd + '" drive-' + drive; // handle path with spaces
+        var execCmd = path.join('./node_modules/diskspace', 'drivespace.exe');
+        execCmd = '\"' +execCmd + '\" drive-' + drive; // handle path with spaces
         child_process.exec(execCmd, function(error, stdout, stderr)
         {
             if (error)

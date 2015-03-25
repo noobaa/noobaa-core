@@ -32,6 +32,17 @@ module.exports = {
                     content_type: {
                         type: 'string',
                     },
+                    add_suffix: {
+                        type: 'boolean',
+                    },
+                }
+            },
+            reply: {
+                required: ['used_key'],
+                properties: {
+                    used_key: {
+                        type: 'string'
+                    },
                 }
             },
             auth: {

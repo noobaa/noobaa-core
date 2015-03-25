@@ -91,12 +91,14 @@ function ObjectClient(object_rpc_client, agent_rpc_client) {
  */
 ObjectClient.prototype.upload_stream = function(params) {
     var self = this;
-    var create_params = _.pick(params, 'bucket', 'key', 'size', 'content_type');
-    var bucket_key_params = _.pick(params, 'bucket', 'key');
-
-    dbg.log0('upload_stream: create multipart', params.key);
+    var create_params = _.pick(params,
+        'bucket', 'key', 'size', 'content_type', 'add_suffix');
+    var bucket_key_params;
     return self.object_rpc_client.create_multipart_upload(create_params)
-        .then(function() {
+        .then(function(res) {
+            dbg.log0('upload_stream: create multipart', params.key);
+            params.key = res.used_key;
+            bucket_key_params = _.pick(params, 'bucket', 'key');
             var pipeline = new Pipeline(params.source_stream);
 
             ////////////////////////////////////////
@@ -160,7 +162,6 @@ ObjectClient.prototype.upload_stream = function(params) {
                 },
                 transform: function(parts) {
                     var stream = this;
-                    dbg.log0('upload_stream: allocating parts', parts.length);
                     // send parts to server
                     return self.object_rpc_client.allocate_object_parts({
                             bucket: params.bucket,
@@ -246,8 +247,8 @@ ObjectClient.prototype.upload_stream = function(params) {
                                 }
                                 return p;
                             })
-                        },{
-                        timeout: config.client_replicate_timeout
+                        }, {
+                            timeout: config.client_replicate_timeout
                         })
                         .then(function() {
                             // push parts down the pipe
@@ -282,7 +283,7 @@ ObjectClient.prototype.upload_stream = function(params) {
             return pipeline.run();
         })
         .then(function() {
-            dbg.log0('upload_stream: complete multipart', params.key);
+            dbg.log0('upload_stream: complete multipart', params.key, " ", bucket_key_params);
             return self.object_rpc_client.complete_multipart_upload(bucket_key_params);
         }, function(err) {
             dbg.log0('upload_stream: error write stream', params.key, err);

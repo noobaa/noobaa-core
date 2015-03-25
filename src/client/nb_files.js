@@ -38,7 +38,7 @@ nb_api.factory('nbFiles', [
             var num_downloads = 0;
             _.each($scope.transfers, function(tx) {
                 if (tx.running) {
-                    if (tx.type==='upload') {
+                    if (tx.type === 'upload') {
                         num_uploads += 1;
                     } else {
                         num_downloads += 1;
@@ -136,14 +136,11 @@ nb_api.factory('nbFiles', [
         }
 
         function run_upload(input_file, bucket_name) {
-            var ext_match = input_file.name.match(/^(.*)(\.[^\.]*)$/);
-            var serial = (((Date.now() / 1000) % 10000000) | 0).toString();
             var tx = {
                 type: 'upload',
                 input_file: input_file,
                 bucket: bucket_name,
-                name: ext_match ?
-                    (ext_match[1] + '_' + serial + ext_match[2]) : (input_file.name + '_' + serial),
+                name: input_file.name,
                 size: input_file.size,
                 content_type: input_file.type,
                 start_time: Date.now(),
@@ -155,6 +152,7 @@ nb_api.factory('nbFiles', [
                     bucket: tx.bucket,
                     key: tx.name,
                     size: tx.size,
+                    add_suffix: true,
                     content_type: tx.content_type,
                     source_stream: new SliceReader(tx.input_file, {
                         highWaterMark: size_utils.MEGABYTE,

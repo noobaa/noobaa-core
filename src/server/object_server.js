@@ -44,9 +44,13 @@ module.exports = object_server;
  *
  */
 function create_multipart_upload(req) {
+    var info, reply = {
+        used_key: req.rest_params.key
+    };
+
     return load_bucket(req)
         .then(function() {
-            var info = {
+            info = {
                 system: req.system.id,
                 bucket: req.bucket.id,
                 key: req.rest_params.key,
@@ -54,8 +58,27 @@ function create_multipart_upload(req) {
                 content_type: req.rest_params.content_type || 'application/octet-stream',
                 upload_size: 0,
             };
+
             return db.ObjectMD.create(info);
-        }).thenResolve();
+        })
+        .then(null, function(err) {
+            if (db.is_err_exists(err)) {
+                //key exists, check if we got here from a flow requiring suffix change
+                if (req.rest_params.add_suffix) {
+                    var ext_match = info.key.match(/^(.*)(\.[^\.]*)$/);
+                    var rand_ext = (((Date.now() / 1000) % 10000000) | 0).toString();
+                    info.key = ext_match ?
+                        (ext_match[1] + '_' + rand_ext + ext_match[2]) :
+                        (info.key + '_' + rand_ext);
+                    reply.used_key = info.key;
+                    return db.ObjectMD.create(info);
+                } else {
+                    throw req.rest_error('ObjectMD already exists');
+                }
+            } else {
+                throw err;
+            }
+        }).thenResolve(reply);
 }
 
 

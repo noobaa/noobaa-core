@@ -161,7 +161,7 @@ var connect = function (socket) {
         };
 
         ws.onerror = function (err) {
-            writeToLog(-1,  'onerror ws ' + err+' ; '+err.stack);
+            writeToLog(-1,  'onerror ws ' + require('util').inspect(err)+' ; '+err.stack);
 
             if (socket.conn_defer) {
                 socket.conn_defer.reject();

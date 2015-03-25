@@ -301,20 +301,20 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
                     }
                 }
                 if (sigSocket.conn_defer) {
-                    return sigSocket.conn_defer.promise;
+                    return sigSocket.conn_defer.promise.timeout(config.ws_conn_timeout, 'connection ws timeout');
                 }
-                return Q.fcall(function() {return sigSocket;});
+                return Q.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
             });
         } else {
             writeToLog(0,'CREATE NEW WS CONN (no context) - peer '+peerId+' req '+requestId);
             sigSocket = createNewWS();
 
             if (sigSocket.conn_defer) {
-                return sigSocket.conn_defer.promise;
+                return sigSocket.conn_defer.promise.timeout(config.ws_conn_timeout, 'connection ws timeout');
             }
-            return Q.fcall(function() {return sigSocket;});
+            return Q.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
         }
-    }).timeout(config.ws_conn_timeout, 'connection ws timeout').then(function() {
+    }).then(function() {
         writeToLog(0,'send ws request to peer for request '+requestId+ ' and peer '+peerId);
         sigSocket.ws.send(JSON.stringify({sigType: options.path, from: sigSocket.idInServer, to: peerId, requestId: requestId, body: options, method: options.method}));
 
@@ -385,8 +385,8 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
     }).then(function() {
         requestId = generateRequestId();
         writeToLog(0,'starting to initiate ice to '+peerId+' request '+requestId);
-        return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId);
-    }).timeout(config.ice_conn_timeout, 'connection timeout').then(function(newSocket) {
+        return ice.initiateIce(p2p_context, sigSocket, peerId, true, requestId).timeout(config.ice_conn_timeout, 'connection timeout');
+    }).then(function(newSocket) {
         iceSocket = newSocket;
 
         iceSocket.msgs[requestId] = {};

@@ -8,6 +8,7 @@ var zlib = require('zlib');
 var _ = require('lodash');
 var Semaphore = require('noobaa-util/semaphore');
 var buf = require('./buffer_utils');
+var promise_utils = require('./promise_utils');
 
 var configuration = config.ice_servers;
 
@@ -42,7 +43,7 @@ module.exports = {};
 function keepalive(socket) {
     writeToLog(3, 'send keepalive from '+socket.idInServer);
     try {
-        socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
+        socket.ws.send(JSON.stringify({sigType: 'keepalive', from: socket.idInServer}));
     } catch (ex) {
         writeToLog(-1, 'keepalive error '+ ex);
     }
@@ -207,9 +208,9 @@ var connect = function (socket) {
         };
 
         ws.onclose = function () {
-            writeToLog(-1,  'onclose ws');
+            writeToLog(0,  'onclose ws');
             if (socket.isAgent) {
-                writeToLog(-1,  'onclose ws agent');
+                writeToLog(0,  'onclose ws agent');
                 disconnect(socket);
                 setTimeout(
                     function () {
@@ -217,7 +218,7 @@ var connect = function (socket) {
                     }, config.reconnect_delay);
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
                 var currWs = socket.p2p_context.wsClientSocket;
-                writeToLog(-1,  'onclose ws context');
+                writeToLog(0,  'onclose ws context');
                 if (currWs.interval) {
                     clearInterval(currWs.interval);
                 }
@@ -226,7 +227,7 @@ var connect = function (socket) {
                 }
                 delete socket.p2p_context.wsClientSocket;
             } else {
-                writeToLog(-1,  'onclose ws - disconnect not agent & no context');
+                writeToLog(0,  'onclose ws - disconnect not agent & no context');
                 disconnect(socket);
             }
         };
@@ -457,31 +458,63 @@ function createBufferToSend(block, seq, reqId) {
 }
 module.exports.createBufferToSend = createBufferToSend;
 
+/**
+ *
+ * writeToChannel
+ *
+ * channel.bufferedAmount is the only congestion control interface
+ * that we have in JS, so we poll it.
+ * it increases as we send more on the channel before it has a chance
+ * to flush to the socket so we need the current stack to return and release the cpu.
+ */
 function writeToChannel(channel, data, requestId) {
     chkChannelState(channel, requestId);
 
-    var startTime = (new Date()).getTime();
-    var currentTime;
+    var startTime = Date.now();
     var lastTimeLogged;
 
-    if (channel.bufferedAmount > 0) {
-        setTimeout(function() {
-            currentTime = (new Date()).getTime();
-            if (currentTime - startTime > 1000 && (!lastTimeLogged || (lastTimeLogged - currentTime > 1000))) {
+    function send_if_not_congested() {
+        var currentTime = Date.now();
+        var desc = 'peer ' + channel.peerId + ' req ' + requestId +
+            ' wait so far ' + (currentTime - startTime) + 'ms';
+        if (channel.bufferedAmount) {
+            if (currentTime - startTime > 1000 &&
+                (!lastTimeLogged || (lastTimeLogged - currentTime > 1000))) {
                 lastTimeLogged = currentTime;
-                writeToLog(2, 'bufferedAmount>0, wait for peer '+channel.peerId+' for req '+requestId+' wait so far: '+(currentTime - startTime));
+                dbg.log2('writeToChannel: WAITING', desc);
             }
-            writeToChannel(channel, data, requestId);
-        }, config.timeoutToBufferWait);
-    } else {
-        currentTime = (new Date()).getTime();
+            throw new Error('writeToChannel: WAITING ' + desc);
+        }
         if (currentTime - startTime > 10) {
-            writeToLog(2, 'bufferedAmount==0, write for peer '+channel.peerId+' for req '+requestId+' waited: '+(currentTime - startTime));
+            dbg.log2('writeToChannel: SENDING', desc);
         }
         channel.send(data);
     }
+
+    // setup a semaphore(1) on the channel to avoid pegging the bufferedAmount checks
+    // and to make all senders wait in ordered queue. like europeans.
+    channel.write_sem = channel.write_sem || new Semaphore(1);
+    return channel.write_sem.surround(function() {
+        // use retry with delay between attempts to send
+        return promise_utils.retry(
+            config.channel_send_congested_attempts,
+            config.channel_send_congested_delay,
+            send_if_not_congested)
+            .then(null, function(err) {
+                dbg.log0('writeToChannel: RETRIES EXHAUSTED', err.stack || err);
+                // TODO YAEL - close channel?
+                throw err;
+            });
+    });
 }
 module.exports.writeToChannel = writeToChannel;
+
+
+/*
+
+// TODO we can remove this, polling from here and noticing that the channel
+// buffer is not empty doesn't help us understand anything, besides that it's active.
+// instead writeToChannel() monitors it's own writes under a semaphore.
 
 function chkIceSocketSend(channel) {
 
@@ -501,6 +534,8 @@ function chkIceSocketSend(channel) {
     }
 }
 module.exports.chkIceSocketSend = chkIceSocketSend;
+*/
+
 
 function isRequestEnded(p2p_context, requestId, channel) {
     if (channel && channel.msgs && channel.msgs[requestId]) {
@@ -548,12 +583,15 @@ function closeIce(socket, requestId, dataChannel) {
         if (obj && obj.dataChannel === dataChannel) {
             obj.lastUsed = (new Date()).getTime();
             delete obj.usedBy[requestId];
-        } else if (socket && !socket.p2p_context && dataChannel) {
-            writeToLog(-1,'Closing the ice socket to peer ' +dataChannel.peerId);
+        } else if (socket && !socket.p2p_context) {
             if (channelObj && channelObj.peerConn) {
                 channelObj.peerConn.close();
             }
-            dataChannel.close();
+            if (dataChannel) {
+                writeToLog(0,'Closing the ice socket to peer ' +dataChannel.peerId);
+                dataChannel.close();
+            }
+            disconnect(socket);
         }
     } catch (ex) {
         writeToLog(-1,'Error on close ice socket for request '+requestId+' ex '+ex);

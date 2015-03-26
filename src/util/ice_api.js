@@ -205,13 +205,13 @@ function writeBufferToSocket(channel, block, reqId) {
         ice.chkChannelState(channel, reqId);
         writeToLog(3,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
         return Q.fcall(function() {
-            ice.writeToChannel(channel, chunk, reqId);
-        })
-        .then(send_next)
-        .then(null, function(err) {
-            writeToLog(-1, 'send_next recur error '+err+' '+err.stack+' req '+reqId);
-            throw err;
-        });
+                return ice.writeToChannel(channel, chunk, reqId);
+            })
+            .then(send_next)
+            .then(null, function(err) {
+                writeToLog(-1, 'send_next recur error '+err+' '+err.stack+' req '+reqId);
+                throw err;
+            });
     }
 
     // start sending (recursive async loop)
@@ -402,17 +402,20 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         writeToLog(0,'send request ice to '+peerId+' request '+requestId);
 
-        ice.writeToChannel(iceSocket, JSON.stringify(request), requestId);
+        return ice.writeToChannel(iceSocket, JSON.stringify(request), requestId);
+
+    }).then(function() {
 
         if (buffer) {
-            writeBufferToSocket(iceSocket, buffer, requestId);
+            return writeBufferToSocket(iceSocket, buffer, requestId);
         }
 
-        ice.chkIceSocketSend(iceSocket);
+    }).then(function() {
 
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
 
         return msgObj.action_defer.promise.timeout(config.response_timeout, 'response timeout');
+
     }).then(function() {
 
         msgObj = iceSocket.msgs[requestId];

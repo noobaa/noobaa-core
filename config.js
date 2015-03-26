@@ -12,7 +12,8 @@ config.chunk_size = (16 * 1024) - 100;
 config.doStaleCheck = true;
 
 config.iceBufferMetaPartSize = 64;
-config.timeoutToBufferWait = 500;
+config.channel_send_congested_delay = 10;
+config.channel_send_congested_attempts = 10000;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

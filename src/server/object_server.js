@@ -23,6 +23,7 @@ var object_server = {
     allocate_object_parts: allocate_object_parts,
     finalize_object_parts: finalize_object_parts,
     report_bad_block: report_bad_block,
+    self_test_to_node_via_web: self_test_to_node_via_web,
 
     // read
     read_object_mappings: read_object_mappings,
@@ -140,6 +141,10 @@ function finalize_object_parts(req) {
                 obj,
                 req.rest_params.parts);
         });
+}
+
+function self_test_to_node_via_web(req) {
+    return object_mapper.self_test_to_node_via_web(req);
 }
 
 

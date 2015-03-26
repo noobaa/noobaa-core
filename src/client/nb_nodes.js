@@ -263,6 +263,23 @@ nb_api.factory('nbNodes', [
                         }
                     });
 
+                    define_phase({
+                        name: 'LOAD VIA SERVER: connect from all to one node and send 3MB (twice from each)',
+                        kind: ['full', 'tx'],
+                        func: function(target_node) {
+                            var promises = [];
+                            _.each(online_nodes, function(target_node) {
+                                if (node.name !== target_node.name) {
+                                    var i;
+                                    for (i = 0; i < 2; ++i) {
+                                        promises.push(self_test_to_node_via_web(target_node, node, 1024, 3 * 1024 * 1024));
+                                    }
+                                }
+                            });
+                            return Q.all(promises);
+                        }
+                    });
+
                      define_phase({
                         name: 'transfer 100 MB between browser and ' + node.name,
                         kind: ['full', 'tx'],
@@ -328,7 +345,30 @@ nb_api.factory('nbNodes', [
             });
         }
 
+        function self_test_to_node_via_web (node, target_node, request_length, response_length) {
+            console.log('SELF TEST', node.name, 'to', target_node.name);
+            var node_host = 'http://' + node.host + ':' + node.port;
+            var target_host = 'http://' + target_node.host + ':' + target_node.port;
 
+            var timestamp = Date.now();
+            return nbClient.client.object.self_test_to_node_via_web({
+                target: {
+                    id: target_node.id,
+                    host: target_host,
+                    peer: target_node.peer_id
+                },
+                source: {
+                    id: node.id,
+                    host: node_host,
+                    peer: node.peer_id
+                },
+                request_length: request_length || 1024,
+                response_length: response_length || 1024,
+            }, {
+                retries: 3,
+                timeout: 30000
+            });
+        }
 
 
         function draw_nodes_map(selected_geo, google) {

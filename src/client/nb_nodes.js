@@ -158,6 +158,7 @@ nb_api.factory('nbNodes', [
                 dbg.log0('SELF TEST running phase:', test.name);
                 test.start = Date.now();
                 $rootScope.safe_apply();
+
                 return Q.fcall(test.func.bind(test))
                     .then(function(res) {
                         test.done = true;
@@ -234,6 +235,7 @@ nb_api.factory('nbNodes', [
                             }
                         });
                     });
+
                     _.each(online_nodes, function(target_node) {
                         define_phase({
                             name: 'connect from ' + node.name + ' to ' + target_node.name,
@@ -243,7 +245,25 @@ nb_api.factory('nbNodes', [
                             }
                         });
                     });
+
                     define_phase({
+                        name: 'LOAD: connect from all to one node and send 3MB (twice from each)',
+                        kind: ['full', 'tx'],
+                        func: function(target_node) {
+                            var promises = [];
+                            _.each(online_nodes, function(target_node) {
+                                if (node.name !== target_node.name) {
+                                    var i;
+                                    for (i = 0; i < 2; ++i) {
+                                        promises.push(self_test_to_node(target_node, node, 1024, 3 * 1024 * 1024));
+                                    }
+                                }
+                            });
+                            return Q.all(promises);
+                        }
+                    });
+
+                     define_phase({
                         name: 'transfer 100 MB between browser and ' + node.name,
                         kind: ['full', 'tx'],
                         total: 100 * 1024 * 1024,

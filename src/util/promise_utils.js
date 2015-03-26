@@ -7,6 +7,7 @@ var Q = require('q');
 module.exports = {
     iterate: iterate,
     loop: loop,
+    retry: retry,
     delay_unblocking: delay_unblocking,
     run_background_worker: run_background_worker
 };
@@ -51,6 +52,37 @@ function loop(times, func) {
                 return loop(times - 1, func);
             });
     }
+}
+
+
+/**
+ *
+ * simple promise loop, similar to _.times but ignores the return values,
+ * and only returns a promise for completion or failure
+ *
+ * @param attempts number of attempts. can be Infinity.
+ * @param delay number of milliseconds between retries
+ * @param func with signature function(attempts), passing remaining attempts just fyi
+ */
+function retry(attempts, delay, func) {
+
+    // call func, passing remaining attempts just fyi
+    return Q.fcall(func, attempts)
+
+        // catch errors
+        .then(null, function(err) {
+
+            // check attempts
+            attempts -= 1;
+            if (attempts <= 0) {
+                throw err;
+            }
+
+            // delay and retry next attempt
+            return Q.delay(delay).then(function() {
+                return retry(attempts, delay, func);
+            });
+        });
 }
 
 

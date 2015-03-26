@@ -192,40 +192,45 @@ function serve(rpc, peer_id) {
 
 
         function send_reply(status, data, buffer) {
-            if (buffer && !(buffer instanceof ArrayBuffer)) {
-                buffer = buffer_utils.toArrayBuffer(buffer);
-            }
+            return Q.fcall(function() {
+                    if (buffer && !(buffer instanceof ArrayBuffer)) {
+                        buffer = buffer_utils.toArrayBuffer(buffer);
+                    }
 
-            dbg.log0('done manual status: ' + status + " reply: " + data + ' buffer: ' + (buffer ? buffer.byteLength : 0) + ' req ' + reqId);
+                    dbg.log0('done manual status: ' + status + " reply: " + data + ' buffer: ' + (buffer ? buffer.byteLength : 0) + ' req ' + reqId);
 
-            var reply = {
-                status: status,
-                statusCode: status,
-                size: (buffer ? buffer.byteLength : 0),
-                data: data,
-                req: reqId
-            };
+                    var reply = {
+                        status: status,
+                        statusCode: status,
+                        size: (buffer ? buffer.byteLength : 0),
+                        data: data,
+                        req: reqId
+                    };
 
-            if (isWs) {
-                reply.sigType = 'response';
-                reply.requestId = reqId;
-                reply.from = msg.to;
-                reply.to = msg.from;
-            }
+                    if (isWs) {
+                        reply.sigType = 'response';
+                        reply.requestId = reqId;
+                        reply.from = msg.to;
+                        reply.to = msg.from;
+                    }
 
-            if (isWs) {
-                channel.send(JSON.stringify(reply));
-            } else {
-                ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
-            }
+                    if (isWs) {
+                        // TODO isn't there a callback to WS send? need to return to promise chain..
+                        channel.send(JSON.stringify(reply));
+                    } else {
+                        return ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
+                    }
+                })
+                .then(function() {
 
-            if (buffer) {
-                ice_api.writeBufferToSocket(channel, buffer, reqId);
-            }
+                    if (!buffer) return;
 
-            if (!isWs) {
-                ice_lib.chkIceSocketSend(channel);
-            }
+                    if (isWs) {
+                        throw new Error('UNEXPECTED BUFFER WITH WS ' + rpc_method.method_api.name);
+                    }
+
+                    return ice_api.writeBufferToSocket(channel, buffer, reqId);
+                });
         }
     }
 

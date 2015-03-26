@@ -207,9 +207,9 @@ var connect = function (socket) {
         };
 
         ws.onclose = function () {
-            writeToLog(-1,  'onclose ws');
+            writeToLog(0,  'onclose ws');
             if (socket.isAgent) {
-                writeToLog(-1,  'onclose ws agent');
+                writeToLog(0,  'onclose ws agent');
                 disconnect(socket);
                 setTimeout(
                     function () {
@@ -217,7 +217,7 @@ var connect = function (socket) {
                     }, config.reconnect_delay);
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
                 var currWs = socket.p2p_context.wsClientSocket;
-                writeToLog(-1,  'onclose ws context');
+                writeToLog(0,  'onclose ws context');
                 if (currWs.interval) {
                     clearInterval(currWs.interval);
                 }
@@ -226,7 +226,7 @@ var connect = function (socket) {
                 }
                 delete socket.p2p_context.wsClientSocket;
             } else {
-                writeToLog(-1,  'onclose ws - disconnect not agent & no context');
+                writeToLog(0,  'onclose ws - disconnect not agent & no context');
                 disconnect(socket);
             }
         };
@@ -548,12 +548,15 @@ function closeIce(socket, requestId, dataChannel) {
         if (obj && obj.dataChannel === dataChannel) {
             obj.lastUsed = (new Date()).getTime();
             delete obj.usedBy[requestId];
-        } else if (socket && !socket.p2p_context && dataChannel) {
-            writeToLog(-1,'Closing the ice socket to peer ' +dataChannel.peerId);
+        } else if (socket && !socket.p2p_context) {
             if (channelObj && channelObj.peerConn) {
                 channelObj.peerConn.close();
             }
-            dataChannel.close();
+            if (dataChannel) {
+                writeToLog(0,'Closing the ice socket to peer ' +dataChannel.peerId);
+                dataChannel.close();
+            }
+            disconnect(socket);
         }
     } catch (ex) {
         writeToLog(-1,'Error on close ice socket for request '+requestId+' ex '+ex);

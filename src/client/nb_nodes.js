@@ -246,6 +246,16 @@ nb_api.factory('nbNodes', [
                         });
                     });
 
+                    _.each(online_nodes, function(target_node) {
+                        define_phase({
+                            name: 'new connect from ' + node.name + ' to ' + target_node.name,
+                            kind: ['full', 'conn'],
+                            func: function() {
+                                return self_test_conn(node, target_node);
+                            }
+                        });
+                    });
+
                     define_phase({
                         name: 'LOAD: connect from all to one node and send 3MB (twice from each)',
                         kind: ['full', 'tx'],
@@ -311,6 +321,24 @@ nb_api.factory('nbNodes', [
         function self_test_io(node, request_length, response_length) {
             var node_host = 'http://' + node.host + ':' + node.port;
             return nbClient.client.agent.self_test_io({
+                data: new Buffer(request_length || 1024),
+                response_length: response_length || 1024,
+            }, {
+                address: node_host,
+                domain: node.peer_id,
+                peer: node.peer_id,
+                retries: 3,
+                timeout: 30000
+            });
+        }
+
+        function self_test_conn(node, request_length, response_length) {
+            var node_host = 'http://' + node.host + ':' + node.port;
+
+            var client = new api.Client();
+            client.options.p2p_context = null;
+
+            return client.agent.self_test_io({
                 data: new Buffer(request_length || 1024),
                 response_length: response_length || 1024,
             }, {

@@ -5,6 +5,8 @@ var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
+var dbg = require('noobaa-util/debug_module')(__filename);
 var api = require('../api');
 
 var nb_api = angular.module('nb_api');
@@ -136,69 +138,176 @@ nb_api.factory('nbNodes', [
             );
         }
 
-        function self_test(node, options) {
+        function self_test(node, kind) {
             var had_error = false;
+            var online_nodes;
             $scope.self_test_results = [];
 
-            function test_to_node(target_node_test) {
-                var target_node = target_node_test.node;
-                console.log('SELF TEST', node.name, 'to', target_node.name);
-                var node_host = 'http://' + node.host + ':' + node.port;
-                var target_host = 'http://' + target_node.host + ':' + target_node.port;
+            function define_phase(test) {
+                console.log('SELF TEST define phase', kind, test.kind, test.name);
+                if (_.contains(test.kind, kind)) {
+                    $scope.self_test_results.push(test);
+                }
+            }
 
-                var timestamp = Date.now();
-                return nbClient.client.agent.self_test_peer({
-                        target: {
-                            id: target_node.id,
-                            host: target_host,
-                            peer: target_node.peer_id
-                        },
-                        request_length: 100 * 1024,
-                        response_length: 100 * 1024,
-                    }, {
-                        address: node_host,
-                        domain: node.peer_id,
-                        peer: node.peer_id,
-                        p2p_context: nbClient.client.p2p_context,
-                        retries: 5,
-                    })
-                    .then(function() {
-                        target_node_test.done = true;
-                        target_node_test.elapsed = Date.now() - timestamp;
-                        console.log('SELF TEST TOOK', target_node_test.elapsed / 1000, 'sec');
+            function run_phases() {
+                return promise_utils.iterate($scope.self_test_results, run_phase);
+            }
+
+            function run_phase(test) {
+                dbg.log0('SELF TEST running phase:', test.name);
+                test.start = Date.now();
+                $rootScope.safe_apply();
+                return Q.fcall(test.func.bind(test))
+                    .then(function(res) {
+                        test.done = true;
+                        test.took = (Date.now() - test.start) / 1000;
+                        dbg.log0('SELF TEST completed phase', test.name, 'took', test.took, 'sec');
+                        $rootScope.safe_apply();
                     }, function(err) {
-                        target_node_test.error = err;
-                        console.error('SELF TEST FAILED', err);
-                        throw err;
+                        dbg.log0('SELF TEST failed phase', test.name, err.stack || err);
+                        test.error = err;
+                        // mark and swallow errors to run next tests
+                        had_error = true;
+                        $rootScope.safe_apply();
+                    }, function(progress) {
+                        test.progress = progress;
+                        $rootScope.safe_apply();
                     });
             }
 
-            return list_nodes({
-                    limit: 30
-                })
-                .then(function(nodes) {
-                    return _.reduce(nodes, function(promise, target_node) {
-                        var target_node_test = {
-                            node: target_node
-                        };
-                        $scope.self_test_results.push(target_node_test);
-                        return promise.then(function() {
-                                return test_to_node(target_node_test);
-                            })
-                            .then(null, function(err) {
-                                // mark and swallow errors to run next tests
-                                had_error = true;
+            return $q.when()
+                .then(function() {
+                    dbg.log0('SELF TEST listing nodes');
+                    return list_nodes({})
+                        .then(function(nodes) {
+                            online_nodes = _.filter(nodes, function(target_node) {
+                                if (target_node.online) return true;
+                                dbg.log0('SELF TEST filter offline node', target_node.name);
                             });
-                    }, $q.when());
+                            dbg.log0('SELF TEST got', online_nodes.length,
+                                'online nodes out of', nodes.length, 'total nodes');
+                        });
+                })
+                .then(function() {
+                    define_phase({
+                        name: 'write 1 MB from browser to ' + node.name,
+                        kind: ['full', 'rw'],
+                        func: function() {
+                            return self_test_io(node, 1 * 1024 * 1024);
+                        }
+                    });
+                    define_phase({
+                        name: 'read 1 MB from ' + node.name + ' to browser',
+                        kind: ['full', 'rw'],
+                        func: function() {
+                            return self_test_io(node, 1024, 1 * 1024 * 1024);
+                        }
+                    });
+                    define_phase({
+                        name: 'write 3 MB from browser to ' + node.name,
+                        kind: ['full', 'rw'],
+                        func: function() {
+                            return self_test_io(node, 3 * 1024 * 1024);
+                        }
+                    });
+                    define_phase({
+                        name: 'read 3 MB from ' + node.name + ' to browser',
+                        kind: ['full', 'rw'],
+                        func: function() {
+                            return self_test_io(node, 1024, 3 * 1024 * 1024);
+                        }
+                    });
+                    define_phase({
+                        name: 'connect from browser to test agent',
+                        kind: ['full', 'conn'],
+                        func: function() {
+                            return self_test_io(node);
+                        }
+                    });
+                    _.each(online_nodes, function(target_node) {
+                        define_phase({
+                            name: 'connect from browser to ' + target_node.name,
+                            kind: ['full', 'conn'],
+                            func: function() {
+                                return self_test_io(target_node);
+                            }
+                        });
+                    });
+                    _.each(online_nodes, function(target_node) {
+                        define_phase({
+                            name: 'connect from ' + node.name + ' to ' + target_node.name,
+                            kind: ['full', 'conn'],
+                            func: function() {
+                                return self_test_to_node(node, target_node);
+                            }
+                        });
+                    });
+                    define_phase({
+                        name: 'transfer 100 MB between browser and ' + node.name,
+                        kind: ['full', 'tx'],
+                        total: 100 * 1024 * 1024,
+                        position: 0,
+                        func: function() {
+                            var self = this;
+                            if (self.position >= self.total) return;
+                            return self_test_io(node, 256 * 1024, 256 * 1024)
+                                .then(function() {
+                                    self.position += 512 * 1024;
+                                    self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                    $rootScope.safe_apply();
+                                    return self.func();
+                                });
+                        }
+                    });
+                    return run_phases();
                 })
                 .then(function() {
                     if (had_error) throw new Error('had_error');
                     nbAlertify.log('Self test completed :)');
                 })
                 .then(null, function(err) {
-                    nbAlertify.error('Self test failed :(');
+                    nbAlertify.error('Self test had errors :(');
                 });
         }
+
+        function self_test_io(node, request_length, response_length) {
+            var node_host = 'http://' + node.host + ':' + node.port;
+            return nbClient.client.agent.self_test_io({
+                data: new Buffer(request_length || 1024),
+                response_length: response_length || 1024,
+            }, {
+                address: node_host,
+                domain: node.peer_id,
+                peer: node.peer_id,
+                retries: 3,
+                timeout: 30000
+            });
+        }
+
+        function self_test_to_node(node, target_node, request_length, response_length) {
+            console.log('SELF TEST', node.name, 'to', target_node.name);
+            var node_host = 'http://' + node.host + ':' + node.port;
+            var target_host = 'http://' + target_node.host + ':' + target_node.port;
+
+            var timestamp = Date.now();
+            return nbClient.client.agent.self_test_peer({
+                target: {
+                    id: target_node.id,
+                    host: target_host,
+                    peer: target_node.peer_id
+                },
+                request_length: request_length || 1024,
+                response_length: response_length || 1024,
+            }, {
+                address: node_host,
+                domain: node.peer_id,
+                peer: node.peer_id,
+                retries: 3,
+                timeout: 30000
+            });
+        }
+
 
 
 
@@ -218,8 +327,8 @@ nb_api.factory('nbNodes', [
             var max_num_nodes = -Infinity;
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Location');
-            data.addColumn('number', 'Capacity');
             data.addColumn('number', 'Nodes');
+            data.addColumn('number', 'Capacity');
             var selected_row = -1;
             _.each($scope.node_groups, function(stat, index) {
                 if (stat.geolocation === selected_geo) {
@@ -231,42 +340,37 @@ nb_api.factory('nbNodes', [
                 if (stat.storage.alloc < min_alloc) {
                     min_alloc = stat.storage.alloc;
                 }
-                if (stat.count > max_num_nodes) {
-                    max_num_nodes = stat.count;
+                if (stat.online > max_num_nodes) {
+                    max_num_nodes = stat.online;
                 }
-                if (stat.count < min_num_nodes) {
-                    min_num_nodes = stat.count;
+                if (stat.online < min_num_nodes) {
+                    min_num_nodes = stat.online;
                 }
                 data.addRow([stat.geolocation, {
+                    v: stat.count ? (100 * stat.online / stat.count) : 0,
+                    f: stat.online + ' online, ' + (stat.count - stat.online) + ' offline'
+                }, {
                     v: stat.storage.alloc,
                     f: $rootScope.human_size(stat.storage.alloc)
-                }, stat.count]);
-                console.log(stat, min_alloc, max_alloc);
+                }]);
+                console.log(stat, min_alloc, max_alloc, min_num_nodes, max_num_nodes);
             });
             var options = {
                 displayMode: 'markers',
                 enableRegionInteractivity: true,
                 keepAspectRatio: true,
                 backgroundColor: 'transparent',
-                datalessRegionColor: '#283136', // darker than body bg
-                // datalessRegionColor: '#cfd8dc', // blue-grey-100
-                // datalessRegionColor: '#b2dfdb', // teal-100
-                // datalessRegionColor: '#10312D', // ~teal
+                datalessRegionColor: '#242c33', // darker than body bg
                 colorAxis: {
-                    // colors: ['#fff176', '#ffee58'], // yellow 300-400
-                    // colors: ['#909688', '#009688'], // teal
-                    // colors: ['#F9FFF4', '#76FF00'], // greens
-                    // colors: ['#EC407A', '#E91E63'], // pink 400-500
-                    colors: ['#7e57c2', '#673ab7'], // deep-purple 400-500
-                    // colors: ['#00bcd4', '#00acc1'], // cyan 400-500
-                    minValue: min_alloc,
-                    maxValue: max_alloc,
+                    colors: ['#888888', '#F500FF'], // gray to pink-purple
+                    minValue: 0,
+                    maxValue: 100,
                 },
                 sizeAxis: {
-                    minSize: 10,
-                    maxSize: 12,
-                    minValue: min_num_nodes,
-                    maxValue: max_num_nodes,
+                    minSize: 5,
+                    maxSize: 9,
+                    minValue: min_alloc,
+                    maxValue: max_alloc,
                 },
                 legend: 'none' || {
                     textStyle: {
@@ -295,9 +399,8 @@ nb_api.factory('nbNodes', [
                 var selection = chart.getSelection();
                 if (selection[0]) {
                     var geo = data.getValue(selection[0].row, 0);
-                    $location.path('nodes/geo/' + geo);
-                } else {
-                    $location.path('nodes');
+                    $location.path('/tier/' + nbSystem.system.tiers[0].name);
+                    $location.hash('nodes&geo=' + geo);
                 }
                 $rootScope.safe_apply();
             });

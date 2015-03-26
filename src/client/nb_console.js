@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var Q = require('q');
 
 require('./nb_util');
 require('./nb_api');
@@ -164,6 +165,11 @@ nb_console.controller('OverviewCtrl', [
 
         return $scope.nbSystem.init_system
             .then(function() {
+                if (!$scope.nbNodes.node_groups) {
+                    return $scope.nbNodes.refresh_node_groups();
+                }
+            })
+            .then(function() {
                 return $scope.nbNodes.draw_nodes_map();
             });
 
@@ -288,6 +294,9 @@ nb_console.controller('TierViewCtrl', [
             if ($scope.nodes_query.search) {
                 query.name = $scope.nodes_query.search;
             }
+            if ($scope.nodes_query.geo) {
+                query.geolocation = $scope.nodes_query.geo;
+            }
             return nbNodes.list_nodes({
                 query: query,
                 skip: $scope.nodes_query.page * $scope.nodes_page_size,
@@ -307,6 +316,42 @@ nb_console.controller('TierViewCtrl', [
 
         function add_node() {
             var scope = $scope.$new();
+            scope.stage = 1;
+            scope.next_stage = function() {
+                scope.stage += 1;
+                if (scope.stage > 3) {
+                    scope.modal.modal('hide');
+                }
+            };
+            scope.prev_stage = function() {
+                scope.stage -= 1;
+                if (scope.stage < 1) {
+                    scope.stage = 1;
+                }
+            };
+            scope.goto_nodes_list = function() {
+                scope.modal.modal('hide');
+                scope.modal.on('hidden.bs.modal', function() {
+                    $timeout(function() {
+                        $location.path('/tier/' + nbSystem.system.tiers[0].name);
+                        $location.hash('nodes');
+                        console.log('$location', $location.absUrl());
+                    }, 1);
+                });
+            };
+            scope.download_agent = function() {
+                return nbSystem.get_agent_installer()
+                    .then(function(url) {
+                        var link = $window.document.createElement("a");
+                        link.download = '';
+                        link.href = url;
+                        link.click();
+                        return Q.delay(2000);
+                    })
+                    .then(function() {
+                        scope.next_stage();
+                    });
+            };
             scope.modal = nbModal({
                 template: 'console/add_node_dialog.html',
                 scope: scope,
@@ -373,8 +418,18 @@ nb_console.controller('NodeViewCtrl', [
 
                     var used = $scope.node.storage.used;
                     var unused = $scope.node.storage.alloc - used;
-                    var operating_sys = 4 * 1024 * 1024 * 1024;
-                    var free_disk = 100 * 1024 * 1024 * 1024;
+                    var operating_sys = 0;
+                    var free_disk = 0;
+                    if ($scope.node.device_info && $scope.node.device_info.freestorage) {
+                        free_disk = Math.max(0, $scope.node.device_info.freestorage - unused);
+                    }
+                    if ($scope.node.device_info && $scope.node.device_info.totalstorage) {
+                        operating_sys = Math.max(0,
+                            $scope.node.device_info.totalstorage -
+                            free_disk -
+                            used -
+                            unused);
+                    }
                     $scope.pie_chart = {
                         options: {
                             is3D: true,
@@ -393,11 +448,11 @@ nb_console.controller('NodeViewCtrl', [
                             slices: [{
                                 color: '#03a9f4'
                             }, {
+                                color: '#81d4fa'
+                            }, {
                                 color: '#ff008b'
                             }, {
                                 color: '#ffa0d3'
-                            }, {
-                                color: '#81d4fa'
                             }]
                         },
                         data: [
@@ -406,6 +461,10 @@ nb_console.controller('NodeViewCtrl', [
                                 v: operating_sys,
                                 f: $scope.human_size(operating_sys)
                             }],
+                            ['Free disk', {
+                                v: free_disk,
+                                f: $scope.human_size(free_disk)
+                            }],
                             ['Noobaa used', {
                                 v: used,
                                 f: $scope.human_size(used)
@@ -413,10 +472,6 @@ nb_console.controller('NodeViewCtrl', [
                             ['Noobaa unused', {
                                 v: unused,
                                 f: $scope.human_size(unused)
-                            }],
-                            ['Free disk', {
-                                v: free_disk,
-                                f: $scope.human_size(free_disk)
                             }],
                         ]
                     };
@@ -602,14 +657,20 @@ nb_console.controller('FileViewCtrl', [
                 .then(function(res) {
                     $scope.file = res;
 
+                    // TODO take address from system
+                    var rest_address =
+                        ($location.protocol() === 'https') ?
+                        'https://localhost:5006' :
+                        'http://localhost:5005';
+
                     $scope.download_url = $sce.trustAsResourceUrl(
-                        'http://localhost:5006/b/' +
-                        $routeParams.bucket_name + '/o/' +
+                        rest_address + '/' +
+                        $routeParams.bucket_name + '/' +
                         $routeParams.file_name + '?download=1');
                     $scope.play_url = $sce.trustAsResourceUrl(
-                        'http://localhost:5006/b/' +
+                        rest_address + '/' +
                         $routeParams.bucket_name + '/' +
-                        (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
+                        // (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
                         $routeParams.file_name);
 
                     // TODO handle file parts pages

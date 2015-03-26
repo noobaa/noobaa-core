@@ -5,6 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 
 module.exports = {
+    iterate: iterate,
     loop: loop,
     delay_unblocking: delay_unblocking,
     run_background_worker: run_background_worker
@@ -20,7 +21,7 @@ module.exports = {
  */
 function iterate(array, func) {
     var results = [];
-    results.length = array.legnth;
+    results.length = array.length;
     var i = 0;
 
     function add_to_promise(promise, item) {

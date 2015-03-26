@@ -29,8 +29,8 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
             system: 'demo',
             tier: 'nodes',
             bucket: 'files',
-            port: 80,
-            ssl_port: 443,
+            port: 5005,
+            ssl_port: 5006,
         });
         return;
     }).then(function() {

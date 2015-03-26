@@ -135,6 +135,24 @@ module.exports = {
             }
         },
 
+
+        get_system_resource_info: {
+            method: 'GET',
+            path: '/get_system_resource_info',
+            reply: {
+                type: 'object',
+                requires: ['agent_installer'],
+                properties: {
+                    agent_installer: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
         read_activity_log: {
             method: 'GET',
             path: '/activity_log',

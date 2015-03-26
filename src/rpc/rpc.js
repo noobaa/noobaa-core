@@ -290,11 +290,13 @@ RPC.prototype._request = function(api, method_api, params, options) {
         method_api.params_schema,
         'CLIENT PARAMS');
 
-    var timeout = options.timeout || 120000; // a default high time
-    var retries = options.retries || 0;
+    var timeout = options.timeout || config.default_rpc_timeout; // a default high time
+    var retries = options.retries || config.default_rpc_retries;
     var attempts = 0;
     var timed_out = false;
     var transport;
+
+    dbg.log2('RPC attempt at ', method_api, timeout, retries);
 
     // choose suitable transport
     if (config.use_ws_when_possible && options.is_ws && options.peer) {
@@ -313,12 +315,12 @@ RPC.prototype._request = function(api, method_api, params, options) {
     // and attempts below number of retries
     function send_request() {
         attempts += 1;
-        dbg.log1('RPC ATTEMPT', attempts, srv_name);
+        dbg.log1('RPC ATTEMPT', attempts, srv_name, params);
         return transport(self, api, method_api, params, options)
             .then(null, function(err) {
                 // error with statusCode means we got the reply from the server
                 // so there is no point to retry
-                if (err.statusCode) {
+                if (err.statusCode && err.statusCode !== 503) {
                     dbg.log0('RPC REQUEST FAILED', err);
                     throw err;
                 }
@@ -330,7 +332,8 @@ RPC.prototype._request = function(api, method_api, params, options) {
                     dbg.log0('RPC RETRIES EXHAUSTED', attempts, srv_name);
                     throw err;
                 }
-                return Q.delay(100).then(send_request);
+                dbg.log0('RPC REQUEST FAILED - DO RETRY', err, params);
+                return Q.delay(config.rpc_retry_delay).then(send_request);
             });
     }
 

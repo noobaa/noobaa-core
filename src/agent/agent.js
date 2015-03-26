@@ -25,6 +25,7 @@ var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
+var diskspace = require('../util/diskspace_util');
 
 module.exports = Agent;
 
@@ -77,7 +78,7 @@ function Agent(params) {
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
         replicate_block: self.replicate_block.bind(self),
-        delete_block: self.delete_block.bind(self),
+        delete_blocks: self.delete_blocks.bind(self),
         check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
         self_test_io: self.self_test_io.bind(self),
@@ -317,11 +318,51 @@ Agent.prototype.send_heartbeat = function() {
     var self = this;
     var store_stats;
     var device_info_send_time;
+    var now_time;
+    var drive = '/';
+    var totalSpace;
+    var freeSpace;
+    var hourlyHB = false;
+
+    // chk if windows
+    if (os.type().match(/win/i) && !os.type().match(/darwin/i)) {
+        drive ='c';
+    }
+
     dbg.log0('send heartbeat by agent', self.node_id);
 
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
+            now_time = Date.now();
+
+            if (!self.device_info_send_time ||
+                now_time > self.device_info_send_time + 3600000) {
+                hourlyHB = true;
+                return Q.nfcall(diskspace.check, drive);
+            } else {
+                return [];
+            }
+        })
+        .spread(function(total, free, status) {
+            if (hourlyHB) {
+                if (status && status.trim() === 'READY') {
+                    freeSpace = free;
+                    totalSpace = total;
+                } else {
+                    dbg.log0('AGENT problem getting FS space, status: ', status);
+                }
+            }
+        }, function(err) {
+            dbg.log0('AGENT error getting FS space, result: ', err);
+        })
+        .then(function() {
+
+            var alloc = store_stats.alloc;
+            if (hourlyHB && freeSpace && !isNaN(freeSpace)) {
+                alloc = Math.min(alloc, freeSpace);
+            }
+
             var ip = ifconfig.get_main_external_ipv4();
             var params = {
                 id: self.node_id,
@@ -329,13 +370,12 @@ Agent.prototype.send_heartbeat = function() {
                 ip: ip,
                 port: self.http_port || 0,
                 storage: {
-                    alloc: store_stats.alloc,
+                    alloc: alloc,
                     used: store_stats.used
                 }
             };
-            var now_time = Date.now();
-            if (!self.device_info_send_time ||
-                now_time > self.device_info_send_time + 3600000) {
+
+            if (hourlyHB) {
                 device_info_send_time = now_time;
                 params.device_info = {
                     hostname: os.hostname(),
@@ -350,7 +390,15 @@ Agent.prototype.send_heartbeat = function() {
                     cpus: os.cpus(),
                     networkInterfaces: os.networkInterfaces()
                 };
+
+                if (totalSpace && freeSpace) {
+                    params.device_info.totalstorage = totalSpace;
+                    params.device_info.freestorage = freeSpace;
+                }
             }
+
+            dbg.log3('AGENT HB params: ',params);
+
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {
@@ -383,7 +431,7 @@ Agent.prototype.send_heartbeat = function() {
 
         }, function(err) {
 
-            console.error('HEARTBEAT FAILED', err);
+            dbg.log0('HEARTBEAT FAILED', err, err.stack);
 
             // schedule delay to retry on error
             self.heartbeat_delay_ms = 30000 * (1 + Math.random());
@@ -451,10 +499,6 @@ Agent.prototype.replicate_block = function(req) {
     dbg.log0('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
-    if (!self.p2p_context) {
-        self.p2p_context = {};
-    }
-
     // read from source agent
     return self.client.agent.read_block({
             block_id: source.id
@@ -463,19 +507,18 @@ Agent.prototype.replicate_block = function(req) {
             domain: source.peer,
             peer: source.peer,
             ws_socket: self.ws_socket,
-            p2p_context: self.p2p_context,
         })
         .then(function(data) {
             return self.store.write_block(block_id, data);
         });
 };
 
-Agent.prototype.delete_block = function(req) {
+Agent.prototype.delete_blocks = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
-    dbg.log0('AGENT delete_block', block_id);
-    self.store_cache.invalidate(block_id);
-    return self.store.delete_block(block_id);
+    var blocks = req.rest_params.blocks;
+    dbg.log0('AGENT delete_blocks', blocks);
+    self.store_cache.multi_invalidate(blocks);
+    return self.store.delete_blocks(blocks);
 };
 
 Agent.prototype.check_block = function(req) {
@@ -515,10 +558,6 @@ Agent.prototype.self_test_peer = function(req) {
         ' res ' + req.rest_params.response_length +
         ' target ' + util.inspect(target));
 
-    if (!self.p2p_context) {
-        self.p2p_context = {};
-    }
-
     // read from target agent
     return self.client.agent.self_test_io({
             data: new Buffer(req.rest_params.request_length),
@@ -528,7 +567,6 @@ Agent.prototype.self_test_peer = function(req) {
             domain: target.peer,
             peer: target.peer,
             ws_socket: self.ws_socket,
-            p2p_context: self.p2p_context,
         })
         .then(function(data) {
             if (data.length !== req.rest_params.response_length) {

@@ -1,7 +1,4 @@
-var app = require('app');  // Module to control application life.
-var BrowserWindow = require('browser-window');
+'use strict';
 
-app.on('ready', function() {
-    var windowMain = new BrowserWindow({show: false}); // width: 0, height: 0, frame: false,
-    windowMain.loadUrl('file://' + __dirname + '/index.html');
-});
+var atom_app = require('../util/atom_app');
+var app = atom_app(__dirname + '/index.html');

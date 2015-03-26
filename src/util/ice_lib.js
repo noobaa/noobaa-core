@@ -44,7 +44,7 @@ function keepalive(socket) {
     try {
         socket.ws.send(JSON.stringify({sigType: 'keepalive'}));
     } catch (ex) {
-        writeToLog(-1, 'keepalive err '+ ex);
+        writeToLog(-1, 'keepalive error '+ ex);
     }
 }
 
@@ -144,7 +144,18 @@ var connect = function (socket) {
                 writeToLog(3, 'Got keepalive from ' + message.from);
             } else if (message.sigType && message.requestId) {
                 writeToLog(0, 'Got ' + message.sigType + ' from web server '+message.from+' to '+message.to+' i am '+socket.idInServer);
-                if (socket.action_defer && socket.action_defer[message.requestId]) {
+                if (message.sigType === 'response' && message.status && message.status === 500) {
+                    if (socket.p2p_context && socket.p2p_context.iceSockets && socket.p2p_context.iceSockets[message.from]
+                        && socket.p2p_context.iceSockets[message.from].connect_defer) {
+                        socket.p2p_context.iceSockets[message.from].connect_defer.reject(message);
+                    } else if (socket.icemap && socket.icemap[message.requestId]) {
+                        socket.icemap[message.requestId].connect_defer.reject(message);
+                    } else if (socket.action_defer && socket.action_defer[message.requestId]) {
+                        socket.action_defer[message.requestId].reject(message);
+                    } else {
+                        writeToLog(-1, 'got bad conn sig message that cant handle ' + require('util').inspect(message));
+                    }
+                } else if (socket.action_defer && socket.action_defer[message.requestId]) {
                     socket.action_defer[message.requestId].resolve(message);
                     delete socket.action_defer[message.requestId];
                 } else {
@@ -161,7 +172,7 @@ var connect = function (socket) {
         };
 
         ws.onerror = function (err) {
-            writeToLog(-1,  'onerror ws ' + err+' ; '+err.stack);
+            writeToLog(-1,  'onerror ws ' + require('util').inspect(err)+' ; '+err.stack);
 
             if (socket.conn_defer) {
                 socket.conn_defer.reject();
@@ -274,26 +285,28 @@ function staleConnChk(socket) {
     var pos;
     var timePassed;
     try {
-        for (requestId in socket.icemap) {
-            timePassed = now - socket.icemap[requestId].created.getTime();
-            writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' time passed ' +
-            timePassed+' for req '+requestId+' is done '+socket.icemap[requestId].done);
-            if (timePassed > config.connection_data_stale && socket.icemap[requestId].done) {
-                toDel.push(requestId);
+        if (socket && socket.icemap) {
+            for (requestId in socket.icemap) {
+                timePassed = now - socket.icemap[requestId].created.getTime();
+                writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' time passed ' +
+                timePassed+' for req '+requestId+' is done '+socket.icemap[requestId].done);
+                if (timePassed > config.connection_data_stale && socket.icemap[requestId].done) {
+                    toDel.push(requestId);
+                }
             }
-        }
 
-        for (pos in toDel) {
-            requestId = toDel[pos];
-            writeToLog(0, 'remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
-            delete socket.icemap[requestId];
+            for (pos in toDel) {
+                requestId = toDel[pos];
+                writeToLog(0, 'remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
+                delete socket.icemap[requestId];
+            }
         }
     } catch (ex) {
         writeToLog(-1,'Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
     }
 
     try {
-        if (socket.p2p_context && socket.p2p_context.iceSockets) {
+        if (socket && socket.p2p_context && socket.p2p_context.iceSockets) {
             now = (new Date()).getTime();
             toDel = [];
 
@@ -338,7 +351,14 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
             created: new Date()
         };
 
-        socket.p2p_context = p2p_context;
+        // TODO this next part may ignore a received context and it's unclear what context to use
+        if (socket.p2p_context) {
+            dbg.log0('initiateIce: using socket.p2p_context');
+            p2p_context = socket.p2p_context;
+        } else {
+            dbg.log0('initiateIce: setting p2p_context to socket.p2p_context');
+            socket.p2p_context = p2p_context;
+        }
         if (p2p_context && !p2p_context.iceSockets) {
             p2p_context.iceSockets = {};
         }
@@ -431,7 +451,7 @@ function createBufferToSend(block, seq, reqId) {
         bufToSend = buf.addToBuffer(bufToSend, block);
         return buf.toArrayBuffer(bufToSend);
     } catch (err) {
-        writeToLog(-1, 'err in createBufferToSend for req '+reqId+' err: '+err+' '+err.stack);
+        writeToLog(-1, 'error in createBufferToSend for req '+reqId+' err: '+err+' '+err.stack);
         throw err;
     }
 }
@@ -913,7 +933,7 @@ function onDataChannelCreated(socket, requestId, channel) {
         };
 
         channel.onerror = function (err) {
-            writeToLog(0, 'CHANNEL ERR ' + channel.peerId + ' ' + err);
+            writeToLog(0, 'CHANNEL ERROR ' + channel.peerId + ' ' + err);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
             }

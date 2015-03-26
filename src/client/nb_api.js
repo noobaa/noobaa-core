@@ -127,6 +127,7 @@ nb_api.factory('nbSystem', [
         $scope.create_system = create_system;
         $scope.connect_system = connect_system;
         $scope.toggle_system = toggle_system;
+        $scope.get_agent_installer = get_agent_installer;
 
         $scope.read_activity_log = read_activity_log;
         $scope.read_activity_log_newest = read_activity_log_newest;
@@ -230,6 +231,16 @@ nb_api.factory('nbSystem', [
             } else {
                 return connect_system(system_name);
             }
+        }
+
+        function get_agent_installer() {
+            return $q.when()
+                .then(function() {
+                    return nbClient.client.system.get_system_resource_info({});
+                })
+                .then(function(res) {
+                    return res.agent_installer;
+                });
         }
 
 

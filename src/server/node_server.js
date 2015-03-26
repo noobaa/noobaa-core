@@ -271,6 +271,7 @@ function list_nodes(req) {
  */
 function group_nodes(req) {
     return Q.fcall(function() {
+            var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
             var reduce_sum = size_utils.reduce_sum;
             var group_by = req.rest_params.group_by;
             var by_system = {
@@ -281,6 +282,8 @@ function group_nodes(req) {
             return db.Node.mapReduce({
                 query: by_system,
                 scope: {
+                    // have to pass variables to map/reduce with a scope
+                    minimum_online_heartbeat: minimum_online_heartbeat,
                     group_by: group_by,
                     reduce_sum: reduce_sum,
                 },
@@ -292,9 +295,12 @@ function group_nodes(req) {
                     if (group_by.geolocation) {
                         key.g = this.geolocation;
                     }
+                    var online = (!this.srvmode && this.heartbeat >= minimum_online_heartbeat);
                     var val = {
                         // count
                         c: 1,
+                        // online
+                        o: online ? 1 : 0,
                         // allocated
                         a: this.storage.alloc || 0,
                         // used
@@ -305,15 +311,18 @@ function group_nodes(req) {
                 },
                 reduce: function(key, values) {
                     var c = []; // count
+                    var o = []; // online
                     var a = []; // allocated
                     var u = []; // used
                     values.forEach(function(v) {
                         c.push(v.c);
+                        o.push(v.o);
                         a.push(v.a);
                         u.push(v.u);
                     });
                     return {
                         c: reduce_sum(key, c),
+                        o: reduce_sum(key, o),
                         a: reduce_sum(key, a),
                         u: reduce_sum(key, u),
                     };
@@ -326,6 +335,7 @@ function group_nodes(req) {
                 groups: _.map(res, function(r) {
                     var group = {
                         count: r.value.c,
+                        online: r.value.o,
                         storage: {
                             alloc: r.value.a,
                             used: r.value.u,

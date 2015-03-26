@@ -14,7 +14,6 @@ module.exports = {
     remove_blocks: remove_blocks,
 };
 
-var COPIES = 3;
 
 /**
  *

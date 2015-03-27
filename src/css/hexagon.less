@@ -1,0 +1,45 @@
+.hexagon(@h, @b) {
+    @bd: max(1, sqrt(@b * @b * 0.5));
+    @bdd: sqrt(@bd * @bd * 0.5);
+    @hh: @h + @b + @b - @bdd - @bdd;
+    @hd: sqrt(@hh * @hh * 0.5);
+    height: @h;
+    // padding: 0 @h/2;
+    border-width: 0;
+    border-top-width: @b;
+    border-bottom-width: @b;
+    .hex-left,
+    .hex-right {
+        content: "";
+        position: absolute;
+        top: 0;
+        width: @hd;
+        height: @hd;
+        border: inherit;
+        background: inherit;
+        box-shadow: none;
+        // z-index: -1;
+    }
+    .hex-left {
+        left: 0;
+        border-bottom-width: @bd;
+        border-left-width: @bd;
+        -webkit-transform: rotate(45deg);
+        -ms-transform: rotate(45deg);
+        transform: rotate(45deg);
+        -webkit-transform-origin: 0 0;
+        -ms-transform-origin: 0 0;
+        transform-origin: 0 0;
+    }
+    .hex-right {
+        right: 0;
+        border-bottom-width: @bd;
+        border-right-width: @bd;
+        -webkit-transform: rotate(-45deg);
+        -ms-transform: rotate(-45deg);
+        transform: rotate(-45deg);
+        -webkit-transform-origin: 100% 0;
+        -ms-transform-origin: 100% 0;
+        transform-origin: 100% 0;
+    }
+}

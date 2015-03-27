@@ -471,24 +471,43 @@ function writeToChannel(channel, data, requestId) {
     chkChannelState(channel, requestId);
 
     var startTime = Date.now();
-    var lastTimeLogged;
+    var lastTimeLogged = startTime;
+
+    function describe(currentTime) {
+        return 'peer ' + channel.peerId + ' req ' + requestId +
+            ' wait so far ' + (currentTime - startTime) + 'ms' +
+            ' bufferedAmount ' + channel.bufferedAmount;
+    }
 
     function send_if_not_congested() {
         var currentTime = Date.now();
-        var desc = 'peer ' + channel.peerId + ' req ' + requestId +
-            ' wait so far ' + (currentTime - startTime) + 'ms';
+
+        if (currentTime - lastTimeLogged > 1000) {
+            lastTimeLogged = currentTime;
+            dbg.log0('writeToChannel:', describe(currentTime));
+        }
+
+        // throw if bufferedAmount is not zero, to be handled by the retry
         if (channel.bufferedAmount) {
-            if (currentTime - startTime > 1000 &&
-                (!lastTimeLogged || (lastTimeLogged - currentTime > 1000))) {
-                lastTimeLogged = currentTime;
-                dbg.log2('writeToChannel: WAITING', desc);
+            throw new Error('writeToChannel: WAITING ' + describe(currentTime));
+        }
+
+        try {
+            // error injection - change to true to test
+            if (false) { // do not commit this as true !!
+                if (Math.random() < 0.01) {
+                    dbg.log0('writeToChannel: ERROR INJECTION', describe(currentTime));
+                    throw new Error('writeToChannel: ERROR INJECTION');
+                }
             }
-            throw new Error('writeToChannel: WAITING ' + desc);
+            channel.send(data);
+        } catch (err) {
+            // don't retry if send fails,
+            // no reason why retry will help,
+            // most likely the channel was closed
+            err.DO_NOT_RETRY = true;
+            throw err;
         }
-        if (currentTime - startTime > 10) {
-            dbg.log2('writeToChannel: SENDING', desc);
-        }
-        channel.send(data);
     }
 
     // setup a semaphore(1) on the channel to avoid pegging the bufferedAmount checks
@@ -501,8 +520,12 @@ function writeToChannel(channel, data, requestId) {
             config.channel_send_congested_delay,
             send_if_not_congested)
             .then(null, function(err) {
-                dbg.log0('writeToChannel: RETRIES EXHAUSTED', err.stack || err);
-                // TODO YAEL - close channel?
+                if (err.DO_NOT_RETRY) {
+                    dbg.log0('writeToChannel: ERROR (do not retry)', err.stack || err);
+                } else {
+                    dbg.log0('writeToChannel: ERROR (retries exhausted)', err.stack || err);
+                }
+                // TODO YAEL - how to close this channel?
                 throw err;
             });
     });

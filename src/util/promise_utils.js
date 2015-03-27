@@ -74,7 +74,7 @@ function retry(attempts, delay, func) {
 
             // check attempts
             attempts -= 1;
-            if (attempts <= 0) {
+            if (attempts <= 0 || err.DO_NOT_RETRY) {
                 throw err;
             }
 

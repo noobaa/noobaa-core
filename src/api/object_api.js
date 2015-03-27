@@ -141,6 +141,32 @@ module.exports = {
             }
         },
 
+        self_test_to_node_via_web: {
+            method: 'POST',
+            path: '/self_test/node_via_web',
+            params: {
+                type: 'object',
+                required: ['source', 'target', 'request_length', 'response_length'],
+                properties: {
+                    source: {
+                        $ref: '/common_api/definitions/block_address'
+                    },
+                    target: {
+                        $ref: '/common_api/definitions/block_address'
+                    },
+                    request_length: {
+                        type: 'integer'
+                    },
+                    response_length: {
+                        type: 'integer'
+                    }
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
         finalize_object_parts: {
             method: 'PUT',
             path: '/obj/:bucket/:key/part',

@@ -1,37 +1,4 @@
-var app = require('app');  // Module to control application life.
-var BrowserWindow = require('browser-window');
+'use strict';
 
-app.on('ready', function() {
-    var windowMain = new BrowserWindow({show: false}); // width: 0, height: 0, frame: false,
-
-    /*windowMain.on('closed', function() {
-        console.log('windowMain-closed');
-    });
-
-    windowMain.on('close', function() {
-        console.log('windowMain-close');
-    });
-
-    windowMain.on('unresponsive', function() {
-        console.log('windowMain-unresponsive');
-    });*/
-
-    windowMain.webContents.on('crashed', function() {
-        //console.log('WebContents-crashed');
-        windowMain.close();
-    });
-
-    windowMain.webContents.on('destroyed', function() {
-        //console.log('WebContents-destroyed');
-        windowMain.close();
-    });
-
-    // windowMain.show();
-    // windowMain.openDevTools();
-
-    windowMain.loadUrl('file://' + __dirname + '/index.html');
-});
-
-app.on('window-all-closed', function() {
-    app.quit();
-});
+var atom_app = require('../util/atom_app');
+var app = atom_app(__dirname + '/index.html');

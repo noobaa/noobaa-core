@@ -799,9 +799,21 @@ function createPeerConnection(socket, requestId, config) {
         if (channelObj.isInitiator) {
             writeToLog(3,'Creating Data Channel req '+requestId);
             try {
-                // you can only specify maxRetransmits or maxRetransmitTime, not both
-                var dtConfig = {ordered: false, reliable: false, maxRetransmits: 2};//, maxRetransmitTime: 3000};
-                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig); // TODO  ? dtConfig
+                var dtConfig = {
+                    // we don't require strict ordering since we collect packets
+                    // and assmble the entire message anyhow for multiplexing.
+                    ordered: false,
+
+                    // you can only specify maxRetransmits or maxPacketLifeTime, not both,
+                    // and by passing any of these properties it will cause the channel to be
+                    // in unreliable mode.
+                    // we use a reliable channel to do retransmissions automagically
+                    // when a packet is not delivered and avoid waiting for timeouts
+                    // and sending the entire request from scratch.
+                    // maxRetransmits: 3,
+                    // maxPacketLifeTime: 3000,
+                };
+                channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig);
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
                 writeToLog(-1, 'Ex on Creating Data Channel ' + ex);

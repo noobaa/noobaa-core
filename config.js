@@ -12,8 +12,10 @@ config.chunk_size = (16 * 1024) - 100;
 config.doStaleCheck = true;
 
 config.iceBufferMetaPartSize = 64;
+
+// ~60 seconds overall before give up on this channel
+config.channel_send_congested_attempts = 6000;
 config.channel_send_congested_delay = 10;
-config.channel_send_congested_attempts = 10000;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

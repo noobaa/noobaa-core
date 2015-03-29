@@ -34,9 +34,10 @@ if [ $# -eq 0 ]
         unzip atom-shell.zip -d atom-shell
         #echo "create update.tar"
         #tar -cvf update_agent.tar ./atom-shell ./node_modules ./src ./config.js ./package.json ./agent_conf.json
+else
+    cd build/windows
 fi
 echo "make installer"
-cd build/windows_s3
 pwd
 makensis -NOCD ../../src/deploy/atom_rest_win.nsi
 

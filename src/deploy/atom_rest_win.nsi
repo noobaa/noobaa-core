@@ -9,7 +9,7 @@
 ; noobaa-setup.exe /address=noobaa-alpha.herokuapp.com /serverport=443 /agentport=4003 /updateserver=noobaa-alpha.herokuapp.com
 
 SilentInstall silent
-OutFile "noobaa-s3rest-setup-0.1-ness.exe"
+OutFile "noobaa-s3rest-setup.exe"
 Name "${NB}"
 Icon "${ICON}"
 InstallDir "$PROGRAMFILES\${NB}"
@@ -233,7 +233,7 @@ Section "install"
 	;Debug:
 	;MessageBox MB_OK "Value of address parameter is $2 $3 $4 $5"
 
-
+	Var /global UPGRADE
 	;Install or upgrade?
 	StrCpy $UPGRADE "false" ; default - clean installation
 	IfFileExists $INSTDIR\*.* 0 +2
@@ -246,7 +246,7 @@ Section "install"
 		Delete "$INSTDIR\package.json"
 		Delete "$INSTDIR\agent_conf.conf"
 		Delete "$INSTDIR\${ICON}"
-		Delete "$INSTDIR\uninstall-noobaa.exe"
+		Delete "$INSTDIR\uninstall-noobaa-S3REST.exe"
 		RMDir "$INSTDIR\atom-shell"
 		RMDir /r "$INSTDIR\node_modules"
 		RMDir /r "$INSTDIR\src"
@@ -291,11 +291,11 @@ Section "install"
 	${WriteFile} "$INSTDIR\service.bat" "  echo %level% "
 	${WriteFile} "$INSTDIR\service.bat" "  if $\"%level%$\" == $\"0$\" ("
 	${WriteFile} "$INSTDIR\service.bat" "  		echo Upgrading..."
-	${WriteFile} "$INSTDIR\service.bat" "  		wget -t 1 https://s3-eu-west-1.amazonaws.com/noobaa-download/ness/noobaa-setup.exe"
-	${WriteFile} "$INSTDIR\service.bat" "  		if exist noobaa-setup.exe ("
-	${WriteFile} "$INSTDIR\service.bat" "    		noobaa-setup.exe"
-	${WriteFile} "$INSTDIR\service.bat" "    		del noobaa-setup.exe"
-	{WriteFile} "$INSTDIR\service.bat" "  		)"
+	${WriteFile} "$INSTDIR\service.bat" "  		wget -t 1 https://s3-eu-west-1.amazonaws.com/noobaa-download/ness/noobaa-s3rest-setup.exe"
+	${WriteFile} "$INSTDIR\service.bat" "  		if exist noobaa-s3rest-setup.exe ("
+	${WriteFile} "$INSTDIR\service.bat" "    		noobaa-s3rest-setup.exe"
+	${WriteFile} "$INSTDIR\service.bat" "    		del noobaa-s3rest-setup.exe"
+	${WriteFile} "$INSTDIR\service.bat" "  		)"
 	${WriteFile} "$INSTDIR\service.bat" ")"
 	${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\atom-shell\atom.exe$\" $\"$INSTDIR\src\s3\index.js$\" "
 	${WriteFile} "$INSTDIR\service.bat" ")"
@@ -303,7 +303,7 @@ Section "install"
 	${WriteFile} "$INSTDIR\service_installer.bat" "nssm install $\"Noobaa S3REST Service$\" $\"$INSTDIR\service.bat$\""
 	${WriteFile} "$INSTDIR\service_installer.bat" "nssm start $\"Noobaa S3REST Service$\""
 	CreateDirectory "${SMDIR}"
-	CreateShortCut "${SMDIR}\${UNINST}.lnk" "$INSTDIR\uninstall-noobaa.exe"
+	CreateShortCut "${SMDIR}\${UNINST}.lnk" "$INSTDIR\uninstall-noobaa-S3REST.exe"
 	nsExec::ExecToStack '$\"$INSTDIR\service_installer.bat$\""'
 SectionEnd
 

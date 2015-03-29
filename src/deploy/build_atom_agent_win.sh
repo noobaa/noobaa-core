@@ -15,7 +15,7 @@ if [ $# -eq 0 ]
         cp ../../package.json .
         cp ../../config.js .
         cp ../../agent_conf.json .
-        mkdir ./src/    
+        mkdir ./src/
         cp -R ../../src/agent ./src/
         cp -R ../../src/util ./src/
         cp -R ../../src/rpc ./src/
@@ -34,9 +34,10 @@ if [ $# -eq 0 ]
         unzip atom-shell.zip -d atom-shell
         #echo "create update.tar"
         #tar -cvf update_agent.tar ./atom-shell ./node_modules ./src ./config.js ./package.json ./agent_conf.json
+else
+    cd build/windows
 fi
 echo "make installer"
-cd build/windows
 pwd
 makensis -NOCD ../../src/deploy/atom_agent_win.nsi
 

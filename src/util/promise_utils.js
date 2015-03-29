@@ -43,7 +43,7 @@ function iterate(array, func) {
         // during iteration then also results will have same length
         if (i >= array.length) {
             results.length = array.length;
-            return;
+            return Q.when();
         }
 
         // call func as function(item, index, array)

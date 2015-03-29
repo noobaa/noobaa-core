@@ -160,8 +160,10 @@ function allocate_object_parts(bucket, obj, parts) {
             // Allocate both for the new chunks, and the unavailable dupped chunks
             var chunks_for_alloc = new_chunks.concat(unavail_dup_chunks);
             return promise_utils.iterate(chunks_for_alloc, function(chunk) {
-                // TODO for dedup chunks need to find avoid_nodes
-                return block_allocator.allocate_block(chunk);
+                var avoid_nodes = _.map(chunk.all_blocks, function(block) {
+                    return block.node._id.toString();
+                });
+                return block_allocator.allocate_block(chunk, avoid_nodes);
             });
         })
         .then(function(new_blocks) {

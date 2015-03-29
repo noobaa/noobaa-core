@@ -16,6 +16,8 @@ config.iceBufferMetaPartSize = 64;
 // ~60 seconds overall before give up on this channel
 config.channel_send_congested_attempts = 6000;
 config.channel_send_congested_delay = 10;
+config.channel_buffer_start_throttle = 4 * 1024 * 1024;
+config.channel_buffer_stop_throttle = 0 * 1024 * 1024;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

@@ -33,6 +33,15 @@ var system_schema = new Schema({
         type: Date,
     },
 
+    resources: {
+        agent_installer: {
+            type: String
+        },
+        s3rest_installer: {
+            type: String
+        },
+    }
+
 }, {
     // we prefer to call ensureIndexes explicitly when needed
     autoIndex: false

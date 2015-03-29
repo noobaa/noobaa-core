@@ -141,9 +141,15 @@ module.exports = {
             path: '/get_system_resource_info',
             reply: {
                 type: 'object',
-                requires: ['agent_installer'],
+                requires: [
+                    'agent_installer',
+                    's3rest_installer',
+                ],
                 properties: {
                     agent_installer: {
+                        type: 'string',
+                    },
+                    s3rest_installer: {
                         type: 'string',
                     },
                 }

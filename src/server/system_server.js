@@ -313,42 +313,34 @@ function remove_role(req) {
 
 
 
+var S3_SYSTEM_BUCKET = process.env.S3_SYSTEM_BUCKET || 'noobaa-core';
+var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    region: process.env.AWS_REGION || 'eu-central-1'
+});
+
+
 /**
  *
  * READ_ACTIVITY_LOG
  *
  */
 function get_system_resource_info(req) {
-    var params = {
-        Bucket: 'noobaa-download',
-        Key: req.system.name +
-            '/noobaa-setup-0.1-' +
-            req.system.name +
-            '.exe',
-        Expires: 24 * 3600 // 1 day
-    };
-
-    var agent_installer;
-    if (process.env.AWS_ACCESS_KEY_ID) {
-        var s3 = new AWS.S3({
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-            region: process.env.AWS_REGION || 'us-east-1'
-        });
-        agent_installer = s3.getSignedUrl('getObject', params);
-    } else {
-        // workaround if we didn't setup aws credentials,
-        // and just try a plain unsigned url
-        agent_installer = 'https://' +
-            params.Bucket +
-            '.s3.amazonaws.com/' +
-            params.Key;
-    }
-
-    dbg.log0('agent_installer', agent_installer);
-    return {
-        agent_installer: agent_installer
-    };
+    return _.mapValues(req.system.resources, function(val, key) {
+        var params = {
+            Bucket: S3_SYSTEM_BUCKET,
+            Key: 'systems/' + req.system._id + '/' + val,
+            Expires: 24 * 3600 // 1 day
+        };
+        if (aws_s3) {
+            return aws_s3.getSignedUrl('getObject', params);
+        } else {
+            // workaround if we didn't setup aws credentials,
+            // and just try a plain unsigned url
+            return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
+        }
+    });
 }
 
 

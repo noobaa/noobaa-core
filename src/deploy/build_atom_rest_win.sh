@@ -26,7 +26,7 @@ if [ $# -eq 0 ]
         sed -i '' '/bower/d' package.json
         sed -i '' '/aws-sdk/d' package.json
         sed -i '' '/bootstrap/d' package.json
-        sed -i '' '/browserify/d' package.json
+        sed -i '' '/browserify"/d' package.json
         pwd
         npm install -dd
         echo "Downloading atom-shell for windows"

@@ -182,16 +182,16 @@ function writeBufferToSocket(channel, block, reqId) {
     // define the loop func
     function send_next() {
 
-        writeToLog(3,'send_next req '+reqId+' chunks '+sequence+' begin '+begin+' end '+end);
-
         // end recursion when done sending the entire buffer
         if (begin === end) {
-            writeToLog(0,'sent last chunk req '+reqId+' chunks '+sequence);
+            dbg.log0('sent last chunk req', reqId, 'chunks', sequence, 'end', end);
             return;
         }
 
         // slice the current chunk
         var chunk = ice.createBufferToSend(block.slice(begin, end), sequence, reqId);
+        dbg.log3('sending chunk req', reqId, 'chunk', sequence,
+            'length', chunk.byteLength, 'begin', begin, 'end', end);
 
         // increment sequence and slice buffer to rest of data
         sequence += 1;
@@ -202,16 +202,7 @@ function writeBufferToSocket(channel, block, reqId) {
         }
 
         // send and recurse
-        ice.chkChannelState(channel, reqId);
-        writeToLog(3,'sent chunk req '+reqId+' chunk '+sequence+' '+chunk.byteLength);
-        return Q.fcall(function() {
-                return ice.writeToChannel(channel, chunk, reqId);
-            })
-            .then(send_next)
-            .then(null, function(err) {
-                writeToLog(-1, 'send_next recur error '+err+' '+err.stack+' req '+reqId);
-                throw err;
-            });
+        return ice.writeToChannel(channel, chunk, reqId).then(send_next);
     }
 
     // start sending (recursive async loop)

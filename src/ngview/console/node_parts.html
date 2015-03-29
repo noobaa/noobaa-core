@@ -37,8 +37,9 @@
                         </div>
                         <span ng-repeat="block in fragment.blocks">
                             <div ng-if="!($index % 3)"></div>
-                            <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)">
+                            <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)" rel="tooltip" ng-attr-title="{{block.details.node_name}}">
                                 <i class="srvmode-{{block.details.srvmode || 'none'}} block-online-{{!!block.details.online}} block-building-{{!!block.details.building}}"></i> {{block.address.host.slice(7)}}
+                                <!-- {{block.details.node_name}} -->
                                 <b ng-if="node.name==block.details.node_name" style="margin-right: -0.6em">*</b>
                             </a>
                         </span>

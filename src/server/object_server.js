@@ -158,7 +158,7 @@ function report_bad_block(req) {
                 'block_id',
                 'is_write');
             params.obj = obj;
-            return object_mapper.bad_block_in_part(params);
+            return object_mapper.report_bad_block(params);
         })
         .then(function(new_block) {
             if (new_block) {

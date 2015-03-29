@@ -50,7 +50,7 @@ function iterate(array, func) {
         return Q.fcall(func, array[i], i, array).then(next);
     }
 
-    return next().thenResolve(results);
+    return Q.fcall(next).thenResolve(results);
 }
 
 

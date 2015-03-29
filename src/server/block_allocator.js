@@ -31,12 +31,14 @@ function allocate_block(chunk, avoid_nodes) {
             var block_size = (chunk.size / chunk.kfrag) | 0;
             for (var i = 0; i < alloc_nodes.length; ++i) {
                 var node = pop_round_robin(alloc_nodes);
-                if (!_.contains(avoid_nodes, node._id)) {
+                if (!_.contains(avoid_nodes, node._id.toString())) {
+                    dbg.log1('allocate_block: allocate node', node.name,
+                        'for chunk', chunk._id, 'avoid_nodes', avoid_nodes);
                     return new_block(chunk, node, block_size);
                 }
             }
             // we looped through all nodes and didn't find a node we can allocate
-            dbg.log0('allocate_block: no available node', chunk, avoid_nodes);
+            dbg.log0('allocate_block: no available node', chunk, 'avoid_nodes', avoid_nodes);
             throw new Error('allocate_block: no available node');
         });
 }

@@ -635,7 +635,7 @@ function report_bad_block(params) {
                         .exec())
                     .then(function(all_blocks) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
-                            return block.node._id;
+                            return block.node._id.toString();
                         });
                         return block_allocator.allocate_block(chunk, avoid_nodes);
                     })
@@ -735,15 +735,15 @@ function build_chunks(chunks) {
             // allocate blocks
 
             return promise_utils.iterate(chunks_status, function(chunk_status) {
-                var avoid_nodes = _.map(chunks_status.all_blocks, function(block) {
-                    return block.node._id;
+                var avoid_nodes = _.map(chunk_status.all_blocks, function(block) {
+                    return block.node._id.toString();
                 });
                 var blocks_info = chunk_status.blocks_info_to_allocate;
                 return promise_utils.iterate(blocks_info, function(block_info) {
                     return block_allocator.allocate_block(block_info.chunk, avoid_nodes)
                         .then(function(new_block) {
                             block_info.block = new_block;
-                            avoid_nodes.push(new_block.node._id);
+                            avoid_nodes.push(new_block.node._id.toString());
                             return new_block;
                         });
                 });

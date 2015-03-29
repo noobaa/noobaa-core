@@ -108,10 +108,15 @@ function init_peer(msg) {
     var peer = new Peer({
         initiator: msg.initiator,
         config: {
+            // we use ordered channel to verify order of received sequences
             ordered: true,
-            reliable: true,
-            maxRetransmits: 0,
-            // maxRetransmitTime:
+
+            // default channel config is reliable
+            // passing either maxRetransmits or maxPacketLifeTime will
+            // set to unreliable mode (cant pass both).
+            // maxRetransmits: 0,
+            // maxPacketLifeTime: 3000,
+
             iceServers: [{
                 url: 'stun:23.21.150.121'
             }]

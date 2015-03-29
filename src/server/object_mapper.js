@@ -34,7 +34,7 @@ module.exports = {
     read_object_mappings: read_object_mappings,
     read_node_mappings: read_node_mappings,
     delete_object_mappings: delete_object_mappings,
-    bad_block_in_part: bad_block_in_part,
+    report_bad_block: report_bad_block,
     build_chunks: build_chunks,
     self_test_to_node_via_web: self_test_to_node_via_web
 };
@@ -56,8 +56,9 @@ function allocate_object_parts(bucket, obj, parts) {
     var tier_id = bucket.tiering[0].tier;
 
     var new_chunks = [];
-    var dupped_chunks = [];
+    var unavail_dup_chunks = [];
     var new_parts = [];
+    var new_blocks_info = [];
 
     var reply = {
         parts: _.times(parts.length, function() {
@@ -131,7 +132,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     } else {
                         //Chunk is not healthy, create a new fragment on it
                         dbg.log2('chunk is dupped but unavailable, allocating new blocks for it', dup_chunk);
-                        dupped_chunks.push(chunk);
+                        unavail_dup_chunks.push(chunk);
                     }
                 } else {
                     chunk = new db.DataChunk({
@@ -155,16 +156,15 @@ function allocate_object_parts(bucket, obj, parts) {
                 }));
             });
             dbg.log2('allocate_blocks');
-            return block_allocator.allocate_blocks(
-                obj.system,
-                tier_id,
-                //Allocate both for the new chunks, and the unavailable dupped chunks
-                _.map(new_chunks.concat(dupped_chunks), function(chunk) {
-                    return {
-                        chunk: chunk,
-                        fragment: 0
-                    };
-                }));
+
+            // Allocate both for the new chunks, and the unavailable dupped chunks
+            var chunks_for_alloc = new_chunks.concat(unavail_dup_chunks);
+            return promise_utils.iterate(chunks_for_alloc, function(chunk) {
+                var avoid_nodes = _.map(chunk.all_blocks, function(block) {
+                    return block.node._id.toString();
+                });
+                return block_allocator.allocate_block(chunk, avoid_nodes);
+            });
         })
         .then(function(new_blocks) {
             var blocks_by_chunk = _.groupBy(new_blocks, function(block) {
@@ -173,15 +173,15 @@ function allocate_object_parts(bucket, obj, parts) {
             _.each(new_parts, function(part, i) {
                 var reply_part = reply.parts[i];
                 if (reply_part.dedup) return;
-                var new_blocks = blocks_by_chunk[part.chunks[0].chunk];
-                var chunk = new_blocks[0].chunk;
+                var new_blocks_of_chunk = blocks_by_chunk[part.chunks[0].chunk];
+                var chunk = new_blocks_of_chunk[0].chunk;
                 dbg.log0('part info', part,
                     'chunk', chunk,
-                    'blocks', new_blocks);
+                    'blocks', new_blocks_of_chunk);
                 reply_part.part = get_part_info({
                     part: part,
                     chunk: chunk,
-                    blocks: new_blocks,
+                    blocks: new_blocks_of_chunk,
                     building: true
                 });
             });
@@ -292,23 +292,7 @@ function finalize_object_parts(bucket, obj, parts) {
             }
         })
         .then(function() {
-            var retries = 0;
-
-            function call_build_chunk() {
-                return Q.fcall(function() {
-                    return build_chunks(chunks);
-                }).then(function(res) {
-                    return res;
-                }, function(err) {
-                    dbg.log0("Caught ", err, " Retrying replicate to another node... ");
-                    ++retries;
-                    if (retries >= config.replicate_retry) {
-                        throw new Error("Failed replicate (after retries)", err, err.stack);
-                    }
-                    return call_build_chunk();
-                });
-            }
-            return call_build_chunk();
+            return build_chunks(chunks);
         })
         .then(function() {
             var end = parts[parts.length - 1].end;
@@ -612,12 +596,12 @@ function delete_object_mappings(obj) {
 
 /**
  *
- * bad_block_in_part
+ * report_bad_block
  *
  * @params: obj, start, end, fragment, block_id, is_write
  *
  */
-function bad_block_in_part(params) {
+function report_bad_block(params) {
     return Q.all([
             db.DataBlock.findById(params.block_id).exec(),
             db.ObjectPart.findOne({
@@ -629,25 +613,41 @@ function bad_block_in_part(params) {
             .populate('chunks.chunk')
             .exec(),
         ])
-        .spread(function(block, part) {
+        .spread(function(bad_block, part) {
             if (!part || !part.chunks || !part.chunks[0] || !part.chunks[0].chunk) {
-                console.error('bad block - invalid part/chunk', block, part);
+                console.error('bad block - invalid part/chunk', bad_block, part);
                 throw new Error('invalid bad block request');
             }
             var chunk = part.chunks[0].chunk;
-            if (!block || block.fragment !== params.fragment ||
-                String(block.chunk) !== String(chunk.id)) {
-                console.error('bad block - invalid block', block, part);
+            if (!bad_block || bad_block.fragment !== params.fragment ||
+                String(bad_block.chunk) !== String(chunk.id)) {
+                console.error('bad block - invalid block', bad_block, part);
                 throw new Error('invalid bad block request');
             }
 
             if (params.is_write) {
                 var new_block;
 
-                return block_allocator.reallocate_bad_block(chunk, block)
+                return Q.when(
+                        db.DataBlock.find({
+                            chunk: chunk,
+                            deleted: null,
+                        })
+                        .populate('node')
+                        .exec())
+                    .then(function(all_blocks) {
+                        var avoid_nodes = _.map(all_blocks, function(block) {
+                            return block.node._id.toString();
+                        });
+                        return block_allocator.allocate_block(chunk, avoid_nodes);
+                    })
                     .then(function(new_block_arg) {
                         new_block = new_block_arg;
+                        new_block.fragment = params.fragment;
                         return db.DataBlock.create(new_block);
+                    })
+                    .then(function() {
+                        return block_allocator.remove_blocks([bad_block]);
                     })
                     .then(function() {
                         return get_block_address(new_block);
@@ -667,23 +667,22 @@ var replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
  *
  * build_chunks
  *
+ * process list of chunk in a batch, and for each one make sure they are well built,
+ * meaning that their blocks are available, by creating new blocks and replicating
+ * them from accessible blocks, and removing unneeded blocks.
+ *
  */
 function build_chunks(chunks) {
-    var blocks_to_remove = [];
-    var blocks_to_build = [];
-    var blocks_info_to_allocate = [];
+    var chunks_status;
+    var remove_blocks_promise;
+    var num_replicate_errors = 0;
+    var replicated_block_ids = [];
     var chunk_ids = _.pluck(chunks, '_id');
     var in_chunk_ids = {
         $in: chunk_ids
     };
 
     dbg.log0('build_chunks:', 'batch start', chunks.length, 'chunks');
-
-    function push_block_to_remove(chunk, fragment, block, reason) {
-        dbg.log0('build_chunks:', 'remove block (' + reason + ') -',
-            'chunk', chunk._id, 'fragment', fragment, 'block', block._id);
-        blocks_to_remove.push(block);
-    }
 
     return Q.all([ // parallel queries
             Q.fcall(function() {
@@ -715,115 +714,133 @@ function build_chunks(chunks) {
         ])
         .spread(function(all_blocks, chunks_updated) {
 
+            // analyze chunks
+
             var blocks_by_chunk = _.groupBy(all_blocks, 'chunk');
-            _.each(chunks, function(chunk) {
+            var blocks_to_remove = [];
+            chunks_status = _.map(chunks, function(chunk) {
                 var chunk_blocks = blocks_by_chunk[chunk._id];
                 var chunk_status = analyze_chunk_status(chunk, chunk_blocks);
                 array_push_all(blocks_to_remove, chunk_status.blocks_to_remove);
-                array_push_all(blocks_info_to_allocate, chunk_status.blocks_info_to_allocate);
+                return chunk_status;
             });
 
-            return Q.all([
-                Q.fcall(function() {
+            // remove blocks -
+            // submit this to run in parallel while doing the longer allocate path.
+            // and will wait for it below before returning.
 
-                    // remove unneeded blocks from db
-                    if (!blocks_to_remove.length) return;
-                    dbg.log0('build_chunks:', 'removing', blocks_to_remove.length, 'blocks');
-                    return block_allocator.remove_blocks(blocks_to_remove);
-                }),
-                Q.fcall(function() {
+            if (blocks_to_remove.length) {
+                dbg.log0('build_chunks: removing blocks', blocks_to_remove.length);
+                remove_blocks_promise = block_allocator.remove_blocks(blocks_to_remove);
+            }
 
-                    // allocate blocks
-                    if (!blocks_info_to_allocate.length) return;
-                    var blocks_info_by_tier = _.groupBy(blocks_info_to_allocate, 'tier_id');
-                    return Q.all(_.map(blocks_info_by_tier, function(blocks_info) {
-                            return block_allocator.allocate_blocks(
-                                blocks_info[0].system_id,
-                                blocks_info[0].tier_id,
-                                blocks_info);
-                        }))
-                        .then(function(res) {
+            // allocate blocks
 
-                            // append new blocks to build list
-                            var new_blocks = _.flatten(res);
-                            array_push_all(blocks_to_build, new_blocks);
-
-                            // create in db (in building mode)
-                            dbg.log0('build_chunks:', 'creating', new_blocks.length, 'blocks');
-                            return db.DataBlock.create(new_blocks);
+            return promise_utils.iterate(chunks_status, function(chunk_status) {
+                var avoid_nodes = _.map(chunk_status.all_blocks, function(block) {
+                    return block.node._id.toString();
+                });
+                var blocks_info = chunk_status.blocks_info_to_allocate;
+                return promise_utils.iterate(blocks_info, function(block_info) {
+                    return block_allocator.allocate_block(block_info.chunk, avoid_nodes)
+                        .then(function(new_block) {
+                            block_info.block = new_block;
+                            avoid_nodes.push(new_block.node._id.toString());
+                            return new_block;
                         });
-                })
-            ]);
+                });
+            });
+
+        })
+        .then(function(new_blocks) {
+
+            // create blocks in db (in building mode)
+
+            if (!new_blocks || !new_blocks.length) return;
+            new_blocks = _.flatten(new_blocks);
+            dbg.log0('build_chunks: creating blocks', new_blocks);
+            return db.DataBlock.create(new_blocks);
+
         })
         .then(function() {
 
-            // replicate each block in building mode
+            // replicate blocks
             // send to the agent a request to replicate from the source
 
-            if (!blocks_to_build.length) return;
+            return Q.allSettled(_.map(chunks_status, function(chunk_status) {
+                var blocks_info = chunk_status.blocks_info_to_allocate;
+                return Q.allSettled(_.map(blocks_info, function(block_info) {
+                    var block = block_info.block;
+                    var block_addr = get_block_address(block);
+                    var source_addr = get_block_address(block_info.source);
 
-            dbg.log0('build_chunks:', 'replicating', blocks_to_build.length, 'blocks');
-            return Q.all(_.map(blocks_to_build, function(block) {
                     return replicate_block_sem.surround(function() {
-                        var block_addr = get_block_address(block);
-                        var source_addr = get_block_address(block.source);
-
                         return api_servers.client.agent.replicate_block({
-                                block_id: block._id.toString(),
-                                source: source_addr
-                            }, {
-                                address: block_addr.host,
-                                domain: block_addr.peer,
-                                peer: block_addr.peer,
-                                is_ws: true,
-                                timeout: config.server_replicate_timeout,
-                            }).then(function() {
-                                dbg.log3('replicated block', block._id);
-                            }, function(err) {
-
-                                if (err && (typeof err === 'string' || err instanceof String) && err.indexOf('ECONNRESET') >= 0) {
-                                    dbg.log0('ERROR replicate block 1', block._id, block_addr.host, err); // TODO retry options
-                                    throw err;
-                                } else {
-                                    dbg.log0('ERROR replicate block 2', block._id, block_addr.host, err);
-                                    throw err;
-                                }
-                            })
-                            .thenResolve(block._id);
-                    });
-                }))
-                .then(function(built_block_ids) {
-                    dbg.log0('replicated blocks', built_block_ids);
-
-                    if (built_block_ids.length < blocks_to_build.length) {
-                        _.each(blocks_to_build, function(blockObj) {
-                            if (!_.indexOf(built_block_ids, blockObj._id)) {
-                                dbg.log0('replicated blocks block not handled', blockObj._id);
-                            }
+                            block_id: block._id.toString(),
+                            source: source_addr
+                        }, {
+                            address: block_addr.host,
+                            domain: block_addr.peer,
+                            peer: block_addr.peer,
+                            is_ws: true,
+                            timeout: config.server_replicate_timeout,
                         });
-                    }
+                    }).then(function() {
+                        dbg.log1('build_chunks replicated block', block._id,
+                            'to', block_addr.peer, 'from', source_addr.peer);
+                        replicated_block_ids.push(block._id);
+                    }, function(err) {
+                        dbg.log0('build_chunks FAILED replicate block', block._id,
+                            'to', block_addr.peer, 'from', source_addr.peer,
+                            err.stack || err);
+                        block_info.replicate_error = err;
+                        chunk_status.replicate_error = err;
+                        num_replicate_errors += 1;
+                        // don't fail here yet to allow handling the successful blocks
+                        // so just keep the error, and we will fail at the end of build_chunks
+                    });
+                }));
+            }));
 
-                    // update building blocks to remove the building mode timestamp
-                    dbg.log0("build_chunks unset block building mode ", built_block_ids);
-                    return db.DataBlock.update({
-                        _id: {
-                            $in: built_block_ids
-                        }
-                    }, {
-                        $unset: {
-                            building: 1
-                        }
-                    }, {
-                        multi: true
-                    }).exec();
-                });
         })
         .then(function() {
 
-            // complete chunks build state - remove the building time and set last_build time
-            dbg.log0('build_chunks:', 'batch end', chunks.length, 'chunks');
+            // update building blocks to remove the building mode timestamp
+
+            dbg.log0("build_chunks unset block building mode ", replicated_block_ids);
+            return db.DataBlock.update({
+                _id: {
+                    $in: replicated_block_ids
+                }
+            }, {
+                $unset: {
+                    building: 1
+                }
+            }, {
+                multi: true
+            }).exec();
+
+        })
+        .then(function() {
+
+            // wait for blocks to be removed here before finishing
+            return remove_blocks_promise;
+
+        })
+        .then(function() {
+
+            // success chunks - remove the building time and set last_build time
+
+            var success_chunks_status = _.reject(chunks_status, 'replicate_error');
+            if (!success_chunks_status.length) return;
+            var success_chunk_ids = _.map(success_chunks_status, function(chunk_status) {
+                return chunk_status.chunk._id;
+            });
+            dbg.log0('build_chunks: success chunks', success_chunk_ids.length);
             return db.DataChunk.update({
-                _id: in_chunk_ids
+                _id: {
+                    $in: success_chunk_ids
+                }
             }, {
                 last_build: new Date(),
                 $unset: {
@@ -832,9 +849,49 @@ function build_chunks(chunks) {
             }, {
                 multi: true
             }).exec();
+
+        })
+        .then(function() {
+
+            // failed chunks - remove only the building time
+            // but leave last_build so that worker will retry
+
+            var failed_chunks_status = _.filter(chunks_status, 'replicate_error');
+            if (!failed_chunks_status.length) return;
+            var failed_chunk_ids = _.map(failed_chunks_status, function(chunk_status) {
+                return chunk_status.chunk._id;
+            });
+            dbg.log0('build_chunks: failed chunks', failed_chunk_ids.length);
+            return db.DataChunk.update({
+                _id: {
+                    $in: failed_chunk_ids
+                }
+            }, {
+                $unset: {
+                    building: 1
+                }
+            }, {
+                multi: true
+            }).exec();
+
+        })
+        .then(function() {
+
+            // return error from the promise if any replication failed,
+            // so that caller will know the build isn't really complete
+            if (num_replicate_errors) {
+                throw new Error('build_chunks failed to replicate all required blocks');
+            }
+
         });
 }
 
+
+/**
+ *
+ * self_test_to_node_via_web
+ *
+ */
 function self_test_to_node_via_web(req) {
     console.log(require('util').inspect(req));
 
@@ -1076,6 +1133,8 @@ function analyze_chunk_status(chunk, all_blocks) {
     });
 
     return {
+        chunk: chunk,
+        all_blocks: all_blocks,
         fragments: fragments,
         blocks_info_to_allocate: blocks_info_to_allocate,
         blocks_to_remove: blocks_to_remove,

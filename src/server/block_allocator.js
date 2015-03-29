@@ -6,11 +6,11 @@ var Q = require('q');
 var moment = require('moment');
 var db = require('./db');
 var config = require('../../config.js');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 module.exports = {
-    allocate_blocks: allocate_blocks,
-    reallocate_bad_block: reallocate_bad_block,
+    allocate_block: allocate_block,
     remove_blocks: remove_blocks,
 };
 
@@ -21,44 +21,25 @@ module.exports = {
  *
  * selects distinct edge node for allocating new blocks.
  *
- * @param blocks_info (optional) - array of objects containing:
- *      - fragment number
- *      - source block for replication
- * @return array of new DataBlock.
+ * @param chunk document from db
+ * @param avoid_nodes array of node ids to avoid
+ *
  */
-function allocate_blocks(system, tier, blocks_info) {
-    return update_tier_alloc_nodes(system, tier)
+function allocate_block(chunk, avoid_nodes) {
+    return update_tier_alloc_nodes(chunk.system, chunk.tier)
         .then(function(alloc_nodes) {
-            var nodes = pop_round_robin(alloc_nodes, blocks_info.length);
-
-            return _.map(nodes, function(node, i) {
-                var info = blocks_info[i];
-                var chunk = info.chunk;
-                var block_size = (chunk.size / chunk.kfrag) | 0;
-                var block = new_block(chunk, node, info.fragment, block_size);
-
-                // copy the source block for building by replication - see build_chunk()
-                if (info.source) {
-                    block.source = info.source;
+            var block_size = (chunk.size / chunk.kfrag) | 0;
+            for (var i = 0; i < alloc_nodes.length; ++i) {
+                var node = pop_round_robin(alloc_nodes);
+                if (!_.contains(avoid_nodes, node._id.toString())) {
+                    dbg.log1('allocate_block: allocate node', node.name,
+                        'for chunk', chunk._id, 'avoid_nodes', avoid_nodes);
+                    return new_block(chunk, node, block_size);
                 }
-                return block;
-            });
-        });
-}
-
-
-function reallocate_bad_block(chunk, bad_block) {
-    return Q.when(
-            bad_block.update({
-                deleted: new Date()
-            })
-            .exec())
-        .then(function() {
-            return update_tier_alloc_nodes(chunk.system, chunk.tier);
-        })
-        .then(function(alloc_nodes) {
-            var nodes = pop_round_robin(alloc_nodes, 1);
-            return new_block(chunk, nodes[0], bad_block.fragment, bad_block.size);
+            }
+            // we looped through all nodes and didn't find a node we can allocate
+            dbg.log0('allocate_block: no available node', chunk, 'avoid_nodes', avoid_nodes);
+            throw new Error('allocate_block: no available node');
         });
 }
 
@@ -76,9 +57,9 @@ function remove_blocks(blocks) {
 }
 
 
-function new_block(chunk, node, fragment, size) {
+function new_block(chunk, node, size) {
     var block = new db.DataBlock({
-        fragment: fragment,
+        fragment: 0,
         size: size,
         building: new Date()
     });
@@ -100,7 +81,8 @@ var tier_alloc_nodes = {};
 
 function update_tier_alloc_nodes(system, tier) {
     var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
-    var info = tier_alloc_nodes[tier.id] = tier_alloc_nodes[tier.id] || {
+    var tier_id = tier._id || tier;
+    var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
         last_refresh: new Date(0),
         nodes: [],
     };
@@ -116,7 +98,7 @@ function update_tier_alloc_nodes(system, tier) {
     info.promise =
         db.Node.find({
             system: system,
-            tier: tier,
+            tier: tier_id,
             deleted: null,
             heartbeat: {
                 $gt: min_heartbeat
@@ -131,8 +113,11 @@ function update_tier_alloc_nodes(system, tier) {
         .exec()
         .then(function(nodes) {
             info.promise = null;
-            info.last_refresh = new Date();
             info.nodes = nodes;
+            if (nodes.length < config.min_node_number) {
+                throw new Error('not enough nodes: ' + nodes.length);
+            }
+            info.last_refresh = new Date();
             return nodes;
         }, function(err) {
             info.promise = null;
@@ -143,19 +128,9 @@ function update_tier_alloc_nodes(system, tier) {
 }
 
 
-function pop_round_robin(nodes, count) {
-    if (nodes.length < config.min_node_number ) {
-        throw new Error('not enough nodes: ' + nodes.length);
-    }
-
-    var ret = [];
-
-    for (var i = 0; i < count; i++) {
-        // round robin - get from head and push back to tail
-        var node = nodes.shift();
-        nodes.push(node);
-        ret.push(node);
-    }
-
-    return ret;
+// round robin - get from head and push back to tail
+function pop_round_robin(nodes) {
+    var node = nodes.shift();
+    nodes.push(node);
+    return node;
 }

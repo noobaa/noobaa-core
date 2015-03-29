@@ -46,7 +46,7 @@ function ObjectClient(object_rpc_client, agent_rpc_client) {
 
     // some constants that might be provided as options to the client one day
 
-    self.OBJECT_RANGE_ALIGN_NBITS = 20; // log2( 512 KB )
+    self.OBJECT_RANGE_ALIGN_NBITS = 19; // log2( 512 KB )
     self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 512 KB
 
     self.MAP_RANGE_ALIGN_NBITS = 24; // log2( 16 MB )
@@ -68,6 +68,7 @@ function ObjectClient(object_rpc_client, agent_rpc_client) {
 
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
+    self._finalize_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 
     self._init_object_md_cache();
     self._init_object_range_cache();
@@ -228,34 +229,41 @@ ObjectClient.prototype.upload_stream = function(params) {
                     var stream = this;
                     dbg.log0('upload_stream: finalize parts', parts.length);
                     // send parts to server
-                    return self.object_rpc_client.finalize_object_parts({
-                            bucket: params.bucket,
-                            key: params.key,
-                            parts: _.map(parts, function(part) {
-                                var p = _.pick(part, 'start', 'end');
-                                if (!part.dedup) {
-                                    p.block_ids = _.flatten(
-                                        _.map(part.fragments, function(fragment) {
-                                            return _.map(fragment.blocks, function(block) {
-                                                return block.address.id;
-                                            });
-                                        })
-                                    );
-                                }
-                                return p;
+                    return self._finalize_sem.surround(function() {
+                        return self.object_rpc_client.finalize_object_parts({
+                                bucket: params.bucket,
+                                key: params.key,
+                                parts: _.map(parts, function(part) {
+                                    var p = _.pick(part, 'start', 'end');
+                                    if (!part.dedup) {
+                                        p.block_ids = _.flatten(
+                                            _.map(part.fragments, function(fragment) {
+                                                return _.map(fragment.blocks, function(block) {
+                                                    return block.address.id;
+                                                });
+                                            })
+                                        );
+                                    }
+                                    return p;
+                                })
+                            },{
+                                timeout: config.client_replicate_timeout,
+                                retries: 3
                             })
-                        },{
-                        timeout: config.client_replicate_timeout,
-                        retries: 2
-                        })
-                        .then(function() {
-                            // push parts down the pipe
-                            for (var i = 0; i < parts.length; i++) {
-                                var part = parts[i];
-                                dbg.log0('upload_stream: finalize part offset', part.start);
-                                stream.push(part);
-                            }
-                        });
+                            .then(function() {
+                                // push parts down the pipe
+                                for (var i = 0; i < parts.length; i++) {
+                                    var part = parts[i];
+                                    dbg.log0('upload_stream: finalize part offset', part.start);
+                                    stream.push(part);
+                                }
+                            }, function(err) {
+                                dbg.log0('upload_stream: FINALIZE FAILED',
+                                    'leave it to background worker', err.stack || err);
+                                // TODO temporary suppressing this error for the sake of user experience
+                                // but we should fix this path
+                            });
+                    });
                 }
             }));
 

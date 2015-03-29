@@ -43,14 +43,14 @@ function iterate(array, func) {
         // during iteration then also results will have same length
         if (i >= array.length) {
             results.length = array.length;
-            return Q.when();
+            return;
         }
 
         // call func as function(item, index, array)
         return Q.fcall(func, array[i], i, array).then(next);
     }
 
-    return next().thenResolve(results);
+    return Q.fcall(next).thenResolve(results);
 }
 
 

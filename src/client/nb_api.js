@@ -239,7 +239,7 @@ nb_api.factory('nbSystem', [
                     return nbClient.client.system.get_system_resource_info({});
                 })
                 .then(function(res) {
-                    return res.agent_installer;
+                    return res.agent_installer || '';
                 });
         }
 

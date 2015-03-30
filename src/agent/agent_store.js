@@ -110,7 +110,7 @@ AgentStore.prototype.set_alloc = function(size) {
 AgentStore.prototype.read_block = function(block_id) {
     var self = this;
     var block_path = self._get_block_path(block_id);
-    var hash_path = path.join(self.hash_path, block_id);
+    var hash_path = self._get_hash_path(block_id);
     dbg.log0('fs read block', block_path);
     return Q.all([
             Q.nfcall(fs.readFile, block_path),
@@ -143,7 +143,7 @@ AgentStore.prototype.read_block = function(block_id) {
 AgentStore.prototype.write_block = function(block_id, data) {
     var self = this;
     var block_path = self._get_block_path(block_id);
-    var hash_path = path.join(self.hash_path, block_id);
+    var hash_path = self._get_hash_path(block_id);
     var file_stats;
 
     if (!Buffer.isBuffer(data) && typeof(data) !== 'string') {

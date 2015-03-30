@@ -244,14 +244,19 @@ AgentStore.prototype.stat_block = function(block_id) {
 AgentStore.prototype._delete_block = function(block_id) {
     var self = this;
     var block_path = self._get_block_path(block_id);
+    var hash_path = self._get_hash_path(block_id);
     var file_stats;
 
+    dbg.log(" NB:: delete block", block_id);
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;
             if (file_stats) {
                 return Q.nfcall(fs.unlink, block_path);
             }
+        })
+        .then(function() {
+            return Q.nfcall(fs.unlink, hash_path);
         })
         .then(function() {
             return file_stats ? file_stats.size : 0;
@@ -268,6 +273,14 @@ AgentStore.prototype._get_block_path = function(block_id) {
     return path.join(this.blocks_path, block_id);
 };
 
+/**
+ *
+ * _get_hash_path
+ *
+ */
+AgentStore.prototype._get_hash_path = function(block_id) {
+    return path.join(this.hash_path, block_id);
+};
 
 /**
  *

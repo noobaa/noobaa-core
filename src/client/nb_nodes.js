@@ -257,15 +257,15 @@ nb_api.factory('nbNodes', [
                     });
 
                     define_phase({
-                        name: 'LOAD: connect from all to one node and send 3MB (twice from each)',
-                        kind: ['full', 'tx'],
+                        name: 'LOAD WRITE: connect from all to one node and send 0.5MB (5 times from each)',
+                        kind: ['full', 'load'],
                         func: function(target_node) {
                             var promises = [];
                             _.each(online_nodes, function(target_node) {
                                 if (node.name !== target_node.name) {
                                     var i;
-                                    for (i = 0; i < 2; ++i) {
-                                        promises.push(self_test_to_node(target_node, node, 1024, 3 * 1024 * 1024));
+                                    for (i = 0; i < 5; ++i) {
+                                        promises.push(self_test_to_node(target_node, node, 0, 0.5 * 1024 * 1024));
                                     }
                                 }
                             });
@@ -274,15 +274,49 @@ nb_api.factory('nbNodes', [
                     });
 
                     define_phase({
-                        name: 'LOAD VIA SERVER: connect from all to one node and send 3MB (twice from each)',
-                        kind: ['full', 'tx'],
+                        name: 'LOAD READ: connect from all to one node and read 0.5MB (5 times from each)',
+                        kind: ['full', 'load'],
+                        func: function(target_node) {
+                            var promises = [];
+                            _.each(online_nodes, function(target_node) {
+                                if (node.name !== target_node.name) {
+                                    var i;
+                                    for (i = 0; i < 5; ++i) {
+                                        promises.push(self_test_to_node(target_node, node, 0.5 * 1024 * 1024, 0));
+                                    }
+                                }
+                            });
+                            return Q.all(promises);
+                        }
+                    });
+
+                    define_phase({
+                        name: 'LOAD READ: connect from all to one node and read 1.5MB (2 times from each)',
+                        kind: ['full', 'load'],
                         func: function(target_node) {
                             var promises = [];
                             _.each(online_nodes, function(target_node) {
                                 if (node.name !== target_node.name) {
                                     var i;
                                     for (i = 0; i < 2; ++i) {
-                                        promises.push(self_test_to_node_via_web(target_node, node, 1024, 3 * 1024 * 1024));
+                                        promises.push(self_test_to_node(target_node, node, 1.5 * 1024 * 1024, 0));
+                                    }
+                                }
+                            });
+                            return Q.all(promises);
+                        }
+                    });
+
+                    define_phase({
+                        name: 'LOAD VIA SERVER: connect from all to one node and send 1MB (5 times from each)',
+                        kind: ['full', 'load'],
+                        func: function(target_node) {
+                            var promises = [];
+                            _.each(online_nodes, function(target_node) {
+                                if (node.name !== target_node.name) {
+                                    var i;
+                                    for (i = 0; i < 5; ++i) {
+                                        promises.push(self_test_to_node_via_web(target_node, node, 0, 1 * 1024 * 1024));
                                     }
                                 }
                             });
@@ -321,8 +355,8 @@ nb_api.factory('nbNodes', [
         function self_test_io(node, request_length, response_length) {
             var node_host = 'http://' + node.host + ':' + node.port;
             return nbClient.client.agent.self_test_io({
-                data: new Buffer(request_length || 1024),
-                response_length: response_length || 1024,
+                data: new Buffer(request_length || 0),
+                response_length: response_length || 0,
             }, {
                 address: node_host,
                 domain: node.peer_id,
@@ -339,8 +373,8 @@ nb_api.factory('nbNodes', [
             client.options.p2p_context = null;
 
             return client.agent.self_test_io({
-                data: new Buffer(request_length || 1024),
-                response_length: response_length || 1024,
+                data: new Buffer(request_length || 0),
+                response_length: response_length || 0,
             }, {
                 address: node_host,
                 domain: node.peer_id,
@@ -362,14 +396,15 @@ nb_api.factory('nbNodes', [
                     host: target_host,
                     peer: target_node.peer_id
                 },
-                request_length: request_length || 1024,
-                response_length: response_length || 1024,
+                request_length: request_length || 0,
+                response_length: response_length || 0,
             }, {
                 address: node_host,
                 domain: node.peer_id,
                 peer: node.peer_id,
                 retries: 3,
-                timeout: 30000
+                timeout: 30000,
+                is_ws: true
             });
         }
 
@@ -390,8 +425,8 @@ nb_api.factory('nbNodes', [
                     host: node_host,
                     peer: node.peer_id
                 },
-                request_length: request_length || 1024,
-                response_length: response_length || 1024,
+                request_length: request_length || 0,
+                response_length: response_length || 0,
             }, {
                 retries: 3,
                 timeout: 30000

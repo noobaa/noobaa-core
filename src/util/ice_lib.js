@@ -67,6 +67,18 @@ function disconnect(socket) {
     }
 }
 
+function closeWSContext(socket) {
+    var currWs = socket.p2p_context.wsClientSocket;
+    writeToLog(0,  'onclose ws context');
+    if (currWs.interval) {
+        clearInterval(currWs.interval);
+    }
+    if (currWs.ws_socket) {
+        disconnect(currWs.ws_socket);
+    }
+    delete socket.p2p_context.wsClientSocket;
+}
+
 var connect = function (socket) {
     writeToLog(0, 'do CLIENT connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
 
@@ -149,8 +161,10 @@ var connect = function (socket) {
                     if (socket.p2p_context && socket.p2p_context.iceSockets && socket.p2p_context.iceSockets[message.from]
                         && socket.p2p_context.iceSockets[message.from].connect_defer) {
                         socket.p2p_context.iceSockets[message.from].connect_defer.reject(message);
-                    } else if (socket.icemap && socket.icemap[message.requestId]) {
+                        socket.p2p_context.iceSockets[message.from].connect_defer = null;
+                    } else if (socket.icemap && socket.icemap[message.requestId] && socket.icemap[message.requestId].connect_defer) {
                         socket.icemap[message.requestId].connect_defer.reject(message);
+                        socket.icemap[message.requestId].connect_defer = null;
                     } else if (socket.action_defer && socket.action_defer[message.requestId]) {
                         socket.action_defer[message.requestId].reject(message);
                     } else {
@@ -191,15 +205,7 @@ var connect = function (socket) {
                         connect(socket);
                     }, config.reconnect_delay);
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
-                var currWs = socket.p2p_context.wsClientSocket;
-                writeToLog(-1,  'onerror ws context');
-                if (currWs.interval) {
-                    clearInterval(currWs.interval);
-                }
-                if (currWs.ws_socket) {
-                    disconnect(currWs.ws_socket);
-                }
-                delete socket.p2p_context.wsClientSocket;
+                closeWSContext(socket);
             } else {
                 writeToLog(-1,  'onerror ws - disconnect not agent & no context');
                 disconnect(socket);
@@ -217,15 +223,7 @@ var connect = function (socket) {
                         connect(socket);
                     }, config.reconnect_delay);
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
-                var currWs = socket.p2p_context.wsClientSocket;
-                writeToLog(0,  'onclose ws context');
-                if (currWs.interval) {
-                    clearInterval(currWs.interval);
-                }
-                if (currWs.ws_socket) {
-                    disconnect(currWs.ws_socket);
-                }
-                delete socket.p2p_context.wsClientSocket;
+                closeWSContext(socket);
             } else {
                 writeToLog(0,  'onclose ws - disconnect not agent & no context');
                 disconnect(socket);
@@ -293,6 +291,8 @@ function staleConnChk(socket) {
                 timePassed+' for req '+requestId+' is done '+socket.icemap[requestId].done);
                 if (timePassed > config.connection_data_stale && socket.icemap[requestId].done) {
                     toDel.push(requestId);
+                } else if (timePassed > config.connection_data_stale * 2) {
+                    toDel.push(requestId);
                 }
             }
 
@@ -354,10 +354,10 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
 
         // TODO this next part may ignore a received context and it's unclear what context to use
         if (socket.p2p_context) {
-            dbg.log0('initiateIce: using socket.p2p_context');
+            dbg.log0('initiateIce: using socket.p2p_context '+requestId);
             p2p_context = socket.p2p_context;
         } else {
-            dbg.log0('initiateIce: setting p2p_context to socket.p2p_context');
+            dbg.log0('initiateIce: setting p2p_context to socket.p2p_context '+requestId);
             socket.p2p_context = p2p_context;
         }
         if (p2p_context && !p2p_context.iceSockets) {
@@ -377,6 +377,9 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
             }
             if (!p2p_context.iceSockets[peerId].connect_defer) {
                 p2p_context.iceSockets[peerId].connect_defer = Q.defer();
+                if (p2p_context.iceSockets[peerId].status === 'start') {
+                    p2p_context.iceSockets[peerId].status = 'new';
+                }
             }
         }
 
@@ -401,6 +404,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                         p2p_context.iceSockets[peerId].status = 'start';
                         channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
                     } else if (p2p_context.iceSockets[peerId].status === 'open') {
+                        dbg.log0('initiateIce: status open '+requestId);
                         channelObj.dataChannel = p2p_context.iceSockets[peerId].dataChannel;
                         channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
                         p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
@@ -408,6 +412,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                         channelObj.connect_defer = Q.defer();
                         channelObj.connect_defer.resolve(channelObj.dataChannel);
                     } else if (p2p_context.iceSockets[peerId].status === 'start') {
+                        dbg.log0('initiateIce: status start '+requestId);
                         channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
                         p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
                         p2p_context.iceSockets[peerId].usedBy[requestId] = 1;
@@ -484,7 +489,7 @@ function writeToChannel(channel, data, requestId) {
 
         if (currentTime - lastTimeLogged > 1000) {
             lastTimeLogged = currentTime;
-            dbg.log0('writeToChannel:', describe(currentTime));
+            dbg.log2('writeToChannel:', describe(currentTime));
         }
 
         // throw if bufferedAmount is not zero, to be handled by the retry
@@ -505,6 +510,7 @@ function writeToChannel(channel, data, requestId) {
             // don't retry if send fails,
             // no reason why retry will help,
             // most likely the channel was closed
+            dbg.log2('writeToChannel: DO_NOT_RETRY ',err, describe(currentTime));
             err.DO_NOT_RETRY = true;
             throw err;
         }
@@ -526,6 +532,7 @@ function writeToChannel(channel, data, requestId) {
                     dbg.log0('writeToChannel: ERROR (retries exhausted)', err.stack || err);
                 }
                 // TODO YAEL - how to close this channel?
+                //channel.close();
                 throw err;
             });
     });
@@ -677,7 +684,10 @@ function onLocalSessionCreated(socket, requestId, desc) {
         }, logError);
     } catch (ex) {
         writeToLog(-1, 'Ex on local session ' + ex);
-        if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+        if (channelObj && channelObj.connect_defer) {
+            channelObj.connect_defer.reject();
+            channelObj.connect_defer = null;
+        }
     }
 }
 
@@ -810,14 +820,14 @@ function createPeerConnection(socket, requestId, config) {
                     // we use a reliable channel to do retransmissions automagically
                     // when a packet is not delivered and avoid waiting for timeouts
                     // and sending the entire request from scratch.
-                    // maxRetransmits: 3,
+                    maxRetransmits: 5
                     // maxPacketLifeTime: 3000,
                 };
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig);
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
                 writeToLog(-1, 'Ex on Creating Data Channel ' + ex);
-                if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+                if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
             }
 
             writeToLog(3, 'Creating an offer req '+requestId);
@@ -835,7 +845,7 @@ function createPeerConnection(socket, requestId, config) {
                 }, logError, mediaConstraints); // TODO ? mediaConstraints
             } catch (ex) {
                 writeToLog(-1,  'Ex on Creating an offer ' + ex.stack);
-                if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+                if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
             }
         }
 
@@ -846,12 +856,12 @@ function createPeerConnection(socket, requestId, config) {
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
                 writeToLog(-1, 'Ex on ondatachannel ' + ex.stack);
-                if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+                if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
             }
         };
     } catch (ex) {
         writeToLog(-1, 'Ex on createPeerConnection ' + ex.stack);
-        if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+        if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
     }
 }
 
@@ -889,7 +899,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
         } catch (ex) {
             writeToLog(-1,  'problem in offer ' + ex.stack);
             channelObj = socket.icemap[requestId];
-            if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+            if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
         }
 
     } else if (message.type === 'answer') {
@@ -901,7 +911,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
         } catch (ex) {
             writeToLog(-1,  'problem in answer ' + ex);
             channelObj = socket.icemap[requestId];
-            if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+            if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
         }
 
     } else if (message.type === 'candidate') {
@@ -915,7 +925,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
         } catch (ex) {
             writeToLog(-1,  'problem in candidate from req '+ requestId +' ex:' + ex+ ', msg was: '+message.candidate);
             channelObj = socket.icemap[requestId];
-            if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject();}
+            if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
         }
     } else if (message === 'bye') {
         writeToLog(3, 'Got bye.');
@@ -976,6 +986,7 @@ function onDataChannelCreated(socket, requestId, channel) {
             if (channelObj.connect_defer) {
                 writeToLog(3, 'connect defer - resolve');
                 channelObj.connect_defer.resolve(channelObj.dataChannel);
+                channelObj.connect_defer = null;
             } else {
                 writeToLog(3, 'no connect defer');
             }
@@ -991,6 +1002,7 @@ function onDataChannelCreated(socket, requestId, channel) {
             writeToLog(0,'ICE CHANNEL closed ' + channel.peerId);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
+                socket.icemap[requestId].connect_defer = null;
             }
             if (socket.icemap[requestId]) {
                 socket.icemap[requestId].done = true;
@@ -1009,6 +1021,7 @@ function onDataChannelCreated(socket, requestId, channel) {
             writeToLog(0, 'CHANNEL ERROR ' + channel.peerId + ' ' + err);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
+                socket.icemap[requestId].connect_defer = null;
             }
             if (socket.icemap[requestId]) {
                 socket.icemap[requestId].done = true;
@@ -1024,6 +1037,7 @@ function onDataChannelCreated(socket, requestId, channel) {
 
         if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
             socket.icemap[requestId].connect_defer.reject();
+            socket.icemap[requestId].connect_defer = null;
         }
     }
 }

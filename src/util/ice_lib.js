@@ -456,7 +456,7 @@ module.exports.createBufferToSend = createBufferToSend;
  * it increases as we send more on the channel before it has a chance
  * to flush to the socket so we need the current stack to return and release the cpu.
  */
-function writeToChannel(channel, data, requestId) {
+function writeToChannel(socket, channel, data, requestId) {
 
     var startTime = Date.now();
     var lastTimeLogged = startTime;

@@ -170,13 +170,13 @@ function generateRequestId() {
 }
 
 
-function writeMessage(sigSocket, channel, header, buffer, reqId) {
+function writeMessage(socket, channel, header, buffer, reqId) {
     return Q.fcall(function() {
-            return ice.writeToChannel(channel, JSON.stringify(header), reqId);
+            return ice.writeToChannel(socket, channel, JSON.stringify(header), reqId);
         })
         .then(function() {
             if (buffer) {
-                return writeBufferToSocket(channel, buffer, reqId);
+                return writeBufferToSocket(socket, channel, buffer, reqId);
             }
         })
         .timeout(config.channel_send_timeout, 'send timeout')
@@ -189,7 +189,7 @@ function writeMessage(sigSocket, channel, header, buffer, reqId) {
 module.exports.writeMessage = writeMessage;
 
 
-function writeBufferToSocket(channel, block, reqId) {
+function writeBufferToSocket(socket, channel, block, reqId) {
 
     var sequence = 0;
     var begin = 0;
@@ -224,7 +224,7 @@ function writeBufferToSocket(channel, block, reqId) {
         }
 
         // send and recurse
-        return ice.writeToChannel(channel, chunk, reqId).then(send_next);
+        return ice.writeToChannel(socket, channel, chunk, reqId).then(send_next);
     }
 
     // start sending (recursive async loop)

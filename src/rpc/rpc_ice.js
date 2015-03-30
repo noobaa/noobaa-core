@@ -147,10 +147,6 @@ function serve(rpc, peer_id) {
                     isWs = true;
                 }
 
-                if (channel.msgs && channel.msgs[reqId]) {
-                    delete channel.msgs[reqId];
-                }
-
                 var reqMsg = msg;
                 var reqBody = body;
                 if (body && body.body) {

@@ -106,7 +106,7 @@ function request_ws(rpc, api, method_api, params, options) {
  */
 function serve(rpc, peer_id) {
 
-    function handle_request(channel, message) {
+    function handle_request(socket, channel, message) {
 
         var msg;
         var body;
@@ -145,6 +145,10 @@ function serve(rpc, peer_id) {
 
                 if (msg.sigType) {
                     isWs = true;
+                }
+
+                if (channel.msgs && channel.msgs[reqId]) {
+                    delete channel.msgs[reqId];
                 }
 
                 var reqMsg = msg;
@@ -190,7 +194,6 @@ function serve(rpc, peer_id) {
                 return send_reply(500, err.toString(), null);
             });
 
-
         function send_reply(status, data, buffer) {
             return Q.fcall(function() {
                     if (buffer && !(buffer instanceof ArrayBuffer)) {
@@ -230,6 +233,17 @@ function serve(rpc, peer_id) {
                     }
 
                     return ice_api.writeBufferToSocket(channel, buffer, reqId);
+                })
+                .then(function() {
+                    try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (err) {
+                        dbg.log0('closeIce err ' + reqId, err);
+                    }
+                })
+                .then(null, function(err) {
+                    try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (ex) {
+                        dbg.log0('closeIce ex on err ' + reqId, ex);
+                    }
+                    throw err;
                 });
         }
     }

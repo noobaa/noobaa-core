@@ -174,7 +174,7 @@ var connect = function (socket) {
                     socket.action_defer[message.requestId].resolve(message);
                     delete socket.action_defer[message.requestId];
                 } else {
-                    socket.handleRequestMethod(ws, message);
+                    socket.handleRequestMethod(socket, ws, message);
                 }
             } else {
                 writeToLog(-1, 'unknown sig message ' + require('util').inspect(message));
@@ -481,7 +481,7 @@ function writeToChannel(channel, data, requestId) {
         return 'peer ' + channel.peerId + ' req ' + requestId +
             ' wait so far ' + (currentTime - startTime) + 'ms' +
             ' bufferedAmount ' + channel.bufferedAmount +
-            (channel.throttled ? 'throttled' : '') +
+            (channel.throttled ? ' throttled' : '') +
             ' throttle waits ' + channel.throttle_num_waits;
     }
 
@@ -490,7 +490,7 @@ function writeToChannel(channel, data, requestId) {
 
         if (currentTime - lastTimeLogged > 1000) {
             lastTimeLogged = currentTime;
-            dbg.log0('writeToChannel: in progress', describe(currentTime));
+            dbg.log0('writeToChannel: in progress ', describe(currentTime));
         }
 
         // throw if bufferedAmount is not zero, to be handled by the retry
@@ -507,7 +507,7 @@ function writeToChannel(channel, data, requestId) {
             // error injection - change to true to test
             if (false) { // do not commit this as true !!
                 if (Math.random() < 0.01) {
-                    dbg.log0('writeToChannel: ERROR INJECTION', describe(currentTime));
+                    dbg.log0('writeToChannel: ERROR INJECTION ', describe(currentTime));
                     throw new Error('writeToChannel: ERROR INJECTION');
                 }
             }
@@ -535,9 +535,9 @@ function writeToChannel(channel, data, requestId) {
             send_if_not_congested)
             .then(null, function(err) {
                 if (err.DO_NOT_RETRY) {
-                    dbg.log0('writeToChannel: ERROR (do not retry)', err.stack || err);
+                    dbg.log0('writeToChannel: ERROR (do not retry)', err.stack || err, requestId);
                 } else {
-                    dbg.log0('writeToChannel: ERROR (retries exhausted)', err.stack || err);
+                    dbg.log0('writeToChannel: ERROR (retries exhausted)', err.stack || err, requestId);
                 }
                 // TODO YAEL - how to close this channel?
                 //channel.close();
@@ -591,7 +591,7 @@ function isRequestEnded(p2p_context, requestId, channel) {
 }
 module.exports.isRequestEnded = isRequestEnded;
 
-function closeIce(socket, requestId, dataChannel) {
+function closeIce(socket, requestId, dataChannel, dontClose) {
 
     if (!config.doStaleCheck) {
         return;
@@ -621,7 +621,7 @@ function closeIce(socket, requestId, dataChannel) {
         if (obj && obj.dataChannel === dataChannel) {
             obj.lastUsed = (new Date()).getTime();
             delete obj.usedBy[requestId];
-        } else if (socket && !socket.p2p_context) {
+        } else if (socket && !socket.p2p_context && !dontClose) {
             if (channelObj && channelObj.peerConn) {
                 channelObj.peerConn.close();
             }
@@ -942,7 +942,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
 
 function onIceMessage(socket, channel) {
     return function onmessage(event) {
-        return channel.callbackOnPeerMsg(socket.p2p_context, channel, event);
+        return channel.callbackOnPeerMsg(socket, channel, event);
     };
 }
 

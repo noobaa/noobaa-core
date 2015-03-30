@@ -42,10 +42,12 @@ function forceCloseIce(p2p_context, peerId) {
 }
 module.exports.forceCloseIce = forceCloseIce;
 
-function onIceMessage(p2p_context, channel, event) {
+function onIceMessage(socket, channel, event) {
+
     writeToLog(3, 'Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
     var req;
+    var p2p_context = socket.p2p_context;
 
     if (typeof event.data === 'string' || event.data instanceof String) {
         try {
@@ -72,7 +74,7 @@ function onIceMessage(p2p_context, channel, event) {
                     msgObj.action_defer.resolve(channel);
                 } else if (channel.handleRequestMethod) {
                     writeToLog(3,'message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO cng to dbg3
-                    channel.handleRequestMethod(channel, message);
+                    channel.handleRequestMethod(socket, channel, message);
                 } else {
                     writeToLog(2,'ab NO 1 to call for req '+req);
                 }
@@ -139,7 +141,7 @@ function onIceMessage(p2p_context, channel, event) {
                 } else if (channel.handleRequestMethod) {
                     try {
                         writeToLog(3,'ab call handleRequestMethod resolve for req '+req);
-                        channel.handleRequestMethod(channel, event.data);
+                        channel.handleRequestMethod(socket, channel, event.data);
                     } catch (ex) {
                         writeToLog(-1,'ex on ArrayBuffer req ' + ex+' for req '+req);
                     }

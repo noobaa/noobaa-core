@@ -18,22 +18,6 @@ var optionalRtpDataChannels = {
     }]
 };
 
-function writeToLog(level, msg) {
-    var timeStr = '';
-    if (level === 0) {
-        dbg.log0(timeStr+' '+msg);
-    } else if (level === 1) {
-        dbg.log1(timeStr+' '+msg);
-    } else if (level === 2) {
-        dbg.log2(timeStr+' '+msg);
-    } else if (level === 3) {
-        dbg.log3(timeStr+' '+msg);
-    } else {
-        timeStr = (new Date()).toString();
-        dbg.log0(timeStr+' ERROR '+msg);
-    }
-}
-
 module.exports = {};
 
 /********************************
@@ -41,18 +25,18 @@ module.exports = {};
  ********************************/
 
 function keepalive(socket) {
-    writeToLog(3, 'send keepalive from '+socket.idInServer);
+    dbg.log3('send keepalive from '+socket.idInServer);
     try {
         socket.ws.send(JSON.stringify({sigType: 'keepalive', from: socket.idInServer}));
     } catch (ex) {
-        writeToLog(-1, 'keepalive error '+ ex);
+        dbg.log0('keepalive error '+ ex);
     }
 }
 
 function disconnect(socket) {
-    writeToLog(0, 'called disconnect ws');
+    dbg.log0('called disconnect ws');
     if (!socket.ws) {return;}
-    writeToLog(0, 'called disconnect ws - clear interval and close');
+    dbg.log0('called disconnect ws - clear interval and close');
     try {
         socket.ws.close();
     } catch (ignore) {
@@ -63,13 +47,13 @@ function disconnect(socket) {
         socket.ws = null;
         socket.alive_interval = null;
     } catch (ex) {
-        writeToLog(-1, 'failed disconnect ws '+ ex.stack);
+        dbg.log0('failed disconnect ws '+ ex.stack);
     }
 }
 
 function closeWSContext(socket) {
     var currWs = socket.p2p_context.wsClientSocket;
-    writeToLog(0,  'onclose ws context');
+    dbg.log0('onclose ws context');
     if (currWs.interval) {
         clearInterval(currWs.interval);
     }
@@ -80,7 +64,7 @@ function closeWSContext(socket) {
 }
 
 var connect = function (socket) {
-    writeToLog(0, 'do CLIENT connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
+    dbg.log0('do CLIENT connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
 
     if (!socket.isAgent) {
         socket.conn_defer = Q.defer();
@@ -91,7 +75,7 @@ var connect = function (socket) {
 
         ws.onopen = function () {
 
-            writeToLog(0, 'ws open connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
+            dbg.log0('ws open connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
 
             if (socket.isAgent) {
                 ws.send(JSON.stringify({sigType: 'id', id: socket.idInServer}));
@@ -111,7 +95,7 @@ var connect = function (socket) {
                 try {
                     msgRec = JSON.parse(msgRec);
                 } catch (ex) {
-                    writeToLog(-1, 'problem parsing msg '+msgRec);
+                    dbg.log0('problem parsing msg '+msgRec);
                 }
             }
 
@@ -125,14 +109,14 @@ var connect = function (socket) {
                     message = msgRec.data;
                 }
             } else {
-                writeToLog(-1, 'cant find msg '+msgRec);
+                dbg.log0('cant find msg '+msgRec);
             }
 
             if (message.sigType === 'id') {
                 if (socket.isAgent) {
-                    writeToLog(3, 'id '+ message.id+' from server ignored, i am '+socket.idInServer);
+                    dbg.log3('id '+ message.id+' from server ignored, i am '+socket.idInServer);
                 } else {
-                    writeToLog(2, 'got ws id from server id ' + message.id);
+                    dbg.log2('got ws id from server id ' + message.id);
                     socket.idInServer = message.id;
                     if (socket.conn_defer) {
                         socket.conn_defer.resolve();
@@ -143,20 +127,20 @@ var connect = function (socket) {
                     var buf = new Buffer(message.data, 'binary');
                     zlib.gunzip(buf, function (err, msgData) {
                         msgData = JSON.parse(msgData);
-                        writeToLog(0, 'Got ice from ' + message.from + ' to ' + message.to + ' data ' + msgData + (err ? ' gzip error '+err : '')+' i am '+socket.idInServer);
+                        dbg.log0('Got ice from ' + message.from + ' to ' + message.to + ' data ' + msgData + (err ? ' gzip error '+err : '')+' i am '+socket.idInServer);
                         signalingMessageCallback(socket, message.from, msgData, message.requestId);
                     });
                 } else {
-                    writeToLog(2, 'Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
+                    dbg.log2('Got ice from ' + message.from + ' to ' + message.to + ' data ' + message.data);
                     signalingMessageCallback(socket, message.from, message.data, message.requestId);
                 }
             } else if (message.sigType === 'accept') {
-                writeToLog(2, 'Got accept ' + message + ' from '+message.from+' to '+message.to+' i am '+socket.idInServer);
+                dbg.log2('Got accept ' + message + ' from '+message.from+' to '+message.to+' i am '+socket.idInServer);
                 initiateIce(socket.p2p_context ,socket, message.from, false, message.requestId);
             } else if (message.sigType === 'keepalive') {
-                writeToLog(3, 'Got keepalive from ' + message.from);
+                dbg.log3('Got keepalive from ' + message.from);
             } else if (message.sigType && message.requestId) {
-                writeToLog(0, 'Got ' + message.sigType + ' from web server '+message.from+' to '+message.to+' i am '+socket.idInServer);
+                dbg.log0('Got ' + message.sigType + ' from web server '+message.from+' to '+message.to+' i am '+socket.idInServer);
                 if (message.sigType === 'response' && message.status && message.status === 500) {
                     if (socket.p2p_context && socket.p2p_context.iceSockets && socket.p2p_context.iceSockets[message.from]
                         && socket.p2p_context.iceSockets[message.from].connect_defer) {
@@ -168,7 +152,7 @@ var connect = function (socket) {
                     } else if (socket.action_defer && socket.action_defer[message.requestId]) {
                         socket.action_defer[message.requestId].reject(message);
                     } else {
-                        writeToLog(-1, 'got bad conn sig message that cant handle ' + require('util').inspect(message));
+                        dbg.log0('got bad conn sig message that cant handle ' + require('util').inspect(message));
                     }
                 } else if (socket.action_defer && socket.action_defer[message.requestId]) {
                     socket.action_defer[message.requestId].resolve(message);
@@ -177,17 +161,17 @@ var connect = function (socket) {
                     socket.handleRequestMethod(socket, ws, message);
                 }
             } else {
-                writeToLog(-1, 'unknown sig message ' + require('util').inspect(message));
+                dbg.log0('unknown sig message ' + require('util').inspect(message));
                 try {
-                    writeToLog(-1,  'unknown sig message 2 ' + JSON.stringify(message));
+                    dbg.log0('unknown sig message 2 ' + JSON.stringify(message));
                 } catch (ex) {
-                    writeToLog(-1,  'unknown sig message 3 ' + message);
+                    dbg.log0('unknown sig message 3 ' + message);
                 }
             }
         };
 
         ws.onerror = function (err) {
-            writeToLog(-1,  'onerror ws ' + require('util').inspect(err)+' ; '+err.stack);
+            dbg.log0('onerror ws ' + require('util').inspect(err)+' ; '+err.stack);
 
             if (socket.conn_defer) {
                 socket.conn_defer.reject();
@@ -198,7 +182,7 @@ var connect = function (socket) {
             }
 
             if (socket.isAgent) {
-                writeToLog(-1,  'onerror ws agent');
+                dbg.log0('onerror ws agent');
                 disconnect(socket);
                 setTimeout(
                     function () {
@@ -207,16 +191,16 @@ var connect = function (socket) {
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
                 closeWSContext(socket);
             } else {
-                writeToLog(-1,  'onerror ws - disconnect not agent & no context');
+                dbg.log0('onerror ws - disconnect not agent & no context');
                 disconnect(socket);
             }
 
         };
 
         ws.onclose = function () {
-            writeToLog(0,  'onclose ws');
+            dbg.log0('onclose ws');
             if (socket.isAgent) {
-                writeToLog(0,  'onclose ws agent');
+                dbg.log0('onclose ws agent');
                 disconnect(socket);
                 setTimeout(
                     function () {
@@ -225,21 +209,21 @@ var connect = function (socket) {
             } else if (socket.p2p_context && socket.p2p_context.wsClientSocket) {
                 closeWSContext(socket);
             } else {
-                writeToLog(0,  'onclose ws - disconnect not agent & no context');
+                dbg.log0('onclose ws - disconnect not agent & no context');
                 disconnect(socket);
             }
         };
 
         socket.ws = ws;
     } catch (ex) {
-        writeToLog(-1,  'ice_lib.connect ERROR '+ ex+' ; ' + ex.stack);
+        dbg.log0('ice_lib.connect ERROR '+ ex+' ; ' + ex.stack);
     }
 
     return socket;
 };
 
 function sendMessage(socket, peerId, requestId, message) {
-    writeToLog(0, 'Client sending message: '+ message + ' to peer '+peerId+' for req '+requestId+' i am '+socket.idInServer
+    dbg.log0('Client sending message: '+ message + ' to peer '+peerId+' for req '+requestId+' i am '+socket.idInServer
             +' init: '+(socket.icemap[requestId] ? socket.icemap[requestId].isInitiator : 'N/A'));
 
     var toSend = {
@@ -254,7 +238,7 @@ function sendMessage(socket, peerId, requestId, message) {
         zlib.gzip(buf, function (err, result) {
             result = result.toString('binary');
             if (err) {
-                writeToLog(-1,'sending ice msg gzip error '+err);
+                dbg.log0('sending ice msg gzip error '+err);
             }
             toSend.data = result;
             socket.ws.send(JSON.stringify(toSend));
@@ -275,7 +259,7 @@ function staleConnChk(socket) {
         return;
     }
 
-    writeToLog(2,'RUNNING staleConnChk ICE');
+    dbg.log2('RUNNING staleConnChk ICE');
 
     var now = (new Date()).getTime();
     var toDel = [];
@@ -287,7 +271,7 @@ function staleConnChk(socket) {
         if (socket && socket.icemap) {
             for (requestId in socket.icemap) {
                 timePassed = now - socket.icemap[requestId].created.getTime();
-                writeToLog(2,'chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' time passed ' +
+                dbg.log2('chk stale connections requests to peer ' + socket.icemap[requestId].peerId + ' time passed ' +
                 timePassed+' for req '+requestId+' is done '+socket.icemap[requestId].done);
                 if (timePassed > config.connection_data_stale && socket.icemap[requestId].done) {
                     toDel.push(requestId);
@@ -298,12 +282,12 @@ function staleConnChk(socket) {
 
             for (pos in toDel) {
                 requestId = toDel[pos];
-                writeToLog(0, 'remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
+                dbg.log0('remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
                 delete socket.icemap[requestId];
             }
         }
     } catch (ex) {
-        writeToLog(-1,'Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
+        dbg.log0('Error on staleConnChk of icemap ex '+ex+' ; '+ex.stack);
     }
 
     try {
@@ -314,7 +298,7 @@ function staleConnChk(socket) {
 
             for (peerId in socket.p2p_context.iceSockets) {
                 timePassed = now - socket.p2p_context.iceSockets[peerId].lastUsed;
-                    writeToLog(2,'chk stale connections to peer '+peerId+' time passed '+timePassed+
+                dbg.log2('chk stale connections to peer '+peerId+' time passed '+timePassed+
                 ' used by '+require('util').inspect(socket.p2p_context.iceSockets[peerId].usedBy));
                 if (timePassed > config.connection_data_stale &&
                     Object.keys(socket.p2p_context.iceSockets[peerId].usedBy).length === 0) {
@@ -324,7 +308,7 @@ function staleConnChk(socket) {
 
             for (pos in toDel) {
                 peerId = toDel[pos];
-                writeToLog(0, 'remove stale ice connections to peer ' + peerId);
+                dbg.log2( 'remove stale ice connections to peer ' + peerId);
                 if (socket.p2p_context.iceSockets[peerId].dataChannel) {
                     try {socket.p2p_context.iceSockets[peerId].dataChannel.close();} catch (err){}
                 }
@@ -335,7 +319,7 @@ function staleConnChk(socket) {
             }
         }
     } catch (ex) {
-        writeToLog(-1,'Error on staleConnChk of p2p_context iceSockets ex '+ex+' ; '+ex.stack);
+        dbg.log0('Error on staleConnChk of p2p_context iceSockets ex '+ex+' ; '+ex.stack);
     }
 }
 
@@ -392,13 +376,13 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                     if (p2p_context.iceSockets[peerId].status === 'open') {
                         var state = p2p_context.iceSockets[peerId].dataChannel.readyState;
                         if (state && (state === 'closing' || state === 'closed')) {
-                            writeToLog(0, 'state of ice conn to peer ' + peerId+ ' is: '+state+' force close');
+                            dbg.log0('state of ice conn to peer ' + peerId+ ' is: '+state+' force close');
                             forceCloseIce(p2p_context, peerId, channelObj, socket);
                         }
                     }
 
                     if (p2p_context.iceSockets[peerId].status === 'new') {
-                        writeToLog(0, 'send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+                        dbg.log0('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                         socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
                         createPeerConnection(socket, requestId, configuration);
                         p2p_context.iceSockets[peerId].status = 'start';
@@ -422,7 +406,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                 });
             } else {
                 channelObj.connect_defer = Q.defer();
-                writeToLog(0, 'send accept to peer (no context) ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+                dbg.log0('send accept to peer (no context) ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                 socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
                 createPeerConnection(socket, requestId, configuration);
                 return channelObj.connect_defer.promise;
@@ -432,7 +416,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
         // not isInitiator
         createPeerConnection(socket, requestId, configuration);
     } catch (ex) {
-        writeToLog(-1,'Error on initiateIce '+(isInitiator ? 'to' : 'for')+' peer '+peerId+' ex '+ex+' ; '+ex.stack);
+        dbg.log0('Error on initiateIce '+(isInitiator ? 'to' : 'for')+' peer '+peerId+' ex '+ex+' ; '+ex.stack);
         throw ex;
     }
 
@@ -442,7 +426,7 @@ module.exports.initiateIce = initiateIce;
 function chkChannelState(channel, requestId) {
     var state = channel.readyState;
     if (state && (state === 'closing' || state === 'closed')) {
-        writeToLog(-1,'ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
+        dbg.log0('ERROR writing to channel for request '+requestId+' and peer '+channel.peerId +' channel state is '+state);
         throw new Error('ERROR writing to channel state is '+state);
     }
 }
@@ -457,7 +441,7 @@ function createBufferToSend(block, seq, reqId) {
         bufToSend = buf.addToBuffer(bufToSend, block);
         return buf.toArrayBuffer(bufToSend);
     } catch (err) {
-        writeToLog(-1, 'error in createBufferToSend for req '+reqId+' err: '+err+' '+err.stack);
+        dbg.log0('error in createBufferToSend for req '+reqId+' err: '+err+' '+err.stack);
         throw err;
     }
 }
@@ -563,34 +547,6 @@ function writeToChannel(channel, data, requestId) {
 }
 module.exports.writeToChannel = writeToChannel;
 
-
-/*
-
-// TODO we can remove this, polling from here and noticing that the channel
-// buffer is not empty doesn't help us understand anything, besides that it's active.
-// instead writeToChannel() monitors it's own writes under a semaphore.
-
-function chkIceSocketSend(channel) {
-
-    var startTime = (new Date()).getTime();
-    var currentTime;
-    var lastTimeLogged;
-
-    if (channel.bufferedAmount > 0) {
-        setTimeout(function () {
-            currentTime = (new Date()).getTime();
-            if ((currentTime - startTime) > 1000 && (!lastTimeLogged || (lastTimeLogged - currentTime > 1000))) {
-                lastTimeLogged = currentTime;
-                writeToLog(2, 'bufferedAmount>0, wait for peer ' + channel.peerId+' wait so far: '+(currentTime - startTime));
-            }
-            chkIceSocketSend(channel);
-        }, config.timeoutToBufferWait);
-    }
-}
-module.exports.chkIceSocketSend = chkIceSocketSend;
-*/
-
-
 function isRequestEnded(p2p_context, requestId, channel) {
     if (channel && channel.msgs && channel.msgs[requestId]) {
         return false;
@@ -642,13 +598,13 @@ function closeIce(socket, requestId, dataChannel, dontClose) {
                 channelObj.peerConn.close();
             }
             if (dataChannel) {
-                writeToLog(0,'Closing the ice socket to peer ' +dataChannel.peerId);
+                dbg.log0('Closing the ice socket to peer ' +dataChannel.peerId);
                 dataChannel.close();
             }
             disconnect(socket);
         }
     } catch (ex) {
-        writeToLog(-1,'Error on close ice socket for request '+requestId+' ex '+ex);
+        dbg.log0('Error on close ice socket for request '+requestId+' ex '+ex);
     }
 }
 module.exports.closeIce = closeIce;
@@ -662,7 +618,7 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
 
     if (context && context.iceSockets && context.iceSockets[peerId] &&
         context.iceSockets[peerId].dataChannel) {
-        writeToLog(-1,'forceCloseIce peer '+peerId);
+        dbg.log0('forceCloseIce peer '+peerId);
         context.iceSockets[peerId].dataChannel.close();
         context.iceSockets[peerId].peerConn.close();
 
@@ -670,7 +626,7 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
             var req;
             for (req in context.iceSockets[peerId].usedBy) {
                 if (socket.icemap[req]) {
-                    writeToLog(0,'mark peer '+peerId+' req '+req+' as done so will be removed');
+                    dbg.log0('mark peer '+peerId+' req '+req+' as done so will be removed');
                     socket.icemap[req].done = true;
                 }
             }
@@ -678,36 +634,36 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
 
         delete context.iceSockets[peerId];
     } else if (channelObj && channelObj.dataChannel) {
-        writeToLog(0,'forceCloseIce (no context) peer '+peerId);
+        dbg.log0('forceCloseIce (no context) peer '+peerId);
         channelObj.dataChannel.close();
         channelObj.peerConn.close();
         channelObj.done = true;
     } else {
-        writeToLog(0,'forceCloseIce nothing to close - peer '+peerId);
+        dbg.log0('forceCloseIce nothing to close - peer '+peerId);
     }
 }
 module.exports.forceCloseIce = forceCloseIce;
 
 function logError(err) {
-    writeToLog(-1,'logError called: '+ err);
+    dbg.log0('logError called: '+ err);
 }
 
 function onLocalSessionCreated(socket, requestId, desc) {
-    writeToLog(3, 'local session created:'+ desc);
+    dbg.log0('local session created:'+ desc);
     var channelObj = socket.icemap[requestId];
 
     if (!channelObj || channelObj.done) {
-        writeToLog(-1, 'PROBLEM onLocalSessionCreated no channel or already done !!!');
+        dbg.log0('PROBLEM onLocalSessionCreated no channel or already done !!!');
         return;
     }
 
     try {
         channelObj.peerConn.setLocalDescription(desc, function () {
-            writeToLog(3, 'sending local desc:' + require('util').inspect(channelObj.peerConn.localDescription));
+            dbg.log3('sending local desc:' + require('util').inspect(channelObj.peerConn.localDescription));
             sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.localDescription);
         }, logError);
     } catch (ex) {
-        writeToLog(-1, 'Ex on local session ' + ex);
+        dbg.log0('Ex on local session ' + ex);
         if (channelObj && channelObj.connect_defer) {
             channelObj.connect_defer.reject();
             channelObj.connect_defer = null;
@@ -721,11 +677,11 @@ function handleCngSDP(desc) {
         var split = desc.sdp.split("b=AS:30");
         if (split.length > 1) {
             newDesc.sdp = split[0] + "b=AS:1638400" + split[1];
-            writeToLog(3, 'cng desc from ---- '+desc +' ----- to ------ '+newDesc);
+            dbg.log3('cng desc from ---- '+desc +' ----- to ------ '+newDesc);
         }
         return newDesc;
     } catch (err) {
-        writeToLog(-1, 'PROBLEM handleCngSDP '+err+' '+err.stack+' ;; '+require('util').inspect(desc));
+        dbg.log0('PROBLEM handleCngSDP '+err+' '+err.stack+' ;; '+require('util').inspect(desc));
         return desc;
     }
 }
@@ -733,19 +689,19 @@ function handleCngSDP(desc) {
 function createPeerConnection(socket, requestId, config) {
     var channelObj = socket.icemap[requestId];
     if (!channelObj || channelObj.done) {
-        writeToLog(-1, 'PROBLEM Creating Peer connection no channel or already done !!!');
+        dbg.log0('PROBLEM Creating Peer connection no channel or already done !!!');
         return;
     }
 
     try {
-        writeToLog(2, 'Creating Peer connection as initiator ' + channelObj.isInitiator + ' config: ' + config);
+        dbg.log2('Creating Peer connection as initiator ' + channelObj.isInitiator + ' config: ' + config);
 
         var FuncPerrConn = window.RTCPeerConnection || window.mozRTCPeerConnection || window.webkitRTCPeerConnection;
 
         try {
             channelObj.peerConn = new FuncPerrConn(config, optionalRtpDataChannels);
         } catch (ex) {
-            writeToLog(-1,  'prob win create '+ex.stack);
+            dbg.log0('prob win create '+ex.stack);
         }
 
         // send any ice candidates to the other peer
@@ -754,10 +710,6 @@ function createPeerConnection(socket, requestId, config) {
             if (event.candidate) {
 
                 try {
-                    //if (!channelObj.peerConn.candidates) {
-                    //    channelObj.peerConn.candidates = [];
-                    //}
-
                     candidateMsg = JSON.stringify({
                         type: 'candidate',
                         label: event.candidate.sdpMLineIndex,
@@ -765,30 +717,26 @@ function createPeerConnection(socket, requestId, config) {
                         candidate: event.candidate.candidate
                     });
 
-                    //if (candidateMsg.indexOf('tcp') >= 0) {
-                        writeToLog(3, channelObj.peerId+' onIceCandidate event: '+
-                        require('util').inspect(event.candidate.candidate) +
+                    dbg.log3(channelObj.peerId+' onIceCandidate event: '+
+                    require('util').inspect(event.candidate.candidate) +
                         ' state is '+(event.target ? event.target.iceGatheringState : 'N/A'));
 
-                        sendMessage(socket, channelObj.peerId, channelObj.requestId, candidateMsg);
-                    //} else {
-                    //    channelObj.peerConn.candidates.push(candidateMsg);
-                    //}
+                    sendMessage(socket, channelObj.peerId, channelObj.requestId, candidateMsg);
                 } catch (ex) {
-                    writeToLog(-1,'candidates issue '+ex+' ; '+ex.stack);
+                    dbg.log0('candidates issue '+ex+' ; '+ex.stack);
                 }
 
             } else {
                 try {
-                    writeToLog(3, channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
+                    dbg.log3(channelObj.peerId+' End of candidates. state is '+(event.target ? event.target.iceGatheringState : 'N/A')); // complete
                     if (channelObj.peerConn.candidates) {
                         for (candidateMsg in channelObj.peerConn.candidates) {
-                            writeToLog(2, channelObj.peerId+' send onIceCandidate event: '+ channelObj.peerConn.candidates[candidateMsg]);
+                            dbg.log2(channelObj.peerId+' send onIceCandidate event: '+ channelObj.peerConn.candidates[candidateMsg]);
                             sendMessage(socket, channelObj.peerId, channelObj.requestId, channelObj.peerConn.candidates[candidateMsg]);
                         }
                     }
                 } catch (ex) {
-                    writeToLog(-1,'all candidates issue '+ex+' ; '+ex.stack);
+                    dbg.log0('all candidates issue '+ex+' ; '+ex.stack);
                 }
             }
         };
@@ -807,7 +755,7 @@ function createPeerConnection(socket, requestId, config) {
                 'connected' !== evt.target.iceConnectionState &&
                 'completed' !== evt.target.iceConnectionState
             ) {
-                writeToLog(0,channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
+                dbg.log0(channelObj.peerId+" NOTICE ICE connection state change: " + evt.target.iceConnectionState);
                 if ('disconnected' === evt.target.iceConnectionState || 'failed' === evt.target.iceConnectionState) {
                     forceCloseIce(socket.p2p_context, channelObj.peerId, channelObj, socket);
                 }
@@ -815,23 +763,23 @@ function createPeerConnection(socket, requestId, config) {
         };
 
         channelObj.peerConn.signalingstatechange = function(evt) {
-            writeToLog(0,channelObj.peerId+" NOTICE ICE signalingstatechange: " + require('util').inspect(evt));
+            dbg.log0(channelObj.peerId+" NOTICE ICE signalingstatechange: " + require('util').inspect(evt));
         };
 
         channelObj.peerConn.onidpassertionerror = function(evt) {
-            writeToLog(0,channelObj.peerId+" NOTICE ICE onidpassertionerror: " + require('util').inspect(evt));
+            dbg.log0(channelObj.peerId+" NOTICE ICE onidpassertionerror: " + require('util').inspect(evt));
         };
 
         channelObj.peerConn.onidpvalidationerror = function(evt) {
-            writeToLog(0,channelObj.peerId+" NOTICE ICE onidpvalidationerror: " + require('util').inspect(evt));
+            dbg.log0(channelObj.peerId+" NOTICE ICE onidpvalidationerror: " + require('util').inspect(evt));
         };
 
         channelObj.peerConn.onremovestream = function(evt) {
-            writeToLog(0,'onremovestream Data Channel req '+requestId+' evt '+require('util').inspect(evt));
+            dbg.log0('onremovestream Data Channel req '+requestId+' evt '+require('util').inspect(evt));
         };
 
         if (channelObj.isInitiator) {
-            writeToLog(3,'Creating Data Channel req '+requestId);
+            dbg.log3('Creating Data Channel req '+requestId);
             try {
                 var dtConfig = {
                     // we don't require strict ordering since we collect packets
@@ -850,11 +798,11 @@ function createPeerConnection(socket, requestId, config) {
                 channelObj.dataChannel = channelObj.peerConn.createDataChannel("noobaa", dtConfig);
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
-                writeToLog(-1, 'Ex on Creating Data Channel ' + ex);
+                dbg.log0('Ex on Creating Data Channel ' + ex);
                 if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
             }
 
-            writeToLog(3, 'Creating an offer req '+requestId);
+            dbg.log3('Creating an offer req '+requestId);
             var mediaConstraints = {
                 mandatory: {
                     OfferToReceiveAudio: false,
@@ -864,27 +812,27 @@ function createPeerConnection(socket, requestId, config) {
             try {
                 channelObj.peerConn.createOffer(function (desc) {
                     desc = handleCngSDP(desc);
-                    writeToLog(3,  'Creating an offer ' + require('util').inspect(desc));
+                    dbg.log3('Creating an offer ' + require('util').inspect(desc));
                     return onLocalSessionCreated(socket, requestId, desc);
                 }, logError, mediaConstraints); // TODO ? mediaConstraints
             } catch (ex) {
-                writeToLog(-1,  'Ex on Creating an offer ' + ex.stack);
+                dbg.log0('Ex on Creating an offer ' + ex.stack);
                 if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
             }
         }
 
         channelObj.peerConn.ondatachannel = function (event) {
-            writeToLog(0, 'ondatachannel:'+ event.channel);
+            dbg.log0('ondatachannel:'+ event.channel);
             try {
                 channelObj.dataChannel = event.channel;
                 onDataChannelCreated(socket, requestId, channelObj.dataChannel);
             } catch (ex) {
-                writeToLog(-1, 'Ex on ondatachannel ' + ex.stack);
+                dbg.log0('Ex on ondatachannel ' + ex.stack);
                 if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
             }
         };
     } catch (ex) {
-        writeToLog(-1, 'Ex on createPeerConnection ' + ex.stack);
+        dbg.log0('Ex on createPeerConnection ' + ex.stack);
         if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
     }
 }
@@ -900,7 +848,7 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
         }
 
         if (!channelObj || channelObj.done) {
-            writeToLog(-1, 'problem NO channelObj or already done for req '+requestId+' and peer '+peerId);
+            dbg.log0('problem NO channelObj or already done for req '+requestId+' and peer '+peerId);
             return;
         }
     }
@@ -909,50 +857,50 @@ function signalingMessageCallback(socket, peerId, message, requestId) {
     var Candidate = RTCIceCandidate;
 
     if (message.type === 'offer') {
-        writeToLog(3, 'Got offer. Sending answer to peer. ' + peerId + ' and channel ' + requestId);
+        dbg.log3('Got offer. Sending answer to peer. ' + peerId + ' and channel ' + requestId);
 
         try {
             channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
-                writeToLog(3, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
+                dbg.log3('remote desc set for peer '+peerId+' is '+require('util').inspect(message));
             }, logError);
             channelObj.peerConn.createAnswer(function (desc) {
                 desc = handleCngSDP(desc);
-                writeToLog(3, 'createAnswer for peer '+peerId+' is '+require('util').inspect(desc));
+                dbg.log3('createAnswer for peer '+peerId+' is '+require('util').inspect(desc));
                 return onLocalSessionCreated(socket, requestId, desc);
             }, logError);
         } catch (ex) {
-            writeToLog(-1,  'problem in offer ' + ex.stack);
+            dbg.log0('problem in offer ' + ex.stack);
             channelObj = socket.icemap[requestId];
             if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
         }
 
     } else if (message.type === 'answer') {
         try {
-            writeToLog(3, 'Got answer.' + peerId + ' and channel ' + requestId+' is '+require('util').inspect(message));
+            dbg.log0('Got answer.' + peerId + ' and channel ' + requestId+' is '+require('util').inspect(message));
             channelObj.peerConn.setRemoteDescription(new Desc(message), function () {
-                writeToLog(3, 'remote desc set for peer '+peerId+' is '+require('util').inspect(message));
+                dbg.log3('remote desc set for peer '+peerId+' is '+require('util').inspect(message));
             }, logError);
         } catch (ex) {
-            writeToLog(-1,  'problem in answer ' + ex);
+            dbg.log0('problem in answer ' + ex);
             channelObj = socket.icemap[requestId];
             if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
         }
 
     } else if (message.type === 'candidate') {
         try {
-            writeToLog(3, 'Got candidate.' + peerId + ' and channel ' + requestId+' ; '+require('util').inspect(message));
+            dbg.log3('Got candidate.' + peerId + ' and channel ' + requestId+' ; '+require('util').inspect(message));
             if (channelObj && !channelObj.done) {
                 channelObj.peerConn.addIceCandidate(new Candidate({candidate: message.candidate}));
             } else {
-                writeToLog(0, 'Got candidate.' + peerId + ' and channel ' + requestId + ' CANNOT HANDLE connection removed/done');
+                dbg.log0('Got candidate.' + peerId + ' and channel ' + requestId + ' CANNOT HANDLE connection removed/done');
             }
         } catch (ex) {
-            writeToLog(-1,  'problem in candidate from req '+ requestId +' ex:' + ex+ ', msg was: '+message.candidate);
+            dbg.log0('problem in candidate from req '+ requestId +' ex:' + ex+ ', msg was: '+message.candidate);
             channelObj = socket.icemap[requestId];
             if (channelObj && channelObj.connect_defer) {channelObj.connect_defer.reject(); channelObj.connect_defer = null;}
         }
     } else if (message === 'bye') {
-        writeToLog(3, 'Got bye.');
+        dbg.log3('Got bye.');
     }
 }
 
@@ -965,7 +913,7 @@ function onIceMessage(socket, channel) {
 function onDataChannelCreated(socket, requestId, channel) {
 
     try {
-        writeToLog(3, 'onDataChannelCreated:'+ channel);
+        dbg.log3('onDataChannelCreated:'+ channel);
 
         channel.onopen = function () {
 
@@ -1000,7 +948,7 @@ function onDataChannelCreated(socket, requestId, channel) {
 
             }
 
-            writeToLog(0,'ICE CHANNEL opened ' + channelObj.peerId+' i am '+socket.idInServer + ' for request '+requestId);
+            dbg.log0('ICE CHANNEL opened ' + channelObj.peerId+' i am '+socket.idInServer + ' for request '+requestId);
 
             channel.peerId = channelObj.peerId;
             channel.myId = socket.idInServer;
@@ -1008,22 +956,22 @@ function onDataChannelCreated(socket, requestId, channel) {
             channel.handleRequestMethod = socket.handleRequestMethod;
 
             if (channelObj.connect_defer) {
-                writeToLog(3, 'connect defer - resolve');
+                dbg.log3('connect defer - resolve',channel.peerId);
                 channelObj.connect_defer.resolve(channelObj.dataChannel);
                 channelObj.connect_defer = null;
             } else {
-                writeToLog(3, 'no connect defer');
+                dbg.log3('no connect defer',channel.peerId);
             }
         };
 
         channel.onmessage = onIceMessage(socket, channel);
 
         channel.onleave = function (userid) {
-            writeToLog(-1,'ICE CHANNEL onleave !!!! this ever called ??? ' + channel.peerId+ ' userid: '+userid);
+            dbg.log0('ICE CHANNEL onleave !!!! this ever called ??? ' + channel.peerId+ ' userid: '+userid);
         };
 
         channel.onclose = function () {
-            writeToLog(0,'ICE CHANNEL closed ' + channel.peerId);
+            dbg.log0('ICE CHANNEL closed ' + channel.peerId);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
                 socket.icemap[requestId].connect_defer = null;
@@ -1042,7 +990,7 @@ function onDataChannelCreated(socket, requestId, channel) {
         };
 
         channel.onerror = function (err) {
-            writeToLog(0, 'CHANNEL ERROR ' + channel.peerId + ' ' + err);
+            dbg.log0('CHANNEL ERROR ' + channel.peerId + ' ' + err);
             if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
                 socket.icemap[requestId].connect_defer.reject();
                 socket.icemap[requestId].connect_defer = null;
@@ -1057,7 +1005,7 @@ function onDataChannelCreated(socket, requestId, channel) {
         };
 
     } catch (ex) {
-        writeToLog(-1,  'Ex on onDataChannelCreated ' + ex);
+        dbg.log0('Ex on onDataChannelCreated ' + ex);
 
         if (socket.icemap[requestId] && socket.icemap[requestId].connect_defer) {
             socket.icemap[requestId].connect_defer.reject();
@@ -1073,7 +1021,7 @@ module.exports.closeSignaling = function closeSignaling(socket) {
             clearInterval(socket.stale_conn_interval);
             socket.stale_conn_interval = null;
         } catch (err) {
-            writeToLog(-1, 'Ex on closeSignaling ' + err);
+            dbg.log0('Ex on closeSignaling ' + err);
         }
     }
 };

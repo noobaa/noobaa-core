@@ -2,10 +2,8 @@ node_modules/
 bower_components/
 build/
 .env
-agent_conf.json
 *.pem
 *.iml
-*.log
 
 ## IDE
 *.sublime-workspace
@@ -21,12 +19,12 @@ coverage/
 agent_storage*
 agent_conf.json*
 
-## mobile
-ionic-app/
-
-# heapdump files
+## heapdump files
 heapdump-*
 
-# logs
+## logs
 *.log
 logs/
+
+## local stash - use it by adding .STASH suffix to hide a file from git
+*.STASH

@@ -328,7 +328,9 @@ var aws_s3 = process.env.AWS_ACCESS_KEY_ID && new AWS.S3({
  */
 function get_system_resource_info(req) {
     var reply = _.mapValues(req.system.resources, function(val, key) {
-        if (key === 'toObject') return;
+        if (key === 'toObject' || !_.isString(val) || !val) {
+            return;
+        }
         var params = {
             Bucket: S3_SYSTEM_BUCKET,
             Key: 'systems/' + req.system._id + '/' + val,

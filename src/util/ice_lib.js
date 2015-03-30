@@ -288,7 +288,7 @@ function staleConnChk(socket) {
                 peerId = socket.icemap[requestId].peerId;
                 dbg.log0('remove stale connections data to peer ' + peerId+' for request '+requestId);
 
-                if (socket.p2p_context.iceSockets[peerId]) {
+                if (socket && socket.p2p_context && socket.p2p_context.iceSockets && socket.p2p_context.iceSockets[peerId]) {
                     peerObj = socket.p2p_context.iceSockets[peerId];
                     channel = peerObj.dataChannel;
                     if (channel && channel.msgs && channel.msgs[requestId]) {

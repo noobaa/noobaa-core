@@ -30,7 +30,7 @@ var http = require('http');
 var mongoose = require('mongoose');
 var dotenv = require('dotenv');
 var express = require('express');
-var express_favicon = require('static-favicon');
+var express_favicon = require('serve-favicon');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_cookie_parser = require('cookie-parser');
@@ -90,7 +90,7 @@ app.engine('html', dot_engine(views_path));
 
 // configure app middleware handlers in the order to use them
 
-app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon_bgblack.ico')));
+app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon.ico')));
 app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:

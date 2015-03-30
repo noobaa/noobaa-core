@@ -52,7 +52,7 @@ describe('write buffer to socket', function() {
         };
 
         Q.fcall(function() {
-        ice_api.writeBufferToSocket(channel, block, '45344');
+            return ice_api.writeBufferToSocket(channel, block, '45344');
         }).then(function() {
 
             var myResultBuffer = buf.chunkToBuffer(channel.buffer);

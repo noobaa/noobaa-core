@@ -488,9 +488,27 @@ function writeToChannel(channel, data, requestId) {
     function send_if_not_congested() {
         var currentTime = Date.now();
 
+        if (currentTime - startTime > config.channel_send_timeout) {
+            dbg.log0('writeToChannel: WAITED TOO MUCH', describe(currentTime));
+            var err = new Error('writeToChannel: WAITED TOO MUCH');
+            err.DO_NOT_RETRY = true;
+            throw err;
+        }
+
         if (currentTime - lastTimeLogged > 1000) {
             lastTimeLogged = currentTime;
             dbg.log0('writeToChannel: in progress ', describe(currentTime));
+        }
+
+        // check channel readyState and throw if closed
+        // don't retry here if channel is closed,
+        // also make sure to check that before checking the bufferedAmount
+        // because the amount seem to have a case of remain not zero after channel is closed.
+        try {
+            chkChannelState(channel, requestId);
+        } catch (err) {
+            err.DO_NOT_RETRY = true;
+            throw err;
         }
 
         // throw if bufferedAmount is not zero, to be handled by the retry
@@ -511,8 +529,6 @@ function writeToChannel(channel, data, requestId) {
                     throw new Error('writeToChannel: ERROR INJECTION');
                 }
             }
-            // check channel readyState and throw if closed
-            chkChannelState(channel, requestId);
             channel.send(data);
         } catch (err) {
             // don't retry if send fails,

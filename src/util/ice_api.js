@@ -169,6 +169,26 @@ function generateRequestId() {
     return rand.getRandomInt(10000,9000000).toString();
 }
 
+
+function writeMessage(sigSocket, channel, header, buffer, reqId) {
+    return Q.fcall(function() {
+            return ice.writeToChannel(channel, JSON.stringify(header), reqId);
+        })
+        .then(function() {
+            if (buffer) {
+                return writeBufferToSocket(channel, buffer, reqId);
+            }
+        })
+        .timeout(config.channel_send_timeout, 'send timeout')
+        .then(null, function(err) {
+            dbg.log0('writeMessage: SEND FAILED', err.stack || err);
+            // TODO should we close here? not sure as timeouts might occur on long queue of senders
+            throw err;
+        });
+}
+module.exports.writeMessage = writeMessage;
+
+
 function writeBufferToSocket(channel, block, reqId) {
 
     var sequence = 0;
@@ -401,13 +421,8 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         writeToLog(0,'send request ice to '+peerId+' request '+requestId);
 
-        return ice.writeToChannel(iceSocket, JSON.stringify(request), requestId);
-
-    }).then(function() {
-
-        if (buffer) {
-            return writeBufferToSocket(iceSocket, buffer, requestId);
-        }
+        // write has timeout internally
+        return writeMessage(sigSocket, iceSocket, request, buffer, requestId);
 
     }).then(function() {
 

@@ -214,21 +214,15 @@ function serve(rpc, peer_id) {
                     }
 
                     if (isWs) {
+                        if (buffer) {
+                            throw new Error('UNEXPECTED BUFFER WITH WS ' + rpc_method.method_api.name);
+                        }
                         // TODO isn't there a callback to WS send? need to return to promise chain..
                         channel.send(JSON.stringify(reply));
                     } else {
-                        return ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
+                        // write has timeout internally
+                        return ice_api.writeMessage(socket, channel, reply, buffer, reqId);
                     }
-                })
-                .then(function() {
-
-                    if (!buffer) return;
-
-                    if (isWs) {
-                        throw new Error('UNEXPECTED BUFFER WITH WS ' + rpc_method.method_api.name);
-                    }
-
-                    return ice_api.writeBufferToSocket(channel, buffer, reqId);
                 })
                 .then(function() {
                     try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (err) {

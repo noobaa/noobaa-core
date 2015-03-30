@@ -267,6 +267,9 @@ function staleConnChk(socket) {
     var peerId;
     var pos;
     var timePassed;
+    var channel;
+    var peerObj;
+
     try {
         if (socket && socket.icemap) {
             for (requestId in socket.icemap) {
@@ -282,7 +285,18 @@ function staleConnChk(socket) {
 
             for (pos in toDel) {
                 requestId = toDel[pos];
-                dbg.log0('remove stale connections data to peer ' + socket.icemap[requestId].peerId+' for request '+requestId);
+                peerId = socket.icemap[requestId].peerId;
+                dbg.log0('remove stale connections data to peer ' + peerId+' for request '+requestId);
+
+                if (socket.p2p_context.iceSockets[peerId]) {
+                    peerObj = socket.p2p_context.iceSockets[peerId];
+                    channel = peerObj.dataChannel;
+                    if (channel && channel.msgs && channel.msgs[requestId]) {
+                        dbg.log0('remove stale connections msgs&usedBy to peer ' + peerId+' for request '+requestId);
+                        delete channel.msgs[requestId];
+                        delete peerObj.usedBy[requestId];
+                    }
+                }
                 delete socket.icemap[requestId];
             }
         }

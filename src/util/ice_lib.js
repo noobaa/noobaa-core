@@ -539,8 +539,9 @@ function writeToChannel(socket, channel, data, requestId) {
                 } else {
                     dbg.log0('writeToChannel: ERROR (retries exhausted)', err.stack || err, requestId);
                 }
-                // TODO YAEL - how to close this channel?
-                //channel.close();
+                // close this channel
+                var channelObj = socket && socket.icemap ? socket.icemap[requestId] : null;
+                forceCloseIce(socket.p2p_context, channel.peerId, channelObj, socket);
                 throw err;
             });
     });
@@ -642,7 +643,6 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
         dbg.log0('forceCloseIce nothing to close - peer '+peerId);
     }
 }
-module.exports.forceCloseIce = forceCloseIce;
 
 function logError(err) {
     dbg.log0('logError called: '+ err);

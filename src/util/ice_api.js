@@ -31,17 +31,6 @@ module.exports = {};
 
 var isAgent;
 
-function forceCloseIce(p2p_context, peerId) {
-
-    var sigSocket;
-    if (p2p_context && p2p_context.wsClientSocket) {
-        sigSocket = p2p_context.wsClientSocket.ws_socket;
-    }
-
-    ice.forceCloseIce(p2p_context, peerId, null, sigSocket);
-}
-module.exports.forceCloseIce = forceCloseIce;
-
 function onIceMessage(socket, channel, event) {
 
     writeToLog(3, 'Got event '+event.data+' ; my id: '+channel.myId);

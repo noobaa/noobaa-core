@@ -51,9 +51,6 @@ function request(rpc, api, method_api, params, options) {
             return res.data;
         }, function(err) {
             dbg.log0('RPC ICE EXCEPTION', message.path, err);
-            // close the channel to try and recover
-            // TODO is this really the right thing to do?
-            ice_api.forceCloseIce(options.p2p_context, options.peer);
             throw err;
         });
 

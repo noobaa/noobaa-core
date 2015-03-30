@@ -24,7 +24,7 @@ describe('poly', function() {
         }
         var p = new Poly(degrees);
         if (skip) {
-            it.skip(p.toString(), function() {});
+            // it.skip(p.toString(), function() {});
             return;
         }
 

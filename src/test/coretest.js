@@ -13,12 +13,11 @@ var api = require('../api');
 var db = require('../server/db');
 var Agent = require('../agent/agent');
 var config = require('../../config.js');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
 // Q.longStackSupport = true;
-
-mongoose.set('debug', true);
 
 process.env.JWT_SECRET = 'coretest';
 

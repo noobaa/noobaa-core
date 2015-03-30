@@ -13,12 +13,6 @@ config.doStaleCheck = true;
 
 config.iceBufferMetaPartSize = 64;
 
-// ~60 seconds overall before give up on this channel
-config.channel_send_congested_attempts = 1200;
-config.channel_send_congested_delay = 50;
-config.channel_buffer_start_throttle = 1 * 1024 * 1024;
-config.channel_buffer_stop_throttle = 0;
-
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;
 
@@ -37,6 +31,13 @@ config.read_timeout = 30 * 1000;
 config.server_replicate_timeout = 30 * 1000;
 config.client_replicate_timeout = 300 * 1000;
 config.default_rpc_timeout = 120 * 1000;
+
+// ~60 seconds overall before give up on this channel
+config.channel_send_congested_attempts = 1200;
+config.channel_send_congested_delay = 50;
+config.channel_send_timeout = 30 * 1000;
+config.channel_buffer_start_throttle = 1 * 1024 * 1024;
+config.channel_buffer_stop_throttle = 0;
 
 config.ice_conn_timeout = 10 * 1000;
 config.response_timeout = 10 * 1000;

@@ -186,7 +186,7 @@ function serve(rpc, peer_id) {
                     return send_reply(200, reply, null);
                 }
             }, function(err) {
-                dbg.log0('RPC ICE FAILED', err.stack || err);
+                dbg.log0('RPC ICE FAILED ',reqId, err.stack || err);
                 return send_reply(500, err.toString(), null);
             });
 

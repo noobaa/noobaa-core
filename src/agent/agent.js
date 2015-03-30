@@ -569,7 +569,8 @@ Agent.prototype.self_test_peer = function(req) {
             ws_socket: self.ws_socket,
         })
         .then(function(data) {
-            if (data.length !== req.rest_params.response_length) {
+            if (((!data || !data.length) && req.rest_params.response_length > 0) ||
+                (data && data.length && data.length !== req.rest_params.response_length)) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });

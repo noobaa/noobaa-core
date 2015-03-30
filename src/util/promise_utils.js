@@ -23,8 +23,8 @@ module.exports = {
 function iterate(array, func) {
     var i = -1;
     var results = [];
-    if (!array) {
-        return [];
+    if (!array || !array.length) {
+        return Q.when(results);
     }
     results.length = array.length;
 

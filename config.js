@@ -3,7 +3,7 @@ var config = {};
 // SIGNALING AND ICE
 config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: wss://noobaa-signaling.herokuapp.com) ws://192.168.1.6:5002
 config.alive_delay = 10 * 1000;
-config.reconnect_delay = 500;
+config.reconnect_delay = 50;
 config.connection_data_stale = 5 * 60 * 1000;
 config.connection_ws_stale = 15 * 60 * 1000;
 config.check_stale_conns = 60 * 1000;
@@ -14,8 +14,10 @@ config.doStaleCheck = true;
 config.iceBufferMetaPartSize = 64;
 
 // ~60 seconds overall before give up on this channel
-config.channel_send_congested_attempts = 6000;
-config.channel_send_congested_delay = 10;
+config.channel_send_congested_attempts = 1200;
+config.channel_send_congested_delay = 50;
+config.channel_buffer_start_throttle = 1 * 1024 * 1024;
+config.channel_buffer_stop_throttle = 0;
 
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;

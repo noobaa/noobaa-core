@@ -124,6 +124,7 @@ describe('object', function() {
             max: 255,
         };
 
+
         it('should write and read object data', function(done) {
             this.timeout(10000);
             var size, data;
@@ -165,11 +166,34 @@ describe('object', function() {
                     });
                 });
             }).then(function(read_buf) {
+
                 // verify the read buffer equals the written buffer
                 for (var i = 0; i < size; i++) {
                     assert.strictEqual(data[i], read_buf[i]);
                 }
                 console.log('READ SUCCESS');
+
+            }).then(function() {
+
+                // testing mappings that nodes don't repeat in the same fragment
+
+                return client.object.read_object_mappings({
+                    bucket: BKT,
+                    key: KEY,
+                    details: true
+                }).then(function(res) {
+                    _.each(res.parts, function(part) {
+                        var blocks = _.flatten(_.map(part.fragments, 'blocks'));
+                        var blocks_per_node = _.groupBy(blocks, function(block) {
+                            return block.details.node_name;
+                        });
+                        console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
+                        _.each(blocks_per_node, function(blocks, node_name) {
+                            assert.strictEqual(blocks.length, 1);
+                        });
+                    });
+                });
+
             }).nodeify(done);
         });
     });

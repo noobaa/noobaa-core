@@ -473,7 +473,6 @@ module.exports.createBufferToSend = createBufferToSend;
  * to flush to the socket so we need the current stack to return and release the cpu.
  */
 function writeToChannel(channel, data, requestId) {
-    chkChannelState(channel, requestId);
 
     var startTime = Date.now();
     var lastTimeLogged = startTime;
@@ -481,7 +480,9 @@ function writeToChannel(channel, data, requestId) {
     function describe(currentTime) {
         return 'peer ' + channel.peerId + ' req ' + requestId +
             ' wait so far ' + (currentTime - startTime) + 'ms' +
-            ' bufferedAmount ' + channel.bufferedAmount;
+            ' bufferedAmount ' + channel.bufferedAmount +
+            (channel.throttled ? 'throttled' : '') +
+            ' throttle waits ' + channel.throttle_num_waits;
     }
 
     function send_if_not_congested() {
@@ -489,12 +490,17 @@ function writeToChannel(channel, data, requestId) {
 
         if (currentTime - lastTimeLogged > 1000) {
             lastTimeLogged = currentTime;
-            dbg.log2('writeToChannel:', describe(currentTime));
+            dbg.log0('writeToChannel: in progress', describe(currentTime));
         }
 
         // throw if bufferedAmount is not zero, to be handled by the retry
-        if (channel.bufferedAmount) {
+        if (channel.bufferedAmount > config.channel_buffer_start_throttle ||
+            (channel.throttled && channel.bufferedAmount > config.channel_buffer_stop_throttle)) {
+            channel.throttled = true;
+            channel.throttle_num_waits = (channel.throttle_num_waits || 0) + 1;
             throw new Error('writeToChannel: WAITING ' + describe(currentTime));
+        } else {
+            channel.throttled = false;
         }
 
         try {
@@ -505,6 +511,8 @@ function writeToChannel(channel, data, requestId) {
                     throw new Error('writeToChannel: ERROR INJECTION');
                 }
             }
+            // check channel readyState and throw if closed
+            chkChannelState(channel, requestId);
             channel.send(data);
         } catch (err) {
             // don't retry if send fails,
@@ -817,8 +825,8 @@ function createPeerConnection(socket, requestId, config) {
                     // you can only specify maxRetransmits or maxPacketLifeTime, not both,
                     // and by passing any of these properties it will cause the channel to be
                     // in unreliable mode.
-                    // we use a reliable channel to do retransmissions automagically
-                    // when a packet is not delivered and avoid waiting for timeouts
+                    // we use an unreliable channel with retransmissions for when
+                    // a packet is not delivered and avoid waiting for timeouts
                     // and sending the entire request from scratch.
                     maxRetransmits: 5
                     // maxPacketLifeTime: 3000,

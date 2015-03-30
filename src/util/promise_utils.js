@@ -16,27 +16,44 @@ module.exports = {
 
 /**
  *
- * Iterate on an array, accumilate promises and return results of each
+ * Iterate on an array, accumulate promises and return results of each
  * invocation
  *
  */
 function iterate(array, func) {
+    var i = -1;
     var results = [];
+    if (!array || !array.length) {
+        return Q.when(results);
+    }
     results.length = array.length;
-    var i = 0;
 
-    function add_to_promise(promise, item) {
-        return promise.then(function() {
-            return Q.when(func(item))
-                .then(function(res) {
-                    results[i++] = res;
-                });
-        });
+    function next(res) {
+
+        // save the result of last iteration (unless it's the initial call)
+        if (i >= 0) {
+            results[i] = res;
+        }
+
+        // incrementing - notice that i starts from -1 so we increment before
+        // in order to avoid creating a callback per iteration
+        i += 1;
+
+        // when finished, make sure to set length so that if array got truncated
+        // during iteration then also results will have same length
+        if (i >= array.length) {
+            results.length = array.length;
+            return;
+        }
+
+        // call func as function(item, index, array)
+        return Q.fcall(func, array[i], i, array).then(next);
     }
 
-    return _.reduce(array, add_to_promise, Q.resolve())
-        .thenResolve(results);
+    return Q.fcall(next).thenResolve(results);
 }
+
+
 
 /**
  *
@@ -48,7 +65,6 @@ function loop(times, func) {
     if (times > 0) {
         return Q.fcall(func)
             .then(function() {
-                times = times | 0; // cast to integer
                 return loop(times - 1, func);
             });
     }
@@ -66,10 +82,9 @@ function loop(times, func) {
  */
 function retry(attempts, delay, func) {
 
-    // call func, passing remaining attempts just fyi
+    // call func and catch errors,
+    // passing remaining attempts just fyi
     return Q.fcall(func, attempts)
-
-        // catch errors
         .then(null, function(err) {
 
             // check attempts
@@ -82,6 +97,7 @@ function retry(attempts, delay, func) {
             return Q.delay(delay).then(function() {
                 return retry(attempts, delay, func);
             });
+
         });
 }
 

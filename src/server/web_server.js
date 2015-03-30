@@ -40,6 +40,7 @@ var express_compress = require('compression');
 var rpc_http = require('../rpc/rpc_http');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var mongoose_logger = require('noobaa-util/mongoose_logger');
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -55,7 +56,9 @@ if (process.env.DEBUG_LEVEL) {
 }
 
 // connect to the database
-mongoose.set('debug', debug_mode);
+if (debug_mode) {
+    mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
+}
 mongoose.connection.on('error', function(err) {
     console.error('mongoose connection error:', err);
 });

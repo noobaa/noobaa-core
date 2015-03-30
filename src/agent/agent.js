@@ -547,7 +547,7 @@ Agent.prototype.kill_agent = function(req) {
 };
 
 Agent.prototype.self_test_io = function(req) {
-    dbg.log0('SELF TEST IO got ' + req.rest_params.data.length + ' reply ' + req.rest_params.response_length);
+    dbg.log0('SELF TEST IO got ' + (req.rest_params.data ? req.rest_params.data.length : 'N/A') + ' reply ' + req.rest_params.response_length);
     return new Buffer(req.rest_params.response_length);
 };
 

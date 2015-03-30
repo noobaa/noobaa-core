@@ -547,7 +547,7 @@ Agent.prototype.kill_agent = function(req) {
 };
 
 Agent.prototype.self_test_io = function(req) {
-    dbg.log0('SELF TEST IO got ' + req.rest_params.data.length + ' reply ' + req.rest_params.response_length);
+    dbg.log0('SELF TEST IO got ' + (req.rest_params.data ? req.rest_params.data.length : 'N/A') + ' reply ' + req.rest_params.response_length);
     return new Buffer(req.rest_params.response_length);
 };
 
@@ -569,7 +569,8 @@ Agent.prototype.self_test_peer = function(req) {
             ws_socket: self.ws_socket,
         })
         .then(function(data) {
-            if (data.length !== req.rest_params.response_length) {
+            if (((!data || !data.length) && req.rest_params.response_length > 0) ||
+                (data && data.length && data.length !== req.rest_params.response_length)) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });

@@ -42,10 +42,12 @@ function forceCloseIce(p2p_context, peerId) {
 }
 module.exports.forceCloseIce = forceCloseIce;
 
-function onIceMessage(p2p_context, channel, event) {
+function onIceMessage(socket, channel, event) {
+
     writeToLog(3, 'Got event '+event.data+' ; my id: '+channel.myId);
     var msgObj;
     var req;
+    var p2p_context = socket.p2p_context;
 
     if (typeof event.data === 'string' || event.data instanceof String) {
         try {
@@ -72,7 +74,7 @@ function onIceMessage(p2p_context, channel, event) {
                     msgObj.action_defer.resolve(channel);
                 } else if (channel.handleRequestMethod) {
                     writeToLog(3,'message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO cng to dbg3
-                    channel.handleRequestMethod(channel, message);
+                    channel.handleRequestMethod(socket, channel, message);
                 } else {
                     writeToLog(2,'ab NO 1 to call for req '+req);
                 }
@@ -139,7 +141,7 @@ function onIceMessage(p2p_context, channel, event) {
                 } else if (channel.handleRequestMethod) {
                     try {
                         writeToLog(3,'ab call handleRequestMethod resolve for req '+req);
-                        channel.handleRequestMethod(channel, event.data);
+                        channel.handleRequestMethod(socket, channel, event.data);
                     } catch (ex) {
                         writeToLog(-1,'ex on ArrayBuffer req ' + ex+' for req '+req);
                     }
@@ -219,6 +221,13 @@ module.exports.writeBufferToSocket = writeBufferToSocket;
 /********************************
  * handle stale connections
  ********************************/
+function closeWS(p2p_context) {
+    writeToLog(0,'REMOVE stale ws connection to remove - client as '+util.inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
+    ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
+    clearInterval(p2p_context.wsClientSocket.interval);
+    p2p_context.wsClientSocket = null;
+}
+
 function staleConnChk(p2p_context) {
 
     if (!config.doStaleCheck) {
@@ -237,17 +246,13 @@ function staleConnChk(p2p_context) {
 
         if (timePassed > config.connection_ws_stale &&
             (!p2p_context.wsClientSocket.usedBy || Object.keys(p2p_context.wsClientSocket.usedBy).length === 0)) {
-            writeToLog(0,'REMOVE stale ws connection to remove - client as '+util.inspect(p2p_context.wsClientSocket.ws_socket.idInServer));
-            ice.closeSignaling(p2p_context.wsClientSocket.ws_socket);
-            clearInterval(p2p_context.wsClientSocket.interval);
-            p2p_context.wsClientSocket = null;
+            closeWS(p2p_context);
         } else if (timePassed > config.connection_ws_stale) {
             writeToLog(0,'CANT REMOVE stale ws connection used by: '+util.inspect(p2p_context.wsClientSocket.usedBy));
         }
     } catch (ex) {
         writeToLog(-1,'Error on staleConnChk ws ex '+ex+' ; '+ex.stack);
     }
-
 }
 
 function createNewWS() {
@@ -276,6 +281,9 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
 
                     if (!isAgent) {
                         interval = p2p_context.wsClientSocket.interval;
+                        if (!p2p_context.wsClientSocket.usedBy && p2p_context.wsClientSocket.ws_socket) {
+                            p2p_context.wsClientSocket.usedBy = {};
+                        }
                         usedBy = p2p_context.wsClientSocket.usedBy;
                         usedBy[requestId] = 1;
                         p2p_context.wsClientSocket = {ws_socket: sigSocket, lastTimeUsed: new Date().getTime(), interval: interval, usedBy: usedBy};
@@ -313,7 +321,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             sigSocket.action_defer = {};
         }
         sigSocket.action_defer[requestId] = Q.defer();
-        return sigSocket.action_defer[requestId].promise.timeout(config.response_timeout, 'response ws timeout');
+        return sigSocket.action_defer[requestId].promise.timeout(timeout || config.response_timeout, 'response ws timeout');
     }).then(function(response) {
         writeToLog(0,'return response data '+util.inspect(response)+' for request '+requestId+ ' and peer '+peerId);
 
@@ -325,7 +333,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
 
         return response;
     }).then(null, function(err) {
-        writeToLog(-1,'WS REST REQUEST FAILED '+err+' for request '+requestId+ ' and peer '+peerId);
+        writeToLog(-1,'WS REST REQUEST FAILED '+util.inspect(err)+' for request '+requestId+ ' and peer '+peerId);
 
         if (sigSocket) {
             writeToLog(0,'close ws socket for request '+requestId+ ' and peer '+peerId);
@@ -405,7 +413,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
 
         writeToLog(0,'wait for response ice to '+peerId+' request '+requestId);
 
-        return msgObj.action_defer.promise.timeout(config.response_timeout, 'response timeout');
+        return msgObj.action_defer.promise.timeout(timeout || config.response_timeout, 'response timeout');
 
     }).then(function() {
 

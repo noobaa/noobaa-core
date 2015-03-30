@@ -297,11 +297,12 @@ function finalize_object_parts(bucket, obj, parts) {
         .then(function() {
             var end = parts[parts.length - 1].end;
             if (end > obj.upload_size) {
-                return obj.update({
+                return Q.when(obj.update({
                     upload_size: end
-                }).exec();
+                }).exec());
             }
         })
+        .thenResolve()
         .then(null, function(err) {
             console.error('error finalize_object_parts ' + err + ' ; ' + err.stack);
             throw err;

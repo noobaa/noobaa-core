@@ -31,13 +31,52 @@ var xml = function() {
             IsTruncated: false
         };
         content.unshift(_.map(options.common_prefixes, function(prefix) {
-                return [{
-                    _name: 'CommonPrefixes',
-                    _content: {
-                        Prefix: prefix || ''
-                    }
-                }];
-            }));
+            return [{
+                _name: 'CommonPrefixes',
+                _content: {
+                    Prefix: prefix || ''
+                }
+            }];
+        }));
+
+        content.unshift(additional_data);
+        return content;
+    };
+    var buildListPartResult = function(items, options) {
+        var content = _.map(items, function(item) {
+            return {
+                Contents: {
+                    PartNumber: item.key,
+                    LastModified: item.modifiedDate,
+                    ETag: item.md5,
+                    Size: item.size,
+
+                }
+            };
+        });
+
+
+        //console.log('cp value:',common_prefixes_value);
+        var additional_data = {
+            ListMultipartUploadsResult: {
+                Bucket: options.bucket,
+                Key: '',
+                UploadId: '',
+                Initiator: {
+                    ID: '',
+                    DisplayName: ''
+                },
+                Owner: {
+                    ID: '',
+                    DisplayName: ''
+                },
+                StorageClass: 'STANDARD',
+                PartNumberMarker: '',
+                NextPartNumberMarker: '',
+                MaxParts: 2,
+                IsTruncated: false,
+            }
+        };
 
         content.unshift(additional_data);
         return content;
@@ -49,7 +88,7 @@ var xml = function() {
         date = date.toISOString();
         var content = _.map(items, function(item) {
             return {
-                    Version : {
+                Version: {
                     Key: item.key,
                     VersionId: '1',
                     IsLatest: true,
@@ -79,6 +118,7 @@ var xml = function() {
 
         return content;
     };
+
     return {
         buildBuckets: function(buckets) {
             return jstoxml.toXML({
@@ -198,6 +238,18 @@ var xml = function() {
 
             });
         },
+        completeMultipleUpload: function(upload_info, items) {
+            return jstoxml.toXML({
+                _name: 'CompleteMultipartUploadResult',
+                _attrs: {
+                    'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
+                },
+                _content: upload_info
+            }, {
+                header: true,
+                indent: '  '
+            });
+        },
         buildBucketVersionQuery: function(options, items) {
             var jxml = {
                 _name: 'ListVersionsResult',
@@ -213,6 +265,26 @@ var xml = function() {
             });
             console.log('version:', xml);
             return xml;
+        },
+        ListPartsResult: function(item) {
+            return jstoxml.toXML({
+
+            }, {
+                header: true,
+                indent: '  '
+            });
+        },
+        buildInitiateMultipartUploadResult: function(key) {
+            return jstoxml.toXML({
+                InitiateMultipartUploadResult: {
+                    Bucket: 'files',
+                    Key: key,
+                    UploadId: key
+                }
+            }, {
+                header: true,
+                indent: '  '
+            });
         },
         buildAcl: function() {
             return jstoxml.toXML({

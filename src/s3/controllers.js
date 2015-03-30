@@ -16,14 +16,14 @@ var S3Object = require('./models/s3-object');
 
 
 process.on('uncaughtException', function(err) {
-    dbg.log0('process uncaughtException: '+err+' '+ require('util').inspect(err));
+    dbg.log0('process uncaughtException: ' + err);
 });
 
 
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
 
-    var client ;
+    var client;
     params.bucket = 'files';
     Q.fcall(function() {
         var auth_params = _.pick(params,
@@ -47,8 +47,7 @@ module.exports = function(params) {
                 });
                 return access_res;
             }
-        }
-        else{
+        } else {
             client = new api.Client({
                 address: params.address
             });
@@ -58,14 +57,40 @@ module.exports = function(params) {
                 };
             }
             dbg.log1('create auth', auth_params);
-            var token =  client.create_auth_token(auth_params);
+            var token = client.create_auth_token(auth_params);
             return token;
         }
-    }).then(function(token){
-        dbg.log0('token:',token);
+    }).then(function(token) {
+        dbg.log0('token:', token);
 
     });
 
+    var uploadPart = function(req, res) {
+        Q.fcall(function() {
+            var template;
+            dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ', req.query.uploadId, 'content length:', req.headers['content-length']);
+            var mydata = '';
+            req.on('data', function(data) {
+                //mydata += data;
+            });
+            req.on('end', function() {
+                dbg.log0('finished upload part', req.query.partNumber);
+                res.header('ETag', 'oasidjo' + req.query.partNumber);
+                res.header('x-amz-id-2', 'Vvag1LuByRx9e6j5Onimru9pO4ZVKnJ2Qz7/C1NPcfTWAtRPfTaOFg==');
+                res.header('x-amz-request-id', '656c76696e6727732072657175657374');
+                return res.status(200).end();
+            });
+        });
+    };
+    var listPartsResult = function(req, res) {
+        var template;
+        var upload_id = req.query.uploadId;
+        var max_parts = req.query['max-parts'] || 1000;
+        var part_number_marker = req.query['part-number​-marker'] || '';
+        dbg.log0('List part results for upload id:', upload_id, 'max parts', max_parts, 'part marker', part_number_marker);
+        template = templateBuilder.ListPartsResult(req.params.key);
+        return buildXmlResponse(res, 200, template);
+    };
     var buildXmlResponse = function(res, status, template) {
         res.header('Content-Type', 'application/xml');
         res.status(status);
@@ -91,13 +116,13 @@ module.exports = function(params) {
                             //dbg.log0('in ');
                             //dbg.log0('in copy for ', objects_and_folders.objects.length);
                             return Q.all(_.times(objects_and_folders.objects.length, function(i) {
-                                dbg.log0('copy inner objects:', objects_and_folders.objects[i].key,  objects_and_folders.objects[i].key.replace(from_object, to_object));
-                                copy_object(objects_and_folders.objects[i].key,  objects_and_folders.objects[i].key.replace(from_object, to_object));
-                            })).then(function(){
-//                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
+                                dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
+                                copy_object(objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
+                            })).then(function() {
+                                //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
                                 return Q.all(_.each(_.keys(objects_and_folders.folders), function(folder) {
-                                        dbg.log0('copy inner folders:', folder,  folder.replace(from_object, to_object));
-                                        copy_object(folder,folder.replace(from_object, to_object));
+                                    dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
+                                    copy_object(folder, folder.replace(from_object, to_object));
                                 }));
                             });
                         });
@@ -133,7 +158,7 @@ module.exports = function(params) {
                         return client.object.create_multipart_upload(create_params)
                             .then(function(info) {
                                 return client.object.allocate_object_parts(new_obj_parts)
-                                    .then(function(res){
+                                    .then(function(res) {
                                         dbg.log0('complete multipart copy ', create_params);
                                         var bucket_key_params = _.pick(create_params, 'bucket', 'key');
                                         return client.object.complete_multipart_upload(bucket_key_params);
@@ -146,7 +171,7 @@ module.exports = function(params) {
                             });
                     });
             }).then(null, function(err) {
-                dbg.log0("Failed to upload",err);
+                dbg.log0("Failed to upload", err);
                 return false;
             });
 
@@ -160,11 +185,10 @@ module.exports = function(params) {
             prefix = decodeURI(prefix);
             list_params.key = prefix;
         }
-        if (delimiter)
-        {
+        if (delimiter) {
             delimiter = decodeURI(delimiter);
         }
-        dbg.log0('Listing objects with', list_params,delimiter);
+        dbg.log0('Listing objects with', list_params, delimiter);
         return client.object.list_objects(list_params)
             .then(function(results) {
                 var i = 0;
@@ -183,11 +207,10 @@ module.exports = function(params) {
                         //dbg.log0('obj.key:', obj.key, ' prefix ', prefix);
                         if (obj_sliced_key.indexOf(delimiter) >= 0) {
                             var folder = obj_sliced_key.split(delimiter, 1)[0];
-                            folders[prefix+folder+"/"] = true;
+                            folders[prefix + folder + "/"] = true;
                             return false;
                         }
-                        if (list_params.key===obj.key)
-                        {
+                        if (list_params.key === obj.key) {
                             return false;
                         }
                         if (!obj.key) {
@@ -236,9 +259,9 @@ module.exports = function(params) {
             //     dbg.log0('go data (end)', md5);
             // });
 
-        //console.error('before chunk:'+require('util').inspect(req));
-          //var buffer = require('../util/buffer_utils').chunkToBuffer(req);
-         //console.error('after chunk:'+Buffer.isBuffer(md5_calc));
+            //console.error('before chunk:'+require('util').inspect(req));
+            //var buffer = require('../util/buffer_utils').chunkToBuffer(req);
+            //console.error('after chunk:'+Buffer.isBuffer(md5_calc));
 
             return client.object_client.upload_stream({
                 bucket: params.bucket,
@@ -257,7 +280,7 @@ module.exports = function(params) {
                 dbg.log0('upload body::::::', res.body, ' headers:', res.headers);
                 return res.status(200).end();
             }, function(err) {
-                dbg.log0('ERROR: upload:'+file_key_name+' err:'+util.inspect(err.stack));
+                dbg.log0('ERROR: upload:' + file_key_name + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
         } catch (err) {
@@ -293,9 +316,9 @@ module.exports = function(params) {
                 name: params.bucket,
                 creationDate: date
             }];
-            dbg.log0('Fetched %d buckets', buckets.length,' b: ' , params.bucket);
+            dbg.log0('Fetched %d buckets', buckets.length, ' b: ', params.bucket);
             var template = templateBuilder.buildBuckets(buckets);
-            dbg.log0('bucket response:',template);
+            dbg.log0('bucket response:', template);
             return buildXmlResponse(res, 200, template);
         },
         getBucket: function(req, res) {
@@ -305,7 +328,7 @@ module.exports = function(params) {
                 maxKeys: parseInt(req.query['max-keys']) || 1000,
                 delimiter: req.query.delimiter // removed default value - shouldn't be such || '/'
             };
-            dbg.log0('get bucket (list objects) with options:',options);
+            dbg.log0('get bucket (list objects) with options:', options);
             var template;
 
             if (req.query.location !== undefined) {
@@ -319,7 +342,7 @@ module.exports = function(params) {
                     .then(function(objects_and_folders) {
                         options.bucketName = req.bucket.name || params.bucket;
                         options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
-                        dbg.log0('total of objects:', objects_and_folders.objects.length, ' folders:',options.common_prefixes, 'bucket:', options.bucketName);
+                        dbg.log0('total of objects:', objects_and_folders.objects.length, ' folders:', options.common_prefixes, 'bucket:', options.bucketName);
 
                         if (req.query.versioning !== undefined) {
                             if (!_.isEmpty(options.common_prefixes)) {
@@ -371,6 +394,10 @@ module.exports = function(params) {
 
 
         getObject: function(req, res) {
+            //if ListMultipartUploads
+            if (!_.isUndefined(req.query.uploadId)) {
+                return listPartsResult(req, res);
+            }
             var keyName = req.params.key;
             var acl = req.query.acl;
             var template;
@@ -412,14 +439,12 @@ module.exports = function(params) {
                             //if cloudberry tool is looking for its own format for large files and can find it,
                             //we will try with standard format
 
-                            if (object_path.key.indexOf('..chunk..map')>0)
-                            {
+                            if (object_path.key.indexOf('..chunk..map') > 0) {
                                 dbg.log0('Identified cloudberry format, return error 404');
-                                object_path.key = object_path.key.replace('..chunk..map','');
+                                object_path.key = object_path.key.replace('..chunk..map', '');
                                 var template = templateBuilder.buildKeyNotFound(keyName);
                                 return buildXmlResponse(res, 404, template);
-                            }else
-                            {
+                            } else {
                                 dbg.log0('Cannot find file. will retry as folder', err);
                                 //retry as folder name
                                 object_path.key = object_path.key + '/';
@@ -427,7 +452,7 @@ module.exports = function(params) {
 
                             return client.object_client.get_object_md(object_path)
                                 .then(function(object_md) {
-                                    dbg.log0('obj_md2',object_md);
+                                    dbg.log0('obj_md2', object_md);
                                     var create_date = new Date(object_md.create_time);
                                     create_date.setMilliseconds(0);
 
@@ -450,7 +475,6 @@ module.exports = function(params) {
                 }
             }
         },
-
         putObject: function(req, res) {
             var template;
             var acl = req.query.acl;
@@ -460,7 +484,12 @@ module.exports = function(params) {
                 dbg.log0('Fake ACL (200)');
                 return buildXmlResponse(res, 200, template);
             }
+            if (!_.isUndefined(req.query.partNumber)) {
+                return uploadPart(req, res);
+            }
+            dbg.log0('here111111');
             var copy = req.headers['x-amz-copy-source'];
+
             if (copy) {
                 delimiter = req.query.delimiter || '%2F';
                 if (copy.indexOf('/') === 0) {
@@ -471,7 +500,7 @@ module.exports = function(params) {
 
                 var srcBucket = srcObjectParams[0];
                 var srcObject = srcObjectParams.slice(1).join(delimiter);
-                dbg.log0('Attempt to copy object:',srcObject, ' from bucket:', srcBucket,' to ',req.params.key, ' srcObjectParams: ',srcObjectParams, ' delimiter:', delimiter);
+                dbg.log0('Attempt to copy object:', srcObject, ' from bucket:', srcBucket, ' to ', req.params.key, ' srcObjectParams: ', srcObjectParams, ' delimiter:', delimiter);
                 if (srcBucket !== params.bucket) {
                     dbg.log2('No bucket found (2) for "%s"', srcBucket, params.bucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
                     template = templateBuilder.buildBucketNotFound(srcBucket);
@@ -504,19 +533,19 @@ module.exports = function(params) {
                 //     file_key_name = file_key_name + '_' + serial;
                 // }
 
-                 Q.fcall(function() {
-                //     var auth_params = _.pick(params,
-                //         'email', 'password', 'system', 'role');
-                //     if (params.bucket) {
-                //         auth_params.extra = {
-                //             bucket: params.bucket
-                //         };
-                //     }
-                //     dbg.log1('create auth', auth_params);
-                //     return client.create_auth_token(auth_params);
-                //
-                // }).then(function() {
-                //     dbg.log0('check', params.bucket, file_key_name);
+                Q.fcall(function() {
+                    //     var auth_params = _.pick(params,
+                    //         'email', 'password', 'system', 'role');
+                    //     if (params.bucket) {
+                    //         auth_params.extra = {
+                    //             bucket: params.bucket
+                    //         };
+                    //     }
+                    //     dbg.log1('create auth', auth_params);
+                    //     return client.create_auth_token(auth_params);
+                    //
+                    // }).then(function() {
+                    //     dbg.log0('check', params.bucket, file_key_name);
 
                     return client.object.list_objects({
                         bucket: params.bucket,
@@ -554,6 +583,29 @@ module.exports = function(params) {
                     }
 
                 });
+            }
+        },
+
+        postMultipartObject: function(req, res) {
+            var template;
+            //init multipart upload
+            if (req.query.uploads === '') {
+                dbg.log0('Init Multipart', req.query);
+                template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key);
+                return buildXmlResponse(res, 200, template);
+            }
+            //CompleteMultipartUpload
+            else if (!_.isUndefined(req.query.uploadId)) {
+                var completeMultipartInformation = {
+                    Bucket: params.bucket,
+                    Key: req.query.uploadId,
+                    Location: 'https://' + req.hostname + '/' + params.bucket + '/' + req.query.uploadId,
+                    ETag: 1234
+                };
+
+                template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
+                dbg.log0('Complete multipart', template);
+                return buildXmlResponse(res, 200, template);
             }
         },
         deleteObject: function(req, res) {

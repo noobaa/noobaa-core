@@ -34,6 +34,7 @@ module.exports = {
     read_object_mappings: read_object_mappings,
     read_node_mappings: read_node_mappings,
     list_multipart_parts: list_multipart_parts,
+    fix_multipart_parts: fix_multipart_parts,
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
     build_chunks: build_chunks,
@@ -505,6 +506,65 @@ function list_multipart_parts(params) {
                     };
                 })
             };
+        });
+}
+
+
+
+/**
+ *
+ * fix_multipart_parts
+ *
+ */
+function fix_multipart_parts(obj) {
+    return Q.all([
+            // find part that need update of start and end offsets
+            db.ObjectPart.find({
+                obj: obj,
+                deleted: null
+            })
+            .sort({
+                upload_part_number: 1,
+                start: 1
+            })
+            .exec(),
+            // query to find the last part without upload_part_number
+            // which has largest end offset.
+            db.ObjectPart.find({
+                obj: obj,
+                upload_part_number: null,
+                deleted: null
+            })
+            .sort({
+                end: -1
+            })
+            .limit(1)
+            .exec()
+        ])
+        .spread(function(remaining_parts, last_stable_part) {
+            var last_end = last_stable_part[0] ? last_stable_part[0].end : 0;
+            dbg.log0('complete_multipart_upload: found last_stable_part',last_stable_part);
+            dbg.log0('complete_multipart_upload: found remaining_parts',remaining_parts);
+            var bulk_update = db.ObjectPart.collection.initializeUnorderedBulkOp();
+            _.each(remaining_parts, function(part) {
+                var current_end = last_end + part.end - part.start;
+                dbg.log0('complete_multipart_upload: update part range',
+                    last_end, '-',current_end, part);
+                bulk_update.find({
+                    _id: part._id
+                }).updateOne({
+                    $set: {
+                        start: last_end,
+                        end: current_end,
+                    },
+                    $unset: {
+                        upload_part_number: 1
+                    }
+                });
+                last_end = current_end;
+            });
+            // calling execute on bulk and handling node callbacks
+            return Q.ninvoke(bulk_update, 'execute');
         });
 }
 

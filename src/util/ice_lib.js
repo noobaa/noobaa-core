@@ -341,7 +341,7 @@ function staleConnChk(socket) {
 /* ICE */
 /* /////////////////////////////////////////// */
 function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
-
+    var channelObj;
     try {
         socket.icemap[requestId] = {
             peerId: peerId,
@@ -349,6 +349,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
             requestId: requestId,
             created: new Date()
         };
+        channelObj = socket.icemap[requestId];
 
         // TODO this next part may ignore a received context and it's unclear what context to use
         if (socket.p2p_context) {
@@ -380,8 +381,6 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                 }
             }
         }
-
-        var channelObj = socket.icemap[requestId];
 
         if (isInitiator) {
             if (p2p_context) {
@@ -429,14 +428,14 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                 dbg.log0('send accept to peer (no context) ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                 socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
                 createPeerConnection(socket, requestId, configuration);
-                return channelObj.connect_defer.promise;
+                return (channelObj.connect_defer ? channelObj.connect_defer.promise : null);
             }
         }
 
         // not isInitiator
         createPeerConnection(socket, requestId, configuration);
     } catch (ex) {
-        dbg.error('Error on initiateIce '+(isInitiator ? 'to' : 'for')+' peer '+peerId+' ex '+ex+' ; '+ex.stack);
+        dbg.error('Error on initiateIce '+(isInitiator ? 'to' : 'for')+' peer '+peerId+' ex ',ex,ex.stack,channelObj);
         throw ex;
     }
 
@@ -616,11 +615,11 @@ function closeIce(socket, requestId, dataChannel, dontClose) {
             delete obj.usedBy[requestId];
         } else if (socket && !socket.p2p_context && !dontClose) {
             if (channelObj && channelObj.peerConn) {
-                channelObj.peerConn.close();
+                try{channelObj.peerConn.close();} catch(err){}
             }
             if (dataChannel) {
                 dbg.log0('Closing the ice socket to peer ' +dataChannel.peerId);
-                dataChannel.close();
+                try{dataChannel.close();} catch(err){}
             }
             disconnect(socket);
         }
@@ -640,8 +639,8 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
     if (context && context.iceSockets && context.iceSockets[peerId] &&
         context.iceSockets[peerId].dataChannel) {
         dbg.log0('forceCloseIce peer '+peerId);
-        context.iceSockets[peerId].dataChannel.close();
-        context.iceSockets[peerId].peerConn.close();
+        try{context.iceSockets[peerId].dataChannel.close();} catch(err){}
+        try{context.iceSockets[peerId].peerConn.close();} catch(err){}
 
         if (socket && socket.icemap && context.iceSockets[peerId].usedBy) {
             var req;
@@ -656,8 +655,8 @@ function forceCloseIce(p2p_context, peerId, channelObj, socket) {
         delete context.iceSockets[peerId];
     } else if (channelObj && channelObj.dataChannel) {
         dbg.log0('forceCloseIce (no context) peer '+peerId);
-        channelObj.dataChannel.close();
-        channelObj.peerConn.close();
+        try{channelObj.dataChannel.close();} catch(err){}
+        try{channelObj.peerConn.close();} catch(err){}
         channelObj.done = true;
     } else {
         dbg.log0('forceCloseIce nothing to close - peer '+peerId);

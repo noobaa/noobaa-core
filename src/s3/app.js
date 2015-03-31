@@ -33,7 +33,7 @@ function s3_app(params) {
     // });
 
     app.use(function(req, res, next) {
-        //dbg.log0('Time:', Date.now(), req.headers, req.query, req.query.prefix, req.query.delimiter);
+        dbg.log0('S3 request. Time:', Date.now(), req.originalUrl,req.headers, req.query, req.query.prefix, req.query.delimiter);
         if (req.headers.host) {
             if (req.headers.host.indexOf(params.bucket) === 0) {
                 req.url = req.url.replace('/', '/' + params.bucket + '/');
@@ -70,7 +70,7 @@ function s3_app(params) {
     app.get('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.head('/:bucket/:key(*)', controllers.getObject);
     app.delete('/:bucket/:key(*)', controllers.bucketExists, controllers.deleteObject);
-
+    app.post('/:bucket/:key(*)', controllers.bucketExists, controllers.postMultipartObject);
     return {
         serve: function() {
             var certificate;
@@ -110,6 +110,20 @@ function s3_app(params) {
                             });
                     });
                 })
+                .then(function() {
+                    return Q.Promise(function(resolve, reject) {
+                        dbg.log0('Starting Streamer', 5005);
+                        http.createServer(app.handle.bind(app))
+                            .listen(5005, function(err) {
+                                if (err) {
+                                    dbg.log0('Streamer listen', err);
+                                    reject(err);
+                                } else {
+                                    resolve();
+                                }
+                            });
+                    });
+                })
                 .then(null, function(err) {
                     dbg.log0('SERVE ERROR', err.stack || err);
                 });
@@ -117,4 +131,4 @@ function s3_app(params) {
     };
 
 
-};
+}

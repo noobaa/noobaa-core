@@ -87,10 +87,18 @@ function list_multipart_parts(req) {
  *
  */
 function complete_multipart_upload(req) {
+    var obj;
+
     return find_object_md(req)
-        .then(function(obj) {
+        .then(function(obj_arg) {
+            obj = obj_arg;
             fail_obj_not_in_upload_mode(obj);
 
+            if (req.rpc_params.fix_parts_size) {
+                return object_mapper.fix_multipart_parts(obj);
+            }
+        })
+        .then(function(object_size) {
             db.ActivityLog.create({
                 system: req.system,
                 level: 'info',
@@ -99,6 +107,7 @@ function complete_multipart_upload(req) {
             });
 
             return obj.update({
+                    size: object_size || obj.size,
                     $unset: {
                         upload_size: 1
                     }

@@ -114,6 +114,9 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
+                    fix_parts_size: {
+                        type: 'boolean',
+                    },
                 }
             },
             auth: {

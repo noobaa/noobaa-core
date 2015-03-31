@@ -458,7 +458,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
         .timeout(timeout)
         .then(null, function(err) {
             // we mark the timeout for the looping request to be able to break
-            if (err.code === 'ETIMEDOUT') {
+            if (err && err.code === 'ETIMEDOUT') {
                 timed_out = true;
             }
             self.addStatsCounter('RPC REQUEST', -1);

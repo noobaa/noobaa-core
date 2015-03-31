@@ -110,6 +110,7 @@ function serve(rpc, peer_id) {
         var reqId;
         var isWs = false;
         var rpc_method;
+        var handle = true;
 
         return Q.fcall(function() {
 
@@ -137,7 +138,8 @@ function serve(rpc, peer_id) {
                     reqId = msg.req || msg.requestId;
                     dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
                 } else {
-                    throw new Error('ice got weird msg '+ message);
+                    handle = false;
+                    throw new Error('ice got weird msg '+ util.inspect(message));
                 }
 
                 if (msg && msg.sigType) {
@@ -151,6 +153,14 @@ function serve(rpc, peer_id) {
                     reqBody = body.body;
                 }
 
+                if (!reqMsg.path) {
+                    handle = false;
+                    throw {
+                        statusCode: 400,
+                        data: 'RPC: no method sent'
+                    };
+                }
+
                 // skip first split item if empty due to leading '/'
                 var path_split = reqMsg.path.split('/', 4);
                 var api_name = path_split.shift() || path_split.shift();
@@ -159,6 +169,7 @@ function serve(rpc, peer_id) {
                 rpc_method = rpc.get_service_method(api_name, method_name, domain);
 
                 if (!rpc_method) {
+                    handle = false;
                     throw {
                         statusCode: 400,
                         data: 'RPC: no such method ' + reqMsg.path
@@ -184,7 +195,7 @@ function serve(rpc, peer_id) {
                 }
             }, function(err) {
                 dbg.error('RPC ICE FAILED ',reqId, err.stack || err);
-                return send_reply(500, err.toString(), null);
+                return handle ? send_reply(500, err.toString(), null) : null;
             });
 
         function send_reply(status, data, buffer) {

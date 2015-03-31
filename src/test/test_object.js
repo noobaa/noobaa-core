@@ -97,6 +97,11 @@ describe('object', function() {
         }).nodeify(done);
     });
 
+    var CHANCE_BYTE = {
+        min: 0,
+        max: 255,
+    };
+
 
     describe('object IO', function() {
 
@@ -109,10 +114,6 @@ describe('object', function() {
         var CHANCE_PART_OFFSET = {
             min: 0,
             max: OBJ_PART_SIZE - 1,
-        };
-        var CHANCE_BYTE = {
-            min: 0,
-            max: 255,
         };
 
 
@@ -138,28 +139,16 @@ describe('object', function() {
                     source_stream: new SliceReader(data),
                 });
             }).then(function() {
-                return Q.Promise(function(resolve, reject) {
-                    var buffers = [];
-                    client.object_client.open_read_stream({
-                        bucket: BKT,
-                        key: key,
-                        start: 0,
-                        end: size,
-                    }).on('data', function(chunk) {
-                        console.log('read data', chunk.length);
-                        buffers.push(chunk);
-                    }).once('end', function() {
-                        var read_buf = Buffer.concat(buffers);
-                        console.log('read end', read_buf.length);
-                        resolve(read_buf);
-                    }).once('error', function(err) {
-                        console.log('read error', err);
-                        reject(err);
-                    });
+                return client.object_client.read_entire_object({
+                    bucket: BKT,
+                    key: key,
+                    start: 0,
+                    end: size,
                 });
             }).then(function(read_buf) {
 
                 // verify the read buffer equals the written buffer
+                assert.strictEqual(data.length, read_buf.length);
                 for (var i = 0; i < size; i++) {
                     assert.strictEqual(data[i], read_buf[i]);
                 }
@@ -197,6 +186,10 @@ describe('object', function() {
             var key = KEY + Date.now();
             var part_size = 1024;
             var num_parts = 10;
+            var data = new Buffer(num_parts * part_size);
+            for (var i = 0; i < data.length; i++) {
+                data[i] = chance.integer(CHANCE_BYTE);
+            }
             Q.fcall(function() {
                     return client.object.create_multipart_upload({
                         bucket: BKT,
@@ -222,7 +215,10 @@ describe('object', function() {
                             key: key,
                             size: part_size,
                             content_type: 'application/octet-stream',
-                            source_stream: new SliceReader(new Buffer(part_size)),
+                            source_stream: new SliceReader(data, {
+                                start: i * part_size,
+                                end: (i + 1) * part_size
+                            }),
                             upload_part_number: (i++)
                         });
                     });
@@ -242,7 +238,20 @@ describe('object', function() {
                     return client.object.complete_multipart_upload({
                         bucket: BKT,
                         key: key,
+                        fix_parts_size: true
                     });
+                })
+                .then(function() {
+                    return client.object_client.read_entire_object({
+                        bucket: BKT,
+                        key: key,
+                    });
+                })
+                .then(function(read_buf) {
+                    assert.strictEqual(data.length, read_buf.length);
+                    for (var i = 0; i < data.length; i++) {
+                        assert.strictEqual(data[i], read_buf[i]);
+                    }
                 })
                 .nodeify(done);
         });

@@ -96,6 +96,30 @@ ObjectClient.prototype.upload_stream = function(params) {
     dbg.log0('upload_stream: create multipart', params.key);
     return self.object_rpc_client.create_multipart_upload(create_params)
         .then(function() {
+            return self.upload_stream_parts(params);
+        })
+        .then(function() {
+            dbg.log0('upload_stream: complete multipart', params.key);
+            return self.object_rpc_client.complete_multipart_upload(bucket_key_params);
+        }, function(err) {
+            dbg.log0('upload_stream: error write stream', params.key, err);
+            throw err;
+        });
+};
+
+
+/**
+ *
+ * UPLOAD_STREAM_PART
+ *
+ */
+ObjectClient.prototype.upload_stream_parts = function(params) {
+    var self = this;
+    var start = params.start || 0;
+    var upload_part_number = params.upload_part_number || 0;
+
+    dbg.log0('upload_stream: create multipart', params.key);
+    return Q.fcall(function() {
             var pipeline = new Pipeline(params.source_stream);
 
             ////////////////////////////////////////
@@ -130,12 +154,12 @@ ObjectClient.prototype.upload_stream = function(params) {
                     return chunk_crypto.encrypt_chunk(chunk, crypt)
                         .then(function(encrypted_chunk) {
                             var part = {
-                                start: stream._pos,
-                                end: stream._pos + chunk.length,
+                                start: start + stream._pos,
+                                end: start + stream._pos + chunk.length,
                                 crypt: crypt,
                                 encrypted_chunk: encrypted_chunk
                             };
-                            stream._pos = part.end;
+                            stream._pos += chunk.length;
                             return part;
                         });
                 }
@@ -165,12 +189,14 @@ ObjectClient.prototype.upload_stream = function(params) {
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
-                                return {
+                                var p = {
                                     start: part.start,
                                     end: part.end,
                                     crypt: part.crypt,
-                                    chunk_size: part.encrypted_chunk.length
+                                    chunk_size: part.encrypted_chunk.length,
+                                    upload_part_number: upload_part_number
                                 };
+                                return p;
                             })
                         })
                         .then(function(res) {
@@ -246,7 +272,7 @@ ObjectClient.prototype.upload_stream = function(params) {
                                     }
                                     return p;
                                 })
-                            },{
+                            }, {
                                 timeout: config.client_replicate_timeout,
                                 retries: 3
                             })
@@ -287,14 +313,7 @@ ObjectClient.prototype.upload_stream = function(params) {
             }));
 
             return pipeline.run();
-        })
-        .then(function() {
-            dbg.log0('upload_stream: complete multipart', params.key);
-            return self.object_rpc_client.complete_multipart_upload(bucket_key_params);
-        }, function(err) {
-            dbg.log0('upload_stream: error write stream', params.key, err);
-            throw err;
-        });
+    });
 };
 
 

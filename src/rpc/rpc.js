@@ -191,7 +191,7 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
                     return reply;
                 })
                 .then(null, function(err) {
-                    console.error('RPC ERROR', srv_name, err.stack || err);
+                    console.error('RPC ERROR', srv_name, err, err.stack);
                     throw err;
                 });
         }

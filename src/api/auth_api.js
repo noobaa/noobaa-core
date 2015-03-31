@@ -18,7 +18,6 @@ module.exports = {
                 'and returns an access token. ' +
                 'supply a system name to create a token for acting on the system.',
             method: 'POST',
-            path: '/auth',
             params: {
                 type: 'object',
                 required: [],
@@ -68,7 +67,6 @@ module.exports = {
         read_auth: {
             doc: 'Get info about the authenticated token.',
             method: 'GET',
-            path: '/auth',
             reply: {
                 type: 'object',
                 required: [],

@@ -291,14 +291,14 @@ nb_api.factory('nbNodes', [
                     });
 
                     define_phase({
-                        name: 'LOAD READ: connect from all to one node and read 1.5MB (2 times from each)',
+                        name: 'LOAD READ: connect from all to one node and read 1.5MB (5 times from each)',
                         kind: ['full', 'load'],
                         func: function(target_node) {
                             var promises = [];
                             _.each(online_nodes, function(target_node) {
                                 if (node.name !== target_node.name) {
                                     var i;
-                                    for (i = 0; i < 2; ++i) {
+                                    for (i = 0; i < 5; ++i) {
                                         promises.push(self_test_to_node(target_node, node, 1.5 * 1024 * 1024, 0));
                                     }
                                 }

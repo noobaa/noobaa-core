@@ -9,6 +9,7 @@ var assert = require('assert');
 var argv = require('minimist')(process.argv);
 var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 var coretest = require('./coretest');
 var SliceReader = require('../util/slice_reader');
 
@@ -22,6 +23,8 @@ describe('object', function() {
     var client = coretest.new_client();
     var SYS = 'test-object-system';
     var TIER = 'edge';
+    var BKT = 'test_object_bucket';
+    var KEY = 'test_object_key';
 
     before(function(done) {
         this.timeout(20000);
@@ -40,6 +43,11 @@ describe('object', function() {
                 kind: 'edge',
             });
         }).then(function() {
+            return client.bucket.create_bucket({
+                name: BKT,
+                tiering: [TIER],
+            });
+        }).then(function() {
             return coretest.init_test_nodes(10, SYS, TIER, size_utils.GIGABYTE);
         }).nodeify(done);
     });
@@ -53,34 +61,28 @@ describe('object', function() {
 
 
     it('works', function(done) {
-        var BKT = '1_bucket';
-        var KEY = '1_key';
+        var key = KEY + Date.now();
         Q.fcall(function() {
-            return client.bucket.create_bucket({
-                name: BKT,
-                tiering: [TIER],
-            });
-        }).then(function() {
             return client.object.create_multipart_upload({
                 bucket: BKT,
-                key: KEY,
+                key: key,
                 size: 0,
                 content_type: 'application/octet-stream',
             });
         }).then(function() {
             return client.object.complete_multipart_upload({
                 bucket: BKT,
-                key: KEY,
+                key: key,
             });
         }).then(function() {
             return client.object.read_object_md({
                 bucket: BKT,
-                key: KEY,
+                key: key,
             });
         }).then(function() {
             return client.object.update_object_md({
                 bucket: BKT,
-                key: KEY,
+                key: key,
             });
         }).then(function() {
             return client.object.list_objects({
@@ -90,24 +92,18 @@ describe('object', function() {
         }).then(function() {
             return client.object.delete_object({
                 bucket: BKT,
-                key: KEY,
+                key: key,
             });
         }).nodeify(done);
     });
 
+    var CHANCE_BYTE = {
+        min: 0,
+        max: 255,
+    };
+
 
     describe('object IO', function() {
-        var BKT = '2_bucket';
-        var KEY = '2_key';
-
-        before(function(done) {
-            Q.fcall(function() {
-                return client.bucket.create_bucket({
-                    name: BKT,
-                    tiering: [TIER],
-                });
-            }).nodeify(done);
-        });
 
         var OBJ_NUM_PARTS = 16;
         var OBJ_PART_SIZE = 128 * 1024;
@@ -119,14 +115,11 @@ describe('object', function() {
             min: 0,
             max: OBJ_PART_SIZE - 1,
         };
-        var CHANCE_BYTE = {
-            min: 0,
-            max: 255,
-        };
 
 
         it('should write and read object data', function(done) {
             this.timeout(10000);
+            var key = KEY + Date.now();
             var size, data;
             return Q.fcall(function() {
                 // randomize size with equal chance on KB sizes
@@ -140,34 +133,22 @@ describe('object', function() {
                 }
                 return client.object_client.upload_stream({
                     bucket: BKT,
-                    key: KEY,
+                    key: key,
                     size: size,
                     content_type: 'application/octet-stream',
                     source_stream: new SliceReader(data),
                 });
             }).then(function() {
-                return Q.Promise(function(resolve, reject) {
-                    var buffers = [];
-                    client.object_client.open_read_stream({
-                        bucket: BKT,
-                        key: KEY,
-                        start: 0,
-                        end: size,
-                    }).on('data', function(chunk) {
-                        console.log('read data', chunk.length);
-                        buffers.push(chunk);
-                    }).once('end', function() {
-                        var read_buf = Buffer.concat(buffers);
-                        console.log('read end', read_buf.length);
-                        resolve(read_buf);
-                    }).once('error', function(err) {
-                        console.log('read error', err);
-                        reject(err);
-                    });
+                return client.object_client.read_entire_object({
+                    bucket: BKT,
+                    key: key,
+                    start: 0,
+                    end: size,
                 });
             }).then(function(read_buf) {
 
                 // verify the read buffer equals the written buffer
+                assert.strictEqual(data.length, read_buf.length);
                 for (var i = 0; i < size; i++) {
                     assert.strictEqual(data[i], read_buf[i]);
                 }
@@ -179,7 +160,7 @@ describe('object', function() {
 
                 return client.object.read_object_mappings({
                     bucket: BKT,
-                    key: KEY,
+                    key: key,
                     details: true
                 }).then(function(res) {
                     _.each(res.parts, function(part) {
@@ -196,6 +177,85 @@ describe('object', function() {
 
             }).nodeify(done);
         });
+    });
+
+
+    describe('multipart upload', function() {
+
+        it('should list_multipart_parts', function(done) {
+            var key = KEY + Date.now();
+            var part_size = 1024;
+            var num_parts = 10;
+            var data = new Buffer(num_parts * part_size);
+            for (var i = 0; i < data.length; i++) {
+                data[i] = chance.integer(CHANCE_BYTE);
+            }
+            Q.fcall(function() {
+                    return client.object.create_multipart_upload({
+                        bucket: BKT,
+                        key: key,
+                        size: num_parts * part_size,
+                        content_type: 'test/test'
+                    });
+                })
+                .then(function() {
+                    return client.object.list_multipart_parts({
+                            bucket: BKT,
+                            key: key,
+                        })
+                        .then(function(res) {
+                            console.log('list_multipart_parts reply', res);
+                        });
+                })
+                .then(function() {
+                    var i = 0;
+                    return promise_utils.loop(10, function() {
+                        return client.object_client.upload_stream_parts({
+                            bucket: BKT,
+                            key: key,
+                            size: part_size,
+                            content_type: 'application/octet-stream',
+                            source_stream: new SliceReader(data, {
+                                start: i * part_size,
+                                end: (i + 1) * part_size
+                            }),
+                            upload_part_number: (i++)
+                        });
+                    });
+                })
+                .then(function() {
+                    return client.object.list_multipart_parts({
+                            bucket: BKT,
+                            key: key,
+                            part_number_marker: 1,
+                            max_parts: 1
+                        })
+                        .then(function(res) {
+                            console.log('list_multipart_parts reply', res);
+                        });
+                })
+                .then(function() {
+                    return client.object.complete_multipart_upload({
+                        bucket: BKT,
+                        key: key,
+                        fix_parts_size: true
+                    });
+                })
+                .then(function() {
+                    return client.object_client.read_entire_object({
+                        bucket: BKT,
+                        key: key,
+                    });
+                })
+                .then(function(read_buf) {
+                    assert.strictEqual(data.length, read_buf.length);
+                    for (var i = 0; i < data.length; i++) {
+                        assert.strictEqual(data[i], read_buf[i]);
+                    }
+                })
+                .nodeify(done);
+        });
+
     });
 
 });

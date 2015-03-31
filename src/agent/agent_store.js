@@ -110,7 +110,7 @@ AgentStore.prototype.set_alloc = function(size) {
 AgentStore.prototype.read_block = function(block_id) {
     var self = this;
     var block_path = self._get_block_path(block_id);
-    var hash_path = path.join(self.hash_path, block_id);
+    var hash_path = self._get_hash_path(block_id);
     dbg.log0('fs read block', block_path);
     return Q.all([
             Q.nfcall(fs.readFile, block_path),
@@ -143,7 +143,7 @@ AgentStore.prototype.read_block = function(block_id) {
 AgentStore.prototype.write_block = function(block_id, data) {
     var self = this;
     var block_path = self._get_block_path(block_id);
-    var hash_path = path.join(self.hash_path, block_id);
+    var hash_path = self._get_hash_path(block_id);
     var file_stats;
 
     if (!Buffer.isBuffer(data) && typeof(data) !== 'string') {
@@ -244,14 +244,19 @@ AgentStore.prototype.stat_block = function(block_id) {
 AgentStore.prototype._delete_block = function(block_id) {
     var self = this;
     var block_path = self._get_block_path(block_id);
+    var hash_path = self._get_hash_path(block_id);
     var file_stats;
 
+    dbg.log(" NB:: delete block", block_id);
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;
             if (file_stats) {
                 return Q.nfcall(fs.unlink, block_path);
             }
+        })
+        .then(function() {
+            return Q.nfcall(fs.unlink, hash_path);
         })
         .then(function() {
             return file_stats ? file_stats.size : 0;
@@ -268,6 +273,14 @@ AgentStore.prototype._get_block_path = function(block_id) {
     return path.join(this.blocks_path, block_id);
 };
 
+/**
+ *
+ * _get_hash_path
+ *
+ */
+AgentStore.prototype._get_hash_path = function(block_id) {
+    return path.join(this.hash_path, block_id);
+};
 
 /**
  *
@@ -427,13 +440,16 @@ function MemoryStore() {
         this._used += data.length;
         this._count += 1;
     };
-    this.delete_block = function(block_id) {
-        var b = this._blocks[block_id];
-        if (b) {
-            this._used -= b.length;
-            this._count -= 1;
-        }
-        delete this._blocks[block_id];
+    this.delete_blocks = function(block_ids) {
+        var self = this;
+        _.each(block_ids, function(block_id) {
+            var b = self._blocks[block_id];
+            if (b) {
+                self._used -= b.length;
+                self._count -= 1;
+            }
+            delete self._blocks[block_id];
+        });
     };
     this.stat_block = function(block_id) {
         var b = this._blocks[block_id];

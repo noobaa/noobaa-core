@@ -15,7 +15,6 @@ module.exports = {
 
         create_multipart_upload: {
             method: 'POST',
-            path: '/obj/:bucket/:key/upload',
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'size', 'content_type'],
@@ -39,9 +38,8 @@ module.exports = {
             }
         },
 
-        complete_multipart_upload: {
-            method: 'PUT',
-            path: '/obj/:bucket/:key/upload',
+        list_multipart_parts: {
+            method: 'GET',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -52,6 +50,73 @@ module.exports = {
                     key: {
                         type: 'string',
                     },
+                    part_number_marker: {
+                        type: 'integer',
+                    },
+                    max_parts: {
+                        type: 'integer',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [
+                    'part_number_marker',
+                    'max_parts',
+                    'is_truncated',
+                    'next_part_number_marker',
+                    'upload_parts'
+                ],
+                properties: {
+                    part_number_marker: {
+                        type: 'integer',
+                    },
+                    max_parts: {
+                        type: 'integer',
+                    },
+                    is_truncated: {
+                        type: 'boolean',
+                    },
+                    next_part_number_marker: {
+                        type: 'integer',
+                    },
+                    upload_parts: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            required: ['part_number', 'size'],
+                            properties: {
+                                part_number: {
+                                    type: 'integer'
+                                },
+                                size: {
+                                    type: 'integer'
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
+
+        complete_multipart_upload: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    fix_parts_size: {
+                        type: 'boolean',
+                    },
                 }
             },
             auth: {
@@ -61,7 +126,6 @@ module.exports = {
 
         abort_multipart_upload: {
             method: 'DELETE',
-            path: '/obj/:bucket/:key/upload',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -81,7 +145,6 @@ module.exports = {
 
         allocate_object_parts: {
             method: 'POST',
-            path: '/obj/:bucket/:key/part',
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'parts'],
@@ -96,7 +159,12 @@ module.exports = {
                         type: 'array',
                         items: {
                             type: 'object',
-                            required: ['start', 'end', 'chunk_size', 'crypt'],
+                            required: [
+                                'start',
+                                'end',
+                                'chunk_size',
+                                'crypt'
+                            ],
                             properties: {
                                 start: {
                                     type: 'integer',
@@ -109,6 +177,9 @@ module.exports = {
                                 },
                                 crypt: {
                                     $ref: '/object_api/definitions/crypt_info',
+                                },
+                                upload_part_number: {
+                                    type: 'integer',
                                 },
                             }
                         }
@@ -143,7 +214,6 @@ module.exports = {
 
         self_test_to_node_via_web: {
             method: 'POST',
-            path: '/self_test/node_via_web',
             params: {
                 type: 'object',
                 required: ['source', 'target', 'request_length', 'response_length'],
@@ -169,7 +239,6 @@ module.exports = {
 
         finalize_object_parts: {
             method: 'PUT',
-            path: '/obj/:bucket/:key/part',
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'parts'],
@@ -208,7 +277,6 @@ module.exports = {
 
         report_bad_block: {
             method: 'POST',
-            path: '/obj/:bucket/:key/bad_block',
             params: {
                 type: 'object',
                 required: ['bucket', 'key', 'start', 'end', 'fragment', 'block_id', 'is_write'],
@@ -252,7 +320,6 @@ module.exports = {
 
         read_object_mappings: {
             method: 'GET',
-            path: '/obj/:bucket/:key/map',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -302,7 +369,6 @@ module.exports = {
 
         read_object_md: {
             method: 'GET',
-            path: '/obj/:bucket/:key',
             params: {
                 $ref: '/object_api/definitions/object_path'
             },
@@ -316,7 +382,6 @@ module.exports = {
 
         update_object_md: {
             method: 'PUT',
-            path: '/obj/:bucket/:key',
             params: {
                 type: 'object',
                 required: ['bucket', 'key'],
@@ -339,7 +404,6 @@ module.exports = {
 
         delete_object: {
             method: 'DELETE',
-            path: '/obj/:bucket/:key',
             params: {
                 $ref: '/object_api/definitions/object_path'
             },
@@ -350,7 +414,6 @@ module.exports = {
 
         list_objects: {
             method: 'GET',
-            path: '/objs/:bucket',
             params: {
                 type: 'object',
                 required: ['bucket'],
@@ -456,6 +519,9 @@ module.exports = {
                     type: 'integer',
                 },
                 end: {
+                    type: 'integer',
+                },
+                upload_part_number: {
                     type: 'integer',
                 },
                 kfrag: {

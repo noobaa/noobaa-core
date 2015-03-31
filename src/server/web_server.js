@@ -30,7 +30,7 @@ var http = require('http');
 var mongoose = require('mongoose');
 var dotenv = require('dotenv');
 var express = require('express');
-var express_favicon = require('static-favicon');
+var express_favicon = require('serve-favicon');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_cookie_parser = require('cookie-parser');
@@ -40,6 +40,7 @@ var express_compress = require('compression');
 var rpc_http = require('../rpc/rpc_http');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var mongoose_logger = require('noobaa-util/mongoose_logger');
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -55,7 +56,9 @@ if (process.env.DEBUG_LEVEL) {
 }
 
 // connect to the database
-mongoose.set('debug', debug_mode);
+if (debug_mode) {
+    mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
+}
 mongoose.connection.on('error', function(err) {
     console.error('mongoose connection error:', err);
 });
@@ -87,7 +90,7 @@ app.engine('html', dot_engine(views_path));
 
 // configure app middleware handlers in the order to use them
 
-app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon_bgblack.ico')));
+app.use(express_favicon(path.join(rootdir, 'images', 'noobaa_icon.ico')));
 app.use(express_morgan_logger(dev_mode ? 'dev' : 'combined'));
 app.use(function(req, res, next) {
     // HTTPS redirect:

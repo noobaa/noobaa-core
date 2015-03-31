@@ -43,17 +43,14 @@ function request(rpc, api, method_api, params, options) {
             options.timeout)
         .then(function(res) {
             if (res && res.status !== 200) {
-                dbg.log0('RPC ICE FAILED', message.path, 'peer', options.peer, 'status', res.status);
+                dbg.error('RPC ICE FAILED', message.path, 'peer', options.peer, 'status', res.status);
                 var err = new Error('RPC ICE FAILED ' + message.path + ' status ' + res.status);
                 err.statusCode = res.status;
                 throw err;
             }
             return res.data;
         }, function(err) {
-            dbg.log0('RPC ICE EXCEPTION', message.path, err);
-            // close the channel to try and recover
-            // TODO is this really the right thing to do?
-            ice_api.forceCloseIce(options.p2p_context, options.peer);
+            dbg.error('RPC ICE EXCEPTION', message.path, err);
             throw err;
         });
 
@@ -82,14 +79,14 @@ function request_ws(rpc, api, method_api, params, options) {
             options.timeout)
         .then(function(res) {
             if (res && res.status !== 200) {
-                dbg.log0('RPC WS FAILED', message.path, 'peer', options.peer, 'status', res.status);
+                dbg.error('RPC WS FAILED', message.path, 'peer', options.peer, 'status', res.status);
                 var err = new Error('RPC WS FAILED ' + message.path + ' status ' + res.status);
                 err.statusCode = res.status;
                 throw err;
             }
             return res.data;
         }, function(err) {
-            dbg.log0('RPC WS EXCEPTION', message.path, err);
+            dbg.error('RPC WS EXCEPTION', message.path, err);
             throw err;
         });
 }
@@ -106,13 +103,14 @@ function request_ws(rpc, api, method_api, params, options) {
  */
 function serve(rpc, peer_id) {
 
-    function handle_request(channel, message) {
+    function handle_request(socket, channel, message) {
 
         var msg;
         var body;
         var reqId;
         var isWs = false;
         var rpc_method;
+        var handle = true;
 
         return Q.fcall(function() {
 
@@ -128,7 +126,7 @@ function serve(rpc, peer_id) {
                         reqId = (buffer_utils.toBuffer(message.slice(0, 32))
                             .readInt32LE(0)).toString();
                     } catch (ex) {
-                        dbg.log0('problem reading req id rest_api ' + ex);
+                        dbg.error('problem reading req id rest_api ' + ex);
                     }
                     var msgObj = channel.msgs[reqId];
                     body = msgObj.buffer;
@@ -140,10 +138,11 @@ function serve(rpc, peer_id) {
                     reqId = msg.req || msg.requestId;
                     dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
                 } else {
-                    dbg.log0('ice got weird msg', message);
+                    handle = false;
+                    throw new Error('ice got weird msg '+ util.inspect(message));
                 }
 
-                if (msg.sigType) {
+                if (msg && msg.sigType) {
                     isWs = true;
                 }
 
@@ -154,6 +153,14 @@ function serve(rpc, peer_id) {
                     reqBody = body.body;
                 }
 
+                if (!reqMsg.path) {
+                    handle = false;
+                    throw {
+                        statusCode: 400,
+                        data: 'RPC: no method sent'
+                    };
+                }
+
                 // skip first split item if empty due to leading '/'
                 var path_split = reqMsg.path.split('/', 4);
                 var api_name = path_split.shift() || path_split.shift();
@@ -162,6 +169,7 @@ function serve(rpc, peer_id) {
                 rpc_method = rpc.get_service_method(api_name, method_name, domain);
 
                 if (!rpc_method) {
+                    handle = false;
                     throw {
                         statusCode: 400,
                         data: 'RPC: no such method ' + reqMsg.path
@@ -186,10 +194,9 @@ function serve(rpc, peer_id) {
                     return send_reply(200, reply, null);
                 }
             }, function(err) {
-                dbg.log0('RPC ICE FAILED', err.stack || err);
-                return send_reply(500, err.toString(), null);
+                dbg.error('RPC ICE FAILED ',reqId, err.stack || err);
+                return handle ? send_reply(500, err.toString(), null) : null;
             });
-
 
         function send_reply(status, data, buffer) {
             return Q.fcall(function() {
@@ -215,21 +222,26 @@ function serve(rpc, peer_id) {
                     }
 
                     if (isWs) {
+                        if (buffer) {
+                            throw new Error('UNEXPECTED BUFFER WITH WS ' + rpc_method.method_api.name);
+                        }
                         // TODO isn't there a callback to WS send? need to return to promise chain..
                         channel.send(JSON.stringify(reply));
                     } else {
-                        return ice_lib.writeToChannel(channel, JSON.stringify(reply), reqId);
+                        // write has timeout internally
+                        return ice_api.writeMessage(socket, channel, reply, buffer, reqId);
                     }
                 })
                 .then(function() {
-
-                    if (!buffer) return;
-
-                    if (isWs) {
-                        throw new Error('UNEXPECTED BUFFER WITH WS ' + rpc_method.method_api.name);
+                    try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (err) {
+                        dbg.error('closeIce err ' + reqId, err);
                     }
-
-                    return ice_api.writeBufferToSocket(channel, buffer, reqId);
+                })
+                .then(null, function(err) {
+                    try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (ex) {
+                        dbg.error('closeIce ex on err ' + reqId, ex);
+                    }
+                    throw err;
                 });
         }
     }

@@ -22,7 +22,7 @@ process.on('uncaughtException', function(err) {
 
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
-
+    var objects_avarage_part_size = {};
     var client;
     params.bucket = 'files';
     Q.fcall(function() {
@@ -68,43 +68,65 @@ module.exports = function(params) {
     var uploadPart = function(req, res) {
         Q.fcall(function() {
             var template;
-            dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ', req.query.uploadId, 'content length:', req.headers['content-length']);
             var mydata = '';
+            var content_length = req.headers['content-length'];
 
-            return client.object_client.upload_stream_parts({
+            var upload_part_info = {
                 bucket: params.bucket,
-                key: req.query.uploadId,
-                size: parseInt(req.headers['content-length']*req.query.partNumber),
+                key: encodeURIComponent(req.query.uploadId),
+                size: content_length,
                 content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
                 source_stream: req,
                 upload_part_number: parseInt(req.query.partNumber)
-            }).then(function() {
-                try {
-                    dbg.log0('COMPLETED: upload', req.query.uploadId);
-                    res.header('ETag', req.query.uploadId + req.query.partNumber);
-                } catch (err) {
-                    dbg.log0('FAILED', err, res);
+            };
+            dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ',
+                req.query.uploadId, 'content length:', req.headers['content-length']);
+            dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
+                'content_type', 'upload_part_number'));
 
-                }
-                dbg.log0('upload body::::::', res.body, ' headers:', res.headers);
-                return res.status(200).end();
-            }, function(err) {
-                dbg.log0('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
-                return res.status(500).end();
-            });
+            return client.object_client.upload_stream_parts(upload_part_info)
+                .then(function() {
+                    try {
+                        dbg.log0('COMPLETED: upload', req.query.uploadId);
+                        res.header('ETag', req.query.uploadId + req.query.partNumber);
+                    } catch (err) {
+                        dbg.log0('FAILED', err, res);
+
+                    }
+                    return res.status(200).end();
+                }, function(err) {
+                    dbg.log0('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
+                    return res.status(500).end();
+                });
 
         });
     };
     var listPartsResult = function(req, res) {
-        var template;
-        var upload_id = req.query.uploadId;
-        var max_parts = req.query['max-parts'] || 1000;
-        var part_number_marker = req.query['part-number​-marker'] || '';
-        dbg.log0('List part results for upload id:', upload_id, 'max parts', max_parts, 'part marker', part_number_marker);
-        template = templateBuilder.ListPartsResult(req.params.key);
-        return buildXmlResponse(res, 200, template);
+        Q.fcall(function() {
+            var template;
+            var upload_id = req.query.uploadId;
+            var max_parts = req.query['max-parts'] || 1000;
+
+            var part_number_marker = req.query['part-number​-marker'] || '';
+            dbg.log0('List part results for upload id:', upload_id, 'max parts', max_parts, 'part marker', part_number_marker);
+            var list_options = {
+                bucket: params.bucket,
+                key: req.query.uploadId,
+                part_number_marker: 1,
+                max_parts: 1000
+            };
+            return client.object.list_multipart_parts(list_options)
+                .then(function(list_result) {
+                    list_options.NextPartNumberMarker = list_result.next_part_number_marker;
+                    list_options.IsTruncated = list_result.next_part_number_marker > list_result.max_parts;
+                    list_options.MaxParts = list_result.max_parts;
+                    template = templateBuilder.ListPartsResult(list_result.upload_parts, list_options);
+                    return buildXmlResponse(res, 200, template);
+                });
+        });
     };
     var buildXmlResponse = function(res, status, template) {
+        //dbg.log("build",res);
         res.header('Content-Type', 'application/xml');
         res.status(status);
         //dbg.log0('template:',template,'headers',res);
@@ -120,14 +142,11 @@ module.exports = function(params) {
         var create_params = {};
         return client.object_client.get_object_md(object_path)
             .then(function(md) {
-                dbg.log0('md', md);
                 //check if folder
                 if (md.size === 0) {
                     dbg.log0('Folder copy:', from_object, ' to ', to_object);
                     list_objects_with_prefix(from_object, '/')
                         .then(function(objects_and_folders) {
-                            //dbg.log0('in ');
-                            //dbg.log0('in copy for ', objects_and_folders.objects.length);
                             return Q.all(_.times(objects_and_folders.objects.length, function(i) {
                                 dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
                                 copy_object(objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
@@ -168,6 +187,7 @@ module.exports = function(params) {
                         };
                         create_params.bucket = params.bucket;
                         create_params.key = to_object;
+
                         return client.object.create_multipart_upload(create_params)
                             .then(function(info) {
                                 return client.object.allocate_object_parts(new_obj_parts)
@@ -184,7 +204,7 @@ module.exports = function(params) {
                             });
                     });
             }).then(null, function(err) {
-                dbg.log0("Failed to upload", err);
+                dbg.error("Failed to upload", err);
                 return false;
             });
 
@@ -217,7 +237,7 @@ module.exports = function(params) {
                         //we will keep the full path for CloudBerry online cloud backup tool
 
                         var obj_sliced_key = obj.key.slice(prefix.length);
-                        //dbg.log0('obj.key:', obj.key, ' prefix ', prefix);
+                        dbg.log3('obj.key:', obj.key, ' prefix ', prefix);
                         if (obj_sliced_key.indexOf(delimiter) >= 0) {
                             var folder = obj_sliced_key.split(delimiter, 1)[0];
                             folders[prefix + folder + "/"] = true;
@@ -232,7 +252,7 @@ module.exports = function(params) {
                         }
                         return true;
                     } catch (err) {
-                        dbg.log0('Error while listing objects:', err);
+                        dbg.error('Error while listing objects:', err);
                     }
                 });
 
@@ -240,10 +260,10 @@ module.exports = function(params) {
                     objects: objects,
                     folders: folders
                 };
-                //dbg.log0('About to return objects and folders:', objects_and_folders);
+                dbg.log3('About to return objects and folders:', objects_and_folders);
                 return objects_and_folders;
             }).then(null, function(err) {
-                dbg.log0('failed to list object with prefix', err);
+                dbg.error('failed to list object with prefix', err);
                 return {
                     objects: {},
                     folders: {}
@@ -261,20 +281,8 @@ module.exports = function(params) {
 
             md5_calc.on('finish', function() {
                 md5 = md5_calc.toString();
-                dbg.log0('MD5 data (end)', md5);
+                dbg.log3('MD5 data (end)', md5);
             });
-
-            // md5_calc.on('data', function(data) {
-            //     md5Hash.update(data);
-            // });
-            // md5_calc.on('end', function() {
-            //     md5 = md5Hash.digest('hex');
-            //     dbg.log0('go data (end)', md5);
-            // });
-
-            //console.error('before chunk:'+require('util').inspect(req));
-            //var buffer = require('../util/buffer_utils').chunkToBuffer(req);
-            //console.error('after chunk:'+Buffer.isBuffer(md5_calc));
 
             return client.object_client.upload_stream({
                 bucket: params.bucket,
@@ -287,17 +295,16 @@ module.exports = function(params) {
                     dbg.log0('COMPLETED: upload', file_key_name, md5);
                     res.header('ETag', md5);
                 } catch (err) {
-                    dbg.log0('FAILED', err, res);
+                    dbg.error('Failed to upload stream', err, res);
 
                 }
-                dbg.log0('upload body::::::', res.body, ' headers:', res.headers);
                 return res.status(200).end();
             }, function(err) {
-                dbg.log0('ERROR: upload:' + file_key_name + ' err:' + util.inspect(err.stack));
+                dbg.error('ERROR: upload:' + file_key_name + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
         } catch (err) {
-            dbg.log0('Failed upload stream to noobaa:', err);
+            dbg.error('Failed upload stream to noobaa:', err);
         }
     };
 
@@ -313,7 +320,7 @@ module.exports = function(params) {
         bucketExists: function(req, res, next) {
             var bucketName = req.params.bucket;
             if (bucketName !== params.bucket) {
-                dbg.log2('(1) No bucket found for "%s"', bucketName);
+                dbg.log0('(1) No bucket found for "%s"', bucketName);
                 var template = templateBuilder.buildBucketNotFound(bucketName);
                 return buildXmlResponse(res, 404, template);
             }
@@ -329,9 +336,9 @@ module.exports = function(params) {
                 name: params.bucket,
                 creationDate: date
             }];
-            dbg.log0('Fetched %d buckets', buckets.length, ' b: ', params.bucket);
+            dbg.log3('Fetched %d buckets', buckets.length, ' b: ', params.bucket);
             var template = templateBuilder.buildBuckets(buckets);
-            dbg.log0('bucket response:', template);
+            dbg.log2('bucket response:', template);
             return buildXmlResponse(res, 200, template);
         },
         getBucket: function(req, res) {
@@ -346,7 +353,6 @@ module.exports = function(params) {
 
             if (req.query.location !== undefined) {
                 template = templateBuilder.buildLocation();
-                dbg.log0('tem:', template);
                 return buildXmlResponse(res, 200, template);
 
             } else {
@@ -381,7 +387,7 @@ module.exports = function(params) {
                     .then(function() {
                         dbg.log0('COMPLETED: list');
                     }).then(null, function(err) {
-                        dbg.log0('ERROR: list', err, err.stack, options);
+                        dbg.error('ERROR: list', err, err.stack, options);
                     });
             }
 
@@ -391,7 +397,7 @@ module.exports = function(params) {
             var template;
             template = templateBuilder.buildError('InvalidBucketName',
                 'Creating new bucket is not supported');
-            dbg.log2('Error creating bucket "%s" because it is not supported', bucketName);
+            dbg.log0('Error creating bucket "%s" because it is not supported', bucketName);
             return buildXmlResponse(res, 400, template);
 
             /**
@@ -423,7 +429,7 @@ module.exports = function(params) {
                     return buildXmlResponse(res, 200, template);
                 } else {
                     if (req.path.indexOf('Thumbs.db', req.path.length - 9) !== -1) {
-                        dbg.log0('Thumbs up "%s" in bucket "%s" does not exist', keyName, params.bucket);
+                        dbg.log2('Thumbs up "%s" in bucket "%s" does not exist', keyName, params.bucket);
                         template = templateBuilder.buildKeyNotFound(keyName);
                         return buildXmlResponse(res, 404, template);
                     }
@@ -458,14 +464,14 @@ module.exports = function(params) {
                                 var template = templateBuilder.buildKeyNotFound(keyName);
                                 return buildXmlResponse(res, 404, template);
                             } else {
-                                dbg.log0('Cannot find file. will retry as folder', err);
+                                dbg.error('Cannot find file. will retry as folder', err);
                                 //retry as folder name
                                 object_path.key = object_path.key + '/';
                             }
 
                             return client.object_client.get_object_md(object_path)
                                 .then(function(object_md) {
-                                    dbg.log0('obj_md2', object_md);
+                                    dbg.log3('obj_md2', object_md);
                                     var create_date = new Date(object_md.create_time);
                                     create_date.setMilliseconds(0);
 
@@ -479,9 +485,9 @@ module.exports = function(params) {
                                         var stream = client.object_client.open_read_stream(object_path).pipe(res);
                                     }
                                 }).then(null, function(err) {
-                                    dbg.log0('ERROR: while download from noobaa', err);
+                                    dbg.error('ERROR: while download from noobaa', err);
                                     var template = templateBuilder.buildKeyNotFound(keyName);
-                                    dbg.log2('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
+                                    dbg.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
                                     return buildXmlResponse(res, 404, template);
                                 });
                         });
@@ -497,11 +503,18 @@ module.exports = function(params) {
                 dbg.log0('Fake ACL (200)');
                 return buildXmlResponse(res, 200, template);
             }
-            if (!_.isUndefined(req.query.partNumber)) {
-                return uploadPart(req, res);
-            }
-            dbg.log0('here111111');
             var copy = req.headers['x-amz-copy-source'];
+
+            if (!_.isUndefined(req.query.partNumber)) {
+                if (copy) {
+                    template = templateBuilder.buildError('Upload Part - Copy',
+                        'Copy of part is not supported');
+                    dbg.log0('Copy of part is not supported');
+                    return buildXmlResponse(res, 400, template);
+                } else {
+                    return uploadPart(req, res);
+                }
+            }
 
             if (copy) {
                 delimiter = req.query.delimiter || '%2F';
@@ -515,7 +528,7 @@ module.exports = function(params) {
                 var srcObject = srcObjectParams.slice(1).join(delimiter);
                 dbg.log0('Attempt to copy object:', srcObject, ' from bucket:', srcBucket, ' to ', req.params.key, ' srcObjectParams: ', srcObjectParams, ' delimiter:', delimiter);
                 if (srcBucket !== params.bucket) {
-                    dbg.log2('No bucket found (2) for "%s"', srcBucket, params.bucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
+                    dbg.error('No bucket found (2) for "%s"', srcBucket, params.bucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
                     template = templateBuilder.buildBucketNotFound(srcBucket);
                     return buildXmlResponse(res, 404, template);
                 }
@@ -547,18 +560,6 @@ module.exports = function(params) {
                 // }
 
                 Q.fcall(function() {
-                    //     var auth_params = _.pick(params,
-                    //         'email', 'password', 'system', 'role');
-                    //     if (params.bucket) {
-                    //         auth_params.extra = {
-                    //             bucket: params.bucket
-                    //         };
-                    //     }
-                    //     dbg.log1('create auth', auth_params);
-                    //     return client.create_auth_token(auth_params);
-                    //
-                    // }).then(function() {
-                    //     dbg.log0('check', params.bucket, file_key_name);
 
                     return client.object.list_objects({
                         bucket: params.bucket,
@@ -579,7 +580,6 @@ module.exports = function(params) {
                             }).then(function() {
                                 dbg.log0('Deleted old version of object "%s" in bucket "%s"', file_key_name, params.bucket);
                                 uploadObject(req, res, file_key_name);
-                                //                                    return res.status(204).end();
                             }, function(err) {
                                 dbg.log0('Failure while trying to delete old version of object "%s"', file_key_name, err);
                                 var template = templateBuilder.buildKeyNotFound(file_key_name);
@@ -587,7 +587,7 @@ module.exports = function(params) {
 
                             });
                         } else {
-                            dbg.log0('no real old version');
+                            dbg.warning('no real old version');
                             uploadObject(req, res, file_key_name);
                         }
                     } else {
@@ -600,40 +600,62 @@ module.exports = function(params) {
         },
 
         postMultipartObject: function(req, res) {
-            var template;
-            //init multipart upload
-            if (req.query.uploads === '') {
-                dbg.log0('Init Multipart', req.query);
-                template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key);
-                return buildXmlResponse(res, 200, template);
-            }
-            //CompleteMultipartUpload
-            else if (!_.isUndefined(req.query.uploadId)) {
-                return  client.object_client.complete_multipart_upload({
-                    Bucket: params.bucket,
-                    Key: req.query.uploadId
-                }).then(function(){
-                    var completeMultipartInformation = {
-                        Bucket: params.bucket,
-                        Key: req.query.uploadId,
-                        Location: 'https://' + req.hostname + '/' + params.bucket + '/' + req.query.uploadId,
-                        ETag: 1234
+            Q.fcall(function() {
+                var template;
+                //init multipart upload
+                if (req.query.uploads === '') {
+                    dbg.log0('Init Multipart', req.originalUrl);
+                    var key = (req.originalUrl).replace('/' + params.bucket + '/', '');
+                    key = key.substring(0, key.indexOf('?uploads'));
+                    var create_params = {
+                        bucket: params.bucket,
+                        key: key,
+                        size: 0,
+                        content_type: req.headers['content-type']
                     };
+                    return client.object.create_multipart_upload(create_params)
+                        .then(function(info) {
+                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key);
+                            return buildXmlResponse(res, 200, template);
+                        }).then(null, function(err) {
+                            template = templateBuilder.buildKeyNotFound(req.query.uploadId);
+                            dbg.error('Error init multipart', template);
+                            return buildXmlResponse(res, 500, template);
+                        });
+                }
+                //CompleteMultipartUpload
+                else if (!_.isUndefined(req.query.uploadId)) {
+                    dbg.log0('request to complete ', req.query.uploadId);
+                    return client.object.complete_multipart_upload({
+                        bucket: params.bucket,
+                        key: req.query.uploadId,
+                        fix_parts_size: true
+                    }).then(function(info) {
+                        dbg.log0('done complete', info);
+                        delete objects_avarage_part_size[req.query.uploadId];
+                        var completeMultipartInformation = {
+                            Bucket: params.bucket,
+                            Key: req.query.uploadId,
+                            Location: 'https://' + req.hostname + '/' + params.bucket + '/' + req.query.uploadId,
+                            ETag: 1234
+                        };
 
-                    template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
-                    dbg.log0('Complete multipart', template);
-                    return buildXmlResponse(res, 200, template);
+                        template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
+                        dbg.log0('Complete multipart', template);
+                        return buildXmlResponse(res, 200, template);
+                    }).then(null, function(err) {
+                        dbg.error('Err Complete multipart', err);
+                        template = templateBuilder.buildKeyNotFound(req.query.uploadId);
+                        return buildXmlResponse(res, 500, template);
 
-                },function(err){
-                    template = templateBuilder.buildKeyNotFound(req.query.uploadId);
-                    dbg.log0('Err Complete multipart', template);
-                    return buildXmlResponse(res, 500, template);
-
-                });
-            }
+                    });
+                }
+            });
         },
         deleteObject: function(req, res) {
+            //this is also valid for the Abort Multipart Upload
             var key = req.params.key;
+
             Q.fcall(function() {
                     return client.object.list_objects({
                         bucket: params.bucket,
@@ -647,10 +669,10 @@ module.exports = function(params) {
                         var template = templateBuilder.buildKeyNotFound(key);
                         return buildXmlResponse(res, 404, template);
                     }
-                    //dbg.log0('objects in bucket', params.bucket, ' with key ', key, ':');
+                    dbg.log2('objects in bucket', params.bucket, ' with key ', key, ':');
                     var i = 0;
                     _.each(res.objects, function(obj) {
-                        dbg.log0('#' + i, obj.key, '\t', obj.info.size, 'bytes');
+                        dbg.log2('#' + i, obj.key, '\t', obj.info.size, 'bytes');
                         i++;
                     });
                     return client.object.delete_object({
@@ -661,7 +683,7 @@ module.exports = function(params) {
                     dbg.log0('Deleted object "%s" in bucket "%s"', key, req.bucket.name);
                     return res.status(204).end();
                 }, function(err) {
-                    dbg.log2('Failure while trying to delete object "%s"', key, err);
+                    dbg.error('Failure while trying to delete object "%s"', key, err);
                     var template = templateBuilder.buildKeyNotFound(key);
                     return buildXmlResponse(res, 500, template);
 

@@ -1,4 +1,6 @@
 'use strict';
+var dbg = require('noobaa-util/debug_module')(__filename);
+
 var xml = function() {
     var jstoxml = require('jstoxml');
     var _ = require('lodash');
@@ -43,14 +45,16 @@ var xml = function() {
         return content;
     };
     var buildListPartResult = function(items, options) {
+        var date = new Date();
+        date.setMilliseconds(0);
+        date = date.toISOString();
         var content = _.map(items, function(item) {
             return {
-                Contents: {
-                    PartNumber: item.key,
-                    LastModified: item.modifiedDate,
-                    ETag: item.md5,
+                Part: {
+                    PartNumber: item.part_number,
+                    LastModified: date,
+                    ETag: options.key + item.part_number,
                     Size: item.size,
-
                 }
             };
         });
@@ -58,24 +62,22 @@ var xml = function() {
 
         //console.log('cp value:',common_prefixes_value);
         var additional_data = {
-            ListMultipartUploadsResult: {
-                Bucket: options.bucket,
-                Key: '',
-                UploadId: '',
-                Initiator: {
-                    ID: '',
-                    DisplayName: ''
-                },
-                Owner: {
-                    ID: '',
-                    DisplayName: ''
-                },
-                StorageClass: 'STANDARD',
-                PartNumberMarker: '',
-                NextPartNumberMarker: '',
-                MaxParts: 2,
-                IsTruncated: false,
-            }
+            Bucket: options.bucket,
+            Key: options.key,
+            UploadId: options.key,
+            Initiator: {
+                ID: 'admin',
+                DisplayName: 'admin'
+            },
+            Owner: {
+                ID: 'admin',
+                DisplayName: 'admin'
+            },
+            StorageClass: 'STANDARD',
+            PartNumberMarker: (_.first(items)).part_number,
+            NextPartNumberMarker: options.NextPartNumberMarker,
+            MaxParts: options.MaxParts,
+            IsTruncated: options.IsTruncated,
         };
 
         content.unshift(additional_data);
@@ -266,13 +268,26 @@ var xml = function() {
             console.log('version:', xml);
             return xml;
         },
-        ListPartsResult: function(item) {
-            return jstoxml.toXML({
+        ListPartsResult: function(items, options) {
+            try {
 
-            }, {
-                header: true,
-                indent: '  '
-            });
+                var jxml = {
+                    _name: 'ListPartsResult',
+                    _attrs: {
+                        'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
+                    },
+                    _content: buildListPartResult(items, options)
+                };
+                var xml = jstoxml.toXML(jxml, {
+                    header: true,
+                    indent: '  '
+                });
+                dbg.log2("list parts (xml):", xml);
+                return xml;
+            } catch (err) {
+                dbg.log0('Error while ListPartsResult:', err);
+            }
+
         },
         buildInitiateMultipartUploadResult: function(key) {
             return jstoxml.toXML({

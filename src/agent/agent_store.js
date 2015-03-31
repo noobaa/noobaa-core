@@ -440,13 +440,16 @@ function MemoryStore() {
         this._used += data.length;
         this._count += 1;
     };
-    this.delete_block = function(block_id) {
-        var b = this._blocks[block_id];
-        if (b) {
-            this._used -= b.length;
-            this._count -= 1;
-        }
-        delete this._blocks[block_id];
+    this.delete_blocks = function(block_ids) {
+        var self = this;
+        _.each(block_ids, function(block_id) {
+            var b = self._blocks[block_id];
+            if (b) {
+                self._used -= b.length;
+                self._count -= 1;
+            }
+            delete self._blocks[block_id];
+        });
     };
     this.stat_block = function(block_id) {
         var b = this._blocks[block_id];

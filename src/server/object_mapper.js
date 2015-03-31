@@ -494,7 +494,7 @@ function list_multipart_parts(params) {
                 // then we just reply truncated=true until we get to the last iteration
                 // where we don't find any parts.
                 // TODO this logic fails if there is a gap of numbers. need to correct
-                is_truncated: part_numbers.length || !max_parts,
+                is_truncated: !!(part_numbers.length || !max_parts),
                 next_part_number_marker: last_part + 1,
                 upload_parts: _.map(part_numbers, function(num) {
                     return {

@@ -46,6 +46,7 @@
     "dotenv": "~0.5.1",
     "event-stream": "~3.2.2",
     "express": "~4.12.3",
+    "fast-stats": "0.0.2",
     "font-awesome": "~4.3.0",
     "glob-to-regexp": "0.0.2",
     "googleapis": "^1.1.1",

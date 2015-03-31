@@ -16,7 +16,6 @@ module.exports = {
 
         create_system: {
             method: 'POST',
-            path: '/system/',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -37,7 +36,6 @@ module.exports = {
         read_system: {
             doc: 'Read the info of the authorized system',
             method: 'GET',
-            path: '/system',
             reply: {
                 $ref: '/system_api/definitions/system_full_info'
             },
@@ -49,7 +47,6 @@ module.exports = {
         update_system: {
             doc: 'Update the authorized system',
             method: 'PUT',
-            path: '/system',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -67,7 +64,6 @@ module.exports = {
         delete_system: {
             doc: 'Delete the authorized system',
             method: 'DELETE',
-            path: '/system',
             auth: {
                 system: 'admin',
             }
@@ -77,7 +73,6 @@ module.exports = {
         list_systems: {
             doc: 'List the systems that the authorized account can access',
             method: 'GET',
-            path: '/systems',
             reply: {
                 type: 'object',
                 required: ['systems'],
@@ -99,7 +94,6 @@ module.exports = {
         add_role: {
             doc: 'Add role',
             method: 'POST',
-            path: '/role',
             params: {
                 type: 'object',
                 requires: ['role', 'email'],
@@ -120,7 +114,6 @@ module.exports = {
         remove_role: {
             doc: 'Remove role',
             method: 'DELETE',
-            path: '/role/:email',
             params: {
                 type: 'object',
                 requires: ['email'],
@@ -138,7 +131,6 @@ module.exports = {
 
         get_system_resource_info: {
             method: 'GET',
-            path: '/get_system_resource_info',
             reply: {
                 type: 'object',
                 requires: [],
@@ -158,7 +150,6 @@ module.exports = {
 
         read_activity_log: {
             method: 'GET',
-            path: '/activity_log',
             params: {
                 type: 'object',
                 requires: [],

@@ -15,7 +15,6 @@ module.exports = {
 
         write_block: {
             method: 'POST',
-            path: '/block/:block_id',
             param_raw: 'data',
             params: {
                 type: 'object',
@@ -30,7 +29,6 @@ module.exports = {
 
         read_block: {
             method: 'GET',
-            path: '/block/:block_id',
             params: {
                 type: 'object',
                 required: ['block_id'],
@@ -46,7 +44,6 @@ module.exports = {
 
         replicate_block: {
             method: 'POST',
-            path: '/block/:block_id/replicate',
             params: {
                 type: 'object',
                 required: ['block_id'],
@@ -64,7 +61,6 @@ module.exports = {
 
         check_block: {
             method: 'POST',
-            path: '/block/:block_id/check',
             params: {
                 type: 'object',
                 required: ['block_id', 'slices'],
@@ -102,7 +98,6 @@ module.exports = {
 
         delete_blocks: {
             method: 'DELETE',
-            path: '/block/:block_id',
             params: {
                 type: 'object',
                 required: ['blocks'],
@@ -126,7 +121,6 @@ module.exports = {
 
         self_test_io: {
             method: 'POST',
-            path: '/self_test/io',
             param_raw: 'data',
             params: {
                 type: 'object',
@@ -142,7 +136,6 @@ module.exports = {
 
         self_test_peer: {
             method: 'POST',
-            path: '/self_test/peer',
             params: {
                 type: 'object',
                 required: ['target', 'request_length', 'response_length'],
@@ -162,7 +155,6 @@ module.exports = {
 
         kill_agent: {
             method: 'POST',
-            path: '/kill',
         },
 
     }

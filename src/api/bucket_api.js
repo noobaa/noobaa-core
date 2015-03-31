@@ -15,7 +15,6 @@ module.exports = {
 
         create_bucket: {
             method: 'POST',
-            path: '/bucket',
             params: {
                 type: 'object',
                 required: ['name', 'tiering'],
@@ -35,7 +34,6 @@ module.exports = {
 
         read_bucket: {
             method: 'GET',
-            path: '/bucket/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -55,7 +53,6 @@ module.exports = {
 
         update_bucket: {
             method: 'PUT',
-            path: '/bucket/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -78,7 +75,6 @@ module.exports = {
 
         delete_bucket: {
             method: 'DELETE',
-            path: '/bucket/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -95,7 +91,6 @@ module.exports = {
 
         list_buckets: {
             method: 'GET',
-            path: '/buckets',
             reply: {
                 type: 'object',
                 required: ['buckets'],

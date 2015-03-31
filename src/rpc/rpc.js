@@ -437,7 +437,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
             .then(null, function(err) {
                 // error with statusCode means we got the reply from the server
                 // so there is no point to retry
-                if (err.statusCode && err.statusCode !== 503) {
+                if (err && err.statusCode && err.statusCode !== 503) {
                     dbg.log0('RPC REQUEST FAILED', err);
                     throw err;
                 }

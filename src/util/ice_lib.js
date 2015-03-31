@@ -387,36 +387,42 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
             if (p2p_context) {
                 return p2p_context.iceSockets[peerId].sem.surround(function() {
 
-                    if (p2p_context.iceSockets[peerId].status === 'open') {
-                        var state = p2p_context.iceSockets[peerId].dataChannel.readyState;
-                        if (state && (state === 'closing' || state === 'closed')) {
-                            dbg.log0('state of ice conn to peer ' + peerId+ ' is: '+state+' force close');
-                            forceCloseIce(p2p_context, peerId, channelObj, socket);
+                    try {
+                        if (p2p_context.iceSockets[peerId].status === 'open') {
+                            var state = p2p_context.iceSockets[peerId].dataChannel.readyState;
+                            if (state && (state === 'closing' || state === 'closed')) {
+                                dbg.log0('state of ice conn to peer ' + peerId+ ' is: '+state+' force close');
+                                forceCloseIce(p2p_context, peerId, channelObj, socket);
+                            }
                         }
+
+                        if (p2p_context.iceSockets[peerId].status === 'new') {
+                            dbg.log0('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
+                            socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
+                            createPeerConnection(socket, requestId, configuration);
+                            p2p_context.iceSockets[peerId].status = 'start';
+                            channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
+                        } else if (p2p_context.iceSockets[peerId].status === 'open') {
+                            dbg.log0('initiateIce: status open '+requestId);
+                            channelObj.dataChannel = p2p_context.iceSockets[peerId].dataChannel;
+                            channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
+                            p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
+                            p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
+                            channelObj.connect_defer = Q.defer();
+                            channelObj.connect_defer.resolve(channelObj.dataChannel);
+                        } else if (p2p_context.iceSockets[peerId].status === 'start') {
+                            dbg.log0('initiateIce: status start '+requestId);
+                            channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
+                            p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
+                            p2p_context.iceSockets[peerId].usedBy[requestId] = 1;
+                            channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
+                        }
+                        return channelObj.connect_defer.promise;
+                    } catch (err) {
+                        dbg.error('Error on initiateIce sem.surround',err,err.stack);
+                        throw err;
                     }
 
-                    if (p2p_context.iceSockets[peerId].status === 'new') {
-                        dbg.log0('send accept to peer ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
-                        socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
-                        createPeerConnection(socket, requestId, configuration);
-                        p2p_context.iceSockets[peerId].status = 'start';
-                        channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
-                    } else if (p2p_context.iceSockets[peerId].status === 'open') {
-                        dbg.log0('initiateIce: status open '+requestId);
-                        channelObj.dataChannel = p2p_context.iceSockets[peerId].dataChannel;
-                        channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
-                        p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
-                        p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
-                        channelObj.connect_defer = Q.defer();
-                        channelObj.connect_defer.resolve(channelObj.dataChannel);
-                    } else if (p2p_context.iceSockets[peerId].status === 'start') {
-                        dbg.log0('initiateIce: status start '+requestId);
-                        channelObj.connect_defer = p2p_context.iceSockets[peerId].connect_defer;
-                        p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
-                        p2p_context.iceSockets[peerId].usedBy[requestId] = 1;
-                        channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
-                    }
-                    return channelObj.connect_defer.promise;
                 });
             } else {
                 channelObj.connect_defer = Q.defer();

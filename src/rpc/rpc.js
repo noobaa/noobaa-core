@@ -9,6 +9,7 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var rpc_http = require('./rpc_http');
 var rpc_ice = require('./rpc_ice');
 var config = require('../../config.js');
+var Stats = require('fast-stats').Stats;
 
 module.exports = RPC;
 
@@ -19,6 +20,10 @@ var VALID_HTTP_METHODS = {
     DELETE: 1
 };
 
+var topStatSize = 60;
+var statIntervalPushCounter = 1000;
+var statIntervalPrint = 10000;
+var collectStats = true;
 
 /**
  *
@@ -26,6 +31,8 @@ var VALID_HTTP_METHODS = {
  *
  */
 function RPC() {
+    var self = this;
+    this._stats = {};
     this._apis = {};
     this._services = {};
     this._schemas = tv4.freshApi();
@@ -33,9 +40,110 @@ function RPC() {
         var d = new Date(data);
         return isNaN(d.getTime()) ? 'bad date' : null;
     });
+
+    if (collectStats) {
+        this.intStat = setInterval(function(){
+            try {
+                self.handleStats();
+            } catch (err) {
+                dbg.error('Error running stats',err,err.stack);
+            }
+        }, statIntervalPushCounter);
+
+        this.intPrtStat = setInterval(function(){
+            try{
+                dbg.info(self.getStats());
+            } catch (err) {
+                dbg.error('Error running print stats',err,err.stack);
+            }
+        }, statIntervalPrint);
+    }
 }
 
 
+RPC.prototype.addStatsCounter = function(name, value) {
+    if (!collectStats) {return;}
+    var self = this;
+    try {
+        if (!self._stats[name]) {
+            self._stats[name] = {
+                stat: new Stats({sampling: true}),
+                current: 0,
+                isSum: true
+            };
+        }
+        self._stats[name].current += value;
+        dbg.log3('RPC addStatsVal',name,value);
+    } catch (err) {
+        dbg.error('Error addStatsVal',name,err,err.stack);
+    }
+};
+
+RPC.prototype.addStats = function(name, value) {
+    if (!collectStats) {return;}
+    var self = this;
+    try {
+        if (!self._stats[name]) {
+            self._stats[name] = {
+                stat: new Stats()
+            };
+        }
+        self._stats[name].stat.push(value);
+
+        dbg.log3('RPC addStats',name,value);
+    } catch (err) {
+        dbg.error('Error addStats',name,err,err.stack);
+    }
+};
+
+RPC.prototype.handleStats = function() {
+    var self = this;
+    var name;
+    var stat;
+
+    try {
+        for (name in self._stats) {
+            stat = self._stats[name].stat;
+
+            if (self._stats[name].isSum) {
+                stat.push(self._stats[name].current);
+            }
+
+            while (stat.length > topStatSize) {
+                stat.shift();
+            }
+
+        }
+    } catch (err) {
+        dbg.error('Error addToStat',err,err.stack);
+    }
+};
+
+RPC.prototype.getStats = function() {
+    var self = this;
+    var result = 'Statistics: ';
+    var name;
+    var stat;
+    try {
+        for (name in self._stats) {
+            stat = self._stats[name].stat;
+            result += '\nname: '+name+' size: '+stat.length+' mean: '+stat.amean().toFixed(2);
+            if (self._stats[name].isSum) {
+                result += ' (aprox last 60 secs) ';
+            } else {
+                result += ' (aprox last 60 tx) ';
+            }
+            result += ' median: '+stat.median().toFixed(2) + ' range: ['+stat.range()+']';
+            if (self._stats[name].isSum) {
+                result += ' current: '+self._stats[name].current;
+            }
+        }
+    } catch (err) {
+        dbg.error('Error getStats',err,err.stack);
+    }
+
+    return result;
+};
 
 /**
  *
@@ -133,6 +241,11 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
          */
         function service_method_handler(req) {
             dbg.log0('RPC START', srv_name);
+
+            var startTime = (new Date()).getTime();
+
+            self.addStatsCounter('RPC RESPONSE', 1);
+
             return Q.fcall(function() {
 
                     // authorize the request
@@ -188,10 +301,14 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
                         self._validate_schema(reply, method_api.reply_schema, 'SERVER REPLY');
                     }
                     dbg.log0('RPC COMPLETED', srv_name);
+                    self.addStatsCounter('RPC RESPONSE', -1);
+                    self.addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
                     return reply;
                 })
                 .then(null, function(err) {
                     console.error('RPC ERROR', srv_name, err, err.stack);
+                    self.addStatsCounter('RPC RESPONSE', -1);
+                    self.addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
                     throw err;
                 });
         }
@@ -255,7 +372,11 @@ RPC.prototype.create_client = function(api_name, default_options) {
  *
  */
 RPC.prototype._request = function(api, method_api, params, options) {
+
     var self = this;
+
+    var startTime = (new Date()).getTime();
+
     var srv_name =
         '/' + api.name +
         '/' + method_api.name +
@@ -274,6 +395,8 @@ RPC.prototype._request = function(api, method_api, params, options) {
             rpc_params: params
         });
     }
+
+    self.addStatsCounter('RPC REQUEST', 1);
 
     // verify params (local calls don't need it because server already verifies)
     var params_to_validate = method_api.param_raw ?
@@ -314,7 +437,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
             .then(null, function(err) {
                 // error with statusCode means we got the reply from the server
                 // so there is no point to retry
-                if (err.statusCode && err.statusCode !== 503) {
+                if (err && err.statusCode && err.statusCode !== 503) {
                     dbg.log0('RPC REQUEST FAILED', err);
                     throw err;
                 }
@@ -335,9 +458,11 @@ RPC.prototype._request = function(api, method_api, params, options) {
         .timeout(timeout)
         .then(null, function(err) {
             // we mark the timeout for the looping request to be able to break
-            if (err.code === 'ETIMEDOUT') {
+            if (err && err.code === 'ETIMEDOUT') {
                 timed_out = true;
             }
+            self.addStatsCounter('RPC REQUEST', -1);
+            self.addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
             throw err;
         })
         .then(function(reply) {
@@ -346,6 +471,8 @@ RPC.prototype._request = function(api, method_api, params, options) {
             if (!method_api.reply_raw) {
                 self._validate_schema(reply, method_api.reply_schema, 'CLIENT REPLY');
             }
+            self.addStatsCounter('RPC REQUEST', -1);
+            self.addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
             return reply;
         });
 };

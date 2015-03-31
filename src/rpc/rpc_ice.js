@@ -43,14 +43,14 @@ function request(rpc, api, method_api, params, options) {
             options.timeout)
         .then(function(res) {
             if (res && res.status !== 200) {
-                dbg.log0('RPC ICE FAILED', message.path, 'peer', options.peer, 'status', res.status);
+                dbg.error('RPC ICE FAILED', message.path, 'peer', options.peer, 'status', res.status);
                 var err = new Error('RPC ICE FAILED ' + message.path + ' status ' + res.status);
                 err.statusCode = res.status;
                 throw err;
             }
             return res.data;
         }, function(err) {
-            dbg.log0('RPC ICE EXCEPTION', message.path, err);
+            dbg.error('RPC ICE EXCEPTION', message.path, err);
             throw err;
         });
 
@@ -79,14 +79,14 @@ function request_ws(rpc, api, method_api, params, options) {
             options.timeout)
         .then(function(res) {
             if (res && res.status !== 200) {
-                dbg.log0('RPC WS FAILED', message.path, 'peer', options.peer, 'status', res.status);
+                dbg.error('RPC WS FAILED', message.path, 'peer', options.peer, 'status', res.status);
                 var err = new Error('RPC WS FAILED ' + message.path + ' status ' + res.status);
                 err.statusCode = res.status;
                 throw err;
             }
             return res.data;
         }, function(err) {
-            dbg.log0('RPC WS EXCEPTION', message.path, err);
+            dbg.error('RPC WS EXCEPTION', message.path, err);
             throw err;
         });
 }
@@ -125,7 +125,7 @@ function serve(rpc, peer_id) {
                         reqId = (buffer_utils.toBuffer(message.slice(0, 32))
                             .readInt32LE(0)).toString();
                     } catch (ex) {
-                        dbg.log0('problem reading req id rest_api ' + ex);
+                        dbg.error('problem reading req id rest_api ' + ex);
                     }
                     var msgObj = channel.msgs[reqId];
                     body = msgObj.buffer;
@@ -137,7 +137,7 @@ function serve(rpc, peer_id) {
                     reqId = msg.req || msg.requestId;
                     dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
                 } else {
-                    throw new Error('ice got weird msg '+ message);
+                    throw new Error('ice got weird msg '+ util.inspect(message));
                 }
 
                 if (msg && msg.sigType) {
@@ -183,7 +183,7 @@ function serve(rpc, peer_id) {
                     return send_reply(200, reply, null);
                 }
             }, function(err) {
-                dbg.log0('RPC ICE FAILED ',reqId, err.stack || err);
+                dbg.error('RPC ICE FAILED ',reqId, err.stack || err);
                 return send_reply(500, err.toString(), null);
             });
 
@@ -223,12 +223,12 @@ function serve(rpc, peer_id) {
                 })
                 .then(function() {
                     try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (err) {
-                        dbg.log0('closeIce err ' + reqId, err);
+                        dbg.error('closeIce err ' + reqId, err);
                     }
                 })
                 .then(null, function(err) {
                     try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (ex) {
-                        dbg.log0('closeIce ex on err ' + reqId, ex);
+                        dbg.error('closeIce ex on err ' + reqId, ex);
                     }
                     throw err;
                 });

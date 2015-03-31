@@ -120,199 +120,199 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
 
     dbg.log0('upload_stream: create multipart', params.key);
     return Q.fcall(function() {
-            var pipeline = new Pipeline(params.source_stream);
+        var pipeline = new Pipeline(params.source_stream);
 
-            ////////////////////////////////////////
-            // PIPELINE: split to chunks by rabin //
-            ////////////////////////////////////////
+        ////////////////////////////////////////
+        // PIPELINE: split to chunks by rabin //
+        ////////////////////////////////////////
 
-            pipeline.pipe(new rabin.RabinChunkStream({
-                window_length: 128,
-                min_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 3,
-                max_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 6,
-                hash_spaces: [{
-                    poly: new Poly(Poly.PRIMITIVES[31]),
-                    hash_bits: self.OBJECT_RANGE_ALIGN_NBITS - 1, // 256 KB average chunk
-                    hash_val: 0x07071070 // hebrew calculator pimp
-                }],
-            }));
+        pipeline.pipe(new rabin.RabinChunkStream({
+            window_length: 128,
+            min_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 3,
+            max_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 6,
+            hash_spaces: [{
+                poly: new Poly(Poly.PRIMITIVES[31]),
+                hash_bits: self.OBJECT_RANGE_ALIGN_NBITS - 1, // 256 KB average chunk
+                hash_val: 0x07071070 // hebrew calculator pimp
+            }],
+        }));
 
-            ////////////////////////////
-            // PIPELINE: encrypt part //
-            ////////////////////////////
+        ////////////////////////////
+        // PIPELINE: encrypt part //
+        ////////////////////////////
 
-            pipeline.pipe(transformer({
-                options: {
-                    objectMode: true,
-                },
-                init: function() {
-                    this._pos = 0;
-                },
-                transform: function(chunk) {
-                    var stream = this;
-                    var crypt = _.clone(self.CRYPT_TYPE);
-                    return chunk_crypto.encrypt_chunk(chunk, crypt)
-                        .then(function(encrypted_chunk) {
-                            var part = {
-                                start: start + stream._pos,
-                                end: start + stream._pos + chunk.length,
-                                crypt: crypt,
-                                encrypted_chunk: encrypted_chunk
-                            };
-                            stream._pos += chunk.length;
-                            return part;
-                        });
-                }
-            }));
-
-            //////////////////////////////////////
-            // PIPELINE: allocate part mappings //
-            //////////////////////////////////////
-
-            pipeline.pipe(new CoalesceStream({
+        pipeline.pipe(transformer({
+            options: {
                 objectMode: true,
-                highWaterMark: 30,
-                max_length: 10,
-                max_wait_ms: 1000,
-            }));
+            },
+            init: function() {
+                this._pos = 0;
+            },
+            transform: function(chunk) {
+                var stream = this;
+                var crypt = _.clone(self.CRYPT_TYPE);
+                return chunk_crypto.encrypt_chunk(chunk, crypt)
+                    .then(function(encrypted_chunk) {
+                        var part = {
+                            start: start + stream._pos,
+                            end: start + stream._pos + chunk.length,
+                            crypt: crypt,
+                            encrypted_chunk: encrypted_chunk
+                        };
+                        stream._pos += chunk.length;
+                        return part;
+                    });
+            }
+        }));
 
-            pipeline.pipe(transformer({
-                options: {
-                    objectMode: true,
-                    highWaterMark: 10
-                },
-                transform: function(parts) {
-                    var stream = this;
-                    dbg.log0('upload_stream: allocating parts', parts.length);
-                    // send parts to server
-                    return self.object_rpc_client.allocate_object_parts({
+        //////////////////////////////////////
+        // PIPELINE: allocate part mappings //
+        //////////////////////////////////////
+
+        pipeline.pipe(new CoalesceStream({
+            objectMode: true,
+            highWaterMark: 30,
+            max_length: 10,
+            max_wait_ms: 1000,
+        }));
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+                highWaterMark: 10
+            },
+            transform: function(parts) {
+                var stream = this;
+                dbg.log0('upload_stream: allocating parts', parts.length);
+                // send parts to server
+                return self.object_rpc_client.allocate_object_parts({
+                        bucket: params.bucket,
+                        key: params.key,
+                        parts: _.map(parts, function(part) {
+                            var p = {
+                                start: part.start,
+                                end: part.end,
+                                crypt: part.crypt,
+                                chunk_size: part.encrypted_chunk.length,
+                                upload_part_number: upload_part_number
+                            };
+                            return p;
+                        })
+                    })
+                    .then(function(res) {
+                        // push parts down the pipe
+                        var part;
+                        for (var i = 0; i < res.parts.length; i++) {
+                            if (res.parts[i].dedup) {
+                                part = parts[i];
+                                part.dedup = true;
+                                dbg.log0('upload_stream: DEDUP part', part.start);
+                            } else {
+                                part = res.parts[i].part;
+                                part.encrypted_chunk = parts[i].encrypted_chunk;
+                                dbg.log0('upload_stream: allocated part', part.start);
+                            }
+                            stream.push(part);
+                        }
+                    });
+            }
+        }));
+
+        /////////////////////////////////
+        // PIPELINE: write part blocks //
+        /////////////////////////////////
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+                highWaterMark: 30
+            },
+            transform: function(part) {
+                if (part.dedup) return;
+                return self._write_part_blocks(
+                        params.bucket, params.key, part)
+                    .thenResolve(part);
+            }
+        }));
+
+        /////////////////////////////
+        // PIPELINE: finalize part //
+        /////////////////////////////
+
+        pipeline.pipe(new CoalesceStream({
+            objectMode: true,
+            highWaterMark: 30,
+            max_length: 10,
+            max_wait_ms: 1000,
+        }));
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+                highWaterMark: 10
+            },
+            transform: function(parts) {
+                var stream = this;
+                dbg.log0('upload_stream: finalize parts', parts.length);
+                // send parts to server
+                return self._finalize_sem.surround(function() {
+                    return self.object_rpc_client.finalize_object_parts({
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
-                                var p = {
-                                    start: part.start,
-                                    end: part.end,
-                                    crypt: part.crypt,
-                                    chunk_size: part.encrypted_chunk.length,
-                                    upload_part_number: upload_part_number
-                                };
+                                var p = _.pick(part, 'start', 'end');
+                                if (!part.dedup) {
+                                    p.block_ids = _.flatten(
+                                        _.map(part.fragments, function(fragment) {
+                                            return _.map(fragment.blocks, function(block) {
+                                                return block.address.id;
+                                            });
+                                        })
+                                    );
+                                }
                                 return p;
                             })
+                        }, {
+                            timeout: config.client_replicate_timeout,
+                            retries: 3
                         })
-                        .then(function(res) {
+                        .then(function() {
                             // push parts down the pipe
-                            var part;
-                            for (var i = 0; i < res.parts.length; i++) {
-                                if (res.parts[i].dedup) {
-                                    part = parts[i];
-                                    part.dedup = true;
-                                    dbg.log0('upload_stream: DEDUP part', part.start);
-                                } else {
-                                    part = res.parts[i].part;
-                                    part.encrypted_chunk = parts[i].encrypted_chunk;
-                                    dbg.log0('upload_stream: allocated part', part.start);
-                                }
+                            for (var i = 0; i < parts.length; i++) {
+                                var part = parts[i];
+                                dbg.log0('upload_stream: finalize part offset', part.start);
                                 stream.push(part);
                             }
+                        }, function(err) {
+                            dbg.log0('upload_stream: FINALIZE FAILED',
+                                'leave it to background worker', err.stack || err);
+                            // TODO temporary suppressing this error for the sake of user experience
+                            // but we should fix this path
                         });
-                }
-            }));
+                });
+            }
+        }));
 
-            /////////////////////////////////
-            // PIPELINE: write part blocks //
-            /////////////////////////////////
+        //////////////////////////////////////////
+        // PIPELINE: resolve, reject and notify //
+        //////////////////////////////////////////
 
-            pipeline.pipe(transformer({
-                options: {
-                    objectMode: true,
-                    highWaterMark: 30
-                },
-                transform: function(part) {
-                    if (part.dedup) return;
-                    return self._write_part_blocks(
-                            params.bucket, params.key, part)
-                        .thenResolve(part);
-                }
-            }));
-
-            /////////////////////////////
-            // PIPELINE: finalize part //
-            /////////////////////////////
-
-            pipeline.pipe(new CoalesceStream({
+        pipeline.pipe(transformer({
+            options: {
                 objectMode: true,
-                highWaterMark: 30,
-                max_length: 10,
-                max_wait_ms: 1000,
-            }));
+                highWaterMark: 30
+            },
+            transform: function(part) {
+                dbg.log0('upload_stream: completed part offset', part.start);
+                dbg.log_progress(part.end / params.size);
+                pipeline.notify({
+                    event: 'part:after',
+                    part: part
+                });
+            }
+        }));
 
-            pipeline.pipe(transformer({
-                options: {
-                    objectMode: true,
-                    highWaterMark: 10
-                },
-                transform: function(parts) {
-                    var stream = this;
-                    dbg.log0('upload_stream: finalize parts', parts.length);
-                    // send parts to server
-                    return self._finalize_sem.surround(function() {
-                        return self.object_rpc_client.finalize_object_parts({
-                                bucket: params.bucket,
-                                key: params.key,
-                                parts: _.map(parts, function(part) {
-                                    var p = _.pick(part, 'start', 'end');
-                                    if (!part.dedup) {
-                                        p.block_ids = _.flatten(
-                                            _.map(part.fragments, function(fragment) {
-                                                return _.map(fragment.blocks, function(block) {
-                                                    return block.address.id;
-                                                });
-                                            })
-                                        );
-                                    }
-                                    return p;
-                                })
-                            }, {
-                                timeout: config.client_replicate_timeout,
-                                retries: 3
-                            })
-                            .then(function() {
-                                // push parts down the pipe
-                                for (var i = 0; i < parts.length; i++) {
-                                    var part = parts[i];
-                                    dbg.log0('upload_stream: finalize part offset', part.start);
-                                    stream.push(part);
-                                }
-                            }, function(err) {
-                                dbg.log0('upload_stream: FINALIZE FAILED',
-                                    'leave it to background worker', err.stack || err);
-                                // TODO temporary suppressing this error for the sake of user experience
-                                // but we should fix this path
-                            });
-                    });
-                }
-            }));
-
-            //////////////////////////////////////////
-            // PIPELINE: resolve, reject and notify //
-            //////////////////////////////////////////
-
-            pipeline.pipe(transformer({
-                options: {
-                    objectMode: true,
-                    highWaterMark: 30
-                },
-                transform: function(part) {
-                    dbg.log0('upload_stream: completed part offset', part.start);
-                    dbg.log_progress(part.end / params.size);
-                    pipeline.notify({
-                        event: 'part:after',
-                        part: part
-                    });
-                }
-            }));
-
-            return pipeline.run();
+        return pipeline.run();
     });
 };
 

@@ -37,7 +37,7 @@ describe('create buffer to send', function() {
 
 describe('write buffer to socket', function() {
 
-    it('write test', function() {
+    it('write test', function(done) {
 
         var block = new Buffer('stam','utf-8');
 
@@ -52,7 +52,7 @@ describe('write buffer to socket', function() {
         };
 
         Q.fcall(function() {
-            return ice_api.writeBufferToSocket(channel, block, '45344');
+            return ice_api.writeBufferToSocket(null,channel, block, '45344');
         }).then(function() {
 
             var myResultBuffer = buf.chunkToBuffer(channel.buffer);
@@ -66,13 +66,13 @@ describe('write buffer to socket', function() {
             var afterBuf = myResultBuffer.slice(64, channel.length);
             var strVal = afterBuf.toString();
             assert.equal(strVal, 'stam');
-        });
+        }).nodeify(done);
     });
 
 });
 
 
-describe.skip('on ice message', function() {
+describe('on ice message', function() {
 
     it('get string', function(done) {
 
@@ -83,11 +83,13 @@ describe.skip('on ice message', function() {
             body: 'dfgdfgdfg'
         };
 
+        var socket = {};
+
         var channel = {
             myId: 1,
             peerId: 2,
             msgs: {},
-            handleRequestMethod: function(channel, data) {
+            handleRequestMethod: function(socket, channel, data) {
                 result = data;
                 assert.equal(result.req, message.req);
                 assert.equal(result.body, message.body);
@@ -99,7 +101,7 @@ describe.skip('on ice message', function() {
             data: JSON.stringify(message)
         };
 
-        ice_api.onIceMessage(null, channel, event);
+        ice_api.onIceMessage(socket, channel, event);
     });
 
     it('get buffer', function(done) {
@@ -114,7 +116,7 @@ describe.skip('on ice message', function() {
             myId: 1,
             peerId: 2,
             msgs: {},
-            handleRequestMethod: function(channel, message) {
+            handleRequestMethod: function(socket, channel, message) {
                 var msgObj = channel.msgs[requestId];
                 result = msgObj.peer_msg;
                 result.data = msgObj.buffer;
@@ -134,29 +136,31 @@ describe.skip('on ice message', function() {
             size: block.length*2
         };
 
+        var socket = {};
+
         var event = {
             data: JSON.stringify(message)
         };
 
-        ice_api.onIceMessage(null, channel, event);
+        ice_api.onIceMessage(socket, channel, event);
 
         var blockEvent = ice_lib.createBufferToSend(block, 0, requestId);
         event = {
             data: buf.toArrayBuffer(blockEvent)
         };
 
-        ice_api.onIceMessage(null, channel, event);
+        ice_api.onIceMessage(socket, channel, event);
 
         blockEvent = ice_lib.createBufferToSend(block, 1, requestId);
         event = {
             data: buf.toArrayBuffer(blockEvent)
         };
-        ice_api.onIceMessage(null, channel, event);
+        ice_api.onIceMessage(socket, channel, event);
 
     });
 
 
-    it.skip('test ws', function() {
+    it.skip('test ws', function(done) {
 
         // create mock for web sockets
         var wsMock = function(addr) {
@@ -256,7 +260,7 @@ describe.skip('on ice message', function() {
         assert.ok(socket.ws.msgsSent[1].indexOf('434') >= 0, 'sendWSMessage issue - didnt send with body');
 
         // chk that when request of no specific type arrives it goes to the right method
-        socket.handleRequestMethod = function(ws, message) {
+        socket.handleRequestMethod = function(socket, ws, message) {
             console.log('got msg '+message);
             ws.msgsRec.push(message);
         };
@@ -329,6 +333,8 @@ describe.skip('on ice message', function() {
         //assert.ok(!p2p_context.iceSockets[peerId].usedBy[reqId], 'close ice didnt delete used by');
         ice_lib.closeSignaling(socket);
 
+        done();
+
     });
 
     it('test ws req', function(done) {
@@ -375,6 +381,12 @@ describe.skip('on ice message', function() {
                 iceSockets: {}
             };
 
+            p2p_context.iceSockets[peerId] = {
+                lastUsed: (new Date()).getTime(),
+                usedBy: {},
+                status: 'start'
+            };
+
             // open mock web socket to signaling server
             socket = ice_lib.setup(function(p2p_context, channel, event) {
                 console.log('got event '+event.data+' from peer '+channel.peerId);
@@ -389,10 +401,7 @@ describe.skip('on ice message', function() {
             // add socket to context
             p2p_context.wsClientSocket = {ws_socket: socket, lastTimeUsed: new Date().getTime(), interval: {}, usedBy:{}};
 
-
             assert(!socket.icemap[reqId], 'request used before ?');
-            ice_lib.initiateIce(null, socket, peerId, true, reqId);
-            socket.icemap[reqId].dataChannel.onopen();
 
             // test send ws request
             var requestId;
@@ -443,7 +452,7 @@ describe.skip('on ice message', function() {
 
     });
 
-    it('test ice req', function(done) {
+    it.skip('test ice req', function(done) {
         this.timeout(20000);
         var int1, int2, int3;
         var ice_lib;
@@ -516,7 +525,7 @@ describe.skip('on ice message', function() {
                     msgs: {}
                 },
                 usedBy: {},
-                status: 'new'
+                status: 'start'
             };
 
             // open mock web socket to signaling server

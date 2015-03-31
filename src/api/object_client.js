@@ -486,6 +486,37 @@ ObjectClient.prototype._init_object_md_cache = function() {
  * see ObjectReader.
  *
  */
+ObjectClient.prototype.read_entire_object = function(params) {
+    var self = this;
+    return Q.Promise(function(resolve, reject) {
+        var buffers = [];
+        self.open_read_stream(params)
+            .on('data', function(chunk) {
+                console.log('read data', chunk.length);
+                buffers.push(chunk);
+            })
+            .once('end', function() {
+                var read_buf = Buffer.concat(buffers);
+                console.log('read end', read_buf.length);
+                resolve(read_buf);
+            })
+            .once('error', function(err) {
+                console.log('read error', err);
+                reject(err);
+            });
+    });
+};
+
+
+
+/**
+ *
+ * OPEN_READ_STREAM
+ *
+ * returns a readable stream to the object.
+ * see ObjectReader.
+ *
+ */
 ObjectClient.prototype.open_read_stream = function(params, watermark) {
     return new ObjectReader(this, params, watermark || this.OBJECT_RANGE_ALIGN);
 };

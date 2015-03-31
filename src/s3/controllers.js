@@ -631,7 +631,11 @@ module.exports = function(params) {
                         content_type: req.headers['content-type']
                     };
                     dbg.log0('Init Multipart -create_multipart_upload ', create_params);
-
+                    //TODO: better override. from some reason, sometimes movies are octet.
+                    if (create_params.content_type==='application/octet-stream'){
+                        create_params.content_type = mime.lookup(key)||create_params.content_type;
+                        dbg.log0('Init Multipart - create_multipart_upload - override mime ', create_params);
+                    }
                     return client.object.create_multipart_upload(create_params)
                         .then(function(info) {
                             template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key);

@@ -110,6 +110,20 @@ function s3_app(params) {
                             });
                     });
                 })
+                .then(function() {
+                    return Q.Promise(function(resolve, reject) {
+                        dbg.log0('Starting Streamer', 5005);
+                        http.createServer(app.handle.bind(app))
+                            .listen(5005, function(err) {
+                                if (err) {
+                                    dbg.log0('Streamer listen', err);
+                                    reject(err);
+                                } else {
+                                    resolve();
+                                }
+                            });
+                    });
+                })
                 .then(null, function(err) {
                     dbg.log0('SERVE ERROR', err.stack || err);
                 });

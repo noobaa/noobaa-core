@@ -451,7 +451,13 @@ module.exports = function(params) {
                             if (req.method === 'HEAD') {
                                 return res.end();
                             } else {
-                                var stream = client.object_client.open_read_stream(object_path).pipe(res);
+                                //read ranges
+                                if (req.header('range')){
+                                    return client.object_client.serve_http_stream(req,res,object_path);
+                                }else{
+                                    var stream = client.object_client.open_read_stream(object_path).pipe(res);
+
+                                }
                             }
 
                         }).then(null, function(err) {
@@ -613,6 +619,8 @@ module.exports = function(params) {
                         size: 0,
                         content_type: req.headers['content-type']
                     };
+                    dbg.log0('Init Multipart -create_multipart_upload ', create_params);
+
                     return client.object.create_multipart_upload(create_params)
                         .then(function(info) {
                             template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key);

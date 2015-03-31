@@ -137,7 +137,7 @@ function serve(rpc, peer_id) {
                     reqId = msg.req || msg.requestId;
                     dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
                 } else {
-                    throw new Error('ice got weird msg '+ message);
+                    throw new Error('ice got weird msg '+ util.inspect(message));
                 }
 
                 if (msg && msg.sigType) {

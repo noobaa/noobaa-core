@@ -16,7 +16,6 @@ module.exports = {
         create_account: {
             doc: 'Create a new account',
             method: 'POST',
-            path: '/account',
             params: {
                 type: 'object',
                 required: ['name', 'email', 'password'],
@@ -50,7 +49,6 @@ module.exports = {
         read_account: {
             doc: 'Read the info of the authorized account',
             method: 'GET',
-            path: '/account',
             reply: {
                 $ref: '/definitions/account_api/account_info'
             },
@@ -62,7 +60,6 @@ module.exports = {
         update_account: {
             doc: 'Update the info of the authorized account',
             method: 'PUT',
-            path: '/account',
             params: {
                 type: 'object',
                 required: [],
@@ -86,7 +83,6 @@ module.exports = {
         delete_account: {
             doc: 'Delete the authorized account',
             method: 'DELETE',
-            path: '/account',
             auth: {
                 system: false,
             }
@@ -95,7 +91,6 @@ module.exports = {
         list_accounts: {
             doc: 'List accounts',
             method: 'GET',
-            path: '/accounts',
             reply: {
                 type: 'object',
                 require: 'accounts',

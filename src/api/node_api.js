@@ -18,7 +18,6 @@ module.exports = {
 
         create_node: {
             method: 'POST',
-            path: '/node',
             params: {
                 $ref: '/node_api/definitions/node_config'
             },
@@ -44,7 +43,6 @@ module.exports = {
 
         read_node: {
             method: 'GET',
-            path: '/node/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -64,7 +62,6 @@ module.exports = {
 
         update_node: {
             method: 'PUT',
-            path: '/node/:name',
             params: {
                 $ref: '/node_api/definitions/node_config'
             },
@@ -75,7 +72,6 @@ module.exports = {
 
         delete_node: {
             method: 'DELETE',
-            path: '/node/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -92,7 +88,6 @@ module.exports = {
 
         read_node_maps: {
             method: 'GET',
-            path: '/node_maps/:name',
             params: {
                 type: 'object',
                 required: ['name'],
@@ -142,7 +137,6 @@ module.exports = {
 
         list_nodes: {
             method: 'GET',
-            path: '/node',
             params: {
                 type: 'object',
                 required: [],
@@ -191,7 +185,6 @@ module.exports = {
 
         group_nodes: {
             method: 'GET',
-            path: '/group',
             params: {
                 type: 'object',
                 required: [],
@@ -249,7 +242,6 @@ module.exports = {
 
         heartbeat: {
             method: 'PUT',
-            path: '/heartbeat/:id',
             params: {
                 type: 'object',
                 required: [

@@ -43,6 +43,13 @@ var object_part_schema = new Schema({
         required: true,
     },
 
+    // the part number as used for s3 multipart upload api
+    // this will be kept during upload only to be able to list the parts
+    // and group them by the caller part numbers
+    upload_part_number: {
+        type: Number,
+    },
+
     // list of chunks (copies)
     chunks: [{
 

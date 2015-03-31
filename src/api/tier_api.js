@@ -16,7 +16,6 @@ module.exports = {
         create_tier: {
             doc: 'Create tier',
             method: 'POST',
-            path: '/tier',
             params: {
                 type: 'object',
                 requires: ['name', 'kind'],
@@ -43,7 +42,6 @@ module.exports = {
         read_tier: {
             doc: 'Read tier info',
             method: 'GET',
-            path: '/tier/:name',
             params: {
                 type: 'object',
                 requires: ['name'],
@@ -64,7 +62,6 @@ module.exports = {
         update_tier: {
             doc: 'Update tier info',
             method: 'PUT',
-            path: '/tier/:name',
             params: {
                 type: 'object',
                 requires: ['name'],
@@ -91,7 +88,6 @@ module.exports = {
         delete_tier: {
             doc: 'Delete tier',
             method: 'DELETE',
-            path: '/tier/:name',
             params: {
                 type: 'object',
                 requires: ['name'],

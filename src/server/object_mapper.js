@@ -33,6 +33,7 @@ module.exports = {
     finalize_object_parts: finalize_object_parts,
     read_object_mappings: read_object_mappings,
     read_node_mappings: read_node_mappings,
+    list_multipart_parts: list_multipart_parts,
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
     build_chunks: build_chunks,
@@ -149,6 +150,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     obj: obj.id,
                     start: part.start,
                     end: part.end,
+                    upload_part_number: part.upload_part_number || 0,
                     chunks: [{
                         chunk: chunk,
                         // chunk_offset: 0, // not required
@@ -456,6 +458,56 @@ function read_parts_mappings(params) {
             return parts_reply;
         });
 }
+
+
+
+/**
+ *
+ * list_multipart_parts
+ *
+ */
+function list_multipart_parts(params) {
+    var max_parts = Math.min(params.max_parts || 50, 50);
+    var marker = params.part_number_marker || 0;
+    return Q.when(db.ObjectPart.find({
+                obj: params.obj.id,
+                upload_part_number: {
+                    $gte: marker,
+                    $lt: marker + max_parts
+                },
+                deleted: null,
+            })
+            .sort('upload_part_number')
+            // TODO set .limit(max_parts?)
+            .populate('chunks.chunk')
+            .exec())
+        .then(function(parts) {
+            var upload_parts = _.groupBy(parts, 'upload_part_number');
+            dbg.log0('list_multipart_parts: upload_parts', upload_parts);
+            var part_numbers = _.keys(upload_parts).sort();
+            dbg.log0('list_multipart_parts: part_numbers', part_numbers);
+            var last_part = parseInt(_.last(part_numbers), 10) || marker;
+            return {
+                part_number_marker: marker,
+                max_parts: max_parts,
+                // since we don't know here the real end number
+                // then we just reply truncated=true until we get to the last iteration
+                // where we don't find any parts.
+                // TODO this logic fails if there is a gap of numbers. need to correct
+                is_truncated: !!(part_numbers.length || !max_parts),
+                next_part_number_marker: last_part + 1,
+                upload_parts: _.map(part_numbers, function(num) {
+                    return {
+                        part_number: parseInt(num, 10),
+                        size: _.reduce(upload_parts[num], function(sum, part) {
+                            return sum + part.end - part.start;
+                        }, 0)
+                    };
+                })
+            };
+        });
+}
+
 
 
 /*
@@ -1217,6 +1269,9 @@ function get_part_info(params) {
     p.crypt = _.pick(params.chunk.crypt, 'hash_type', 'hash_val', 'cipher_type', 'cipher_val');
     p.chunk_size = params.chunk.size;
     p.chunk_offset = p.chunk_offset || 0;
+    if (params.upload_part_number) {
+        p.upload_part_number = params.upload_part_number;
+    }
     if (params.set_obj) {
         p.obj = params.part.obj;
     }

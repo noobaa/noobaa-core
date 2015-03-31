@@ -238,6 +238,12 @@ describe('object', function() {
                             console.log('list_multipart_parts reply', res);
                         });
                 })
+                .then(function() {
+                    return client.object.complete_multipart_upload({
+                        bucket: BKT,
+                        key: key,
+                    });
+                })
                 .nodeify(done);
         });
 

@@ -837,6 +837,7 @@ function build_chunks(chunks) {
                             peer: block_addr.peer,
                             is_ws: true,
                             timeout: config.server_replicate_timeout,
+                            retries: config.replicate_retry
                         });
                     }).then(function() {
                         dbg.log1('build_chunks replicated block', block._id,

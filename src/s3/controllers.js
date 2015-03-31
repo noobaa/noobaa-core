@@ -69,7 +69,7 @@ module.exports = function(params) {
     var buildXmlResponse = function(res, status, template) {
         res.header('Content-Type', 'application/xml');
         res.status(status);
-        //dbg.log0('template:',template,'headers',res);
+        dbg.log0('template:',template);
         return res.send(template);
     };
 
@@ -340,6 +340,7 @@ module.exports = function(params) {
                         } else {
                             template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
                         }
+
                         return buildXmlResponse(res, 200, template);
                     })
                     .then(function() {
@@ -393,17 +394,25 @@ module.exports = function(params) {
                         bucket: params.bucket,
                         key: keyName
                     };
+                    dbg.log0('getObject',object_path,req.method);
                     return client.object_client.get_object_md(object_path)
                         .then(function(object_md) {
                             var create_date = new Date(object_md.create_time);
                             create_date.setMilliseconds(0);
 
-                            res.header('Last-Modified', create_date);
+                            //res.header('Last-Modified', null);
                             res.header('Content-Type', object_md.content_type);
                             res.header('Content-Length', object_md.size);
-                            res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
+                            res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']||create_date);
+                            res.header('x-amz-restore','ongoing-request="false"');
+                            res.header('ETag', keyName);
+                            res.header('x-amz-id-2','FSVaTMjrmBp3Izs1NnwBZeu7M19iI8UbxMbi0A8AirHANJBo+hEftBuiESACOMJp');
+                            res.header('x-amz-request-id', 'E5CEFCB143EB505A');
+
                             if (req.method === 'HEAD') {
-                                return res.end();
+                                dbg.log0('Head ',res._headers);
+
+                                return res.status(200).end();
                             } else {
                                 var stream = client.object_client.open_read_stream(object_path).pipe(res);
                             }
@@ -411,7 +420,7 @@ module.exports = function(params) {
                         }).then(null, function(err) {
                             //if cloudberry tool is looking for its own format for large files and can find it,
                             //we will try with standard format
-
+                            dbg.log0('ERROR:',err);
                             if (object_path.key.indexOf('..chunk..map')>0)
                             {
                                 dbg.log0('Identified cloudberry format, return error 404');
@@ -452,6 +461,7 @@ module.exports = function(params) {
         },
 
         putObject: function(req, res) {
+            dbg.log0('put object');
             var template;
             var acl = req.query.acl;
             var delimiter = req.query.delimiter;
@@ -505,19 +515,7 @@ module.exports = function(params) {
                 // }
 
                  Q.fcall(function() {
-                //     var auth_params = _.pick(params,
-                //         'email', 'password', 'system', 'role');
-                //     if (params.bucket) {
-                //         auth_params.extra = {
-                //             bucket: params.bucket
-                //         };
-                //     }
-                //     dbg.log1('create auth', auth_params);
-                //     return client.create_auth_token(auth_params);
-                //
-                // }).then(function() {
-                //     dbg.log0('check', params.bucket, file_key_name);
-
+                    dbg.log0('listing ',req.params.key);
                     return client.object.list_objects({
                         bucket: params.bucket,
                         key: file_key_name
@@ -571,7 +569,6 @@ module.exports = function(params) {
                         var template = templateBuilder.buildKeyNotFound(key);
                         return buildXmlResponse(res, 404, template);
                     }
-                    //dbg.log0('objects in bucket', params.bucket, ' with key ', key, ':');
                     var i = 0;
                     _.each(res.objects, function(obj) {
                         dbg.log0('#' + i, obj.key, '\t', obj.info.size, 'bytes');

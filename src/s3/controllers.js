@@ -70,16 +70,29 @@ module.exports = function(params) {
             var template;
             dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ', req.query.uploadId, 'content length:', req.headers['content-length']);
             var mydata = '';
-            req.on('data', function(data) {
-                //mydata += data;
-            });
-            req.on('end', function() {
-                dbg.log0('finished upload part', req.query.partNumber);
-                res.header('ETag', 'oasidjo' + req.query.partNumber);
-                res.header('x-amz-id-2', 'Vvag1LuByRx9e6j5Onimru9pO4ZVKnJ2Qz7/C1NPcfTWAtRPfTaOFg==');
-                res.header('x-amz-request-id', '656c76696e6727732072657175657374');
+
+            return client.object_client.upload_stream_parts({
+                bucket: params.bucket,
+                key: req.query.uploadId,
+                size: parseInt(req.headers['content-length']*req.query.partNumber),
+                content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
+                source_stream: req,
+                upload_part_number: parseInt(req.query.partNumber)
+            }).then(function() {
+                try {
+                    dbg.log0('COMPLETED: upload', req.query.uploadId);
+                    res.header('ETag', req.query.uploadId + req.query.partNumber);
+                } catch (err) {
+                    dbg.log0('FAILED', err, res);
+
+                }
+                dbg.log0('upload body::::::', res.body, ' headers:', res.headers);
                 return res.status(200).end();
+            }, function(err) {
+                dbg.log0('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
+                return res.status(500).end();
             });
+
         });
     };
     var listPartsResult = function(req, res) {
@@ -596,16 +609,27 @@ module.exports = function(params) {
             }
             //CompleteMultipartUpload
             else if (!_.isUndefined(req.query.uploadId)) {
-                var completeMultipartInformation = {
+                return  client.object_client.complete_multipart_upload({
                     Bucket: params.bucket,
-                    Key: req.query.uploadId,
-                    Location: 'https://' + req.hostname + '/' + params.bucket + '/' + req.query.uploadId,
-                    ETag: 1234
-                };
+                    Key: req.query.uploadId
+                }).then(function(){
+                    var completeMultipartInformation = {
+                        Bucket: params.bucket,
+                        Key: req.query.uploadId,
+                        Location: 'https://' + req.hostname + '/' + params.bucket + '/' + req.query.uploadId,
+                        ETag: 1234
+                    };
 
-                template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
-                dbg.log0('Complete multipart', template);
-                return buildXmlResponse(res, 200, template);
+                    template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
+                    dbg.log0('Complete multipart', template);
+                    return buildXmlResponse(res, 200, template);
+
+                },function(err){
+                    template = templateBuilder.buildKeyNotFound(req.query.uploadId);
+                    dbg.log0('Err Complete multipart', template);
+                    return buildXmlResponse(res, 500, template);
+
+                });
             }
         },
         deleteObject: function(req, res) {

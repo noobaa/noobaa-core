@@ -595,7 +595,7 @@ function closeIce(socket, requestId, dataChannel, dontClose) {
         }
 
         var obj;
-        var channelObj = socket.icemap[requestId];
+        var channelObj = socket && socket.icemap ? socket.icemap[requestId] : null;
         if (channelObj) {
             channelObj.done = true;
             if (!peerId) {
@@ -603,7 +603,7 @@ function closeIce(socket, requestId, dataChannel, dontClose) {
             }
         }
 
-        obj = socket.p2p_context ? socket.p2p_context.iceSockets[peerId] : null;
+        obj = socket && socket.p2p_context && socket.p2p_context.iceSockets ? socket.p2p_context.iceSockets[peerId] : null;
 
         if (obj && obj.dataChannel === dataChannel) {
             obj.lastUsed = (new Date()).getTime();
@@ -619,7 +619,7 @@ function closeIce(socket, requestId, dataChannel, dontClose) {
             disconnect(socket);
         }
     } catch (ex) {
-        dbg.error('Error on close ice socket for request '+requestId+' ex '+ex);
+        dbg.error('Error on close ice socket for request '+requestId,ex,ex.stack);
     }
 }
 module.exports.closeIce = closeIce;

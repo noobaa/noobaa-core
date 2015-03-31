@@ -12,7 +12,6 @@ var config = require('../../config.js');
 
 module.exports = RPC;
 
-var PATH_ITEM_RE = /^\S*$/;
 var VALID_HTTP_METHODS = {
     GET: 1,
     PUT: 1,
@@ -59,7 +58,6 @@ RPC.prototype.register_api = function(api) {
     });
 
     // go over the api and check its validity
-    var method_and_path_collide = {};
     _.each(api.methods, function(method_api, method_name) {
         // add the name to the info
         method_api.name = method_name;
@@ -74,10 +72,6 @@ RPC.prototype.register_api = function(api) {
         assert(method_api.method in VALID_HTTP_METHODS,
             'RPC: unexpected http method: ' +
             method_api.method + ' for ' + method_api.fullname);
-
-        assert.strictEqual(typeof(method_api.path), 'string',
-            'RPC: unexpected path type: ' +
-            method_api.path + ' for ' + method_api.fullname);
     });
 
     self._apis[api.name] = api;
@@ -197,7 +191,7 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
                     return reply;
                 })
                 .then(null, function(err) {
-                    console.error('RPC ERROR', srv_name, err.stack || err);
+                    console.error('RPC ERROR', srv_name, err, err.stack);
                     throw err;
                 });
         }

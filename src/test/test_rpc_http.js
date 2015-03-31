@@ -53,7 +53,6 @@ describe('RPC HTTP', function() {
         methods: {
             get: {
                 method: 'GET',
-                path: '/:param1/and/also/:param2',
                 params: {
                     $ref: '/test_api/definitions/params_schema'
                 },
@@ -65,7 +64,6 @@ describe('RPC HTTP', function() {
             },
             post: {
                 method: 'POST',
-                path: '/:param1/and/also/:param2',
                 params: {
                     $ref: '/test_api/definitions/params_schema'
                 },
@@ -77,7 +75,6 @@ describe('RPC HTTP', function() {
             },
             put: {
                 method: 'PUT',
-                path: '/:param1/and/also/:param3',
                 params: {
                     $ref: '/test_api/definitions/params_schema'
                 },
@@ -89,7 +86,6 @@ describe('RPC HTTP', function() {
             },
             delete: {
                 method: 'DELETE',
-                path: '/all/:param2',
                 params: {
                     $ref: '/test_api/definitions/params_schema'
                 },
@@ -128,7 +124,6 @@ describe('RPC HTTP', function() {
                     methods: {
                         a: {
                             method: 'POSTER',
-                            path: '/'
                         },
                     }
                 });

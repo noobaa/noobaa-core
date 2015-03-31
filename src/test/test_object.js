@@ -238,7 +238,6 @@ describe('object', function() {
                     return client.object.complete_multipart_upload({
                         bucket: BKT,
                         key: key,
-                        size: part_size * num_parts,
                         fix_parts_size: true
                     });
                 })

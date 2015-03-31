@@ -98,7 +98,7 @@ function complete_multipart_upload(req) {
                 return object_mapper.fix_multipart_parts(obj);
             }
         })
-        .then(function() {
+        .then(function(object_size) {
             db.ActivityLog.create({
                 system: req.system,
                 level: 'info',
@@ -107,8 +107,7 @@ function complete_multipart_upload(req) {
             });
 
             return obj.update({
-                    size: req.rpc_params.size || obj.size
-                }, {
+                    size: object_size || obj.size,
                     $unset: {
                         upload_size: 1
                     }

@@ -564,7 +564,7 @@ function fix_multipart_parts(obj) {
                 last_end = current_end;
             });
             // calling execute on bulk and handling node callbacks
-            return Q.ninvoke(bulk_update, 'execute');
+            return Q.ninvoke(bulk_update, 'execute').thenResolve(last_end);
         });
 }
 

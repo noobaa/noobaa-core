@@ -615,7 +615,7 @@ function closeIce(socket, requestId, dataChannel, dontClose) {
             delete obj.usedBy[requestId];
         } else if (socket && !socket.p2p_context && !dontClose) {
             if (channelObj && channelObj.peerConn) {
-                channelObj.peerConn.close();
+                try{channelObj.peerConn.close();} catch(err){}
             }
             if (dataChannel) {
                 dbg.log0('Closing the ice socket to peer ' +dataChannel.peerId);

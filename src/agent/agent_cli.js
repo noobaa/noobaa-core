@@ -458,6 +458,6 @@ function exitHandler() {
 // });
 
 process.on('uncaughtException', function(err) {
-    dbg.log0('Caught exception: ' + err + ' ; ' + err.stack);
+    dbg.log0('Process Caught exception: ' , err , err.stack,require('util').inspect(err));
     //exitHandler();
 });

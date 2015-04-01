@@ -8,6 +8,7 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
 var util = require('util');
+var promise_utils = require('../util/promise_utils');
 
 dbg.set_level(config.dbg_log_level);
 
@@ -17,7 +18,7 @@ var isAgent;
 
 function onIceMessage(socket, channel, event) {
 
-    dbg.log3('Got event '+event.data+' ; my id: '+channel.myId);
+    dbg.log3('Got event '+event.data+' ; my id: '+channel.myId+' peer '+channel.peerId);
     var msgObj;
     var req;
     var p2p_context = socket.p2p_context;
@@ -28,11 +29,11 @@ function onIceMessage(socket, channel, event) {
             req = message.req;
 
             if (ice.isRequestEnded(p2p_context, req, channel)) {
-                dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
+                dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE '+' peer '+channel.peerId);
                 return;
             }
 
-            dbg.log0('got message str ' + event.data + ' my id '+channel.myId);
+            dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' peer '+channel.peerId);
 
             if (!channel.msgs[message.req]) {
                 channel.msgs[message.req] = {};
@@ -46,7 +47,7 @@ function onIceMessage(socket, channel, event) {
                     dbg.log3('message str set action defer resolve for req '+message.req);
                     msgObj.action_defer.resolve(channel);
                 } else if (channel.handleRequestMethod) {
-                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req+' to '+channel.handleRequestMethod); // TODO cng to dbg3
+                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req);
                     channel.handleRequestMethod(socket, channel, message);
                 } else {
                     dbg.log2('ab NO 1 to call for req '+req);
@@ -89,7 +90,7 @@ function onIceMessage(socket, channel, event) {
             var partBuf = event.data.slice(config.iceBufferMetaPartSize);
             msgObj.chunks_map[part] = partBuf;
 
-            dbg.log3('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size+' req '+req);
+            dbg.log3('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size+' req '+req+' peer '+channel.peerId);
 
             msgObj.chunk_num++;
 
@@ -99,7 +100,7 @@ function onIceMessage(socket, channel, event) {
 
                 dbg.log0('all chunks received last '+part+' with size ' +
                 event.data.byteLength + " total size so far " + msgObj.received_size +
-                ' my id '+channel.myId+ ' request '+req);
+                ' my id '+channel.myId+ ' request '+req+' peer '+channel.peerId);
 
                 var chunksParts = [];
                 var chunk_counter;
@@ -148,13 +149,18 @@ function writeMessage(socket, channel, header, buffer, reqId) {
             return ice.writeToChannel(socket, channel, JSON.stringify(header), reqId);
         })
         .then(function() {
+            dbg.log3('writeMessage write buffer if exists ',reqId,channel.peerId);
             if (buffer) {
                 return writeBufferToSocket(socket, channel, buffer, reqId);
             }
         })
         .timeout(config.channel_send_timeout, 'send timeout')
+        .then(function() {
+            dbg.log3('writeMessage done ',reqId,channel.peerId);
+            return;
+        })
         .then(null, function(err) {
-            dbg.error('writeMessage: SEND FAILED', err.stack || err);
+            dbg.error('writeMessage: SEND FAILED',reqId, err.stack || err);
             // TODO should we close here? not sure as timeouts might occur on long queue of senders
             throw err;
         });
@@ -179,14 +185,14 @@ function writeBufferToSocket(socket, channel, block, reqId) {
 
         // end recursion when done sending the entire buffer
         if (begin === end) {
-            dbg.log0('sent last chunk req', reqId, 'chunks', sequence, 'end', end);
+            dbg.log0('sent last chunk req', reqId, 'chunks', sequence, 'end', end,channel.peerId);
             return;
         }
 
         // slice the current chunk
         var chunk = ice.createBufferToSend(block.slice(begin, end), sequence, reqId);
         dbg.log3('sending chunk req', reqId, 'chunk', sequence,
-            'length', chunk.byteLength, 'begin', begin, 'end', end);
+            'length', chunk.byteLength, 'begin', begin, 'end', end, channel.peerId);
 
         // increment sequence and slice buffer to rest of data
         sequence += 1;
@@ -197,11 +203,18 @@ function writeBufferToSocket(socket, channel, block, reqId) {
         }
 
         // send and recurse
-        return ice.writeToChannel(socket, channel, chunk, reqId).then(send_next);
+         return ice.writeToChannel(socket, channel, chunk, reqId)
+         .then(function() {return Q.delay(1);})
+         .then(send_next);
+
     }
 
     // start sending (recursive async loop)
     return Q.fcall(send_next)
+        .then(function(){
+            dbg.log3('send_next ended for', reqId,channel.peerId);
+            return;
+        })
         .then(null, function(err) {
             dbg.error('send_next general error '+err+' '+err.stack+' req '+reqId);
             throw err;

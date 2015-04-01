@@ -6,16 +6,16 @@ var util = require('util');
 var buffer_utils = require('../util/buffer_utils');
 var ice_api = require('../util/ice_api');
 var ice_lib = require('../util/ice_lib');
+var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
+
+dbg.set_level(config.dbg_log_level);
 
 module.exports = {
     request: request,
     request_ws: request_ws,
     serve: serve,
 };
-
-
-
 
 /**
  *
@@ -199,14 +199,15 @@ function serve(rpc, peer_id) {
             });
 
         function send_reply(status, data, buffer) {
+            var reply;
             return Q.fcall(function() {
                     if (buffer && !(buffer instanceof ArrayBuffer)) {
                         buffer = buffer_utils.toArrayBuffer(buffer);
                     }
 
-                    dbg.log0('done manual status: ' + status + " reply: " + data + ' buffer: ' + (buffer ? buffer.byteLength : 0) + ' req ' + reqId);
+                    dbg.log0('done manual status: ' + status + " reply: " + data + ' buffer: ' + (buffer ? buffer.byteLength : 0) + ' req ' + reqId, isWs ? msg.from : channel.peerId);
 
-                    var reply = {
+                    reply = {
                         status: status,
                         statusCode: status,
                         size: (buffer ? buffer.byteLength : 0),
@@ -220,24 +221,29 @@ function serve(rpc, peer_id) {
                         reply.from = msg.to;
                         reply.to = msg.from;
                     }
-
+                })
+                .then(function() {
                     if (isWs) {
                         if (buffer) {
                             throw new Error('UNEXPECTED BUFFER WITH WS ' + rpc_method.method_api.name);
                         }
                         // TODO isn't there a callback to WS send? need to return to promise chain..
-                        channel.send(JSON.stringify(reply));
+                        dbg.log3('done return ws reply ',reqId);
+                        return channel.send(JSON.stringify(reply));
                     } else {
                         // write has timeout internally
+                        dbg.log3('done return ice reply ',reqId, channel.peerId);
                         return ice_api.writeMessage(socket, channel, reply, buffer, reqId);
                     }
                 })
                 .then(function() {
+                    dbg.log3('done request, close conn if needed ',reqId, isWs ? msg.from : channel.peerId);
                     try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (err) {
                         dbg.error('closeIce err ' + reqId, err);
                     }
                 })
                 .then(null, function(err) {
+                    dbg.log3('send_reply error ',reqId, err);
                     try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (ex) {
                         dbg.error('closeIce ex on err ' + reqId, ex);
                     }

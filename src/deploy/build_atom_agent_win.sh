@@ -11,7 +11,7 @@ if [ $# -eq 0 ]
         cp ../../src/deploy/7za.exe .
         cp ../../src/deploy/lib*.dll .
         cp ../../src/deploy/wget.exe  .
-        cp ../../src/deploy/NooBaa_Agnet_wd.exe .
+        cp ../../src/deploy/NooBaa_Agent_wd.exe .
         cp ../../package.json .
         cp ../../config.js .
         cp ../../agent_conf.json .

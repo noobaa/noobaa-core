@@ -260,7 +260,7 @@ Section "install"
 		Delete "$INSTDIR\service_installer.bat"
 	${Else}
 		File "7za.exe"
-		File "NooBaa_Agnet_wd.exe"
+		File "NooBaa_Agent_wd.exe"
 		File "libeay32.dll"
 		File "libiconv2.dll"
 		File "libintl3.dll"
@@ -282,7 +282,7 @@ Section "install"
 	${WriteFile} "$INSTDIR\service.bat" ">service.log ("
 	${WriteFile} "$INSTDIR\service.bat" "  cd $\"$INSTDIR$\""
 	${WriteFile} "$INSTDIR\service.bat" "  rem upgrade only if service is up and running"
-	${WriteFile} "$INSTDIR\service.bat" "  $\"$INSTDIR\NooBaa_Agnet_wd$\" status 'Noobaa Local Service'"
+	${WriteFile} "$INSTDIR\service.bat" "  $\"$INSTDIR\NooBaa_Agent_wd$\" status 'Noobaa Local Service'"
 	${WriteFile} "$INSTDIR\service.bat" "  set level=$\"%errorlevel%$\""
 	${WriteFile} "$INSTDIR\service.bat" "  echo %level% "
 	${WriteFile} "$INSTDIR\service.bat" "  if $\"%level%$\" == $\"0$\" ("
@@ -296,23 +296,23 @@ Section "install"
 	${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\atom-shell\atom.exe$\" $\"$INSTDIR\src\agent\index.js$\" "
 	${WriteFile} "$INSTDIR\service.bat" ")"
 	${WriteFile} "$INSTDIR\service_installer.bat" "cd $\"$INSTDIR$\""
-	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agnet_wd install $\"Noobaa Local Service$\" $\"$INSTDIR\service.bat$\""
-	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agnet_wd start $\"Noobaa Local Service$\""
+	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd install $\"Noobaa Local Service$\" $\"$INSTDIR\service.bat$\""
+	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd start $\"Noobaa Local Service$\""
 	${WriteFile} "$INSTDIR\service_uninstaller.bat" "cd $\"$INSTDIR$\""
-	${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agnet_wd stop $\"Noobaa Local Service$\""
-	${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agnet_wd remove $\"Noobaa Local Service$\" confirm"
+	${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd stop $\"Noobaa Local Service$\""
+	${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd remove $\"Noobaa Local Service$\" confirm"
 	CreateDirectory "${SMDIR}"
 	CreateShortCut "${SMDIR}\${UNINST}.lnk" "$INSTDIR\uninstall-noobaa.exe"
 	nsExec::ExecToStack '$\"$INSTDIR\service_installer.bat$\""'
 SectionEnd
 
 Section "uninstall"
-	;nsExec::ExecToStack 'NooBaa_Agnet_wd stop "Noobaa Local Service" >> "$INSTDIR\uninstall.log"'
+	;nsExec::ExecToStack 'NooBaa_Agent_wd stop "Noobaa Local Service" >> "$INSTDIR\uninstall.log"'
 	;sleep 2000
-	;nsExec::ExecToStack 'NooBaa_Agnet_wd remove "Noobaa Local Service" confirm >> "$INSTDIR\uninstall.log"'
+	;nsExec::ExecToStack 'NooBaa_Agent_wd remove "Noobaa Local Service" confirm >> "$INSTDIR\uninstall.log"'
 	;sleep 2000
 	nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
-	Delete "$INSTDIR\NooBaa_Agnet_wd.exe"
+	Delete "$INSTDIR\NooBaa_Agent_wd.exe"
 	Delete "$INSTDIR\config.js"
 	Delete "$INSTDIR\7za.exe"
 	Delete "$INSTDIR\package.json"

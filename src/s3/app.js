@@ -6,7 +6,7 @@ var fs = require('fs');
 var https = require('https');
 var http = require('http');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var pem = require('pem');
+var pem = require('./pem');
 
 
 module.exports = s3_app;

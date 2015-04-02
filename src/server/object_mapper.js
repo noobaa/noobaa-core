@@ -295,7 +295,18 @@ function finalize_object_parts(bucket, obj, parts) {
             }
         })
         .then(function() {
-            return build_chunks(chunks);
+            // TODO currently not returning promise here in order to submit
+            // the build and not wait for it
+            // return Q.fcall(function() {
+            Q.fcall(function() {
+                    return build_chunks(chunks);
+                })
+                .then(null, function(err) {
+                    // TODO temporary suppressing this error for the sake of user experience
+                    // but we should fix this path
+                    dbg.log0('finalize_object_parts: BUILD FAILED',
+                        'leave it to background worker', err.stack || err);
+                });
         })
         .then(function() {
             var end = parts[parts.length - 1].end;

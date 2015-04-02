@@ -276,19 +276,20 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                             timeout: config.client_replicate_timeout,
                             retries: 3
                         })
-                        .then(function() {
-                            // push parts down the pipe
-                            for (var i = 0; i < parts.length; i++) {
-                                var part = parts[i];
-                                dbg.log0('upload_stream: finalize part offset', part.start);
-                                stream.push(part);
-                            }
-                        }, function(err) {
+                        .then(null, function(err) {
                             dbg.log0('upload_stream: FINALIZE FAILED',
                                 'leave it to background worker', err.stack || err);
                             // TODO temporary suppressing this error for the sake of user experience
                             // but we should fix this path
                         });
+                })
+                .then(function() {
+                    // push parts down the pipe
+                    for (var i = 0; i < parts.length; i++) {
+                        var part = parts[i];
+                        dbg.log0('upload_stream: finalize part offset', part.start);
+                        stream.push(part);
+                    }
                 });
             }
         }));

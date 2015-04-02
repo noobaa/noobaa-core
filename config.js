@@ -28,7 +28,7 @@ config.REPLICATE_CONCURRENCY = 2;
 
 config.write_timeout = 30 * 1000;
 config.read_timeout = 30 * 1000;
-config.server_finalize_build_timeout = 20 * 1000;
+config.server_finalize_build_timeout = 1 * 1000;
 config.server_replicate_timeout = 29 * 1000;
 config.client_replicate_timeout = 300 * 1000;
 config.default_rpc_timeout = 120 * 1000;

@@ -255,42 +255,47 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                 var stream = this;
                 dbg.log0('upload_stream: finalize parts', parts.length);
                 // send parts to server
-                return self._finalize_sem.surround(function() {
-                    return self.object_rpc_client.finalize_object_parts({
-                            bucket: params.bucket,
-                            key: params.key,
-                            parts: _.map(parts, function(part) {
-                                var p = _.pick(part, 'start', 'end');
-                                if (!part.dedup) {
-                                    p.block_ids = _.flatten(
-                                        _.map(part.fragments, function(fragment) {
-                                            return _.map(fragment.blocks, function(block) {
-                                                return block.address.id;
-                                            });
-                                        })
-                                    );
-                                }
-                                return p;
-                            })
-                        }, {
-                            timeout: config.client_replicate_timeout,
-                            retries: 3
-                        })
-                        .then(null, function(err) {
-                            dbg.log0('upload_stream: FINALIZE FAILED',
-                                'leave it to background worker', err.stack || err);
-                            // TODO temporary suppressing this error for the sake of user experience
-                            // but we should fix this path
+                return Q.fcall(function() {
+                        // TODO currently not returning promise here in order to submit
+                        // the finalize and not wait for it
+                        // return self._finalize_sem.surround(function() {
+                        self._finalize_sem.surround(function() {
+                            return self.object_rpc_client.finalize_object_parts({
+                                    bucket: params.bucket,
+                                    key: params.key,
+                                    parts: _.map(parts, function(part) {
+                                        var p = _.pick(part, 'start', 'end');
+                                        if (!part.dedup) {
+                                            p.block_ids = _.flatten(
+                                                _.map(part.fragments, function(fragment) {
+                                                    return _.map(fragment.blocks, function(block) {
+                                                        return block.address.id;
+                                                    });
+                                                })
+                                            );
+                                        }
+                                        return p;
+                                    })
+                                }, {
+                                    timeout: config.client_replicate_timeout,
+                                    retries: 3
+                                })
+                                .then(null, function(err) {
+                                    dbg.log0('upload_stream: FINALIZE FAILED',
+                                        'leave it to background worker', err.stack || err);
+                                    // TODO temporary suppressing this error for the sake of user experience
+                                    // but we should fix this path
+                                });
                         });
-                })
-                .then(function() {
-                    // push parts down the pipe
-                    for (var i = 0; i < parts.length; i++) {
-                        var part = parts[i];
-                        dbg.log0('upload_stream: finalize part offset', part.start);
-                        stream.push(part);
-                    }
-                });
+                    })
+                    .then(function() {
+                        // push parts down the pipe
+                        for (var i = 0; i < parts.length; i++) {
+                            var part = parts[i];
+                            dbg.log0('upload_stream: finalize part offset', part.start);
+                            stream.push(part);
+                        }
+                    });
             }
         }));
 

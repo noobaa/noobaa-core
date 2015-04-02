@@ -43,7 +43,7 @@ config.ice_conn_timeout = 10 * 1000;
 config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
 
-config.replicate_retry = 0;
+config.replicate_retry = 1;
 config.default_rpc_retries = 0;
 config.rpc_retry_delay = 500;
 

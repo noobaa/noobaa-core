@@ -33,8 +33,8 @@ config.client_replicate_timeout = 300 * 1000;
 config.default_rpc_timeout = 120 * 1000;
 
 // ~60 seconds overall before give up on this channel
-config.channel_send_congested_attempts = 1200;
-config.channel_send_congested_delay = 50;
+config.channel_send_congested_attempts = 6000;
+config.channel_send_congested_delay = 10;
 config.channel_send_timeout = 20 * 1000;
 config.channel_buffer_start_throttle = 1 * 1024 * 1024;
 config.channel_buffer_stop_throttle = 0;
@@ -43,7 +43,7 @@ config.ice_conn_timeout = 10 * 1000;
 config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
 
-config.replicate_retry = 1;
+config.replicate_retry = 0;
 config.default_rpc_retries = 0;
 config.rpc_retry_delay = 500;
 

@@ -34,7 +34,7 @@ config.default_rpc_timeout = 120 * 1000;
 
 // ~60 seconds overall before give up on this channel
 config.channel_send_congested_attempts = 12000;
-config.channel_send_congested_delay = 1;
+config.channel_send_congested_delay = 5;
 config.channel_send_timeout = 20 * 1000;
 config.channel_buffer_start_throttle = 1 * 1024 * 1024;
 config.channel_buffer_stop_throttle = 0;

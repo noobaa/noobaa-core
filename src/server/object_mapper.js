@@ -295,15 +295,15 @@ function finalize_object_parts(bucket, obj, parts) {
             }
         })
         .then(function() {
-            // TODO currently not returning promise here in order to submit
-            // the build and not wait for it
-            // return Q.fcall(function() {
-            Q.fcall(function() {
+            // using a timeout to limit our wait here.
+            // in case of failure to build, we suppress the error for the
+            // sake of user experienceand leave it to the background worker.
+            // TODO dont suppress build errors, fix them.
+            return Q.fcall(function() {
                     return build_chunks(chunks);
                 })
+                .timeout(config.server_finalize_build_timeout, 'finalize build timeout')
                 .then(null, function(err) {
-                    // TODO temporary suppressing this error for the sake of user experience
-                    // but we should fix this path
                     dbg.log0('finalize_object_parts: BUILD FAILED',
                         'leave it to background worker', err.stack || err);
                 });

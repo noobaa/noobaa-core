@@ -24,7 +24,7 @@ config.min_node_number = 3;
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;
 config.READ_RANGE_CONCURRENCY = 8;
-config.REPLICATE_CONCURRENCY = 1;
+config.REPLICATE_CONCURRENCY = 2;
 
 config.write_timeout = 30 * 1000;
 config.read_timeout = 30 * 1000;

@@ -256,7 +256,7 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                 dbg.log0('upload_stream: finalize parts', parts.length);
                 // send parts to server
                 return self._finalize_sem.surround(function() {
-                    return self.object_rpc_client.finalize_object_parts({
+                        return self.object_rpc_client.finalize_object_parts({
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
@@ -274,22 +274,17 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                             })
                         }, {
                             timeout: config.client_replicate_timeout,
-                            retries: 0
-                        })
-                        .then(function() {
-                            // push parts down the pipe
-                            for (var i = 0; i < parts.length; i++) {
-                                var part = parts[i];
-                                dbg.log0('upload_stream: finalize part offset', part.start);
-                                stream.push(part);
-                            }
-                        }, function(err) {
-                            dbg.log0('upload_stream: FINALIZE FAILED',
-                                'leave it to background worker', err.stack || err);
-                            // TODO temporary suppressing this error for the sake of user experience
-                            // but we should fix this path
+                            retries: 3
                         });
-                });
+                    })
+                    .then(function() {
+                        // push parts down the pipe
+                        for (var i = 0; i < parts.length; i++) {
+                            var part = parts[i];
+                            dbg.log0('upload_stream: finalize part offset', part.start);
+                            stream.push(part);
+                        }
+                    });
             }
         }));
 

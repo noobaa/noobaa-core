@@ -2,13 +2,13 @@
 
 var gulp = require('gulp');
 var gutil = require('gulp-util');
-var gulp_debug = require('gulp-debug');
+// var gulp_debug = require('gulp-debug');
+// var gulp_replace = require('gulp-replace');
+// var gulp_filter = require('gulp-filter');
 var gulp_size = require('gulp-size');
 var gulp_concat = require('gulp-concat');
-var gulp_replace = require('gulp-replace');
 var gulp_cached = require('gulp-cached');
 var gulp_newer = require('gulp-newer');
-var gulp_filter = require('gulp-filter');
 var gulp_plumber = require('gulp-plumber');
 var gulp_notify = require('gulp-notify');
 var gulp_less = require('gulp-less');
@@ -27,7 +27,7 @@ var browserify = require('browserify');
 var event_stream = require('event-stream');
 var gulp_mocha = require('gulp-mocha');
 var gulp_istanbul = require('gulp-istanbul');
-var fs = require('fs');
+// var fs = require('fs');
 var path = require('path');
 var child_process = require('child_process');
 var dotenv = require('dotenv');
@@ -236,13 +236,13 @@ gulp.task('ng', function() {
 
 gulp.task('jshint', function() {
     return gulp
-        .src(_.flattenDeep([PATHS.scripts, PATHS.html_scripts]))
+        .src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_cached('jshint'))
-        .pipe(gulp_jshint.extract('always'))
+        .pipe(gulp_jshint.extract())
         .pipe(gulp_jshint())
         .pipe(gulp_jshint.reporter(jshint_stylish));
-    // avoid failing for watch to continue
+    // TODO uncomment once we fix issues
     // .pipe(gulp_jshint.reporter('fail'));
 });
 

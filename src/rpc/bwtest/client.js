@@ -4,7 +4,7 @@
 var debug = require('debug');
 debug.disable("*");
 // debug.enable("*");
-
+var wrtc = require('../../util/wrtc');
 var Peer = require('simple-peer');
 var Q = require('q');
 var _ = require('lodash');
@@ -31,8 +31,8 @@ var state = {
     time: Date.now()
 };
 
-var THROTTLE_HIGH = 0;
-var THROTTLE_LOW = 0;
+var THROTTLE_HIGH = 1024 * 1024;
+var THROTTLE_LOW = 1024 * 1024;
 
 console.log('LETS GO!');
 
@@ -108,8 +108,9 @@ function init_peer(msg) {
     var peer = new Peer({
         initiator: msg.initiator,
         config: {
-            // we use ordered channel to verify order of received sequences
-            ordered: true,
+            // default channel is ordered
+            // and we use to verify order of received sequences
+            // ordered: false,
 
             // default channel config is reliable
             // passing either maxRetransmits or maxPacketLifeTime will
@@ -227,6 +228,9 @@ function send_request(peer, request_size) {
  */
 function send_buffer(peer, buf_size, seq) {
     var test_buffer = new Buffer(buf_size);
+    // filling to avoid valgrind warnings
+    test_buffer.fill(0);
+    // write sequence to start of buffer
     test_buffer.writeUInt32BE(seq, 0);
     return Q.nfcall(peer.send.bind(peer), toArrayBuffer(test_buffer));
 }

@@ -1,6 +1,7 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
 'use strict';
+require('../util/panic');
 
 var _ = require('lodash');
 var Q = require('q');
@@ -581,8 +582,4 @@ describe('on ice message', function() {
 
     });
 
-});
-
-process.on('uncaughtException', function(err) {
-    console.error('Caught exception: ' + err + ' ; ' + err.stack);
 });

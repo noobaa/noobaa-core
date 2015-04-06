@@ -1,4 +1,6 @@
 'use strict';
+require('../util/panic');
+
 var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
@@ -13,11 +15,6 @@ var concat_stream = require('concat-stream');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var S3Object = require('./models/s3-object');
-
-
-process.on('uncaughtException', function(err) {
-    dbg.log0('process uncaughtException: ' + err);
-});
 
 
 module.exports = function(params) {

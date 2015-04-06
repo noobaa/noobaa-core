@@ -1,8 +1,5 @@
 'use strict';
-
-process.on('uncaughtException', function(err) {
-    console.log(err.stack);
-});
+require('../util/panic');
 
 // newrelic monitoring should load first
 if (process.env.NEW_RELIC_LICENSE_KEY) {

@@ -1,5 +1,6 @@
 /* jshint node:true */
 'use strict';
+require('../util/panic');
 
 var _ = require('lodash');
 var Q = require('q');
@@ -439,25 +440,3 @@ function main() {
 if (require.main === module) {
     main();
 }
-
-
-process.stdin.resume(); //so the program will not close instantly
-
-function exitHandler() {
-    dbg.log0('exiting');
-
-}
-
-// process.on('exit', function(code) {
-//     dbg.log0('About to exit with code:', code,process.pid);
-//     process.stdin.pause();
-//     process.stdin.destroy();
-//     process.kill(process.pid, 'SIGTERM');
-//
-//
-// });
-
-process.on('uncaughtException', function(err) {
-    dbg.log0('Process Caught exception: ' , err , err.stack,require('util').inspect(err));
-    //exitHandler();
-});

@@ -1,4 +1,5 @@
 'use strict';
+require('../util/panic');
 
 var _ = require('lodash');
 var Q = require('q');
@@ -6,10 +7,6 @@ var fs = require('fs');
 var util = require('util');
 var S3rver = require('./s3rver');
 var dbg = require('noobaa-util/debug_module')(__filename);
-
-process.on('uncaughtException', function(err) {
-    console.log('uncaughtException', err.stack || err);
-});
 
 
 var params = {};

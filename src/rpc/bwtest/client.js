@@ -13,7 +13,7 @@ var WebSock = require('ws');
 var ws;
 var peers = {};
 var running = true;
-var monitor_interval = setInterval(monitor, 1000);
+var monitor_interval;
 
 var state = {
     throttled: false,
@@ -165,6 +165,9 @@ function init_peer(msg) {
  *
  */
 function run_test(peer) {
+    if (!monitor_interval) {
+        monitor_interval = setInterval(monitor, 1000);
+    }
     if (!running) return;
     if (!peer.initiator) return;
 

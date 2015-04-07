@@ -49,6 +49,7 @@ function RPC() {
                 dbg.error('Error running stats',err,err.stack);
             }
         }, statIntervalPushCounter);
+        this.intStat.unref();
 
         this.intPrtStat = setInterval(function(){
             try{
@@ -57,6 +58,7 @@ function RPC() {
                 dbg.error('Error running print stats',err,err.stack);
             }
         }, statIntervalPrint);
+        this.intPrtStat.unref();
     }
 }
 

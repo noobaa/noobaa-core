@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
+var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var crc32 = require('sse4_crc32');
 crc32.calculate = function() { return 0; };
@@ -12,7 +13,7 @@ module.exports = MsgProto;
 function MsgProto() {
     this._sendMessageIndex = {};
     this._receiveMessageIndex = {};
-    this._prefixBuf = new Buffer(8);
+    this._headerBuf = new Buffer(28);
     this.PACKET_MAGIC = 0xF00D; // looks yami
     this.CURRENT_VERSION = 1;
 }
@@ -32,10 +33,10 @@ function MsgProto() {
 MsgProto.prototype.sendMessage = function(channel, buffer) {
     var self = this;
     var msg = {
-        index: self._allocateSendMessageIndex(),
+        index: Date.now(),
+        rand: crypto.pseudoRandomBytes(4).readUInt32BE(0),
         channel: channel,
         buffer: buffer,
-        time: Date.now()
     };
     this._sendMessageIndex[msg.index] = msg;
     self._encodeMessagePackets(channel, msg);
@@ -54,34 +55,39 @@ MsgProto.prototype.sendMessage = function(channel, buffer) {
  */
 MsgProto.prototype.handlePacket = function(channel, buffer) {
     var packet = this._decodePacket(buffer);
-    var msg = this._receiveMessageIndex[packet.header.m];
+    var msg = this._receiveMessageIndex[packet.msgIndex];
     var now = Date.now();
     if (!msg) {
-        msg = this._receiveMessageIndex[packet.header.m] = {
-            index: packet.header.m,
+        msg = this._receiveMessageIndex[packet.msgIndex] = {
+            index: packet.msgIndex,
+            rand: packet.msgRand,
             channel: channel,
             time: now,
             packets: [],
             arrivedPackets: 0
         };
-        msg.packets.length = packet.header.n;
+        msg.packets.length = packet.numPackets;
     }
-    if (msg.packets[packet.header.p]) {
-        dbg.warn('PACKET ALREADY RECEIVED', packet.header);
+    if (msg.packets[packet.packetIndex]) {
+        dbg.warn('PACKET ALREADY RECEIVED', msg, packet);
         return;
     }
-    if (msg.packets.length !== packet.header.n) {
-        dbg.warn('PACKET MISMATCH NUM PACKETS', packet.header);
+    if (msg.rand !== packet.msgRand) {
+        dbg.warn('PACKET MISMATCH RAND', msg, packet);
         return;
     }
-    msg.packets[packet.header.p] = packet.data;
+    if (msg.packets.length !== packet.numPackets) {
+        dbg.warn('PACKET MISMATCH NUM PACKETS', msg, packet);
+        return;
+    }
+    msg.packets[packet.packetIndex] = packet.data;
     msg.arrivedPackets += 1;
     if (!msg.emitted && msg.arrivedPackets === msg.packets.length) {
         msg.emitted = now;
         msg.buffer = Buffer.concat(msg.packets);
         channel.handleMessage(msg.buffer);
         // TODO send acknowledge and release msg
-        delete this._receiveMessageIndex[packet.header.m];
+        delete this._receiveMessageIndex[packet.msgIndex];
     }
 };
 
@@ -100,59 +106,80 @@ MsgProto.prototype._allocateSendMessageIndex = function() {
 
 MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
     var data = msg.buffer;
-    var packetHeaderReserve = 128;
-    var packetDataLen = channel.mtu - packetHeaderReserve;
+    var packetDataLen = channel.mtu - this._headerBuf.length;
     var packetOffset = 0;
     var packets = [];
     packets.length = Math.ceil(data.length / packetDataLen);
     for (var i = 0; i< packets.length; ++i) {
         var packetData = data.slice(packetOffset, packetOffset + packetDataLen);
-        var packetBuf = this._encodePacket(packetData, msg.index, i, packets.length);
-        if (packetBuf.length > channel.mtu) {
-            throw new Error('CHANNEL MTU EXCEEDED ' + packetBuf.length + ' > ' + channel.mtu);
-        }
+        var packetBuf = this._encodePacket({
+            msgIndex: msg.index,
+            msgRand: msg.rand,
+            packetIndex: i,
+            numPackets: packets.length,
+            data: packetData
+        });
         packets[i] = packetBuf;
         packetOffset += packetData.length;
     }
     msg.packets = packets;
 };
 
-MsgProto.prototype._encodePacket = function(dataBuf, msgIndex, packetIndex, numPackets) {
-    var header = {
-        m: msgIndex,
-        p: packetIndex,
-        n: numPackets,
-        c: crc32.calculate(dataBuf),
-    };
-    var headerBuf = new Buffer(JSON.stringify(header));
-    var headerEnd = headerBuf.length + this._prefixBuf.length;
-    this._prefixBuf.writeUInt16BE(this.PACKET_MAGIC, 0);
-    this._prefixBuf.writeUInt16BE(this.CURRENT_VERSION, 2);
-    this._prefixBuf.writeUInt32BE(headerEnd, 4);
-    return Buffer.concat(
-        [this._prefixBuf, headerBuf, dataBuf],
-        headerEnd + dataBuf.length);
+MsgProto.prototype._encodePacket = function(packet) {
+    var pos = 0;
+    var checksum = crc32.calculate(packet.data);
+    this._headerBuf.writeUInt16BE(this.PACKET_MAGIC, pos);
+    pos += 2;
+    this._headerBuf.writeUInt16BE(this.CURRENT_VERSION, pos);
+    pos += 2;
+    this._headerBuf.writeDoubleBE(packet.msgIndex, pos);
+    pos += 8;
+    this._headerBuf.writeUInt32BE(packet.msgRand, pos);
+    pos += 4;
+    this._headerBuf.writeUInt32BE(packet.packetIndex, pos);
+    pos += 4;
+    this._headerBuf.writeUInt32BE(packet.numPackets, pos);
+    pos += 4;
+    this._headerBuf.writeUInt32BE(checksum, pos);
+    pos += 4;
+    return Buffer.concat([this._headerBuf, packet.data]);
 };
 
 MsgProto.prototype._decodePacket = function(buffer) {
-    var magic = buffer.readUInt16BE(0);
-    var version = buffer.readUInt16BE(2);
-    var headerEnd = buffer.readUInt32BE(4);
+    var pos = 0;
+    var magic = buffer.readUInt16BE(pos);
+    pos += 2;
+    var version = buffer.readUInt16BE(pos);
+    pos += 2;
+    var msgIndex = buffer.readDoubleBE(pos);
+    pos += 8;
+    var msgRand = buffer.readUInt32BE(pos);
+    pos += 4;
+    var packetIndex = buffer.readUInt32BE(pos);
+    pos += 4;
+    var numPackets = buffer.readUInt32BE(pos);
+    pos += 4;
+    var checksum = buffer.readUInt32BE(pos);
+    pos += 4;
+
     if (magic !== this.PACKET_MAGIC) {
         throw new Error('BAD PACKET MAGIC ' + magic);
     }
     if (version !== this.CURRENT_VERSION) {
         throw new Error('BAD PACKET VERSION ' + version);
     }
-    var headerBuf = buffer.slice(this._prefixBuf.length, headerEnd);
-    var data = buffer.slice(headerEnd);
-    var header = JSON.parse(headerBuf.toString());
-    var checksum = crc32.calculate(data);
-    if (checksum !== header.c) {
+
+    var data = buffer.slice(this._headerBuf.length);
+    var dataChecksum = crc32.calculate(data);
+    if (checksum !== checksum) {
         throw new Error('BAD DATA CHECKSUM');
     }
     return {
-        header: header,
+        msgIndex: msgIndex,
+        msgRand: msgRand,
+        packetIndex: packetIndex,
+        numPackets: numPackets,
+        checksum: checksum,
         data: data
     };
 };

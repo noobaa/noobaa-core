@@ -18,7 +18,7 @@ function UdpChannel(proto, remotePort, remoteAddr, localPort) {
     this.remotePort = remotePort;
     this.remoteAddr = remoteAddr;
     this.localPort = localPort;
-    this.mtu = 32*1024;
+    this.mtu = 1000;
     this.rtt = 1; // TODO RTT?
     this.receiveBytes = 0;
     this.sendBytes = 0;
@@ -35,7 +35,7 @@ UdpChannel.prototype.send = function(packets) {
         dbg.log1('UDP send to', self.remotePort, 'buffer', buffer.length);
         return Q.ninvoke(self.socket, 'send',
             buffer, 0, buffer.length,
-            self.remotePort, self.remoteAddr);
+            self.remotePort, self.remoteAddr).then(immediateQ);
     });
 };
 
@@ -59,6 +59,12 @@ UdpChannel.prototype._onSocketMessage = function(buffer, rinfo) {
     this.proto.handlePacket(this, buffer);
 };
 
+function immediateQ() {
+    var defer = Q.defer();
+    setImmediate(defer.resolve);
+    // setTimeout(defer.resolve, 1);
+    return defer.promise;
+}
 
 // TEST ///////////////////////////////////////////////////////////////////////
 
@@ -66,7 +72,7 @@ UdpChannel.prototype._onSocketMessage = function(buffer, rinfo) {
 var channel = new UdpChannel(
     new MsgProto(),
     process.env.UDP_REMOTE_PORT,
-    process.env.UDP_REMOTE_ADDR || 'localhost',
+    process.env.UDP_REMOTE_ADDR || '127.0.0.1',
     process.env.UDP_LOCAL_PORT);
 
 var startTime = Date.now();

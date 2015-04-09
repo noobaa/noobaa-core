@@ -42,7 +42,6 @@ MsgProto.prototype.sendMessage = function(channel, buffer) {
         rand: crypto.pseudoRandomBytes(4).readUInt32BE(0),
         channel: channel,
         buffer: buffer,
-        defer: Q.defer(),
         attempt: 0,
         retries: 5,
         timeout: 2000
@@ -90,13 +89,14 @@ MsgProto.prototype._sendMessageWithRetries = function(msg) {
         return Q.reject('MESSAGE TIMEOUT');
     }
     if (msg.attempt > 1) {
-        dbg.warn('MSG RESEND ON TIMEOUT', msg.index);
+        dbg.warn('MSG RESEND ON TIMEOUT', msg.index, msg.ackIndex, msg.packets.length);
     }
     // send packets, skip ones we got ack for
     msg.channel.send(msg.ackIndex ?
         msg.packets.slice(msg.ackIndex) :
         msg.packets
     );
+    msg.defer = Q.defer();
     return msg.defer.promise.timeout(msg.timeout)
         .then(function() {
             // success, ack received before timeout
@@ -163,6 +163,7 @@ MsgProto.prototype._handleDataPacket = function(channel, packet) {
                     break;
                 }
             }
+            dbg.log('SEND ACK', msg.index, ackIndex);
             channel.send([this._encodePacket({
                 type: this.PACKET_TYPE_ACK,
                 msgIndex: msg.index,

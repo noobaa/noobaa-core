@@ -172,6 +172,7 @@ MsgProto.prototype._handleDataPacket = function(channel, packet) {
                 numPackets: msg.packets.length,
                 checksum: 0
             })]);
+            msg.ackTime = now;
         }
     }
 };

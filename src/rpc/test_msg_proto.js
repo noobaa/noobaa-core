@@ -85,7 +85,7 @@ function clientNext() {
         channel.socket.close();
         return;
     }
-    var buffer = new Buffer(1024 * 1024);
+    var buffer = new Buffer(128 * 1024);
     var speed = channel.sendBytes / (Date.now() - startTime) * 1000 / 1024 / 1024;
     dbg.log('CLIENT SEND', buffer.length, 'total', channel.sendBytes, speed.toFixed(1), 'MB/sec');
     return channel.sendMessage(buffer)

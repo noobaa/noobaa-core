@@ -6,7 +6,9 @@ var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 var crc32 = require('sse4_crc32');
-crc32.calculate = function() { return 0; };
+crc32.calculate = function() {
+    return 0;
+};
 
 module.exports = MsgProto;
 
@@ -90,14 +92,21 @@ MsgProto.prototype._sendMessageWithRetries = function(msg) {
     if (msg.attempt > 1) {
         dbg.warn('MSG RESEND ON TIMEOUT', msg.index);
     }
-    // send all the packets
-    msg.channel.send(msg.packets);
+    // send packets, skip ones we got ack for
+    msg.channel.send(msg.ackIndex ?
+        msg.packets.slice(msg.ackIndex) :
+        msg.packets
+    );
     return msg.defer.promise.timeout(msg.timeout)
         .then(function() {
             // success, ack received before timeout
             delete self._sendMessageIndex[msg.index];
         }, function(err) {
-            // timeout, continue to next attempt
+            // on timeout, continue to next attempt
+            // on ack, allow another retry, because we make progress
+            if (err === 'ACK') {
+                msg.retries += 1;
+            }
             return self._sendMessageWithRetries(msg);
         });
 };
@@ -111,6 +120,7 @@ MsgProto.prototype._handleDataPacket = function(channel, packet) {
             rand: packet.msgRand,
             channel: channel,
             time: now,
+            ackTime: now,
             packets: [],
             arrivedPackets: 0
         };
@@ -145,6 +155,23 @@ MsgProto.prototype._handleDataPacket = function(channel, packet) {
         channel.handleMessage(msg.buffer);
         // TODO keep LRU of recent msg indexes to resend acks if lost
         delete this._receiveMessageIndex[packet.msgIndex];
+    } else {
+        if (now - msg.ackTime > 500) {
+            // look for next missing packet index
+            for (var ackIndex = 0; ackIndex < msg.packets.length; ++ackIndex) {
+                if (!msg.packets[ackIndex]) {
+                    break;
+                }
+            }
+            channel.send([this._encodePacket({
+                type: this.PACKET_TYPE_ACK,
+                msgIndex: msg.index,
+                msgRand: msg.rand,
+                packetIndex: ackIndex,
+                numPackets: msg.packets.length,
+                checksum: 0
+            })]);
+        }
     }
 };
 
@@ -154,7 +181,13 @@ MsgProto.prototype._handleAckPacket = function(channel, packet) {
         dbg.warn('ACK ON MISSING MSG', packet.msgIndex);
         return;
     }
-    msg.defer.resolve();
+    msg.ackIndex = packet.packetIndex;
+    if (msg.ackIndex === msg.packets.length) {
+        msg.defer.resolve();
+    } else {
+        // wakup retry on ack
+        msg.defer.reject('ACK');
+    }
 };
 
 MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
@@ -163,7 +196,7 @@ MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
     var packetOffset = 0;
     var packets = [];
     packets.length = Math.ceil(data.length / packetDataLen);
-    for (var i = 0; i< packets.length; ++i) {
+    for (var i = 0; i < packets.length; ++i) {
         var packetData = data.slice(packetOffset, packetOffset + packetDataLen);
         var packetBuf = this._encodePacket({
             type: this.PACKET_TYPE_DATA,

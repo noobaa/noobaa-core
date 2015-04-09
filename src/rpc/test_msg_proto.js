@@ -11,14 +11,14 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 
 util.inherits(UdpChannel, EventEmitter);
 
-function UdpChannel(proto, remotePort, remoteAddr, localPort) {
+function UdpChannel(proto, mtu, remotePort, remoteAddr, localPort) {
     EventEmitter.call(this);
     this.proto = proto;
     this.socket = dgram.createSocket('udp4');
     this.remotePort = remotePort;
     this.remoteAddr = remoteAddr;
     this.localPort = localPort;
-    this.MTU = 1000;
+    this.MTU = mtu;
     this.RTT = 1; // TODO RTT?
     this.receiveBytes = 0;
     this.sendBytes = 0;
@@ -46,7 +46,7 @@ UdpChannel.prototype.handleMessage = function(buffer) {
 
 UdpChannel.prototype.sendMessage = function(buffer) {
     this.sendBytes += buffer.length;
-    this.proto.sendMessage(this, buffer);
+    return this.proto.sendMessage(this, buffer);
 };
 
 UdpChannel.prototype._onSocketBind = function() {
@@ -71,33 +71,32 @@ function immediateQ() {
 
 var channel = new UdpChannel(
     new MsgProto(),
-    process.env.UDP_REMOTE_PORT,
-    process.env.UDP_REMOTE_ADDR || '127.0.0.1',
-    process.env.UDP_LOCAL_PORT);
+    process.env.MTU || 1000,
+    process.env.RP || (process.env.CLIENT ? 5800 : 5900), // remote port
+    process.env.RA || '127.0.0.1', // remote addr
+    process.env.LP || (process.env.CLIENT ? 5900 : 5800) // local port
+);
 
 var startTime = Date.now();
 
 function clientNext() {
-    if (channel.sendBytes < 100 * 1024 * 1024) {
-        var buffer = new Buffer(1024 * 1024);
-        var speed = channel.sendBytes / (Date.now() - startTime) * 1000 / 1024 / 1024;
-        dbg.log('CLIENT SEND', buffer.length, 'total', channel.sendBytes, speed.toFixed(1), 'MB/sec');
-        channel.sendMessage(buffer);
-    } else {
+    if (channel.sendBytes >= 100 * 1024 * 1024) {
         dbg.log('CLIENT DONE');
         channel.socket.close();
+        return;
     }
-
+    var buffer = new Buffer(1024 * 1024);
+    var speed = channel.sendBytes / (Date.now() - startTime) * 1000 / 1024 / 1024;
+    dbg.log('CLIENT SEND', buffer.length, 'total', channel.sendBytes, speed.toFixed(1), 'MB/sec');
+    return channel.sendMessage(buffer).then(clientNext);
 }
 
 channel.on('ready', function() {
     if (process.env.CLIENT) {
-        channel.on('message', clientNext);
         clientNext();
     } else {
         channel.on('message', function(buffer) {
             dbg.log('SERVER RECEIVED', buffer.length, 'total', channel.receiveBytes);
-            channel.sendMessage(new Buffer(1));
         });
     }
 });

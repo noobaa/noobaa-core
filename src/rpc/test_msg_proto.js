@@ -18,8 +18,8 @@ function UdpChannel(proto, remotePort, remoteAddr, localPort) {
     this.remotePort = remotePort;
     this.remoteAddr = remoteAddr;
     this.localPort = localPort;
-    this.mtu = 1000;
-    this.rtt = 1; // TODO RTT?
+    this.MTU = 1000;
+    this.RTT = 1; // TODO RTT?
     this.receiveBytes = 0;
     this.sendBytes = 0;
 

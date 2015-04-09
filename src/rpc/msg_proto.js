@@ -4,6 +4,7 @@ var _ = require('lodash');
 var Q = require('q');
 var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var promise_utils = require('../util/promise_utils');
 var crc32 = require('sse4_crc32');
 crc32.calculate = function() { return 0; };
 
@@ -13,9 +14,11 @@ module.exports = MsgProto;
 function MsgProto() {
     this._sendMessageIndex = {};
     this._receiveMessageIndex = {};
-    this._headerBuf = new Buffer(28);
-    this.PACKET_MAGIC = 0xF00D; // looks yami
+    this._headerBuf = new Buffer(32);
+    this.PACKET_MAGIC = 0xF00DF00D; // looks yami
     this.CURRENT_VERSION = 1;
+    this.PACKET_TYPE_DATA = 1;
+    this.PACKET_TYPE_ACK = 2;
 }
 
 /**
@@ -37,10 +40,14 @@ MsgProto.prototype.sendMessage = function(channel, buffer) {
         rand: crypto.pseudoRandomBytes(4).readUInt32BE(0),
         channel: channel,
         buffer: buffer,
+        defer: Q.defer(),
+        attempt: 0,
+        retries: 5,
+        timeout: 2000
     };
     this._sendMessageIndex[msg.index] = msg;
     self._encodeMessagePackets(channel, msg);
-    channel.send(msg.packets);
+    return self._sendMessageWithRetries(msg);
 };
 
 /**
@@ -50,11 +57,52 @@ MsgProto.prototype.sendMessage = function(channel, buffer) {
  * assemble message from packets, and reply with acknoledge.
  * once a message is assmebled a "message" event will be emitted.
  *
- * @channel object
+ * @channel object like in sendMessage()
  *
  */
 MsgProto.prototype.handlePacket = function(channel, buffer) {
     var packet = this._decodePacket(buffer);
+    switch (packet.type) {
+        case this.PACKET_TYPE_DATA:
+            this._handleDataPacket(channel, packet);
+            break;
+        case this.PACKET_TYPE_ACK:
+            this._handleAckPacket(channel, packet);
+            break;
+        default:
+            dbg.error('BAD PACKET TYPE', packet.type);
+            break;
+    }
+};
+
+
+
+// PRIVATE METHODS ////////////////////////////////////////////////////////////
+
+
+MsgProto.prototype._sendMessageWithRetries = function(msg) {
+    var self = this;
+    // check attempts
+    msg.attempt += 1;
+    if (msg.attempt > msg.retries) {
+        return Q.reject('MESSAGE TIMEOUT');
+    }
+    if (msg.attempt > 1) {
+        dbg.warn('MSG RESEND ON TIMEOUT', msg.index);
+    }
+    // send all the packets
+    msg.channel.send(msg.packets);
+    return msg.defer.promise.timeout(msg.timeout)
+        .then(function() {
+            // success, ack received before timeout
+            delete self._sendMessageIndex[msg.index];
+        }, function(err) {
+            // timeout, continue to next attempt
+            return self._sendMessageWithRetries(msg);
+        });
+};
+
+MsgProto.prototype._handleDataPacket = function(channel, packet) {
     var msg = this._receiveMessageIndex[packet.msgIndex];
     var now = Date.now();
     if (!msg) {
@@ -69,15 +117,15 @@ MsgProto.prototype.handlePacket = function(channel, buffer) {
         msg.packets.length = packet.numPackets;
     }
     if (msg.packets[packet.packetIndex]) {
-        dbg.warn('PACKET ALREADY RECEIVED', msg, packet);
+        dbg.warn('PACKET ALREADY RECEIVED', msg.index, packet.packetIndex);
         return;
     }
     if (msg.rand !== packet.msgRand) {
-        dbg.warn('PACKET MISMATCH RAND', msg, packet);
+        dbg.warn('PACKET MISMATCH RAND', msg.index, msg.rand, packet.msgRand);
         return;
     }
     if (msg.packets.length !== packet.numPackets) {
-        dbg.warn('PACKET MISMATCH NUM PACKETS', msg, packet);
+        dbg.warn('PACKET MISMATCH NUM PACKETS', msg.index, msg.packets.length, packet.numPackets);
         return;
     }
     msg.packets[packet.packetIndex] = packet.data;
@@ -85,34 +133,40 @@ MsgProto.prototype.handlePacket = function(channel, buffer) {
     if (!msg.emitted && msg.arrivedPackets === msg.packets.length) {
         msg.emitted = now;
         msg.buffer = Buffer.concat(msg.packets);
+        // send ack
+        channel.send([this._encodePacket({
+            type: this.PACKET_TYPE_ACK,
+            msgIndex: msg.index,
+            msgRand: msg.rand,
+            packetIndex: msg.packets.length,
+            numPackets: msg.packets.length,
+            checksum: 0
+        })]);
         channel.handleMessage(msg.buffer);
-        // TODO send acknowledge and release msg
+        // TODO keep LRU of recent msg indexes to resend acks if lost
         delete this._receiveMessageIndex[packet.msgIndex];
     }
 };
 
-
-
-// PRIVATE METHODS ////////////////////////////////////////////////////////////
-
-
-MsgProto.prototype._allocateSendMessageIndex = function() {
-    var index = Date.now() + Math.random().toString(16).slice(1);
-    while (this._sendMessageIndex[index]) {
-        index = Date.now() + Math.random().toString(16).slice(1);
+MsgProto.prototype._handleAckPacket = function(channel, packet) {
+    var msg = this._sendMessageIndex[packet.msgIndex];
+    if (!msg) {
+        dbg.warn('ACK ON MISSING MSG', packet.msgIndex);
+        return;
     }
-    return index;
+    msg.defer.resolve();
 };
 
 MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
     var data = msg.buffer;
-    var packetDataLen = channel.mtu - this._headerBuf.length;
+    var packetDataLen = channel.MTU - this._headerBuf.length;
     var packetOffset = 0;
     var packets = [];
     packets.length = Math.ceil(data.length / packetDataLen);
     for (var i = 0; i< packets.length; ++i) {
         var packetData = data.slice(packetOffset, packetOffset + packetDataLen);
         var packetBuf = this._encodePacket({
+            type: this.PACKET_TYPE_DATA,
             msgIndex: msg.index,
             msgRand: msg.rand,
             packetIndex: i,
@@ -128,9 +182,11 @@ MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
 MsgProto.prototype._encodePacket = function(packet) {
     var pos = 0;
     var checksum = crc32.calculate(packet.data);
-    this._headerBuf.writeUInt16BE(this.PACKET_MAGIC, pos);
-    pos += 2;
+    this._headerBuf.writeUInt32BE(this.PACKET_MAGIC, pos);
+    pos += 4;
     this._headerBuf.writeUInt16BE(this.CURRENT_VERSION, pos);
+    pos += 2;
+    this._headerBuf.writeUInt16BE(packet.type, pos);
     pos += 2;
     this._headerBuf.writeDoubleBE(packet.msgIndex, pos);
     pos += 8;
@@ -142,14 +198,17 @@ MsgProto.prototype._encodePacket = function(packet) {
     pos += 4;
     this._headerBuf.writeUInt32BE(checksum, pos);
     pos += 4;
-    return Buffer.concat([this._headerBuf, packet.data]);
+    // TODO checksum should be on the header too
+    return Buffer.concat([this._headerBuf, packet.data || new Buffer(0)]);
 };
 
 MsgProto.prototype._decodePacket = function(buffer) {
     var pos = 0;
-    var magic = buffer.readUInt16BE(pos);
-    pos += 2;
+    var magic = buffer.readUInt32BE(pos);
+    pos += 4;
     var version = buffer.readUInt16BE(pos);
+    pos += 2;
+    var type = buffer.readUInt16BE(pos);
     pos += 2;
     var msgIndex = buffer.readDoubleBE(pos);
     pos += 8;
@@ -170,11 +229,14 @@ MsgProto.prototype._decodePacket = function(buffer) {
     }
 
     var data = buffer.slice(this._headerBuf.length);
-    var dataChecksum = crc32.calculate(data);
-    if (checksum !== checksum) {
-        throw new Error('BAD DATA CHECKSUM');
+    if (data.length) {
+        var dataChecksum = crc32.calculate(data);
+        if (checksum !== dataChecksum) {
+            throw new Error('BAD DATA CHECKSUM ' + dataChecksum + ' expected ', checksum);
+        }
     }
     return {
+        type: type,
         msgIndex: msgIndex,
         msgRand: msgRand,
         packetIndex: packetIndex,

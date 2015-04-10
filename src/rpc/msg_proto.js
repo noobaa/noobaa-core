@@ -6,6 +6,9 @@ var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 var crc32 = require('sse4_crc32');
+
+// TODO TEMP
+dbg.set_level(process.env.DBG);
 crc32.calculate = function() {
     return 0;
 };
@@ -132,7 +135,7 @@ MsgProto.prototype._sendMessageWithRetries = function(msg) {
 MsgProto.prototype._handleAckPacket = function(channel, packet) {
     var msg = this._sendMessageIndex[packet.msgIndex];
     if (!msg) {
-        dbg.log1('ACK ON MISSING MSG', packet.msgIndex);
+        dbg.log2('ACK ON MISSING MSG', packet.msgIndex);
         return;
     }
     msg.ackIndex = packet.packetIndex;
@@ -154,7 +157,7 @@ MsgProto.prototype._handleDataPacket = function(channel, packet) {
             packets: []
         };
         msg.packets.length = packet.numPackets;
-        dbg.log1('NEW MESSAGE', msg.index, 'numPackets', msg.numPackets);
+        dbg.log2('NEW MESSAGE', msg.index, 'numPackets', msg.numPackets);
     }
     this._setPacketInMessage(msg, packet);
     if (!msg.done && msg.arrivedPackets === msg.numPackets) {
@@ -177,11 +180,11 @@ MsgProto.prototype._handleDataPacket = function(channel, packet) {
 
 MsgProto.prototype._setPacketInMessage = function(msg, packet) {
     if (msg.done) {
-        dbg.log1('MSG ALREADY DONE', msg.index, packet.packetIndex);
+        dbg.log2('MSG ALREADY DONE', msg.index, packet.packetIndex);
         return;
     }
     if (msg.packets[packet.packetIndex]) {
-        dbg.log1('PACKET ALREADY RECEIVED', msg.index, packet.packetIndex);
+        dbg.log2('PACKET ALREADY RECEIVED', msg.index, packet.packetIndex);
         return;
     }
     if (msg.rand !== packet.msgRand) {
@@ -217,7 +220,7 @@ MsgProto.prototype._sendAckPacket = function(channel, msg) {
         clearTimeout(msg.ackTimeout);
         msg.ackTimeout = null;
     }
-    dbg.log1('SEND ACK', msg.index, msg.ackIndex);
+    dbg.log2('SEND ACK', msg.index, msg.ackIndex);
     channel.send([this._encodePacket({
         type: this.PACKET_TYPE_ACK,
         msgIndex: msg.index,

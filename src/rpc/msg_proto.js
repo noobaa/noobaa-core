@@ -20,7 +20,7 @@ function MsgProto() {
     this._sendMessageIndex = {};
     this._receiveMessageIndex = {};
     this._headerBuf = new Buffer(32);
-    this.PACKET_MAGIC = 0xF00DF00D; // looks yami
+    this.PACKET_MAGIC = 0xFEEDF33D; // looks yami
     this.CURRENT_VERSION = 1;
     this.PACKET_TYPE_DATA = 1;
     this.PACKET_TYPE_ACK = 2;
@@ -257,11 +257,14 @@ MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
 MsgProto.prototype._encodePacket = function(packet) {
     var pos = 0;
     var checksum = crc32.calculate(packet.data);
+    var data = packet.data || new Buffer(0);
     this._headerBuf.writeUInt32BE(this.PACKET_MAGIC, pos);
     pos += 4;
-    this._headerBuf.writeUInt16BE(this.CURRENT_VERSION, pos);
-    pos += 2;
-    this._headerBuf.writeUInt16BE(packet.type, pos);
+    this._headerBuf.writeUInt8(this.CURRENT_VERSION, pos);
+    pos += 1;
+    this._headerBuf.writeUInt8(packet.type, pos);
+    pos += 1;
+    this._headerBuf.writeUInt16BE(data.length, pos);
     pos += 2;
     this._headerBuf.writeDoubleBE(packet.msgIndex, pos);
     pos += 8;
@@ -274,16 +277,25 @@ MsgProto.prototype._encodePacket = function(packet) {
     this._headerBuf.writeUInt32BE(checksum, pos);
     pos += 4;
     // TODO checksum should be on the header too
-    return Buffer.concat([this._headerBuf, packet.data || new Buffer(0)]);
+
+    // pad the buffer for a sane minimum
+    var len = this._headerBuf.length + data.length;
+    if (len < 64) {
+        return Buffer.concat([this._headerBuf, data, new Buffer(64 - len)], 64);
+    } else {
+        return Buffer.concat([this._headerBuf, data], len);
+    }
 };
 
 MsgProto.prototype._decodePacket = function(buffer) {
     var pos = 0;
     var magic = buffer.readUInt32BE(pos);
     pos += 4;
-    var version = buffer.readUInt16BE(pos);
-    pos += 2;
-    var type = buffer.readUInt16BE(pos);
+    var version = buffer.readUInt8(pos);
+    pos += 1;
+    var type = buffer.readUInt8(pos);
+    pos += 1;
+    var dataLen = buffer.readUInt16BE(pos);
     pos += 2;
     var msgIndex = buffer.readDoubleBE(pos);
     pos += 8;
@@ -303,7 +315,7 @@ MsgProto.prototype._decodePacket = function(buffer) {
         throw new Error('BAD PACKET VERSION ' + version);
     }
 
-    var data = buffer.slice(this._headerBuf.length);
+    var data = buffer.slice(this._headerBuf.length, this._headerBuf.length + dataLen);
     if (data.length) {
         var dataChecksum = crc32.calculate(data);
         if (checksum !== dataChecksum) {

@@ -21,6 +21,7 @@ function MsgProto() {
     this.CURRENT_VERSION = 1;
     this.PACKET_TYPE_DATA = 1;
     this.PACKET_TYPE_ACK = 2;
+    this.ACK_PERIOD = 5;
 }
 
 /**
@@ -37,14 +38,16 @@ function MsgProto() {
  */
 MsgProto.prototype.sendMessage = function(channel, buffer) {
     var self = this;
+    var now = Date.now();
     var msg = {
-        index: Date.now(),
+        index: now,
         rand: crypto.pseudoRandomBytes(4).readUInt32BE(0),
         channel: channel,
         buffer: buffer,
-        attempt: 0,
-        retries: 5,
-        timeout: 2000
+        startTime: now,
+        timeout: 5000,
+        ackIndex: 0,
+        sentAckIndex: 0,
     };
     this._sendMessageIndex[msg.index] = msg;
     self._encodeMessagePackets(channel, msg);
@@ -83,32 +86,57 @@ MsgProto.prototype.handlePacket = function(channel, buffer) {
 
 MsgProto.prototype._sendMessageWithRetries = function(msg) {
     var self = this;
-    // check attempts
-    msg.attempt += 1;
-    if (msg.attempt > msg.retries) {
+
+    // finish when all acks received
+    if (msg.ackIndex === msg.numPackets) {
+        dbg.log1('SENT', msg.index, 'numPackets', msg.numPackets);
+        delete self._sendMessageIndex[msg.index];
+        return;
+    }
+
+    // check for timeout
+    var now = Date.now();
+    if (now > msg.startTime + msg.timeout) {
         return Q.reject('MESSAGE TIMEOUT');
     }
-    if (msg.attempt > 1) {
-        dbg.warn('MSG RESEND ON TIMEOUT', msg.index, msg.ackIndex, msg.packets.length);
-    }
+
+    // according to number of acks we managed to get in last attempt
+    // we try to push some more this time.
+    var ackRate = 5 * Math.max(10, msg.ackIndex - msg.sentAckIndex);
+
     // send packets, skip ones we got ack for
-    msg.channel.send(msg.ackIndex ?
-        msg.packets.slice(msg.ackIndex) :
-        msg.packets
-    );
+    msg.channel.send(msg.packets.slice(msg.ackIndex, msg.ackIndex + ackRate));
+    msg.sentAckIndex = msg.ackIndex;
+
+    // wait for acks for short time
     msg.defer = Q.defer();
-    return msg.defer.promise.timeout(msg.timeout)
-        .then(function() {
-            // success, ack received before timeout
-            delete self._sendMessageIndex[msg.index];
-        }, function(err) {
-            // on timeout, continue to next attempt
-            // on ack, allow another retry, because we make progress
-            if (err === 'ACK') {
-                msg.retries += 1;
+    return msg.defer.promise.timeout((2 * self.ACK_PERIOD) + msg.channel.RTT)
+        .then(null, function(err) {
+            // retry on timeout
+            dbg.warn('MSG RETRY ON TIMEOUT', msg.index,
+                'numPackets', msg.numPackets,
+                'ackIndex', msg.ackIndex,
+                'sent', msg.sentAckIndex,
+                'rate', ackRate);
+            // if we made no progress at all, avoid fast retry
+            if (msg.ackIndex === msg.sentAckIndex) {
+                return Q.delay(Math.max(msg.timeout / 10, 2 * self.ACK_PERIOD));
             }
+        })
+        .then(function() {
+            // recurse to retry or maybe completed
             return self._sendMessageWithRetries(msg);
         });
+};
+
+MsgProto.prototype._handleAckPacket = function(channel, packet) {
+    var msg = this._sendMessageIndex[packet.msgIndex];
+    if (!msg) {
+        dbg.log1('ACK ON MISSING MSG', packet.msgIndex);
+        return;
+    }
+    msg.ackIndex = packet.packetIndex;
+    msg.defer.resolve();
 };
 
 MsgProto.prototype._handleDataPacket = function(channel, packet) {
@@ -119,77 +147,85 @@ MsgProto.prototype._handleDataPacket = function(channel, packet) {
             index: packet.msgIndex,
             rand: packet.msgRand,
             channel: channel,
-            time: now,
-            ackTime: now,
-            packets: [],
-            arrivedPackets: 0
+            startTime: now,
+            ackIndex: 0,
+            numPackets: packet.numPackets,
+            arrivedPackets: 0,
+            packets: []
         };
         msg.packets.length = packet.numPackets;
+        dbg.log1('NEW MESSAGE', msg.index, 'numPackets', msg.numPackets);
+    }
+    this._setPacketInMessage(msg, packet);
+    if (!msg.done && msg.arrivedPackets === msg.numPackets) {
+        msg.done = now;
+        msg.buffer = Buffer.concat(msg.packets);
+        this._sendAckPacket(channel, msg);
+        dbg.log1('RECEIVED', msg.index, 'numPackets', msg.numPackets);
+        channel.handleMessage(msg.buffer);
+        // TODO keep LRU of recent msg indexes to resend acks if lost
+        msg.packets = null;
+        msg.buffer = null;
+        var self = this;
+        setTimeout(function() {
+            delete self._receiveMessageIndex[msg.index];
+        }, 5000);
+    } else {
+        this._joinAckPacket(channel, msg);
+    }
+};
+
+MsgProto.prototype._setPacketInMessage = function(msg, packet) {
+    if (msg.done) {
+        dbg.log1('MSG ALREADY DONE', msg.index, packet.packetIndex);
+        return;
     }
     if (msg.packets[packet.packetIndex]) {
-        dbg.warn('PACKET ALREADY RECEIVED', msg.index, packet.packetIndex);
+        dbg.log1('PACKET ALREADY RECEIVED', msg.index, packet.packetIndex);
         return;
     }
     if (msg.rand !== packet.msgRand) {
         dbg.warn('PACKET MISMATCH RAND', msg.index, msg.rand, packet.msgRand);
         return;
     }
-    if (msg.packets.length !== packet.numPackets) {
-        dbg.warn('PACKET MISMATCH NUM PACKETS', msg.index, msg.packets.length, packet.numPackets);
+    if (msg.numPackets !== packet.numPackets) {
+        dbg.warn('PACKET MISMATCH NUM PACKETS', msg.index, msg.numPackets, packet.numPackets);
         return;
     }
     msg.packets[packet.packetIndex] = packet.data;
     msg.arrivedPackets += 1;
-    if (!msg.emitted && msg.arrivedPackets === msg.packets.length) {
-        msg.emitted = now;
-        msg.buffer = Buffer.concat(msg.packets);
-        // send ack
-        channel.send([this._encodePacket({
-            type: this.PACKET_TYPE_ACK,
-            msgIndex: msg.index,
-            msgRand: msg.rand,
-            packetIndex: msg.packets.length,
-            numPackets: msg.packets.length,
-            checksum: 0
-        })]);
-        channel.handleMessage(msg.buffer);
-        // TODO keep LRU of recent msg indexes to resend acks if lost
-        delete this._receiveMessageIndex[packet.msgIndex];
-    } else {
-        if (now - msg.ackTime > 500) {
-            // look for next missing packet index
-            for (var ackIndex = 0; ackIndex < msg.packets.length; ++ackIndex) {
-                if (!msg.packets[ackIndex]) {
-                    break;
-                }
-            }
-            dbg.log('SEND ACK', msg.index, ackIndex);
-            channel.send([this._encodePacket({
-                type: this.PACKET_TYPE_ACK,
-                msgIndex: msg.index,
-                msgRand: msg.rand,
-                packetIndex: ackIndex,
-                numPackets: msg.packets.length,
-                checksum: 0
-            })]);
-            msg.ackTime = now;
-        }
+};
+
+MsgProto.prototype._joinAckPacket = function(channel, msg) {
+    if (!msg.ackTimeout) {
+        msg.ackTimeout = setTimeout(
+            this._sendAckPacket.bind(this, channel, msg),
+            this.ACK_PERIOD);
     }
 };
 
-MsgProto.prototype._handleAckPacket = function(channel, packet) {
-    var msg = this._sendMessageIndex[packet.msgIndex];
-    if (!msg) {
-        dbg.warn('ACK ON MISSING MSG', packet.msgIndex);
-        return;
-    }
-    msg.ackIndex = packet.packetIndex;
-    if (msg.ackIndex === msg.packets.length) {
-        msg.defer.resolve();
+MsgProto.prototype._sendAckPacket = function(channel, msg) {
+    if (msg.done) {
+        msg.ackIndex = msg.numPackets;
     } else {
-        // wakup retry on ack
-        msg.defer.reject('ACK');
+        // advancing ackIndex to max missing index
+        while (msg.ackIndex < msg.numPackets && msg.packets[msg.ackIndex]) {
+            msg.ackIndex += 1;
+        }
     }
+    if (msg.ackTimeout) {
+        clearTimeout(msg.ackTimeout);
+        msg.ackTimeout = null;
+    }
+    dbg.log1('SEND ACK', msg.index, msg.ackIndex);
+    channel.send([this._encodePacket({
+        type: this.PACKET_TYPE_ACK,
+        msgIndex: msg.index,
+        msgRand: msg.rand,
+        packetIndex: msg.ackIndex,
+        numPackets: msg.numPackets,
+        checksum: 0
+    })]);
 };
 
 MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
@@ -212,6 +248,7 @@ MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
         packetOffset += packetData.length;
     }
     msg.packets = packets;
+    msg.numPackets = packets.length;
 };
 
 MsgProto.prototype._encodePacket = function(packet) {

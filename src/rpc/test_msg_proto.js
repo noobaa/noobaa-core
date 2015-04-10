@@ -19,7 +19,7 @@ function UdpChannel(proto, mtu, remotePort, remoteAddr, localPort) {
     this.remoteAddr = remoteAddr;
     this.localPort = localPort;
     this.MTU = mtu;
-    this.RTT = 1; // TODO RTT?
+    this.RTT = 10; // TODO RTT?
     this.receiveBytes = 0;
     this.sendBytes = 0;
 
@@ -78,17 +78,21 @@ var channel = new UdpChannel(
 );
 
 var startTime = Date.now();
+var lastReport = 0;
 
 function clientNext() {
-    if (channel.sendBytes >= 100 * 1024 * 1024) {
+    if (channel.sendBytes >= 1024 * 1024 * 1024) {
         dbg.log('CLIENT DONE');
         channel.socket.close();
         return;
     }
-    var buffer = new Buffer(128 * 1024);
-    var speed = channel.sendBytes / (Date.now() - startTime) * 1000 / 1024 / 1024;
-    dbg.log('CLIENT SEND', buffer.length, 'total', channel.sendBytes, speed.toFixed(1), 'MB/sec');
-    return channel.sendMessage(buffer)
+    var now = Date.now();
+    if (now - lastReport > 1000) {
+        lastReport = now;
+        var speed = channel.sendBytes / (now - startTime) * 1000 / 1024 / 1024;
+        dbg.log('CLIENT TOTAL', channel.sendBytes, speed.toFixed(1), 'MB/sec');
+    }
+    return channel.sendMessage(new Buffer(128 * 1024))
         .then(clientNext, function(err) {
             dbg.error('CLIENT ERROR', err);
             channel.socket.close();
@@ -100,7 +104,11 @@ channel.on('ready', function() {
         clientNext();
     } else {
         channel.on('message', function(buffer) {
-            dbg.log('SERVER RECEIVED', buffer.length, 'total', channel.receiveBytes);
+            var now = Date.now();
+            if (now - lastReport > 1000) {
+                lastReport = now;
+                dbg.log('SERVER TOTAL', channel.receiveBytes);
+            }
         });
     }
 });

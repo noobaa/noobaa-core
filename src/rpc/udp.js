@@ -587,9 +587,13 @@ function main() {
         var sendSize = (parseInt(process.env.SEND, 10) || 0) * 1024 * 1024;
         var receiveSize = (parseInt(process.env.RECV, 10) || 0) * 1024 * 1024;
         var MTU = parseInt(process.env.MTU, 10);
+        var RTT = parseInt(process.env.RTT, 10);
         var channel = socket.getChannel(remotePort, remoteAddr);
         if (MTU) {
             channel.MTU = MTU;
+        }
+        if (RTT) {
+            channel.RTT = RTT;
         }
 
         return Q.fcall(function() {
@@ -599,6 +603,7 @@ function main() {
                     receiveSize: sendSize,
                     messageSize: messageSize,
                     MTU: MTU,
+                    RTT: RTT,
                 };
                 dbg.log('SEND SPEC');
                 return channel.sendMessage(new Buffer(JSON.stringify(remoteSpec)));
@@ -639,6 +644,9 @@ function main() {
                 dbg.log('RECEIVED SPEC');
                 if (spec.MTU) {
                     channel.MTU = spec.MTU;
+                }
+                if (spec.RTT) {
+                    channel.RTT = spec.RTT;
                 }
                 return channel.sendMessage(buffer);
             })

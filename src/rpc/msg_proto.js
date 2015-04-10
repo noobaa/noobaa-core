@@ -20,11 +20,15 @@ function MsgProto() {
     this._sendMessageIndex = {};
     this._receiveMessageIndex = {};
     this._headerBuf = new Buffer(32);
+    this._padBuf = new Buffer(64);
+    this._emptyBuf = new Buffer(0);
+    this._array2 = [null, null];
+    this._array3 = [null, null, null];
     this.PACKET_MAGIC = 0xFEEDF33D; // looks yami
     this.CURRENT_VERSION = 1;
     this.PACKET_TYPE_DATA = 1;
     this.PACKET_TYPE_ACK = 2;
-    this.ACK_PERIOD = 5;
+    this.ACK_PERIOD = 10;
 }
 
 /**
@@ -105,10 +109,10 @@ MsgProto.prototype._sendMessageWithRetries = function(msg) {
 
     // according to number of acks we managed to get in last attempt
     // we try to push some more this time.
-    var ackRate = 5 * Math.max(10, msg.ackIndex - msg.sentAckIndex);
+    var ackRate = 2 * Math.max(50, msg.ackIndex - msg.sentAckIndex);
 
     // send packets, skip ones we got ack for
-    msg.channel.send(msg.packets.slice(msg.ackIndex, msg.ackIndex + ackRate));
+    msg.channel.sendMulti(msg.packets.slice(msg.ackIndex, msg.ackIndex + ackRate));
     msg.sentAckIndex = msg.ackIndex;
 
     // wait for acks for short time
@@ -221,14 +225,14 @@ MsgProto.prototype._sendAckPacket = function(channel, msg) {
         msg.ackTimeout = null;
     }
     dbg.log2('SEND ACK', msg.index, msg.ackIndex);
-    channel.send([this._encodePacket({
+    channel.send(this._encodePacket({
         type: this.PACKET_TYPE_ACK,
         msgIndex: msg.index,
         msgRand: msg.rand,
         packetIndex: msg.ackIndex,
         numPackets: msg.numPackets,
         checksum: 0
-    })]);
+    }));
 };
 
 MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
@@ -257,7 +261,7 @@ MsgProto.prototype._encodeMessagePackets = function(channel, msg) {
 MsgProto.prototype._encodePacket = function(packet) {
     var pos = 0;
     var checksum = crc32.calculate(packet.data);
-    var data = packet.data || new Buffer(0);
+    var data = packet.data || this._emptyBuf;
     this._headerBuf.writeUInt32BE(this.PACKET_MAGIC, pos);
     pos += 4;
     this._headerBuf.writeUInt8(this.CURRENT_VERSION, pos);
@@ -280,10 +284,15 @@ MsgProto.prototype._encodePacket = function(packet) {
 
     // pad the buffer for a sane minimum
     var len = this._headerBuf.length + data.length;
-    if (len < 64) {
-        return Buffer.concat([this._headerBuf, data, new Buffer(64 - len)], 64);
+    if (len < this._padBuf.length) {
+        this._array3[0] = this._headerBuf;
+        this._array3[1] = data;
+        this._array3[2] = this._padBuf.slice(len);
+        return Buffer.concat(this._array3, this._padBuf.length);
     } else {
-        return Buffer.concat([this._headerBuf, data], len);
+        this._array2[0] = this._headerBuf;
+        this._array2[1] = data;
+        return Buffer.concat(this._array2, len);
     }
 };
 

@@ -29,14 +29,18 @@ function UdpChannel(proto, mtu, remotePort, remoteAddr, localPort) {
     }
 }
 
-UdpChannel.prototype.send = function(packets) {
+UdpChannel.prototype.sendMulti = function(packets) {
     var self = this;
-    return promise_utils.iterate(packets, function(buffer) {
-        dbg.log1('UDP send to', self.remotePort, 'buffer', buffer.length);
-        return Q.ninvoke(self.socket, 'send',
+    return promise_utils.iterate(packets, this.send.bind(this));
+};
+
+UdpChannel.prototype.send = function(buffer) {
+    var self = this;
+    dbg.log1('UDP send to', self.remotePort, 'buffer', buffer.length);
+    return Q.ninvoke(self.socket, 'send',
             buffer, 0, buffer.length,
-            self.remotePort, self.remoteAddr).then(immediateQ);
-    });
+            self.remotePort, self.remoteAddr)
+        .then(immediateQ);
 };
 
 UdpChannel.prototype.handleMessage = function(buffer) {

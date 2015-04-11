@@ -281,27 +281,17 @@ UdpProto.prototype._encodeMessagePackets = function(msg) {
 };
 
 UdpProto.prototype._encodePacket = function(packet) {
-    var pos = 0;
     var checksum = crc32.calculate(packet.data);
     var data = packet.data || this._emptyBuf;
-    this._headerBuf.writeUInt32BE(this.PACKET_MAGIC, pos);
-    pos += 4;
-    this._headerBuf.writeUInt8(this.CURRENT_VERSION, pos);
-    pos += 1;
-    this._headerBuf.writeUInt8(packet.type, pos);
-    pos += 1;
-    this._headerBuf.writeUInt16BE(data.length, pos);
-    pos += 2;
-    this._headerBuf.writeDoubleBE(packet.msgIndex, pos);
-    pos += 8;
-    this._headerBuf.writeUInt32BE(packet.msgRand, pos);
-    pos += 4;
-    this._headerBuf.writeUInt32BE(packet.packetIndex, pos);
-    pos += 4;
-    this._headerBuf.writeUInt32BE(packet.numPackets, pos);
-    pos += 4;
-    this._headerBuf.writeUInt32BE(checksum, pos);
-    pos += 4;
+    this._headerBuf.writeUInt32BE(this.PACKET_MAGIC, 0);
+    this._headerBuf.writeUInt8(this.CURRENT_VERSION, 4);
+    this._headerBuf.writeUInt8(packet.type, 5);
+    this._headerBuf.writeUInt16BE(data.length, 6);
+    this._headerBuf.writeDoubleBE(packet.msgIndex, 8);
+    this._headerBuf.writeUInt32BE(packet.msgRand, 16);
+    this._headerBuf.writeUInt32BE(packet.packetIndex, 20);
+    this._headerBuf.writeUInt32BE(packet.numPackets, 24);
+    this._headerBuf.writeUInt32BE(checksum, 28);
     // TODO checksum should be on the header too
 
     // pad the buffer for a sane minimum
@@ -319,25 +309,15 @@ UdpProto.prototype._encodePacket = function(packet) {
 };
 
 UdpProto.prototype._decodePacket = function(buffer) {
-    var pos = 0;
-    var magic = buffer.readUInt32BE(pos);
-    pos += 4;
-    var version = buffer.readUInt8(pos);
-    pos += 1;
-    var type = buffer.readUInt8(pos);
-    pos += 1;
-    var dataLen = buffer.readUInt16BE(pos);
-    pos += 2;
-    var msgIndex = buffer.readDoubleBE(pos);
-    pos += 8;
-    var msgRand = buffer.readUInt32BE(pos);
-    pos += 4;
-    var packetIndex = buffer.readUInt32BE(pos);
-    pos += 4;
-    var numPackets = buffer.readUInt32BE(pos);
-    pos += 4;
-    var checksum = buffer.readUInt32BE(pos);
-    pos += 4;
+    var magic = buffer.readUInt32BE(0);
+    var version = buffer.readUInt8(4);
+    var type = buffer.readUInt8(5);
+    var dataLen = buffer.readUInt16BE(6);
+    var msgIndex = buffer.readDoubleBE(8);
+    var msgRand = buffer.readUInt32BE(16);
+    var packetIndex = buffer.readUInt32BE(20);
+    var numPackets = buffer.readUInt32BE(24);
+    var checksum = buffer.readUInt32BE(28);
 
     if (magic !== this.PACKET_MAGIC) {
         throw new Error('BAD PACKET MAGIC ' + magic);

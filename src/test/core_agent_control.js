@@ -79,16 +79,16 @@ function use_remote_agents() {
 
 function create_agent(howmany) {
     var count = howmany || 1;
-    return Q.all(_.times(count, function(i) {
+    return Q.allSettled(_.times(count, function(i) {
         return Q.fcall(function() {
-                var agent_a = new Agent({
+                var agent = new Agent({
                     address: 'http://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
                     node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
                     // passing token instead of storage_path to use memory storage
                     token: agntCtlConfig.local_conf.auth,
                     use_http_server: true,
                 });
-                return agent_a;
+                return agent;
             })
             .then(function(agent) {
                 agntCtlConfig.allocated_agents[agent.node_name] = {
@@ -106,6 +106,9 @@ function cleanup_agents() {
             return stop_all_agents();
         })
         .then(function() {
+            _.each(agntCtlConfig.allocated_agents, function(id) {
+                id.ref = null;
+            });
             agntCtlConfig.allocated_agents = {};
             agntCtlConfig.num_allocated = 0;
         });
@@ -140,7 +143,7 @@ function stop_agent(node_name) {
 }
 
 function start_all_agents() {
-    return Q.all(_.map(agntCtlConfig.allocated_agents,
+    return Q.allSettled(_.map(agntCtlConfig.allocated_agents,
         function(data, id) {
             if (data.started === false) {
                 return start_agent(id);
@@ -149,7 +152,7 @@ function start_all_agents() {
 }
 
 function stop_all_agents() {
-    return Q.all(_.map(agntCtlConfig.allocated_agents,
+    return Q.allSettled(_.map(agntCtlConfig.allocated_agents,
         function(data, id) {
             if (data.started === true) {
                 return stop_agent(id);

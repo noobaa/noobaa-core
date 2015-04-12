@@ -15,6 +15,8 @@ var Agent = require('../agent/agent');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
+var agentctl = require('./core_agent_control');
+
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
 // Q.longStackSupport = true;
@@ -84,56 +86,52 @@ function init_test_nodes(count, system, tier, storage_alloc) {
         })
         .then(function(res) {
             var create_node_token = res.token;
+            agentctl.use_local_agents(utilitest, create_node_token);
             var sem = new Semaphore(3);
             return Q.all(_.times(count, function(i) {
                 return sem.surround(function() {
-                    var agent = new Agent({
-                        address: 'http://localhost:' + utilitest.http_port(),
-                        node_name: 'node' + i + '_' + Date.now(),
-                        // passing token instead of storage_path to use memory storage
-                        token: create_node_token,
-                        use_http_server: true,
+                        agentctl.create_agent(1);
+                    })
+                    .then(function() {
+                        return agentctl.start_all_agents();
                     });
-                    return agent.start().thenResolve(agent);
-                });
             }));
-        })
-        .then(function(agents) {
-            test_agents = agents;
         });
 }
 
 // delete all edge nodes directly from the db
 function clear_test_nodes() {
     return Q.fcall(function() {
-        console.log('REMOVE NODES');
-        var warning_timeout = setTimeout(function() {
-            console.log(
-                '\n\n\nWaiting too long?\n\n',
-                'the test got stuck on db.Node.remove().',
-                'this is known when running in mocha standalone (root cause unknown).',
-                'it does work fine when running with gulp, so we let it be.\n\n');
-            process.exit(1);
-        }, 3000);
-        return Q.when(db.Node.remove().exec())['finally'](function() {
-            clearTimeout(warning_timeout);
-        });
-    }).then(function() {
-        if (!test_agents) return;
-        console.log('STOPING AGENTS');
-        var sem = new Semaphore(3);
-        return Q.all(_.map(test_agents, function(agent) {
-            return sem.surround(function() {
-                console.log('agent stop', agent.node_id);
-                return agent.stop();
+            console.log('REMOVE NODES');
+            var warning_timeout = setTimeout(function() {
+                console.log(
+                    '\n\n\nWaiting too long?\n\n',
+                    'the test got stuck on db.Node.remove().',
+                    'this is known when running in mocha standalone (root cause unknown).',
+                    'it does work fine when running with gulp, so we let it be.\n\n');
+                process.exit(1);
+            }, 3000);
+            return Q.when(db.Node.remove().exec())['finally'](function() {
+                clearTimeout(warning_timeout);
             });
-        })).then(function() {
-            test_agents = null;
+        }).then(function() {
+            console.log('STOPING AGENTS');
+            return Q.fcall(function() {
+                return agentctl.stop_all_agents();
+            });
+        })
+        .then(function() {
+            console.log('CLEANING AGENTS');
+            return Q.fcall(function() {
+                return agentctl.cleanup_agents();
+            });
         });
-    });
 }
 
-
+// return all allocated agents and their status (started/not)
+function get_agents_list() {
+    return agentctl.get_agents_list();
+}
 
 module.exports = {
     account_credentials: account_credentials,
@@ -145,4 +143,5 @@ module.exports = {
 
     init_test_nodes: init_test_nodes,
     clear_test_nodes: clear_test_nodes,
+    get_agents_list: get_agents_list,
 };

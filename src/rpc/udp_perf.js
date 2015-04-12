@@ -7,10 +7,25 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var UdpConnection = require('./udp_connection');
 var argv = require('minimist')(process.argv);
 
+var DEFAULT_PORT = 5800;
+
+/**
+ *
+ * a udp protocol performance tool, run from command line with flags:
+ *
+ *      server: node udp_perf
+ *
+ *      client: node udp_perf -c 127.0.0.1 --mtu 16000 -s 100
+ *
+ * TODO add a way to print usage
+ *
+ */
+
+// set debug level for all the rpc modules
 dbg.set_level(argv.d, __dirname);
 
 var isClient = !!argv.c;
-var localPort = isClient ? 0 : 5800;
+var localPort = isClient ? 0 : DEFAULT_PORT;
 
 var conn = new UdpConnection(localPort);
 conn.on('channel', function(channel) {
@@ -24,7 +39,7 @@ if (isClient) {
 
 function clientMain() {
     var remoteAddr = argv.c || '127.0.0.1';
-    var remotePort = parseInt(argv.p, 10) || 5800;
+    var remotePort = parseInt(argv.p, 10) || DEFAULT_PORT;
     var messageSize = parseInt(argv.m, 10) || 128 * 1024;
     var sendSize = (parseInt(argv.s, 10) || 0) * 1024 * 1024;
     var receiveSize = (parseInt(argv.r, 10) || 0) * 1024 * 1024;

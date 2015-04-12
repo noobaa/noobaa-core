@@ -20,6 +20,9 @@ util.inherits(UdpChannel, EventEmitter);
  *
  * UdpConnection
  *
+ * creates udp socket and maintain a channel object (UdpChannel)
+ * for each peer (identified by host/port) when requested to send/receive packets.
+ *
  */
 function UdpConnection(localPort) {
     this.proto = new UdpProtocol();

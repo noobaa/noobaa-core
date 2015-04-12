@@ -15,9 +15,26 @@ var crc32 = /*require('sse4_crc32');*/ {
     }
 };
 
+
 module.exports = UdpProtocol;
 
-
+/**
+ *
+ * UdpProtocol
+ *
+ * a logical protocol for managing messages transmission over udp transport
+ * by splitting to MTU packets and assembling back, retransmissions, and acks.
+ *
+ * the actual udp send/receive is not here and is provided a channel object
+ * capable of sending packets (channel.sendPacket/s),
+ * and informing the protocol on arrival of packets (protocol.handlePacket).
+ *
+ * @channel object containing:
+ *  - send function(array of buffers) - sends each buffer as a packet
+ *  - MTU integer max size for packets
+ *  - RTT integer milliseconds taking for round trip on the channel
+ *
+ */
 function UdpProtocol() {
     this._sendMessageIndex = {};
     this._receiveMessageIndex = {};
@@ -39,10 +56,7 @@ function UdpProtocol() {
  *
  * break message to packets, send, and receive acknoledge.
  *
- * @channel object containing:
- *  - send function(array of buffers) - sends each buffer as a packet
- *  - MTU integer max size for packets
- *  - RTT integer milliseconds taking for round trip on the channel
+ * @channel object as described in UdpProtocol()
  *
  */
 UdpProtocol.prototype.sendMessage = function(channel, buffer) {
@@ -70,7 +84,7 @@ UdpProtocol.prototype.sendMessage = function(channel, buffer) {
  * assemble message from packets, and reply with acknoledge.
  * once a message is assmebled a "message" event will be emitted.
  *
- * @channel object like in sendMessage()
+ * @channel object as described in UdpProtocol()
  *
  */
 UdpProtocol.prototype.handlePacket = function(channel, buffer) {

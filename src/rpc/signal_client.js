@@ -21,6 +21,7 @@ function SignalClient(peerId) {
     this._ws = null;
     this._state = STATE_INIT;
     this._signalEvents = new EventEmitter();
+    this._init_timeout = null;
     process.nextTick(this._init.bind(this));
 }
 
@@ -45,7 +46,20 @@ SignalClient.prototype.signal = function(from, to, data) {
 /**
  *
  */
+SignalClient.prototype._triggerInit = function(immediate) {
+    if (!this._init_timeout) {
+        this._init_timeout = setTimeout(this._init.bind(this), 1000);
+    }
+};
+
+/**
+ *
+ */
 SignalClient.prototype._init = function() {
+    if (this._init_timeout) {
+        clearTimeout(this._init_timeout);
+        this._init_timeout = null;
+    }
     var ws = new WS(config.signal_address);
     ws.onerror = this._onWsError.bind(this, ws);
     ws.onclose = this._onWsClose.bind(this, ws);
@@ -122,7 +136,7 @@ SignalClient.prototype._onWsError = function(ws, err) {
     dbg.error('SIGNAL WS error', err.stack || err);
     ws.close();
     if (this._ws === ws) {
-        Q.delay(1000).then(this._init.bind(this));
+        this._triggerInit();
     }
 };
 
@@ -135,5 +149,5 @@ SignalClient.prototype._onWsClose = function(ws) {
         return;
     }
     dbg.error('SIGNAL WS CLOSED');
-    Q.delay(1000).then(this._init.bind(this));
+    this._triggerInit();
 };

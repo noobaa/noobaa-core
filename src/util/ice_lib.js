@@ -72,7 +72,7 @@ var connect = function (socket) {
     }
 
     try {
-        var ws = new WebSocket(config.address);
+        var ws = new WebSocket(config.signal_address);
 
         ws.onopen = function () {
 
@@ -719,7 +719,7 @@ function createPeerConnection(socket, requestId, config) {
 
     channelObj.connect_err_handler = function(err) {
         if (err) {
-            dbg.error('fail_connection', err);
+            dbg.warn('channel connect rejected', err);
             if (channelObj && channelObj.connect_defer) {
                 channelObj.connect_defer.reject(err);
                 channelObj.connect_defer = null;
@@ -856,10 +856,7 @@ function createPeerConnection(socket, requestId, config) {
                 channelObj.connect_err_handler(ex);
             }
 
-            // initiate negotiation
-            setTimeout(function() {
-                channelObj.peerConn.onnegotiationneeded();
-            }, 0);
+            channelObj.peerConn.onnegotiationneeded();
         }
 
         channelObj.peerConn.ondatachannel = function (event) {

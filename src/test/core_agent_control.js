@@ -81,7 +81,7 @@ function use_remote_agents() {
 
 function create_agent(howmany) {
     var count = howmany || 1;
-    return Q.allSettled(_.times(count, function(i) {
+    return Q.all(_.times(count, function(i) {
         return Q.fcall(function() {
                 var agent = new Agent({
                     address: 'http://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
@@ -145,16 +145,16 @@ function stop_agent(node_name) {
 }
 
 function start_all_agents() {
-    return Q.allSettled(_.map(agntCtlConfig.allocated_agents,
-        function(data, id) {
-            if (data.started === false) {
-                return start_agent(id);
-            }
-        }));
+    return Q.all(_.map(agntCtlConfig.allocated_agents,
+            function(data, id) {
+                if (data.started === false) {
+                    return start_agent(id);
+                }
+            }));
 }
 
 function stop_all_agents() {
-    return Q.allSettled(_.map(agntCtlConfig.allocated_agents,
+    return Q.all(_.map(agntCtlConfig.allocated_agents,
         function(data, id) {
             if (data.started === true) {
                 return stop_agent(id);

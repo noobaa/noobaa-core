@@ -91,13 +91,13 @@ function init_test_nodes(count, system, tier, storage_alloc) {
             agentctl.use_local_agents(utilitest, create_node_token);
             var sem = new Semaphore(3);
             return Q.all(_.times(count, function(i) {
-                return sem.surround(function() {
+                    return sem.surround(function() {
                         agentctl.create_agent(1);
-                    })
-                    .then(function() {
-                        return agentctl.start_all_agents();
                     });
-            }));
+                }))
+                .then(function() {
+                    return agentctl.start_all_agents();
+                });
         });
 }
 

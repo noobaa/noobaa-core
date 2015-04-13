@@ -110,12 +110,12 @@ function init_peer(msg) {
         config: {
             // default channel is ordered
             // and we use to verify order of received sequences
-            // ordered: false,
+            ordered: false,
 
             // default channel config is reliable
             // passing either maxRetransmits or maxPacketLifeTime will
             // set to unreliable mode (cant pass both).
-            // maxRetransmits: 0,
+            maxRetransmits: 0,
             // maxPacketLifeTime: 3000,
 
             iceServers: [{

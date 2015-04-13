@@ -8,6 +8,7 @@ var tv4 = require('tv4');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var rpc_http = require('./rpc_http');
 var rpc_ice = require('./rpc_ice');
+var rpc_p2p = require('./rpc_p2p');
 var config = require('../../config.js');
 var Stats = require('fast-stats').Stats;
 

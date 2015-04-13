@@ -118,6 +118,11 @@ function Agent(params) {
         'Germany', 'England', 'France', 'Spain'
     ]);
 
+    //If test, add test APIs
+    if (config.marked_test) {
+        self._add_test_APIs();
+    }
+
 }
 
 
@@ -201,7 +206,7 @@ Agent.prototype._init_node = function() {
             return self.client.auth.read_auth();
         })
         .then(function(res) {
-            dbg.log0('res:',res);
+            dbg.log0('res:', res);
             // if we are already authorized with our specific node_id, use it
             if (res.account && res.system &&
                 res.extra && res.extra.node_id) {
@@ -326,7 +331,7 @@ Agent.prototype.send_heartbeat = function() {
 
     // chk if windows
     if (os.type().match(/win/i) && !os.type().match(/darwin/i)) {
-        drive ='c';
+        drive = 'c';
     }
 
     dbg.log0('send heartbeat by agent', self.node_id);
@@ -397,7 +402,7 @@ Agent.prototype.send_heartbeat = function() {
                 }
             }
 
-            dbg.log3('AGENT HB params: ',params);
+            dbg.log3('AGENT HB params: ', params);
 
             return self.client.node.heartbeat(params);
         })
@@ -465,9 +470,7 @@ Agent.prototype._start_stop_heartbeats = function() {
 };
 
 
-
 // AGENT API //////////////////////////////////////////////////////////////////
-
 
 
 Agent.prototype.read_block = function(req) {
@@ -574,4 +577,24 @@ Agent.prototype.self_test_peer = function(req) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });
+};
+
+
+// AGENT TEST API /////////////////////////////////////////////////////////////
+
+Agent.prototype._add_test_APIs = function() {
+    console.warn("Adding test APIs for Agent prototype");
+
+    Agent.prototype.corrupt_blocks = function(req) {
+        var self = this;
+        var blocks = req.rest_params.blocks;
+        dbg.log0('AGENT TEST API corrupt_blocks', blocks);
+        return self.store.corrupt_blocks(blocks);
+    };
+
+    Agent.prototype.list_blocks = function() {
+        var self = this;
+        dbg.log0('AGENT TEST API list_blocks');
+        return self.store.list_blocks();
+    };
 };

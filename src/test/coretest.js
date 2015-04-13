@@ -56,6 +56,8 @@ before(function(done) {
         config.use_ice_when_possible = false;
         client.options.port = utilitest.http_port();
 
+        config.marked_test = true;
+
         var account_params = _.clone(account_credentials);
         account_params.name = 'coretest';
         return client.account.create_account(account_params);

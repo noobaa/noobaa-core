@@ -428,7 +428,19 @@ function MemoryStore() {
         };
     };
     this.read_block = function(block_id) {
-        return this._blocks[block_id];
+        var b = this._blocks[block_id];
+        if (!b) {
+            throw new Error('No such block ' + block_id);
+        }
+        var hash_val = crypto.createHash('sha256').update(b.data).digest('base64');
+        var hash_info = b.data.length.toString(10) + ' ' + hash_val;
+
+        if (this._blocks[block_id].hash_val !== hash_val ||
+            this._blocks[block_id].hash_info !== hash_info) {
+            throw 'TAMPERING DETECTED';
+        }
+
+        return this._blocks[block_id].data;
     };
     this.write_block = function(block_id, data) {
         var b = this._blocks[block_id];
@@ -436,7 +448,15 @@ function MemoryStore() {
             this._used -= b.length;
             this._count -= 1;
         }
-        this._blocks[block_id] = data;
+
+        var hash_val = crypto.createHash('sha256').update(data).digest('base64');
+        var hash_info = data.length.toString(10) + ' ' + hash_val;
+        this._blocks[block_id] = {
+            data: data,
+            hash_val: hash_val,
+            hash_info: hash_info
+        };
+
         this._used += data.length;
         this._count += 1;
     };
@@ -456,5 +476,22 @@ function MemoryStore() {
         return b && {
             size: b.length
         };
+    };
+    /*
+     * Testing API
+     */
+    this.corrupt_blocks = function(block_ids) {
+        var self = this;
+        _.each(block_ids, function(block_id) {
+            var b = self._blocks[block_id];
+            if (b) {
+                b.hash_val = '';
+                b.hash_info = '';
+            }
+        });
+    };
+    this.list_blocks = function() {
+        var self = this;
+        return  _.keys(self._blocks);
     };
 }

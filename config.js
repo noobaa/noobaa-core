@@ -1,5 +1,8 @@
 var config = {};
 
+// TEST Mode
+config.test_mode = false;
+
 // SIGNALING AND ICE
 config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: wss://noobaa-signaling.herokuapp.com) ws://10.0.0.2:5002
 config.alive_delay = 10 * 1000;

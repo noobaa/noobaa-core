@@ -117,6 +117,7 @@ function onIceMessage(socket, channel, event) {
                     dbg.log2('ab NO 1 to call for req '+reqId);
                 }
             }
+            dbg.log3('got chunk handling ended '+part+' req '+req);
         } catch (ex) {
             dbg.error('ex on ab got ' + ex.stack+' for req '+reqId+' and msg '+(channel && channel.msgs ? Object.keys(channel.msgs) : 'N/A'));
         }
@@ -254,7 +255,7 @@ function staleConnChk(p2p_context) {
 }
 
 function createNewWS() {
-    var prob = function(channel, event) {
+    var prob = function(socket, channel, event) {
         dbg.error('ERROR Should never receive ice msgs ! got: '+event.data+' from '+channel.peerId);};
     return ice.setup(prob, null, prob);
 }

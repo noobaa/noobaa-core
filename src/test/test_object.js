@@ -122,60 +122,64 @@ describe('object', function() {
             var key = KEY + Date.now();
             var size, data;
             return Q.fcall(function() {
-                // randomize size with equal chance on KB sizes
-                size = OBJ_PART_SIZE * chance.integer(CHANCE_PART_NUM) +
-                    chance.integer(CHANCE_PART_OFFSET);
-                // randomize a buffer
-                // console.log('random object size', size);
-                data = new Buffer(size);
-                for (var i = 0; i < size; i++) {
-                    data[i] = chance.integer(CHANCE_BYTE);
-                }
-                return client.object_client.upload_stream({
-                    bucket: BKT,
-                    key: key,
-                    size: size,
-                    content_type: 'application/octet-stream',
-                    source_stream: new SliceReader(data),
-                });
-            }).then(function() {
-                return client.object_client.read_entire_object({
-                    bucket: BKT,
-                    key: key,
-                    start: 0,
-                    end: size,
-                });
-            }).then(function(read_buf) {
+                    return client.node.list_nodes({});
+                })
+                .then(function(list) {
+                    console.log("list_nodes in use", list);
+                    // randomize size with equal chance on KB sizes
+                    size = OBJ_PART_SIZE * chance.integer(CHANCE_PART_NUM) +
+                        chance.integer(CHANCE_PART_OFFSET);
+                    // randomize a buffer
+                    // console.log('random object size', size);
+                    data = new Buffer(size);
+                    for (var i = 0; i < size; i++) {
+                        data[i] = chance.integer(CHANCE_BYTE);
+                    }
+                    return client.object_client.upload_stream({
+                        bucket: BKT,
+                        key: key,
+                        size: size,
+                        content_type: 'application/octet-stream',
+                        source_stream: new SliceReader(data),
+                    });
+                }).then(function() {
+                    return client.object_client.read_entire_object({
+                        bucket: BKT,
+                        key: key,
+                        start: 0,
+                        end: size,
+                    });
+                }).then(function(read_buf) {
 
-                // verify the read buffer equals the written buffer
-                assert.strictEqual(data.length, read_buf.length);
-                for (var i = 0; i < size; i++) {
-                    assert.strictEqual(data[i], read_buf[i]);
-                }
-                console.log('READ SUCCESS');
+                    // verify the read buffer equals the written buffer
+                    assert.strictEqual(data.length, read_buf.length);
+                    for (var i = 0; i < size; i++) {
+                        assert.strictEqual(data[i], read_buf[i]);
+                    }
+                    console.log('READ SUCCESS');
 
-            }).then(function() {
+                }).then(function() {
 
-                // testing mappings that nodes don't repeat in the same fragment
+                    // testing mappings that nodes don't repeat in the same fragment
 
-                return client.object.read_object_mappings({
-                    bucket: BKT,
-                    key: key,
-                    details: true
-                }).then(function(res) {
-                    _.each(res.parts, function(part) {
-                        var blocks = _.flatten(_.map(part.fragments, 'blocks'));
-                        var blocks_per_node = _.groupBy(blocks, function(block) {
-                            return block.details.node_name;
-                        });
-                        console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
-                        _.each(blocks_per_node, function(blocks, node_name) {
-                            assert.strictEqual(blocks.length, 1);
+                    return client.object.read_object_mappings({
+                        bucket: BKT,
+                        key: key,
+                        details: true
+                    }).then(function(res) {
+                        _.each(res.parts, function(part) {
+                            var blocks = _.flatten(_.map(part.fragments, 'blocks'));
+                            var blocks_per_node = _.groupBy(blocks, function(block) {
+                                return block.details.node_name;
+                            });
+                            console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
+                            _.each(blocks_per_node, function(blocks, node_name) {
+                                assert.strictEqual(blocks.length, 1);
+                            });
                         });
                     });
-                });
 
-            }).nodeify(done);
+                }).nodeify(done);
         });
     });
 

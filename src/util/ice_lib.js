@@ -11,6 +11,8 @@ var buffer_utils = require('./buffer_utils');
 var promise_utils = require('./promise_utils');
 var wrtc = require('./wrtc');
 
+dbg.set_level(config.dbg_log_level);
+
 var configuration = config.ice_servers;
 
 var optionalRtpDataChannels = {
@@ -507,7 +509,7 @@ function writeToChannel(socket, channel, data, requestId) {
             throw err;
         }
 
-        if (currentTime - lastTimeLogged > 1000) {
+        if (currentTime - lastTimeLogged > 5) {
             lastTimeLogged = currentTime;
             dbg.log0('writeToChannel: in progress ', describe(currentTime));
         }

@@ -192,31 +192,31 @@ nb_api.factory('nbNodes', [
                 })
                 .then(function() {
                     define_phase({
-                        name: 'write 1 MB from browser to ' + node.name,
+                        name: 'write 0.5 MB from browser to ' + node.name,
                         kind: ['full', 'rw'],
                         func: function() {
-                            return self_test_io(node, 1 * 1024 * 1024);
+                            return self_test_io(node, 0.5 * 1024 * 1024, 0);
                         }
                     });
                     define_phase({
-                        name: 'read 1 MB from ' + node.name + ' to browser',
+                        name: 'read 0.5 MB from ' + node.name + ' to browser',
                         kind: ['full', 'rw'],
                         func: function() {
-                            return self_test_io(node, 1024, 1 * 1024 * 1024);
+                            return self_test_io(node, 0, 0.5 * 1024 * 1024);
                         }
                     });
                     define_phase({
                         name: 'write 3 MB from browser to ' + node.name,
                         kind: ['full', 'rw'],
                         func: function() {
-                            return self_test_io(node, 3 * 1024 * 1024);
+                            return self_test_io(node, 3 * 1024 * 1024, 0);
                         }
                     });
                     define_phase({
                         name: 'read 3 MB from ' + node.name + ' to browser',
                         kind: ['full', 'rw'],
                         func: function() {
-                            return self_test_io(node, 1024, 3 * 1024 * 1024);
+                            return self_test_io(node, 0, 3 * 1024 * 1024);
                         }
                     });
                     define_phase({
@@ -256,15 +256,53 @@ nb_api.factory('nbNodes', [
                         });
                     });
 
+                    // TODO: YAEL remove ?
                     define_phase({
-                        name: 'LOAD WRITE: connect from all to one node and send 0.5MB (5 times from each)',
+                        name: 'LOAD READ: connect from 1 win vm to other and read 0.5MB (4 times)',
+                        kind: ['none'],
+                        func: function(target_node) {
+                            var promises = [];
+                            _.each(online_nodes, function(target_node) {
+                                if (node.name !== target_node.name && target_node.name.indexOf('docker') > 0) {
+                                    var i;
+                                    for (i = 0; i < 4; ++i) {
+                                        promises.push(self_test_to_node(target_node, node, 0.5 * 1024 * 1024, 0));
+                                    }
+                                }
+                            });
+                            return Q.all(promises);
+                        }
+                    });
+
+
+                    // TODO: YAEL remove ?
+                    define_phase({
+                        name: 'LOAD WRITE: connect from 1 win vm to other and send 0.5MB (4 times)',
+                        kind: ['none'],
+                        func: function(target_node) {
+                            var promises = [];
+                            _.each(online_nodes, function(target_node) {
+                                if (node.name !== target_node.name && target_node.name.indexOf('docker') > 0) {
+                                    var i;
+                                    for (i = 0; i < 4; ++i) {
+                                        promises.push(self_test_to_node(target_node, node, 0, 0.5 * 1024 * 1024));
+                                    }
+                                }
+                            });
+                            return Q.all(promises);
+                        }
+                    });
+
+
+                    define_phase({
+                        name: 'LOAD WRITE: connect from all to one node and send 0.5MB (4 times from each)',
                         kind: ['full', 'load'],
                         func: function(target_node) {
                             var promises = [];
                             _.each(online_nodes, function(target_node) {
                                 if (node.name !== target_node.name) {
                                     var i;
-                                    for (i = 0; i < 5; ++i) {
+                                    for (i = 0; i < 4; ++i) {
                                         promises.push(self_test_to_node(target_node, node, 0, 0.5 * 1024 * 1024));
                                     }
                                 }
@@ -274,14 +312,14 @@ nb_api.factory('nbNodes', [
                     });
 
                     define_phase({
-                        name: 'LOAD READ: connect from all to one node and read 0.5MB (5 times from each)',
+                        name: 'LOAD READ: connect from all to one node and read 0.5MB (4 times from each)',
                         kind: ['full', 'load'],
                         func: function(target_node) {
                             var promises = [];
                             _.each(online_nodes, function(target_node) {
                                 if (node.name !== target_node.name) {
                                     var i;
-                                    for (i = 0; i < 5; ++i) {
+                                    for (i = 0; i < 4; ++i) {
                                         promises.push(self_test_to_node(target_node, node, 0.5 * 1024 * 1024, 0));
                                     }
                                 }
@@ -291,32 +329,15 @@ nb_api.factory('nbNodes', [
                     });
 
                     define_phase({
-                        name: 'LOAD READ: connect from all to one node and read 1.5MB (5 times from each)',
+                        name: 'LOAD VIA SERVER: connect from all to one node and send 0.5MB (4 times from each)',
                         kind: ['full', 'load'],
                         func: function(target_node) {
                             var promises = [];
                             _.each(online_nodes, function(target_node) {
                                 if (node.name !== target_node.name) {
                                     var i;
-                                    for (i = 0; i < 5; ++i) {
-                                        promises.push(self_test_to_node(target_node, node, 1.5 * 1024 * 1024, 0));
-                                    }
-                                }
-                            });
-                            return Q.all(promises);
-                        }
-                    });
-
-                    define_phase({
-                        name: 'LOAD VIA SERVER: connect from all to one node and send 1MB (5 times from each)',
-                        kind: ['full', 'load'],
-                        func: function(target_node) {
-                            var promises = [];
-                            _.each(online_nodes, function(target_node) {
-                                if (node.name !== target_node.name) {
-                                    var i;
-                                    for (i = 0; i < 5; ++i) {
-                                        promises.push(self_test_to_node_via_web(target_node, node, 0, 1 * 1024 * 1024));
+                                    for (i = 0; i < 4; ++i) {
+                                        promises.push(self_test_to_node_via_web(target_node, node, 0, 0.5 * 1024 * 1024));
                                     }
                                 }
                             });
@@ -403,8 +424,7 @@ nb_api.factory('nbNodes', [
                 domain: node.peer_id,
                 peer: node.peer_id,
                 retries: 3,
-                timeout: 30000,
-                is_ws: true
+                timeout: 30000
             });
         }
 
@@ -429,7 +449,8 @@ nb_api.factory('nbNodes', [
                 response_length: response_length || 0,
             }, {
                 retries: 3,
-                timeout: 30000
+                timeout: 30000,
+                is_ws: true
             });
         }
 

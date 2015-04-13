@@ -94,7 +94,7 @@ function create_agent(howmany) {
             })
             .then(function(agent) {
                 agntCtlConfig.allocated_agents[agent.node_name] = {
-                    ref: agent,
+                    agent: agent,
                     started: false
                 };
                 agntCtlConfig.num_allocated++;
@@ -109,7 +109,7 @@ function cleanup_agents() {
         })
         .then(function() {
             _.each(agntCtlConfig.allocated_agents, function(id) {
-                id.ref = null;
+                id.agent = null;
             });
             agntCtlConfig.allocated_agents = {};
             agntCtlConfig.num_allocated = 0;
@@ -120,7 +120,7 @@ function start_agent(node_name) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         !agntCtlConfig.allocated_agents[node_name].started) {
         return Q.fcall(function() {
-                return agntCtlConfig.allocated_agents[node_name].ref.start();
+                return agntCtlConfig.allocated_agents[node_name].agent.start();
             })
             .then(function() {
                 agntCtlConfig.allocated_agents[node_name].started = true;
@@ -134,7 +134,7 @@ function stop_agent(node_name) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
         return Q.fcall(function() {
-                return agntCtlConfig.allocated_agents[node_name].ref.stop();
+                return agntCtlConfig.allocated_agents[node_name].agent.stop();
             })
             .then(function() {
                 agntCtlConfig.allocated_agents[node_name].started = false;
@@ -188,7 +188,7 @@ function read_block(node_name, block_id) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
         return Q.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].ref.read_block(req);
+            return agntCtlConfig.allocated_agents[node_name].agent.read_block(req);
         });
     }
 
@@ -208,7 +208,7 @@ function write_block(node_name, block_id, data) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
         return Q.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].ref.write_block(req);
+            return agntCtlConfig.allocated_agents[node_name].agent.write_block(req);
         });
     }
 
@@ -229,7 +229,7 @@ function delete_blocks(node_name, block_ids) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
         return Q.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].ref.delete_blocks(req);
+            return agntCtlConfig.allocated_agents[node_name].agent.delete_blocks(req);
         });
     }
 
@@ -250,7 +250,7 @@ function corrupt_blocks(node_name, block_ids) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
         return Q.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].ref.corrupt_blocks(block_ids);
+            return agntCtlConfig.allocated_agents[node_name].agent.corrupt_blocks(block_ids);
         });
     }
 
@@ -261,7 +261,7 @@ function list_blocks(node_name) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
         return Q.fcall(function() {
-            return agntCtlConfig.allocated_agents[node_name].ref.list_blocks();
+            return agntCtlConfig.allocated_agents[node_name].agent.list_blocks();
         });
     }
 

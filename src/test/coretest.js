@@ -130,12 +130,8 @@ function clear_test_nodes() {
         });
 }
 
-// return all allocated agents and their status (started/not)
-function get_agents_list() {
-    return agentctl.get_agents_list();
-}
-
 module.exports = {
+    //Own API
     account_credentials: account_credentials,
     client: client,
 
@@ -145,5 +141,20 @@ module.exports = {
 
     init_test_nodes: init_test_nodes,
     clear_test_nodes: clear_test_nodes,
-    get_agents_list: get_agents_list,
+
+
+    //Expose Agent Control API
+    use_local_agents: agentctl.use_local_agents,
+    create_agent: agentctl.create_agent,
+    cleanup_agents: agentctl.cleanup_agents,
+    start_agent: agentctl.start_agent,
+    stop_agent: agentctl.stop_agent,
+    start_all_agents: agentctl.start_all_agents,
+    stop_all_agents: agentctl.stop_all_agents,
+    get_agents_list: agentctl.get_agents_list,
+    read_block: agentctl.read_block,
+    write_block: agentctl.write_block,
+    delete_blocks: agentctl.delete_blocks,
+    corrupt_blocks: agentctl.corrupt_blocks,
+    list_blocks: agentctl.list_blocks,
 };

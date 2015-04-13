@@ -124,7 +124,7 @@ var xml = function() {
     return {
         buildBuckets: function(buckets) {
             return jstoxml.toXML({
-                _name: 'ListBucketResult',
+                _name: 'ListAllMyBucketsResult',
                 _attrs: {
                     'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
                 },

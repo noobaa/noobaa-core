@@ -23,7 +23,7 @@ var VALID_HTTP_METHODS = {
 var topStatSize = 60;
 var statIntervalPushCounter = 1000;
 var statIntervalPrint = 10000;
-var collectStats = true;
+var collectStats = false;
 
 /**
  *

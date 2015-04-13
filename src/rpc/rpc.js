@@ -45,7 +45,7 @@ function RPC() {
     if (collectStats) {
         this.intStat = setInterval(function() {
             try {
-                self.handleStats();
+                self._handleStats();
             } catch (err) {
                 dbg.error('Error running stats', err, err.stack);
             }
@@ -54,7 +54,7 @@ function RPC() {
 
         this.intPrtStat = setInterval(function() {
             try {
-                dbg.info(self.getStats());
+                dbg.info(self._getStats());
             } catch (err) {
                 dbg.error('Error running print stats', err, err.stack);
             }
@@ -63,94 +63,6 @@ function RPC() {
     }
 }
 
-
-RPC.prototype.addStatsCounter = function(name, value) {
-    if (!collectStats) {
-        return;
-    }
-    var self = this;
-    try {
-        if (!self._stats[name]) {
-            self._stats[name] = {
-                stat: new Stats({
-                    sampling: true
-                }),
-                current: 0,
-                isSum: true
-            };
-        }
-        self._stats[name].current += value;
-        dbg.log3('RPC addStatsVal', name, value);
-    } catch (err) {
-        dbg.error('Error addStatsVal', name, err, err.stack);
-    }
-};
-
-RPC.prototype.addStats = function(name, value) {
-    if (!collectStats) {
-        return;
-    }
-    var self = this;
-    try {
-        if (!self._stats[name]) {
-            self._stats[name] = {
-                stat: new Stats()
-            };
-        }
-        self._stats[name].stat.push(value);
-
-        dbg.log3('RPC addStats', name, value);
-    } catch (err) {
-        dbg.error('Error addStats', name, err, err.stack);
-    }
-};
-
-RPC.prototype.handleStats = function() {
-    var self = this;
-
-    try {
-        _.each(self._stats, function(stats, name) {
-            var stat = stats.stat;
-
-            if (stats.isSum) {
-                stat.push(stats.current);
-            }
-
-            while (stat.length > topStatSize) {
-                stat.shift();
-            }
-
-        });
-    } catch (err) {
-        dbg.error('Error addToStat', err, err.stack);
-    }
-};
-
-RPC.prototype.getStats = function() {
-    var self = this;
-    var result = 'Statistics: ';
-    var name;
-    var stat;
-    try {
-        _.each(self._stats, function(stats, name) {
-            stat = stats.stat;
-            result += '\nname: ' + name + ' size: ' + stat.length + ' mean: ' + stat.amean().toFixed(2);
-            if (stats.isSum) {
-                result += ' (aprox last 60 secs) ';
-            } else {
-                result += ' (aprox last 60 tx) ';
-            }
-            result += ' median: ' + stat.median().toFixed(2) + ' range: [' + stat.range() + ']';
-            if (stats.isSum) {
-                result += ' current: ' + stats.current;
-            }
-        });
-    } catch (err) {
-        dbg.error('Error getStats', err, err.stack);
-    }
-
-    return result;
-};
 
 /**
  *
@@ -251,7 +163,7 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
 
             var startTime = (new Date()).getTime();
 
-            self.addStatsCounter('RPC RESPONSE', 1);
+            self._addStatsCounter('RPC RESPONSE', 1);
 
             return Q.fcall(function() {
 
@@ -308,14 +220,14 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
                         self._validate_schema(reply, method_api.reply_schema, 'SERVER REPLY');
                     }
                     dbg.log0('RPC COMPLETED', srv_name);
-                    self.addStatsCounter('RPC RESPONSE', -1);
-                    self.addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
+                    self._addStatsCounter('RPC RESPONSE', -1);
+                    self._addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
                     return reply;
                 })
                 .then(null, function(err) {
                     console.error('RPC ERROR', srv_name, err, err.stack);
-                    self.addStatsCounter('RPC RESPONSE', -1);
-                    self.addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
+                    self._addStatsCounter('RPC RESPONSE', -1);
+                    self._addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
                     throw err;
                 });
         }
@@ -403,7 +315,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
         });
     }
 
-    self.addStatsCounter('RPC REQUEST', 1);
+    self._addStatsCounter('RPC REQUEST', 1);
 
     // verify params (local calls don't need it because server already verifies)
     var params_to_validate = method_api.param_raw ?
@@ -468,8 +380,8 @@ RPC.prototype._request = function(api, method_api, params, options) {
             if (err && err.code === 'ETIMEDOUT') {
                 timed_out = true;
             }
-            self.addStatsCounter('RPC REQUEST', -1);
-            self.addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
+            self._addStatsCounter('RPC REQUEST', -1);
+            self._addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
             throw err;
         })
         .then(function(reply) {
@@ -478,8 +390,8 @@ RPC.prototype._request = function(api, method_api, params, options) {
             if (!method_api.reply_raw) {
                 self._validate_schema(reply, method_api.reply_schema, 'CLIENT REPLY');
             }
-            self.addStatsCounter('RPC REQUEST', -1);
-            self.addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
+            self._addStatsCounter('RPC REQUEST', -1);
+            self._addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
             return reply;
         });
 };
@@ -504,4 +416,93 @@ RPC.prototype._validate_schema = function(obj, schema, desc) {
         result.desc = desc;
         throw result;
     }
+};
+
+
+RPC.prototype._addStatsCounter = function(name, value) {
+    if (!collectStats) {
+        return;
+    }
+    var self = this;
+    try {
+        if (!self._stats[name]) {
+            self._stats[name] = {
+                stat: new Stats({
+                    sampling: true
+                }),
+                current: 0,
+                isSum: true
+            };
+        }
+        self._stats[name].current += value;
+        dbg.log3('RPC addStatsVal', name, value);
+    } catch (err) {
+        dbg.error('Error addStatsVal', name, err, err.stack);
+    }
+};
+
+RPC.prototype._addStats = function(name, value) {
+    if (!collectStats) {
+        return;
+    }
+    var self = this;
+    try {
+        if (!self._stats[name]) {
+            self._stats[name] = {
+                stat: new Stats()
+            };
+        }
+        self._stats[name].stat.push(value);
+
+        dbg.log3('RPC addStats', name, value);
+    } catch (err) {
+        dbg.error('Error addStats', name, err, err.stack);
+    }
+};
+
+RPC.prototype._handleStats = function() {
+    var self = this;
+
+    try {
+        _.each(self._stats, function(stats, name) {
+            var stat = stats.stat;
+
+            if (stats.isSum) {
+                stat.push(stats.current);
+            }
+
+            while (stat.length > topStatSize) {
+                stat.shift();
+            }
+
+        });
+    } catch (err) {
+        dbg.error('Error addToStat', err, err.stack);
+    }
+};
+
+RPC.prototype._getStats = function() {
+    var self = this;
+    var result = 'Statistics: ';
+    var name;
+    var stat;
+    try {
+        _.each(self._stats, function(stats, name) {
+            stat = stats.stat;
+            result += '\nname: ' + name + ' size: ' + stat.length + ' mean: ' + stat.amean().toFixed(2);
+            if (stats.isSum) {
+                result += ' (aprox last 60 secs) ';
+            } else {
+                result += ' (aprox last 60 tx) ';
+            }
+            result += ' median: ' + stat.median().toFixed(2) + ' range: [' + stat.range() + ']';
+            if (stats.isSum) {
+                result += ' current: ' + stats.current;
+            }
+        });
+    } catch (err) {
+        dbg.error('Error getStats', err, err.stack);
+    }
+
+    return result;
 };

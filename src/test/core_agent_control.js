@@ -29,6 +29,7 @@ module.exports = {
     use_local_agents: use_local_agents,
     use_remote_agents: use_remote_agents,
 
+    // Control
     create_agent: create_agent,
     cleanup_agents: cleanup_agents,
     start_agent: start_agent,
@@ -37,11 +38,12 @@ module.exports = {
     stop_all_agents: stop_all_agents,
     get_agents_list: get_agents_list,
 
-    /*TODO: add the following:
-     * delete_block: delete_block,
-     * corrupt_block: corrupt_block,
-     * comm_error_inject: comm_error_inject,
-     */
+    //I/O
+    read_block: read_block,
+    write_block: write_block,
+    delete_blocks: delete_blocks,
+    corrupt_blocks: corrupt_blocks,
+    list_blocks: list_blocks,
 };
 
 /*
@@ -73,7 +75,7 @@ function use_remote_agents() {
 
 /*
  *
- * Agent(s) control path
+ * Agent(s) Control path
  *
  */
 
@@ -167,6 +169,103 @@ function get_agents_list() {
             started: stat.started
         };
     });
+}
+
+/*
+ *
+ * Agent(s) I/O path
+ *
+ */
+function read_block(node_name, block_id) {
+    if (!block_id) {
+        return Q.reject('No block_id supplied');
+    }
+
+    var req = {
+        block_id: block_id,
+    };
+
+    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
+        agntCtlConfig.allocated_agents[node_name].started) {
+        return Q.fcall(function() {
+            return agntCtlConfig.allocated_agents[node_name].ref.read_block(req);
+        });
+    }
+
+    return Q.reject('No node_name supplied');
+}
+
+function write_block(node_name, block_id, data) {
+    if (!block_id || !data) {
+        return Q.reject('No block_id/data supplied');
+    }
+
+    var req = {
+        block_id: block_id,
+        data: data,
+    };
+
+    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
+        agntCtlConfig.allocated_agents[node_name].started) {
+        return Q.fcall(function() {
+            return agntCtlConfig.allocated_agents[node_name].ref.write_block(req);
+        });
+    }
+
+    return Q.reject('No node_name supplied');
+}
+
+function delete_blocks(node_name, block_ids) {
+    if (!block_ids) {
+        return Q.reject('No block_ids supplied');
+    }
+
+    var req = {
+        blocks: _.map(block_ids, function(block) {
+            return block._id.toString();
+        })
+    };
+
+    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
+        agntCtlConfig.allocated_agents[node_name].started) {
+        return Q.fcall(function() {
+            return agntCtlConfig.allocated_agents[node_name].ref.delete_blocks(req);
+        });
+    }
+
+    return Q.reject('No node_name supplied');
+}
+
+function corrupt_blocks(node_name, block_ids) {
+    if (!block_ids) {
+        return Q.reject('No block_ids supplied');
+    }
+
+    var req = {
+        blocks: _.map(block_ids, function(block) {
+            return block._id.toString();
+        })
+    };
+
+    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
+        agntCtlConfig.allocated_agents[node_name].started) {
+        return Q.fcall(function() {
+            return agntCtlConfig.allocated_agents[node_name].ref.corrupt_blocks(block_ids);
+        });
+    }
+
+    return Q.reject('No node_name supplied');
+}
+
+function list_blocks(node_name) {
+    if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
+        agntCtlConfig.allocated_agents[node_name].started) {
+        return Q.fcall(function() {
+            return agntCtlConfig.allocated_agents[node_name].ref.list_blocks();
+        });
+    }
+
+    return Q.reject('No node_name supplied');
 }
 
 /*

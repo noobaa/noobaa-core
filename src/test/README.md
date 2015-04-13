@@ -23,6 +23,7 @@
     2) write_block(node_name, block_id, data) - Writes data to block_id on node_name
     3) delete_blocks(node_name, block_ids) - Deletes all block_ids from node_name
     4) corrupt_blocks(node_name, block_ids) - Corrupts (hash corruption) all block_ids on node_name
+    5) list_blocks(node_name) - List all blocks for the given node_name
 
   And Helpers:
     1) get_agents_list - Return a list of the allocated agents and their status (started/stopped)

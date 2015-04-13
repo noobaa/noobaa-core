@@ -2,7 +2,8 @@
 ===========
 ###Core Tests Table of Contents:
 
-* [core_agent_control](#core_agent_control) - Agent Control Testing Infrastructure.
+* [core_agent_control](#core_agent_control) - Agent Control Testing Infrastructure
+* [coretest](#coretest) - Core Test Infrastructure
 
 
 * ###core_agent_control
@@ -32,3 +33,20 @@
   This API expects to receive the following parameters:
     utilitest - Reference to the utilitest module
     auth_token - The auth token for the agents to be crated with
+
+* ###coretest
+  This module will function as somewhat of a proxy to the different components control modules
+  (agents, clients etc.). It provides its own API:
+    1) account_credentials - Return the account credentials for the test
+    2) client - Return the allocated client (currently only 1 can be allocated)
+    3) new_client - Allocate and return a new client
+    4) init_test_nodes(count, system, tier) - Performs the following
+        1. Creates Auth Token for system & tier,
+        2. Sets the agent control to work locally (will be removed once we support remote),
+        3. Starts all stopped agents
+
+    5) clear_test_nodes - Stops all agents and then clears them
+
+  In addition, it exposes all the core_agent_control API.
+  
+  In the future, will expose all the client control API as well.

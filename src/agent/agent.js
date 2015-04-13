@@ -119,7 +119,7 @@ function Agent(params) {
     ]);
 
     //If test, add test APIs
-    if (config.marked_test) {
+    if (config.test_mode) {
         self._add_test_APIs();
     }
 

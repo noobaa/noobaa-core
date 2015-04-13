@@ -56,7 +56,7 @@ before(function(done) {
         config.use_ice_when_possible = false;
         client.options.port = utilitest.http_port();
 
-        config.marked_test = true;
+        config.test_mode = true;
 
         var account_params = _.clone(account_credentials);
         account_params.name = 'coretest';
@@ -141,20 +141,11 @@ module.exports = {
 
     init_test_nodes: init_test_nodes,
     clear_test_nodes: clear_test_nodes,
-
-
-    //Expose Agent Control API
-    use_local_agents: agentctl.use_local_agents,
-    create_agent: agentctl.create_agent,
-    cleanup_agents: agentctl.cleanup_agents,
-    start_agent: agentctl.start_agent,
-    stop_agent: agentctl.stop_agent,
-    start_all_agents: agentctl.start_all_agents,
-    stop_all_agents: agentctl.stop_all_agents,
-    get_agents_list: agentctl.get_agents_list,
-    read_block: agentctl.read_block,
-    write_block: agentctl.write_block,
-    delete_blocks: agentctl.delete_blocks,
-    corrupt_blocks: agentctl.corrupt_blocks,
-    list_blocks: agentctl.list_blocks,
 };
+
+//Expose Agent Control API via coretest
+_.each(agentctl, function(prop) {
+    if (agentctl.hasOwnProperty(prop)) {
+        module.exports[prop] = agentctl[prop];
+    }
+});

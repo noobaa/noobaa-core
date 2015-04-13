@@ -1,7 +1,7 @@
 var config = {};
 
 // TEST Mode
-config.marked_test = false;
+config.test_mode = false;
 
 // SIGNALING AND ICE
 config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: wss://noobaa-signaling.herokuapp.com) ws://192.168.1.6:5002

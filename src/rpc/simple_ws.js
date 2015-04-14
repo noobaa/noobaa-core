@@ -20,7 +20,7 @@ var OP_MESSAGE = 'msg';
 
 
 /**
- * Wrapper for WebSocket with several convenient features:
+ * Wrapper for WebSocket with several features:
  * - send and receive binary ArrayBuffer or JSON (handles parsing/encoding)
  * - reconnects on close/error
  * - handle messages - set options.handler = function(simpleWS, data) {...}
@@ -35,19 +35,12 @@ var OP_MESSAGE = 'msg';
  *      }
  */
 function SimpleWS(options) {
+    this._options = options || {};
     this._name = options.name || '';
-    if (options.address) {
-        // address should be provided for reconnect
-        this._address = options.address;
-    }
-    // init with ws if provided
-    process.nextTick(this._init.bind(this, options.ws));
-    this._keepalive = options.keepalive;
-    this._handshake = options.handshake;
-    this._handler = options.handler;
     this._ws = null;
     this._state = STATE_INIT;
-    this._init_timeout = null;
+    // init with ws if provided
+    process.nextTick(this._init.bind(this, options.ws));
 }
 
 /**
@@ -90,17 +83,22 @@ SimpleWS.prototype._sendData = function(data) {
 };
 
 /**
- *
+ * reset the socket and reopen if address is configured
  */
 SimpleWS.prototype._reset = function() {
     this._ws = null;
     clearTimeout(this._keepalive_timeout);
     this._keepalive_timeout = null;
-    if (!this._address) {
+
+    // address should be provided for reconnect
+    if (!this._options.address) {
+
+        // if no address is configured we just close
         this._state = STATE_CLOSED;
     } else {
-        this._state = STATE_INIT;
+
         // call init but not immediate to avoid tight error loops
+        this._state = STATE_INIT;
         this._init_timeout = this._init_timeout ||
             setTimeout(this._init.bind(this), 1000);
     }
@@ -110,19 +108,26 @@ SimpleWS.prototype._reset = function() {
  *
  */
 SimpleWS.prototype._init = function(ws) {
-    if (this._init_timeout) {
-        clearTimeout(this._init_timeout);
-        this._init_timeout = null;
-    }
+    clearTimeout(this._init_timeout);
+    this._init_timeout = null;
+
     if (!ws) {
-        ws = new WS(this._address);
+
+        // when no ws supplied use address to open new socket
+        ws = new WS(this._options.address);
         ws.onopen = this._onWsOpen.bind(this, ws);
     } else {
+
+        // use supplied ws as if it was just opened
+        // this path is useful for SimpleWSServer where the socket
+        // was already opened and only require to init.
         process.nextTick(this._onWsOpen.bind(this, ws));
     }
     ws.onerror = this._onWsError.bind(this, ws);
     ws.onclose = this._onWsClose.bind(this, ws);
     ws.onmessage = this._onWsMessage.bind(this, ws);
+
+    // keep as current socket
     this._ws = ws;
 };
 
@@ -136,7 +141,7 @@ SimpleWS.prototype._onWsOpen = function(ws) {
         return;
     }
     this._triggerKeepalive();
-    if (this._handshake) {
+    if (this._options.handshake) {
         this._sendHandshake();
     } else {
         dbg.log0('WS READY', this._name);
@@ -150,7 +155,7 @@ SimpleWS.prototype._onWsOpen = function(ws) {
 SimpleWS.prototype._sendHandshake = function() {
     var self = this;
     dbg.log0('WS HANDSHAKE', self._name);
-    var createFunc = self._handshake && self._handshake.create || noop;
+    var createFunc = self._options.handshake && self._options.handshake.create || noop;
     Q.fcall(createFunc, self)
         .then(function(data) {
             self._state = STATE_HANDSHAKE;
@@ -175,7 +180,7 @@ SimpleWS.prototype._acceptHandshake = function(msg) {
         return;
     }
     dbg.log0('WS HANDSHAKE ACCEPT', self._name);
-    var acceptFunc = self._handshake && self._handshake.accept || noop;
+    var acceptFunc = self._options.handshake && self._options.handshake.accept || noop;
     Q.fcall(acceptFunc, self, msg.data)
         .then(function() {
             self._state = STATE_READY;
@@ -189,10 +194,10 @@ SimpleWS.prototype._acceptHandshake = function(msg) {
  *
  */
 SimpleWS.prototype._triggerKeepalive = function() {
-    if (this._keepalive && this._keepalive.create && !this._keepalive_timeout) {
+    if (this._options.keepalive && this._options.keepalive.create && !this._keepalive_timeout) {
         this._keepalive_timeout = setTimeout(
             this._sendKeepalive.bind(this),
-            this._keepalive.delay || 10000);
+            this._options.keepalive.delay || 10000);
     }
 };
 
@@ -202,7 +207,7 @@ SimpleWS.prototype._triggerKeepalive = function() {
 SimpleWS.prototype._sendKeepalive = function() {
     var self = this;
     dbg.log('WS KEEPALIVE', self._name);
-    var createFunc = self._keepalive.create || noop;
+    var createFunc = self._options.keepalive.create || noop;
     Q.fcall(createFunc, self)
         .then(function(data) {
             clearTimeout(self._keepalive_timeout);
@@ -229,7 +234,7 @@ SimpleWS.prototype._acceptKeepalive = function(msg) {
         return;
     }
     dbg.log0('WS KEEPALIVE ACCEPT', self._name);
-    var acceptFunc = self._keepalive && self._keepalive.accept || noop;
+    var acceptFunc = self._options.keepalive && self._options.keepalive.accept || noop;
     Q.fcall(acceptFunc, self, msg.data)
         .then(null, function(err) {
             dbg.error('WS HANDSHAKE ACCEPT ERROR', self._name);
@@ -249,7 +254,7 @@ SimpleWS.prototype._acceptMessage = function(msg) {
         return;
     }
     dbg.log0('WS MESSAGE', this._name, msg.data);
-    var handlerFunc = self._handler || noop;
+    var handlerFunc = self._options.handler || noop;
     Q.fcall(handlerFunc, self, msg.data)
         .then(null, function(err) {
             dbg.error('WS MESSAGE HANDLER ERROR', self._name);
@@ -271,7 +276,7 @@ SimpleWS.prototype._onWsMessage = function(ws, event) {
     if (event.binary) {
         msg = {
             op: OP_MESSAGE,
-            data: event.data
+            data: buffer_utils.toBuffer(event.data)
         };
     } else {
         try {
@@ -332,26 +337,29 @@ SimpleWS.prototype._onWsClose = function(ws) {
 SimpleWS.Server = SimpleWSServer;
 
 /**
- *
+ * TODO document options
  */
 function SimpleWSServer(options) {
-    this._keepalive = options.keepalive;
-    this._handshake = options.handshake;
-    this._handler = options.handler;
-    this._connHandler = options.connHandler;
+    this._options = options || {};
     this._wss = new WS.Server(options.server);
     this._wss.on('connection', this._onConnection.bind(this));
     this._wss.on('error', this._onError.bind(this));
 }
 
 SimpleWSServer.prototype._onConnection = function(ws) {
+    var self = this;
+
+    // initialize a SimpleWS to handle this socket
     var simpleWS = new SimpleWS({
-        keepalive: this._keepalive,
-        handshake: this._handshake,
-        handler: this._handler,
+        keepalive: self._options.keepalive,
+        handshake: self._options.handshake,
+        handler: self._options.handler,
         ws: ws
     });
-    Q.fcall(this._connHandler, simpleWS)
+
+    // notify on new connection if connHandler was provided
+    var connHandlerFunc = self._options.connHandler || noop;
+    Q.fcall(connHandlerFunc, simpleWS)
         .then(null, function(err) {
             dbg.log('WS SERVER CONNECTION HANDLER ERROR', err.stack || err);
             simpleWS.close();

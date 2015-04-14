@@ -25,8 +25,8 @@ var OP_MESSAGE = 'msg';
  * - reconnects on close/error
  * - handle messages - set options.handler = function(simpleWS, data) {...}
  * - optional keepalive - set options.keepalive = {
+ *          create: function(simpleWS) { can return promise },
  *          accept: function(simpleWS, data) { can return promise },
- *          send: true || {...},
  *          delay: 10000
  *      }
  * - optional handshake on open - set options.handshake = {
@@ -189,7 +189,7 @@ SimpleWS.prototype._acceptHandshake = function(msg) {
  *
  */
 SimpleWS.prototype._triggerKeepalive = function() {
-    if (this._keepalive && this._keepalive.send && !this._keepalive_timeout) {
+    if (this._keepalive && this._keepalive.create && !this._keepalive_timeout) {
         this._keepalive_timeout = setTimeout(
             this._sendKeepalive.bind(this),
             this._keepalive.delay || 10000);
@@ -200,14 +200,22 @@ SimpleWS.prototype._triggerKeepalive = function() {
  *
  */
 SimpleWS.prototype._sendKeepalive = function() {
-    dbg.log('WS KEEPALIVE', this._name);
-    clearTimeout(this._keepalive_timeout);
-    this._keepalive_timeout = null;
-    this._sendData({
-        op: OP_KEEPALIVE,
-        data: this._keepalive.send
-    });
-    this._triggerKeepalive();
+    var self = this;
+    dbg.log('WS KEEPALIVE', self._name);
+    var createFunc = self._keepalive.create || noop;
+    Q.fcall(createFunc, self)
+        .then(function(data) {
+            clearTimeout(self._keepalive_timeout);
+            self._keepalive_timeout = null;
+            self._sendData({
+                op: OP_KEEPALIVE,
+                data: data
+            });
+            self._triggerKeepalive();
+        }, function(err) {
+            dbg.error('WS KEEPALIVE CREATE ERROR', self._name);
+            self._onWsError(self._ws, err);
+        });
 };
 
 /**

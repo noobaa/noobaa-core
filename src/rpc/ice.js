@@ -11,16 +11,16 @@ var EventEmitter = require('events').EventEmitter;
  *
  */
 module.exports = {
-    RTCIceCandidate: RTCIceCandidate,
-    RTCPeerConnection: RTCPeerConnection,
-    RTCSessionDescription: RTCSessionDescription,
+    RTCIceCandidate: IceCandidate,
+    RTCPeerConnection: PeerConnection,
+    RTCSessionDescription: SessionDescription,
 };
 
 
 /**
  *
  */
-function RTCPeerConnection(config) {
+function PeerConnection(config) {
     this._config = config;
     this._dc = {};
     this._ev = new EventEmitter();
@@ -44,7 +44,7 @@ function RTCPeerConnection(config) {
 /**
  *
  */
-RTCPeerConnection.prototype.createDataChannel = function(channel_name) {
+PeerConnection.prototype.createDataChannel = function(channel_name) {
     var dc = this._dc[channel_name];
     if (!dc) {
         // make a header
@@ -56,7 +56,7 @@ RTCPeerConnection.prototype.createDataChannel = function(channel_name) {
 /**
  *
  */
-RTCPeerConnection.prototype.setLocalDescription = function(description, resolve, reject) {
+PeerConnection.prototype.setLocalDescription = function(description, resolve, reject) {
     this.localDescription = description;
     if (resolve) resolve();
 };
@@ -64,7 +64,7 @@ RTCPeerConnection.prototype.setLocalDescription = function(description, resolve,
 /**
  *
  */
-RTCPeerConnection.prototype.setRemoteDescription = function(description, resolve, reject) {
+PeerConnection.prototype.setRemoteDescription = function(description, resolve, reject) {
     this.remoteDescription = description;
     if (resolve) resolve();
 };
@@ -72,7 +72,7 @@ RTCPeerConnection.prototype.setRemoteDescription = function(description, resolve
 /**
  *
  */
-RTCPeerConnection.prototype.addIceCandidate = function(candidate, resolve, reject) {
+PeerConnection.prototype.addIceCandidate = function(candidate, resolve, reject) {
     console.log('RTC CANDIDATE', candidate);
     this._peer_nat = candidate;
 
@@ -93,7 +93,7 @@ RTCPeerConnection.prototype.addIceCandidate = function(candidate, resolve, rejec
 /**
  *
  */
-RTCPeerConnection.prototype.createOffer = function(callback) {
+PeerConnection.prototype.createOffer = function(callback) {
     callback({
         sdp: 'SHUM-KLUM'
     });
@@ -102,7 +102,7 @@ RTCPeerConnection.prototype.createOffer = function(callback) {
 /**
  *
  */
-RTCPeerConnection.prototype.createAnswer = function(callback) {
+PeerConnection.prototype.createAnswer = function(callback) {
     callback({});
 };
 
@@ -113,7 +113,7 @@ RTCPeerConnection.prototype.createAnswer = function(callback) {
 /**
  * STUN response event handler
  */
-RTCPeerConnection.prototype._on_stun_response = function(packet) {
+PeerConnection.prototype._on_stun_response = function(packet) {
     console.log('RTC STUN RESPONSE', packet);
     this._nat = packet.attrs[stun.attribute.MAPPED_ADDRESS];
     this._sock = dgram.createSocket('udp4');
@@ -128,7 +128,7 @@ RTCPeerConnection.prototype._on_stun_response = function(packet) {
 };
 
 
-RTCPeerConnection.prototype._on_stun_message = function(buffer, remote_info) {
+PeerConnection.prototype._on_stun_message = function(buffer, remote_info) {
     var header_end = buffer.readUInt16BE(2);
     var header = JSON.parse(buffer.slice(4, header_end));
     console.log('RTC MESSAGE HEADER', header, buffer.length, header_end);
@@ -197,13 +197,13 @@ function socket_send_callback(err) {
 /**
  * just passing the data to the peer connection
  */
-function RTCSessionDescription(data) {
+function SessionDescription(data) {
     return data;
 }
 
 /**
  * just passing the data to the peer connection
  */
-function RTCIceCandidate(data) {
+function IceCandidate(data) {
     return data;
 }

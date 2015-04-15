@@ -137,7 +137,7 @@ describe('RPC HTTP', function() {
         it('should work on empty server with allow_missing_methods', function() {
             var rpc = new RPC();
             rpc.register_api(test_api);
-            rpc.register_service({}, 'test_api', '', {
+            rpc.register_service({}, 'test_api', {
                 allow_missing_methods: true
             });
         });
@@ -147,18 +147,20 @@ describe('RPC HTTP', function() {
             var rpc = new RPC();
             rpc.register_api(test_api);
             assert.throws(function() {
-                rpc.register_service({}, 'test_api', '');
+                rpc.register_service({}, 'test_api');
             }, Error);
         });
 
         it('should throw on duplicate service', function() {
             var rpc = new RPC();
             rpc.register_api(test_api);
-            rpc.register_service({}, 'test_api', 17, {
+            rpc.register_service({}, 'test_api', {
+                domain: 17,
                 allow_missing_methods: true
             });
             assert.throws(function() {
-                rpc.register_service({}, 'test_api', 17, {
+                rpc.register_service({}, 'test_api', {
+                    domain: 17,
                     allow_missing_methods: true
                 });
             }, Error);
@@ -174,7 +176,7 @@ describe('RPC HTTP', function() {
                 delete: function() {},
                 use: function() {},
             };
-            rpc.register_service(server, 'test_api', '');
+            rpc.register_service(server, 'test_api');
         });
 
     });
@@ -210,7 +212,7 @@ describe('RPC HTTP', function() {
                             return Q.resolve(REPLY);
                         }
                     };
-                    rpc.register_service(methods, 'test_api', '', {
+                    rpc.register_service(methods, 'test_api', {
                         allow_missing_methods: true
                     });
                     client = rpc.create_client('test_api');

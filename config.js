@@ -1,8 +1,8 @@
 var config = {};
 
 // SIGNALING AND ICE
-// config.signal_address = 'wss://noobaa-signaling.herokuapp.com';
-config.signal_address = 'ws://localhost:5002';
+// config.ws_address = 'wss://noobaa-signaling.herokuapp.com';
+config.ws_address = 'ws://localhost:5002';
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 50;
 config.connection_data_stale = 5 * 60 * 1000;

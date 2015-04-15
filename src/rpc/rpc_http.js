@@ -178,7 +178,7 @@ function middleware(rpc) {
                 var api_name = path_split.shift() || path_split.shift();
                 var method_name = path_split.shift();
                 var domain = path_split.shift();
-                method = rpc.get_service_method(api_name, method_name, domain);
+                method = rpc.get_service_method(api_name, domain, method_name);
 
                 if (!method) {
                     throw {

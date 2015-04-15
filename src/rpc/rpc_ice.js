@@ -123,7 +123,7 @@ function serve(rpc, peer_id) {
                 var api_name = path_split.shift() || path_split.shift();
                 var method_name = path_split.shift();
                 var domain = path_split.shift();
-                rpc_method = rpc.get_service_method(api_name, method_name, domain);
+                rpc_method = rpc.get_service_method(api_name, domain, method_name);
 
                 if (!rpc_method) {
                     throw {

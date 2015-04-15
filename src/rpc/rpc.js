@@ -7,8 +7,10 @@ var assert = require('assert');
 var tv4 = require('tv4');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var rpc_http = require('./rpc_http');
-var rpc_ice = require('./rpc_ice');
-var rpc_p2p = require('./rpc_p2p');
+var rpc_peer = require('./rpc_peer');
+var RpcWS = require('./rpc_ws');
+var RpcRequest = require('./rpc_request');
+var RpcConnection = require('./rpc_connection');
 var config = require('../../config.js');
 var Stats = require('fast-stats').Stats;
 
@@ -36,6 +38,9 @@ function RPC() {
     this._stats = {};
     this._apis = {};
     this._services = {};
+    this._conn_cache = {};
+    this._request_cache = {};
+    this._rpc_ws = new RpcWS(this);
     this._schemas = tv4.freshApi();
     this._schemas.addFormat('date', function(data) {
         var d = new Date(data);
@@ -113,10 +118,10 @@ RPC.prototype.register_api = function(api) {
  * register_service
  *
  */
-RPC.prototype.register_service = function(server, api_name, domain, options) {
+RPC.prototype.register_service = function(server, api_name, options) {
     var self = this;
     var api = self._apis[api_name];
-    domain = domain || '';
+    var domain = options.domain || '*';
 
     assert(api,
         'RPC: no such registered api ' + api_name);
@@ -136,7 +141,10 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
     };
 
     function make_service_method(method_api, method_name) {
-        var srv_name = '/' + api_name + '/' + method_name + '/' + domain;
+        var srv_name =
+            '/' + api_name +
+            '/' + domain +
+            '/' + method_name;
         var server_func = server[method_name];
         if (!server_func && options.allow_missing_methods) {
             server_func = function() {
@@ -160,9 +168,7 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
          */
         function service_method_handler(req) {
             dbg.log0('RPC START', srv_name);
-
-            var startTime = (new Date()).getTime();
-
+            var startTime = Date.now();
             self._addStatsCounter('RPC RESPONSE', 1);
 
             return Q.fcall(function() {
@@ -221,19 +227,18 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
                     }
                     dbg.log0('RPC COMPLETED', srv_name);
                     self._addStatsCounter('RPC RESPONSE', -1);
-                    self._addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
+                    self._addStats('RPC RESP Time', (Date.now() - startTime));
                     return reply;
                 })
                 .then(null, function(err) {
                     console.error('RPC ERROR', srv_name, err, err.stack);
                     self._addStatsCounter('RPC RESPONSE', -1);
-                    self._addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
+                    self._addStats('RPC RESP Time', (Date.now() - startTime));
                     throw err;
                 });
         }
     }
 };
-
 
 
 /**
@@ -243,14 +248,12 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
  * @return object that includes: method_api, handler. see register_service()
  *
  */
-RPC.prototype.get_service_method = function(api_name, method_name, domain) {
-    domain = domain || '';
+RPC.prototype.get_service_method = function(api_name, domain, method_name) {
+    domain = domain || '*';
     return this._services[api_name] &&
         this._services[api_name][domain] &&
         this._services[api_name][domain].methods[method_name];
 };
-
-
 
 
 /**
@@ -291,22 +294,20 @@ RPC.prototype.create_client = function(api_name, default_options) {
  *
  */
 RPC.prototype._request = function(api, method_api, params, options) {
-
     var self = this;
-
-    var startTime = (new Date()).getTime();
-
+    var domain = options.domain || '*';
+    var startTime = Date.now();
     var srv_name =
         '/' + api.name +
-        '/' + method_api.name +
-        '/' + options.domain;
+        '/' + domain +
+        '/' + method_api.name;
     dbg.log0('RPC REQUEST', srv_name);
 
     // if the service is registered locally,
     // dispatch to simple function call
 
     var local_method = self.get_service_method(
-        api.name, method_api.name, options.domain);
+        api.name, domain, method_api.name);
 
     if (local_method) {
         return local_method.handler({
@@ -321,79 +322,55 @@ RPC.prototype._request = function(api, method_api, params, options) {
     var params_to_validate = method_api.param_raw ?
         _.omit(params, method_api.param_raw) :
         params;
+
     self._validate_schema(
         params_to_validate,
         method_api.params_schema,
         'CLIENT PARAMS');
 
-    var timeout = options.timeout || config.default_rpc_timeout; // a default high time
-    var retries = options.retries || config.default_rpc_retries;
-    var attempts = 0;
-    var timed_out = false;
-    var transport;
+    var req = new RpcRequest(api, method_api, params, options);
+    self._request_cache[req.reqid] = req;
 
-    dbg.log2('RPC attempt at ', method_api, timeout, retries);
-
-    // choose suitable transport
-    if (config.use_ws_when_possible && options.is_ws && options.peer) {
-        transport = rpc_ice.request_ws;
-    } else if (config.use_ice_when_possible && options.peer) {
-        transport = rpc_ice.request;
-    } else {
-        transport = rpc_http.request;
-    }
-    if (!transport) {
-        dbg.log0('RPC: no transport available', srv_name, options);
-        throw new Error('RPC: no transport available ' + srv_name);
-    }
-
-    // send the request and loop as long as we didn't timeout
-    // and attempts below number of retries
-    function send_request() {
-        attempts += 1;
-        dbg.log1('RPC ATTEMPT', attempts, srv_name, params);
-        return transport(self, api, method_api, params, options)
-            .then(null, function(err) {
-                // error with statusCode means we got the reply from the server
-                // so there is no point to retry
-                if (err && err.statusCode && err.statusCode !== 503) {
-                    dbg.log0('RPC REQUEST FAILED', err);
-                    throw err;
-                }
-                if (timed_out) {
-                    dbg.log0('RPC REQUEST TIMEOUT', attempts, srv_name);
-                    throw err;
-                }
-                if (attempts >= retries) {
-                    dbg.log0('RPC RETRIES EXHAUSTED', attempts, srv_name);
-                    throw err;
-                }
-                dbg.log0('RPC REQUEST FAILED - DO RETRY', err, params);
-                return Q.delay(config.rpc_retry_delay).then(send_request);
-            });
-    }
-
-    return send_request()
-        .timeout(timeout)
-        .then(null, function(err) {
-            // we mark the timeout for the looping request to be able to break
-            if (err && err.code === 'ETIMEDOUT') {
-                timed_out = true;
-            }
-            self._addStatsCounter('RPC REQUEST', -1);
-            self._addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
-            throw err;
+    return Q.fcall(function() {
+            return self._connect(req);
+        })
+        .then(function(conn) {
+            return conn.send_request(req);
+        })
+        .then(function() {
+            return req.promise;
         })
         .then(function(reply) {
-
             // validate reply
             if (!method_api.reply_raw) {
                 self._validate_schema(reply, method_api.reply_schema, 'CLIENT REPLY');
             }
-            self._addStatsCounter('RPC REQUEST', -1);
-            self._addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
             return reply;
+        })
+        .then(null, function(err) {
+            req.defer.reject(err);
+            throw err;
+        })
+        .fin(function() {
+            delete self._request_cache[req.reqid];
+            self._addStatsCounter('RPC REQUEST', -1);
+            self._addStats('RPC REQ Time', (Date.now() - startTime));
         });
+};
+
+
+/**
+ *
+ * _connect
+ *
+ */
+RPC.prototype._connect = function(req) {
+    var domain = req.options.domain || '*';
+    var conn = this._conn_cache[domain];
+    if (!conn) {
+        conn = this._conn_cache[domain] = new RpcConnection(domain);
+    }
+    return conn.connect();
 };
 
 

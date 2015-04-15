@@ -19,10 +19,11 @@ module.exports = {
  *
  * request
  *
- * send rpc request P2P
+ * send rpc request to peer
  *
  */
 function request(rpc, api, method_api, params, options) {
+
 }
 
 

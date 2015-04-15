@@ -21,18 +21,31 @@ var OP_MESSAGE = 'msg';
 
 /**
  * Wrapper for WebSocket with several features:
- * - send and receive binary ArrayBuffer or JSON (handles parsing/encoding)
- * - reconnects on close/error
+ *
+ * - send and receive binary Buffer or JSON (handles parsing/encoding)
+ *
+ * - lazy connect - set options.lazyConnect=true
+ *      to connect only upon call to send.
+ *
+ * - idle close set options.idleCloseTimeout=60000
+ *      to close socket after timeout of being idle (no send/receive ignoring keepalives)
+ *
+ * - reconnect on close/error - set options.reconnectTimeout=1000
+ *      to reconnect after error/close.
+ *
  * - handle messages - set options.handler = function(simpleWS, data) {...}
+ *
  * - optional keepalive - set options.keepalive = {
  *          create: function(simpleWS) { can return promise },
  *          accept: function(simpleWS, data) { can return promise },
  *          delay: 10000
  *      }
+ *
  * - optional handshake on open - set options.handshake = {
  *          create: function(simpleWS) { can return promise }
  *          accept: function(simpleWS, data) { can return promise }
  *      }
+ *
  */
 function SimpleWS(options) {
     this._options = options || {};

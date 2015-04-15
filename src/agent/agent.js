@@ -141,7 +141,8 @@ Agent.prototype.start = function() {
 
             // register agent_server in rpc, with domain as peer_id
             // to match only calls to me
-            api.rpc.register_service(self.agent_server, 'agent_api', self.peer_id, {
+            api.rpc.register_service('agent_api', self.agent_server, {
+                domain: self.peer_id,
                 authorize: function(req, method_api) {
                     // TODO verify aithorized tokens in agent?
                 }
@@ -201,7 +202,7 @@ Agent.prototype._init_node = function() {
             return self.client.auth.read_auth();
         })
         .then(function(res) {
-            dbg.log0('res:',res);
+            dbg.log0('res:', res);
             // if we are already authorized with our specific node_id, use it
             if (res.account && res.system &&
                 res.extra && res.extra.node_id) {
@@ -326,7 +327,7 @@ Agent.prototype.send_heartbeat = function() {
 
     // chk if windows
     if (os.type().match(/win/i) && !os.type().match(/darwin/i)) {
-        drive ='c';
+        drive = 'c';
     }
 
     dbg.log0('send heartbeat by agent', self.node_id);
@@ -397,7 +398,7 @@ Agent.prototype.send_heartbeat = function() {
                 }
             }
 
-            dbg.log3('AGENT HB params: ',params);
+            dbg.log3('AGENT HB params: ', params);
 
             return self.client.node.heartbeat(params);
         })

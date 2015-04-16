@@ -36,16 +36,10 @@ var collectStats = true;
 function RPC() {
     var self = this;
     this._stats = {};
-    this._apis = {};
     this._services = {};
     this._conn_cache = {};
     this._request_cache = {};
     this._rpc_ws = new RpcWS(this);
-    this._schemas = tv4.freshApi();
-    this._schemas.addFormat('date', function(data) {
-        var d = new Date(data);
-        return isNaN(d.getTime()) ? 'bad date' : null;
-    });
 
     if (collectStats) {
         this.intStat = setInterval(function() {
@@ -71,68 +65,20 @@ function RPC() {
 
 /**
  *
- * register_api
- *
- */
-RPC.prototype.register_api = function(api) {
-    var self = this;
-
-    assert(!self._apis[api.name], 'RPC: api already registered ' + api.name);
-
-    // add all definitions
-    _.each(api.definitions, function(schema, name) {
-        self._schemas.addSchema('/' + api.name + '/definitions/' + name, schema);
-    });
-
-    // add all definitions
-    _.each(api.definitions, function(schema, name) {
-        self._schemas.addSchema('/' + api.name + '/definitions/' + name, schema);
-    });
-
-    // go over the api and check its validity
-    _.each(api.methods, function(method_api, method_name) {
-        // add the name to the info
-        method_api.name = method_name;
-        method_api.fullname = '/' + api.name + '/methods/' + method_name;
-        method_api.params_schema = method_api.fullname + '/params';
-        method_api.reply_schema = method_api.fullname + '/reply';
-
-        self._schemas.addSchema(method_api.params_schema, method_api.params || {});
-        self._schemas.addSchema(method_api.reply_schema, method_api.reply || {});
-        method_api.params_properties = self._schemas.getSchema(method_api.params_schema).properties;
-
-        assert(method_api.method in VALID_HTTP_METHODS,
-            'RPC: unexpected http method: ' +
-            method_api.method + ' for ' + method_api.fullname);
-    });
-
-    self._apis[api.name] = api;
-
-    return api;
-};
-
-
-
-/**
- *
  * register_service
  *
  */
-RPC.prototype.register_service = function(server, api_name, options) {
+RPC.prototype.register_service = function(server, api, options) {
     var self = this;
-    var api = self._apis[api_name];
     var domain = options.domain || '*';
 
-    assert(api,
-        'RPC: no such registered api ' + api_name);
-
-    var service = self._services[api_name];
+    var service = self._services[api.name];
     if (!service) {
-        service = self._services[api_name] = {};
+        service = self._services[api.name] = {};
     }
 
     assert(!service[domain],
-        'RPC: service already registered ' + api_name + '-' + domain);
+        'RPC: service already registered ' + api.name + '-' + domain);
 
     service[domain] = {
         api: api,
@@ -142,7 +88,7 @@ RPC.prototype.register_service = function(server, api_name, options) {
 
     function make_service_method(method_api, method_name) {
         var srv_name =
-            '/' + api_name +
+            '/' + api.name +
             '/' + domain +
             '/' + method_name;
         var server_func = server[method_name];
@@ -181,13 +127,7 @@ RPC.prototype.register_service = function(server, api_name, options) {
                 .then(function() {
 
                     // verify params
-                    var params_to_validate = method_api.param_raw ?
-                        _.omit(req.rpc_params, method_api.param_raw) :
-                        req.rpc_params;
-                    self._validate_schema(
-                        params_to_validate,
-                        method_api.params_schema,
-                        'SERVER PARAMS');
+                    method_api.validate_params(req.rpc_params, 'SERVER');
 
                     /**
                      * respond with error
@@ -222,9 +162,7 @@ RPC.prototype.register_service = function(server, api_name, options) {
                 .then(function(reply) {
 
                     // verify reply (if not raw buffer)
-                    if (!method_api.reply_raw) {
-                        self._validate_schema(reply, method_api.reply_schema, 'SERVER REPLY');
-                    }
+                    method_api.validate_reply(reply, 'SERVER');
                     dbg.log0('RPC COMPLETED', srv_name);
                     self._addStatsCounter('RPC RESPONSE', -1);
                     self._addStats('RPC RESP Time', (Date.now() - startTime));
@@ -261,12 +199,8 @@ RPC.prototype.get_service_method = function(api_name, domain, method_name) {
  * create_client
  *
  */
-RPC.prototype.create_client = function(api_name, default_options) {
+RPC.prototype.create_client = function(api, default_options) {
     var self = this;
-    var api = self._apis[api_name];
-
-    assert(api, 'RPC: no such registered api ' + api_name);
-
     var client = {};
 
     // create client methods
@@ -319,14 +253,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
     self._addStatsCounter('RPC REQUEST', 1);
 
     // verify params (local calls don't need it because server already verifies)
-    var params_to_validate = method_api.param_raw ?
-        _.omit(params, method_api.param_raw) :
-        params;
-
-    self._validate_schema(
-        params_to_validate,
-        method_api.params_schema,
-        'CLIENT PARAMS');
+    method_api.validate_params(params, 'CLIENT');
 
     var req = new RpcRequest(api, method_api, params, options);
     self._request_cache[req.reqid] = req;
@@ -342,9 +269,7 @@ RPC.prototype._request = function(api, method_api, params, options) {
         })
         .then(function(reply) {
             // validate reply
-            if (!method_api.reply_raw) {
-                self._validate_schema(reply, method_api.reply_schema, 'CLIENT REPLY');
-            }
+            method_api.validate_reply(reply, 'CLIENT');
             return reply;
         })
         .then(null, function(err) {
@@ -373,27 +298,6 @@ RPC.prototype._connect = function(req) {
     return conn.connect();
 };
 
-
-
-/**
- *
- * _validate_schema
- *
- */
-RPC.prototype._validate_schema = function(obj, schema, desc) {
-    var result = this._schemas.validateResult(
-        obj,
-        schema,
-        true /*checkRecursive*/ ,
-        true /*banUnknownProperties*/
-    );
-
-    if (!result.valid) {
-        dbg.log0('INVALID SCHEMA', desc, obj);
-        result.desc = desc;
-        throw result;
-    }
-};
 
 
 RPC.prototype._addStatsCounter = function(name, value) {

@@ -142,42 +142,40 @@ function prepare_schema(base, schema, path) {
          * so can't use array of buffers or a additionalProperties which is not listed
          * in schema.properties while this preparation code runs.
          */
-        var ebuf = genfun()
-            ('function export_buffer(req, root) {');
+        var efn = genfun()
+            ('function export_buffers(req, root) {');
         if (base.buffers) {
             // create a concatenated buffer from all the buffers
-            ebuf('req.buffer = Buffer.concat([');
+            efn('req.buffers = [');
             _.each(base.buffers, function(b) {
-                ebuf('req[root]%s , ', b.jspath);
+                efn('req[root]%s , ', b.jspath);
             });
-            ebuf('], ');
+            efn('];');
+            efn('req.buffers_len = ');
             _.each(base.buffers, function(b) {
-                ebuf('req[root]%s.length + ', b.jspath);
+                efn('req[root]%s.length + ', b.jspath);
             });
-            ebuf('0);');
-            // replace each of the original paths with it's relevant buffer length length
+            efn('0;');
+            // replace each of the original paths with the buffer length
             _.each(base.buffers, function(b) {
-                ebuf('req[root]%s = req[root]%s.length;', b.jspath, b.jspath);
-            });
-        }
-        base.export_buffer = ebuf('}').toFunction();
-        // the import_buffer counterpart
-        var ibuf = genfun()
-            ('function import_buffer(req, root) {');
-        if (base.buffers) {
-            ibuf('var pos = 0;');
-            ibuf('var len = 0;');
-            _.each(base.buffers, function(b) {
-                ibuf('len = req[root]%s;', b.jspath);
-                ibuf('req[root]%s = req.buffer.slice(pos, pos + len);', b.jspath);
-                ibuf('pos += len;');
+                efn('req[root]%s = req[root]%s.length;', b.jspath, b.jspath);
             });
         }
-        base.import_buffer = ibuf('}').toFunction();
+        base.export_buffers = efn('}').toFunction();
+        // the import_buffers counterpart
+        var ifn = genfun()
+            ('function import_buffers(req, root) {');
+        _.each(base.buffers, function(b, i) {
+            // verify the buffer length matches before replacing
+            ifn('if (req[root]%s !== req.buffers[%d].length)', b.jspath, i);
+            ifn('  throw new Error("LENGTH MISMATCH IMPORT BUFFER %d");', i);
+            ifn('req[root]%s = req.buffers[%d];', b.jspath, i);
+        });
+        base.import_buffers = ifn('}').toFunction();
         if (base.buffers) {
             dbg.log0('SCHEMA BUFFERS', base.id, base.buffers,
-                base.export_buffer.toString(),
-                base.import_buffer.toString());
+                base.export_buffers.toString(),
+                base.import_buffers.toString());
         }
     }
 }

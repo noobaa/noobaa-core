@@ -213,7 +213,8 @@ RPC.prototype.make_request = function(api, method_api, params, options) {
     dbg.log1('RPC REQUEST', req.srv);
 
     // if the service is registered locally,
-    // dispatch to function call
+    // dispatch to function call.
+    // handle_request will validate params so skip here
     if (self.is_local_service_domain(api.name, req.domain)) {
         return self.make_request_local(req);
     }
@@ -222,13 +223,12 @@ RPC.prototype.make_request = function(api, method_api, params, options) {
         name: req.srv,
     });
 
-    // verify params (local calls don't need it because server already verifies)
-    method_api.validate_params(params, 'CLIENT');
-
     self._sent_requests[req.reqid] = req;
 
     return Q.fcall(function() {
-            return self._connect(req);
+            // verify params (local calls don't need it because server already verifies)
+            method_api.validate_params(params, 'CLIENT');
+            return self.make_connection(req);
         })
         .then(function(conn) {
             return conn.send_request(req);
@@ -264,7 +264,7 @@ RPC.prototype.make_request = function(api, method_api, params, options) {
  * _connect
  *
  */
-RPC.prototype._connect = function(req) {
+RPC.prototype.make_connection = function(req) {
     var domain = req.options.domain || '*';
     var conn = this._conn_cache[domain];
     if (!conn) {

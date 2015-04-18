@@ -24,7 +24,6 @@ module.exports = {
                         type: 'string',
                     },
                     data: {
-                        type: 'object',
                         format: 'buffer'
                     }
                 },
@@ -43,7 +42,6 @@ module.exports = {
                 },
             },
             reply: {
-                type: 'object',
                 format: 'buffer'
             },
             reply_raw: true,
@@ -138,13 +136,11 @@ module.exports = {
                         type: 'integer'
                     },
                     data: {
-                        type: 'object',
                         format: 'buffer'
                     }
                 },
             },
             reply: {
-                type: 'object',
                 format: 'buffer'
             },
             reply_raw: true,

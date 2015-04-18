@@ -165,11 +165,11 @@ module.exports = {
                     },
                     till: {
                         type: 'integer',
-                        format: 'date',
+                        format: 'idate',
                     },
                     since: {
                         type: 'integer',
-                        format: 'date',
+                        format: 'idate',
                     },
                     skip: {
                         type: 'integer',
@@ -194,7 +194,7 @@ module.exports = {
                                 },
                                 time: {
                                     type: 'integer',
-                                    format: 'date',
+                                    format: 'idate',
                                 },
                                 level: {
                                     type: 'string',

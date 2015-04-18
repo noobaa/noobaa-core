@@ -4,8 +4,8 @@ var _ = require('lodash');
 var Q = require('q');
 var WS = require('ws');
 var util = require('util');
-var buffer_utils = require('./buffer_utils');
-var dbg = require('./debug_module')(__filename);
+var buffer_utils = require('../util/buffer_utils');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = SimpleWS;
 

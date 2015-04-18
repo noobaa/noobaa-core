@@ -2,7 +2,7 @@
 
 var _ = require('lodash');
 var assert = require('assert');
-var tv4 = require('tv4');
+var validator = require('is-my-json-valid');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = RpcSchema;
@@ -11,11 +11,23 @@ module.exports = RpcSchema;
  * a registry for api's
  */
 function RpcSchema() {
-    this._schemas = tv4.freshApi();
-    this._schemas.addFormat('date', function(data) {
-        var d = new Date(data);
-        return isNaN(d.getTime()) ? 'bad date' : null;
-    });
+    this._schemas = {};
+    this._validator_options = {
+        schemas: this._schemas,
+        verbose: true,
+        formats: {
+            idate: function(val) {
+                var d = new Date(val);
+                return !isNaN(d.getTime());
+            },
+            buffer: function(val) {
+                return Buffer.isBuffer(val);
+            }
+        },
+        // TODO banUnknownProperties is pending issue
+        // https://github.com/mafintosh/is-my-json-valid/issues/59
+        banUnknownProperties: true
+    };
 }
 
 var VALID_HTTP_METHODS = {
@@ -37,12 +49,8 @@ RpcSchema.prototype.register_api = function(api) {
 
     // add all definitions
     _.each(api.definitions, function(schema, name) {
-        self._schemas.addSchema('/' + api.name + '/definitions/' + name, schema);
-    });
-
-    // add all definitions
-    _.each(api.definitions, function(schema, name) {
-        self._schemas.addSchema('/' + api.name + '/definitions/' + name, schema);
+        schema.id = '/' + api.name + '/definitions/' + name;
+        self._schemas[schema.id] = schema;
     });
 
     // go over the api and check its validity
@@ -50,50 +58,33 @@ RpcSchema.prototype.register_api = function(api) {
         // add the name to the info
         method_api.name = method_name;
         method_api.fullname = '/' + api.name + '/methods/' + method_name;
-        method_api.params_schema = method_api.fullname + '/params';
-        method_api.reply_schema = method_api.fullname + '/reply';
-
-        self._schemas.addSchema(method_api.params_schema, method_api.params || {});
-        self._schemas.addSchema(method_api.reply_schema, method_api.reply || {});
-        method_api.params_properties = self._schemas.getSchema(method_api.params_schema).properties;
+        method_api.params = method_api.params || {};
+        method_api.reply = method_api.reply || {};
+        method_api.params_validator = validator(method_api.params, self._validator_options);
+        method_api.reply_validator = validator(method_api.reply, self._validator_options);
+        method_api.params_properties = method_api.params.properties;
 
         assert(method_api.method in VALID_HTTP_METHODS,
             'RPC: unexpected http method: ' +
             method_api.method + ' for ' + method_api.fullname);
 
         method_api.validate_params = function(params, desc) {
-            var params_to_validate = method_api.param_raw ?
-                _.omit(params, method_api.param_raw) :
-                params;
-            var result = self._schemas.validateResult(
-                params,
-                method_api.params_schema,
-                true /*checkRecursive*/ ,
-                true /*banUnknownProperties*/
-            );
-
-            if (!result.valid) {
-                dbg.error('INVALID PARAMS SCHEMA', desc, method_api.params_schema, params);
-                result.desc = desc;
-                throw result;
+            var result = method_api.params_validator(params);
+            if (!result) {
+                dbg.error('INVALID PARAMS SCHEMA',
+                    desc, method_api.fullname, params,
+                    method_api.params_validator.errors);
+                throw new Error('INVALID PARAMS SCHEMA ' + desc + ' ' + method_api.fullname);
             }
         };
 
         method_api.validate_reply = function(reply, desc) {
-            if (method_api.reply_raw) {
-                return;
-            }
-            var result = self._schemas.validateResult(
-                reply,
-                method_api.reply_schema,
-                true /*checkRecursive*/ ,
-                true /*banUnknownProperties*/
-            );
-
-            if (!result.valid) {
-                dbg.error('INVALID REPLY SCHEMA', desc, method_api.reply_schema, reply);
-                result.desc = desc;
-                throw result;
+            var result = method_api.reply_validator(reply);
+            if (!result) {
+                dbg.error('INVALID REPLY SCHEMA',
+                    desc, method_api.fullname, reply,
+                    method_api.params_validator.errors);
+                throw new Error('INVALID REPLY SCHEMA ' + desc + ' ' + method_api.fullname);
             }
         };
     });

@@ -76,7 +76,7 @@ function create_system(req) {
             var tier_req = Object.create(req);
             tier_req.system = system;
             tier_req.role = 'admin';
-            tier_req.rest_params = {
+            tier_req.params = {
                 name: 'nodes',
                 kind: 'edge',
             };
@@ -87,7 +87,7 @@ function create_system(req) {
             var bucket_req = Object.create(req);
             bucket_req.system = system;
             bucket_req.role = 'admin';
-            bucket_req.rest_params = {
+            bucket_req.params = {
                 name: 'files',
                 tiering: ['nodes']
             };

@@ -14,10 +14,10 @@ var options = {
     use_ws_to_peer: true
 };
 
-api.rpc.register_service(require('./auth_server'), api.schema.auth_api, options);
-api.rpc.register_service(require('./account_server'), api.schema.account_api, options);
-api.rpc.register_service(require('./system_server'), api.schema.system_api, options);
-api.rpc.register_service(require('./tier_server'), api.schema.tier_api, options);
-api.rpc.register_service(require('./node_server'), api.schema.node_api, options);
-api.rpc.register_service(require('./bucket_server'), api.schema.bucket_api, options);
-api.rpc.register_service(require('./object_server'), api.schema.object_api, options);
+api.rpc.register_service(api.schema.auth_api, require('./auth_server'), options);
+api.rpc.register_service(api.schema.account_api, require('./account_server'), options);
+api.rpc.register_service(api.schema.system_api, require('./system_server'), options);
+api.rpc.register_service(api.schema.tier_api, require('./tier_server'), options);
+api.rpc.register_service(api.schema.node_api, require('./node_server'), options);
+api.rpc.register_service(api.schema.bucket_api, require('./bucket_server'), options);
+api.rpc.register_service(api.schema.object_api, require('./object_server'), options);

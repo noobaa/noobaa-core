@@ -1,6 +1,6 @@
 'use strict';
 
-var _ = require('_');
+var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
 var crypto = require('crypto');
@@ -8,27 +8,25 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = RpcRequest;
 
+var get_params_property = {
+    enumerable: true,
+    get: function() {
+        return this.params;
+    }
+};
+
 /**
  *
  */
 function RpcRequest() {
-    var self;
+    this.defer = Q.defer();
 
     // rest_params and rpc_params are DEPRECATED.
     // keeping for backwards compatability
-    Object.defineProperty(self, 'rest_params', {
-        enumerable: true,
-        get: function() {
-            return self.params;
-        },
-    });
-    Object.defineProperty(self, 'rpc_params', {
-        enumerable: true,
-        get: function() {
-            return self.params;
-        },
-    });
+    Object.defineProperty(this, 'rest_params', get_params_property);
+    Object.defineProperty(this, 'rpc_params', get_params_property);
 }
+
 
 /**
  *
@@ -42,8 +40,6 @@ RpcRequest.prototype.new_request = function(api, method_api, params, options) {
     this.domain = options.domain || '*';
     this.params = params;
     this.options = options;
-    this.defer = Q.defer();
-    this.promise = this.defer.promise;
     this.srv =
         '/' + api.name +
         '/' + this.domain +
@@ -65,20 +61,17 @@ RpcRequest.prototype.export_request = function() {
 
 /**
  * load request from exported info
+ * NOTE: api and method_api should be resolved by the caller and set
  */
-RpcRequest.prototype.import_request = function(req, api, method_api) {
+RpcRequest.prototype.import_request = function(req) {
     this.reqid = req.reqid;
-    this.api = api;
-    this.method_api = method_api;
     this.domain = req.domain;
     this.params = req.params;
     this.time = parseInt(req.reqid.slice(0, req.reqid.indexOf('.')), 10);
-    this.defer = Q.defer();
-    this.promise = this.defer.promise;
     this.srv =
-        '/' + this.api.name +
-        '/' + this.domain +
-        '/' + this.method_api.name;
+        '/' + req.api +
+        '/' + req.domain +
+        '/' + req.method;
 };
 
 /**
@@ -86,7 +79,7 @@ RpcRequest.prototype.import_request = function(req, api, method_api) {
  */
 RpcRequest.prototype.export_response = function() {
     var res = {
-        reqid: this.req.reqid,
+        reqid: this.reqid,
     };
     if (this.reply) {
         res.reply = this.reply;
@@ -115,30 +108,30 @@ RpcRequest.prototype.import_response = function(res) {
  *
  */
 RpcRequest.prototype.set_reply = function(reply) {
-    this.reply = reply;
-    this.done = true;
-    this.defer.resolve();
+    if (!this.done) {
+        this.reply = reply;
+        this.done = true;
+        this.defer.resolve();
+    }
 };
 
 /**
  * mark this response with error.
  * @return error object to be thrown by the caller as in: throw res.error(...)
  */
-RpcRequest.prototype.set_error = function(name, err, data) {
+RpcRequest.prototype.set_error = function(name, err_data) {
     var code = RpcRequest.ERRORS[name];
     if (!code) {
         dbg.error('*** UNDEFINED RPC ERROR', name, 'RETURNING INTERNAL ERROR INSTEAD');
         code = 500;
     }
-    if (!_.isError(err)) {
-        err = new Error(err || name + ' ' + util.inspect(data));
-    }
-    console.error('RPC ERROR', this.srv, name, data, err.stack);
-    if (!this.error) {
+    var err = _.isError(err_data) ? err_data : new Error(err_data);
+    dbg.error('RPC ERROR', this.srv, code, name, err.stack);
+    if (!this.done) {
         this.error = {
             code: code,
             name: name,
-            data: data,
+            data: err_data,
         };
         this.done = true;
         this.defer.reject(err);

@@ -141,7 +141,7 @@ Agent.prototype.start = function() {
 
             // register agent_server in rpc, with domain as peer_id
             // to match only calls to me
-            api.rpc.register_service('agent_api', self.agent_server, {
+            api.rpc.register_service(api.schema.agent_api, self.agent_server, {
                 domain: self.peer_id,
                 authorize: function(req, method_api) {
                     // TODO verify aithorized tokens in agent?

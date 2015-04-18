@@ -51,7 +51,7 @@ function create_account(req) {
             // create a new request that inherits from current req
             var system_req = Object.create(req);
             system_req.account = account;
-            system_req.rest_params = {
+            system_req.params = {
                 name: account.name
             };
             return system_server.create_system(system_req);

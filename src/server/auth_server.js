@@ -218,7 +218,7 @@ function read_auth(req) {
  * and assign the info in req.auth.
  *
  */
-function authorize(req, method_api) {
+function authorize(req) {
 
     _prepare_auth_request(req);
 
@@ -234,8 +234,8 @@ function authorize(req, method_api) {
         }
     }
 
-    if (method_api.auth !== false) {
-        return req.load_auth(method_api.auth);
+    if (req.method_api.auth !== false) {
+        return req.load_auth(req.method_api.auth);
     }
 }
 

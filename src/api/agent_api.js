@@ -18,11 +18,15 @@ module.exports = {
             param_raw: 'data',
             params: {
                 type: 'object',
-                required: ['block_id'],
+                required: ['block_id', 'data'],
                 properties: {
                     block_id: {
                         type: 'string',
                     },
+                    data: {
+                        type: 'object',
+                        format: 'buffer'
+                    }
                 },
             },
         },
@@ -37,6 +41,10 @@ module.exports = {
                         type: 'string',
                     },
                 },
+            },
+            reply: {
+                type: 'object',
+                format: 'buffer'
             },
             reply_raw: true,
         },
@@ -128,8 +136,16 @@ module.exports = {
                 properties: {
                     response_length: {
                         type: 'integer'
+                    },
+                    data: {
+                        type: 'object',
+                        format: 'buffer'
                     }
                 },
+            },
+            reply: {
+                type: 'object',
+                format: 'buffer'
             },
             reply_raw: true,
         },

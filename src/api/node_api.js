@@ -373,7 +373,7 @@ module.exports = {
                 },
                 heartbeat: {
                     type: 'integer',
-                    format: 'date',
+                    format: 'idate',
                 },
                 storage: {
                     $ref: '/common_api/definitions/storage_info'

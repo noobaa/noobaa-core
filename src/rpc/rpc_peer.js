@@ -27,10 +27,6 @@ function request(rpc, api, method_api, params, options) {
 }
 
 
-
-
-var signalClient = new SignalClient();
-
 /**
  *
  * serve

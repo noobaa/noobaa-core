@@ -192,7 +192,7 @@ function create_auth(req) {
  */
 function read_auth(req) {
     if (!req.auth) {
-        return {}
+        return {};
     }
 
     var reply = _.pick(req.auth, 'role', 'extra');
@@ -370,7 +370,7 @@ function _prepare_auth_request(req) {
      *
      */
     req.unauthorized = function(reason) {
-        return req.rest_error(401, 'unauthorized', reason);
+        return req.set_error('UNAUTHORIZED', null, reason);
     };
 
 
@@ -382,7 +382,7 @@ function _prepare_auth_request(req) {
      *
      */
     req.forbidden = function(reason) {
-        return req.rest_error(403, 'forbidden', reason);
+        return req.set_error('FORBIDDEN', null, reason);
     };
 
 }

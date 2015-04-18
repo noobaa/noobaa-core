@@ -38,8 +38,9 @@ describe('account', function() {
                 }).then(function() {
                     throw new Error('expected error: unauthorized');
                 }, function(err) {
-                    assert.strictEqual(err.data, 'unauthorized');
-                    assert.strictEqual(err.statusCode, 401);
+                    assert.strictEqual(err.name, 'UNAUTHORIZED');
+                    assert.strictEqual(err.code, 401);
+                    assert.strictEqual(err.data, null);
                 });
             }).then(function() {
                 return client.create_auth_token({

@@ -10,10 +10,8 @@ var request = require('request');
 var coretest = require('./coretest');
 var RPC = require('../rpc/rpc');
 var RpcSchema = require('../rpc/rpc_schema');
-var rpc_http = require('../rpc/rpc_http');
 
-
-describe('RPC HTTP', function() {
+describe('RPC', function() {
 
     // init the test api
     var test_api = {
@@ -236,17 +234,6 @@ describe('RPC HTTP', function() {
                         assert.deepEqual(err.name, ERROR_NAME);
                         assert.deepEqual(err.data, ERROR_DATA);
                     }).nodeify(done);
-                });
-
-                it.skip('should return doc', function(done) {
-                    var doc_url = 'http://localhost:' + coretest.http_port() +
-                        '/doc/api/test_api/' + method_name;
-                    request(doc_url, function(error, response, body) {
-                        assert(!error);
-                        assert.strictEqual(response.statusCode, 200);
-                        assert.strictEqual(body, test_api.methods[method_name].doc);
-                        done();
-                    });
                 });
 
             });

@@ -39,7 +39,7 @@ RpcRequest.prototype.new_request = function(api, method_api, params, options) {
     this.method_api = method_api;
     this.domain = options.domain || '*';
     this.params = params;
-    this.options = options;
+    this.auth_token = options.auth_token;
     this.srv =
         '/' + api.name +
         '/' + this.domain +
@@ -55,7 +55,8 @@ RpcRequest.prototype.export_request = function() {
         api: this.api.name,
         method: this.method_api.name,
         domain: this.domain,
-        params: this.params
+        params: this.params,
+        auth_token: this.auth_token,
     };
 };
 
@@ -67,6 +68,7 @@ RpcRequest.prototype.import_request = function(req) {
     this.reqid = req.reqid;
     this.domain = req.domain;
     this.params = req.params;
+    this.auth_token = req.auth_token;
     this.time = parseInt(req.reqid.slice(0, req.reqid.indexOf('.')), 10);
     this.srv =
         '/' + req.api +
@@ -119,14 +121,14 @@ RpcRequest.prototype.set_reply = function(reply) {
  * mark this response with error.
  * @return error object to be thrown by the caller as in: throw res.error(...)
  */
-RpcRequest.prototype.set_error = function(name, err_data) {
+RpcRequest.prototype.set_error = function(name, err_data, reason) {
     var code = RpcRequest.ERRORS[name];
     if (!code) {
         dbg.error('*** UNDEFINED RPC ERROR', name, 'RETURNING INTERNAL ERROR INSTEAD');
         code = 500;
     }
     var err = _.isError(err_data) ? err_data : new Error(err_data);
-    dbg.error('RPC ERROR', this.srv, code, name, err.stack);
+    dbg.error('RPC ERROR', this.srv, code, name, reason, err.stack);
     if (!this.done) {
         this.error = {
             code: code,
@@ -172,4 +174,10 @@ RpcRequest.ERRORS = {
      * forbidden means that the authorization is not sufficient for the operations
      */
     FORBIDDEN: 403,
+
+    /**
+     * exists means that the request conflicts with current state.
+     * like when asked to create an entity which already exists.
+     */
+    CONFLICT: 409,
 };

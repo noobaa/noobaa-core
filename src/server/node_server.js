@@ -77,7 +77,8 @@ function create_node(req) {
             info.tier = tier;
 
             if (String(tier.system) !== String(info.system)) {
-                throw req.rest_error('tier not found', ['TIER SYSTEM MISMATCH', info]);
+                throw req.set_error('NOT_FOUND', null,
+                    'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
             }
 
             return db.Node.create(info);
@@ -153,7 +154,7 @@ function update_node(req) {
     }
 
     // TODO move node between tiers - requires decomission
-    if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
+    if (req.rest_params.tier) throw req.set_error('INTERNAL', 'TODO switch tier');
 
     return Q.when(db.Node
             .findOneAndUpdate(get_node_query(req), updates)

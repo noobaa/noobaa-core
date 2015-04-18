@@ -478,7 +478,7 @@ Agent.prototype.read_block = function(req) {
     return self.store_cache.get(block_id)
         .then(null, function(err) {
             if (err === 'TAMPERING DETECTED') {
-                err = req.rest_error(500, 'TAMPERING DETECTED');
+                err = req.set_error('INTERNAL', 'TAMPERING DETECTED');
             }
             throw err;
         });

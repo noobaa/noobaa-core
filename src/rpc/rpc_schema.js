@@ -30,6 +30,19 @@ function RpcSchema() {
     };
 }
 
+/**
+ * TODO this is a temporary way to support banUnknownProperties - see above
+ */
+function prepare_schema_objects(schema) {
+    if (schema.type !== 'object') {
+        return;
+    }
+    if (!('additionalProperties' in schema)) {
+        schema.additionalProperties = false;
+    }
+    _.each(schema.properties, prepare_schema_objects);
+}
+
 var VALID_HTTP_METHODS = {
     GET: 1,
     PUT: 1,
@@ -50,6 +63,7 @@ RpcSchema.prototype.register_api = function(api) {
     // add all definitions
     _.each(api.definitions, function(schema, name) {
         schema.id = '/' + api.name + '/definitions/' + name;
+        prepare_schema_objects(schema);
         self._schemas[schema.id] = schema;
     });
 
@@ -60,6 +74,8 @@ RpcSchema.prototype.register_api = function(api) {
         method_api.fullname = '/' + api.name + '/methods/' + method_name;
         method_api.params = method_api.params || {};
         method_api.reply = method_api.reply || {};
+        prepare_schema_objects(method_api.params);
+        prepare_schema_objects(method_api.reply);
         method_api.params_validator = validator(method_api.params, self._validator_options);
         method_api.reply_validator = validator(method_api.reply, self._validator_options);
         method_api.params_properties = method_api.params.properties;

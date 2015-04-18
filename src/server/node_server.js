@@ -47,7 +47,7 @@ module.exports = node_server;
  *
  */
 function create_node(req) {
-    var info = _.pick(req.rest_params,
+    var info = _.pick(req.rpc_params,
         'name',
         'is_server',
         'geolocation'
@@ -56,14 +56,14 @@ function create_node(req) {
     info.heartbeat = new Date(0);
     info.peer_id = db.new_object_id();
     info.storage = {
-        alloc: req.rest_params.storage_alloc,
+        alloc: req.rpc_params.storage_alloc,
         used: 0,
     };
 
     // when the request role is admin it can provide any of the system tiers.
     // when the role was authorized only for create_node the athorization
     // must include the allowed tier.
-    var tier_name = req.rest_params.tier;
+    var tier_name = req.rpc_params.tier;
     if (req.role !== 'admin') {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
@@ -135,14 +135,14 @@ function read_node(req) {
  *
  */
 function update_node(req) {
-    var updates = _.pick(req.rest_params,
+    var updates = _.pick(req.rpc_params,
         'is_server',
         'geolocation',
         'srvmode'
     );
-    if (req.rest_params.storage_alloc) {
+    if (req.rpc_params.storage_alloc) {
         updates.storage = {
-            alloc: req.rest_params.storage_alloc,
+            alloc: req.rpc_params.storage_alloc,
         };
     }
     if (updates.srvmode === 'connect') {
@@ -154,7 +154,7 @@ function update_node(req) {
     }
 
     // TODO move node between tiers - requires decomission
-    if (req.rest_params.tier) throw req.set_error('INTERNAL', 'TODO switch tier');
+    if (req.rpc_params.tier) throw req.set_error('INTERNAL', 'TODO switch tier');
 
     return Q.when(db.Node
             .findOneAndUpdate(get_node_query(req), updates)
@@ -197,7 +197,7 @@ function read_node_maps(req) {
     return find_node_by_name(req)
         .then(function(node_arg) {
             node = node_arg;
-            var params = _.pick(req.rest_params, 'skip', 'limit');
+            var params = _.pick(req.rpc_params, 'skip', 'limit');
             params.node = node;
             return object_mapper.read_node_mappings(params);
         })
@@ -219,7 +219,7 @@ function read_node_maps(req) {
 function list_nodes(req) {
     var info;
     return Q.fcall(function() {
-            var query = req.rest_params.query;
+            var query = req.rpc_params.query;
             info = {
                 system: req.system.id,
                 deleted: null,
@@ -243,8 +243,8 @@ function list_nodes(req) {
             }
         })
         .then(function() {
-            var skip = req.rest_params.skip;
-            var limit = req.rest_params.limit;
+            var skip = req.rpc_params.skip;
+            var limit = req.rpc_params.limit;
             var find = db.Node.find(info)
                 .sort('-_id')
                 .populate('tier', 'name');
@@ -274,7 +274,7 @@ function group_nodes(req) {
     return Q.fcall(function() {
             var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
             var reduce_sum = size_utils.reduce_sum;
-            var group_by = req.rest_params.group_by;
+            var group_by = req.rpc_params.group_by;
             var by_system = {
                 system: req.system.id,
                 deleted: null,
@@ -363,14 +363,14 @@ function group_nodes(req) {
  *
  */
 function heartbeat(req) {
-    var node_id = req.rest_params.id;
+    var node_id = req.rpc_params.id;
 
     // verify the authorization to use this node for non admin roles
     if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
         throw req.forbidden();
     }
 
-    var params = _.pick(req.rest_params,
+    var params = _.pick(req.rpc_params,
         'id',
         'geolocation',
         'ip',
@@ -441,7 +441,7 @@ function find_node_by_name(req) {
 function get_node_query(req) {
     return {
         system: req.system.id,
-        name: req.rest_params.name,
+        name: req.rpc_params.name,
         deleted: null,
     };
 }

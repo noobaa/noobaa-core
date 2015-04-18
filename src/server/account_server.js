@@ -35,7 +35,7 @@ module.exports = account_server;
  *
  */
 function create_account(req) {
-    var info = _.pick(req.rest_params, 'name', 'email', 'password');
+    var info = _.pick(req.rpc_params, 'name', 'email', 'password');
 
     // reply_token will be filled with token info for reply
     // this is to be used by internal calls to create_system etc.
@@ -51,7 +51,7 @@ function create_account(req) {
             // create a new request that inherits from current req
             var system_req = Object.create(req);
             system_req.account = account;
-            system_req.params = {
+            system_req.rpc_params = {
                 name: account.name
             };
             return system_server.create_system(system_req);
@@ -98,7 +98,7 @@ function update_account(req) {
     db.AccountCache.invalidate(req.account.id);
 
     // pick and send the updates
-    var info = _.pick(req.rest_params, 'name', 'email', 'password');
+    var info = _.pick(req.rpc_params, 'name', 'email', 'password');
     return Q.when(db.Account
             .findByIdAndUpdate(req.account.id, info)
             .exec())

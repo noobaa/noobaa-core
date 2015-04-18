@@ -473,7 +473,7 @@ Agent.prototype._start_stop_heartbeats = function() {
 
 Agent.prototype.read_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
+    var block_id = req.rpc_params.block_id;
     dbg.log0('AGENT read_block', block_id);
     return self.store_cache.get(block_id)
         .then(null, function(err) {
@@ -486,8 +486,8 @@ Agent.prototype.read_block = function(req) {
 
 Agent.prototype.write_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
-    var data = req.rest_params.data;
+    var block_id = req.rpc_params.block_id;
+    var data = req.rpc_params.data;
     dbg.log0('AGENT write_block', block_id, data.length);
     self.store_cache.invalidate(block_id);
     return self.store.write_block(block_id, data);
@@ -495,8 +495,8 @@ Agent.prototype.write_block = function(req) {
 
 Agent.prototype.replicate_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
-    var source = req.rest_params.source;
+    var block_id = req.rpc_params.block_id;
+    var source = req.rpc_params.source;
     dbg.log0('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
@@ -516,7 +516,7 @@ Agent.prototype.replicate_block = function(req) {
 
 Agent.prototype.delete_blocks = function(req) {
     var self = this;
-    var blocks = req.rest_params.blocks;
+    var blocks = req.rpc_params.blocks;
     dbg.log0('AGENT delete_blocks', blocks);
     self.store_cache.multi_invalidate(blocks);
     return self.store.delete_blocks(blocks);
@@ -524,9 +524,9 @@ Agent.prototype.delete_blocks = function(req) {
 
 Agent.prototype.check_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
+    var block_id = req.rpc_params.block_id;
     dbg.log0('AGENT check_block', block_id);
-    var slices = req.rest_params.slices;
+    var slices = req.rpc_params.slices;
     return self.store_cache.get(block_id)
         .then(function(data) {
             // calculate the md5 of the requested slices
@@ -548,21 +548,21 @@ Agent.prototype.kill_agent = function(req) {
 };
 
 Agent.prototype.self_test_io = function(req) {
-    dbg.log0('SELF TEST IO got ' + (req.rest_params.data ? req.rest_params.data.length : 'N/A') + ' reply ' + req.rest_params.response_length);
-    return new Buffer(req.rest_params.response_length);
+    dbg.log0('SELF TEST IO got ' + (req.rpc_params.data ? req.rpc_params.data.length : 'N/A') + ' reply ' + req.rpc_params.response_length);
+    return new Buffer(req.rpc_params.response_length);
 };
 
 Agent.prototype.self_test_peer = function(req) {
     var self = this;
-    var target = req.rest_params.target;
-    dbg.log0('SELF TEST PEER req ' + req.rest_params.request_length +
-        ' res ' + req.rest_params.response_length +
+    var target = req.rpc_params.target;
+    dbg.log0('SELF TEST PEER req ' + req.rpc_params.request_length +
+        ' res ' + req.rpc_params.response_length +
         ' target ' + util.inspect(target));
 
     // read from target agent
     return self.client.agent.self_test_io({
-            data: new Buffer(req.rest_params.request_length),
-            response_length: req.rest_params.response_length,
+            data: new Buffer(req.rpc_params.request_length),
+            response_length: req.rpc_params.response_length,
         }, {
             address: target.host,
             domain: target.peer,
@@ -570,8 +570,8 @@ Agent.prototype.self_test_peer = function(req) {
             ws_socket: self.ws_socket,
         })
         .then(function(data) {
-            if (((!data || !data.length) && req.rest_params.response_length > 0) ||
-                (data && data.length && data.length !== req.rest_params.response_length)) {
+            if (((!data || !data.length) && req.rpc_params.response_length > 0) ||
+                (data && data.length && data.length !== req.rpc_params.response_length)) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });

@@ -30,11 +30,11 @@ module.exports = bucket_server;
  *
  */
 function create_bucket(req) {
-    var name = req.rest_params.name;
+    var name = req.rpc_params.name;
 
-    return resolve_tiering(req.rest_params.tiering)
+    return resolve_tiering(req.rpc_params.tiering)
         .then(function(tiering) {
-            var info = _.pick(req.rest_params, 'name');
+            var info = _.pick(req.rpc_params, 'name');
             info.system = req.system.id;
             if (tiering) {
                 info.tiering = tiering;
@@ -78,11 +78,11 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
-    return resolve_tiering(req.rest_params.tiering)
+    return resolve_tiering(req.rpc_params.tiering)
         .then(function(tiering) {
             var updates = {};
-            if (req.rest_params.new_name) {
-                updates.name = req.rest_params.new_name;
+            if (req.rpc_params.new_name) {
+                updates.name = req.rpc_params.new_name;
             }
             if (tiering) {
                 updates.tiering = tiering;
@@ -145,7 +145,7 @@ function list_buckets(req) {
 function get_bucket_query(req) {
     return {
         system: req.system.id,
-        name: req.rest_params.name,
+        name: req.rpc_params.name,
         deleted: null,
     };
 }

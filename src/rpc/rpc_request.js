@@ -8,25 +8,26 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = RpcRequest;
 
-var get_params_property = {
-    enumerable: true,
-    get: function() {
-        return this.params;
-    }
-};
-
 /**
  *
  */
 function RpcRequest() {
     this.defer = Q.defer();
 
-    // rest_params and rpc_params are DEPRECATED.
-    // keeping for backwards compatability
-    Object.defineProperty(this, 'rest_params', get_params_property);
-    Object.defineProperty(this, 'rpc_params', get_params_property);
 }
 
+// rpc_params is a synonyms to params.
+// we keep it to make the server code that uses params more explicit
+// and clear that this request and params are from rpc.
+Object.defineProperty(RpcRequest.prototype, 'rpc_params', {
+    enumerable: false,
+    get: function() {
+        return this.params;
+    },
+    set: function(val) {
+        this.params = val;
+    }
+});
 
 /**
  *

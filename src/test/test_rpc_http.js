@@ -200,7 +200,7 @@ describe('RPC', function() {
                     methods[method_name] = function(req) {
                         // console.log('TEST SERVER REQUEST');
                         _.each(PARAMS, function(param, name) {
-                            assert.deepEqual(param, req.rest_params[name]);
+                            assert.deepEqual(param, req.rpc_params[name]);
                         });
                         if (reply_error) {
                             throw req.set_error(ERROR_NAME, ERROR_DATA);

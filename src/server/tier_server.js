@@ -33,7 +33,7 @@ module.exports = tier_server;
  *
  */
 function create_tier(req) {
-    var info = _.pick(req.rest_params, 'name', 'kind', 'edge_details', 'cloud_details');
+    var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details');
     info.system = req.system.id;
     return Q.when(db.Tier.create(info))
         .then(null, db.check_already_exists(req, 'tier'))
@@ -80,9 +80,9 @@ function read_tier(req) {
  *
  */
 function update_tier(req) {
-    var updates = _.pick(req.rest_params, 'edge_details', 'cloud_details');
-    if (req.rest_params.new_name) {
-        updates.name = req.rest_params.new_name;
+    var updates = _.pick(req.rpc_params, 'edge_details', 'cloud_details');
+    if (req.rpc_params.new_name) {
+        updates.name = req.rpc_params.new_name;
     }
     return Q.when(db.Tier
             .findOneAndUpdate(get_tier_query(req), updates)
@@ -118,7 +118,7 @@ function delete_tier(req) {
 function get_tier_query(req) {
     return {
         system: req.system.id,
-        name: req.rest_params.name,
+        name: req.rpc_params.name,
         deleted: null,
     };
 }

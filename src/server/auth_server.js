@@ -49,11 +49,11 @@ module.exports = auth_server;
  */
 function create_auth(req) {
 
-    var email = req.rest_params.email;
-    var password = req.rest_params.password;
-    var system_name = req.rest_params.system;
-    var role_name = req.rest_params.role;
-    var expiry = req.rest_params.expiry;
+    var email = req.rpc_params.email;
+    var password = req.rpc_params.password;
+    var system_name = req.rpc_params.system;
+    var role_name = req.rpc_params.role;
+    var expiry = req.rpc_params.expiry;
     var authenticated_account;
     var account;
     var system;
@@ -174,7 +174,7 @@ function create_auth(req) {
             account_id: account.id,
             system_id: system && system.id,
             role: role_name,
-            extra: req.rest_params.extra,
+            extra: req.rpc_params.extra,
         });
 
         return {

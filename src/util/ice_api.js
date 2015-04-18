@@ -3,7 +3,7 @@
 var ice = require('./ice_lib');
 var Q = require('q');
 var buffer_utils = require('./buffer_utils');
-var rand = require('./random_utils');
+var chance = require('chance');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
@@ -117,7 +117,7 @@ function onIceMessage(socket, channel, event) {
                     dbg.log2('ab NO 1 to call for req '+reqId);
                 }
             }
-            dbg.log3('got chunk handling ended '+part+' req '+req);
+            dbg.log3('got chunk handling ended '+part+' req '+reqId);
         } catch (ex) {
             dbg.error('ex on ab got ' + ex.stack+' for req '+reqId+' and msg '+(channel && channel.msgs ? Object.keys(channel.msgs) : 'N/A'));
         }
@@ -134,8 +134,13 @@ module.exports.signalingSetup = function (handleRequestMethodTemp, agentId) {
     return ice.setup(onIceMessage, agentId, handleRequestMethodTemp);
 };
 
+var REQID_CHANCE_SPEC = {
+    min: 10000,
+    max: 9000000
+};
+
 function generateRequestId() {
-    return rand.getRandomInt(10000,9000000).toString();
+    return chance.integer(REQID_CHANCE_SPEC).toString();
 }
 
 

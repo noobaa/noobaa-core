@@ -2,8 +2,9 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var http = require('http');
+var url = require('url');
 var util = require('util');
+var http = require('http');
 var assert = require('assert');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var rpc_http = require('./rpc_http');
@@ -261,23 +262,14 @@ RPC.prototype.make_request = function(api, method_api, params, options) {
 
 /**
  *
- * _connect
- *
  */
-RPC.prototype.make_connection = function(req) {
-    var domain = req.options.domain || '*';
-    var conn = this._conn_cache[domain];
-    if (!conn) {
-        conn = this._conn_cache[domain] = new RpcConnection(domain);
-    }
-    return conn.connect();
-};
-
-
 RPC.prototype.is_local_service_domain = function(api_name, domain) {
     return this._services[api_name] && this._services[api_name][domain];
 };
 
+/**
+ *
+ */
 RPC.prototype.make_request_local = function(req) {
     var self = this;
 
@@ -294,4 +286,76 @@ RPC.prototype.make_request_local = function(req) {
         });
 
     return req.promise;
+};
+
+
+/**
+ *
+ * make_connection
+ *
+ */
+RPC.prototype.make_connection = function(req, options) {
+    var self = this;
+    var address = options.address;
+    var conn = self._conn_cache[address];
+    if (conn) {
+        return conn;
+    }
+    var u = url.parse(address);
+    switch (u.protocol) {
+        case 'http:':
+        case 'https:':
+            conn = new RpcConnection(address);
+            break;
+        case 'ws:':
+        case 'wss:':
+            conn = new RpcConnection(address);
+            break;
+        case 'tcp:':
+        case 'tcps:':
+            conn = new RpcConnection(address);
+            break;
+        case 'noob:':
+        case 'noobs:':
+            break;
+        default:
+            dbg.log0('PROTOCOL NOT SUPPORTED', address);
+            break;
+    }
+    self._conn_cache[address] = conn;
+    conn.on('message', self.handle_message.bind(conn, self));
+    // TODO conn.on('close', ???);
+    return conn.connect();
+};
+
+/**
+ *
+ */
+RPC.prototype.handle_message = function(conn, msg) {
+    var self = this;
+    switch (msg.op) {
+        case 'req':
+            self.handle_request(msg);
+            break;
+        case 'res':
+            self.handle_response(msg);
+            break;
+        default:
+            dbg.log0('BAD MESSAGE OP', msg.op, msg.reqid);
+            // TODO close connection?
+            break;
+    }
+};
+
+/**
+ *
+ */
+RPC.prototype.handle_response = function(res_info) {
+    var req = this._sent_requests[res_info.reqid];
+    if (req) {
+        req.import_response(res_info);
+    } else {
+        dbg.log0('GOT RESPONSE BUT NO REQUEST', res_info.reqid);
+        // TODO stats?
+    }
 };

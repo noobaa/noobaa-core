@@ -51,7 +51,7 @@ RpcRequest.prototype.new_request = function(api, method_api, params, options) {
  *
  */
 RpcRequest.prototype.export_request = function() {
-    return {
+    var req = {
         reqid: this.reqid,
         api: this.api.name,
         method: this.method_api.name,
@@ -59,14 +59,22 @@ RpcRequest.prototype.export_request = function() {
         params: this.params,
         auth_token: this.auth_token,
     };
+    if (this.method_api) {
+        this.method_api.params.export_buffer(req, 'params');
+    }
+    return req;
 };
 
 /**
  * load request from exported info
- * NOTE: api and method_api should be resolved by the caller and set
  */
-RpcRequest.prototype.import_request = function(req) {
+RpcRequest.prototype.import_request = function(req, api, method_api) {
+    if (method_api) {
+        method_api.params.import_buffer(req, 'params');
+    }
     this.reqid = req.reqid;
+    this.api = api;
+    this.method_api = method_api;
     this.domain = req.domain;
     this.params = req.params;
     this.auth_token = req.auth_token;
@@ -84,11 +92,12 @@ RpcRequest.prototype.export_response = function() {
     var res = {
         reqid: this.reqid,
     };
-    if (this.reply) {
-        res.reply = this.reply;
-    }
     if (this.error) {
         res.error = this.error;
+    }
+    if (this.reply) {
+        res.reply = this.reply;
+        this.method_api.reply.export_buffer(res, 'reply');
     }
     return res;
 };
@@ -97,6 +106,9 @@ RpcRequest.prototype.export_response = function() {
  *
  */
 RpcRequest.prototype.import_response = function(res) {
+    if (res.reply) {
+        this.method_api.reply.import_buffer(res, 'reply');
+    }
     this.reply = res.reply;
     this.error = res.error;
     this.done = true;

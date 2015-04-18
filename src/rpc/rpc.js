@@ -83,28 +83,34 @@ RPC.prototype.register_service = function(api, server, options) {
 RPC.prototype.handle_request = function(req_info) {
     var self = this;
     var req = new RpcRequest();
-    req.import_request(req_info);
 
     // resolve the api and method of the request
     var service = self._services[req_info.api];
     if (!service) {
-        req.set_error('NOT_FOUND', 'api ' + req.srv);
+        req.import_request(req_info);
+        req.set_error('NOT_FOUND',
+            'api ' + req_info.api);
         return req.export_response();
     }
+
     var domain_service = service[req_info.domain];
     if (!domain_service) {
-        req.set_error('NOT_FOUND', 'domain ' + req.srv);
+        req.import_request(req_info);
+        req.set_error('NOT_FOUND',
+            'domain /' + req_info.api + '/' + req_info.domain);
         return req.export_response();
     }
+
     var method = domain_service.methods[req_info.method];
     if (!method) {
-        req.set_error('NOT_FOUND', 'method ' + req.srv);
+        req.import_request(req_info);
+        req.set_error('NOT_FOUND',
+            'method /' + req_info.api + '/' + req_info.domain + '/' + req_info.method);
         return req.export_response();
     }
 
     // set api info to the request
-    req.api = service.api;
-    req.method_api = method.method_api;
+    req.import_request(req_info, service.api, method.method_api);
 
     dbg.log1('RPC START', req.srv);
     self.emit('req.received.start', {

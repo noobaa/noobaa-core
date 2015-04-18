@@ -17,15 +17,20 @@ schema.register_api({
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['data'],
                 properties: {
-                    data: {
-                        format: 'buffer'
+                    kushkush: {
+                        type: 'object',
+                        required: ['data'],
+                        properties: {
+                            data: {
+                                type: 'buffer'
+                            }
+                        }
                     }
                 }
             },
             reply: {
-                format: 'buffer'
+                type: 'buffer'
             }
         }
     }
@@ -54,7 +59,9 @@ function next_io() {
         dbg.log0('IO', io_count);
     }
     return bench_client.io({
-            data: buffer
+            kushkush: {
+                data: buffer
+            }
         })
         .then(next_io);
 }

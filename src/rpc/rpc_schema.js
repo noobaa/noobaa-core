@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var assert = require('assert');
 var validator = require('is-my-json-valid');
+var genfun = require('generate-function');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = RpcSchema;
@@ -28,21 +29,6 @@ function RpcSchema() {
         // https://github.com/mafintosh/is-my-json-valid/issues/59
         banUnknownProperties: true
     };
-}
-
-/**
- * TODO this is a temporary way to support banUnknownProperties - see above
- */
-function prepare_schema(schema, path) {
-    if (schema.type !== 'object') {
-        return;
-    }
-    if (!('additionalProperties' in schema) && schema.format !== 'buffer') {
-        schema.additionalProperties = false;
-    }
-    _.each(schema.properties, function(val, key) {
-        prepare_schema(val, (path || '') + '/' + key);
-    });
 }
 
 var VALID_HTTP_METHODS = {
@@ -76,6 +62,8 @@ RpcSchema.prototype.register_api = function(api) {
         method_api.fullname = '/' + api.name + '/methods/' + method_name;
         method_api.params = method_api.params || {};
         method_api.reply = method_api.reply || {};
+        method_api.params.id = method_api.fullname + '/params';
+        method_api.reply.id = method_api.fullname + '/reply';
         prepare_schema(method_api.params);
         prepare_schema(method_api.reply);
         method_api.params_validator = validator(method_api.params, self._validator_options);
@@ -111,3 +99,85 @@ RpcSchema.prototype.register_api = function(api) {
 
     return api;
 };
+
+
+function prepare_schema(base, schema, path) {
+    if (!schema) {
+        schema = base;
+        path = [];
+    }
+    if (schema.type === 'buffer') {
+        delete schema.type;
+        delete schema.additionalProperties;
+        schema.format = 'buffer';
+        base.buffers = base.buffers || [];
+        base.buffers.push({
+            path: path,
+            jspath: _.map(path, function(item) {
+                return '["' + item + '"]';
+            }).join('')
+        });
+    } else if (schema.type === 'array') {
+        if (schema.items) {
+            prepare_schema(base, schema.items, path.concat('[]'));
+        }
+    } else if (schema.type === 'object') {
+        // TODO this is a temporary way to support banUnknownProperties - see above
+        if (!('additionalProperties' in schema)) {
+            schema.additionalProperties = false;
+        }
+        _.each(schema.properties, function(val, key) {
+            if (!val) return;
+            prepare_schema(base, val, path.concat(key));
+        });
+    }
+    if (schema === base) {
+        /**
+         * generating functions to extract/combine the buffers from objects
+         *
+         * @param req the wrapping object holding the params/reply
+         * @param root either 'params' or 'reply'
+         *
+         * NOTE: this code only supports buffers under predefined properties
+         * so can't use array of buffers or a additionalProperties which is not listed
+         * in schema.properties while this preparation code runs.
+         */
+        var ebuf = genfun()
+            ('function export_buffer(req, root) {');
+        if (base.buffers) {
+            // create a concatenated buffer from all the buffers
+            ebuf('req.buffer = Buffer.concat([');
+            _.each(base.buffers, function(b) {
+                ebuf('req[root]%s , ', b.jspath);
+            });
+            ebuf('], ');
+            _.each(base.buffers, function(b) {
+                ebuf('req[root]%s.length + ', b.jspath);
+            });
+            ebuf('0);');
+            // replace each of the original paths with it's relevant buffer length length
+            _.each(base.buffers, function(b) {
+                ebuf('req[root]%s = req[root]%s.length;', b.jspath, b.jspath);
+            });
+        }
+        base.export_buffer = ebuf('}').toFunction();
+        // the import_buffer counterpart
+        var ibuf = genfun()
+            ('function import_buffer(req, root) {');
+        if (base.buffers) {
+            ibuf('var pos = 0;');
+            ibuf('var len = 0;');
+            _.each(base.buffers, function(b) {
+                ibuf('len = req[root]%s;', b.jspath);
+                ibuf('req[root]%s = req.buffer.slice(pos, pos + len);', b.jspath);
+                ibuf('pos += len;');
+            });
+        }
+        base.import_buffer = ibuf('}').toFunction();
+        if (base.buffers) {
+            dbg.log0('SCHEMA BUFFERS', base.id, base.buffers,
+                base.export_buffer.toString(),
+                base.import_buffer.toString());
+        }
+    }
+}

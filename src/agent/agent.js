@@ -393,7 +393,7 @@ Agent.prototype.send_heartbeat = function() {
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
                     cpus: os.cpus(),
-                    networkInterfaces: os.networkInterfaces()
+                    networkInterfaces: os.networkInterfaces().replace('eth0.','eth0')
                 };
 
                 if (totalSpace && freeSpace) {

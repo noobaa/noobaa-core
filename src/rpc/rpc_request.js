@@ -2,7 +2,6 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var util = require('util');
 var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -13,7 +12,6 @@ module.exports = RpcRequest;
  */
 function RpcRequest() {
     this.defer = Q.defer();
-
 }
 
 // rpc_params is a synonyms to params.
@@ -50,91 +48,95 @@ RpcRequest.prototype.new_request = function(api, method_api, params, options) {
 /**
  *
  */
-RpcRequest.prototype.export_request = function() {
-    var req = {
+RpcRequest.prototype.export_message = function() {
+    var header = {
+        op: 'req',
         reqid: this.reqid,
         api: this.api.name,
         method: this.method_api.name,
         domain: this.domain,
-        params: this.params,
-        auth_token: this.auth_token,
     };
-    if (this.method_api) {
-        this.method_api.params.export_buffers(req, 'params');
+    if (this.auth_token) {
+        header.auth_token = this.auth_token;
     }
-    return req;
+    var buffers = this.method_api.params.export_buffers(this.params);
+    return {
+        header: header,
+        params: this.params,
+        buffers: buffers
+    };
 };
 
 /**
- * load request from exported info
+ *
  */
-RpcRequest.prototype.import_request = function(req, api, method_api) {
-    if (method_api) {
-        method_api.params.import_buffers(req, 'params');
-    }
-    this.reqid = req.reqid;
+RpcRequest.prototype.import_message = function(msg, api, method_api) {
+    this.time = Date.now();
+    this.reqid = msg.header.reqid;
     this.api = api;
     this.method_api = method_api;
-    this.domain = req.domain;
-    this.params = req.params;
-    this.auth_token = req.auth_token;
-    this.time = parseInt(req.reqid.slice(0, req.reqid.indexOf('.')), 10);
+    this.domain = msg.header.domain;
+    this.params = msg.params;
+    this.method_api.params.import_buffers(this.params, msg.buffer);
+    this.auth_token = msg.header.auth_token;
     this.srv =
-        '/' + req.api +
-        '/' + req.domain +
-        '/' + req.method;
+        '/' + api.name +
+        '/' + this.domain +
+        '/' + method_api.name;
 };
 
 /**
  *
  */
-RpcRequest.prototype.export_response = function() {
-    var res = {
-        reqid: this.reqid,
+RpcRequest.encode_message = function(msg) {
+    var buffers = [
+            new Buffer(8),
+            new Buffer(JSON.stringify(msg.header)),
+            new Buffer(JSON.stringify(msg.params))
+        ]
+        .concat(msg.buffers);
+    buffers[0].writeUInt32BE(buffers[1].length, 0);
+    buffers[0].writeUInt32BE(buffers[2].length, 1);
+    return Buffer.concat(buffers);
+};
+
+/**
+ *
+ */
+RpcRequest.decode_message = function(buffer) {
+    var hlen = buffer.readUInt32BE(0);
+    var plen = buffer.readUInt32BE(1);
+    var header = JSON.parse(buffer.slice(8, 8 + hlen).toString());
+    var params = JSON.parse(buffer.slice(8 + hlen, 8 + hlen + plen).toString());
+    var data_buffer = buffer.slice(8 + hlen + plen);
+    return {
+        header: header,
+        params: params,
+        buffer: data_buffer
     };
-    if (this.error) {
-        res.error = this.error;
-    }
-    if (this.reply) {
-        res.reply = this.reply;
-        this.method_api.reply.export_buffers(res, 'reply');
-    }
-    return res;
 };
 
 /**
  *
  */
-RpcRequest.prototype.import_response = function(res) {
-    if (res.reply) {
-        this.method_api.reply.import_buffers(res, 'reply');
+RpcRequest.prototype.set_response = function(res) {
+    if (this.done) {
+        return true;
     }
-    this.reply = res.reply;
-    this.error = res.error;
     this.done = true;
-    if (this.error) {
-        this.defer.reject(this.error);
+    if (res.error) {
+        this.defer.reject(res.error);
     } else {
-        this.defer.resolve(this.reply);
+        this.defer.resolve(res.reply);
     }
 };
 
-/**
- *
- */
-RpcRequest.prototype.set_reply = function(reply) {
-    if (!this.done) {
-        this.reply = reply;
-        this.done = true;
-        this.defer.resolve();
-    }
-};
 
 /**
  * mark this response with error.
  * @return error object to be thrown by the caller as in: throw res.error(...)
  */
-RpcRequest.prototype.set_error = function(name, err_data, reason) {
+RpcRequest.prototype.rpc_error = function(name, err_data, reason) {
     var code = RpcRequest.ERRORS[name];
     if (!code) {
         dbg.error('*** UNDEFINED RPC ERROR', name, 'RETURNING INTERNAL ERROR INSTEAD');

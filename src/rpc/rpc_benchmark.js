@@ -1,6 +1,6 @@
 'use strict';
 
-var _ = require('lodash');
+// var _ = require('lodash');
 var Q = require('q');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');

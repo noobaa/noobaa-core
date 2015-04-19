@@ -77,7 +77,7 @@ function create_node(req) {
             info.tier = tier;
 
             if (String(tier.system) !== String(info.system)) {
-                throw req.set_error('NOT_FOUND', null,
+                throw req.rpc_error('NOT_FOUND', null,
                     'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
             }
 
@@ -154,7 +154,7 @@ function update_node(req) {
     }
 
     // TODO move node between tiers - requires decomission
-    if (req.rpc_params.tier) throw req.set_error('INTERNAL', 'TODO switch tier');
+    if (req.rpc_params.tier) throw req.rpc_error('INTERNAL', 'TODO switch tier');
 
     return Q.when(db.Node
             .findOneAndUpdate(get_node_query(req), updates)

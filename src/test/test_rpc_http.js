@@ -203,7 +203,7 @@ describe('RPC', function() {
                             assert.deepEqual(param, req.rpc_params[name]);
                         });
                         if (reply_error) {
-                            throw req.set_error(ERROR_NAME, ERROR_DATA);
+                            throw req.rpc_error(ERROR_NAME, ERROR_DATA);
                         } else {
                             return Q.resolve(REPLY);
                         }

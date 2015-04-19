@@ -136,41 +136,41 @@ function prepare_schema(base, schema, path) {
          * generating functions to extract/combine the buffers from objects
          *
          * @param req the wrapping object holding the params/reply
-         * @param root either 'params' or 'reply'
+         * @param head either 'params' or 'reply'
          *
          * NOTE: this code only supports buffers under predefined properties
          * so can't use array of buffers or a additionalProperties which is not listed
          * in schema.properties while this preparation code runs.
          */
         var efn = genfun()
-            ('function export_buffers(req, root) {');
+            ('function export_buffers(obj) {');
         if (base.buffers) {
             // create a concatenated buffer from all the buffers
-            efn('req.buffers = [');
+            efn('var buffers = [');
             _.each(base.buffers, function(b) {
-                efn('req[root]%s , ', b.jspath);
+                efn('obj%s , ', b.jspath);
             });
             efn('];');
-            efn('req.buffers_len = ');
-            _.each(base.buffers, function(b) {
-                efn('req[root]%s.length + ', b.jspath);
-            });
-            efn('0;');
             // replace each of the original paths with the buffer length
             _.each(base.buffers, function(b) {
-                efn('req[root]%s = req[root]%s.length;', b.jspath, b.jspath);
+                efn('obj%s = obj%s.length;', b.jspath, b.jspath);
             });
+            efn('return;');
         }
         base.export_buffers = efn('}').toFunction();
         // the import_buffers counterpart
         var ifn = genfun()
-            ('function import_buffers(req, root) {');
-        _.each(base.buffers, function(b, i) {
-            // verify the buffer length matches before replacing
-            ifn('if (req[root]%s !== req.buffers[%d].length)', b.jspath, i);
-            ifn('  throw new Error("LENGTH MISMATCH IMPORT BUFFER %d");', i);
-            ifn('req[root]%s = req.buffers[%d];', b.jspath, i);
-        });
+            ('function import_buffers(obj, data) {');
+        if (base.buffers) {
+            ifn('var start = 0;');
+            ifn('var end = 0;');
+            _.each(base.buffers, function(b, i) {
+                ifn('start = end;');
+                ifn('end = start + obj%s;', b.jspath);
+                ifn('obj%s = data.slice(start, end);', b.jspath);
+            });
+            ifn('return req;');
+        }
         base.import_buffers = ifn('}').toFunction();
         if (base.buffers) {
             dbg.log0('SCHEMA BUFFERS', base.id, base.buffers,

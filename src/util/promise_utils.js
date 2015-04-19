@@ -1,10 +1,11 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
+// var _ = require('lodash');
 var Q = require('q');
 
 module.exports = {
+    join: join,
     iterate: iterate,
     loop: loop,
     retry: retry,
@@ -13,6 +14,22 @@ module.exports = {
 };
 
 
+/**
+ *
+ */
+function join(obj, property, func) {
+    var promise = obj[property];
+    if (promise) {
+        return promise;
+    }
+    promise =
+        Q.fcall(func)
+        .fin(function() {
+            delete obj[property];
+        });
+    obj[property] = promise;
+    return promise;
+}
 
 /**
  *

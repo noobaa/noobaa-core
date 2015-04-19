@@ -12,19 +12,9 @@ var SimpleWS = require('./simple_ws');
 
 dbg.set_level(config.dbg_log_level);
 
-module.exports = RpcWS;
-
-/**
- *
- * RpcWS
- *
- * websocket connection for rpc.
- *
- */
-function RpcWS(rpc) {
-    this._rpc = rpc;
-    this._address = config.ws_address;
-}
+module.exports = {
+    connect: connect
+};
 
 
 /**
@@ -34,16 +24,15 @@ function RpcWS(rpc) {
  * start a ws connection to the server
  *
  */
-RpcWS.prototype.connect = function() {
-    var self = this;
-    if (self._ws) {
+function connect(conn) {
+    if (conn._ws) {
         return;
     }
-    self._ws = new SimpleWS({
-        address: self._address,
+    conn._ws = new SimpleWS({
+        address: conn.address,
         onclose: function() {
-            self._ws = null;
-            self.connect();
+            conn._ws = null;
+            connect(conn);
         },
         keepalive: {
             create: function() {},
@@ -51,13 +40,13 @@ RpcWS.prototype.connect = function() {
         },
         handshake: {
             create: function() {
-                return self.peer_id;
+                return conn.peer_id;
             }
         },
-        handler: self._handle_message.bind(self),
+        handler: conn._handle_message.bind(conn),
     });
-    return self._ws.connect();
-};
+    return conn._ws.connect();
+}
 
 
 /**

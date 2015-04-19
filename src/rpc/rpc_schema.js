@@ -155,7 +155,7 @@ function prepare_schema(base, schema, path) {
             _.each(base.buffers, function(b) {
                 efn('obj%s = obj%s.length;', b.jspath, b.jspath);
             });
-            efn('return;');
+            efn('return buffers;');
         }
         base.export_buffers = efn('}').toFunction();
         // the import_buffers counterpart

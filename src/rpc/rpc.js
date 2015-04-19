@@ -108,14 +108,16 @@ RPC.prototype.create_client = function(api, default_options) {
 RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
     var req = new RpcRequest();
-    req.new_request(api, method_api, params, options);
 
-    dbg.log1('RPC REQUEST', req.srv);
-    self.emit('stats.client_request.start', {
-        name: req.srv,
-    });
+    // initialize the request
+    options = options || {};
+    req.new_request(api, method_api, params, options);
+    req.response_defer = Q.defer();
 
     self._sent_requests[req.reqid] = req;
+
+    dbg.log1('RPC REQUEST', req.srv);
+    self.emit_stats('stats.client_request.start', req);
 
     return Q.fcall(function() {
 
@@ -123,7 +125,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             method_api.validate_params(params, 'CLIENT');
 
             // assign a connection to the request
-            return self.assign_connection(req);
+            return self.assign_connection(req, options);
 
         })
         .then(function() {
@@ -148,7 +150,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             dbg.log1('RPC RESPONSE WAIT', req.srv);
 
-            var reply_promise = req.defer.promise;
+            var reply_promise = req.response_defer.promise;
 
             if (options.timeout) {
                 reply_promise = reply_promise.timeout(
@@ -160,25 +162,19 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
         })
         .then(function(reply) {
 
-            dbg.log1('RPC RESPONSE RECEIVED', req.srv);
+            dbg.log0('RPC RESPONSE RECEIVED', req.srv);
 
             // validate reply
             method_api.validate_reply(reply, 'CLIENT');
-            self.emit('stats.client_request.done', {
-                name: req.srv,
-                time: Date.now() - req.time
-            });
+
+            self.emit_stats('stats.client_request.done', req);
             return reply;
 
         })
         .then(null, function(err) {
 
-            dbg.log1('RPC ERROR RECEIVED', req.srv, err.stack || err);
-
-            self.emit('stats.client_request.error', {
-                name: req.srv,
-                time: Date.now() - req.time
-            });
+            dbg.error('RPC ERROR RECEIVED', req.srv, err.stack || err);
+            self.emit_stats('stats.client_request.error', req);
             throw err;
 
         })
@@ -270,7 +266,6 @@ RPC.prototype.on_connection_error = function(conn, err) {
 RPC.prototype.on_connection_message = function(conn, msg_buffer) {
     var self = this;
     var msg = RpcRequest.decode_message(msg_buffer);
-
     switch (msg.op) {
         case 'req':
             self.handle_request(conn, msg);
@@ -324,9 +319,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     req.import_message(msg, service.api, method.method_api);
 
     dbg.log1('RPC START', req.srv);
-    self.emit('stats.handle_request.start', {
-        name: req.srv
-    });
+    self.emit_stats('stats.handle_request.start', req);
 
     // check if this request was already received and served,
     // and if so then join the requests promise so that it will try
@@ -352,19 +345,13 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             req.method_api.validate_reply(reply, 'SERVER');
             dbg.log1('RPC COMPLETED', req.srv);
-            self.emit('stats.handle_request.done', {
-                name: req.srv,
-                time: Date.now() - req.time
-            });
+            self.emit_stats('stats.handle_request.done', req);
             return reply;
         })
         .then(null, function(err) {
 
             console.error('RPC ERROR', req.srv, err.stack || err);
-            self.emit('stats.handle_request.error', {
-                name: req.srv,
-                time: Date.now() - req.time
-            });
+            self.emit_stats('stats.handle_request.error', req);
 
             // set default internal error if no other error was specified
             req.rpc_error('INTERNAL', err);
@@ -400,5 +387,14 @@ RPC.prototype.handle_response = function(conn, msg) {
     if (already_done) {
         dbg.log0('GOT RESPONSE BUT REQUEST ALREADY DONE', res.reqid);
         // TODO stats?
+    }
+};
+
+
+RPC.prototype.emit_stats = function(name, data) {
+    try {
+        this.emit(name, data);
+    } catch(err) {
+        dbg.error('EMIT STATS ERROR', err.stack || err);
     }
 };

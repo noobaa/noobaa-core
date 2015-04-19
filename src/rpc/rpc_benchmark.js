@@ -5,6 +5,7 @@ var Q = require('q');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
+var rpc_http = require('./rpc_http');
 
 var dbg = require('noobaa-util/debug_module')(__filename);
 dbg.set_level(argv.d, __dirname);
@@ -44,6 +45,8 @@ rpc.register_service(schema.bench, {
     }
 });
 
+rpc_http.listen(rpc, 5656);
+
 argv.ops = argv.ops || 10000;
 argv.size = argv.size || 1024 * 1024;
 var io_count = 0;
@@ -62,6 +65,8 @@ function next_io() {
             kushkush: {
                 data: buffer
             }
+        }, {
+            address: 'http://127.0.0.1:5656'
         })
         .then(next_io);
 }

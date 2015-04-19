@@ -1,7 +1,7 @@
 'use strict';
 
 // var _ = require('lodash');
-// var Q = require('q');
+var Q = require('q');
 var util = require('util');
 var url = require('url');
 // var dbg = require('noobaa-util/debug_module')(__filename);
@@ -56,7 +56,7 @@ RpcConnection.prototype.connect = function() {
         if (self.state !== STATE_INIT) {
             throw new Error('CONNECTION NOT IN INIT STATE ' + self.state);
         }
-        return self.transport.connect(self)
+        return Q.fcall(self.transport.connect, self)
             .then(function() {
                 self.state = STATE_CONNECTED;
             });

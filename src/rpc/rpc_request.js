@@ -1,7 +1,6 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
 var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -11,7 +10,7 @@ module.exports = RpcRequest;
  *
  */
 function RpcRequest() {
-    this.defer = Q.defer();
+
 }
 
 // rpc_params is a synonyms to params.
@@ -90,11 +89,12 @@ RpcRequest.prototype.import_message = function(msg, api, method_api) {
  */
 RpcRequest.encode_message = function(msg) {
     var buffers = [
-            new Buffer(8),
-            new Buffer(JSON.stringify(msg.header)),
-            new Buffer(JSON.stringify(msg.params))
-        ]
-        .concat(msg.buffers);
+        new Buffer(8),
+        new Buffer(JSON.stringify(msg.header)),
+        new Buffer(JSON.stringify(msg.params))
+    ].concat(msg.buffers);
+    console.log('encode_message',
+        buffers[1].length, buffers[2].length, buffers.length);
     buffers[0].writeUInt32BE(buffers[1].length, 0);
     buffers[0].writeUInt32BE(buffers[2].length, 1);
     return Buffer.concat(buffers);
@@ -106,6 +106,7 @@ RpcRequest.encode_message = function(msg) {
 RpcRequest.decode_message = function(buffer) {
     var hlen = buffer.readUInt32BE(0);
     var plen = buffer.readUInt32BE(1);
+    console.log('decode_message', buffer.length, hlen, plen);
     var header = JSON.parse(buffer.slice(8, 8 + hlen).toString());
     var params = JSON.parse(buffer.slice(8 + hlen, 8 + hlen + plen).toString());
     var data_buffer = buffer.slice(8 + hlen + plen);

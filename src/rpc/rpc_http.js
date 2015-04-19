@@ -2,6 +2,11 @@
 
 var _ = require('lodash');
 var Q = require('q');
+var express = require('express');
+var express_morgan_logger = require('morgan');
+var express_body_parser = require('body-parser');
+var express_method_override = require('method-override');
+var express_compress = require('compression');
 var http = require('http');
 var https = require('https');
 var querystring = require('querystring');
@@ -24,6 +29,7 @@ module.exports = {
     authenticate: authenticate,
     send: send,
     close: close,
+    listen: listen,
     middleware: middleware,
     BASE_PATH: BASE_PATH,
 };
@@ -273,4 +279,26 @@ function close(conn) {
     if (conn.http_req && conn.http_req.abort) {
         conn.http_req.abort();
     }
+}
+
+
+function listen(rpc, port) {
+    var app = express();
+    app.use(express_morgan_logger('dev'));
+    app.use(express_body_parser.json());
+    app.use(express_body_parser.raw({
+        // increase size limit on raw requests to allow serving data blocks
+        limit: 4 * 1024 * 1024
+    }));
+    app.use(express_body_parser.text());
+    app.use(express_body_parser.urlencoded({
+        extended: false
+    }));
+    app.use(express_method_override());
+    app.use(express_compress());
+    app.use(BASE_PATH, middleware(rpc));
+
+    var http_server = http.createServer(app);
+    return Q.ninvoke(http_server, 'listen', port)
+        .thenResolve(http_server);
 }

@@ -48,6 +48,7 @@ function connect(conn) {
     return conn._ws.connect();
 }
 
+function RpcWS() {}
 
 /**
  *

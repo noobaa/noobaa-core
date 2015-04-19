@@ -380,6 +380,18 @@ Agent.prototype.send_heartbeat = function() {
                 }
             };
 
+            //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
+            var orig_ifaces = os.networkInterfaces();
+            var interfaces = _.clone(orig_ifaces);
+
+            _.each(orig_ifaces, function(iface, name) {
+                if (name.indexOf('.') !== -1) {
+                    var new_name = name.replace('.','-');
+                    interfaces[new_name] = iface;
+                    delete interfaces[name];
+                }
+            });
+
             if (hourlyHB) {
                 device_info_send_time = now_time;
                 params.device_info = {
@@ -393,7 +405,7 @@ Agent.prototype.send_heartbeat = function() {
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
                     cpus: os.cpus(),
-                    networkInterfaces: os.networkInterfaces().replace('eth0.','eth0')
+                    networkInterfaces: interfaces
                 };
 
                 if (totalSpace && freeSpace) {

@@ -200,38 +200,36 @@ function create_auth(req) {
      */
 function create_access_key_auth(req) {
 
-    var access_key = req.rest_params.aws_access_key;
-    var string_to_sign = req.rest_params.aws_string_to_sign;
-    var signature = req.rest_params.signature;
-    var system_name = req.rest_params.system;
-
-    var expiry = req.rest_params.expiry;
+    var access_key = req.rpc_params.access_key;
+    var string_to_sign = req.rpc_params.string_to_sign;
+    var signature = req.rpc_params.signature;
+    var expiry = req.rpc_params.expiry;
     var authenticated_account;
     var account;
     var system;
     var role;
-
+    dbg.log0('create_access_key_auth',access_key,string_to_sign,signature);
     return Q.fcall(function() {
 
         // find system by name
-        return db.System
-            .findOne({
-                name: system_name,
-                deleted: null,
-            })
+        return db.System.
+                findOne({"access_keys": {
+                    $elemMatch:{"access_key": access_key}
+                }})
             .exec()
             .then(function(system_arg) {
-
                 system = system_arg;
+                dbg.log0('system._doc.access_keys',system._doc.access_keys);
                 if (!system || system.deleted) {
                     throw req.unauthorized('system not found');
                 }
 
             }).then(function(){
                 var s3 = new s3_auth();
-                var s3_signature = s3.sign(access_key, string_to_sign);
-                dbg.log0('s3:::' + s3_signature);
-                if (signature === 'AWS ' + access_key + ':' + s3_signature) {
+                var secret_key =_.result(_.find(system._doc.access_keys, 'access_key', access_key),'secret_key');
+                var s3_signature = s3.sign(secret_key, string_to_sign);
+                dbg.log0('s3::: signature for access key:',access_key,'string:',string_to_sign,' is', s3_signature);
+                if (signature === s3_signature) {
                     dbg.log0('s3 authentication test passed!!!');
                 } else {
                     throw req.unauthorized('SignatureDoesNotMatch');
@@ -240,12 +238,11 @@ function create_access_key_auth(req) {
             }).then(function() {
 
                 var token = req.make_auth_token({
-                    account_id: 0,
                     system_id: system && system.id,
-                    role: null,
+                    role: 'admin',
                     extra: req.rest_params.extra,
                 });
-
+                console.log('ACCESS TOKEN:',token);
                 return {
                     token: token
                 };
@@ -289,29 +286,6 @@ function read_auth(req) {
  * and assign the info in req.auth.
  *
  */
-function s3_authorize(req, method_api) {
-    var awsSecretKey = 'abc';
-    var awsAccessKey = '123';
-
-    var s3 = new s3_auth(req);
-    var s3_signature = s3.sign(awsSecretKey, s3.stringToSign());
-    dbg.log0('s3 signature is:' + s3_signature);
-    if (req.headers.authorization === 'AWS ' + awsAccessKey + ':' + s3_signature) {
-        dbg.log0('s3 authentication test passed!!!');
-    } else {
-        dbg.log0('s3 authentication test failed!!!');
-    }
-}
-
-
-/**
- *
- * AUTHORIZE
- *
- * rpc authorizer to parse and verify the auth token
- * and assign the info in req.auth.
- *
- */
 function authorize(req, method_api) {
 
     _prepare_auth_request(req);
@@ -329,6 +303,8 @@ function authorize(req, method_api) {
     }
 
     if (method_api.auth !== false) {
+        dbg.log0('authorize:',method_api.auth);
+
         return req.load_auth(method_api.auth);
     }
 }
@@ -362,9 +338,9 @@ function _prepare_auth_request(req) {
         options = options || {};
 
         return Q.fcall(function() {
-
+            dbg.log0('options:',options,req.auth);
             // check that auth has account_id
-            var ignore_missing_account = (options.account === false);
+            var ignore_missing_account = (options.account === false || _.isEmpty(options.account));
             if (!req.auth || !req.auth.account_id) {
                 if (ignore_missing_account) {
                     return;
@@ -389,7 +365,7 @@ function _prepare_auth_request(req) {
         }).then(function() {
 
             // check that auth contains system
-            var ignore_missing_system = (options.system === false);
+            var ignore_missing_system = (options.system === false || _.isEmpty(options.system));
             if (!req.auth || !req.auth.system_id) {
                 if (ignore_missing_system) {
                     return;
@@ -448,7 +424,7 @@ function _prepare_auth_request(req) {
         if (options.expiry) {
             jwt_options.expiresInMinutes = options.expiry / 60;
         }
-
+        dbg.log0('tokenize:',auth);
         // create and return the signed token
         return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
     };

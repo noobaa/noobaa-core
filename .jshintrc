@@ -15,6 +15,6 @@
     "undef": true,
 
     "latedef": "nofunc",
-    "unused": false,
+    "unused": "vars",
     "curly": false
 }

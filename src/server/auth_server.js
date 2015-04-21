@@ -316,7 +316,7 @@ function authorize(req, method_api) {
     }
 
     if (method_api.auth !== false) {
-        dbg.log0('authorize:', method_api.auth, method_api);
+        dbg.log3('authorize:', method_api.auth, method_api);
 
         return req.load_auth(method_api.auth)
             .then(function() {
@@ -332,10 +332,7 @@ function authorize(req, method_api) {
                     }
                 }
             });
-            // .then(null, function(err) {
-            //     dbg.error('Failure during s3 authentication', err, err.stack);
-            //     throw req.unauthorized('SignatureDoesNotMatch2');
-            // });
+
     }
 }
 
@@ -368,7 +365,7 @@ function _prepare_auth_request(req) {
         options = options || {};
 
         return Q.fcall(function() {
-            dbg.log0('options:', options, req.auth);
+            dbg.log3('options:', options, req.auth);
             // check that auth has account_id
             var ignore_missing_account = (options.account === false || _.isEmpty(options.account));
             if (!req.auth || !req.auth.account_id) {
@@ -422,7 +419,7 @@ function _prepare_auth_request(req) {
                     }
                     req.system = system;
                     req.role = req.auth.role;
-                    dbg.log0('load auth:', req.system);
+                    dbg.log3('load auth:', req.system);
                 });
         });
     };
@@ -455,7 +452,6 @@ function _prepare_auth_request(req) {
         if (options.expiry) {
             jwt_options.expiresInMinutes = options.expiry / 60;
         }
-        dbg.log0('tokenize:', auth);
         // create and return the signed token
         return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
     };

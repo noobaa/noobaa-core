@@ -10,6 +10,7 @@ var pem = require('pem');
 var s3_auth = require('aws-sdk/lib/signers/s3');
 var _ = require('lodash');
 var s3_util = require('../util/s3_utils');
+var templateBuilder = require('./xml-template-builder');
 
 module.exports = s3_app;
 
@@ -26,64 +27,52 @@ function s3_app(params) {
 
     app.use(function(req, res, next) {
 
-        Q.fcall(function() {
+        return Q.fcall(function() {
 
             dbg.log0('S3 request. Time:', Date.now(), req.originalUrl, req.headers, req.query, req.query.prefix, req.query.delimiter);
 
-            dbg.log0('req.path',req.path,req.url,req.query);
 
             if (req.headers.authorization) {
 
-                var awsSecretKey = 'abc';
-                var awsAccessKey = '123';
-
                 var s3 = new s3_auth(req);
+
+                params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
 
                 // The original s3 code doesn't work well with express and query string.
                 // It expects to see query string as part of the request.path.
-
-                // params.string_to_sign = s3.stringToSign();
-                //
-                // dbg.log0('s3 string:', params.string_to_sign);
-                // //remove - internal test
-                // var s3_signature = s3.sign(awsSecretKey, params.string_to_sign);
-                // dbg.log0('s3:::' + s3_signature);
-                // if (req.headers.authorization === 'AWS ' + awsAccessKey + ':' + s3_signature) {
-                //     dbg.log0('s3 authentication test passed!!!');
+                // debug code:
+                // var awsSecretKey = 'abc';
+                // var awsAccessKey = '123';
+                // var s3_internal_signature = s3.sign(awsSecretKey, params.string_to_sign);
+                // dbg.log0('s3 internal:::' + params.string_to_sign);
+                // if (req.headers.authorization === 'AWS ' + awsAccessKey + ':' + s3_internal_signature) {
+                //     dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
                 // } else {
-                //     dbg.error('s3 authentication test failed!!!');
+                //     dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization);
                 // }
-
-                params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
-                dbg.log0('s3 internal:::' + params.string_to_sign);
-
-                var s3_internal_signature = s3.sign(awsSecretKey, params.string_to_sign);
-                if (req.headers.authorization === 'AWS ' + awsAccessKey + ':' + s3_internal_signature) {
-                    dbg.log3('s3 internal authentication test passed!!!',s3_internal_signature);
-                } else {
-                    dbg.error('s3 internal authentication test failed!!!',s3_internal_signature,req);
-                }
 
 
                 var end_of_aws_key = req.headers.authorization.indexOf(':');
                 var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
-                //req.params.aws_access_key = req_access_key;
-                params.aws_access_key = req_access_key;
+                params.access_key = req_access_key;
                 params.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
-                dbg.log0(' req - aws', params);
+
                 return Q.fcall(function() {
-                    return controllers.is_system_client_exists(params.aws_access_key);
+                    return controllers.is_system_client_exists(params.access_key);
                 }).then(function(is_exists) {
-                    dbg.log0('System', params.aws_access_key, 'exists=', is_exists);
                     if (!is_exists) {
                         return controllers.add_new_system_client(params);
+                    }else{
+                        controllers.update_system_auth(params.access_key,params);
                     }
 
                 });
 
             } else {
                 //unauthorized...
-                return;
+                dbg.error('UNAUTHORIZED!!!!');
+                var template = templateBuilder.buildSignatureDoesNotMatch('');
+                res = controllers.buildXmlResponse(res, 401, template);
             }
         }).then(function() {
             if (req.headers.host) {
@@ -111,6 +100,7 @@ function s3_app(params) {
         })
         .then (null,function(err){
             dbg.error('Failure during new request handling',err,err.stack);
+            return controllers.build_unauthorized_response(res,params.string_to_sign);
         });
 
     });

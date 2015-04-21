@@ -173,6 +173,23 @@ var xml = function() {
                 indent: '  '
             });
         },
+        buildSignatureDoesNotMatch: function(string_to_sign) {
+            return jstoxml.toXML({
+                Error: {
+                    Code: 'SignatureDoesNotMatch',
+                    Type: 'Sender',
+                    Message: 'The request signature we calculated does not match the signature you provided.'+
+                            ' Check your AWS Secret Access Key and signing method.'+
+                            'Consult the service documentation for details.The canonical string'+
+                            'for this request should have been '+'(no info)'+
+                            'The String - to - Sign should have been '+string_to_sign,
+                    RequestId: 1
+                }
+            }, {
+                header: true,
+                indent: ' '
+            });
+        },
         buildBucketNotEmpty: function(bucketName) {
             return jstoxml.toXML({
                 Error: {

@@ -48,6 +48,8 @@ module.exports = auth_server;
  * a previously authenticated account.
  *
  */
+var s3 = new s3_auth();
+
 function create_auth(req) {
 
         var email = req.rest_params.email;
@@ -208,31 +210,34 @@ function create_access_key_auth(req) {
     var account;
     var system;
     var role;
-    dbg.log0('create_access_key_auth',access_key,string_to_sign,signature);
+    dbg.log0('create_access_key_auth', access_key, string_to_sign, signature);
     return Q.fcall(function() {
 
         // find system by name
         return db.System.
-                findOne({"access_keys": {
-                    $elemMatch:{"access_key": access_key}
-                }})
+        findOne({
+                "access_keys": {
+                    $elemMatch: {
+                        "access_key": access_key
+                    }
+                }
+            })
             .exec()
             .then(function(system_arg) {
                 system = system_arg;
-                dbg.log0('system._doc.access_keys',system._doc.access_keys);
+                dbg.log0('system._doc.access_keys', system._doc.access_keys);
                 if (!system || system.deleted) {
                     throw req.unauthorized('system not found');
                 }
 
-            }).then(function(){
-                var s3 = new s3_auth();
-                var secret_key =_.result(_.find(system._doc.access_keys, 'access_key', access_key),'secret_key');
+            }).then(function() {
+                var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
                 var s3_signature = s3.sign(secret_key, string_to_sign);
-                dbg.log0('s3::: signature for access key:',access_key,'string:',string_to_sign,' is', s3_signature);
+                dbg.log0('s3::: signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
                 if (signature === s3_signature) {
                     dbg.log0('s3 authentication test passed!!!');
                 } else {
-                    throw req.unauthorized('SignatureDoesNotMatch');
+                    throw req.unauthorized('SignatureDoesNotMatch3');
                 }
 
             }).then(function() {
@@ -242,7 +247,7 @@ function create_access_key_auth(req) {
                     role: 'admin',
                     extra: req.rest_params.extra,
                 });
-                console.log('ACCESS TOKEN:',token);
+                console.log('ACCESS TOKEN:', token);
                 return {
                     token: token
                 };
@@ -289,12 +294,20 @@ function read_auth(req) {
 function authorize(req, method_api) {
 
     _prepare_auth_request(req);
+    var auth_token_obj;
 
     if (req.auth_token) {
         try {
-            req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
+            var auth_token;
+            if (req.auth_token.indexOf('auth_token') > 0) {
+                auth_token_obj = JSON.parse(req.auth_token);
+                auth_token = auth_token_obj.auth_token;
+            } else {
+                auth_token = req.auth_token;
+            }
+            req.auth = jwt.verify(auth_token, process.env.JWT_SECRET);
         } catch (err) {
-            console.error('AUTH JWT VERIFY FAILED', req, err);
+            dbg.error('AUTH JWT VERIFY FAILED', req, err);
             throw {
                 statusCode: 401,
                 data: 'unauthorized'
@@ -303,9 +316,26 @@ function authorize(req, method_api) {
     }
 
     if (method_api.auth !== false) {
-        dbg.log0('authorize:',method_api.auth);
+        dbg.log0('authorize:', method_api.auth, method_api);
 
-        return req.load_auth(method_api.auth);
+        return req.load_auth(method_api.auth)
+            .then(function() {
+                //if request request has access signature, validate the signature
+                if (auth_token_obj) {
+                    var secret_key = _.result(_.find(req.system._doc.access_keys, 'access_key', auth_token_obj.access_key), 'secret_key');
+                    var s3_signature = s3.sign(secret_key, auth_token_obj.string_to_sign);
+                    if (auth_token_obj.signature === s3_signature) {
+                        dbg.log3('Access key authentication (per request) test passed !!!');
+                    } else {
+                        dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
+                        throw req.unauthorized('SignatureDoesNotMatch1');
+                    }
+                }
+            });
+            // .then(null, function(err) {
+            //     dbg.error('Failure during s3 authentication', err, err.stack);
+            //     throw req.unauthorized('SignatureDoesNotMatch2');
+            // });
     }
 }
 
@@ -338,7 +368,7 @@ function _prepare_auth_request(req) {
         options = options || {};
 
         return Q.fcall(function() {
-            dbg.log0('options:',options,req.auth);
+            dbg.log0('options:', options, req.auth);
             // check that auth has account_id
             var ignore_missing_account = (options.account === false || _.isEmpty(options.account));
             if (!req.auth || !req.auth.account_id) {
@@ -392,6 +422,7 @@ function _prepare_auth_request(req) {
                     }
                     req.system = system;
                     req.role = req.auth.role;
+                    dbg.log0('load auth:', req.system);
                 });
         });
     };
@@ -424,7 +455,7 @@ function _prepare_auth_request(req) {
         if (options.expiry) {
             jwt_options.expiresInMinutes = options.expiry / 60;
         }
-        dbg.log0('tokenize:',auth);
+        dbg.log0('tokenize:', auth);
         // create and return the signed token
         return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
     };

@@ -146,14 +146,15 @@ function prepare_schema(base, schema, path) {
             ('function export_buffers(obj) {');
         if (base.buffers) {
             // create a concatenated buffer from all the buffers
-            efn('var buffers = [');
+            // and replace each of the original paths with the buffer length
+            efn('var buffers = [];');
+            efn('var buf;');
             _.each(base.buffers, function(b) {
-                efn('obj%s , ', b.jspath);
-            });
-            efn('];');
-            // replace each of the original paths with the buffer length
-            _.each(base.buffers, function(b) {
-                efn('obj%s = obj%s.length;', b.jspath, b.jspath);
+                efn('var buf = obj%s;', b.jspath);
+                efn('if (buf) {');
+                efn(' buffers.push(buf);');
+                efn(' obj%s = buf.length;', b.jspath);
+                efn('}');
             });
             efn('return buffers;');
         }
@@ -164,12 +165,15 @@ function prepare_schema(base, schema, path) {
         if (base.buffers) {
             ifn('var start = 0;');
             ifn('var end = 0;');
+            ifn('var len;');
             _.each(base.buffers, function(b, i) {
-                ifn('start = end;');
-                ifn('end = start + obj%s;', b.jspath);
-                ifn('obj%s = data.slice(start, end);', b.jspath);
+                ifn('len = obj%s;', b.jspath);
+                ifn('if (typeof(len) === "number") {');
+                ifn(' start = end;');
+                ifn(' end = start + len;');
+                ifn(' obj%s = data.slice(start, end);', b.jspath);
+                ifn('}');
             });
-            ifn('return req;');
         }
         base.import_buffers = ifn('}').toFunction();
         if (base.buffers) {

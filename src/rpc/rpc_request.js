@@ -45,91 +45,109 @@ RpcRequest.prototype.new_request = function(api, method_api, params, options) {
 };
 
 /**
+ * @static
+ */
+RpcRequest.encode_message = function(header, buffers) {
+    var msg_buffers = [
+        new Buffer(4),
+        new Buffer(JSON.stringify(header)),
+    ];
+    if (buffers) {
+        msg_buffers = msg_buffers.concat(buffers);
+    }
+    dbg.log3('encode_message', msg_buffers[1].length, msg_buffers.length);
+    msg_buffers[0].writeUInt32BE(msg_buffers[1].length, 0);
+    return Buffer.concat(msg_buffers);
+};
+
+/**
+* @static
+ */
+RpcRequest.decode_message = function(msg_buffer) {
+    var len = msg_buffer.readUInt32BE(0);
+    dbg.log3('decode_message', msg_buffer.length, len);
+    var header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
+    var buffer = msg_buffer.slice(4 + len);
+    return {
+        header: header,
+        buffer: buffer
+    };
+};
+
+/**
  *
  */
-RpcRequest.prototype.export_message = function() {
+RpcRequest.prototype.export_request_buffer = function() {
     var header = {
         op: 'req',
         reqid: this.reqid,
         api: this.api.name,
         method: this.method_api.name,
         domain: this.domain,
+        params: this.params,
     };
     if (this.auth_token) {
         header.auth_token = this.auth_token;
     }
     var buffers = this.method_api.params.export_buffers(this.params);
-    return {
-        header: header,
-        params: this.params,
-        buffers: buffers
-    };
+    return RpcRequest.encode_message(header, buffers);
 };
 
 /**
  *
  */
-RpcRequest.prototype.import_message = function(msg, api, method_api) {
+RpcRequest.prototype.import_request_message = function(msg, api, method_api) {
     this.time = Date.now();
     this.reqid = msg.header.reqid;
     this.api = api;
     this.method_api = method_api;
     this.domain = msg.header.domain;
-    this.params = msg.params;
-    this.method_api.params.import_buffers(this.params, msg.buffer);
+    this.params = msg.header.params;
     this.auth_token = msg.header.auth_token;
+    if (method_api) {
+        method_api.params.import_buffers(this.params, msg.buffer);
+    }
     this.srv =
-        '/' + api.name +
-        '/' + this.domain +
-        '/' + method_api.name;
+        '/' + (api ? api.name : '?') +
+        '/' + (this.domain || '?') +
+        '/' + (method_api ? method_api.name : '?');
 };
 
 /**
  *
  */
-RpcRequest.encode_message = function(msg) {
-    var buffers = [
-        new Buffer(8),
-        new Buffer(JSON.stringify(msg.header)),
-        new Buffer(JSON.stringify(msg.params))
-    ].concat(msg.buffers);
-    console.log('encode_message',
-        buffers[1].length, buffers[2].length, buffers.length);
-    buffers[0].writeUInt32BE(buffers[1].length, 0);
-    buffers[0].writeUInt32BE(buffers[2].length, 1);
-    return Buffer.concat(buffers);
-};
-
-/**
- *
- */
-RpcRequest.decode_message = function(buffer) {
-    var hlen = buffer.readUInt32BE(0);
-    var plen = buffer.readUInt32BE(1);
-    console.log('decode_message', buffer.length, hlen, plen);
-    var header = JSON.parse(buffer.slice(8, 8 + hlen).toString());
-    var params = JSON.parse(buffer.slice(8 + hlen, 8 + hlen + plen).toString());
-    var data_buffer = buffer.slice(8 + hlen + plen);
-    return {
-        header: header,
-        params: params,
-        buffer: data_buffer
+RpcRequest.prototype.export_response_buffer = function() {
+    var header = {
+        op: 'res',
+        reqid: this.reqid
     };
+    var buffers;
+    if (this.error) {
+        header.error = this.error;
+    } else {
+        header.reply = this.reply;
+        buffers = this.method_api.reply.export_buffers(this.reply);
+    }
+    return RpcRequest.encode_message(header, buffers);
 };
 
 /**
  *
  */
-RpcRequest.prototype.set_response = function(res) {
-    if (this.done) {
-        return true;
+RpcRequest.prototype.import_response_message = function(msg) {
+    var is_pending = this.response_defer.promise.isPending;
+    if (!is_pending) {
+        return is_pending;
     }
-    this.done = true;
-    if (res.error) {
-        this.defer.reject(res.error);
+    if (msg.header.error) {
+        this.error = msg.header.error;
+        this.response_defer.reject(this.error);
     } else {
-        this.defer.resolve(res.reply);
+        this.reply = msg.header.reply;
+        this.method_api.reply.import_buffers(this.reply, msg.buffer);
+        this.response_defer.resolve(this.reply);
     }
+    return is_pending;
 };
 
 
@@ -145,15 +163,16 @@ RpcRequest.prototype.rpc_error = function(name, err_data, reason) {
     }
     var err = _.isError(err_data) ? err_data : new Error(err_data);
     dbg.error('RPC ERROR', this.srv, code, name, reason, err.stack);
-    if (!this.done) {
-        this.error = {
-            code: code,
-            name: name,
-            data: err_data,
-        };
-        this.done = true;
-        this.defer.reject(err);
+    if (this.error) {
+        dbg.error('RPC MULTIPLE ERRORS, existing error', this.error);
+        return err;
     }
+    this.error = {
+        code: code,
+        name: name,
+        data: err_data,
+    };
+    this.defer.reject(err);
     return err;
 };
 

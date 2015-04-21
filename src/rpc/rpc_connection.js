@@ -37,9 +37,9 @@ function RpcConnection(address) {
     this.state = STATE_INIT;
     this.address = address;
     this.url = url.parse(address);
-    this.transport = TRANSPORTS[this.url.protocol];
+    this.transport = TRANSPORTS[this.url.protocol || 'localrpc:'];
     if (!this.transport) {
-        throw new Error('PROTOCOL NOT SUPPORTED' + this.address);
+        throw new Error('PROTOCOL NOT SUPPORTED ' + this.address);
     }
     this.reusable = this.transport.reusable;
 }

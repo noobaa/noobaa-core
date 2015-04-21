@@ -37,23 +37,31 @@ schema.register_api({
     }
 });
 
+// create rpc
 var rpc = new RPC();
-var bench_client = rpc.create_client(schema.bench);
+
+// open http listening port
+rpc_http.listen(rpc, 5656);
+
+// register rpc service handler
 rpc.register_service(schema.bench, {
     io: function(req) {
         return req.params.data;
     }
 });
 
-rpc_http.listen(rpc, 5656);
+// create rpc client
+var bench_client = rpc.create_client(schema.bench);
 
+// test params
 argv.ops = argv.ops || 10000;
 argv.size = argv.size || 1024 * 1024;
 var io_count = 0;
 var buffer = new Buffer(argv.size);
 var start_time = Date.now();
 
-function next_io() {
+// test loop
+function call_next_io() {
     if (io_count >= argv.ops) {
         return;
     }
@@ -66,12 +74,15 @@ function next_io() {
                 data: buffer
             }
         }, {
-            address: 'http://127.0.0.1:5656'
+            // address: 'http://127.0.0.1:5656'
         })
-        .then(next_io);
+        .then(call_next_io);
 }
 
-Q.fcall(next_io)
+Q.fcall(call_next_io)
+    .then(null, function(err) {
+        dbg.error('BENCHMARK ERROR', err);
+    })
     .then(function() {
         var took = (Date.now() - start_time) / 1000;
         dbg.warn('=======================');
@@ -79,4 +90,5 @@ Q.fcall(next_io)
         dbg.warn('IO Count :', io_count);
         dbg.warn('IOPS     :', (io_count / took).toFixed(1));
         dbg.warn('=======================');
+        process.exit(0);
     });

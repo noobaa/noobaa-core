@@ -37,35 +37,28 @@ RPC.prototype.register_service = function(api, server, options) {
     options = options || {};
     var domain = options.domain || '*';
 
-    var service = self._services[api.name];
-    if (!service) {
-        service = self._services[api.name] = {};
-    }
-
-    assert(!service[domain],
-        'RPC: service already registered ' + api.name + '-' + domain);
-
-    service[domain] = {
-        api: api,
-        server: server,
-        options: options,
-        methods: _.mapValues(api.methods, function(method_api, method_name) {
-            var func = server[method_name];
-            if (!func && options.allow_missing_methods) {
-                func = function() {
-                    return Q.reject({
-                        data: 'RPC: missing method implementation - ' + method_api.fullname
-                    });
-                };
-            }
-            assert.strictEqual(typeof(func), 'function',
-                'RPC: server method should be a function - ' + method_api.fullname);
-            return {
-                method_api: method_api,
-                server_func: func.bind(server),
+    _.each(api.methods, function(method_api, method_name) {
+        var srv = '/' + api.name + '/' + domain + '/' + method_name;
+        assert(!self._services[srv],
+            'RPC: service already registered ' + srv);
+        var func = server[method_name];
+        if (!func && options.allow_missing_methods) {
+            func = function() {
+                return Q.reject({
+                    data: 'RPC: missing method implementation - ' + method_api.fullname
+                });
             };
-        })
-    };
+        }
+        assert.strictEqual(typeof(func), 'function',
+            'RPC: server method should be a function - ' + method_api.fullname);
+        self._services[srv] = {
+            api: api,
+            server: server,
+            options: options,
+            method_api: method_api,
+            server_func: func.bind(server)
+        };
+    });
 };
 
 
@@ -114,12 +107,12 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     req.new_request(api, method_api, params, options);
     req.response_defer = Q.defer();
 
-    self._sent_requests[req.reqid] = req;
 
     dbg.log1('RPC REQUEST', req.srv);
     self.emit_stats('stats.client_request.start', req);
 
     return Q.fcall(function() {
+            self._sent_requests[req.reqid] = req;
 
             // verify params (local calls don't need it because server already verifies)
             method_api.validate_params(params, 'CLIENT');
@@ -133,9 +126,8 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             dbg.log1('RPC REQUEST SEND', req.srv);
 
             // send request over the connection
-            var msg = req.export_message();
-            var msg_buffer = RpcRequest.encode_message(msg);
-            var send_promise = req.connection.send(msg_buffer, 'req');
+            var req_buffer = req.export_request_buffer();
+            var send_promise = req.connection.send(req_buffer, 'req');
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -162,7 +154,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
         })
         .then(function(reply) {
 
-            dbg.log0('RPC RESPONSE RECEIVED', req.srv);
+            dbg.log1('RPC RESPONSE RECEIVED', req.srv);
 
             // validate reply
             method_api.validate_reply(reply, 'CLIENT');
@@ -191,23 +183,16 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
 /**
  *
- */
-RPC.prototype.is_local_service_domain = function(api_name, domain) {
-    return this._services[api_name] && this._services[api_name][domain];
-};
-
-/**
- *
  * assign_connection
  *
  */
 RPC.prototype.assign_connection = function(req, options) {
     var self = this;
-    var address = options.address;
+    var address = options.address || '';
 
     // if the service is registered locally,
     // dispatch to localrpc to do function call.
-    if (self.is_local_service_domain(req.api.name, req.domain)) {
+    if (self._services[req.srv]) {
         address = 'localrpc://localhost';
     }
 
@@ -266,7 +251,7 @@ RPC.prototype.on_connection_error = function(conn, err) {
 RPC.prototype.on_connection_message = function(conn, msg_buffer) {
     var self = this;
     var msg = RpcRequest.decode_message(msg_buffer);
-    switch (msg.op) {
+    switch (msg.header.op) {
         case 'req':
             self.handle_request(conn, msg);
             break;
@@ -274,7 +259,7 @@ RPC.prototype.on_connection_message = function(conn, msg_buffer) {
             self.handle_response(conn, msg);
             break;
         default:
-            dbg.log0('BAD MESSAGE OP', msg.op, msg.reqid);
+            dbg.log0('BAD MESSAGE OP', msg.header);
             // TODO close connection?
             break;
     }
@@ -288,65 +273,53 @@ RPC.prototype.on_connection_message = function(conn, msg_buffer) {
 RPC.prototype.handle_request = function(conn, msg) {
     var self = this;
     var req = new RpcRequest();
-
-    // resolve the api and method of the request
-    var service = self._services[msg.api];
+    var service = this._services[
+        '/' + msg.header.api +
+        '/' + msg.header.domain +
+        '/' + msg.header.method
+    ];
     if (!service) {
-        req.import_request(msg);
-        req.rpc_error('NOT_FOUND',
-            'api ' + msg.api);
-
-        return req.export_response();
-    }
-
-    var domain_service = service[msg.domain];
-    if (!domain_service) {
-        req.import_request(msg);
-        req.rpc_error('NOT_FOUND',
-            'domain /' + msg.api + '/' + msg.domain);
-        return req.export_response();
-    }
-
-    var method = domain_service.methods[msg.method];
-    if (!method) {
-        req.import_request(msg);
-        req.rpc_error('NOT_FOUND',
-            'method /' + msg.api + '/' + msg.domain + '/' + msg.method);
-        return req.export_response();
+        req.rpc_error('NOT_FOUND', req.srv);
+        return conn.send(req.export_response_buffer(), 'res');
     }
 
     // set api info to the request
-    req.import_message(msg, service.api, method.method_api);
+    req.import_request_message(msg, service.api, service.method_api);
 
     dbg.log1('RPC START', req.srv);
     self.emit_stats('stats.handle_request.start', req);
 
-    // check if this request was already received and served,
-    // and if so then join the requests promise so that it will try
-    // not to call the server more than once.
-    var cached_req = self._received_requests[req.reqid];
-    if (cached_req) {
-        return cached_req.promise;
-    }
-
-    // insert to requests map and process using the server func
-    self._received_requests[req.reqid] = req;
-    req.promise = Q.fcall(function() {
+    return Q.fcall(function() {
             // authorize the request
-            if (domain_service.options.authorize) {
-                return domain_service.options.authorize(req);
+            if (service.options.authorize) {
+                return service.options.authorize(req);
             }
         })
         .then(function() {
             req.method_api.validate_params(req.params, 'SERVER');
-            return method.server_func(req);
+            // check if this request was already received and served,
+            // and if so then join the requests promise so that it will try
+            // not to call the server more than once.
+            var cached_req = self._received_requests[req.reqid];
+            if (cached_req) {
+                return cached_req.server_promise;
+            }
+            // insert to requests map and process using the server func
+            self._received_requests[req.reqid] = req;
+            req.server_promise = Q.fcall(service.server_func, req)
+                .fin(function() {
+                    // TODO keep received requests for some time after with LRU?
+                    delete self._received_requests[req.reqid];
+                });
+            return req.server_promise;
         })
         .then(function(reply) {
 
             req.method_api.validate_reply(reply, 'SERVER');
+            req.reply = reply;
             dbg.log1('RPC COMPLETED', req.srv);
             self.emit_stats('stats.handle_request.done', req);
-            return reply;
+            return conn.send(req.export_response_buffer(), 'res');
         })
         .then(null, function(err) {
 
@@ -354,20 +327,12 @@ RPC.prototype.handle_request = function(conn, msg) {
             self.emit_stats('stats.handle_request.error', req);
 
             // set default internal error if no other error was specified
-            req.rpc_error('INTERNAL', err);
-            return req.export_response();
-        })
-        .fin(function() {
-
-            // TODO keep received requests for some time after with LRU?
-            setTimeout(function() {
-                delete self._received_requests[req.reqid];
-            }, 1000);
+            if (!req.error) {
+                req.rpc_error('INTERNAL', err);
+            }
+            return conn.send(req.export_response_buffer(), 'res');
         });
-
-    return req.promise;
 };
-
 
 /**
  *
@@ -375,17 +340,16 @@ RPC.prototype.handle_request = function(conn, msg) {
  *
  */
 RPC.prototype.handle_response = function(conn, msg) {
-    var res = msg.header; // TODO
-    var req = this._sent_requests[res.reqid];
+    var req = this._sent_requests[msg.header.reqid];
     if (!req) {
-        dbg.log0('GOT RESPONSE BUT NO REQUEST', res.reqid);
+        dbg.log0('GOT RESPONSE BUT NO REQUEST', msg.header.reqid);
         // TODO stats?
         return;
     }
 
-    var already_done = req.set_response(res);
-    if (already_done) {
-        dbg.log0('GOT RESPONSE BUT REQUEST ALREADY DONE', res.reqid);
+    var is_pending = req.import_response_message(msg);
+    if (!is_pending) {
+        dbg.log0('GOT RESPONSE BUT REQUEST NOT PENDING', msg.header.reqid);
         // TODO stats?
     }
 };
@@ -394,7 +358,7 @@ RPC.prototype.handle_response = function(conn, msg) {
 RPC.prototype.emit_stats = function(name, data) {
     try {
         this.emit(name, data);
-    } catch(err) {
+    } catch (err) {
         dbg.error('EMIT STATS ERROR', err.stack || err);
     }
 };

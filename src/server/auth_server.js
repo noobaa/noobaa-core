@@ -210,7 +210,7 @@ function create_access_key_auth(req) {
     var account;
     var system;
     var role;
-    dbg.log0('create_access_key_auth', access_key, string_to_sign, signature);
+    dbg.log3('create_access_key_auth', access_key, string_to_sign, signature);
     return Q.fcall(function() {
 
         // find system by name
@@ -225,7 +225,8 @@ function create_access_key_auth(req) {
             .exec()
             .then(function(system_arg) {
                 system = system_arg;
-                dbg.log0('system._doc.access_keys', system._doc.access_keys);
+                //TODO: replace _doc with a better valid path.
+                dbg.log3('system._doc.access_keys', system._doc.access_keys);
                 if (!system || system.deleted) {
                     throw req.unauthorized('system not found');
                 }
@@ -233,9 +234,9 @@ function create_access_key_auth(req) {
             }).then(function() {
                 var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
                 var s3_signature = s3.sign(secret_key, string_to_sign);
-                dbg.log0('s3::: signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
+                dbg.log3('s3::: signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
                 if (signature === s3_signature) {
-                    dbg.log0('s3 authentication test passed!!!');
+                    dbg.log3('s3 authentication test passed!!!');
                 } else {
                     throw req.unauthorized('SignatureDoesNotMatch3');
                 }
@@ -419,7 +420,7 @@ function _prepare_auth_request(req) {
                     }
                     req.system = system;
                     req.role = req.auth.role;
-                    dbg.log3('load auth:', req.system);
+                    dbg.log3('load auth system:', req.system);
                 });
         });
     };

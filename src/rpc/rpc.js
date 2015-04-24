@@ -200,10 +200,10 @@ RPC.prototype.assign_connection = function(req, options) {
         conn = self.new_connection(address);
     }
     req.connection = conn;
-    return conn.connect();
-        // .then(function() {
-            // return conn.authenticate(options.auth_token);
-        // });
+    return Q.when(conn.connect())
+        .then(function() {
+            return conn.authenticate(options.auth_token);
+        });
 };
 
 /**

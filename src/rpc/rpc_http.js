@@ -44,12 +44,22 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
 }
 
 
+/**
+ *
+ * connect
+ *
+ */
 function connect(conn) {
-    // noop
+    conn.http = {};
 }
 
+/**
+ *
+ * authenticate
+ *
+ */
 function authenticate(conn, auth_token) {
-    conn.auth_token = auth_token;
+    conn.http.auth_token = auth_token;
 }
 
 
@@ -57,37 +67,59 @@ function authenticate(conn, auth_token) {
  *
  * send
  *
- * send rpc request/response over http/s
- *
  */
 function send(conn, msg, op, reqid) {
+
+    // http 1.1 has no multiplexing over connections,
+    // so we issue a single request per connection.
+
     if (op === 'res') {
-        return send_response(conn, msg, reqid);
+        return send_http_response(conn, msg, reqid);
     } else {
-        return send_request(conn, msg, reqid);
+        return send_http_request(conn, msg, reqid);
     }
 }
 
 /**
  *
- * send_request
- *
- * send rpc request over http/s
+ * close
  *
  */
-function send_request(conn, msg, reqid) {
+function close(conn) {
+    // try to abort the connetion's running request
+    var req = conn.http.req;
+    if (req && req.abort) {
+        req.abort();
+    }
+}
+
+/**
+ *
+ * send_http_response
+ *
+ */
+function send_http_response(conn, msg) {
+    var res = conn.http.res;
+    res.status(200).end(msg);
+}
+
+/**
+ *
+ * send_http_request
+ *
+ */
+function send_http_request(conn, msg, reqid) {
     var headers = {};
 
     // encode the api, domain and method name in the url path
     var path = BASE_PATH;
 
-    // http 1.1 has no multiplexing, so single request per connection
-    conn.reqid = reqid;
+    conn.http.reqid = reqid;
 
     // encode the auth_token in the authorization header,
     // we don't really need to, it's just to try and look like a normal http resource
-    if (conn.auth_token) {
-        headers.authorization = 'Bearer ' + conn.auth_token;
+    if (conn.http.auth_token) {
+        headers.authorization = 'Bearer ' + conn.http.auth_token;
     }
 
     // for now just use POST for all requests instead of req.method_api.method,
@@ -116,7 +148,7 @@ function send_request(conn, msg, reqid) {
         responseType: 'arraybuffer'
     };
 
-    var req = conn.req =
+    var req = conn.http.req =
         (http_options.protocol === 'https:') ?
         https.request(http_options) :
         http.request(http_options);
@@ -132,14 +164,14 @@ function send_request(conn, msg, reqid) {
     // once a response arrives read and handle it
     req.on('response', function(res) {
         send_defer.resolve();
-        conn.res = res;
+        conn.http.res = res;
         read_http_response_data(res)
             .then(function(data) {
                 dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
                 if (!res.statusCode) {
                     throw new Error('HTTP ERROR CONNECTION REFUSED');
                 } else if (res.statusCode !== 200) {
-                    throw new Error(JSON.parse(data));
+                    throw new Error(data);
                 }
                 conn.receive(data);
             })
@@ -148,7 +180,7 @@ function send_request(conn, msg, reqid) {
                 conn.receive({
                     header: {
                         op: 'res',
-                        reqid: conn.reqid,
+                        reqid: reqid,
                         error: err
                     }
                 });
@@ -207,9 +239,16 @@ function read_http_response_data(res) {
         return Buffer.concat(chunks, chunks_length);
     }
 
+    function decode_response(headers, data) {
+        var content_type = headers && headers['content-type'];
+        var is_json = _.contains(content_type, 'application/json');
+        return is_json && data && JSON.parse(data.toString()) || data;
+    }
+
     function finish() {
         try {
             var data = concat_chunks();
+            data = decode_response(res.headers, data);
             defer.resolve(data);
         } catch (err) {
             defer.reject(err);
@@ -239,39 +278,15 @@ function middleware(rpc) {
             var host = req.connection.remoteAddress;
             var port = req.connection.remotePort;
             var conn = rpc.new_connection('http://' + host + ':' + port);
-            conn.req = req;
-            conn.res = res;
+            conn.http = {
+                req: req,
+                res: res
+            };
             return conn.receive(req.body);
         }).then(null, function(err) {
             res.status(500).send(err);
         });
     };
-}
-
-
-/**
- *
- * send_response
- *
- * send rpc request over http/s
- *
- */
-function send_response(conn, msg) {
-    conn.res.status(200).end(msg);
-}
-
-
-/**
- *
- * close
- *
- * try to abort the connetion's running request
- *
- */
-function close(conn) {
-    if (conn.req && conn.req.abort) {
-        conn.req.abort();
-    }
 }
 
 
@@ -290,7 +305,7 @@ function listen(rpc, port, logging) {
         extended: false
     }));
     app.use(express_method_override());
-    app.use(express_compress());
+    // app.use(express_compress());
     app.use(BASE_PATH, middleware(rpc));
 
     var http_server = http.createServer(app);

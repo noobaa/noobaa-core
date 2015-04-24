@@ -7,6 +7,7 @@ var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
 var rpc_http = require('./rpc_http');
+var rpc_ws = require('./rpc_ws');
 var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
@@ -20,9 +21,11 @@ argv.size = argv.size || MB;
 argv.port = argv.port || 5656;
 // debug level
 argv.debug = argv.debug || 0;
+// protocol to use
+argv.proto = argv.proto || 'ws';
 // server mode
 argv.server = argv.server || false;
-// server mode
+// client mode
 argv.client = argv.client || false;
 if (!argv.client && !argv.server) {
     argv.client = argv.server = true;
@@ -99,7 +102,10 @@ function start() {
     Q.fcall(function() {
             // open http listening port
             if (argv.server) {
-                return rpc_http.listen(rpc, argv.port);
+                return rpc_http.listen(rpc, argv.port)
+                    .then(function(http_server) {
+                        rpc_ws.listen(rpc, http_server);
+                    });
             }
         })
         .then(function() {
@@ -125,7 +131,7 @@ function call_next_io(res) {
             }
         }, {
             no_local: argv.nolocal,
-            address: 'http://127.0.0.1:5656'
+            address: argv.proto + '://127.0.0.1:5656'
         })
         .then(call_next_io);
 }

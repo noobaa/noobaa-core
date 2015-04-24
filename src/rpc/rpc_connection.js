@@ -4,7 +4,7 @@
 var Q = require('q');
 var util = require('util');
 var url = require('url');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 var EventEmitter = require('events').EventEmitter;
 var promise_utils = require('../util/promise_utils');
 var rpc_http = require('./rpc_http');
@@ -42,6 +42,7 @@ function RpcConnection(address) {
         throw new Error('PROTOCOL NOT SUPPORTED ' + this.address);
     }
     this.reusable = this.transport.reusable;
+    dbg.log1('NEW CONNECTION', this.address);
 }
 
 /**
@@ -76,8 +77,15 @@ RpcConnection.prototype.authenticate = function(auth_token) {
 /**
  *
  */
-RpcConnection.prototype.send = function(msg, op) {
-    return this.transport.send(this, msg, op);
+RpcConnection.prototype.send = function(msg, op, reqid) {
+    return this.transport.send(this, msg, op, reqid);
+};
+
+/**
+ * should be overriden by rpc
+ */
+RpcConnection.prototype.receive = function(msg) {
+    dbg.error('NO CONNECTION RECEIVER');
 };
 
 /**

@@ -177,7 +177,7 @@ function prepare_schema(base, schema, path) {
         }
         base.import_buffers = ifn('}').toFunction();
         if (base.buffers) {
-            dbg.log0('SCHEMA BUFFERS', base.id, base.buffers,
+            dbg.log1('SCHEMA BUFFERS', base.id, base.buffers,
                 base.export_buffers.toString(),
                 base.import_buffers.toString());
         }

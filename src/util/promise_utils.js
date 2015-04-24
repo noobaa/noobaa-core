@@ -10,7 +10,9 @@ module.exports = {
     loop: loop,
     retry: retry,
     delay_unblocking: delay_unblocking,
-    run_background_worker: run_background_worker
+    run_background_worker: run_background_worker,
+    next_tick: next_tick,
+    set_immediate: set_immediate,
 };
 
 
@@ -153,4 +155,16 @@ function run_background_worker(worker) {
     console.log('run_background_worker:', 'INIT', worker.name);
     delay_unblocking(worker.boot_delay || worker.delay || DEFUALT_DELAY).then(run);
     return worker;
+}
+
+function next_tick() {
+    var defer = Q.defer();
+    process.nextTick(defer.resolve);
+    return defer.promise;
+}
+
+function set_immediate() {
+    var defer = Q.defer();
+    setImmediate(defer.resolve);
+    return defer.promise;
 }

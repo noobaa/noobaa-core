@@ -9,10 +9,9 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var http = require('http');
 var https = require('https');
-var querystring = require('querystring');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-var BASE_PATH = '/rpc';
+var BASE_PATH = '/rpc/';
 
 /**
  *
@@ -61,11 +60,11 @@ function authenticate(conn, auth_token) {
  * send rpc request/response over http/s
  *
  */
-function send(conn, msg, op) {
+function send(conn, msg, op, reqid) {
     if (op === 'res') {
-        send_response(conn, msg);
+        return send_response(conn, msg, reqid);
     } else {
-        send_request(conn, msg);
+        return send_request(conn, msg, reqid);
     }
 }
 
@@ -76,14 +75,14 @@ function send(conn, msg, op) {
  * send rpc request over http/s
  *
  */
-function send_request(conn, req) {
+function send_request(conn, msg, reqid) {
     var headers = {};
 
     // encode the api, domain and method name in the url path
     var path = BASE_PATH;
 
     // http 1.1 has no multiplexing, so single request per connection
-    conn.req = req;
+    conn.reqid = reqid;
 
     // encode the auth_token in the authorization header,
     // we don't really need to, it's just to try and look like a normal http resource
@@ -94,9 +93,14 @@ function send_request(conn, req) {
     // for now just use POST for all requests instead of req.method_api.method,
     // and send the body as binary buffer
     var http_method = 'POST';
-    var body = req.encode_message(req.export_message());
-    headers['content-length'] = body.length;
-    headers['content-type'] = 'application/octet-stream';
+    var body = msg;
+    if (Buffer.isBuffer(body)) {
+        headers['content-length'] = body.length;
+        headers['content-type'] = 'application/octet-stream';
+    } else {
+        headers['content-length'] = body.length;
+        headers['content-type'] = 'application/json';
+    }
 
     var http_options = {
         protocol: conn.url.protocol,
@@ -112,55 +116,54 @@ function send_request(conn, req) {
         responseType: 'arraybuffer'
     };
 
-    var http_req = conn.http_req =
+    var req = conn.req =
         (http_options.protocol === 'https:') ?
         https.request(http_options) :
         http.request(http_options);
 
-    dbg.log3('HTTP request', http_req.method,
-        http_req.path, http_req._headers);
+    dbg.log3('HTTP request', req.method,
+        req.path, req._headers);
 
     var send_defer = Q.defer();
 
-    // waiting for the request to finish sending all data (form.pipe or empty)
-    http_req.on('finish', send_defer.resolve);
-
     // reject on send errors
-    http_req.on('error', send_defer.reject);
+    req.on('error', send_defer.reject);
 
     // once a response arrives read and handle it
-    http_req.on('response', handle_response.bind(null, conn));
+    req.on('response', function(res) {
+        send_defer.resolve();
+        conn.res = res;
+        read_http_response_data(res)
+            .then(function(data) {
+                dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
+                if (!res.statusCode) {
+                    throw new Error('HTTP ERROR CONNECTION REFUSED');
+                } else if (res.statusCode !== 200) {
+                    throw new Error(JSON.parse(data));
+                }
+                conn.receive(data);
+            })
+            .done(null, function(err) {
+                dbg.error('HTTP RESPONSE ERROR', err.stack || err);
+                conn.receive({
+                    header: {
+                        op: 'res',
+                        reqid: conn.reqid,
+                        error: err
+                    }
+                });
+            });
+    });
 
     // send the request data
     if (body) {
-        http_req.end(body);
+        req.end(body);
     } else {
-        http_req.end();
+        req.end();
     }
 
     return send_defer.promise;
 }
-
-
-function handle_response(conn, http_res) {
-    conn.http_res = http_res;
-    return read_http_response_data(http_res)
-        .then(function(data) {
-            if (!http_res.statusCode) {
-                throw new Error('HTTP ERROR CONNECTION REFUSED');
-            } else if (http_res.statusCode !== 200) {
-                throw new Error(JSON.parse(data));
-            }
-            conn.emit('message', data);
-        })
-        .then(null, function(err) {
-            conn.emit('error', {
-                reqid: conn.req.reqid,
-                error: err
-            });
-        });
-}
-
 
 
 /**
@@ -175,12 +178,11 @@ function read_http_response_data(res) {
     var chunks_length = 0;
     dbg.log3('HTTP response headers', res.statusCode, res.headers);
 
-    // statusCode = 0 means we don't even have a response to work with
-    if (!res.statusCode) {
-        return;
-    }
-
     var defer = Q.defer();
+    if (!res.statusCode) {
+        // statusCode = 0 means ECONNREFUSED and the response will not emit events in such case
+        defer.reject(new Error('HTTP ERROR CONNECTION REFUSED'));
+    }
     res.on('error', defer.reject);
     res.on('data', add_chunk);
     res.on('end', finish);
@@ -193,9 +195,6 @@ function read_http_response_data(res) {
     }
 
     function concat_chunks() {
-        if (!chunks_length) {
-            return '';
-        }
         if (typeof(chunks[0]) === 'string') {
             // if string was already decoded then keep working with strings
             return String.prototype.concat.apply('', chunks);
@@ -209,7 +208,6 @@ function read_http_response_data(res) {
     }
 
     function finish() {
-        dbg.log3('HTTP response finish', res);
         try {
             var data = concat_chunks();
             defer.resolve(data);
@@ -227,26 +225,25 @@ function read_http_response_data(res) {
  *
  */
 function middleware(rpc) {
-    return function(http_req, http_res) {
+    return function(req, res) {
         Q.fcall(function() {
-            http_res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-            http_res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-            http_res.header('Access-Control-Allow-Origin', '*');
+            res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+            res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+            res.header('Access-Control-Allow-Origin', '*');
             // note that browsers will not allow origin=* with credentials
             // but anyway we allow it by the agent server.
-            http_res.header('Access-Control-Allow-Credentials', true);
-            if (http_req.method === 'OPTIONS') {
+            res.header('Access-Control-Allow-Credentials', true);
+            if (req.method === 'OPTIONS') {
                 return;
             }
-            var addr =
-                (http_req.headers && http_req.headers['x-forwarded-for']) ||
-                (http_req.connection && http_req.connection.remoteAddress);
-            var conn = rpc.new_connection('http://' + addr);
-            conn.http_req = http_req;
-            conn.http_res = http_res;
-            conn.emit('message', http_req.body);
+            var host = req.connection.remoteAddress;
+            var port = req.connection.remotePort;
+            var conn = rpc.new_connection('http://' + host + ':' + port);
+            conn.req = req;
+            conn.res = res;
+            return conn.receive(req.body);
         }).then(null, function(err) {
-            http_res.status(500).send(err);
+            res.status(500).send(err);
         });
     };
 }
@@ -259,12 +256,8 @@ function middleware(rpc) {
  * send rpc request over http/s
  *
  */
-function send_response(conn, res) {
-    if (res.error) {
-        conn.http_res.status(res.error.code || 500).send(res.error);
-    } else {
-        conn.http_res.status(200).send(res.reply);
-    }
+function send_response(conn, msg) {
+    conn.res.status(200).end(msg);
 }
 
 
@@ -276,15 +269,17 @@ function send_response(conn, res) {
  *
  */
 function close(conn) {
-    if (conn.http_req && conn.http_req.abort) {
-        conn.http_req.abort();
+    if (conn.req && conn.req.abort) {
+        conn.req.abort();
     }
 }
 
 
-function listen(rpc, port) {
+function listen(rpc, port, logging) {
     var app = express();
-    app.use(express_morgan_logger('dev'));
+    if (logging) {
+        app.use(express_morgan_logger('dev'));
+    }
     app.use(express_body_parser.json());
     app.use(express_body_parser.raw({
         // increase size limit on raw requests to allow serving data blocks

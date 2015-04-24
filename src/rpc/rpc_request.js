@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var crypto = require('crypto');
+// var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = RpcRequest;
@@ -31,8 +31,7 @@ Object.defineProperty(RpcRequest.prototype, 'rpc_params', {
  */
 RpcRequest.prototype.new_request = function(api, method_api, params, options) {
     this.time = Date.now();
-    var rand = crypto.pseudoRandomBytes(4).toString('hex');
-    this.reqid = this.time + '.' + rand;
+    this.reqid = this.time + '.' + Math.random();
     this.api = api;
     this.method_api = method_api;
     this.domain = options.domain || '*';

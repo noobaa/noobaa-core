@@ -107,7 +107,6 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     req.new_request(api, method_api, params, options);
     req.response_defer = Q.defer();
 
-
     dbg.log1('RPC REQUEST', req.srv);
     self.emit_stats('stats.client_request.start', req);
 
@@ -127,7 +126,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             // send request over the connection
             var req_buffer = req.export_request_buffer();
-            var send_promise = req.connection.send(req_buffer, 'req');
+            var send_promise = req.connection.send(req_buffer, 'req', req.reqid);
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -192,7 +191,7 @@ RPC.prototype.assign_connection = function(req, options) {
 
     // if the service is registered locally,
     // dispatch to localrpc to do function call.
-    if (self._services[req.srv]) {
+    if (self._services[req.srv] && !options.no_local) {
         address = 'localrpc://localhost';
     }
 
@@ -201,10 +200,10 @@ RPC.prototype.assign_connection = function(req, options) {
         conn = self.new_connection(address);
     }
     req.connection = conn;
-    return conn.connect()
-        .then(function() {
-            return conn.authenticate(options.auth_token);
-        });
+    return conn.connect();
+        // .then(function() {
+            // return conn.authenticate(options.auth_token);
+        // });
 };
 
 /**
@@ -216,9 +215,9 @@ RPC.prototype.new_connection = function(address) {
     if (conn.reusable) {
         self._connection_pool[conn.address] = conn;
     }
+    conn.receive = self.on_connection_receive.bind(self, conn);
     conn.on('close', self.on_connection_close.bind(self, conn));
     conn.on('error', self.on_connection_error.bind(self, conn));
-    conn.on('message', self.on_connection_message.bind(self, conn));
     return conn;
 };
 
@@ -243,21 +242,27 @@ RPC.prototype.on_connection_close = function(conn) {
 RPC.prototype.on_connection_error = function(conn, err) {
     // var self = this;
     // TODO reject errored requests
+    dbg.error('CONNECTION ERROR');
 };
 
 /**
  *
  */
-RPC.prototype.on_connection_message = function(conn, msg_buffer) {
+RPC.prototype.on_connection_receive = function(conn, msg_buffer) {
     var self = this;
-    var msg = RpcRequest.decode_message(msg_buffer);
+    var msg = Buffer.isBuffer(msg_buffer) ?
+        RpcRequest.decode_message(msg_buffer) :
+        msg_buffer;
+    dbg.log1('RECEIVE', msg);
+    if (!msg || !msg.header) {
+        dbg.error('BAD MESSAGE', typeof(msg));
+        throw new Error('BAD MESSAGE');
+    }
     switch (msg.header.op) {
         case 'req':
-            self.handle_request(conn, msg);
-            break;
+            return self.handle_request(conn, msg);
         case 'res':
-            self.handle_response(conn, msg);
-            break;
+            return self.handle_response(conn, msg);
         default:
             dbg.log0('BAD MESSAGE OP', msg.header);
             // TODO close connection?
@@ -280,7 +285,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     ];
     if (!service) {
         req.rpc_error('NOT_FOUND', req.srv);
-        return conn.send(req.export_response_buffer(), 'res');
+        return conn.send(req.export_response_buffer(), 'res', req.reqid);
     }
 
     // set api info to the request
@@ -319,7 +324,7 @@ RPC.prototype.handle_request = function(conn, msg) {
             req.reply = reply;
             dbg.log1('RPC COMPLETED', req.srv);
             self.emit_stats('stats.handle_request.done', req);
-            return conn.send(req.export_response_buffer(), 'res');
+            return conn.send(req.export_response_buffer(), 'res', req.reqid);
         })
         .then(null, function(err) {
 
@@ -330,7 +335,7 @@ RPC.prototype.handle_request = function(conn, msg) {
             if (!req.error) {
                 req.rpc_error('INTERNAL', err);
             }
-            return conn.send(req.export_response_buffer(), 'res');
+            return conn.send(req.export_response_buffer(), 'res', req.reqid);
         });
 };
 

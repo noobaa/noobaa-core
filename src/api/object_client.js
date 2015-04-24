@@ -8,11 +8,9 @@ var Q = require('q');
 var Semaphore = require('noobaa-util/semaphore');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
-var ChunkStream = require('../util/chunk_stream');
 var CoalesceStream = require('../util/coalesce_stream');
 var rabin = require('../util/rabin');
 var Poly = require('../util/poly');
-var crypto = require('crypto');
 var chunk_crypto = require('../util/chunk_crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
@@ -903,7 +901,8 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
                 peer: block_address.peer,
                 timeout: config.read_timeout,
             })
-            .then(function(buffer) {
+            .then(function(res) {
+                var buffer = res.data;
                 // verify the received buffer length must be full size
                 if (!Buffer.isBuffer(buffer)) {
                     throw new Error('NOT A BUFFER ' + typeof(buffer));

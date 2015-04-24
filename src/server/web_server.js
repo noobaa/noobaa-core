@@ -20,7 +20,6 @@ require('heapdump');
 var dot_engine = require('noobaa-util/dot_engine');
 var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var path = require('path');
 var URL = require('url');
 var http = require('http');
@@ -35,6 +34,7 @@ var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var rpc_http = require('../rpc/rpc_http');
+var rpc_ws = require('../rpc/rpc_ws');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
@@ -73,6 +73,7 @@ mongoose.connect(
 // create express app
 var app = express();
 var web_port = process.env.PORT || 5001;
+var server = http.createServer(app);
 app.set('port', web_port);
 
 // setup view template engine with doT
@@ -126,17 +127,18 @@ app.use(express_cookie_session({
 }));
 app.use(express_compress());
 
-////////////
-// ROUTES //
-////////////
-// using router before static files is optimized
+/////////
+// RPC //
+/////////
+// using router before static files to optimize -
 // since we have less routes then files, and the routes are in memory.
 
 // register RPC servers
 require('./api_servers');
-// setup rpc http route
-app.use(rpc_http.BASE_PATH, rpc_http.middleware(api.rpc));
-
+// setup rpc http listener
+rpc_http.listen(api.rpc, app);
+// setup websocket rpc listener
+rpc_ws.listen(api.rpc, server);
 
 // agent package json
 
@@ -284,7 +286,6 @@ function can_accept_html(req) {
 
 
 // start http server
-var server = http.createServer(app);
 server.listen(web_port, function() {
     console.log('Web server on port ' + web_port);
 });

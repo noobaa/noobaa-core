@@ -24,6 +24,7 @@
 ///////////////
 @primary: #FF008E;
 @darkbg-text: white;
+@lightbg-text: black;
 @text-color: @darkbg-text;
 @base-bg: darken(@blue-grey-50, 73%);
 @body-bg: @base-bg;
@@ -704,7 +705,7 @@ table.grid {
     border-width: 1px;
     border-color: @modal-content-border-color;
     background-color: @modal-content-bg;
-    color: @text-color;
+    color: @lightbg-text;
     font-family: @font-family-sans-serif;
 }
 .alertify-cover:not(.alertify-cover-hidden) {
@@ -738,16 +739,16 @@ table.grid {
     padding: 10px;
     font-family: @font-family-sans-serif;
     text-shadow: none;
-    color: @text-color;
+    color: @darkbg-text;
     background-color: @brand-info;
     border: 1px solid @border-color;
     border-radius: @border-radius-base;
     &.alertify-log-success {
-        color: @text-color;
+        color: @darkbg-text;
         background-color: @brand-success;
     }
     &.alertify-log-error {
-        color: @text-color;
+        color: @darkbg-text;
         background-color: @brand-danger;
     }
 }

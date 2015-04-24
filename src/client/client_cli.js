@@ -462,7 +462,8 @@ ClientCLI.prototype.read_block = function(ip, port, file_name) {
                 address: address
             });
         })
-        .then(function(buffer) {
+        .then(function(res) {
+            var buffer = res.data;
             var out = buffer.slice(0, 1024 * 1024);
             console.log(out.toString());
         })

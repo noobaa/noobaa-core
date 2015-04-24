@@ -31,7 +31,7 @@ Object.defineProperty(RpcRequest.prototype, 'rpc_params', {
  */
 RpcRequest.prototype.new_request = function(api, method_api, params, options) {
     this.time = Date.now();
-    this.reqid = this.time + '.' + Math.random();
+    this.reqid = this.time.toString(16) + Math.random().toString(16).slice(1);
     this.api = api;
     this.method_api = method_api;
     this.domain = options.domain || '*';

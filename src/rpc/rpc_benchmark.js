@@ -19,19 +19,19 @@ argv.time = argv.time || 20;
 argv.concur = argv.concur || 1;
 // io size in bytes
 argv.size = argv.size || MB;
-// port to use
-argv.port = argv.port || 5656;
-// debug level
-argv.debug = argv.debug || 0;
-// protocol to use
+// proto, host and port to use
 argv.proto = argv.proto || 'ws';
-// server mode
-argv.server = argv.server || false;
+argv.host = argv.host || '127.0.0.1';
+argv.port = argv.port || 5656;
 // client mode
 argv.client = argv.client || false;
+// server mode
+argv.server = argv.server || false;
 if (!argv.client && !argv.server) {
     argv.client = argv.server = true;
 }
+// debug level
+argv.debug = argv.debug || 0;
 // profiling tools
 if (argv.look) {
     require('look').start();
@@ -104,7 +104,7 @@ function start() {
     Q.fcall(function() {
             // open http listening port
             if (argv.server) {
-                return rpc_http.listen(rpc, argv.port)
+                return rpc_http.create_server(rpc, argv.port)
                     .then(function(http_server) {
                         rpc_ws.listen(rpc, http_server);
                     });
@@ -134,8 +134,8 @@ function call_next_io(res) {
                 data: buffer
             }
         }, {
-            no_local: argv.nolocal,
-            address: argv.proto + '://127.0.0.1:5656'
+            no_fcall: argv.nofcall,
+            address: argv.proto + '://' + argv.host + ':' + argv.port
         })
         .then(call_next_io);
 }

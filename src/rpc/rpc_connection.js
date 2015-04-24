@@ -9,8 +9,8 @@ var EventEmitter = require('events').EventEmitter;
 // var promise_utils = require('../util/promise_utils');
 var rpc_http = require('./rpc_http');
 var rpc_ws = require('./rpc_ws');
-var rpc_nb = require('./rpc_nb');
-var rpc_local = require('./rpc_local');
+var rpc_nudp = require('./rpc_nudp');
+var rpc_fcall = require('./rpc_fcall');
 
 module.exports = RpcConnection;
 
@@ -19,9 +19,9 @@ var TRANSPORTS = {
     'https:': rpc_http,
     'ws:': rpc_ws,
     'wss:': rpc_ws,
-    'nb:': rpc_nb,
-    'nbs:': rpc_nb,
-    'localrpc:': rpc_local,
+    'nudp:': rpc_nudp,
+    'nudps:': rpc_nudp,
+    'fcall:': rpc_fcall,
 };
 
 util.inherits(RpcConnection, EventEmitter);
@@ -31,12 +31,14 @@ util.inherits(RpcConnection, EventEmitter);
  */
 function RpcConnection(address) {
     EventEmitter.call(this);
+    if (!address && global.window && global.window.location) {
+        address =
+            (global.window.location.protocol === 'http:' ? 'ws://' : 'wss://') +
+            global.window.location.host + rpc_http.BASE_PATH;
+    }
     this.address = address;
     this.url = url.parse(address);
-    this.transport = TRANSPORTS[this.url.protocol || 'localrpc:'];
-    if (!this.transport) {
-        throw new Error('PROTOCOL NOT SUPPORTED ' + this.address);
-    }
+    this.transport = TRANSPORTS[this.url.protocol] || rpc_ws;
     this.reusable = this.transport.reusable;
     dbg.log1('NEW CONNECTION', this.address);
 }

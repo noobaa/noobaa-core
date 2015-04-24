@@ -126,7 +126,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             // send request over the connection
             var req_buffer = req.export_request_buffer();
-            var send_promise = req.connection.send(req_buffer, 'req', req.reqid);
+            var send_promise = Q.when(req.connection.send(req_buffer, 'req', req.reqid));
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -190,9 +190,9 @@ RPC.prototype.assign_connection = function(req, options) {
     var address = options.address || '';
 
     // if the service is registered locally,
-    // dispatch to localrpc to do function call.
-    if (self._services[req.srv] && !options.no_local) {
-        address = 'localrpc://localhost';
+    // dispatch to do function call.
+    if (self._services[req.srv] && !options.no_fcall) {
+        address = 'fcall://fcall';
     }
 
     var conn = self._connection_pool[address];
@@ -255,8 +255,8 @@ RPC.prototype.on_connection_receive = function(conn, msg_buffer) {
         msg_buffer;
     dbg.log1('RECEIVE', msg);
     if (!msg || !msg.header) {
-        dbg.error('BAD MESSAGE', typeof(msg));
-        throw new Error('BAD MESSAGE');
+        dbg.error('BAD MESSAGE', typeof(msg), msg);
+        return;
     }
     switch (msg.header.op) {
         case 'req':

@@ -10,7 +10,6 @@ var path = require('path');
 var http = require('http');
 var assert = require('assert');
 var crypto = require('crypto');
-var mkdirp = require('mkdirp');
 var express = require('express');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
@@ -476,7 +475,11 @@ Agent.prototype.read_block = function(req) {
     var block_id = req.rpc_params.block_id;
     dbg.log0('AGENT read_block', block_id);
     return self.store_cache.get(block_id)
-        .then(null, function(err) {
+        .then(function(data) {
+            return {
+                data: data
+            };
+        }, function(err) {
             if (err === 'TAMPERING DETECTED') {
                 err = req.rpc_error('INTERNAL', 'TAMPERING DETECTED');
             }
@@ -509,8 +512,8 @@ Agent.prototype.replicate_block = function(req) {
             peer: source.peer,
             ws_socket: self.ws_socket,
         })
-        .then(function(data) {
-            return self.store.write_block(block_id, data);
+        .then(function(res) {
+            return self.store.write_block(block_id, res.data);
         });
 };
 
@@ -549,7 +552,9 @@ Agent.prototype.kill_agent = function(req) {
 
 Agent.prototype.self_test_io = function(req) {
     dbg.log0('SELF TEST IO got ' + (req.rpc_params.data ? req.rpc_params.data.length : 'N/A') + ' reply ' + req.rpc_params.response_length);
-    return new Buffer(req.rpc_params.response_length);
+    return {
+        data: new Buffer(req.rpc_params.response_length)
+    };
 };
 
 Agent.prototype.self_test_peer = function(req) {

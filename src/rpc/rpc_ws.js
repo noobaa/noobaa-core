@@ -3,12 +3,9 @@
 // var _ = require('lodash');
 var Q = require('q');
 // var util = require('util');
-// var buffer_utils = require('../util/buffer_utils');
-var config = require('../../config.js');
+var buffer_utils = require('../util/buffer_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var WS = require('ws');
-
-dbg.set_level(config.dbg_log_level);
 
 module.exports = {
     reusable: true,
@@ -32,6 +29,7 @@ function connect(conn) {
     var defer = Q.defer();
     var ws = new WS(conn.address);
     ws.connect_promise = defer.promise;
+    ws.binaryType = 'arraybuffer';
     conn.ws = ws;
     ws.onopen = function() {
         defer.resolve();
@@ -54,7 +52,7 @@ function connect(conn) {
     };
     ws.onmessage = function(msg) {
         if (msg.data === 'keepalive') return;
-        conn.receive(msg.data);
+        conn.receive(buffer_utils.toBuffer(msg.data));
     };
     return ws.connect_promise;
 }

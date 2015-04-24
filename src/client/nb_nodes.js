@@ -4,7 +4,6 @@
 var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
-var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var api = require('../api');
@@ -410,7 +409,6 @@ nb_api.factory('nbNodes', [
             var node_host = 'http://' + node.host + ':' + node.port;
             var target_host = 'http://' + target_node.host + ':' + target_node.port;
 
-            var timestamp = Date.now();
             return nbClient.client.agent.self_test_peer({
                 target: {
                     id: target_node.id,
@@ -433,7 +431,6 @@ nb_api.factory('nbNodes', [
             var node_host = 'http://' + node.host + ':' + node.port;
             var target_host = 'http://' + target_node.host + ':' + target_node.port;
 
-            var timestamp = Date.now();
             return nbClient.client.object.self_test_to_node_via_web({
                 target: {
                     id: target_node.id,

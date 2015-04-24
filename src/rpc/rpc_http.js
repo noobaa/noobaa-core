@@ -29,6 +29,7 @@ module.exports = {
     send: send,
     close: close,
     listen: listen,
+    create_server: create_server,
     middleware: middleware,
     BASE_PATH: BASE_PATH,
 };
@@ -290,7 +291,11 @@ function middleware(rpc) {
 }
 
 
-function listen(rpc, port, logging) {
+function listen(rpc, app) {
+    app.use(BASE_PATH, middleware(rpc));
+}
+
+function create_server(rpc, port, logging) {
     var app = express();
     if (logging) {
         app.use(express_morgan_logger('dev'));
@@ -305,7 +310,7 @@ function listen(rpc, port, logging) {
         extended: false
     }));
     app.use(express_method_override());
-    // app.use(express_compress());
+    app.use(express_compress());
     app.use(BASE_PATH, middleware(rpc));
 
     var http_server = http.createServer(app);

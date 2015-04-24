@@ -42,7 +42,13 @@ module.exports = {
                 },
             },
             reply: {
-                type: 'buffer'
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'buffer'
+                    },
+                },
             },
             reply_raw: true,
         },
@@ -141,7 +147,13 @@ module.exports = {
                 },
             },
             reply: {
-                type: 'buffer'
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'buffer'
+                    },
+                },
             },
             reply_raw: true,
         },

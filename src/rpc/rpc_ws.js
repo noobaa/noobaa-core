@@ -27,13 +27,15 @@ module.exports = {
  */
 function connect(conn) {
     if (conn.ws) {
-        return;
+        return conn.ws.connect_promise;
     }
     var defer = Q.defer();
     var ws = new WS(conn.address);
+    ws.connect_promise = defer.promise;
     conn.ws = ws;
     ws.onopen = function() {
         defer.resolve();
+        ws.connect_promise = null;
         setInterval(function() {
             ws.send('keepalive');
         }, 10000);
@@ -54,7 +56,7 @@ function connect(conn) {
         if (msg.data === 'keepalive') return;
         conn.receive(msg.data);
     };
-    return defer.promise;
+    return ws.connect_promise;
 }
 
 

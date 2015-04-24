@@ -1,6 +1,6 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
 var argv = require('minimist')(process.argv);
@@ -15,6 +15,8 @@ var MB = 1024 * 1024;
 // test arguments
 // time to run in seconds
 argv.time = argv.time || 20;
+// io concurrency
+argv.concur = argv.concur || 1;
 // io size in bytes
 argv.size = argv.size || MB;
 // port to use
@@ -110,7 +112,9 @@ function start() {
         })
         .then(function() {
             if (argv.client) {
-                return call_next_io();
+                return Q.all(_.times(argv.concur, function() {
+                    return call_next_io();
+                }));
             }
         })
         .then(null, function(err) {

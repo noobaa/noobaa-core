@@ -55,8 +55,8 @@ RpcConnection.prototype.authenticate = function(auth_token) {
 /**
  *
  */
-RpcConnection.prototype.send = function(msg, op, reqid) {
-    return this.transport.send(this, msg, op, reqid);
+RpcConnection.prototype.send = function(msg, op, req) {
+    return this.transport.send(this, msg, op, req);
 };
 
 /**

@@ -11,7 +11,7 @@ var http = require('http');
 var https = require('https');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-var BASE_PATH = '/rpc/';
+var BASE_PATH = '/rpc';
 
 /**
  *
@@ -70,15 +70,15 @@ function authenticate(conn, auth_token) {
  * send
  *
  */
-function send(conn, msg, op, reqid) {
+function send(conn, msg, op, req) {
 
     // http 1.1 has no multiplexing over connections,
     // so we issue a single request per connection.
 
     if (op === 'res') {
-        return send_http_response(conn, msg, reqid);
+        return send_http_response(conn, msg, req);
     } else {
-        return send_http_request(conn, msg, reqid);
+        return send_http_request(conn, msg, req);
     }
 }
 
@@ -100,7 +100,7 @@ function close(conn) {
  * send_http_response
  *
  */
-function send_http_response(conn, msg) {
+function send_http_response(conn, msg, req) {
     var res = conn.http.res;
     res.status(200).end(msg);
 }
@@ -110,13 +110,13 @@ function send_http_response(conn, msg) {
  * send_http_request
  *
  */
-function send_http_request(conn, msg, reqid) {
+function send_http_request(conn, msg, rpc_req) {
     var headers = {};
 
     // encode the api, domain and method name in the url path
-    var path = BASE_PATH;
+    var path = BASE_PATH + rpc_req.srv;
 
-    conn.http.reqid = reqid;
+    conn.http.reqid = rpc_req.reqid;
 
     // encode the auth_token in the authorization header,
     // we don't really need to, it's just to try and look like a normal http resource
@@ -181,7 +181,7 @@ function send_http_request(conn, msg, reqid) {
                 conn.receive({
                     header: {
                         op: 'res',
-                        reqid: reqid,
+                        reqid: conn.http.reqid,
                         error: err
                     }
                 });

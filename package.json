@@ -104,7 +104,7 @@
     "selectize": "~0.12.1",
     "serve-favicon": "~2.2.0",
     "setimmediate": "^1.0.2",
-    "simple-peer": "~4.0.4",
+    "simple-peer": "^5.1.0",
     "sinon": "~1.12.2",
     "sse4_crc32": "~3.1.0",
     "stun": "~0.0.2",

@@ -127,7 +127,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             // send request over the connection
             var req_buffer = req.export_request_buffer();
-            var send_promise = Q.when(req.connection.send(req_buffer, 'req', req.reqid));
+            var send_promise = Q.when(req.connection.send(req_buffer, 'req', req));
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -292,7 +292,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     ];
     if (!service) {
         req.rpc_error('NOT_FOUND', req.srv);
-        return conn.send(req.export_response_buffer(), 'res', req.reqid);
+        return conn.send(req.export_response_buffer(), 'res', req);
     }
 
     // set api info to the request
@@ -331,7 +331,7 @@ RPC.prototype.handle_request = function(conn, msg) {
             req.reply = reply;
             dbg.log1('RPC COMPLETED', req.srv);
             self.emit_stats('stats.handle_request.done', req);
-            return conn.send(req.export_response_buffer(), 'res', req.reqid);
+            return conn.send(req.export_response_buffer(), 'res', req);
         })
         .then(null, function(err) {
 
@@ -342,7 +342,7 @@ RPC.prototype.handle_request = function(conn, msg) {
             if (!req.error) {
                 req.rpc_error('INTERNAL', err);
             }
-            return conn.send(req.export_response_buffer(), 'res', req.reqid);
+            return conn.send(req.export_response_buffer(), 'res', req);
         });
 };
 

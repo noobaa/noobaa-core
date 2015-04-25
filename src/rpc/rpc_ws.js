@@ -82,7 +82,7 @@ var WS_SEND_OPTIONS = {
  * send
  *
  */
-function send(conn, msg, op, reqid) {
+function send(conn, msg, op, req) {
     conn.ws.send(msg, WS_SEND_OPTIONS);
 }
 

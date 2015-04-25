@@ -41,7 +41,7 @@ function authenticate(conn) {
  * send
  *
  */
-function send(conn) {
+function send(conn, msg, op, req) {
 
 }
 

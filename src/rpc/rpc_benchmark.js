@@ -27,6 +27,22 @@ argv.rsize = argv.rsize || 0;
 argv.proto = argv.proto || 'ws';
 argv.host = argv.host || '127.0.0.1';
 argv.port = argv.port || 5656;
+if (!(argv.proto in {
+        http: 1,
+        https: 1,
+        ws: 1,
+        wss: 1,
+        nudp: 1,
+        nudps: 1,
+        fcall: 1,
+    })) {
+    throw new Error('BAD PROTOCOL ' + argv.proto);
+}
+var secure = argv.proto in {
+    https: 1,
+    wss: 1,
+    nudps: 1
+};
 // client mode
 argv.client = argv.client || false;
 // server mode
@@ -112,11 +128,6 @@ function start() {
                     io: io_service
                 });
 
-                var secure = argv.proto in {
-                    https: 1,
-                    wss: 1,
-                    nudps: 1
-                };
 
                 switch (argv.proto) {
                     case 'http':
@@ -143,7 +154,7 @@ function start() {
             }
         })
         .then(null, function(err) {
-            dbg.error('BENCHMARK ERROR', err);
+            dbg.error('BENCHMARK ERROR', err.stack || err);
             process.exit(0);
         });
 }

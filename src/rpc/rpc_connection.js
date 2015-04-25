@@ -9,7 +9,7 @@ var EventEmitter = require('events').EventEmitter;
 // var promise_utils = require('../util/promise_utils');
 var rpc_http = require('./rpc_http');
 var rpc_ws = require('./rpc_ws');
-// var rpc_nudp = require('./rpc_nudp');
+var rpc_nudp = null;//require('./rpc_nudp');
 var rpc_fcall = require('./rpc_fcall');
 
 module.exports = RpcConnection;
@@ -19,8 +19,8 @@ var TRANSPORTS = {
     'https:': rpc_http,
     'ws:': rpc_ws,
     'wss:': rpc_ws,
-    // 'nudp:': rpc_nudp,
-    // 'nudps:': rpc_nudp,
+    'nudp:': rpc_nudp,
+    'nudps:': rpc_nudp,
     'fcall:': rpc_fcall,
 };
 

@@ -41,24 +41,29 @@ function connect(conn) {
             }, 10000);
         }
     };
-    ws.onclose = function() {
-        dbg.warn('WS CLOSED', conn.address);
+    function onfail(err) {
         clearInterval(ws.keepalive_interval);
         ws.keepalive_interval = null;
+        if (ws.connect_defer) {
+            ws.connect_defer.reject(err);
+            ws.connect_defer = null;
+        }
         if (conn.ws === ws) {
-            if (ws.connect_defer) {
-                ws.connect_defer.reject();
-                ws.connect_defer = null;
-            }
-            conn.ws = null;
             // we call the connection close just to emit the event,
             // since we already closed and nullified the socket itself
+            conn.ws = null;
             conn.close();
+        } else {
+            ws.close();
         }
+    }
+    ws.onclose = function() {
+        dbg.warn('WS CLOSED', conn.address);
+        onfail('connection closed');
     };
     ws.onerror = function(err) {
         dbg.warn('WS ERROR', conn.address, err.stack || err);
-        ws.close();
+        onfail(err);
     };
     ws.onmessage = function(msg) {
         if (msg.data === 'keepalive') return;
@@ -120,16 +125,21 @@ function listen(rpc, http_server) {
         dbg.log0('WS CONNECTION FROM', address);
         var conn = rpc.new_connection(address);
         conn.ws = ws;
-        ws.onclose = function() {
-            dbg.warn('WS CLOSED', conn.address);
+        function onfail(err) {
             if (conn.ws === ws) {
                 conn.ws = null;
                 conn.close();
+            } else {
+                ws.close();
             }
+        }
+        ws.onclose = function() {
+            dbg.warn('WS CLOSED', conn.address);
+            onfail('connection closed');
         };
         ws.onerror = function(err) {
             dbg.warn('WS ERROR', conn.address, err.stack || err);
-            ws.close();
+            onfail(err);
         };
         ws.onmessage = function(msg) {
             if (msg.data === 'keepalive') return;

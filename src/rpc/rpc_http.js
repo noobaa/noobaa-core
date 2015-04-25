@@ -9,6 +9,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var http = require('http');
 var https = require('https');
+var pem = require('pem');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 var BASE_PATH = '/rpc';
@@ -297,7 +298,7 @@ function listen(rpc, app) {
     app.use(BASE_PATH, middleware(rpc));
 }
 
-function create_server(rpc, port, logging) {
+function create_server(rpc, port, secure, logging) {
     var app = express();
     if (logging) {
         app.use(express_morgan_logger('dev'));
@@ -315,7 +316,20 @@ function create_server(rpc, port, logging) {
     app.use(express_compress());
     app.use(BASE_PATH, middleware(rpc));
 
-    var http_server = http.createServer(app);
-    return Q.ninvoke(http_server, 'listen', port)
-        .thenResolve(http_server);
+    return Q.fcall(function() {
+            return secure && Q.nfcall(pem.createCertificate, {
+                days: 365 * 100,
+                selfSigned: true
+            });
+        })
+        .then(function(cert) {
+            var server = secure ?
+                https.createServer({
+                    key: cert.serviceKey,
+                    cert: cert.certificate
+                }, app) :
+                http.createServer(app);
+            return Q.ninvoke(server, 'listen', port)
+                .thenResolve(server);
+        });
 }

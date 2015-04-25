@@ -12,13 +12,17 @@ var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
 
+// allow self generated certificates
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
+
 // test arguments
 // time to run in seconds
 argv.time = argv.time || undefined;
 // io concurrency
 argv.concur = argv.concur || 1;
 // io size in bytes
-argv.size = argv.size || MB;
+argv.wsize = !_.isUndefined(argv.wsize) ? argv.wsize : MB;
+argv.rsize = argv.rsize || 0;
 // proto, host and port to use
 argv.proto = argv.proto || 'ws';
 argv.host = argv.host || '127.0.0.1';
@@ -58,10 +62,13 @@ schema.register_api({
                 properties: {
                     kushkush: {
                         type: 'object',
-                        required: ['data'],
+                        required: ['data', 'rsize'],
                         properties: {
                             data: {
                                 type: 'buffer'
+                            },
+                            rsize: {
+                                type: 'integer'
                             }
                         }
                     }
@@ -85,13 +92,14 @@ var rpc = new RPC();
 // create rpc client
 var bench_client = rpc.create_client(schema.bench);
 
-var buffer = new Buffer(argv.size);
 var io_count = 0;
-var io_bytes = 0;
+var io_rbytes = 0;
+var io_wbytes = 0;
 var start_time = Date.now();
 var report_time = start_time;
-var report_io_count = io_count;
-var report_io_bytes = io_count;
+var report_io_count = 0;
+var report_io_rbytes = 0;
+var report_io_wbytes = 0;
 start();
 
 function start() {
@@ -104,11 +112,25 @@ function start() {
                     io: io_service
                 });
 
-                // open http listening port
-                return rpc_http.create_server(rpc, argv.port)
-                    .then(function(http_server) {
-                        rpc_ws.listen(rpc, http_server);
-                    });
+                var secure = argv.proto in {
+                    https: 1,
+                    wss: 1,
+                    nudps: 1
+                };
+
+                switch (argv.proto) {
+                    case 'http':
+                    case 'https':
+                    case 'ws':
+                    case 'wss':
+                        // open http listening port
+                        return rpc_http.create_server(rpc, argv.port, secure)
+                            .then(function(server) {
+                                return rpc_ws.listen(rpc, server);
+                            });
+                    default:
+                        throw new Error('SERVER PROTOCOL NOT SUPPORTED ' + argv.proto);
+                }
             }
         })
         .then(function() {
@@ -130,11 +152,13 @@ function start() {
 function call_next_io(res) {
     if (res && res.data) {
         io_count += 1;
-        io_bytes += res.data.length;
+        io_rbytes += res.data.length;
+        io_wbytes += argv.wsize;
     }
     return bench_client.io({
             kushkush: {
-                data: buffer
+                data: new Buffer(argv.wsize),
+                rsize: argv.rsize
             }
         }, {
             no_fcall: argv.nofcall,
@@ -146,9 +170,10 @@ function call_next_io(res) {
 function io_service(req) {
     dbg.log1('IO SERVICE');
     io_count += 1;
-    io_bytes += req.params.kushkush.data.length;
+    io_rbytes += req.params.kushkush.data.length;
+    io_wbytes += req.params.kushkush.rsize;
     return {
-        data: req.params.kushkush.data
+        data: new Buffer(req.params.kushkush.rsize)
     };
 }
 
@@ -159,16 +184,23 @@ function report() {
     var d_time = (now - report_time) / 1000;
     // velocities
     var v_count = (io_count - report_io_count) / d_time;
-    var v_bytes = (io_bytes - report_io_bytes) / d_time;
+    var v_rbytes = (io_rbytes - report_io_rbytes) / d_time;
+    var v_wbytes = (io_wbytes - report_io_wbytes) / d_time;
     var v_count_start = io_count / d_time_start;
-    var v_bytes_start = io_bytes / d_time_start;
+    var v_rbytes_start = io_rbytes / d_time_start;
+    var v_wbytes_start = io_wbytes / d_time_start;
     dbg.log0(
-        '===', 'count', v_count.toFixed(1), 'avg', v_count_start.toFixed(1),
-        '===', 'MB', (v_bytes / MB).toFixed(1), 'avg', (v_bytes_start / MB).toFixed(1),
-        '===');
+        ' |||  Count ', v_count.toFixed(1),
+        ' (~' + v_count_start.toFixed(1) + ')',
+        ' |||  Read ', (v_rbytes / MB).toFixed(1),
+        'MB  (~' + (v_rbytes_start / MB).toFixed(1) + ')',
+        ' |||  Write ', (v_wbytes / MB).toFixed(1),
+        'MB  (~' + (v_wbytes_start / MB).toFixed(1) + ')',
+        ' |||');
     report_time = now;
     report_io_count = io_count;
-    report_io_bytes = io_bytes;
+    report_io_rbytes = io_rbytes;
+    report_io_wbytes = io_wbytes;
     if (argv.heap && !heapdiff) {
         memwatch.gc();
         heapdiff = new memwatch.HeapDiff();

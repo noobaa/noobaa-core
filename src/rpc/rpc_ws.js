@@ -31,19 +31,25 @@ function connect(conn) {
     ws.binaryType = 'arraybuffer';
     conn.ws = ws;
     ws.onopen = function() {
-        ws.connect_defer.resolve();
-        ws.connect_defer = null;
-        ws.keepalive_interval = setInterval(function() {
-            ws.send('keepalive');
-        }, 10000);
+        if (conn.ws === ws) {
+            if (ws.connect_defer) {
+                ws.connect_defer.resolve();
+                ws.connect_defer = null;
+            }
+            ws.keepalive_interval = setInterval(function() {
+                ws.send('keepalive');
+            }, 10000);
+        }
     };
     ws.onclose = function() {
         dbg.warn('WS CLOSED', conn.address);
         clearInterval(ws.keepalive_interval);
         ws.keepalive_interval = null;
         if (conn.ws === ws) {
-            ws.connect_defer.reject();
-            ws.connect_defer = null;
+            if (ws.connect_defer) {
+                ws.connect_defer.reject();
+                ws.connect_defer = null;
+            }
             conn.ws = null;
             // we call the connection close just to emit the event,
             // since we already closed and nullified the socket itself
@@ -110,8 +116,9 @@ function listen(rpc, http_server) {
     });
     ws_server.on('connection', function(ws) {
         // TODO find out if ws is secure and use wss:// address instead
-        var conn = rpc.new_connection(
-            'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort);
+        var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
+        dbg.log0('WS CONNECTION FROM', address);
+        var conn = rpc.new_connection(address);
         conn.ws = ws;
         ws.onclose = function() {
             dbg.warn('WS CLOSED', conn.address);

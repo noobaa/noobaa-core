@@ -17,7 +17,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var api = require('../api');
 var rpc_http = require('../rpc/rpc_http');
-var rpc_ice = require('../rpc/rpc_ice');
+var rpc_ws = require('../rpc/rpc_ws');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
@@ -97,12 +97,13 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-    app.use(rpc_http.BASE_PATH, rpc_http.middleware(api.rpc));
+    rpc_http.listen(api.rpc, app);
 
     var http_server = http.createServer(app);
     http_server.on('listening', self._server_listening_handler.bind(self));
     http_server.on('close', self._server_close_handler.bind(self));
     http_server.on('error', self._server_error_handler.bind(self));
+    rpc_ws.listen(api.rpc, http_server);
 
     self.agent_app = app;
     self.agent_server = agent_server;
@@ -147,10 +148,6 @@ Agent.prototype.start = function() {
                 }
             });
 
-            if (config.use_ice_when_possible || config.use_ws_when_possible) {
-                dbg.log0('start ws agent id: ' + self.node_id + ' peer id: ' + self.peer_id);
-                self.ws_socket = rpc_ice.serve(api.rpc, self.peer_id);
-            }
         })
         .then(function() {
             return self.send_heartbeat();

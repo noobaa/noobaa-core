@@ -34,12 +34,14 @@ function connect(conn) {
     ws.onopen = function() {
         defer.resolve();
         ws.connect_promise = null;
-        setInterval(function() {
+        ws.keepalive_interval = setInterval(function() {
             ws.send('keepalive');
         }, 10000);
     };
     ws.onclose = function() {
         dbg.warn('WS CLOSED', conn.address);
+        clearInterval(ws.keepalive_interval);
+        ws.keepalive_interval = null;
         if (conn.ws === ws) {
             defer.reject();
             conn.ws = null;
@@ -52,7 +54,8 @@ function connect(conn) {
     };
     ws.onmessage = function(msg) {
         if (msg.data === 'keepalive') return;
-        conn.receive(buffer_utils.toBuffer(msg.data));
+        var buffer = buffer_utils.toBuffer(msg.data);
+        conn.receive(buffer);
     };
     return ws.connect_promise;
 }
@@ -117,7 +120,8 @@ function listen(rpc, http_server) {
         };
         ws.onmessage = function(msg) {
             if (msg.data === 'keepalive') return;
-            conn.receive(msg.data);
+            var buffer = buffer_utils.toBuffer(msg.data);
+            conn.receive(buffer);
         };
     });
     ws_server.on('error', function(err) {

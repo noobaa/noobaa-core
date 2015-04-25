@@ -31,11 +31,6 @@ util.inherits(RpcConnection, EventEmitter);
  */
 function RpcConnection(address) {
     EventEmitter.call(this);
-    if (!address && global.window && global.window.location) {
-        address =
-            (global.window.location.protocol === 'http:' ? 'ws://' : 'wss://') +
-            global.window.location.host + rpc_http.BASE_PATH;
-    }
     this.address = address;
     this.url = url.parse(address);
     this.transport = TRANSPORTS[this.url.protocol] || rpc_ws;

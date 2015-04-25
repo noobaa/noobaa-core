@@ -7,6 +7,7 @@ var assert = require('assert');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcConnection = require('./rpc_connection');
+var rpc_http = require('./rpc_http');
 var EventEmitter = require('events').EventEmitter;
 
 module.exports = RPC;
@@ -193,6 +194,12 @@ RPC.prototype.assign_connection = function(req, options) {
     // dispatch to do function call.
     if (self._services[req.srv] && !options.no_fcall) {
         address = 'fcall://fcall';
+    }
+    if (!address && global.window && global.window.location) {
+        address =
+            // (global.window.location.protocol === 'https:' ? 'https://' : 'http://') +
+            (global.window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+            global.window.location.host + rpc_http.BASE_PATH;
     }
 
     var conn = self._connection_pool[address];

@@ -60,6 +60,7 @@ function connect(conn) {
  *
  */
 function authenticate(conn, auth_token) {
+    // TODO for now just save auth_token and send with every message, better send once
     conn.http.auth_token = auth_token;
 }
 
@@ -119,9 +120,9 @@ function send_http_request(conn, msg, reqid) {
 
     // encode the auth_token in the authorization header,
     // we don't really need to, it's just to try and look like a normal http resource
-    if (conn.http.auth_token) {
-        headers.authorization = 'Bearer ' + conn.http.auth_token;
-    }
+    // if (conn.http.auth_token) {
+        // headers.authorization = 'Bearer ' + conn.http.auth_token;
+    // }
 
     // for now just use POST for all requests instead of req.method_api.method,
     // and send the body as binary buffer

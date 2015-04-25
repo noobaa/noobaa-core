@@ -1,7 +1,7 @@
 'use strict';
 
 // var _ = require('lodash');
-// var Q = require('q');
+var Q = require('q');
 var util = require('util');
 var url = require('url');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -9,7 +9,7 @@ var EventEmitter = require('events').EventEmitter;
 // var promise_utils = require('../util/promise_utils');
 var rpc_http = require('./rpc_http');
 var rpc_ws = require('./rpc_ws');
-var rpc_nudp = require('./rpc_nudp');
+// var rpc_nudp = require('./rpc_nudp');
 var rpc_fcall = require('./rpc_fcall');
 
 module.exports = RpcConnection;
@@ -19,8 +19,8 @@ var TRANSPORTS = {
     'https:': rpc_http,
     'ws:': rpc_ws,
     'wss:': rpc_ws,
-    'nudp:': rpc_nudp,
-    'nudps:': rpc_nudp,
+    // 'nudp:': rpc_nudp,
+    // 'nudps:': rpc_nudp,
     'fcall:': rpc_fcall,
 };
 
@@ -29,8 +29,9 @@ util.inherits(RpcConnection, EventEmitter);
 /**
  *
  */
-function RpcConnection(address) {
+function RpcConnection(rpc, address) {
     EventEmitter.call(this);
+    this.rpc = rpc;
     this.address = address;
     this.url = url.parse(address);
     this.transport = TRANSPORTS[this.url.protocol] || rpc_ws;
@@ -70,7 +71,13 @@ RpcConnection.prototype.receive = function(msg) {
  *
  */
 RpcConnection.prototype.close = function() {
-    if (this.transport.close) {
-        this.transport.close(this);
-    }
+    var self = this;
+    Q.fcall(function() {
+            if (self.transport.close) {
+                return self.transport.close(self);
+            }
+        })
+        .then(function() {
+            self.emit('close');
+        });
 };

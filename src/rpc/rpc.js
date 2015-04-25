@@ -23,8 +23,6 @@ function RPC() {
     EventEmitter.call(this);
     this._services = {};
     this._connection_pool = {};
-    this._sent_requests = {};
-    this._received_requests = {};
 }
 
 
@@ -112,8 +110,6 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     self.emit_stats('stats.client_request.start', req);
 
     return Q.fcall(function() {
-            self._sent_requests[req.reqid] = req;
-
             // verify params (local calls don't need it because server already verifies)
             method_api.validate_params(params, 'CLIENT');
 
@@ -171,12 +167,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
         })
         .fin(function() {
-
-            // TODO leave sent requests in cache for some time?
-            delete self._sent_requests[req.reqid];
-
-            // TODO add ref/unref to connection?
-            // req.connection.unref();
+            return self.release_connection(req);
         });
 };
 
@@ -207,6 +198,7 @@ RPC.prototype.assign_connection = function(req, options) {
         conn = self.new_connection(address);
     }
     req.connection = conn;
+    conn.sent_requests[req.reqid] = req;
     return Q.when(conn.connect())
         .then(function() {
             return conn.authenticate(options.auth_token);
@@ -215,16 +207,27 @@ RPC.prototype.assign_connection = function(req, options) {
 
 /**
  *
+ * release_connection
+ *
+ */
+RPC.prototype.release_connection = function(req) {
+    delete req.connection.sent_requests[req.reqid];
+};
+
+/**
+ *
  */
 RPC.prototype.new_connection = function(address) {
     var self = this;
-    var conn = new RpcConnection(address);
+    var conn = new RpcConnection(self, address);
     if (conn.reusable) {
         self._connection_pool[conn.address] = conn;
     }
     conn.receive = self.on_connection_receive.bind(self, conn);
     conn.on('close', self.on_connection_close.bind(self, conn));
     conn.on('error', self.on_connection_error.bind(self, conn));
+    conn.sent_requests = {};
+    conn.received_requests = {};
     return conn;
 };
 
@@ -240,16 +243,24 @@ RPC.prototype.on_connection_close = function(conn) {
         delete self._connection_pool[conn.address];
     }
 
-    // TODO reject pending requests
+    // reject pending requests
+    _.each(conn.sent_requests, function(req) {
+        req.import_response_message({
+            header: {
+                op: 'res',
+                reqid: req.reqid,
+                error: 'connection closed'
+            }
+        });
+    });
 };
 
 /**
  *
  */
 RPC.prototype.on_connection_error = function(conn, err) {
-    // var self = this;
-    // TODO reject errored requests
-    dbg.error('CONNECTION ERROR');
+    dbg.error('CONNECTION CLOSE ON ERROR', conn, err.stack || err);
+    conn.close();
 };
 
 /**
@@ -271,8 +282,7 @@ RPC.prototype.on_connection_receive = function(conn, msg_buffer) {
         case 'res':
             return self.handle_response(conn, msg);
         default:
-            dbg.log0('BAD MESSAGE OP', msg.header);
-            // TODO close connection?
+            conn.emit('error', new Error('BAD MESSAGE OP ' + msg.header.op));
             break;
     }
 };
@@ -312,16 +322,16 @@ RPC.prototype.handle_request = function(conn, msg) {
             // check if this request was already received and served,
             // and if so then join the requests promise so that it will try
             // not to call the server more than once.
-            var cached_req = self._received_requests[req.reqid];
+            var cached_req = conn.received_requests[req.reqid];
             if (cached_req) {
                 return cached_req.server_promise;
             }
             // insert to requests map and process using the server func
-            self._received_requests[req.reqid] = req;
+            conn.received_requests[req.reqid] = req;
             req.server_promise = Q.fcall(service.server_func, req)
                 .fin(function() {
                     // TODO keep received requests for some time after with LRU?
-                    delete self._received_requests[req.reqid];
+                    delete conn.received_requests[req.reqid];
                 });
             return req.server_promise;
         })
@@ -352,7 +362,7 @@ RPC.prototype.handle_request = function(conn, msg) {
  *
  */
 RPC.prototype.handle_response = function(conn, msg) {
-    var req = this._sent_requests[msg.header.reqid];
+    var req = conn.sent_requests[msg.header.reqid];
     if (!req) {
         dbg.log0('GOT RESPONSE BUT NO REQUEST', msg.header.reqid);
         // TODO stats?

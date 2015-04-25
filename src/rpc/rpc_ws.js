@@ -24,16 +24,15 @@ module.exports = {
  */
 function connect(conn) {
     if (conn.ws) {
-        return conn.ws.connect_promise;
+        return conn.ws.connect_defer && conn.ws.connect_defer.promise;
     }
-    var defer = Q.defer();
     var ws = new WS(conn.address);
-    ws.connect_promise = defer.promise;
+    ws.connect_defer = Q.defer();
     ws.binaryType = 'arraybuffer';
     conn.ws = ws;
     ws.onopen = function() {
-        defer.resolve();
-        ws.connect_promise = null;
+        ws.connect_defer.resolve();
+        ws.connect_defer = null;
         ws.keepalive_interval = setInterval(function() {
             ws.send('keepalive');
         }, 10000);
@@ -43,9 +42,12 @@ function connect(conn) {
         clearInterval(ws.keepalive_interval);
         ws.keepalive_interval = null;
         if (conn.ws === ws) {
-            defer.reject();
+            ws.connect_defer.reject();
+            ws.connect_defer = null;
             conn.ws = null;
-            conn.emit('close');
+            // we call the connection close just to emit the event,
+            // since we already closed and nullified the socket itself
+            conn.close();
         }
     };
     ws.onerror = function(err) {
@@ -57,7 +59,7 @@ function connect(conn) {
         var buffer = buffer_utils.toBuffer(msg.data);
         conn.receive(buffer);
     };
-    return ws.connect_promise;
+    return ws.connect_defer.promise;
 }
 
 
@@ -92,7 +94,9 @@ function send(conn, msg, op, req) {
  *
  */
 function close(conn) {
-    conn.ws.close();
+    if (conn.ws) {
+        conn.ws.close();
+    }
 }
 
 /**
@@ -105,13 +109,15 @@ function listen(rpc, http_server) {
         server: http_server
     });
     ws_server.on('connection', function(ws) {
-        var conn = rpc.new_connection('ws://' + ws.remoteHost + ':' + ws.remotePort);
+        // TODO find out if ws is secure and use wss:// address instead
+        var conn = rpc.new_connection(
+            'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort);
         conn.ws = ws;
         ws.onclose = function() {
             dbg.warn('WS CLOSED', conn.address);
             if (conn.ws === ws) {
                 conn.ws = null;
-                conn.emit('close');
+                conn.close();
             }
         };
         ws.onerror = function(err) {

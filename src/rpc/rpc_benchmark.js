@@ -14,7 +14,7 @@ var MB = 1024 * 1024;
 
 // test arguments
 // time to run in seconds
-argv.time = argv.time || 20;
+argv.time = argv.time || undefined;
 // io concurrency
 argv.concur = argv.concur || 1;
 // io size in bytes
@@ -82,11 +82,6 @@ schema.register_api({
 // create rpc
 var rpc = new RPC();
 
-// register rpc service handler
-rpc.register_service(schema.bench, {
-    io: io_service
-});
-
 // create rpc client
 var bench_client = rpc.create_client(schema.bench);
 
@@ -102,8 +97,14 @@ start();
 function start() {
     setInterval(report, 1000);
     Q.fcall(function() {
-            // open http listening port
             if (argv.server) {
+
+                // register rpc service handler
+                rpc.register_service(schema.bench, {
+                    io: io_service
+                });
+
+                // open http listening port
                 return rpc_http.create_server(rpc, argv.port)
                     .then(function(http_server) {
                         rpc_ws.listen(rpc, http_server);
@@ -112,6 +113,8 @@ function start() {
         })
         .then(function() {
             if (argv.client) {
+
+                // run io with concurrency
                 return Q.all(_.times(argv.concur, function() {
                     return call_next_io();
                 }));
@@ -170,7 +173,7 @@ function report() {
         memwatch.gc();
         heapdiff = new memwatch.HeapDiff();
     }
-    if (d_time_start >= argv.time) {
+    if (argv.time && d_time_start >= argv.time) {
         dbg.log0('done.');
         if (heapdiff) {
             memwatch.gc();

@@ -6,20 +6,16 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var os = require('os');
-var http = require('http');
 var path = require('path');
 var util = require('util');
 var repl = require('repl');
-var assert = require('assert');
-var crypto = require('crypto');
 var mkdirp = require('mkdirp');
 var argv = require('minimist')(process.argv);
 var Semaphore = require('noobaa-util/semaphore');
-var size_utils = require('../util/size_utils');
 var api = require('../api');
 var Agent = require('./agent');
-var config = require('../../config.js');
-var DebugModule = require('noobaa-util/debug_module');
+var fs_utils = require('../util/fs_utils');
+// var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var child_process = require('child_process');
 
@@ -130,24 +126,13 @@ AgentCLI.prototype.load = function() {
             return Q.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
-            dbg.log0('os:', os.type());
-            if (os.type().indexOf('Windows') >= 0) {
-                try {
-                    var current_path = self.params.root_path;
-                    current_path = current_path.substring(0, current_path.length - 1);
-                    current_path = current_path.replace('./', '');
-                    //hiding storage folder
-                    child_process.spawn('attrib', ['+H', current_path]);
-                    //Setting system full permissions and remove builtin users permissions.
-                    //TODO: remove other users
-                    var test = child_process.spawn('icacls', [current_path, '/grant', ':r', 'administrators:(oi)(ci)F', '/grant', ':r', 'system:F', '/t', '/remove:g', 'BUILTIN\\Users', '/inheritance:r']);
-
-                } catch (err) {
-                    dbg.log0('Windows - failed to hide', err);
-
-                }
-
-            }
+            return self.hide_storage_folder();
+        })
+        .then(null, function(err) {
+            dbg.error('Windows - failed to hide', err.stack || err);
+            // TODO really continue on error?
+        })
+        .then(function() {
             return Q.nfcall(fs.readdir, self.params.root_path);
         })
         .then(function(names) {
@@ -165,6 +150,30 @@ AgentCLI.prototype.load = function() {
             dbg.log0('load failed ' + err.stack);
             throw err;
         });
+};
+
+AgentCLI.prototype.hide_storage_folder = function() {
+    var self = this;
+    dbg.log0('os:', os.type());
+    if (os.type().indexOf('Windows') >= 0) {
+        var current_path = self.params.root_path;
+        current_path = current_path.substring(0, current_path.length - 1);
+        current_path = current_path.replace('./', '');
+
+        //hiding storage folder
+        return Q.nfcall(child_process.exec, 'attrib +H ' + current_path)
+            .then(function() {
+                //Setting system full permissions and remove builtin users permissions.
+                //TODO: remove other users
+                return Q.nfcall(child_process.exec,
+                    'icacls ' + current_path +
+                    ' /grant :r administrators:(oi)(ci)F' +
+                    ' /grant :r system:F' +
+                    ' /t' +
+                    ' /remove:g BUILTIN\\Users' +
+                    ' /inheritance:r');
+            });
+    }
 };
 
 AgentCLI.prototype.load.helper = function() {
@@ -185,7 +194,7 @@ AgentCLI.prototype.create = function() {
     var node_path = path.join(self.params.root_path, node_name);
     var token_path = path.join(node_path, 'token');
     dbg.log0('create new node');
-    return file_must_not_exist(token_path)
+    return fs_utils.file_must_not_exist(token_path)
         .then(function() {
             if (self.create_node_token) return;
             // authenticate and create a token for new nodes
@@ -281,7 +290,8 @@ AgentCLI.prototype.start = function(node_name) {
             address: self.params.address,
             node_name: node_name,
             prefered_port: self.params.port,
-            storage_path: path.join(self.params.root_path, node_name)
+            storage_path: path.join(self.params.root_path, node_name),
+            listen_on_http: self.params.listen_on_http
         });
         dbg.log0('agent inited', node_name);
     }
@@ -388,19 +398,6 @@ AgentCLI.prototype.show = function(func_name) {
         dbg.log0('help not found for function', func_name);
     }
 };
-
-function file_must_not_exist(path) {
-    return Q.nfcall(fs.stat, path)
-        .then(function() {
-            throw new Error('exists');
-        }, function(err) {
-            if (err.code !== 'ENOENT') throw err;
-        });
-}
-
-function file_must_exist(path) {
-    return Q.nfcall(fs.stat, path).thenResolve();
-}
 
 function populate_general_help(general) {
     general.push('show("<function>"") to show help on a specific API');

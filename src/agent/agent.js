@@ -23,7 +23,7 @@ var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
-var config = require('../../config.js');
+// var config = require('../../config.js');
 var diskspace = require('../util/diskspace_util');
 
 module.exports = Agent;
@@ -49,7 +49,7 @@ function Agent(params) {
     self.token = params.token;
     self.prefered_port = params.prefered_port;
     self.storage_path = params.storage_path;
-    self.use_http_server = params.use_http_server;
+    self.listen_on_http = params.listen_on_http;
 
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
@@ -194,7 +194,7 @@ Agent.prototype._init_node = function() {
         })
         .then(function(token) {
             // use the token as authorization and read the auth info
-            self.client.options.auth_token = token;
+            self.client.options.auth_token = token.toString();
             return self.client.auth.read_auth();
         })
         .then(function(res) {
@@ -251,7 +251,7 @@ Agent.prototype._start_stop_http_server = function() {
     var self = this;
     if (self.is_started) {
         // using port to determine if the server is already listening
-        if (!self.http_port && self.use_http_server) {
+        if (!self.http_port && self.listen_on_http) {
             return Q.Promise(function(resolve, reject) {
                 self.http_server.once('listening', resolve);
                 self.http_server.listen(self.prefered_port);
@@ -571,7 +571,8 @@ Agent.prototype.self_test_peer = function(req) {
             peer: target.peer,
             ws_socket: self.ws_socket,
         })
-        .then(function(data) {
+        .then(function(res) {
+            var data = res.data;
             if (((!data || !data.length) && req.rpc_params.response_length > 0) ||
                 (data && data.length && data.length !== req.rpc_params.response_length)) {
                 throw new Error('SELF TEST PEER response_length mismatch');

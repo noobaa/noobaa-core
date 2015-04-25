@@ -121,7 +121,7 @@ function send_http_request(conn, msg, reqid) {
     // encode the auth_token in the authorization header,
     // we don't really need to, it's just to try and look like a normal http resource
     // if (conn.http.auth_token) {
-        // headers.authorization = 'Bearer ' + conn.http.auth_token;
+    // headers.authorization = 'Bearer ' + conn.http.auth_token;
     // }
 
     // for now just use POST for all requests instead of req.method_api.method,
@@ -169,12 +169,11 @@ function send_http_request(conn, msg, reqid) {
         conn.http.res = res;
         read_http_response_data(res)
             .then(function(data) {
-                dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
-                if (!res.statusCode) {
-                    throw new Error('HTTP ERROR CONNECTION REFUSED');
-                } else if (res.statusCode !== 200) {
-                    throw new Error(data);
+                if (res.statusCode !== 200) {
+                    throw new Error('HTTP ERROR ' + res.statusCode + ' ' +
+                        data + ' to ' + conn.address);
                 }
+                dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
                 conn.receive(data);
             })
             .done(null, function(err) {
@@ -215,11 +214,12 @@ function read_http_response_data(res) {
     var defer = Q.defer();
     if (!res.statusCode) {
         // statusCode = 0 means ECONNREFUSED and the response will not emit events in such case
-        defer.reject(new Error('HTTP ERROR CONNECTION REFUSED'));
+        defer.resolve('ECONNREFUSED');
+    } else {
+        res.on('error', defer.reject);
+        res.on('data', add_chunk);
+        res.on('end', finish);
     }
-    res.on('error', defer.reject);
-    res.on('data', add_chunk);
-    res.on('end', finish);
     return defer.promise;
 
     function add_chunk(chunk) {
@@ -275,6 +275,7 @@ function middleware(rpc) {
             // but anyway we allow it by the agent server.
             res.header('Access-Control-Allow-Credentials', true);
             if (req.method === 'OPTIONS') {
+                res.status(200).end();
                 return;
             }
             var host = req.connection.remoteAddress;

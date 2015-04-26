@@ -28,6 +28,18 @@ var system_schema = new Schema({
         required: true,
     },
 
+    access_keys: [{
+        access_key : {
+            type: String,
+            required: true,
+        },
+        secret_key : {
+            type: String,
+            required: true,
+        }
+    }],
+
+
     // on delete set deletion time
     deleted: {
         type: Date,

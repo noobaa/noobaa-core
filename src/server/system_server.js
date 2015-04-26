@@ -13,6 +13,7 @@ var tier_server = require('./tier_server');
 var bucket_server = require('./bucket_server');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var AWS = require('aws-sdk');
+var uuid = require('node-uuid');
 
 
 /**
@@ -51,7 +52,19 @@ function create_system(req) {
 
     return Q.fcall(function() {
             var info = _.pick(req.rest_params, 'name');
+            if (info === 'demo') {
+                info.access_keys = [{
+                    access_key: '123',
+                    secret_key: 'abc',
+                }];
+            } else {
+                info.access_keys = [{
+                    access_key: uuid.v4(),
+                    secret_key: uuid.v4(),
+                }];
+            }
             info.owner = req.account.id;
+
             return db.System.create(info);
         })
         .then(null, db.check_already_exists(req, 'system'))

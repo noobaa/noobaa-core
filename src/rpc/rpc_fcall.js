@@ -1,11 +1,11 @@
 'use strict';
 
 module.exports = {
-    send: send,
-    connect: noop,
-    authenticate: noop,
-    close: noop,
     reusable: true,
+    connect: noop,
+    close: noop,
+    send: send,
+    authenticate: noop,
 };
 
 function send(conn, msg) {

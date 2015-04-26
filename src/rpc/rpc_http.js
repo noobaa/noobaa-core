@@ -24,15 +24,15 @@ var BASE_PATH = '/rpc';
  * simply uses a new RpcConnection for every request.
  */
 module.exports = {
+    BASE_PATH: BASE_PATH,
     reusable: false,
     connect: connect,
-    authenticate: authenticate,
-    send: send,
     close: close,
     listen: listen,
     create_server: create_server,
     middleware: middleware,
-    BASE_PATH: BASE_PATH,
+    send: send,
+    authenticate: authenticate,
 };
 
 
@@ -55,13 +55,18 @@ function connect(conn) {
     conn.http = {};
 }
 
+
 /**
  *
- * authenticate
+ * close
  *
  */
-function authenticate(conn, auth_token) {
-    // TODO for now just save auth_token and send with every message, better send once
+function close(conn) {
+    // try to abort the connetion's running request
+    var req = conn.http.req;
+    if (req && req.abort) {
+        req.abort();
+    }
 }
 
 
@@ -82,18 +87,6 @@ function send(conn, msg, op, req) {
     }
 }
 
-/**
- *
- * close
- *
- */
-function close(conn) {
-    // try to abort the connetion's running request
-    var req = conn.http.req;
-    if (req && req.abort) {
-        req.abort();
-    }
-}
 
 /**
  *
@@ -104,6 +97,7 @@ function send_http_response(conn, msg, req) {
     var res = conn.http.res;
     res.status(200).end(msg);
 }
+
 
 /**
  *
@@ -258,6 +252,7 @@ function read_http_response_data(res) {
     }
 }
 
+
 /**
  *
  * middleware
@@ -293,10 +288,21 @@ function middleware(rpc) {
 }
 
 
+/**
+ *
+ * listen
+ *
+ */
 function listen(rpc, app) {
     app.use(BASE_PATH, middleware(rpc));
 }
 
+
+/**
+ *
+ * create_server
+ *
+ */
 function create_server(rpc, port, secure, logging) {
     var app = express();
     if (logging) {
@@ -331,4 +337,14 @@ function create_server(rpc, port, secure, logging) {
             return Q.ninvoke(server, 'listen', port)
                 .thenResolve(server);
         });
+}
+
+
+/**
+ *
+ * authenticate
+ *
+ */
+function authenticate(conn, auth_token) {
+    // TODO for now just save auth_token and send with every message, better send once
 }

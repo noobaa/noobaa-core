@@ -10,10 +10,10 @@ var WS = require('ws');
 module.exports = {
     reusable: true,
     connect: connect,
-    authenticate: authenticate,
-    send: send,
     close: close,
     listen: listen,
+    send: send,
+    authenticate: authenticate,
 };
 
 
@@ -41,6 +41,7 @@ function connect(conn) {
             }, 10000);
         }
     };
+
     function onfail(err) {
         clearInterval(ws.keepalive_interval);
         ws.keepalive_interval = null;
@@ -76,30 +77,6 @@ function connect(conn) {
 
 /**
  *
- * authenticate
- *
- */
-function authenticate(conn, auth_token) {
-    // TODO for now just save auth_token and send with every message, better send once
-}
-
-var WS_SEND_OPTIONS = {
-    binary: true,
-    mask: false,
-    compress: false
-};
-
-/**
- *
- * send
- *
- */
-function send(conn, msg, op, req) {
-    conn.ws.send(msg, WS_SEND_OPTIONS);
-}
-
-/**
- *
  * close
  *
  */
@@ -108,6 +85,7 @@ function close(conn) {
         conn.ws.close();
     }
 }
+
 
 /**
  *
@@ -124,6 +102,7 @@ function listen(rpc, http_server) {
         dbg.log0('WS CONNECTION FROM', address);
         var conn = rpc.new_connection(address);
         conn.ws = ws;
+
         function onfail(err) {
             if (conn.ws === ws) {
                 conn.ws = null;
@@ -149,4 +128,31 @@ function listen(rpc, http_server) {
     ws_server.on('error', function(err) {
         dbg.error('WS SERVER ERROR', err.stack || err);
     });
+}
+
+
+var WS_SEND_OPTIONS = {
+    binary: true,
+    mask: false,
+    compress: false
+};
+
+
+/**
+ *
+ * send
+ *
+ */
+function send(conn, msg, op, req) {
+    conn.ws.send(msg, WS_SEND_OPTIONS);
+}
+
+
+/**
+ *
+ * authenticate
+ *
+ */
+function authenticate(conn, auth_token) {
+    // TODO for now just save auth_token and send with every message, better send once
 }

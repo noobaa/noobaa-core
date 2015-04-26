@@ -62,7 +62,6 @@ function connect(conn) {
  */
 function authenticate(conn, auth_token) {
     // TODO for now just save auth_token and send with every message, better send once
-    conn.http.auth_token = auth_token;
 }
 
 

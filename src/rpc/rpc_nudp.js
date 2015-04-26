@@ -34,11 +34,11 @@ var CONN_RAND_CHANCE = {
 var MTU_DEFAULT = 1200;
 var MTU_MIN = 576;
 var MTU_MAX = 64 * 1024;
-var WINDOW_BYTES = 1024 * 1024;
-var WINDOW_LENGTH = 1000;
-var SEND_DELAY_MAX = 100;
+var WINDOW_BYTES_MAX = 8 * 1024 * 1024;
+var WINDOW_LENGTH_MAX = 10000;
+var SEND_DELAY_MAX = 1000;
 var SEND_DELAY_THRESHOLD = 10;
-var BATCH_BYTES = 128 * 1024;
+var BATCH_BYTES = 512 * 1024;
 var ACK_DELAY = 10;
 
 /**
@@ -140,7 +140,7 @@ function listen(rpc, port) {
                 rpc.new_connection(address);
             init_nudp_conn(conn);
         }
-        handle_packet(buffer, conn);
+        receive_packet(buffer, conn);
     });
     nudp_host.socket.on('close', function() {
         // TODO can udp sockets just close?
@@ -159,6 +159,11 @@ function listen(rpc, port) {
 ///////////////////////////////////////////////////////////////////////////////
 
 
+/**
+ *
+ * init_nudp_conn
+ *
+ */
 function init_nudp_conn(conn) {
     conn.nudp = {
         state: STATE_CONNECTED,
@@ -205,6 +210,11 @@ function init_nudp_conn(conn) {
 }
 
 
+/**
+ *
+ * process_send_queue
+ *
+ */
 function process_send_queue(conn) {
     var nu = conn.nudp;
     if (!nu || nu.state !== STATE_CONNECTED) {
@@ -221,6 +231,7 @@ function process_send_queue(conn) {
     nu.process_send_timeout =
         setTimeout(process_send_queue, next_schedule, conn);
 }
+
 
 /**
  *
@@ -239,6 +250,7 @@ function trim_send_window(conn) {
     }
 }
 
+
 /**
  *
  * fill_send_window
@@ -250,8 +262,8 @@ function trim_send_window(conn) {
 function fill_send_window(conn) {
     var nu = conn.nudp;
     dbg.log2('fill_send_window start', nu.packet_send_win.length, nu.packet_send_win_bytes);
-    while (nu.packet_send_win.length < WINDOW_LENGTH &&
-        nu.packet_send_win_bytes < WINDOW_BYTES) {
+    while (nu.packet_send_win.length < WINDOW_LENGTH_MAX &&
+        nu.packet_send_win_bytes < WINDOW_BYTES_MAX) {
         var message = nu.message_send_queue.get_front();
         if (!message) {
             break;
@@ -292,6 +304,7 @@ function fill_send_window(conn) {
     }
 }
 
+
 /**
  *
  * send_next_packets
@@ -302,7 +315,7 @@ function send_next_packets(conn) {
     var socket = conn.rpc.nudp_host.socket;
     var now = Date.now();
     var batch = 0;
-    var next_schedule = SEND_DELAY_MAX;
+    var min_threshold = SEND_DELAY_MAX;
     var last = nu.packet_send_pending.get_back();
     while (batch < BATCH_BYTES && nu.packet_send_pending.length) {
         var packet = nu.packet_send_pending.pop_front();
@@ -311,8 +324,9 @@ function send_next_packets(conn) {
             'seq', packet.seq,
             'len', packet.len,
             'transmits', packet.transmits);
-        // send packets if haven't been sent for 100 ms
+        // resend packets only if last send was above a threshold
         if (now - packet.last_sent > SEND_DELAY_THRESHOLD) {
+            min_threshold = 0;
             packet.transmits += 1;
             packet.last_sent = now;
             batch += packet.len;
@@ -327,48 +341,58 @@ function send_next_packets(conn) {
                 packet.message.defer.resolve();
             }
         } else {
-            next_schedule = Math.min(next_schedule, now - packet.last_sent);
-            dbg.log2('send_next_packets schedule', next_schedule);
+            min_threshold = Math.min(
+                min_threshold,
+                SEND_DELAY_THRESHOLD - now + packet.last_sent);
+            dbg.log2('send_next_packets min_threshold', min_threshold);
         }
         // stop once completed cycle on all packets
         if (packet === last) {
             break;
         }
     }
-    return next_schedule;
+    return min_threshold < 0 ? 0 : min_threshold;
 }
 
 
 /**
- * handle_packet
+ *
+ * receive_packet
+ *
  */
-function handle_packet(buffer, conn) {
+function receive_packet(buffer, conn) {
     var hdr = read_packet_header(buffer);
-    dbg.log2('handle_packet', hdr);
+    dbg.log2('receive_packet', hdr);
     switch (hdr.type) {
         case PACKET_TYPE_DATA:
-            handle_data_packet(hdr, buffer, conn);
+            receive_data_packet(hdr, buffer, conn);
             break;
         case PACKET_TYPE_ACK:
-            handle_ack_packet(hdr, buffer, conn);
+            receive_acks(hdr, buffer, conn);
             break;
         default:
             break;
     }
 }
 
-function handle_data_packet(hdr, buffer, conn) {
+
+/**
+ *
+ * receive_data_packet
+ *
+ */
+function receive_data_packet(hdr, buffer, conn) {
     var nu = conn.nudp;
     var packet = {
         hdr: hdr,
         payload: buffer.slice(PACKET_HEADER_LEN)
     };
     if (hdr.seq !== nu.packet_recv_win_seq) {
-        dbg.log2('handle_data_packet push to window seq', hdr.seq, 'wait for seq', nu.packet_recv_win_seq);
+        dbg.log2('receive_data_packet push to window seq', hdr.seq, 'wait for seq', nu.packet_recv_win_seq);
         nu.packet_recv_by_seq[hdr.seq] = packet;
     } else {
         while (packet) {
-            dbg.log2('handle_data_packet pop from window seq', packet.hdr.seq);
+            dbg.log2('receive_data_packet pop from window seq', packet.hdr.seq);
             nu.packet_recv_msg.push(packet.payload);
             nu.packet_recv_msg_len += packet.payload.length;
             nu.packet_recv_win_seq += 1;
@@ -388,29 +412,12 @@ function handle_data_packet(hdr, buffer, conn) {
     }
 }
 
-function handle_ack_packet(hdr, buffer, conn) {
-    var nu = conn.nudp;
-    dbg.log2('handle_ack_packet', hdr.seq);
-    var offset = PACKET_HEADER_LEN;
 
-    // hdr.seq is sent as number of sequences that are encoded in the payload
-    for (var i = 0; i < hdr.seq; ++i) {
-        var seq = buffer.readDoubleBE(offset);
-        offset += 8;
-        var packet = nu.packet_send_by_seq[seq];
-        if (packet) {
-            packet.ack = true;
-            nu.packet_send_pending.remove(packet);
-            nu.packet_send_win_bytes -= packet.len;
-            delete nu.packet_send_by_seq[seq];
-        } else {
-            dbg.log3('ACK ignored', seq);
-        }
-    }
-
-    process_send_queue(conn);
-}
-
+/**
+ *
+ * send_acks
+ *
+ */
 function send_acks(conn) {
     var nu = conn.nudp;
     dbg.log2('send_acks', nu.ack_queue.length);
@@ -433,6 +440,35 @@ function send_acks(conn) {
             nu.send_callback);
     }
 }
+
+/**
+ *
+ * receive_acks
+ *
+ */
+function receive_acks(hdr, buffer, conn) {
+    var nu = conn.nudp;
+    dbg.log2('receive_acks', hdr.seq);
+    var offset = PACKET_HEADER_LEN;
+
+    // hdr.seq is sent as number of sequences that are encoded in the payload
+    for (var i = 0; i < hdr.seq; ++i) {
+        var seq = buffer.readDoubleBE(offset);
+        offset += 8;
+        var packet = nu.packet_send_by_seq[seq];
+        if (packet) {
+            packet.ack = true;
+            nu.packet_send_pending.remove(packet);
+            nu.packet_send_win_bytes -= packet.len;
+            delete nu.packet_send_by_seq[seq];
+        } else {
+            dbg.log3('ACK ignored', seq);
+        }
+    }
+
+    process_send_queue(conn);
+}
+
 
 function write_packet_header(buf, type, time, rand, seq, flags) {
     buf.writeUInt32BE(PACKET_MAGIC, 0);

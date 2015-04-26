@@ -133,7 +133,7 @@ function s3_app(params) {
                         http.createServer(app.handle.bind(app))
                             .listen(params.port, function(err) {
                                 if (err) {
-                                    dbg.log0('HTTP listen', err);
+                                    dbg.err('HTTP listen', err);
                                     reject(err);
                                 } else {
                                     resolve();
@@ -150,7 +150,7 @@ function s3_app(params) {
                             }, app.handle.bind(app))
                             .listen(params.ssl_port, function(err) {
                                 if (err) {
-                                    dbg.log0('HTTPS listen', err);
+                                    dbg.err('HTTPS listen', err);
                                     reject(err);
                                 } else {
                                     resolve();

@@ -210,6 +210,7 @@ function create_access_key_auth(req) {
     var account;
     var system;
     var role;
+    dbg.log0('debdeb:',req.rpc_params);
     dbg.log3('create_access_key_auth', access_key, string_to_sign, signature);
     return Q.fcall(function() {
 
@@ -246,7 +247,7 @@ function create_access_key_auth(req) {
                 var token = req.make_auth_token({
                     system_id: system && system.id,
                     role: 'admin',
-                    extra: req.rest_params.extra,
+                    extra: req.rpc_params.extra,
                 });
                 console.log('ACCESS TOKEN:', token);
                 return {

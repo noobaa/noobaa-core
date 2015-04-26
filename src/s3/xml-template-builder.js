@@ -306,10 +306,10 @@ var xml = function() {
             }
 
         },
-        buildInitiateMultipartUploadResult: function(key) {
+        buildInitiateMultipartUploadResult: function(key,bucket) {
             return jstoxml.toXML({
                 InitiateMultipartUploadResult: {
-                    Bucket: 'files',
+                    Bucket: bucket,
                     Key: key,
                     UploadId: key
                 }

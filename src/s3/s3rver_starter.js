@@ -24,11 +24,6 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
         dbg.log0('cannot find configuration file. Using defaults.' + err);
         params = _.defaults(params, {
             address: 'http://localhost:5001',
-            email: 'demo@noobaa.com',
-            password: 'DeMo',
-            system: 'demo',
-            tier: 'nodes',
-            bucket: 'files',
             port: 80,
             ssl_port: 443,
         });

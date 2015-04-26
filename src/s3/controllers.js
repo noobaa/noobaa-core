@@ -815,7 +815,7 @@ module.exports = function(params) {
                     }
                     return clients[access_key].object.create_multipart_upload(create_params)
                         .then(function(info) {
-                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key);
+                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key,req.bucket);
                             return buildXmlResponse(res, 200, template);
                         }).then(null, function(err) {
                             template = templateBuilder.buildKeyNotFound(req.query.uploadId);

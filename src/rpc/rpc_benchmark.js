@@ -8,6 +8,7 @@ var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
 var rpc_http = require('./rpc_http');
 var rpc_ws = require('./rpc_ws');
+var rpc_nudp = require('./rpc_nudp');
 var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
@@ -121,27 +122,33 @@ start();
 function start() {
     setInterval(report, 1000);
     Q.fcall(function() {
-            if (argv.server) {
 
-                // register rpc service handler
+            // register rpc service handler
+            if (argv.server) {
                 rpc.register_service(schema.bench, {
                     io: io_service
                 });
+            }
 
+            // open http listening port for http based protocols
+            if (argv.server && argv.proto in {
+                    http: 1,
+                    https: 1,
+                    ws: 1,
+                    wss: 1,
+                }) {
+                return rpc_http.create_server(rpc, argv.port, secure)
+                    .then(function(server) {
+                        return rpc_ws.listen(rpc, server);
+                    });
+            }
 
-                switch (argv.proto) {
-                    case 'http':
-                    case 'https':
-                    case 'ws':
-                    case 'wss':
-                        // open http listening port
-                        return rpc_http.create_server(rpc, argv.port, secure)
-                            .then(function(server) {
-                                return rpc_ws.listen(rpc, server);
-                            });
-                    default:
-                        throw new Error('SERVER PROTOCOL NOT SUPPORTED ' + argv.proto);
-                }
+            // open udp listening port for udp based protocols (needed also for client)
+            if (argv.proto in {
+                    nudp: 1,
+                    nudps: 1,
+                }) {
+                return rpc_nudp.listen(rpc, argv.server ? argv.port : argv.port + 1);
             }
         })
         .then(function() {

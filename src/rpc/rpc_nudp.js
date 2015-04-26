@@ -7,7 +7,7 @@ var Q = require('q');
 var LinkedList = require('noobaa-util/linked_list');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var dgram = require('dgram');
-var chance = require('chance').Chance();
+var chance = require('chance').Chance(Date.now());
 
 module.exports = {
     reusable: true,
@@ -18,28 +18,37 @@ module.exports = {
     listen: listen,
 };
 
-var PACKET_MAGIC = 0xFEEDF33D;
-var CURRENT_VERSION = 1;
-var PACKET_TYPE_DATA = 1;
-var PACKET_TYPE_ACK = 2;
-var PACKET_FLAG_BOUNDARY_END = 1 << 0;
-var PACKET_HEADER_LEN = 32;
+var STATE_INIT = 'init';
 var STATE_CONNECTED = 'connected';
 var STATE_CLOSED = 'closed';
+
+var PACKET_HEADER_LEN = 32;
+var PACKET_MAGIC = 0xFEEDF33D;
+var CURRENT_VERSION = 1;
+var PACKET_FLAG_BOUNDARY_END = 1 << 0;
+
+var PACKET_TYPE_SYN = 1;
+var PACKET_TYPE_SYN_ACK = 2;
+var PACKET_TYPE_FIN = 3;
+var PACKET_TYPE_DATA = 4;
+var PACKET_TYPE_DATA_ACK = 5;
+
 var UINT32_MAX = (1 << 16) * (1 << 16) - 1;
-var CONN_RAND_CHANCE = {
-    min: 0,
-    max: UINT32_MAX
-};
 var MTU_DEFAULT = 1200;
 var MTU_MIN = 576;
 var MTU_MAX = 64 * 1024;
+
 var WINDOW_BYTES_MAX = 8 * 1024 * 1024;
 var WINDOW_LENGTH_MAX = 10000;
+
 var SEND_DELAY_MAX = 1000;
 var SEND_DELAY_THRESHOLD = 10;
 var BATCH_BYTES = 512 * 1024;
 var ACK_DELAY = 10;
+var CONN_RAND_CHANCE = {
+    min: 1,
+    max: UINT32_MAX
+};
 
 /**
  *
@@ -47,24 +56,31 @@ var ACK_DELAY = 10;
  *
  */
 function connect(conn) {
-    var nudp_host = conn.rpc.nudp_host;
-    if (!nudp_host) {
-        throw new Error('NUDP not listening');
-    }
-    var existing = nudp_host.connections[conn.address];
-    if (existing) {
-        if (existing !== conn) {
-            throw new Error('NUDP host already connected ' + conn.address);
-        } else {
+    var nu = conn.nudp;
+    if (nu) {
+        if (nu.state === STATE_CONNECTED) {
             return;
+        } else if (nu.connect_defer) {
+            return nu.connect_defer.promise;
+        } else {
+            throw new Error('NUDP unexpected connection ' + nu.connid +
+                ' state ' + nu.state);
         }
     }
-    nudp_host.connections[conn.address] = conn;
 
     init_nudp_conn(conn);
+    nu = conn.nudp;
+
+    if (!nu.context) {
+        throw new Error('NUDP no listening context');
+    }
+    nu.context.connections[nu.connid] = conn;
 
     // TODO nudp connection keepalive interval
 
+    // send syn packet and wait for syn ack
+    send_syn(conn);
+    return nu.connect_defer.promise;
 }
 
 
@@ -83,11 +99,12 @@ function authenticate(conn, auth_token) {
  *
  */
 function send(conn, buffer, op, req) {
+    var nu = conn.nudp;
     var defer = Q.defer();
     if (!buffer || !buffer.length) {
         throw new Error('cannot send empty message');
     }
-    conn.nudp.message_send_queue.push_back({
+    nu.message_send_queue.push_back({
         defer: defer,
         conn: conn,
         buffer: buffer,
@@ -113,7 +130,11 @@ function close(conn) {
         message.defer.reject('connection closed');
         message = nu.message_send_queue.get_next(message);
     }
-    delete conn.rpc.nudp_host.connections[conn.address];
+    delete nu.context.connections[nu.connid];
+    if (nu.connect_defer) {
+        nu.connect_defer.reject('connection closed');
+        nu.connect_defer = null;
+    }
 }
 
 
@@ -123,35 +144,25 @@ function close(conn) {
  *
  */
 function listen(rpc, port) {
-    if (rpc.nudp_host) {
+    if (rpc.nudp_context) {
         throw new Error('NUDP already listening');
     }
-    var nudp_host = {
+    var nudp_context = {
         port: port,
         socket: dgram.createSocket('udp4'),
         connections: {}
     };
-    nudp_host.socket.on('message', function(buffer, rinfo) {
-        var address = 'nudp://' + rinfo.address + ':' + rinfo.port;
-        var conn = nudp_host.connections[address];
-        if (!conn) {
-            dbg.log0('NUDP CONNECTION', address);
-            conn = nudp_host.connections[address] =
-                rpc.new_connection(address);
-            init_nudp_conn(conn);
-        }
-        receive_packet(buffer, conn);
-    });
-    nudp_host.socket.on('close', function() {
+    nudp_context.socket.on('message', receive_packet.bind(null, rpc, nudp_context));
+    nudp_context.socket.on('close', function() {
         // TODO can udp sockets just close?
         dbg.error('NUDP socket closed');
     });
-    nudp_host.socket.on('error', function(err) {
+    nudp_context.socket.on('error', function(err) {
         // TODO can udp sockets just error?
         dbg.error('NUDP socket error', err.stack || err);
     });
-    rpc.nudp_host = nudp_host;
-    return Q.ninvoke(nudp_host.socket, 'bind', port);
+    rpc.nudp_context = nudp_context;
+    return Q.ninvoke(nudp_context.socket, 'bind', port);
 }
 
 
@@ -164,17 +175,26 @@ function listen(rpc, port) {
  * init_nudp_conn
  *
  */
-function init_nudp_conn(conn) {
-    conn.nudp = {
-        state: STATE_CONNECTED,
+function init_nudp_conn(conn, time, rand) {
+    time = time || Date.now();
+    rand = rand || chance.integer(CONN_RAND_CHANCE);
+
+    var nu = conn.nudp = {
+        context: conn.rpc.nudp_context,
+        state: STATE_INIT,
+        connect_defer: Q.defer(),
+        send_packet: send_packet,
 
         // each connection keeps timestamp + random that are taken at connect time
         // which are used to identify this connection by both ends, and react in case
         // one of the sides crashes and the connection is dropped without communicating.
         // in such case all pending requests will need to be rejected
         // and retried on new connection.
-        time: Date.now(),
-        rand: chance.integer(CONN_RAND_CHANCE),
+        time: time,
+        rand: rand,
+        connid: conn.address +
+            '/' + time.toString(16) +
+            '.' + rand.toString(16),
 
         // the message send queue is the first phase for sending messages,
         // and its main purpose is to maintain the buffer message boundary,
@@ -199,14 +219,24 @@ function init_nudp_conn(conn) {
 
         mtu_min: MTU_MIN,
         mtu_max: MTU_MAX,
-        mtu_last: MTU_DEFAULT,
-
-        send_callback: function(err, bytes) {
-            if (err) {
-                conn.emit('error', err);
-            }
-        }
+        mtu: MTU_DEFAULT,
     };
+
+    function send_packet(buf, offset, count) {
+        nu.context.socket.send(
+            buf,
+            offset || 0,
+            count || buf.length,
+            conn.url.port,
+            conn.url.hostname,
+            send_callback);
+    }
+
+    function send_callback(err) {
+        if (err) {
+            conn.emit('error', err);
+        }
+    }
 }
 
 
@@ -221,7 +251,7 @@ function process_send_queue(conn) {
         throw new Error('NUDP not connected');
         // TODO maybe better to emit connection error instead of throwing?
     }
-    dbg.log2('process_send_queue');
+    dbg.log2('process_send_queue', nu.connid);
 
     trim_send_window(conn);
     fill_send_window(conn);
@@ -244,7 +274,7 @@ function trim_send_window(conn) {
     var nu = conn.nudp;
     var packet = nu.packet_send_win.get_front();
     while (packet && packet.ack) {
-        dbg.log2('trim_send_window', packet.seq);
+        dbg.log2('trim_send_window', nu.connid, packet.seq);
         nu.packet_send_win.pop_front();
         packet = nu.packet_send_win.get_front();
     }
@@ -261,14 +291,15 @@ function trim_send_window(conn) {
  */
 function fill_send_window(conn) {
     var nu = conn.nudp;
-    dbg.log2('fill_send_window start', nu.packet_send_win.length, nu.packet_send_win_bytes);
+    dbg.log2('fill_send_window', nu.connid,
+        'start', nu.packet_send_win.length, nu.packet_send_win_bytes);
     while (nu.packet_send_win.length < WINDOW_LENGTH_MAX &&
         nu.packet_send_win_bytes < WINDOW_BYTES_MAX) {
         var message = nu.message_send_queue.get_front();
         if (!message) {
             break;
         }
-        var buf = new Buffer(nu.mtu_last || nu.mtu_max);
+        var buf = new Buffer(nu.mtu || nu.mtu_min);
         var packet_remain = buf.length - PACKET_HEADER_LEN;
         var message_remain = message.buffer.length - message.offset;
         var payload_len = Math.min(packet_remain, message_remain);
@@ -300,7 +331,7 @@ function fill_send_window(conn) {
         nu.packet_send_win.push_back(packet);
         nu.packet_send_win_seq += 1;
         nu.packet_send_win_bytes += packet_len;
-        dbg.log2('fill_send_window', packet.seq);
+        dbg.log2('fill_send_window', nu.connid, packet.seq);
     }
 }
 
@@ -312,7 +343,6 @@ function fill_send_window(conn) {
  */
 function send_next_packets(conn) {
     var nu = conn.nudp;
-    var socket = conn.rpc.nudp_host.socket;
     var now = Date.now();
     var batch = 0;
     var min_threshold = SEND_DELAY_MAX;
@@ -320,7 +350,7 @@ function send_next_packets(conn) {
     while (batch < BATCH_BYTES && nu.packet_send_pending.length) {
         var packet = nu.packet_send_pending.pop_front();
         nu.packet_send_pending.push_back(packet);
-        dbg.log2('send_next_packets',
+        dbg.log2('send_next_packets', nu.connid,
             'seq', packet.seq,
             'len', packet.len,
             'transmits', packet.transmits);
@@ -330,11 +360,8 @@ function send_next_packets(conn) {
             packet.transmits += 1;
             packet.last_sent = now;
             batch += packet.len;
-            dbg.log2('send_next_packets send', 'seq', packet.seq);
-            socket.send(
-                packet.buffer, 0, packet.len,
-                conn.url.port, conn.url.hostname,
-                nu.send_callback);
+            dbg.log2('send_next_packets', nu.connid, 'send seq', packet.seq);
+            nu.send_packet(packet.buffer, 0, packet.len);
             packet.message.sent_packets += 1;
             if (packet.message.offset >= packet.message.buffer.length &&
                 packet.message.sent_packets === packet.message.num_packets) {
@@ -344,7 +371,7 @@ function send_next_packets(conn) {
             min_threshold = Math.min(
                 min_threshold,
                 SEND_DELAY_THRESHOLD - now + packet.last_sent);
-            dbg.log2('send_next_packets min_threshold', min_threshold);
+            dbg.log2('send_next_packets', nu.connid, 'min_threshold', min_threshold);
         }
         // stop once completed cycle on all packets
         if (packet === last) {
@@ -360,19 +387,136 @@ function send_next_packets(conn) {
  * receive_packet
  *
  */
-function receive_packet(buffer, conn) {
+function receive_packet(rpc, nudp_context, buffer, rinfo) {
     var hdr = read_packet_header(buffer);
-    dbg.log2('receive_packet', hdr);
+    var address = 'nudp://' + rinfo.address + ':' + rinfo.port;
+    var connid = address +
+        '/' + hdr.time.toString(16) +
+        '.' + hdr.rand.toString(16);
+    var conn = nudp_context.connections[connid];
+    if (!conn) {
+        dbg.log0('NUDP CONNECTION', connid);
+        conn = nudp_context.connections[connid] =
+            rpc.new_connection(address);
+        init_nudp_conn(conn, hdr.time, hdr.rand);
+    }
+    var nu = conn.nudp;
+    dbg.log2('receive_packet', nu.connid, 'type', hdr.type, 'seq', hdr.seq);
     switch (hdr.type) {
-        case PACKET_TYPE_DATA:
-            receive_data_packet(hdr, buffer, conn);
+        case PACKET_TYPE_SYN:
+            receive_syn(conn, hdr);
             break;
-        case PACKET_TYPE_ACK:
-            receive_acks(hdr, buffer, conn);
+        case PACKET_TYPE_SYN_ACK:
+            receive_syn_ack(conn, hdr);
+            break;
+        case PACKET_TYPE_FIN:
+            receive_fin(conn, hdr);
+            break;
+        case PACKET_TYPE_DATA:
+            receive_data_packet(conn, hdr, buffer);
+            break;
+        case PACKET_TYPE_DATA_ACK:
+            receive_acks(conn, hdr, buffer);
             break;
         default:
+            dbg.error('receive_packet', nu.connid, 'BAD PACKET TYPE', hdr);
             break;
     }
+}
+
+
+/**
+ *
+ * send_syn
+ *
+ */
+function send_syn(conn) {
+    var nu = conn.nudp;
+    var syn_buf = new Buffer(PACKET_HEADER_LEN);
+    var attempt = 0;
+    var timer;
+    next_attempt();
+
+    function next_attempt() {
+        attempt += 1;
+        clearTimeout(timer);
+        dbg.log0('send_syn', nu.connid, 'state', nu.state, 'attempt', attempt);
+
+        // if state is not init we are done trying to SYN -
+        // might be connected or closed already.
+        if (nu.state !== STATE_INIT) {
+            return;
+        }
+
+        // limit attempts
+        if (attempt > 10) {
+            conn.emit('error', new Error('connect exhuasted ' + nu.connid));
+            return;
+        }
+
+        // send the SYN attempt sequence over the hdr.seq field
+        write_packet_header(syn_buf, PACKET_TYPE_SYN, nu.time, nu.rand, attempt, 0);
+        nu.send_packet(syn_buf);
+        timer = setTimeout(next_attempt, 100);
+    }
+}
+
+/**
+ *
+ * receive_syn
+ *
+ */
+function receive_syn(conn, hdr) {
+    var nu = conn.nudp;
+    dbg.log0('receive_syn', nu.connid, 'state', nu.state, 'attempt', hdr.seq);
+    if (nu.state === STATE_INIT) {
+        nu.state = STATE_CONNECTED;
+        if (nu.connect_defer) {
+            nu.connect_defer.resolve();
+            nu.connect_defer = null;
+        }
+    }
+
+    // TODO if closed send FIN
+
+    // for every SYN we accept we reply with SYN ACK
+    // so even if the message is lost, the retries on send_syn will resolve.
+    // reply back the SYN attempt sequence which is sent over the hdr.seq field.
+    var syn_ack_buf = new Buffer(PACKET_HEADER_LEN);
+    write_packet_header(syn_ack_buf, PACKET_TYPE_SYN_ACK, nu.time, nu.rand, hdr.seq, 0);
+    nu.send_packet(syn_ack_buf);
+}
+
+
+
+/**
+ *
+ * receive_syn_ack
+ *
+ */
+function receive_syn_ack(conn, hdr) {
+    var nu = conn.nudp;
+    dbg.log0('receive_syn_ack', nu.connid, 'state', nu.state, 'attempt', hdr.seq);
+    if (nu.state === STATE_INIT) {
+        nu.state = STATE_CONNECTED;
+        if (nu.connect_defer) {
+            nu.connect_defer.resolve();
+            nu.connect_defer = null;
+        }
+    }
+}
+
+
+/**
+ *
+ * receive_fin
+ *
+ */
+function receive_fin(conn, hdr) {
+    var nu = conn.nudp;
+    dbg.log0('receive_fin', nu.connid, 'state', nu.state, 'attempt', hdr.seq);
+    nu.state = STATE_CLOSED;
+    conn.close();
 }
 
 
@@ -381,18 +525,21 @@ function receive_packet(buffer, conn) {
  * receive_data_packet
  *
  */
-function receive_data_packet(hdr, buffer, conn) {
+function receive_data_packet(conn, hdr, buffer) {
     var nu = conn.nudp;
     var packet = {
         hdr: hdr,
         payload: buffer.slice(PACKET_HEADER_LEN)
     };
     if (hdr.seq !== nu.packet_recv_win_seq) {
-        dbg.log2('receive_data_packet push to window seq', hdr.seq, 'wait for seq', nu.packet_recv_win_seq);
+        dbg.log2('receive_data_packet', nu.connid,
+            'push to window seq', hdr.seq,
+            'wait for seq', nu.packet_recv_win_seq);
         nu.packet_recv_by_seq[hdr.seq] = packet;
     } else {
         while (packet) {
-            dbg.log2('receive_data_packet pop from window seq', packet.hdr.seq);
+            dbg.log2('receive_data_packet', nu.connid,
+                'pop from window seq', packet.hdr.seq);
             nu.packet_recv_msg.push(packet.payload);
             nu.packet_recv_msg_len += packet.payload.length;
             nu.packet_recv_win_seq += 1;
@@ -420,11 +567,11 @@ function receive_data_packet(hdr, buffer, conn) {
  */
 function send_acks(conn) {
     var nu = conn.nudp;
-    dbg.log2('send_acks', nu.ack_queue.length);
+    dbg.log2('send_acks', nu.connid, 'count', nu.ack_queue.length);
     clearTimeout(nu.ack_timeout);
     nu.ack_timeout = null;
     while (nu.ack_queue.length) {
-        var buf = new Buffer(nu.mtu_last || nu.mtu_max);
+        var buf = new Buffer(nu.mtu || nu.mtu_min);
         var count = 0;
         var offset = PACKET_HEADER_LEN;
         while (offset < buf.length && nu.ack_queue.length) {
@@ -433,11 +580,8 @@ function send_acks(conn) {
             offset += 8;
             count += 1;
         }
-        write_packet_header(buf, PACKET_TYPE_ACK, nu.time, nu.rand, count, 0);
-        conn.rpc.nudp_host.socket.send(
-            buf, 0, offset,
-            conn.url.port, conn.url.hostname,
-            nu.send_callback);
+        write_packet_header(buf, PACKET_TYPE_DATA_ACK, nu.time, nu.rand, count, 0);
+        nu.send_packet(buf, 0, offset);
     }
 }
 
@@ -446,9 +590,9 @@ function send_acks(conn) {
  * receive_acks
  *
  */
-function receive_acks(hdr, buffer, conn) {
+function receive_acks(conn, hdr, buffer) {
     var nu = conn.nudp;
-    dbg.log2('receive_acks', hdr.seq);
+    dbg.log2('receive_acks', nu.connid, 'count', hdr.seq);
     var offset = PACKET_HEADER_LEN;
 
     // hdr.seq is sent as number of sequences that are encoded in the payload
@@ -462,7 +606,7 @@ function receive_acks(hdr, buffer, conn) {
             nu.packet_send_win_bytes -= packet.len;
             delete nu.packet_send_by_seq[seq];
         } else {
-            dbg.log3('ACK ignored', seq);
+            dbg.log3('receive_acks', nu.connid, 'ignore missing seq', seq);
         }
     }
 

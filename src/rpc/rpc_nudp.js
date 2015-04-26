@@ -336,6 +336,7 @@ function trim_send_window(conn) {
     var packet = nu.packet_send_win.get_front();
     while (packet && packet.ack) {
         dbg.log2('trim_send_window', nu.connid, packet.seq);
+        nu.packet_send_win_bytes -= packet.len;
         nu.packet_send_win.pop_front();
         packet = nu.packet_send_win.get_front();
     }
@@ -730,7 +731,9 @@ function receive_acks(conn, hdr, buffer) {
     while (offset < buffer.length) {
         var seq = buffer.readDoubleBE(offset);
         offset += 8;
+
         var packet = nu.packet_send_by_seq[seq];
+        delete nu.packet_send_by_seq[seq];
         if (!packet) {
             dbg.log3('receive_acks', nu.connid, 'ignore missing seq', seq);
             continue;
@@ -739,8 +742,6 @@ function receive_acks(conn, hdr, buffer) {
         // update the packet and remove from pending send list
         packet.ack = true;
         nu.packet_send_pending.remove(packet);
-        nu.packet_send_win_bytes -= packet.len;
-        delete nu.packet_send_by_seq[seq];
 
         // check if this ack is the last ACK waited by this message,
         // and wakeup the sender.

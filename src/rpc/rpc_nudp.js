@@ -424,12 +424,14 @@ function send_packets(conn) {
 
     var now = Date.now();
     var batch_count = 0;
+    var send_delay = 0;
     var packet = nu.packets_send_queue.get_front();
     var last_packet = nu.packets_send_queue.get_back();
     while (packet && batch_count < SEND_BATCH_COUNT) {
 
         // resend packets only if last send was above a threshold
-        if (now - packet.last_sent < SEND_RETRANSMIT_DELAY) {
+        send_delay = SEND_RETRANSMIT_DELAY - (now - packet.last_sent);
+        if (send_delay > 0) {
             break;
         }
 
@@ -499,9 +501,10 @@ function send_packets(conn) {
     // because the timer will not be able to wake us up in sub milli times,
     // so for higher rates we use setImmediate, but that will leave less
     // cpu time for other tasks...
-    if (ms_per_batch > 5) {
+    send_delay = Math.max(send_delay, ms_per_batch);
+    if (send_delay > 5) {
         nu.process_send_timeout =
-            setTimeout(send_packets, ms_per_batch, conn);
+            setTimeout(send_packets, send_delay, conn);
     } else {
         nu.process_send_immediate =
             setImmediate(send_packets, conn);

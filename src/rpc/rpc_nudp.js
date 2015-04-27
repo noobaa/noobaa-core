@@ -45,7 +45,7 @@ var WINDOW_BYTES_MAX = 4 * 1024 * 1024;
 var WINDOW_LENGTH_MAX = 5000;
 var SEND_BATCH_COUNT = 5;
 var SEND_RETRANSMIT_DELAY = 100;
-var ACK_DELAY = 10;
+var ACK_DELAY = 5;
 var ACKS_PER_SEC_MIN = 1000;
 
 var CONN_RAND_CHANCE = {
@@ -256,6 +256,7 @@ function init_nudp_conn(conn, time, rand) {
         packets_ack_counter_last_time: 0,
         packets_retrasmits: 0,
         packets_retrasmits_last_val: 0,
+        send_packets_report_last_time: 0,
 
         packets_receive_window_seq: 1,
         packets_receive_window_map: {},
@@ -469,28 +470,34 @@ function send_packets(conn) {
 
     // try to push the rate up by 8%, since we might have more bandwidth to use.
     var rate_change;
-    if (retrans_per_sec < 5) {
+    if (retrans_per_sec < 50) {
         rate_change = 1.5;
-    } else if (retrans_per_sec < 15) {
-        rate_change = 1.1;
     } else if (retrans_per_sec < 100) {
+        rate_change = 1.1;
+    } else if (retrans_per_sec < 300) {
         rate_change = 1;
-    } else if (retrans_per_sec < 500) {
+    } else if (retrans_per_sec < 700) {
         rate_change = 0.8;
     } else {
         rate_change = 0.5;
     }
+
     // calculate the number of millis available for each batch.
     var ms_per_batch = 1000 * SEND_BATCH_COUNT /
-        Math.max(rate_change * acks_per_sec, ACKS_PER_SEC_MIN);
+        (rate_change * Math.max(acks_per_sec, ACKS_PER_SEC_MIN));
 
-    // update the saved values once in fixed intervals
-    if (dt > 3) {
+    // print a report
+    if (hrsec - nu.send_packets_report_last_time >= 3) {
         dbg.log0(nu.connid, 'send_packets:',
             'num_acks', num_acks,
             'acks_per_sec', acks_per_sec.toFixed(2),
             'retrans_per_sec', retrans_per_sec.toFixed(2),
             'ms_per_batch', ms_per_batch.toFixed(2));
+        nu.send_packets_report_last_time = hrsec;
+    }
+
+    // update the saved values once in fixed intervals
+    if (dt >= 0.03) {
         nu.packets_ack_counter_last_time = hrsec;
         nu.packets_ack_counter_last_val = nu.packets_ack_counter;
         nu.packets_retrasmits_last_val = nu.packets_retrasmits;
@@ -634,12 +641,6 @@ function receive_syn(conn, hdr) {
         var syn_ack_buf = new Buffer(PACKET_HEADER_LEN);
         write_packet_header(syn_ack_buf, PACKET_TYPE_SYN_ACK, nu.time, nu.rand, hdr.seq, 0);
         nu.send_packet(syn_ack_buf);
-    }
-
-    if (nu.state === STATE_CLOSED) {
-        var fin_buf = new Buffer(PACKET_HEADER_LEN);
-        write_packet_header(fin_buf, PACKET_TYPE_FIN, nu.time, nu.rand, 0, 0);
-        nu.send_packet(fin_buf);
     }
 }
 

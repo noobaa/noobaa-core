@@ -259,7 +259,7 @@ RPC.prototype.on_connection_close = function(conn) {
  *
  */
 RPC.prototype.on_connection_error = function(conn, err) {
-    dbg.error('CONNECTION CLOSE ON ERROR', conn, err.stack || err);
+    dbg.error('CONNECTION CLOSE ON ERROR', err.stack || err);
     conn.close();
 };
 

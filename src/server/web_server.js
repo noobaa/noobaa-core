@@ -35,6 +35,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var rpc_http = require('../rpc/rpc_http');
 var rpc_ws = require('../rpc/rpc_ws');
+var rpc_nudp = require('../rpc/rpc_nudp');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
@@ -134,11 +135,16 @@ app.use(express_compress());
 // since we have less routes then files, and the routes are in memory.
 
 // register RPC servers
-require('./api_servers');
+var api_servers = require('./api_servers');
 // setup rpc http listener
 rpc_http.listen(api.rpc, app);
 // setup websocket rpc listener
 rpc_ws.listen(api.rpc, server);
+// setup nudp socket
+rpc_nudp.listen(api.rpc, 0)
+    .then(function(nudp_context) {
+        api_servers.client.options.nudp_context = nudp_context;
+    });
 
 // agent package json
 

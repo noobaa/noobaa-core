@@ -79,6 +79,9 @@ var node_schema = new Schema({
         type: Number,
     },
 
+    // list of addresses (urls) for RPC connectivity to the node agent
+    addresses: [String],
+
     // the last time the agent sent heartbeat
     heartbeat: {
         type: Date,

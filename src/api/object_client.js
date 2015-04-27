@@ -398,7 +398,7 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
 
         dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block_address.id,
-            'to', block_address.host);
+            'to', block_address.addresses[0]);
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
@@ -406,14 +406,13 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
             block_id: block_address.id,
             data: buffer,
         }, {
-            address: block_address.host,
+            address: block_address.addresses,
             domain: block_address.peer,
-            peer: block_address.peer,
             timeout: config.write_timeout,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block_address.id,
-                'from', block_address.host);
+                'from', block_address.addresses[0]);
             throw err;
         });
 
@@ -891,14 +890,13 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
 
         dbg.log1('read_block', size_utils.human_offset(offset),
             size_utils.human_size(block_size), block_address.id,
-            'from', block_address.host);
+            'from', block_address.addresses[0]);
 
         return self.agent_rpc_client.read_block({
                 block_id: block_address.id
             }, {
-                address: block_address.host,
+                address: block_address.addresses,
                 domain: block_address.peer,
-                peer: block_address.peer,
                 timeout: config.read_timeout,
             })
             .then(function(res) {
@@ -914,7 +912,7 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
             }, function(err) {
                 console.error('FAILED read_block', size_utils.human_offset(offset),
                     size_utils.human_size(block_size), block_address.id,
-                    'from', block_address.host);
+                    'from', block_address.addresses[0]);
                 throw err;
             });
     });

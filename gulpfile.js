@@ -416,9 +416,11 @@ gulp.task('start_dev', ['install_and_serve'], function() {
         'src/client/**/*',
         'src/ngview/**/*',
     ], ['install_client_and_serve']);
-    gulp.watch([
-        'src/agent/**/*'
-    ], ['install_agent_and_serve']);
+    // during development it's not likely you want to watch 
+    // and rebuild the agent package on source updates..
+    // gulp.watch([
+        // 'src/agent/**/*'
+    // ], ['install_agent_and_serve']);
     gulp.watch([
         'src/rpc/**/*',
         'src/api/**/*',

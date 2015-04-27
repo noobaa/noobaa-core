@@ -171,7 +171,9 @@ RpcRequest.prototype.rpc_error = function(name, err_data, reason) {
         name: name,
         data: err_data,
     };
-    this.defer.reject(err);
+    if (this.response_defer) {
+        this.response_defer.reject(err);
+    }
     return err;
 };
 

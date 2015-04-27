@@ -3,10 +3,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var jwt = require('jsonwebtoken');
 var db = require('./db');
-var api = require('../api');
 var api_servers = require('../server/api_servers');
 var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
@@ -60,7 +57,6 @@ function allocate_object_parts(bucket, obj, parts) {
     var new_chunks = [];
     var unavail_dup_chunks = [];
     var new_parts = [];
-    var new_blocks_info = [];
 
     var reply = {
         parts: _.times(parts.length, function() {
@@ -241,7 +237,6 @@ function finalize_object_parts(bucket, obj, parts) {
             )
         ])
         .spread(function(parts_res, blocks) {
-            var blocks_by_id = _.indexBy(blocks, '_id');
             var parts_by_start = _.groupBy(parts_res, 'start');
             chunks = _.flatten(_.map(parts, function(part) {
                 if (part.deleted) {
@@ -341,7 +336,6 @@ function read_object_mappings(params) {
     }
     var start = rng.start;
     var end = rng.end;
-    var parts;
 
     return Q.fcall(function() {
 
@@ -593,10 +587,8 @@ function agent_delete_call(node, del_blocks) {
                 return block._id.toString();
             })
         }, {
-            address: block_addr.host,
+            address: block_addr.addresses,
             domain: block_addr.peer,
-            peer: block_addr.peer,
-            is_ws: true,
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -903,10 +895,8 @@ function build_chunks(chunks) {
                             block_id: block._id.toString(),
                             source: source_addr
                         }, {
-                            address: block_addr.host,
+                            address: block_addr.addresses,
                             domain: block_addr.peer,
-                            peer: block_addr.peer,
-                            is_ws: true,
                             timeout: config.server_replicate_timeout,
                             retries: config.replicate_retry
                         });
@@ -1026,18 +1016,12 @@ function self_test_to_node_via_web(req) {
     console.log('SELF TEST', target.peer, 'from', source.peer);
 
     return api_servers.client.agent.self_test_peer({
-        target: {
-            id: target.id,
-            host: target.host,
-            peer: target.peer
-        },
+        target: target,
         request_length: req.rpc_params.request_length || 1024,
         response_length: req.rpc_params.response_length || 1024,
     }, {
-        address: source.host,
+        address: source.addresses,
         domain: source.peer,
-        peer: source.peer,
-        is_ws: true,
         retries: 3,
         timeout: 30000
     });
@@ -1051,9 +1035,7 @@ function self_test_to_node_via_web(req) {
  * background worker that scans chunks and builds them according to their blocks status
  *
  */
-var build_chunks_worker =
-
-    (process.env.BUILD_WORKER_DISABLED === 'true') ||
+if (process.env.BUILD_WORKER_DISABLED !== 'true') {
     promise_utils.run_background_worker({
         name: 'build_chunks_worker',
         batch_size: 50,
@@ -1128,9 +1110,7 @@ var build_chunks_worker =
                 });
         }
     });
-
-
-
+}
 
 
 
@@ -1354,22 +1334,8 @@ function get_part_info(params) {
 function get_block_address(block) {
     var b = {};
     b.id = block._id.toString();
-    b.host = 'http://' + block.node.ip;
-    if (block.node.port) {
-        b.host += ':' + block.node.port;
-    }
-
-    if (block.node.peer_id) {
-        if (process.env.JWT_SECRET_PEER) {
-            var jwt_options = {
-                expiresInMinutes: 60
-            };
-            b.peer = jwt.sign(block.node.peer_id,
-                process.env.JWT_SECRET_PEER, jwt_options);
-        } else {
-            b.peer = block.node.peer_id;
-        }
-    }
+    b.addresses = block.node.addresses;
+    b.peer = block.node.peer_id;
     return b;
 }
 

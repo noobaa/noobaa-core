@@ -182,6 +182,14 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 RPC.prototype.assign_connection = function(req, options) {
     var self = this;
     var address = options.address || '';
+    if (_.isArray(address)) {
+        address = _.sortBy(address, function(addr) {
+            var proto = addr.slice(0, 4);
+            if (proto.indexOf('nudp') === 0) return global.window ? 100 : 1;
+            if (proto.indexOf('ws') === 0) return 2;
+            if (proto.indexOf('http') === 0) return 3;
+        })[0];
+    }
 
     // if the service is registered locally,
     // dispatch to do function call.
@@ -213,7 +221,9 @@ RPC.prototype.assign_connection = function(req, options) {
  *
  */
 RPC.prototype.release_connection = function(req) {
-    delete req.connection.sent_requests[req.reqid];
+    if (req.connection) {
+        delete req.connection.sent_requests[req.reqid];
+    }
 };
 
 /**
@@ -297,13 +307,13 @@ RPC.prototype.on_connection_receive = function(conn, msg_buffer) {
 RPC.prototype.handle_request = function(conn, msg) {
     var self = this;
     var req = new RpcRequest();
-    var service = this._services[
+    var srv =
         '/' + msg.header.api +
         '/' + msg.header.domain +
         '/' + msg.header.method
-    ];
+    var service = this._services[srv];
     if (!service) {
-        req.rpc_error('NOT_FOUND', req.srv);
+        req.rpc_error('NOT_FOUND', srv);
         return conn.send(req.export_response_buffer(), 'res', req);
     }
 

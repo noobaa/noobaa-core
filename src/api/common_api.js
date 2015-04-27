@@ -23,11 +23,14 @@ module.exports = {
                 id: {
                     type: 'string'
                 },
-                host: {
-                    type: 'string'
-                },
                 peer: {
                     type: 'string'
+                },
+                addresses: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
                 }
             }
         },

@@ -262,6 +262,12 @@ module.exports = {
                     port: {
                         type: 'integer'
                     },
+                    addresses: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    },
                     storage: {
                         $ref: '/common_api/definitions/storage_info'
                     },
@@ -338,6 +344,7 @@ module.exports = {
                 'peer_id',
                 'ip',
                 'port',
+                'addresses',
                 'online',
                 'heartbeat',
                 'storage',
@@ -368,6 +375,12 @@ module.exports = {
                 port: {
                     type: 'integer'
                 },
+                addresses: {
+                    type: 'array',
+                    items: {
+                        type: 'string'
+                    }
+                },
                 online: {
                     type: 'boolean',
                 },
@@ -381,7 +394,7 @@ module.exports = {
                 device_info: {
                     type: 'object',
                     additionalProperties: true,
-                }
+                },
             }
         }
 

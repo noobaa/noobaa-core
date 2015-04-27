@@ -3,16 +3,10 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var mongoose = require('mongoose');
 var size_utils = require('../util/size_utils');
-var promise_utils = require('../util/promise_utils');
-var api = require('../api');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
-var Semaphore = require('noobaa-util/semaphore');
-var Agent = require('../agent/agent');
 var db = require('./db');
-var Barrier = require('../util/barrier');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 
@@ -375,6 +369,7 @@ function heartbeat(req) {
         'geolocation',
         'ip',
         'port',
+        'addresses',
         'storage',
         'device_info');
 
@@ -420,6 +415,7 @@ function get_node_full_info(node) {
     info.peer_id = node.peer_id || '';
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
+    info.addresses = node.addresses;
     info.heartbeat = node.heartbeat.getTime();
     info.storage = {
         alloc: node.storage.alloc || 0,

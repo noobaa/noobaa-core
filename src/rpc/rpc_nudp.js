@@ -162,7 +162,11 @@ function listen(rpc, port) {
         dbg.error('NUDP socket error', err.stack || err);
     });
     return Q.ninvoke(nudp_context.socket, 'bind', port)
-        .thenResolve(nudp_context);
+        .then(function() {
+            // update port in case it was 0 to bind to any port
+            nudp_context.port = nudp_context.socket.address().port;
+            return nudp_context;
+        });
 }
 
 

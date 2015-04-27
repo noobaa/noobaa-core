@@ -18,6 +18,7 @@ var express_compress = require('compression');
 var api = require('../api');
 var rpc_http = require('../rpc/rpc_http');
 var rpc_ws = require('../rpc/rpc_ws');
+var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
@@ -109,13 +110,14 @@ function Agent(params) {
     self.agent_server = agent_server;
     self.http_server = http_server;
     self.http_port = 0;
+    self.nudp_port = 0;
 
     // TODO these sample geolocations are just for testing
     self.geolocation = _.sample([
-        'United States', 'Canada', 'Brazil', 'Mexico',
-        'China', 'Japan', 'Korea', 'India', 'Australia',
-        'Israel', 'Romania', 'Russia',
-        'Germany', 'England', 'France', 'Spain'
+        'United States', 'Canada',
+        'Brazil',
+        'China', 'Japan', 'Korea',
+        'Ireland', 'Germany',
     ]);
 
 }
@@ -136,6 +138,9 @@ Agent.prototype.start = function() {
         })
         .then(function() {
             return self._start_stop_http_server();
+        })
+        .then(function() {
+            return self._start_stop_nudp_server();
         })
         .then(function() {
 
@@ -170,6 +175,7 @@ Agent.prototype.stop = function() {
     dbg.log0('stop agent ' + self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
+    self._start_stop_nudp_server();
     self._start_stop_heartbeats();
 };
 
@@ -237,6 +243,24 @@ Agent.prototype._init_node = function() {
         });
 };
 
+
+/**
+ *
+ * _start_stop_nudp_server
+ *
+ */
+Agent.prototype._start_stop_nudp_server = function() {
+    var self = this;
+    if (self.is_started) {
+        return rpc_nudp.listen(api.rpc, self.prefered_port)
+            .then(function(nudp_context) {
+                self.client.options.nudp_context = nudp_context;
+                self.nudp_port = nudp_context.port;
+            });
+    } else {
+        // TODO stop nudp listening socket. what about the open connections?
+    }
+};
 
 
 // HTTP SERVER ////////////////////////////////////////////////////////////////
@@ -366,10 +390,15 @@ Agent.prototype.send_heartbeat = function() {
                 geolocation: self.geolocation,
                 ip: ip,
                 port: self.http_port || 0,
+                addresses: [
+                    'http://' + ip + ':' + self.http_port,
+                    'ws://' + ip + ':' + self.http_port,
+                    'nudp://' + ip + ':' + self.nudp_port
+                ],
                 storage: {
                     alloc: alloc,
                     used: store_stats.used
-                }
+                },
             };
 
             if (hourlyHB) {
@@ -504,10 +533,8 @@ Agent.prototype.replicate_block = function(req) {
     return self.client.agent.read_block({
             block_id: source.id
         }, {
-            address: source.host,
+            address: source.addresses,
             domain: source.peer,
-            peer: source.peer,
-            ws_socket: self.ws_socket,
         })
         .then(function(res) {
             return self.store.write_block(block_id, res.data);
@@ -566,10 +593,8 @@ Agent.prototype.self_test_peer = function(req) {
             data: new Buffer(req.rpc_params.request_length),
             response_length: req.rpc_params.response_length,
         }, {
-            address: target.host,
+            address: target.addresses,
             domain: target.peer,
-            peer: target.peer,
-            ws_socket: self.ws_socket,
         })
         .then(function(res) {
             var data = res.data;

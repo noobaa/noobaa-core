@@ -3,12 +3,10 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var moment = require('moment');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var size_utils = require('../util/size_utils');
-var promise_utils = require('../util/promise_utils');
 
 
 module.exports = {
@@ -36,7 +34,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                     },
                 })
                 // we are very selective to reduce overhead
-                .select('ip port storage geolocation device_info.last_update')
+                .select('ip port addresses storage geolocation device_info.last_update')
                 .exec())
             .then(function(res) {
                 var nodes_by_id = _.indexBy(res, '_id');
@@ -191,6 +189,9 @@ function heartbeat(params) {
             }
             if (params.port && params.port !== node.port) {
                 updates.port = params.port;
+            }
+            if (params.addresses && !_.isEqual(params.addresses, node.addresses)) {
+                updates.addresses = params.addresses;
             }
 
             // to avoid frequest updates of the node check if the last update of

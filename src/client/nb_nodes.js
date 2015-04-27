@@ -373,22 +373,18 @@ nb_api.factory('nbNodes', [
         }
 
         function self_test_io(node, request_length, response_length) {
-            var node_host = 'http://' + node.ip + ':' + node.port;
             return nbClient.client.agent.self_test_io({
                 data: new Buffer(request_length || 0),
                 response_length: response_length || 0,
             }, {
-                address: node_host,
+                address: node.addresses,
                 domain: node.peer_id,
-                peer: node.peer_id,
                 retries: 3,
                 timeout: 30000
             });
         }
 
         function self_test_conn(node, request_length, response_length) {
-            var node_host = 'http://' + node.ip + ':' + node.port;
-
             var client = new api.Client();
             client.options.p2p_context = null;
 
@@ -396,9 +392,8 @@ nb_api.factory('nbNodes', [
                 data: new Buffer(request_length || 0),
                 response_length: response_length || 0,
             }, {
-                address: node_host,
+                address: node.addresses,
                 domain: node.peer_id,
-                peer: node.peer_id,
                 retries: 3,
                 timeout: 30000
             });
@@ -406,21 +401,18 @@ nb_api.factory('nbNodes', [
 
         function self_test_to_node(node, target_node, request_length, response_length) {
             console.log('SELF TEST', node.name, 'to', target_node.name);
-            var node_host = 'http://' + node.ip + ':' + node.port;
-            var target_host = 'http://' + target_node.ip + ':' + target_node.port;
 
             return nbClient.client.agent.self_test_peer({
                 target: {
                     id: target_node.id,
-                    host: target_host,
+                    addresses: target_node.addresses,
                     peer: target_node.peer_id
                 },
                 request_length: request_length || 0,
                 response_length: response_length || 0,
             }, {
-                address: node_host,
+                address: node.addresses,
                 domain: node.peer_id,
-                peer: node.peer_id,
                 retries: 3,
                 timeout: 30000
             });
@@ -428,18 +420,16 @@ nb_api.factory('nbNodes', [
 
         function self_test_to_node_via_web (node, target_node, request_length, response_length) {
             console.log('SELF TEST', node.name, 'to', target_node.name);
-            var node_host = 'http://' + node.ip + ':' + node.port;
-            var target_host = 'http://' + target_node.ip + ':' + target_node.port;
 
             return nbClient.client.object.self_test_to_node_via_web({
                 target: {
                     id: target_node.id,
-                    host: target_host,
+                    addresses: target_node.addresses,
                     peer: target_node.peer_id
                 },
                 source: {
                     id: node.id,
-                    host: node_host,
+                    addresses: node.addresses,
                     peer: node.peer_id
                 },
                 request_length: request_length || 0,
@@ -447,7 +437,6 @@ nb_api.factory('nbNodes', [
             }, {
                 retries: 3,
                 timeout: 30000,
-                is_ws: true
             });
         }
 

@@ -41,12 +41,12 @@ var MTU_MAX = 64 * 1024;
 var SYN_ATTEMPTS = 10;
 var SYN_ATTEMPT_DELAY = 100;
 
-var WINDOW_BYTES_MAX = 1 * 1024 * 1024;
-var WINDOW_LENGTH_MAX = 200;
+var WINDOW_BYTES_MAX = 32 * 1024 * 1024;
+var WINDOW_LENGTH_MAX = 2000;
 var SEND_BATCH_COUNT = 5;
-var SEND_RETRY_THRESHOLD = 1000;
-
-var ACK_DELAY = 10;
+var SEND_RETRANSMIT_DELAY = 100;
+var ACKS_PER_SEC_MIN = 2000;
+var ACK_DELAY = 5;
 
 var CONN_RAND_CHANCE = {
     min: 1,
@@ -189,7 +189,6 @@ function send(conn, buffer, op, req) {
         acked_packets: 0,
     });
     populate_send_window(conn);
-    process_send_queue(conn);
     return send_defer.promise;
 }
 
@@ -252,6 +251,11 @@ function init_nudp_conn(conn, time, rand) {
         packets_send_window: new LinkedList('w'),
         packets_send_window_bytes: 0,
         packets_send_window_seq: 1,
+        packets_ack_counter: 0,
+        packets_ack_counter_last_val: 0,
+        packets_ack_counter_last_time: 0,
+        packets_retrasmits: 0,
+        packets_retrasmits_last_val: 0,
 
         packets_receive_window_seq: 1,
         packets_receive_window_map: {},
@@ -343,6 +347,7 @@ function populate_send_window(conn) {
     dbg.log2(nu.connid, 'populate_send_window:',
         'len', nu.packets_send_window.length,
         'bytes', nu.packets_send_window_bytes);
+    var populated = 0;
     while (nu.packets_send_window.length < WINDOW_LENGTH_MAX &&
         nu.packets_send_window_bytes < WINDOW_BYTES_MAX) {
         var message = nu.messages_send_queue.get_front();
@@ -374,8 +379,10 @@ function populate_send_window(conn) {
         message.offset += payload_len;
         message.num_packets += 1;
         if (message.offset >= message.buffer.length) {
-            nu.messages_send_queue.pop_front();
+            nu.messages_send_queue.remove(message);
+            message.populated = true;
         }
+        populated += 1;
         nu.packets_send_wait_ack_map[seq] = packet;
         nu.packets_send_queue.push_front(packet);
         nu.packets_send_window.push_back(packet);
@@ -383,39 +390,46 @@ function populate_send_window(conn) {
         nu.packets_send_window_bytes += packet_len;
         dbg.log2(nu.connid, 'populate_send_window: seq', packet.seq);
     }
+
+    if (populated) {
+        // wakeup sender if sleeping
+        if (!nu.process_send_immediate) {
+            nu.process_send_immediate = setImmediate(send_packets, conn);
+        }
+    }
 }
 
 
 /**
  *
- * process_send_queue
+ * send_packets
  *
  */
-function process_send_queue(conn) {
+function send_packets(conn) {
     var nu = conn.nudp;
+
+    clearTimeout(nu.process_send_timeout);
+    clearImmediate(nu.process_send_immediate);
+    nu.process_send_timeout = null;
+    nu.process_send_immediate = null;
+
     if (!nu || nu.state !== STATE_CONNECTED) {
         conn.emit('error', new Error('NUDP not connected'));
         return;
     }
-    dbg.log2(nu.connid, 'process_send_queue');
-
-    clearTimeout(nu.process_send_timeout);
-    clearImmediate(nu.process_send_immediate);
-
     if (!nu.packets_send_queue.length) {
         return;
     }
+    dbg.log2(nu.connid, 'send_packets: length', nu.packets_send_queue.length);
 
     var now = Date.now();
     var batch_count = 0;
-    var min_wait = 0;
     var packet = nu.packets_send_queue.get_front();
     var last_packet = nu.packets_send_queue.get_back();
     while (packet && batch_count < SEND_BATCH_COUNT) {
 
         // resend packets only if last send was above a threshold
-        min_wait = SEND_RETRY_THRESHOLD - (now - packet.last_sent);
-        if (min_wait > 0) {
+        if (now - packet.last_sent < SEND_RETRANSMIT_DELAY) {
             break;
         }
 
@@ -424,9 +438,11 @@ function process_send_queue(conn) {
             'len', packet.len,
             'transmits', packet.transmits);
         packet.transmits += 1;
+        if (packet.transmits > 1) {
+            nu.packets_retrasmits += 1;
+        }
         packet.last_sent = now;
         batch_count += 1;
-        min_wait = 0;
         nu.send_packet(packet.buffer, 0, packet.len);
 
         // move packet to end of the send queue
@@ -441,18 +457,42 @@ function process_send_queue(conn) {
         packet = next_packet;
     }
 
-    dbg.log1(nu.connid, 'send_batch',
-        'min_wait', min_wait,
-        'window seq', nu.packets_send_window.get_front() &&
-        nu.packets_send_window.get_front().seq);
-    if (min_wait > 0) {
+    var hrtime = process.hrtime();
+    var hrsec = hrtime[0] + hrtime[1] / 1e9;
+    var dt = hrsec - nu.packets_ack_counter_last_time;
+    var num_acks = nu.packets_ack_counter - nu.packets_ack_counter_last_val;
+    var acks_per_sec = num_acks / dt;
+
+    // calculate the number of millis available for each batch.
+    // try to push the rate up by 8%, since we might have more bandwidth to use.
+    var ms_per_batch = 1000 * SEND_BATCH_COUNT /
+        Math.max(1.08 * acks_per_sec, ACKS_PER_SEC_MIN);
+
+    // update the saved values once every second or so
+    if (dt > 1) {
+        var num_retrans = nu.packets_retrasmits - nu.packets_retrasmits_last_val;
+        var retrans_per_sec = num_retrans / dt;
+        dbg.log0(nu.connid, 'send_packets:',
+            'num_acks', num_acks,
+            'acks_per_sec', acks_per_sec.toFixed(2),
+            'retrans_per_sec', retrans_per_sec.toFixed(2),
+            'ms_per_batch', ms_per_batch.toFixed(2));
+        nu.packets_ack_counter_last_val = nu.packets_ack_counter;
+        nu.packets_ack_counter_last_time = hrsec;
+        nu.packets_retrasmits_last_val = nu.packets_retrasmits;
+    }
+
+    // schedule next send according to calculated rate
+    // a small minimum number of milliseconds is needed for setTiemout
+    // because the timer will not be able to wake us up in sub milli times,
+    // so for higher rates we use setImmediate, but that will leave less
+    // cpu time for other tasks...
+    if (ms_per_batch > 2) {
         nu.process_send_timeout =
-            setTimeout(process_send_queue, min_wait, conn);
+            setTimeout(send_packets, ms_per_batch, conn);
     } else {
         nu.process_send_immediate =
-            setImmediate(process_send_queue, conn);
-        // nu.process_send_timeout =
-        // setTimeout(process_send_queue, SEND_BATCH_DELAY, conn);
+            setImmediate(send_packets, conn);
     }
 }
 
@@ -635,8 +675,7 @@ function send_fin(conn) {
 function receive_fin(conn, hdr) {
     var nu = conn.nudp;
     dbg.log0(nu.connid, 'receive_fin:',
-        'state', nu.state,
-        'attempt', hdr.seq);
+        'state', nu.state);
 
     conn.close();
 }
@@ -674,6 +713,7 @@ function receive_data_packet(conn, hdr, buffer) {
 
     if (hdr.seq === nu.packets_receive_window_seq) {
         do {
+
             // when we get the next packet we waited for we can collapse
             // the window of the next queued packets as well, and join them
             // to the received message.
@@ -683,6 +723,7 @@ function receive_data_packet(conn, hdr, buffer) {
             nu.packets_receive_message_buffers.push(packet.payload);
             nu.packets_receive_message_bytes += packet.payload.length;
             nu.packets_receive_window_seq += 1;
+
             // checking if this packet is a message boundary packet
             // and in that case we extract it and emit to the connection.
             if (packet.hdr.flags & PACKET_FLAG_BOUNDARY_END) {
@@ -695,7 +736,9 @@ function receive_data_packet(conn, hdr, buffer) {
             }
             packet = nu.packets_receive_window_map[nu.packets_receive_window_seq];
         } while (packet);
+
     } else {
+
         // if the packet is not the next awaited sequence,
         // then we save it for when that missing seq arrives
         dbg.log2(nu.connid, 'receive_data_packet:',
@@ -728,12 +771,14 @@ function send_delayed_acks(conn) {
     while (nu.delayed_acks_queue.length) {
         var buf = new Buffer(nu.mtu || nu.mtu_min);
         var offset = PACKET_HEADER_LEN;
+
         // fill the buffer with list of acks.
         while (offset < buf.length && nu.delayed_acks_queue.length) {
             var hdr = nu.delayed_acks_queue.pop_front();
             buf.writeDoubleBE(hdr.seq, offset);
             offset += 8;
         }
+
         write_packet_header(buf, PACKET_TYPE_DATA_ACK, nu.time, nu.rand, 0, 0);
         nu.send_packet(buf, 0, offset);
     }
@@ -764,6 +809,7 @@ function receive_acks(conn, hdr, buffer) {
         // update the packet and remove from pending send list
         packet.ack = true;
         nu.packets_send_queue.remove(packet);
+        nu.packets_ack_counter += 1;
 
         // check if this ack is the last ACK waited by this message,
         // and wakeup the sender.
@@ -779,7 +825,6 @@ function receive_acks(conn, hdr, buffer) {
     // and then populate the send window with more packets from pending messages.
     trim_send_window(conn);
     populate_send_window(conn);
-    process_send_queue(conn);
 }
 
 

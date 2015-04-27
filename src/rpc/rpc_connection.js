@@ -42,8 +42,8 @@ function RpcConnection(rpc, address) {
 /**
  *
  */
-RpcConnection.prototype.connect = function() {
-    return this.transport.connect(this);
+RpcConnection.prototype.connect = function(options) {
+    return this.transport.connect(this, options);
 };
 
 /**

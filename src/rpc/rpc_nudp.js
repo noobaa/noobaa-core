@@ -59,7 +59,7 @@ var CONN_RAND_CHANCE = {
  * connect
  *
  */
-function connect(conn) {
+function connect(conn, options) {
     var nu = conn.nudp;
     if (nu) {
         if (nu.connect_defer) {
@@ -72,7 +72,7 @@ function connect(conn) {
             ' state ' + nu.state);
     }
 
-    init_nudp_conn(conn);
+    init_nudp_conn(conn, options.nudp_context);
     nu = conn.nudp;
 
     // TODO nudp connection keepalive interval
@@ -146,9 +146,6 @@ function close(conn) {
  *
  */
 function listen(rpc, port) {
-    if (rpc.nudp_context) {
-        throw new Error('NUDP already listening');
-    }
     var nudp_context = {
         port: port,
         socket: dgram.createSocket('udp4'),
@@ -164,8 +161,8 @@ function listen(rpc, port) {
         // TODO can udp sockets just error?
         dbg.error('NUDP socket error', err.stack || err);
     });
-    rpc.nudp_context = nudp_context;
-    return Q.ninvoke(nudp_context.socket, 'bind', port);
+    return Q.ninvoke(nudp_context.socket, 'bind', port)
+        .thenResolve(nudp_context);
 }
 
 
@@ -211,9 +208,9 @@ function authenticate(conn, auth_token) {
  * init_nudp_conn
  *
  */
-function init_nudp_conn(conn, time, rand) {
-    if (!conn.rpc.nudp_context) {
-        throw new Error('NUDP no listening context');
+function init_nudp_conn(conn, nudp_context, time, rand) {
+    if (!nudp_context) {
+        throw new Error('no nudp context');
     }
 
     time = time || Date.now();
@@ -221,10 +218,10 @@ function init_nudp_conn(conn, time, rand) {
     var connid = conn.address +
         '/' + time.toString(16) +
         '.' + rand.toString(16);
-    conn.rpc.nudp_context.connections[connid] = conn;
+    nudp_context.connections[connid] = conn;
 
     var nu = conn.nudp = {
-        context: conn.rpc.nudp_context,
+        context: nudp_context,
         state: STATE_INIT,
         connect_defer: Q.defer(),
         send_packet: send_packet,
@@ -545,7 +542,7 @@ function receive_packet(rpc, nudp_context, buffer, rinfo) {
         }
         dbg.log0(connid, 'receive_packet: NUDP NEW CONNECTION');
         conn = rpc.new_connection(address);
-        init_nudp_conn(conn, hdr.time, hdr.rand);
+        init_nudp_conn(conn, nudp_context, hdr.time, hdr.rand);
     }
     var nu = conn.nudp;
     if (nu.state === STATE_CLOSED) {

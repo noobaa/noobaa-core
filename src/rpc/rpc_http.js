@@ -51,7 +51,7 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
  * connect
  *
  */
-function connect(conn) {
+function connect(conn, options) {
     conn.http = {};
 }
 

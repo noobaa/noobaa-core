@@ -68,7 +68,9 @@ RPC.prototype.register_service = function(api, server, options) {
  */
 RPC.prototype.create_client = function(api, default_options) {
     var self = this;
-    var client = {};
+    var client = {
+        options: default_options || {}
+    };
     if (!api || !api.name || !api.methods) {
         throw new Error('BAD API on RPC.create_client');
     }
@@ -78,7 +80,7 @@ RPC.prototype.create_client = function(api, default_options) {
         client[method_name] = function(params, options) {
             // fill default options from client
             options = options || {};
-            _.forIn(default_options, function(v, k) {
+            _.forIn(client.options, function(v, k) {
                 if (!(k in options)) {
                     options[k] = v;
                 }
@@ -199,7 +201,7 @@ RPC.prototype.assign_connection = function(req, options) {
     }
     req.connection = conn;
     conn.sent_requests[req.reqid] = req;
-    return Q.when(conn.connect())
+    return Q.when(conn.connect(options))
         .then(function() {
             return conn.authenticate(options.auth_token);
         });

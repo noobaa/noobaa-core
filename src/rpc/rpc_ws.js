@@ -22,7 +22,7 @@ module.exports = {
  * connect
  *
  */
-function connect(conn) {
+function connect(conn, options) {
     if (conn.ws) {
         return conn.ws.connect_defer && conn.ws.connect_defer.promise;
     }

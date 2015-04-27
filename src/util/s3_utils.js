@@ -6,6 +6,10 @@ var Q = require('q');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var s3_util = require('aws-sdk/lib/util');
 
+// The original s3 code doesn't work well with express and query string.
+// It expects to see query string as part of the request.path.
+// This is a copy of aws javascript sdk code, with minor modifications.
+
 module.exports = {
     noobaa_string_to_sign: noobaa_string_to_sign,
     canonicalizedResource: canonicalizedResource,
@@ -36,6 +40,7 @@ var subResources = {
     'website': 1
 };
 function canonicalizedResource (request) {
+    //handle path - modification on top of aws code.
     var r = request;
     var parts = r.url.split('?');
     var path = r.path;
@@ -59,6 +64,7 @@ function canonicalizedResource (request) {
                 var subresource = {
                     name: name
                 };
+                //another modification on top of aws code.
                 //fixed to isEmpty, instead of undefined comparison
                 if (!_.isEmpty(value)) {
                     if (subResources[name]) {
@@ -113,7 +119,7 @@ function noobaa_string_to_sign (request) {
     var r = request;
     var parts = [];
     parts.push(r.method);
-    //changed to lower case
+    //changed to lower case (on top of aws code)
     parts.push(r.headers['content-md5'] || '');
     parts.push(r.headers['content-type'] || '');
 
@@ -127,7 +133,6 @@ function noobaa_string_to_sign (request) {
     parts.push(canonicalizedResource(request));
 
     parts = parts.join('\n');
-    dbg.log('')
     return parts;
 
 }

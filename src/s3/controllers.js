@@ -62,7 +62,7 @@ module.exports = function(params) {
                     }
                     return res.status(200).end();
                 }, function(err) {
-                    dbg.log0('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
+                    dbg.error('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
                     return res.status(500).end();
                 });
 
@@ -117,7 +117,7 @@ module.exports = function(params) {
                         }).then(function() {
                             dbg.log0('Deleted old version of object "%s" in bucket "%s"', target_object.key, target_object.bucket);
                         }, function(err) {
-                            dbg.log0('Failure while trying to delete old version of object "%s"', target_object.key, err);
+                            dbg.error('Failure while trying to delete old version of object "%s"', target_object.key, err);
                         });
                     }
                 }
@@ -408,7 +408,7 @@ module.exports = function(params) {
             isBucketExists(bucketName, extract_access_key(req))
                 .then(function(exists) {
                     if (!exists) {
-                        dbg.log0('(1) No bucket found for "%s"', bucketName);
+                        dbg.error('(1) No bucket found for "%s"', bucketName);
                         var template = templateBuilder.buildBucketNotFound(bucketName);
                         return buildXmlResponse(res, 404, template);
                     }
@@ -419,7 +419,7 @@ module.exports = function(params) {
                 });
         },
         getBuckets: function(req, res) {
-            dbg.log0('getBuckets');
+            dbg.log0('getBuckets',req.params.bucket);
             var date = new Date();
             date.setMilliseconds(0);
             date = date.toISOString();
@@ -773,7 +773,7 @@ module.exports = function(params) {
                                 dbg.log0('Deleted old version of object "%s" in bucket "%s"', file_key_name, req.bucket);
                                 uploadObject(req, res, file_key_name);
                             }, function(err) {
-                                dbg.log0('Failure while trying to delete old version of object "%s"', file_key_name, err);
+                                dbg.error('Failure while trying to delete old version of object "%s"', file_key_name, err);
                                 var template = templateBuilder.buildKeyNotFound(file_key_name);
                                 return buildXmlResponse(res, 500, template);
 

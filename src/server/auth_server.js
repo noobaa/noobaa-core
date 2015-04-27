@@ -210,7 +210,6 @@ function create_access_key_auth(req) {
     var account;
     var system;
     var role;
-    dbg.log0('debdeb:',req.rpc_params);
     dbg.log3('create_access_key_auth', access_key, string_to_sign, signature);
     return Q.fcall(function() {
 
@@ -235,11 +234,11 @@ function create_access_key_auth(req) {
             }).then(function() {
                 var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
                 var s3_signature = s3.sign(secret_key, string_to_sign);
-                dbg.log3('s3::: signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
+                dbg.log3('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
                 if (signature === s3_signature) {
                     dbg.log3('s3 authentication test passed!!!');
                 } else {
-                    throw req.unauthorized('SignatureDoesNotMatch3');
+                    throw req.unauthorized('SignatureDoesNotMatch');
                 }
 
             }).then(function() {
@@ -330,7 +329,7 @@ function authorize(req, method_api) {
                         dbg.log3('Access key authentication (per request) test passed !!!');
                     } else {
                         dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
-                        throw req.unauthorized('SignatureDoesNotMatch1');
+                        throw req.unauthorized('SignatureDoesNotMatch');
                     }
                 }
             });

@@ -21,7 +21,6 @@ function s3_app(params) {
 
     var express = require('express');
     var app = express();
-    //logger = require('./logger')(false),
     var Controllers = require('./controllers');
     var controllers = new Controllers(params);
 
@@ -29,79 +28,73 @@ function s3_app(params) {
 
         return Q.fcall(function() {
 
-            dbg.log0('S3 request. Time:', Date.now(), req.originalUrl, req.headers, req.query, req.query.prefix, req.query.delimiter);
+                dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
+
+                if (req.headers.authorization) {
+
+                    var s3 = new s3_auth(req);
+                    //Using noobaa's extraction function, due to compatibility problem in aws library with express.
+                    params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
+
+                    // debug code.
+                    // use it for faster detection of a problem in the signature calculation and verification
+                    //
+                    // var awsSecretKey = 'abc';
+                    // var awsAccessKey = '123';
+                    // var s3_internal_signature = s3.sign(awsSecretKey, params.string_to_sign);
+                    // dbg.log0('s3 internal:::' + params.string_to_sign);
+                    // if (req.headers.authorization === 'AWS ' + awsAccessKey + ':' + s3_internal_signature) {
+                    //     dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
+                    // } else {
+                    //     dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization);
+                    // }
 
 
-            if (req.headers.authorization) {
+                    var end_of_aws_key = req.headers.authorization.indexOf(':');
+                    var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+                    params.access_key = req_access_key;
+                    params.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
 
-                var s3 = new s3_auth(req);
+                    return Q.fcall(function() {
+                        return controllers.is_system_client_exists(params.access_key);
+                    }).then(function(is_exists) {
+                        if (!is_exists) {
+                            return controllers.add_new_system_client(params);
+                        } else {
+                            controllers.update_system_auth(params.access_key, params);
+                        }
 
-                params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
+                    });
 
-                // The original s3 code doesn't work well with express and query string.
-                // It expects to see query string as part of the request.path.
-                // debug code:
-                // var awsSecretKey = 'abc';
-                // var awsAccessKey = '123';
-                // var s3_internal_signature = s3.sign(awsSecretKey, params.string_to_sign);
-                // dbg.log0('s3 internal:::' + params.string_to_sign);
-                // if (req.headers.authorization === 'AWS ' + awsAccessKey + ':' + s3_internal_signature) {
-                //     dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
-                // } else {
-                //     dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization);
-                // }
-
-
-                var end_of_aws_key = req.headers.authorization.indexOf(':');
-                var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
-                params.access_key = req_access_key;
-                params.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
-
-                return Q.fcall(function() {
-                    return controllers.is_system_client_exists(params.access_key);
-                }).then(function(is_exists) {
-                    if (!is_exists) {
-                        return controllers.add_new_system_client(params);
-                    }else{
-                        controllers.update_system_auth(params.access_key,params);
+                } else {
+                    //unauthorized...
+                    dbg.error('Unauthorized request!');
+                    var template = templateBuilder.buildSignatureDoesNotMatch('');
+                    res = controllers.buildXmlResponse(res, 401, template);
+                }
+            }).then(function() {
+                if (req.headers.host) {
+                    //compatiblity update for various clients.
+                    if (req.headers.host.indexOf(params.bucket) === 0) {
+                        req.url = req.url.replace('/', '/' + params.bucket + '/');
+                        dbg.log0('update path with bucket name', req.url, req.path, params.bucket);
                     }
+                    if (req.query.prefix && req.query.delimiter) {
+                        if (req.query.prefix.indexOf(req.query.delimiter) < 0) {
+                            req.url = req.url.replace(req.query.prefix, req.query.prefix + req.query.delimiter);
+                            dbg.log0('updated prefix', req.url, req.query.prefix);
+                            req.query.prefix = req.query.prefix + req.query.delimiter;
 
-                });
-
-            } else {
-                //unauthorized...
-                dbg.error('UNAUTHORIZED!!!!');
-                var template = templateBuilder.buildSignatureDoesNotMatch('');
-                res = controllers.buildXmlResponse(res, 401, template);
-            }
-        }).then(function() {
-            if (req.headers.host) {
-                if (req.headers.host.indexOf(params.bucket) === 0) {
-                    req.url = req.url.replace('/', '/' + params.bucket + '/');
-                    dbg.log0('update path with bucket name', req.url, req.path, params.bucket);
-                }
-                if (req.query.prefix && req.query.delimiter) {
-                    if (req.query.prefix.indexOf(req.query.delimiter) < 0) {
-                        req.url = req.url.replace(req.query.prefix, req.query.prefix + req.query.delimiter);
-                        dbg.log0('updated prefix', req.url, req.query.prefix);
-                        req.query.prefix = req.query.prefix + req.query.delimiter;
-
+                        }
                     }
                 }
-                if (req.url.indexOf('/' + params.bucket + '?') >= 0) {
-                    //req.url = req.url.replace(params.bucket,params.bucket+'/');
-                    dbg.log0('updated bucket name with delimiter', req.url);
-                }
+                next();
 
-
-            }
-            next();
-
-        })
-        .then (null,function(err){
-            dbg.error('Failure during new request handling',err,err.stack);
-            return controllers.build_unauthorized_response(res,params.string_to_sign);
-        });
+            })
+            .then(null, function(err) {
+                dbg.error('Failure during new request handling', err, err.stack);
+                return controllers.build_unauthorized_response(res, params.string_to_sign);
+            });
 
     });
 
@@ -133,7 +126,7 @@ function s3_app(params) {
                         http.createServer(app.handle.bind(app))
                             .listen(params.port, function(err) {
                                 if (err) {
-                                    dbg.err('HTTP listen', err);
+                                    dbg.error('HTTP listen', err);
                                     reject(err);
                                 } else {
                                     resolve();
@@ -150,7 +143,7 @@ function s3_app(params) {
                             }, app.handle.bind(app))
                             .listen(params.ssl_port, function(err) {
                                 if (err) {
-                                    dbg.err('HTTPS listen', err);
+                                    dbg.error('HTTPS listen', err);
                                     reject(err);
                                 } else {
                                     resolve();

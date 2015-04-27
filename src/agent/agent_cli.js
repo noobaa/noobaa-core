@@ -98,7 +98,7 @@ AgentCLI.prototype.init = function() {
                 .then(function() {
                     dbg.log0('COMPLETED: load');
                 }, function(err) {
-                    dbg.log0('ERROR: load', self.params, err.stack);
+                    dbg.error('ERROR: load', self.params, err.stack);
                     throw new Error(err);
                 });
         });
@@ -428,7 +428,7 @@ function main() {
         populate_general_help(help.general);
         repl_srv.context.help = help;
     }, function(err) {
-        dbg.log0('init err:' + err);
+        dbg.error('init err:' + err);
 
     });
 }

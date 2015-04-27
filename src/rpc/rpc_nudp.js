@@ -41,12 +41,12 @@ var MTU_MAX = 64 * 1024;
 var SYN_ATTEMPTS = 10;
 var SYN_ATTEMPT_DELAY = 100;
 
-var WINDOW_BYTES_MAX = 32 * 1024 * 1024;
-var WINDOW_LENGTH_MAX = 2000;
+var WINDOW_BYTES_MAX = 4 * 1024 * 1024;
+var WINDOW_LENGTH_MAX = 5000;
 var SEND_BATCH_COUNT = 5;
 var SEND_RETRANSMIT_DELAY = 100;
-var ACKS_PER_SEC_MIN = 2000;
-var ACK_DELAY = 5;
+var ACK_DELAY = 20;
+var ACKS_PER_SEC_MIN = 1000;
 
 var CONN_RAND_CHANCE = {
     min: 1,
@@ -462,23 +462,35 @@ function send_packets(conn) {
     var dt = hrsec - nu.packets_ack_counter_last_time;
     var num_acks = nu.packets_ack_counter - nu.packets_ack_counter_last_val;
     var acks_per_sec = num_acks / dt;
+    var num_retrans = nu.packets_retrasmits - nu.packets_retrasmits_last_val;
+    var retrans_per_sec = num_retrans / dt;
 
-    // calculate the number of millis available for each batch.
     // try to push the rate up by 8%, since we might have more bandwidth to use.
+    var rate_change;
+    if (retrans_per_sec < 5) {
+        rate_change = 1.5;
+    } else if (retrans_per_sec < 15) {
+        rate_change = 1.1;
+    } else if (retrans_per_sec < 100) {
+        rate_change = 1;
+    } else if (retrans_per_sec < 500) {
+        rate_change = 0.8;
+    } else {
+        rate_change = 0.5;
+    }
+    // calculate the number of millis available for each batch.
     var ms_per_batch = 1000 * SEND_BATCH_COUNT /
-        Math.max(1.08 * acks_per_sec, ACKS_PER_SEC_MIN);
+        Math.max(rate_change * acks_per_sec, ACKS_PER_SEC_MIN);
 
-    // update the saved values once every second or so
-    if (dt > 1) {
-        var num_retrans = nu.packets_retrasmits - nu.packets_retrasmits_last_val;
-        var retrans_per_sec = num_retrans / dt;
+    // update the saved values once in fixed intervals
+    if (dt > 3) {
         dbg.log0(nu.connid, 'send_packets:',
             'num_acks', num_acks,
             'acks_per_sec', acks_per_sec.toFixed(2),
             'retrans_per_sec', retrans_per_sec.toFixed(2),
             'ms_per_batch', ms_per_batch.toFixed(2));
-        nu.packets_ack_counter_last_val = nu.packets_ack_counter;
         nu.packets_ack_counter_last_time = hrsec;
+        nu.packets_ack_counter_last_val = nu.packets_ack_counter;
         nu.packets_retrasmits_last_val = nu.packets_retrasmits;
     }
 
@@ -487,7 +499,7 @@ function send_packets(conn) {
     // because the timer will not be able to wake us up in sub milli times,
     // so for higher rates we use setImmediate, but that will leave less
     // cpu time for other tasks...
-    if (ms_per_batch > 2) {
+    if (ms_per_batch > 5) {
         nu.process_send_timeout =
             setTimeout(send_packets, ms_per_batch, conn);
     } else {

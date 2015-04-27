@@ -208,12 +208,12 @@ function report() {
     var v_rbytes_start = io_rbytes / d_time_start;
     var v_wbytes_start = io_wbytes / d_time_start;
     dbg.log0(
-        ' |||  Count ', v_count.toFixed(1),
-        ' (~' + v_count_start.toFixed(1) + ')',
-        ' |||  Read ', (v_rbytes / MB).toFixed(1),
-        'MB  (~' + (v_rbytes_start / MB).toFixed(1) + ')',
-        ' |||  Write ', (v_wbytes / MB).toFixed(1),
-        'MB  (~' + (v_wbytes_start / MB).toFixed(1) + ')',
+        ' |||  Count ', v_count.toFixed(3),
+        ' (~' + v_count_start.toFixed(3) + ')',
+        ' |||  Read ', (v_rbytes / MB).toFixed(3),
+        'MB  (~' + (v_rbytes_start / MB).toFixed(3) + ')',
+        ' |||  Write ', (v_wbytes / MB).toFixed(3),
+        'MB  (~' + (v_wbytes_start / MB).toFixed(3) + ')',
         ' |||');
     report_time = now;
     report_io_count = io_count;

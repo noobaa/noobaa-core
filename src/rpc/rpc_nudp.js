@@ -703,67 +703,76 @@ function receive_fin(conn, hdr) {
  */
 function receive_data_packet(conn, hdr, buffer) {
     var nu = conn.nudp;
+    var add_to_acks_queue = true;
 
-    // checking if the received sequence is old, and then drop it.
-    // this case means we get dup packets.
-    // TODO reply with DUP ACK ?
-    if (hdr.seq < nu.packets_receive_window_seq) {
-        dbg.log2(nu.connid, 'receive_data_packet:',
-            'drop old seq', hdr.seq);
-        return;
-    }
-
-    // checking if the received sequence is out of the window length
-    // TODO reply with NEGATIVE ACK ?
     if (hdr.seq > nu.packets_receive_window_seq + WINDOW_LENGTH_MAX) {
+
+        // checking if the received sequence is out of the window length
+        // TODO reply with NEGATIVE ACK ?
+
         dbg.log2(nu.connid, 'receive_data_packet:',
             'drop seq out of window', hdr.seq);
-        return;
-    }
+        add_to_acks_queue = false;
 
-    var packet = {
-        hdr: hdr,
-        payload: buffer.slice(PACKET_HEADER_LEN)
-    };
+    } else if (hdr.seq < nu.packets_receive_window_seq) {
 
-    if (hdr.seq === nu.packets_receive_window_seq) {
-        do {
+        // checking if the received sequence is old, and then drop it.
+        // this case means we get dup packets.
+        // we still send an ack for this packet to help release the sender.
+        // TODO reply with DUP ACK ?
 
-            // when we get the next packet we waited for we can collapse
-            // the window of the next queued packets as well, and join them
-            // to the received message.
-            dbg.log2(nu.connid, 'receive_data_packet:',
-                'pop from window seq', packet.hdr.seq);
-            delete nu.packets_receive_window_map[nu.packets_receive_window_seq];
-            nu.packets_receive_message_buffers.push(packet.payload);
-            nu.packets_receive_message_bytes += packet.payload.length;
-            nu.packets_receive_window_seq += 1;
-
-            // checking if this packet is a message boundary packet
-            // and in that case we extract it and emit to the connection.
-            if (packet.hdr.flags & PACKET_FLAG_BOUNDARY_END) {
-                var msg = Buffer.concat(
-                    nu.packets_receive_message_buffers,
-                    nu.packets_receive_message_bytes);
-                nu.packets_receive_message_buffers.length = 0;
-                nu.packets_receive_message_bytes = 0;
-                conn.receive(msg);
-            }
-            packet = nu.packets_receive_window_map[nu.packets_receive_window_seq];
-        } while (packet);
+        dbg.log2(nu.connid, 'receive_data_packet:',
+            'drop old seq', hdr.seq);
 
     } else {
 
-        // if the packet is not the next awaited sequence,
-        // then we save it for when that missing seq arrives
-        dbg.log2(nu.connid, 'receive_data_packet:',
-            'push to window seq', hdr.seq,
-            'wait for seq', nu.packets_receive_window_seq);
-        nu.packets_receive_window_map[hdr.seq] = packet;
+        var packet = {
+            hdr: hdr,
+            payload: buffer.slice(PACKET_HEADER_LEN)
+        };
+
+        if (hdr.seq === nu.packets_receive_window_seq) {
+            do {
+
+                // when we get the next packet we waited for we can collapse
+                // the window of the next queued packets as well, and join them
+                // to the received message.
+                dbg.log2(nu.connid, 'receive_data_packet:',
+                    'pop from window seq', packet.hdr.seq);
+                delete nu.packets_receive_window_map[nu.packets_receive_window_seq];
+                nu.packets_receive_message_buffers.push(packet.payload);
+                nu.packets_receive_message_bytes += packet.payload.length;
+                nu.packets_receive_window_seq += 1;
+
+                // checking if this packet is a message boundary packet
+                // and in that case we extract it and emit to the connection.
+                if (packet.hdr.flags & PACKET_FLAG_BOUNDARY_END) {
+                    var msg = Buffer.concat(
+                        nu.packets_receive_message_buffers,
+                        nu.packets_receive_message_bytes);
+                    nu.packets_receive_message_buffers.length = 0;
+                    nu.packets_receive_message_bytes = 0;
+                    conn.receive(msg);
+                }
+                packet = nu.packets_receive_window_map[nu.packets_receive_window_seq];
+            } while (packet);
+
+        } else {
+
+            // if the packet is not the next awaited sequence,
+            // then we save it for when that missing seq arrives
+            dbg.log2(nu.connid, 'receive_data_packet:',
+                'push to window seq', hdr.seq,
+                'wait for seq', nu.packets_receive_window_seq);
+            nu.packets_receive_window_map[hdr.seq] = packet;
+        }
     }
 
+
     // queue a delayed ack
-    nu.delayed_acks_queue.push_back(hdr);
+    if (add_to_acks_queue) {
+        nu.delayed_acks_queue.push_back(hdr);
+    }
     if (!nu.delayed_acks_timeout) {
         nu.delayed_acks_timeout =
             setTimeout(send_delayed_acks, ACK_DELAY, conn);
@@ -778,13 +787,17 @@ function receive_data_packet(conn, hdr, buffer) {
  */
 function send_delayed_acks(conn) {
     var nu = conn.nudp;
+    var missing_seq = nu.packets_receive_window_seq;
     dbg.log1(nu.connid, 'send_delayed_acks:',
-        'count', nu.delayed_acks_queue.length);
+        'count', nu.delayed_acks_queue.length,
+        'missing_seq', missing_seq);
+
     clearTimeout(nu.delayed_acks_timeout);
     nu.delayed_acks_timeout = null;
 
-    var missing_seq = nu.packets_receive_window_seq;
-    while (nu.delayed_acks_queue.length) {
+    // send at least one ACK packet even if the queue is empty,
+    // in order to send the missing_seq.
+    do {
         var buf = new Buffer(nu.mtu || nu.mtu_min);
         var offset = PACKET_HEADER_LEN;
 
@@ -797,7 +810,7 @@ function send_delayed_acks(conn) {
 
         write_packet_header(buf, PACKET_TYPE_DATA_ACK, nu.time, nu.rand, missing_seq, 0);
         nu.send_packet(buf, 0, offset);
-    }
+    } while (nu.delayed_acks_queue.length);
 }
 
 /**

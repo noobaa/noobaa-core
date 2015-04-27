@@ -45,7 +45,7 @@ var WINDOW_BYTES_MAX = 4 * 1024 * 1024;
 var WINDOW_LENGTH_MAX = 5000;
 var SEND_BATCH_COUNT = 5;
 var SEND_RETRANSMIT_DELAY = 100;
-var ACK_DELAY = 20;
+var ACK_DELAY = 10;
 var ACKS_PER_SEC_MIN = 1000;
 
 var CONN_RAND_CHANCE = {
@@ -780,6 +780,7 @@ function send_delayed_acks(conn) {
     clearTimeout(nu.delayed_acks_timeout);
     nu.delayed_acks_timeout = null;
 
+    var missing_seq = nu.packets_receive_window_seq;
     while (nu.delayed_acks_queue.length) {
         var buf = new Buffer(nu.mtu || nu.mtu_min);
         var offset = PACKET_HEADER_LEN;
@@ -791,7 +792,7 @@ function send_delayed_acks(conn) {
             offset += 8;
         }
 
-        write_packet_header(buf, PACKET_TYPE_DATA_ACK, nu.time, nu.rand, 0, 0);
+        write_packet_header(buf, PACKET_TYPE_DATA_ACK, nu.time, nu.rand, missing_seq, 0);
         nu.send_packet(buf, 0, offset);
     }
 }
@@ -831,6 +832,15 @@ function receive_acks(conn, hdr, buffer) {
             packet.message.send_defer.resolve();
             packet.message.send_defer = null;
         }
+    }
+
+    // for the missing packet we force resend
+    var missing_seq = hdr.seq;
+    var missing_packet = nu.packets_send_wait_ack_map[missing_seq];
+    if (missing_packet) {
+        nu.packets_send_queue.remove(missing_packet);
+        nu.packets_send_queue.push_front(missing_packet);
+        missing_packet.last_sent = 0;
     }
 
     // after receiving ACKs we trim send window to allow adding new messages,

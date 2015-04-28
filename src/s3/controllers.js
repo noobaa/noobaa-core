@@ -231,6 +231,7 @@ module.exports = function(params) {
             .then(function(results) {
                 var i = 0;
                 var folders = {};
+                dbg.log0('results:',results);
                 var objects = _.filter(results.objects, function(obj) {
                     try {
                         var date = new Date(obj.info.create_time);
@@ -242,13 +243,19 @@ module.exports = function(params) {
                         //we will keep the full path for CloudBerry online cloud backup tool
 
                         var obj_sliced_key = obj.key.slice(prefix.length);
-                        dbg.log3('obj.key:', obj.key, ' prefix ', prefix);
+                        dbg.log0('obj.key:', obj.key, ' prefix ', prefix,' sliced',obj_sliced_key);
                         if (obj_sliced_key.indexOf(delimiter) >= 0) {
                             var folder = obj_sliced_key.split(delimiter, 1)[0];
                             folders[prefix + folder + "/"] = true;
                             return false;
                         }
+
                         if (list_params.key === obj.key) {
+                            dbg.log0('LISTED KEY same as REQUIRED',obj.key);
+                            if (prefix===obj.key && prefix.substring(prefix.length-1)!==delimiter){
+                                return true;
+                            }
+
                             return false;
                         }
                         if (!obj.key) {
@@ -265,7 +272,7 @@ module.exports = function(params) {
                     objects: objects,
                     folders: folders
                 };
-                dbg.log3('About to return objects and folders:', objects_and_folders);
+                dbg.log0('About to return objects and folders:', objects_and_folders);
                 return objects_and_folders;
             }).then(null, function(err) {
                 dbg.error('failed to list object with prefix', err);

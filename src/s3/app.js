@@ -79,14 +79,14 @@ function s3_app(params) {
                         req.url = req.url.replace('/', '/' + params.bucket + '/');
                         dbg.log0('update path with bucket name', req.url, req.path, params.bucket);
                     }
-                    if (req.query.prefix && req.query.delimiter) {
-                        if (req.query.prefix.indexOf(req.query.delimiter) < 0) {
-                            req.url = req.url.replace(req.query.prefix, req.query.prefix + req.query.delimiter);
-                            dbg.log0('updated prefix', req.url, req.query.prefix);
-                            req.query.prefix = req.query.prefix + req.query.delimiter;
-
-                        }
-                    }
+                    // if (req.query.prefix && req.query.delimiter) {
+                    //     if (req.query.prefix.indexOf(req.query.delimiter) < 0) {
+                    //         req.url = req.url.replace(req.query.prefix, req.query.prefix + req.query.delimiter);
+                    //         dbg.log0('updated prefix', req.url, req.query.prefix);
+                    //         req.query.prefix = req.query.prefix + req.query.delimiter;
+                    //
+                    //     }
+                    // }
                 }
                 next();
 

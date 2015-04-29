@@ -105,12 +105,13 @@ module.exports = {
     send_indication: send_indication,
     is_stun_packet: is_stun_packet,
     new_packet: new_packet,
-    get_method: get_method,
+    get_method_field: get_method_field,
     get_method_name: get_method_name,
-    set_method: set_method,
+    set_method_field: set_method_field,
     set_method_name: set_method_name,
-    get_attrs_len: get_attrs_len,
-    set_attrs_len: set_attrs_len,
+    get_attrs_len_field: get_attrs_len_field,
+    set_attrs_len_field: set_attrs_len_field,
+    set_magic_and_tid_field: set_magic_and_tid_field,
     decode_attrs: decode_attrs,
     test: test,
 };
@@ -135,7 +136,7 @@ function connect_socket(socket, stun_host, stun_port) {
         if (!is_stun_packet(buffer)) {
             return;
         }
-        var method = get_method(buffer);
+        var method = get_method_field(buffer);
         switch (method) {
             case STUN.METHODS.REQUEST:
                 receive_stun_request(socket, buffer, rinfo);
@@ -171,8 +172,19 @@ function connect_socket(socket, stun_host, stun_port) {
  *
  */
 function receive_stun_request(socket, buffer, rinfo) {
-    dbg.log0('STUN REQUEST', rinfo.address + ':' + rinfo.port);
-    // TODO reply stun packet with xor address of rinfo
+    dbg.log0('STUN REQUESTED from', rinfo.address + ':' + rinfo.port,
+        'me', socket.address().address + ':' + socket.address().port);
+    var reply = new_packet(STUN.METHODS.SUCCESS, [{
+        type: STUN.ATTRS.XOR_MAPPED_ADDRESS,
+        value: {
+            family: 'IPv4',
+            port: rinfo.port,
+            address: rinfo.address
+        }
+    }], buffer);
+    return Q.ninvoke(socket, 'send',
+        reply, 0, reply.length,
+        rinfo.port, rinfo.address);
 }
 
 /**
@@ -195,7 +207,7 @@ function receive_stun_response(socket, buffer, rinfo) {
  * the stun server should send a reply on this socket.
  */
 function send_request(socket, stun_host, stun_port) {
-    var buffer = new_packet('request');
+    var buffer = new_packet(STUN.METHODS.REQUEST);
     return Q.ninvoke(socket, 'send',
         buffer, 0, buffer.length,
         stun_port, stun_host);
@@ -206,7 +218,7 @@ function send_request(socket, stun_host, stun_port) {
  * this is essentialy a keep alive that does not require reply from the stun server.
  */
 function send_indication(socket, stun_host, stun_port) {
-    var buffer = new_packet('indication');
+    var buffer = new_packet(STUN.METHODS.INDICATION);
     return Q.ninvoke(socket, 'send',
         buffer, 0, buffer.length,
         stun_port || STUN.PORT, stun_host);
@@ -225,33 +237,22 @@ function is_stun_packet(buffer) {
 /**
  * create and initialize a new stun packet buffer
  */
-function new_packet(method_name) {
-    var buffer = new Buffer(STUN.HEADER_LENGTH);
-
-    // set binding class which is the only option for stun,
-    // and default method is a new stun request
-    buffer.writeUInt16BE(STUN.BINDING_TYPE | STUN.METHODS.REQUEST, 0);
-
-    // attrs len - init to 0
-    buffer.writeUInt16BE(0, 2);
-
-    // magic key is a constant
-    buffer.writeUInt32BE(STUN.MAGIC_KEY, 4);
-
-    // 96bit transaction id
-    crypto.pseudoRandomBytes(12).copy(buffer, 8);
-
-    if (method_name) {
-        set_method_name(buffer, method_name);
+function new_packet(method_code, attrs, req_buffer) {
+    var attrs_len = attrs ? encoded_attrs_len(attrs) : 0;
+    var buffer = new Buffer(STUN.HEADER_LENGTH + attrs_len);
+    set_method_field(buffer, method_code);
+    set_attrs_len_field(buffer, attrs_len);
+    set_magic_and_tid_field(buffer, req_buffer);
+    if (attrs) {
+        encode_attrs(buffer, attrs);
     }
-
     return buffer;
 }
 
 /**
  * decode the stun method field
  */
-function get_method(buffer) {
+function get_method_field(buffer) {
     return buffer.readUInt16BE(0) & STUN.METHOD_MASK;
 }
 
@@ -259,15 +260,16 @@ function get_method(buffer) {
  * decode the stun method field
  */
 function get_method_name(buffer) {
-    var code = get_method(buffer);
+    var code = get_method_field(buffer);
     return STUN.METHOD_NAMES[code];
 }
 
 /**
  * encode and set the stun method field
+ * set binding class which is the only option for stun.
  */
-function set_method(buffer, method_code) {
-    var val = STUN.BINDING_TYPE | method_code;
+function set_method_field(buffer, method_code) {
+    var val = STUN.BINDING_TYPE | (method_code & STUN.METHOD_MASK);
     buffer.writeUInt16BE(val, 0);
 }
 
@@ -280,21 +282,38 @@ function set_method_name(buffer, method_name) {
         throw new Error('bad stun method');
     }
     var method_code = STUN.METHODS[method_name];
-    set_method(buffer, method_code);
+    set_method_field(buffer, method_code);
 }
 
 /**
  * decode the stun attributes bytes length field
  */
-function get_attrs_len(buffer) {
+function get_attrs_len_field(buffer) {
     return buffer.readUInt16BE(2);
 }
 
 /**
  * encode and set the stun attributes bytes length field
  */
-function set_attrs_len(buffer, len) {
-    return buffer.readUInt16BE(len, 2);
+function set_attrs_len_field(buffer, len) {
+    buffer.writeUInt16BE(len, 2);
+}
+
+/**
+ * set constant magic key and generate random tid
+ */
+function set_magic_and_tid_field(buffer, req_buffer) {
+    // magic key is a constant
+    buffer.writeUInt32BE(STUN.MAGIC_KEY, 4);
+
+    // 96bit transaction id
+    if (req_buffer) {
+        // copy tid from request
+        req_buffer.copy(buffer, 8, 8, 20);
+    } else {
+        // generate new random tid
+        crypto.pseudoRandomBytes(12).copy(buffer, 8);
+    }
 }
 
 /**
@@ -303,7 +322,7 @@ function set_attrs_len(buffer, len) {
 function decode_attrs(buffer) {
     var attrs = [];
     var offset = STUN.HEADER_LENGTH;
-    var end = offset + get_attrs_len(buffer);
+    var end = offset + get_attrs_len_field(buffer);
 
     while (offset < end) {
         var type = buffer.readUInt16BE(offset);
@@ -333,16 +352,8 @@ function decode_attrs(buffer) {
             case STUN.ATTRS.SOFTWARE:
             case STUN.ATTRS.USERNAME:
             case STUN.ATTRS.REALM:
-                value = buffer.slice(offset, next).toString('ascii');
+                value = buffer.slice(offset, next).toString('utf8');
                 break;
-                /*
-                case STUN.ATTRS.NONCE:
-                case STUN.ATTRS.MESSAGE_INTEGRITY:
-                case STUN.ATTRS.ALTERNATE_SERVER:
-                case STUN.ATTRS.FINGERPRINT:
-                case STUN.ATTRS.REFLECTED_FROM_OLD:
-                case STUN.ATTRS.PASSWORD_OLD:
-                */
             default:
                 value = buffer.slice(offset, next);
                 break;
@@ -355,14 +366,89 @@ function decode_attrs(buffer) {
             length: length,
         });
 
-        // align offset to 4 bytes
-        offset = next;
-        var rem = offset % 4;
-        offset += rem ? (4 - rem) : 0;
+        offset = align_offset(next);
     }
 
     return attrs;
 }
+
+/**
+ *
+ */
+function encoded_attrs_len(attrs) {
+    var len = 0;
+    for (var i = 0; i < attrs.length; ++i) {
+        // every attr requires type and len 16bit each
+        len = align_offset(len + 4 + encoded_attr_len(attrs[i]));
+    }
+    return len;
+}
+
+/**
+ *
+ */
+function encoded_attr_len(attr) {
+    switch (attr.type) {
+        case STUN.ATTRS.MAPPED_ADDRESS:
+        case STUN.ATTRS.RESPONSE_ADDRESS_OLD:
+        case STUN.ATTRS.CHANGE_ADDRESS_OLD:
+        case STUN.ATTRS.SOURCE_ADDRESS_OLD:
+        case STUN.ATTRS.CHANGED_ADDRESS_OLD:
+        case STUN.ATTRS.XOR_MAPPED_ADDRESS:
+            // IPv4 address has: 2 byte family, 2 byte port, 4 byte ip
+            // IPv6 address has: 2 byte family, 2 byte port, 8 byte ip
+            return attr.value.family === 'IPv6' ? 12 : 8;
+        case STUN.ATTRS.SOFTWARE:
+        case STUN.ATTRS.USERNAME:
+        case STUN.ATTRS.REALM:
+            return Buffer.byteLength(attr.value, 'utf8');
+        default:
+            return attr.value.length;
+    }
+}
+
+/**
+ *
+ */
+function encode_attrs(buffer, attrs) {
+    var offset = STUN.HEADER_LENGTH;
+    for (var i = 0; i < attrs.length; ++i) {
+        var attr = attrs[i];
+        buffer.writeUInt16BE(attr.type, offset);
+        offset += 2;
+        var length = encoded_attr_len(attr);
+        buffer.writeUInt16BE(length, offset);
+        offset += 2;
+        var next = offset + length;
+
+        switch (attr.type) {
+            case STUN.ATTRS.MAPPED_ADDRESS:
+            case STUN.ATTRS.RESPONSE_ADDRESS_OLD:
+            case STUN.ATTRS.CHANGE_ADDRESS_OLD:
+            case STUN.ATTRS.SOURCE_ADDRESS_OLD:
+            case STUN.ATTRS.CHANGED_ADDRESS_OLD:
+                encode_attr_mapped_addr(attr.value, buffer, offset, next);
+                break;
+            case STUN.ATTRS.XOR_MAPPED_ADDRESS:
+                encode_attr_xor_mapped_addr(attr.value, buffer, offset, next);
+                break;
+            case STUN.ATTRS.ERROR_CODE:
+                encode_attr_error_code(attr.value, buffer, offset, next);
+                break;
+            case STUN.ATTRS.SOFTWARE:
+            case STUN.ATTRS.USERNAME:
+            case STUN.ATTRS.REALM:
+                buffer.write(attr.value, offset, length, 'utf8');
+                break;
+            default:
+                throw new Error('ENCODE ATTR NOT SUPPORTED ' + attr.type);
+        }
+
+        offset = align_offset(next);
+    }
+
+}
+
 
 /**
  * decode MAPPED-ADDRESS attribute
@@ -436,6 +522,61 @@ function decode_attr_unknown_attr(buffer, start, end) {
 
 
 /**
+ * encode MAPPED-ADDRESS attribute
+ * this is the main reply to stun request,
+ * though XOR-MAPPED-ADDRESS is preferred to avoid routers messing with it
+ */
+function encode_attr_mapped_addr(addr, buffer, offset, end) {
+    buffer.writeUInt16BE(addr.family === 'IPv6' ? 0x02 : 0x01, offset);
+
+    // xor the port against the magic key
+    buffer.writeUInt16BE(addr.port, offset + 2);
+
+    ip.toBuffer(addr.address, buffer, offset + 4);
+}
+
+
+/**
+ * encode XOR-MAPPED-ADDRESS attribute
+ * this is the main reply to stun request.
+ */
+function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
+    buffer.writeUInt16BE(addr.family === 'IPv6' ? 0x02 : 0x01, offset);
+
+    // xor the port against the magic key
+    buffer.writeUInt16BE(addr.port ^ buffer.readUInt16BE(STUN.XOR_KEY_OFFSET), offset + 2);
+
+    ip.toBuffer(addr.address, buffer, offset + 4);
+    var k = STUN.XOR_KEY_OFFSET;
+    for (var i = offset + 4; i < end; ++i) {
+        buffer[i] = buffer[i] ^ buffer[k++];
+    }
+}
+
+
+/**
+ * encode ERROR-CODE attribute
+ */
+function encode_attr_error_code(err, buffer, start, end) {
+    var code = ((err.code / 100) | 0) << 8 | ((err.code % 100) & 0xff);
+    buffer.writeUInt32BE(code, start);
+    buffer.writeUInt32BE(err.reason, start + 4);
+}
+
+
+/**
+ * offsets are aligned up to 4 bytes
+ */
+function align_offset(offset) {
+    var rem = offset % 4;
+    if (rem) {
+        return offset + 4 - rem;
+    } else {
+        return offset;
+    }
+}
+
+/**
  *
  */
 function test() {
@@ -444,7 +585,7 @@ function test() {
         if (is_stun_packet(buffer)) {
             console.log('\nREPLY:', rinfo.address + ':' + rinfo.port,
                 'method', get_method_name(buffer),
-                'attrs len', get_attrs_len(buffer));
+                'attrs len', get_attrs_len_field(buffer));
             var attrs = decode_attrs(buffer);
             _.each(attrs, function(attr) {
                 console.log('  *',

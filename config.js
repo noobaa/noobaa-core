@@ -25,14 +25,11 @@ config.min_node_number = 3;
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;
 config.READ_RANGE_CONCURRENCY = 8;
-config.REPLICATE_CONCURRENCY = 1;
+config.REPLICATE_CONCURRENCY = 32;
 
 config.write_timeout = 30 * 1000;
 config.read_timeout = 30 * 1000;
 config.server_finalize_build_timeout = 20 * 1000;
-config.server_replicate_timeout = 29 * 1000;
-config.client_replicate_timeout = 300 * 1000;
-config.default_rpc_timeout = 120 * 1000;
 
 // ~60 seconds overall before give up on this channel
 config.channel_send_congested_attempts = 1000;
@@ -44,10 +41,6 @@ config.channel_buffer_stop_throttle = 0;
 config.ice_conn_timeout = 10 * 1000;
 config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
-
-config.replicate_retry = 1;
-config.default_rpc_retries = 0;
-config.rpc_retry_delay = 500;
 
 config.ice_servers = {
     'iceServers': [

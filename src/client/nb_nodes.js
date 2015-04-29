@@ -379,8 +379,6 @@ nb_api.factory('nbNodes', [
             }, {
                 address: node.addresses,
                 domain: node.peer_id,
-                retries: 3,
-                timeout: 30000
             });
         }
 
@@ -394,8 +392,6 @@ nb_api.factory('nbNodes', [
             }, {
                 address: node.addresses,
                 domain: node.peer_id,
-                retries: 3,
-                timeout: 30000
             });
         }
 
@@ -413,8 +409,6 @@ nb_api.factory('nbNodes', [
             }, {
                 address: node.addresses,
                 domain: node.peer_id,
-                retries: 3,
-                timeout: 30000
             });
         }
 
@@ -434,9 +428,6 @@ nb_api.factory('nbNodes', [
                 },
                 request_length: request_length || 0,
                 response_length: response_length || 0,
-            }, {
-                retries: 3,
-                timeout: 30000,
             });
         }
 

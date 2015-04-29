@@ -270,9 +270,6 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                                 }
                                 return p;
                             })
-                        }, {
-                            timeout: config.client_replicate_timeout,
-                            retries: 3
                         });
                     })
                     .then(function() {

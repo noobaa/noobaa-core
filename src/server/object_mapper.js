@@ -21,8 +21,9 @@ var dbg = require('noobaa-util/debug_module')(__filename);
  * part = part of a file logically, points to a chunk
  * chunk = actual data of the part can be used by several object parts if identical
  * block = representation of a chunk on a specific node
- * fragment = if we use erasure coding than a chunk is divided to fragments where if we lose one we can rebuild it using the rest.
- *            each fragment will be replicated to x nodes as blocks
+ * fragment = if we use erasure coding than a chunk is divided to fragments
+ * where if we lose one we can rebuild it using the rest.
+ * each fragment will be replicated to x nodes as blocks
  *
  */
 module.exports = {
@@ -204,8 +205,9 @@ function allocate_object_parts(bucket, obj, parts) {
 
 /**
  *
- * finalize_object_parts - after the 1st block was uploaded, this creates more blocks on other nodes to replicate to
- * but only in the db
+ * finalize_object_parts
+ * after the 1st block was uploaded this creates more blocks on other nodes
+ * to replicate to but only in the db.
  *
  */
 function finalize_object_parts(bucket, obj, parts) {
@@ -897,8 +899,6 @@ function build_chunks(chunks) {
                         }, {
                             address: block_addr.addresses,
                             domain: block_addr.peer,
-                            timeout: config.server_replicate_timeout,
-                            retries: config.replicate_retry
                         });
                     }).then(function() {
                         dbg.log1('build_chunks replicated block', block._id,
@@ -1022,8 +1022,6 @@ function self_test_to_node_via_web(req) {
     }, {
         address: source.addresses,
         domain: source.peer,
-        retries: 3,
-        timeout: 30000
     });
 }
 

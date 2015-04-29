@@ -392,8 +392,8 @@ Agent.prototype.send_heartbeat = function() {
                 });
             }
             if (self.http_port) {
-                addresses.push('http://' + ip + ':' + self.http_port);
                 addresses.push('ws://' + ip + ':' + self.http_port);
+                addresses.push('http://' + ip + ':' + self.http_port);
             }
 
             var params = {

@@ -2,12 +2,13 @@
 
 // var _ = require('lodash');
 var Q = require('q');
+var dgram = require('dgram');
+// var rpc_nudp_native = require('../../build/Release/rpc_nudp_native.node');
 // var util = require('util');
 // var buffer_utils = require('../util/buffer_utils');
+var chance = require('chance').Chance(Date.now());
 var LinkedList = require('noobaa-util/linked_list');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var dgram = require('dgram');
-var chance = require('chance').Chance(Date.now());
 
 module.exports = {
     reusable: true,

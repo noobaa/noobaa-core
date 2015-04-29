@@ -52,7 +52,6 @@ function Agent(params) {
     self.prefered_port = params.prefered_port;
     self.prefered_secure_port = params.prefered_secure_port;
     self.storage_path = params.storage_path;
-    self.listen_on_http = params.listen_on_http;
 
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +

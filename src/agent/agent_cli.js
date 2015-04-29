@@ -285,7 +285,6 @@ AgentCLI.prototype.start = function(node_name) {
             prefered_port: self.params.port,
             prefered_secure_port: self.params.secure_port,
             storage_path: path.join(self.params.root_path, node_name),
-            listen_on_http: self.params.listen_on_http
         });
         dbg.log0('agent inited', node_name);
     }

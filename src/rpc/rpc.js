@@ -233,7 +233,7 @@ function parse_options_address(options) {
         });
     }
     options.address.sort(address_sort);
-    dbg.log0('SORTED ADDRESSES', _.map(options.address, 'href'));
+    dbg.log1('SORTED ADDRESSES', _.map(options.address, 'href'));
 }
 
 /**

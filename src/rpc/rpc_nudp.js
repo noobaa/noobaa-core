@@ -6,6 +6,7 @@ var dgram = require('dgram');
 // var rpc_nudp_native = require('../../build/Release/rpc_nudp_native.node');
 // var util = require('util');
 // var buffer_utils = require('../util/buffer_utils');
+var stun = require('./stun');
 var chance = require('chance').Chance(Date.now());
 var LinkedList = require('noobaa-util/linked_list');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -150,22 +151,39 @@ function listen(rpc, port) {
     var nudp_context = {
         port: port,
         socket: dgram.createSocket('udp4'),
-        connections: {}
+        connections: {},
+        addresses: {}
     };
     nudp_context.socket.on('message',
         receive_packet.bind(null, rpc, nudp_context));
     nudp_context.socket.on('close', function() {
-        // TODO can udp sockets just close?
         dbg.error('NUDP socket closed');
     });
     nudp_context.socket.on('error', function(err) {
-        // TODO can udp sockets just error?
         dbg.error('NUDP socket error', err.stack || err);
+    });
+    nudp_context.socket.on('stun.address', function(addr) {
+        dbg.log0('STUN ADDRESS', addr);
+        nudp_context.addresses[addr.address + ':' + addr.port] = addr;
+    });
+    nudp_context.socket.on('stun.indication', function(rinfo) {
+        dbg.log1('STUN INDICATION', rinfo.address + ':' + rinfo.port);
+    });
+    nudp_context.socket.on('stun.error', function(rinfo) {
+        dbg.warn('STUN ERROR RESPONSE', rinfo.address + ':' + rinfo.port);
     });
     return Q.ninvoke(nudp_context.socket, 'bind', port)
         .then(function() {
             // update port in case it was 0 to bind to any port
             nudp_context.port = nudp_context.socket.address().port;
+            // pick some stun server and send request
+            nudp_context.stun_url = stun.STUN.PUBLIC_SERVERS[0];
+            return stun.connect_socket(
+                nudp_context.socket,
+                nudp_context.stun_url.hostname,
+                nudp_context.stun_url.port);
+        })
+        .then(function() {
             return nudp_context;
         });
 }
@@ -527,6 +545,9 @@ function send_packets(conn) {
  *
  */
 function receive_packet(rpc, nudp_context, buffer, rinfo) {
+    if (stun.is_stun_packet(buffer)) {
+        return;
+    }
     var hdr = read_packet_header(buffer);
     var address = 'nudp://' + rinfo.address + ':' + rinfo.port;
     var connid = address +

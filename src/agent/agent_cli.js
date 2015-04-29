@@ -428,6 +428,7 @@ function main() {
         });
         populate_general_help(help.general);
         repl_srv.context.help = help;
+        repl_srv.context.dbg = dbg;
     }, function(err) {
         dbg.log0('init err:' + err);
 

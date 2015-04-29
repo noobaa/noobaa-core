@@ -110,7 +110,6 @@ function Agent(params) {
     self.agent_server = agent_server;
     self.http_server = http_server;
     self.http_port = 0;
-    self.nudp_port = 0;
 
     // TODO these sample geolocations are just for testing
     self.geolocation = _.sample([
@@ -137,12 +136,6 @@ Agent.prototype.start = function() {
             return self._init_node();
         })
         .then(function() {
-            return self._start_stop_http_server();
-        })
-        .then(function() {
-            return self._start_stop_nudp_server();
-        })
-        .then(function() {
 
             // register agent_server in rpc, with domain as peer_id
             // to match only calls to me
@@ -153,6 +146,12 @@ Agent.prototype.start = function() {
                 }
             });
 
+        })
+        .then(function() {
+            return self._start_stop_http_server();
+        })
+        .then(function() {
+            return self._start_stop_nudp_server();
         })
         .then(function() {
             return self.send_heartbeat();
@@ -254,8 +253,8 @@ Agent.prototype._start_stop_nudp_server = function() {
     if (self.is_started) {
         return rpc_nudp.listen(api.rpc, self.prefered_port)
             .then(function(nudp_context) {
+                self.nudp_context = nudp_context;
                 self.client.options.nudp_context = nudp_context;
-                self.nudp_port = nudp_context.port;
             });
     } else {
         // TODO stop nudp listening socket. what about the open connections?
@@ -385,16 +384,24 @@ Agent.prototype.send_heartbeat = function() {
             }
 
             var ip = ifconfig.get_main_external_ipv4();
+            var addresses = [];
+            if (self.nudp_context) {
+                addresses.push('nudp://' + ip + ':' + self.nudp_context.port);
+                _.each(self.nudp_context.addresses, function(addr) {
+                    addresses.push('nudp://' + addr.address + ':' + addr.port);
+                });
+            }
+            if (self.http_port) {
+                addresses.push('http://' + ip + ':' + self.http_port);
+                addresses.push('ws://' + ip + ':' + self.http_port);
+            }
+
             var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
                 ip: ip,
                 port: self.http_port || 0,
-                addresses: [
-                    'http://' + ip + ':' + self.http_port,
-                    'ws://' + ip + ':' + self.http_port,
-                    'nudp://' + ip + ':' + self.nudp_port
-                ],
+                addresses: addresses,
                 storage: {
                     alloc: alloc,
                     used: store_stats.used

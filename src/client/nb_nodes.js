@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
+var chance = require('chance').Chance(Date.now());
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var api = require('../api');
@@ -344,7 +345,25 @@ nb_api.factory('nbNodes', [
                         }
                     });
 
-                     define_phase({
+                    define_phase({
+                        name: 'transfer 100 MB between ' + node.name + ' and the other nodes',
+                        kind: ['full', 'tx'],
+                        total: 100 * 1024 * 1024,
+                        position: 0,
+                        func: function() {
+                            var self = this;
+                            if (self.position >= self.total) return;
+                            var target_node = chance.pick(online_nodes);
+                            return self_test_to_node(target_node, node, 512 * 1024, 512 * 1024)
+                                .then(function() {
+                                    self.position += 1024 * 1024;
+                                    self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                    $rootScope.safe_apply();
+                                    return self.func();
+                                });
+                        }
+                    });
+                    define_phase({
                         name: 'transfer 100 MB between browser and ' + node.name,
                         kind: ['full', 'tx'],
                         total: 100 * 1024 * 1024,
@@ -352,9 +371,9 @@ nb_api.factory('nbNodes', [
                         func: function() {
                             var self = this;
                             if (self.position >= self.total) return;
-                            return self_test_io(node, 256 * 1024, 256 * 1024)
+                            return self_test_io(node, 512 * 1024, 512 * 1024)
                                 .then(function() {
-                                    self.position += 512 * 1024;
+                                    self.position += 1024 * 1024;
                                     self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
                                     $rootScope.safe_apply();
                                     return self.func();
@@ -412,7 +431,7 @@ nb_api.factory('nbNodes', [
             });
         }
 
-        function self_test_to_node_via_web (node, target_node, request_length, response_length) {
+        function self_test_to_node_via_web(node, target_node, request_length, response_length) {
             console.log('SELF TEST', node.name, 'to', target_node.name);
 
             return nbClient.client.object.self_test_to_node_via_web({

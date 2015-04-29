@@ -5,9 +5,11 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var os = require('os');
+var pem = require('pem');
 var util = require('util');
 var path = require('path');
 var http = require('http');
+var https = require('https');
 var assert = require('assert');
 var crypto = require('crypto');
 var express = require('express');
@@ -48,6 +50,7 @@ function Agent(params) {
     self.node_name = params.node_name;
     self.token = params.token;
     self.prefered_port = params.prefered_port;
+    self.prefered_secure_port = params.prefered_secure_port;
     self.storage_path = params.storage_path;
     self.listen_on_http = params.listen_on_http;
 
@@ -73,7 +76,7 @@ function Agent(params) {
         });
     }
 
-    var agent_server = {
+    self.agent_server = {
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
         replicate_block: self.replicate_block.bind(self),
@@ -98,17 +101,7 @@ function Agent(params) {
     app.use(express_method_override());
     app.use(express_compress());
     rpc_http.listen(api.rpc, app);
-
-    var http_server = http.createServer(app);
-    http_server.on('listening', self._server_listening_handler.bind(self));
-    http_server.on('close', self._server_close_handler.bind(self));
-    http_server.on('error', self._server_error_handler.bind(self));
-    rpc_ws.listen(api.rpc, http_server);
-
     self.agent_app = app;
-    self.agent_server = agent_server;
-    self.http_server = http_server;
-    self.http_port = 0;
 
     // TODO these sample geolocations are just for testing
     self.geolocation = _.sample([
@@ -117,7 +110,6 @@ function Agent(params) {
         'China', 'Japan', 'Korea',
         'Ireland', 'Germany',
     ]);
-
 }
 
 
@@ -242,6 +234,9 @@ Agent.prototype._init_node = function() {
 };
 
 
+// RPC SERVER /////////////////////////////////////////////////////////////////
+
+
 /**
  *
  * _start_stop_nudp_server
@@ -249,19 +244,18 @@ Agent.prototype._init_node = function() {
  */
 Agent.prototype._start_stop_nudp_server = function() {
     var self = this;
-    if (self.is_started) {
-        return rpc_nudp.listen(api.rpc, self.prefered_port)
-            .then(function(nudp_context) {
-                self.nudp_context = nudp_context;
-                self.client.options.nudp_context = nudp_context;
-            });
-    } else {
+
+    if (!self.is_started) {
         // TODO stop nudp listening socket. what about the open connections?
+        return;
     }
+
+    return rpc_nudp.listen(api.rpc, self.prefered_port)
+        .then(function(nudp_context) {
+            self.nudp_context = nudp_context;
+            self.client.options.nudp_context = nudp_context;
+        });
 };
-
-
-// HTTP SERVER ////////////////////////////////////////////////////////////////
 
 
 /**
@@ -271,43 +265,62 @@ Agent.prototype._start_stop_nudp_server = function() {
  */
 Agent.prototype._start_stop_http_server = function() {
     var self = this;
-    if (self.is_started) {
-        // using port to determine if the server is already listening
-        if (!self.http_port && self.listen_on_http) {
-            return Q.Promise(function(resolve, reject) {
-                self.http_server.once('listening', resolve);
-                self.http_server.listen(self.prefered_port);
-            });
-        }
-    } else {
-        if (self.http_port) {
+
+    if (!self.is_started) {
+        if (self.http_server) {
             self.http_server.close();
         }
+        if (self.https_server) {
+            self.https_server.close();
+        }
+        return;
     }
-};
 
+    return Q.fcall(function() {
+            return Q.nfcall(pem.createCertificate, {
+                days: 365 * 100,
+                selfSigned: true
+            });
+        })
+        .then(function(cert) {
+            var promises = [];
 
-/**
- *
- * _server_listening_handler
- *
- */
-Agent.prototype._server_listening_handler = function() {
-    this.http_port = this.http_server.address().port;
-    dbg.log0('AGENT server listening on port ' + this.http_port);
-};
+            if (!self.http_server) {
+                self.http_server = http.createServer(self.agent_app)
+                    .on('error', function(err) {
+                        dbg.error('HTTP SERVER ERROR', err.stack || err);
+                    })
+                    .on('close', function() {
+                        dbg.error('HTTP SERVER CLOSED');
+                        self.http_server = null;
+                        setTimeout(self._start_stop_http_server.bind(this), 1000);
+                    });
+                promises.push(
+                    Q.ninvoke(self.http_server, 'listen', self.prefered_port));
+            }
 
+            if (!self.https_server) {
+                self.https_server = https.createServer({
+                        key: cert.serviceKey,
+                        cert: cert.certificate
+                    }, self.agent_app)
+                    .on('error', function(err) {
+                        dbg.error('HTTPS SERVER ERROR', err.stack || err);
+                    })
+                    .on('close', function() {
+                        dbg.error('HTTPS SERVER CLOSED');
+                        self.https_server = null;
+                        setTimeout(self._start_stop_http_server.bind(this), 1000);
+                    });
+                promises.push(
+                    Q.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
+            }
 
-/**
- *
- * _server_close_handler
- *
- */
-Agent.prototype._server_close_handler = function() {
-    dbg.log0('AGENT server closed');
-    this.http_port = 0;
-    // set timer to check the state and react by restarting or not
-    setTimeout(this._start_stop_http_server.bind(this), 1000);
+            rpc_ws.listen(api.rpc, self.http_server);
+            rpc_ws.listen(api.rpc, self.https_server);
+
+            return Q.all(promises);
+        });
 };
 
 
@@ -390,16 +403,22 @@ Agent.prototype.send_heartbeat = function() {
                     addresses.push('nudp://' + addr.address + ':' + addr.port);
                 });
             }
-            if (self.http_port) {
-                addresses.push('ws://' + ip + ':' + self.http_port);
-                addresses.push('http://' + ip + ':' + self.http_port);
+            var http_port = 0;
+            if (self.http_server) {
+                http_port = self.http_server.address().port;
+                addresses.push('ws://' + ip + ':' + http_port);
+                addresses.push('http://' + ip + ':' + http_port);
+            }
+            if (self.https_server) {
+                addresses.push('wss://' + ip + ':' + self.https_server.address().port);
+                addresses.push('https://' + ip + ':' + self.https_server.address().port);
             }
 
             var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
                 ip: ip,
-                port: self.http_port || 0,
+                port: http_port,
                 addresses: addresses,
                 storage: {
                     alloc: alloc,

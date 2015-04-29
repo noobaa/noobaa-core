@@ -21,6 +21,9 @@ var child_process = require('child_process');
 
 Q.longStackSupport = true;
 
+setInterval(function() {
+    dbg.log0('memory usage', process.memoryUsage());
+}, 30000);
 
 /**
  *
@@ -97,15 +100,6 @@ AgentCLI.prototype.init = function() {
                 });
         });
 };
-
-try {
-    setInterval(function() {
-        dbg.log0(
-            'memory ' + JSON.stringify(process.memoryUsage()));
-    }, 30000);
-} catch (ex) {
-    dbg.log0("prob xxxxxxx");
-}
 
 AgentCLI.prototype.init.helper = function() {
     dbg.log0("Init client");
@@ -289,6 +283,7 @@ AgentCLI.prototype.start = function(node_name) {
             address: self.params.address,
             node_name: node_name,
             prefered_port: self.params.port,
+            prefered_secure_port: self.params.secure_port,
             storage_path: path.join(self.params.root_path, node_name),
             listen_on_http: self.params.listen_on_http
         });

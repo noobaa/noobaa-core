@@ -18,7 +18,6 @@ module.exports = {
     listen: listen,
     send: send,
     authenticate: authenticate,
-    is_supported: !global.window,
 };
 
 var STATE_INIT = 'init';

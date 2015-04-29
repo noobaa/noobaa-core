@@ -10,10 +10,12 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcConnection = require('./rpc_connection');
 var rpc_http = require('./rpc_http');
-var rpc_nudp = require('./rpc_nudp');
 var EventEmitter = require('events').EventEmitter;
 
 module.exports = RPC;
+
+var browser_location = global.window && global.window.location;
+var is_browser_secure = browser_location && browser_location.protocol === 'https:';
 
 util.inherits(RPC, EventEmitter);
 
@@ -81,14 +83,14 @@ RPC.prototype.create_client = function(api, default_options) {
     if (_.isEmpty(client.options.address)) {
         // in the browser we take the address as the host of the web page -
         // just like any ajax request.
-        if (global.window && global.window.location) {
+        if (browser_location) {
             client.options.address = [
                 // ws address
-                (global.window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-                global.window.location.host + rpc_http.BASE_PATH,
+                (is_browser_secure ? 'wss://' : 'ws://') +
+                browser_location.host + rpc_http.BASE_PATH,
                 // http address
-                global.window.location.protocol + '//' +
-                global.window.location.host + rpc_http.BASE_PATH
+                browser_location.protocol + '//' +
+                browser_location.host + rpc_http.BASE_PATH
             ];
         } else {
             // set a default for development
@@ -194,14 +196,18 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 // order protocol in ascending order of precendence (first is most prefered).
 var PROTOCOL_ORDER = [];
 PROTOCOL_ORDER.push('fcall:');
-if (rpc_nudp.is_supported) {
+if (!browser_location) {
     PROTOCOL_ORDER.push('nudps:');
     PROTOCOL_ORDER.push('nudp:');
 }
 PROTOCOL_ORDER.push('wss:');
-PROTOCOL_ORDER.push('ws:');
+if (!is_browser_secure) {
+    PROTOCOL_ORDER.push('ws:');
+}
 PROTOCOL_ORDER.push('https:');
-PROTOCOL_ORDER.push('http:');
+if (!is_browser_secure) {
+    PROTOCOL_ORDER.push('http:');
+}
 var PROTOCOL_ORDER_MAP = _.invert(PROTOCOL_ORDER);
 var FCALL_ADDRESS = [url.parse('fcall://fcall')];
 
@@ -240,9 +246,10 @@ RPC.prototype.assign_connection = function(req, options) {
     var address = options.address;
     var next_address_index = 0;
 
-    // if the service is registered locally, we ignore the address in options
+    // if the service is registered locally,
+    // we can ignore the address in options
     // and dispatch to do function call.
-    if (self._services[req.srv] && !options.no_fcall) {
+    if (options.allow_fcall && self._services[req.srv]) {
         address = FCALL_ADDRESS;
     }
 
@@ -250,16 +257,15 @@ RPC.prototype.assign_connection = function(req, options) {
 
     function try_next_address() {
         if (next_address_index >= address.length) {
-            dbg.error('RPC CONNECT ADDRESSES EXHAUSTED', address);
+            dbg.error('RPC CONNECT ADDRESSES EXHAUSTED', _.map(options.address, 'href'));
             throw new Error('RPC CONNECT ADDRESSES EXHAUSTED');
         }
         var address_url = address[next_address_index++];
         var conn = self._connection_pool[address_url.href];
         if (!conn) {
-            dbg.log0('RPC new connection', address_url.href);
             conn = self.new_connection(address_url);
         } else {
-            dbg.log0('RPC pooled connection', address_url.href);
+            dbg.log0('RPC reuse connection', address_url.href);
         }
         return Q.when(conn.connect(options))
             .then(function() {

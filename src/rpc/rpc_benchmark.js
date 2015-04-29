@@ -182,7 +182,7 @@ function call_next_io(res) {
                 rsize: argv.rsize
             }
         }, {
-            no_fcall: argv.nofcall,
+            allow_fcall: argv.allow_fcall,
             address: argv.proto + '://' + argv.host + ':' + argv.port
         })
         .then(call_next_io);

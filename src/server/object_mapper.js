@@ -1008,8 +1008,6 @@ function build_chunks(chunks) {
  *
  */
 function self_test_to_node_via_web(req) {
-    console.log(require('util').inspect(req));
-
     var target = req.rpc_params.target;
     var source = req.rpc_params.source;
 

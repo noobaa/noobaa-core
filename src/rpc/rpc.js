@@ -216,7 +216,7 @@ var FCALL_ADDRESS = [url.parse('fcall://fcall')];
 
 function address_order(u) {
     return 1000 * (PROTOCOL_ORDER_MAP[u.protocol] || 1000) +
-        10 * (ip.isPrivate(u.hostname) ? 1 : 0);
+        10 * (ip.isPrivate(u.hostname) ? 0 : 1);
 }
 
 function address_sort(u1, u2) {

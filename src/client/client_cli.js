@@ -5,19 +5,12 @@ require('../util/panic');
 var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
-var os = require('os');
-var http = require('http');
 var path = require('path');
 var util = require('util');
 var repl = require('repl');
-var assert = require('assert');
-var crypto = require('crypto');
-var mkdirp = require('mkdirp');
 var mime = require('mime');
 var argv = require('minimist')(process.argv);
-var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
-var range_utils = require('../util/range_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -54,7 +47,6 @@ ClientCLI.prototype.init = function() {
         }).then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.');
             self.params = _.defaults(self.params, {
-                address: 'http://localhost:5001',
                 streamer: self.params.prod ? 5005 : 5006,
                 email: 'demo@noobaa.com',
                 password: 'DeMo',
@@ -163,8 +155,6 @@ ClientCLI.prototype.upload = function(file_path) {
  *
  */
 ClientCLI.prototype.download = function(key) {
-    var self = this;
-
     return Q.fcall(function() {
             // ...
         })

@@ -164,7 +164,6 @@ function connect_socket(socket, stun_host, stun_port) {
                 stun_host,
                 stun_port);
         });
-
 }
 
 

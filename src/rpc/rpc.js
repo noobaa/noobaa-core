@@ -2,12 +2,15 @@
 
 var _ = require('lodash');
 var Q = require('q');
+var ip = require('ip');
+var url = require('url');
 var util = require('util');
 var assert = require('assert');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcConnection = require('./rpc_connection');
 var rpc_http = require('./rpc_http');
+var rpc_nudp = require('./rpc_nudp');
 var EventEmitter = require('events').EventEmitter;
 
 module.exports = RPC;
@@ -75,16 +78,39 @@ RPC.prototype.create_client = function(api, default_options) {
         throw new Error('BAD API on RPC.create_client');
     }
 
+    if (!client.options.address || !client.options.address.length) {
+        // in the browser we take the address as the host of the web page -
+        // just like any ajax request.
+        if (global.window && global.window.location) {
+            client.options.address = [
+                // ws address
+                (global.window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
+                global.window.location.host + rpc_http.BASE_PATH,
+                // http address
+                global.window.location.protocol + '//' +
+                global.window.location.host + rpc_http.BASE_PATH
+            ];
+        } else {
+            // set a default for development
+            client.options.address = 'ws://localhost:5001';
+        }
+    }
+    parse_options_address(client.options);
+
     // create client methods
     _.each(api.methods, function(method_api, method_name) {
         client[method_name] = function(params, options) {
             // fill default options from client
-            options = options || {};
-            _.forIn(client.options, function(v, k) {
-                if (!(k in options)) {
-                    options[k] = v;
-                }
-            });
+            if (options) {
+                parse_options_address(options);
+                _.forIn(client.options, function(v, k) {
+                    if (!(k in options)) {
+                        options[k] = v;
+                    }
+                });
+            } else {
+                options = client.options;
+            }
             return self.client_request(api, method_api, params, options);
         };
     });
@@ -174,6 +200,43 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 };
 
 
+// order protocol in ascending order of precendence (first is most prefered).
+var PROTOCOL_ORDER = [];
+PROTOCOL_ORDER.push('fcall:');
+if (rpc_nudp.is_supported) {
+    PROTOCOL_ORDER.push('nudps:');
+    PROTOCOL_ORDER.push('nudp:');
+}
+PROTOCOL_ORDER.push('wss:');
+PROTOCOL_ORDER.push('ws:');
+PROTOCOL_ORDER.push('https:');
+PROTOCOL_ORDER.push('http:');
+var PROTOCOL_ORDER_MAP = _.invert(PROTOCOL_ORDER);
+var FCALL_ADDRESS = [url.parse('fcall://fcall')];
+
+function address_order(u) {
+    return 1000 * (PROTOCOL_ORDER_MAP[u.protocol] || 1000) +
+        10 * (ip.isPrivate(u.hostname) ? 1 : 0);
+}
+
+function address_sort(u1, u2) {
+    return address_order(u1) - address_order(u2);
+}
+
+function parse_options_address(options) {
+    if (!options.address) {
+        return;
+    }
+    if (!_.isArray(options.address)) {
+        options.address = [options.address];
+    }
+    options.address = _.map(options.address, function(addr) {
+        return addr.protocol ? addr : url.parse(addr);
+    });
+    options.address.sort(address_sort);
+    // dbg.log0('SORTED ADDRESSES', options.address);
+}
+
 /**
  *
  * assign_connection
@@ -181,38 +244,42 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
  */
 RPC.prototype.assign_connection = function(req, options) {
     var self = this;
-    var address = options.address || '';
-    if (_.isArray(address)) {
-        address = _.sortBy(address, function(addr) {
-            var proto = addr.slice(0, 4);
-            if (proto.indexOf('nudp') === 0) return global.window ? 100 : 1;
-            if (proto.indexOf('ws') === 0) return 2;
-            if (proto.indexOf('http') === 0) return 3;
-        })[0];
-    }
+    var address = options.address;
+    var next_address_index = 0;
 
-    // if the service is registered locally,
-    // dispatch to do function call.
+    // if the service is registered locally, we ignore the address in options
+    // and dispatch to do function call.
     if (self._services[req.srv] && !options.no_fcall) {
-        address = 'fcall://fcall';
-    }
-    if (!address && global.window && global.window.location) {
-        address =
-            // (global.window.location.protocol === 'https:' ? 'https://' : 'http://') +
-            (global.window.location.protocol === 'https:' ? 'wss://' : 'ws://') +
-            global.window.location.host + rpc_http.BASE_PATH;
+        address = FCALL_ADDRESS;
     }
 
-    var conn = self._connection_pool[address];
-    if (!conn) {
-        conn = self.new_connection(address);
+    return try_next_address();
+
+    function try_next_address() {
+        if (next_address_index >= address.length) {
+            dbg.error('RPC CONNECT ADDRESSES EXHAUSTED', address);
+            throw new Error('RPC CONNECT ADDRESSES EXHAUSTED');
+        }
+        var address_url = address[next_address_index++];
+        var conn = self._connection_pool[address_url.href];
+        if (!conn) {
+            dbg.log0('RPC new connection', address_url.href);
+            conn = self.new_connection(address_url);
+        } else {
+            dbg.log0('RPC pooled connection', address_url.href);
+        }
+        return Q.when(conn.connect(options))
+            .then(function() {
+                return conn.authenticate(options.auth_token);
+            })
+            .then(function() {
+                req.connection = conn;
+                conn.sent_requests[req.reqid] = req;
+            }, function(err) {
+                dbg.warn('RPC CONNECT FAILED', address_url.href);
+                return try_next_address();
+            });
     }
-    req.connection = conn;
-    conn.sent_requests[req.reqid] = req;
-    return Q.when(conn.connect(options))
-        .then(function() {
-            return conn.authenticate(options.auth_token);
-        });
 };
 
 /**
@@ -229,11 +296,11 @@ RPC.prototype.release_connection = function(req) {
 /**
  *
  */
-RPC.prototype.new_connection = function(address) {
+RPC.prototype.new_connection = function(address_url) {
     var self = this;
-    var conn = new RpcConnection(self, address);
+    var conn = new RpcConnection(self, address_url);
     if (conn.reusable) {
-        self._connection_pool[conn.address] = conn;
+        self._connection_pool[address_url.href] = conn;
     }
     conn.receive = self.on_connection_receive.bind(self, conn);
     conn.on('close', self.on_connection_close.bind(self, conn));

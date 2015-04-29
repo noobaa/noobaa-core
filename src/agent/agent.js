@@ -40,7 +40,6 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
-    assert(params.address, 'missing param: address');
     self.client = new api.Client({
         address: params.address
     });

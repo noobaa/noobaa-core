@@ -18,6 +18,7 @@ module.exports = {
     listen: listen,
     send: send,
     authenticate: authenticate,
+    is_supported: !global.window,
 };
 
 var STATE_INIT = 'init';
@@ -178,6 +179,11 @@ function listen(rpc, port) {
             nudp_context.port = nudp_context.socket.address().port;
             // pick some stun server and send request
             nudp_context.stun_url = stun.STUN.PUBLIC_SERVERS[0];
+            /* TEST: send to myself...
+            nudp_context.stun_url = {
+                hostname: '127.0.0.1',
+                port: nudp_context.port,
+            }; */
             return stun.connect_socket(
                 nudp_context.socket,
                 nudp_context.stun_url.hostname,

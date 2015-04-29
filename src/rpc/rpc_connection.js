@@ -32,11 +32,16 @@ util.inherits(RpcConnection, EventEmitter);
 function RpcConnection(rpc, address) {
     EventEmitter.call(this);
     this.rpc = rpc;
-    this.address = address;
-    this.url = url.parse(address);
+    if (address.protocol) {
+        this.address = address.href;
+        this.url = address;
+    } else {
+        this.address = address;
+        this.url = url.parse(address);
+    }
     this.transport = TRANSPORTS[this.url.protocol] || rpc_ws;
     this.reusable = this.transport.reusable;
-    dbg.log1('NEW CONNECTION', this.address);
+    dbg.log0('RPC CONNECTION', this.address);
 }
 
 /**

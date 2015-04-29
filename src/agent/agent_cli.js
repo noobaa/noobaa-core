@@ -61,7 +61,6 @@ AgentCLI.prototype.init = function() {
             dbg.log0('cannot find configuration file. Using defaults.');
             self.params = _.defaults(self.params, {
                 root_path: './agent_storage/',
-                address: 'http://localhost:5001',
                 port: 0,
                 email: 'demo@noobaa.com',
                 password: 'DeMo',

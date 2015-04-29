@@ -59,7 +59,7 @@ function create_system(req) {
                 }];
             } else {
                 info.access_keys = [{
-                    access_key: uuid.v4(),
+                    access_key: uuid.v4().replace(/-/g,'').substring(0,20),
                     secret_key: uuid.v4(),
                 }];
             }

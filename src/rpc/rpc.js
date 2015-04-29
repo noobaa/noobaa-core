@@ -78,7 +78,7 @@ RPC.prototype.create_client = function(api, default_options) {
         throw new Error('BAD API on RPC.create_client');
     }
 
-    if (!client.options.address || !client.options.address.length) {
+    if (_.isEmpty(client.options.address)) {
         // in the browser we take the address as the host of the web page -
         // just like any ajax request.
         if (global.window && global.window.location) {
@@ -100,17 +100,8 @@ RPC.prototype.create_client = function(api, default_options) {
     // create client methods
     _.each(api.methods, function(method_api, method_name) {
         client[method_name] = function(params, options) {
-            // fill default options from client
-            if (options) {
-                parse_options_address(options);
-                _.forIn(client.options, function(v, k) {
-                    if (!(k in options)) {
-                        options[k] = v;
-                    }
-                });
-            } else {
-                options = client.options;
-            }
+            options = _.create(client.options, options);
+            parse_options_address(options);
             return self.client_request(api, method_api, params, options);
         };
     });
@@ -230,11 +221,13 @@ function parse_options_address(options) {
     if (!_.isArray(options.address)) {
         options.address = [options.address];
     }
-    options.address = _.map(options.address, function(addr) {
-        return addr.protocol ? addr : url.parse(addr);
-    });
+    if (!options.address[0].protocol) {
+        options.address = _.map(options.address, function(addr) {
+            return addr.protocol ? addr : url.parse(addr);
+        });
+    }
     options.address.sort(address_sort);
-    // dbg.log0('SORTED ADDRESSES', options.address);
+    dbg.log0('SORTED ADDRESSES', _.map(options.address, 'href'));
 }
 
 /**

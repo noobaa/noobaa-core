@@ -1,14 +1,27 @@
 /* jshint browser:true */
 'use strict';
 
+var Q = require('q');
+var _ = require('lodash');
+
 var debug = require('debug');
 debug.disable("*");
 // debug.enable("*");
-var wrtc = require('../../util/wrtc');
-var Peer = require('simple-peer');
-var Q = require('q');
-var _ = require('lodash');
+var SimplePeer = require('simple-peer');
 var WebSock = require('ws');
+
+// try to find a wrtc module we can load
+var wrtc = _.find([
+    '../../../../webrtc-native',
+    '../../../../node-webrtc',
+    'wrtc'
+], function(module) {
+    try {
+        return require(module);
+    } catch (err) {
+        // not found, ignore
+    }
+});
 
 var ws;
 var peers = {};
@@ -105,7 +118,8 @@ function init_peer(msg) {
     if (!running) return;
 
     console.log('PEER init');
-    var peer = new Peer({
+    var peer = new SimplePeer({
+        wrtc: wrtc,
         initiator: msg.initiator,
         config: {
             // default channel is ordered

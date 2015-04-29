@@ -310,7 +310,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     var srv =
         '/' + msg.header.api +
         '/' + msg.header.domain +
-        '/' + msg.header.method
+        '/' + msg.header.method;
     var service = this._services[srv];
     if (!service) {
         req.rpc_error('NOT_FOUND', srv);

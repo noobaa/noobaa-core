@@ -8,6 +8,7 @@
   },
   "main": "index.js",
   "scripts": {
+    "install": "node-gyp rebuild",
     "prepublish": "./node_modules/.bin/gulp install",
     "test": "./node_modules/.bin/gulp test",
     "start": "./node_modules/.bin/gulp start"
@@ -80,6 +81,7 @@
     "gulp-uglify": "~1.1.0",
     "gulp-util": "~3.0.4",
     "heapdump": "~0.3.5",
+    "ip": "^0.3.2",
     "is-my-json-valid": "~2.10.1",
     "jshint-stylish": "~1.0.1",
     "jsonwebtoken": "~5.0.0",
@@ -94,6 +96,7 @@
     "mongoose": "~4.0.1",
     "morgan": "~1.5.2",
     "newrelic": "~1.18.3",
+    "node-gyp": "^1.0.3",
     "nodetime": "~0.8.15",
     "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#df5764d42a1bc007fc92c25bff5c57819c621312",
     "pem": "~1.7.2",
@@ -107,11 +110,11 @@
     "simple-peer": "^5.1.0",
     "sinon": "~1.12.2",
     "sse4_crc32": "~3.1.0",
-    "stun": "~0.0.2",
     "through2": "~0.6.5",
     "video.js": "~4.12.5",
     "vinyl-buffer": "~1.0.0",
     "vinyl-source-stream": "~1.1.0",
-    "ws": "~0.7.1"
+    "ws": "~0.7.1",
+    "yargs": "^3.8.0"
   }
 }

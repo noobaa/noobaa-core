@@ -1,13 +1,13 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 require('../util/panic');
 
-var _ = require('lodash');
+// var _ = require('lodash');
 var Q = require('q');
 var assert = require("assert");
 var sinon     = require('sinon');
-var config = require('../../config.js');
 var buffer_utils = require('../util/buffer_utils');
 var rewire = require('rewire');
 

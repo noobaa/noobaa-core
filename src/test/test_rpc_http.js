@@ -1,13 +1,11 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
-var express = require('express');
-var request = require('request');
-var coretest = require('./coretest');
 var RPC = require('../rpc/rpc');
 var RpcSchema = require('../rpc/rpc_schema');
 
@@ -189,7 +187,6 @@ describe('RPC', function() {
             describe(method_name, function() {
 
                 var reply_error = false;
-                var server;
                 var client;
 
                 before(function() {

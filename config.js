@@ -3,6 +3,14 @@ var config = {};
 // TEST Mode
 config.test_mode = false;
 
+// On Premise NVA params
+config.on_premise = {
+    enabled: false,
+    version: 0.2,
+    base_url: "https://s3-eu-west-1.amazonaws.com/noobaa-download/on_premise/v_",
+    nva_part: "NVA_Upgrade.tgz"
+};
+
 // SIGNALING AND ICE
 config.address = 'wss://noobaa-signaling.herokuapp.com'; // (on heroku: wss://noobaa-signaling.herokuapp.com) ws://10.0.0.2:5002
 config.alive_delay = 10 * 1000;
@@ -52,11 +60,13 @@ config.default_rpc_retries = 0;
 config.rpc_retry_delay = 500;
 
 config.ice_servers = {
-    'iceServers': [
-        {'url': 'stun:stun.l.google.com:19302'},
-        {'url': 'stun:stun.stunprotocol.org:3478'},
-        {'url': 'stun:54.93.86.231:3478'}
-    ]
+    'iceServers': [{
+        'url': 'stun:stun.l.google.com:19302'
+    }, {
+        'url': 'stun:stun.stunprotocol.org:3478'
+    }, {
+        'url': 'stun:54.93.86.231:3478'
+    }]
 };
 
 module.exports = config;

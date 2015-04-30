@@ -3,15 +3,11 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var moment = require('moment');
-var LRU = require('noobaa-util/lru');
 var size_utils = require('../util/size_utils');
 var db = require('./db');
-var api = require('../api');
 var tier_server = require('./tier_server');
 var bucket_server = require('./bucket_server');
-var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 var AWS = require('aws-sdk');
 
 

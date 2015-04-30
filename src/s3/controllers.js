@@ -3,18 +3,11 @@ require('../util/panic');
 
 var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var util = require('util');
-var md5 = require('MD5');
-var crypto = require('crypto');
 var md5_stream = require('../util/md5_stream');
-var path = require('path');
-var SliceReader = require('../util/slice_reader');
 var mime = require('mime');
-var concat_stream = require('concat-stream');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var S3Object = require('./models/s3-object');
 
 
 module.exports = function(params) {
@@ -64,8 +57,6 @@ module.exports = function(params) {
 
     var uploadPart = function(req, res) {
         Q.fcall(function() {
-            var template;
-            var mydata = '';
             var content_length = req.headers['content-length'];
 
             var upload_part_info = {
@@ -221,7 +212,6 @@ module.exports = function(params) {
         dbg.log0('Listing objects with', list_params, delimiter);
         return client.object.list_objects(list_params)
             .then(function(results) {
-                var i = 0;
                 var folders = {};
                 var objects = _.filter(results.objects, function(obj) {
                     try {
@@ -461,8 +451,7 @@ module.exports = function(params) {
                                 if (req.header('range')){
                                     return client.object_client.serve_http_stream(req,res,object_path);
                                 }else{
-                                    var stream = client.object_client.open_read_stream(object_path).pipe(res);
-
+                                    client.object_client.open_read_stream(object_path).pipe(res);
                                 }
                             }
 
@@ -495,7 +484,7 @@ module.exports = function(params) {
                                     if (req.method === 'HEAD') {
                                         return res.end();
                                     } else {
-                                        var stream = client.object_client.open_read_stream(object_path).pipe(res);
+                                        client.object_client.open_read_stream(object_path).pipe(res);
                                     }
                                 }).then(null, function(err) {
                                     dbg.error('ERROR: while download from noobaa', err);

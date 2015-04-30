@@ -107,7 +107,7 @@ function send_http_response(conn, msg, req) {
 function send_http_request(conn, msg, rpc_req) {
     var headers = {};
 
-    // encode the api, domain and method name in the url path
+    // set the url path only for logging to show it
     var path = BASE_PATH + rpc_req.srv;
 
     conn.http.reqid = rpc_req.reqid;

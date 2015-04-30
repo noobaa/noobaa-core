@@ -3,12 +3,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var moment = require('moment');
-var LRU = require('noobaa-util/lru');
-var size_utils = require('../util/size_utils');
 var db = require('./db');
-var api = require('../api');
 var system_server = require('./system_server');
 
 

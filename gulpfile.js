@@ -398,34 +398,26 @@ function serve() {
 }
 
 gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent']);
-gulp.task('install_and_serve', ['install'], serve);
+gulp.task('serve', [], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_server_and_serve', ['jshint'], serve);
-gulp.task('install_client_and_serve', ['jshint', 'client'], serve);
-gulp.task('install_agent_and_serve', ['jshint', 'agent'], serve);
+gulp.task('install_client_and_serve', ['client'], serve);
 
-gulp.task('start_dev', ['install_and_serve'], function() {
+gulp.task('start_dev', ['serve'], function() {
     gulp.watch([
         'src/css/**/*'
     ], ['install_css_and_serve']);
     gulp.watch([
-        'src/server/**/*',
-        'src/views/**/*'
-    ], ['install_server_and_serve']);
-    gulp.watch([
         'src/client/**/*',
         'src/ngview/**/*',
     ], ['install_client_and_serve']);
-    // during development it's not likely you want to watch 
-    // and rebuild the agent package on source updates..
-    // gulp.watch([
-        // 'src/agent/**/*'
-    // ], ['install_agent_and_serve']);
     gulp.watch([
-        'src/rpc/**/*',
+        'src/agent/**/*',
         'src/api/**/*',
+        'src/rpc/**/*',
+        'src/server/**/*',
         'src/util/**/*',
-    ], ['install_and_serve']);
+        'src/views/**/*',
+    ], ['serve']);
 });
 
 gulp.task('start_prod', function() {

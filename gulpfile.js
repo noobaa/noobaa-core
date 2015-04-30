@@ -399,23 +399,24 @@ function serve() {
 
 gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent']);
 gulp.task('serve', [], serve);
+gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
 gulp.task('install_client_and_serve', ['client'], serve);
 
-gulp.task('start_dev', ['serve'], function() {
+gulp.task('start_dev', ['install_and_serve'], function() {
     gulp.watch([
         'src/css/**/*'
     ], ['install_css_and_serve']);
     gulp.watch([
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
         'src/client/**/*',
         'src/ngview/**/*',
     ], ['install_client_and_serve']);
     gulp.watch([
         'src/agent/**/*',
-        'src/api/**/*',
-        'src/rpc/**/*',
         'src/server/**/*',
-        'src/util/**/*',
         'src/views/**/*',
     ], ['serve']);
 });

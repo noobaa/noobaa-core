@@ -26,11 +26,15 @@ module.exports = {
                 peer: {
                     type: 'string'
                 },
-                addresses: {
-                    type: 'array',
-                    items: {
+                address: {
+                    anyOf: [{
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        }
+                    }, {
                         type: 'string'
-                    }
+                    }]
                 }
             }
         },

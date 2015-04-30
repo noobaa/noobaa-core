@@ -9,11 +9,16 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var size_utils = require('../util/size_utils');
 
 
+/**
+ * we keep a map from peer_if to connection
+ * to be used for
+ */
+var peers_last_address = {};
+
 module.exports = {
     heartbeat: heartbeat,
+    peers_last_address: peers_last_address
 };
-
-
 
 
 
@@ -34,7 +39,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                     },
                 })
                 // we are very selective to reduce overhead
-                .select('ip port addresses storage geolocation device_info.last_update')
+                .select('ip port peer_id addresses storage geolocation device_info.last_update')
                 .exec())
             .then(function(res) {
                 var nodes_by_id = _.indexBy(res, '_id');
@@ -111,8 +116,28 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
  * HEARTBEAT
  *
  */
-function heartbeat(params) {
-    var node_id = params.id;
+function heartbeat(req) {
+    var node_id = req.rpc_params.id;
+
+    // verify the authorization to use this node for non admin roles
+    if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
+        throw req.forbidden();
+    }
+
+    var params = _.pick(req.rpc_params,
+        'id',
+        'geolocation',
+        'ip',
+        'port',
+        'addresses',
+        'storage',
+        'device_info');
+    params.ip = params.ip ||
+        (req.headers && req.headers['x-forwarded-for']) ||
+        (req.connection && req.connection.remoteAddress);
+    params.port = params.port || 0;
+    params.system = req.system;
+
     var node;
 
     dbg.log1('HEARTBEAT enter', node_id);
@@ -153,6 +178,10 @@ function heartbeat(params) {
                 console.error('IGNORE MISSING NODE FOR HEARTBEAT', node_id);
                 return;
             }
+
+            // TODO switch from plain hash to LRU with expiry?
+            dbg.log1('PEER LAST ADDRESS', node.peer_id, req.connection.url.href);
+            peers_last_address[node.peer_id] = req.connection.url.href;
 
             var agent_storage = params.storage;
 

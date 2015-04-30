@@ -26,7 +26,7 @@ function connect(conn, options) {
     if (conn.ws) {
         return conn.ws.connect_defer && conn.ws.connect_defer.promise;
     }
-    var ws = new WS(conn.address);
+    var ws = new WS(conn.url.href);
     ws.connect_defer = Q.defer();
     ws.binaryType = 'arraybuffer';
     conn.ws = ws;
@@ -59,11 +59,11 @@ function connect(conn, options) {
         }
     }
     ws.onclose = function() {
-        dbg.warn('WS CLOSED', conn.address);
+        dbg.warn('WS CLOSED', conn.url.href);
         onfail('connection closed');
     };
     ws.onerror = function(err) {
-        dbg.warn('WS ERROR', conn.address, err.stack || err);
+        dbg.warn('WS ERROR', conn.url.href, err.stack || err);
         onfail(err);
     };
     ws.onmessage = function(msg) {
@@ -100,7 +100,7 @@ function listen(rpc, http_server) {
         // TODO find out if ws is secure and use wss:// address instead
         var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
         dbg.log0('WS CONNECTION FROM', address);
-        var conn = rpc.new_connection(address);
+        var conn = rpc.get_connection(address);
         conn.ws = ws;
 
         function onfail(err) {
@@ -112,11 +112,11 @@ function listen(rpc, http_server) {
             }
         }
         ws.onclose = function() {
-            dbg.warn('WS CLOSED', conn.address);
+            dbg.warn('WS CLOSED', conn.url.href);
             onfail('connection closed');
         };
         ws.onerror = function(err) {
-            dbg.warn('WS ERROR', conn.address, err.stack || err);
+            dbg.warn('WS ERROR', conn.url.href, err.stack || err);
             onfail(err);
         };
         ws.onmessage = function(msg) {
@@ -144,6 +144,9 @@ var WS_SEND_OPTIONS = {
  *
  */
 function send(conn, msg, op, req) {
+    if (!conn.ws) {
+        throw new Error('WS CLOSED cannot send ' + op + ' to ' + conn.url.href);
+    }
     conn.ws.send(msg, WS_SEND_OPTIONS);
 }
 

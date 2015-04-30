@@ -8,6 +8,7 @@ var api_servers = require('../server/api_servers');
 var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
+var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -589,8 +590,9 @@ function agent_delete_call(node, del_blocks) {
                 return block._id.toString();
             })
         }, {
-            address: block_addr.addresses,
-            domain: block_addr.peer,
+            peer: block_addr.peer,
+            address: block_addr.address,
+            last_address: node_monitor.peers_last_address[block_addr.peer],
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -897,8 +899,9 @@ function build_chunks(chunks) {
                             block_id: block._id.toString(),
                             source: source_addr
                         }, {
-                            address: block_addr.addresses,
-                            domain: block_addr.peer,
+                            peer: block_addr.peer,
+                            address: block_addr.address,
+                            last_address: node_monitor.peers_last_address[block_addr.peer],
                         });
                     }).then(function() {
                         dbg.log1('build_chunks replicated block', block._id,
@@ -1018,8 +1021,9 @@ function self_test_to_node_via_web(req) {
         request_length: req.rpc_params.request_length || 1024,
         response_length: req.rpc_params.response_length || 1024,
     }, {
-        address: source.addresses,
-        domain: source.peer,
+        peer: source.peer,
+        address: source.address,
+        last_address: node_monitor.peers_last_address[source.peer],
     });
 }
 
@@ -1330,8 +1334,8 @@ function get_part_info(params) {
 function get_block_address(block) {
     var b = {};
     b.id = block._id.toString();
-    b.addresses = block.node.addresses;
     b.peer = block.node.peer_id;
+    b.address = block.node.addresses;
     return b;
 }
 

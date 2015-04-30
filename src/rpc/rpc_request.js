@@ -32,14 +32,14 @@ Object.defineProperty(RpcRequest.prototype, 'rpc_params', {
 RpcRequest.prototype.new_request = function(api, method_api, params, options) {
     this.time = Date.now();
     this.reqid = this.time.toString(16) + Math.random().toString(16).slice(1);
+    this.peer = options.peer || '*';
     this.api = api;
     this.method_api = method_api;
-    this.domain = options.domain || '*';
     this.params = params;
     this.auth_token = options.auth_token;
     this.srv =
+        '/' + this.peer +
         '/' + api.name +
-        '/' + this.domain +
         '/' + method_api.name;
 };
 
@@ -80,9 +80,9 @@ RpcRequest.prototype.export_request_buffer = function() {
     var header = {
         op: 'req',
         reqid: this.reqid,
+        peer: this.peer,
         api: this.api.name,
         method: this.method_api.name,
-        domain: this.domain,
         params: this.params,
     };
     if (this.auth_token) {
@@ -98,17 +98,17 @@ RpcRequest.prototype.export_request_buffer = function() {
 RpcRequest.prototype.import_request_message = function(msg, api, method_api) {
     this.time = Date.now();
     this.reqid = msg.header.reqid;
+    this.peer = msg.header.peer;
     this.api = api;
     this.method_api = method_api;
-    this.domain = msg.header.domain;
     this.params = msg.header.params;
     this.auth_token = msg.header.auth_token;
     if (method_api) {
         method_api.params.import_buffers(this.params, msg.buffer);
     }
     this.srv =
+        '/' + (this.peer || '?') +
         '/' + (api ? api.name : '?') +
-        '/' + (this.domain || '?') +
         '/' + (method_api ? method_api.name : '?');
 };
 

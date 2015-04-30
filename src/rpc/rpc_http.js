@@ -165,7 +165,7 @@ function send_http_request(conn, msg, rpc_req) {
             .then(function(data) {
                 if (res.statusCode !== 200) {
                     throw new Error('HTTP ERROR ' + res.statusCode + ' ' +
-                        data + ' to ' + conn.address);
+                        data + ' to ' + conn.url.href);
                 }
                 dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
                 conn.receive(data);
@@ -275,7 +275,8 @@ function middleware(rpc) {
             }
             var host = req.connection.remoteAddress;
             var port = req.connection.remotePort;
-            var conn = rpc.new_connection('http://' + host + ':' + port);
+            var proto = req.get('X-Forwarded-Proto') || req.protocol;
+            var conn = rpc.get_connection(proto + '://' + host + ':' + port);
             conn.http = {
                 req: req,
                 res: res

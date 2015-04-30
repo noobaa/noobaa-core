@@ -7,11 +7,8 @@ module.exports = {
 };
 
 var options = {
-    domain: '*',
     // setup the rpc authorizer to check the request auth_token
     authorize: require('./auth_server').authorize,
-    // tell rpc to always use ws transport when sending to peers
-    use_ws_to_peer: true
 };
 
 api.rpc.register_service(api.schema.auth_api, require('./auth_server'), options);

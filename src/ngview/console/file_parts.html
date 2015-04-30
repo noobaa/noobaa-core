@@ -30,7 +30,7 @@
                             <div ng-if="!($index % 3)"></div>
                             <a class="btn-sm" style="white-space: nowrap" ng-click="nbNodes.goto_node_by_block(block)" rel="tooltip" ng-attr-title="{{block.details.node_name}}">
                                 <i class="srvmode-{{block.details.srvmode || 'none'}} block-online-{{!!block.details.online}} block-building-{{!!block.details.building}}">
-                                </i> {{block.address.addresses[0].slice(7)}}
+                                </i> {{block.address.address[0].slice(7)}}
                                 <!-- {{block.details.node_name}} -->
                             </a>
                         </span>

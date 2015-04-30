@@ -28,7 +28,7 @@ var node_server = {
     list_nodes: list_nodes,
     group_nodes: group_nodes,
 
-    heartbeat: heartbeat,
+    heartbeat: node_monitor.heartbeat,
 };
 
 module.exports = node_server;
@@ -347,42 +347,6 @@ function group_nodes(req) {
             };
         });
 }
-
-
-
-
-/**
- *
- * HEARTBEAT
- *
- */
-function heartbeat(req) {
-    var node_id = req.rpc_params.id;
-
-    // verify the authorization to use this node for non admin roles
-    if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
-        throw req.forbidden();
-    }
-
-    var params = _.pick(req.rpc_params,
-        'id',
-        'geolocation',
-        'ip',
-        'port',
-        'addresses',
-        'storage',
-        'device_info');
-
-    params.ip = params.ip ||
-        (req.headers && req.headers['x-forwarded-for']) ||
-        (req.connection && req.connection.remoteAddress);
-    params.port = params.port || 0;
-
-    params.system = req.system;
-
-    return node_monitor.heartbeat(params);
-}
-
 
 
 

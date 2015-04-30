@@ -151,12 +151,12 @@ describe('RPC', function() {
         it('should throw on duplicate service', function() {
             var rpc = new RPC();
             rpc.register_service(test_api, {}, {
-                domain: 17,
+                peer: 17,
                 allow_missing_methods: true
             });
             assert.throws(function() {
                 rpc.register_service(test_api, {}, {
-                    domain: 17,
+                    peer: 17,
                     allow_missing_methods: true
                 });
             }, Error);

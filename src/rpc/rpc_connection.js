@@ -3,7 +3,7 @@
 // var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
-var url = require('url');
+// var url = require('url');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var EventEmitter = require('events').EventEmitter;
 // var promise_utils = require('../util/promise_utils');
@@ -29,19 +29,13 @@ util.inherits(RpcConnection, EventEmitter);
 /**
  *
  */
-function RpcConnection(rpc, address) {
+function RpcConnection(rpc, address_url) {
     EventEmitter.call(this);
     this.rpc = rpc;
-    if (address.protocol) {
-        this.address = address.href;
-        this.url = address;
-    } else {
-        this.address = address;
-        this.url = url.parse(address);
-    }
+    this.url = address_url;
     this.transport = TRANSPORTS[this.url.protocol] || rpc_ws;
     this.reusable = this.transport.reusable;
-    dbg.log0('RPC CONNECTION', this.address);
+    dbg.log0('RPC CONNECTION', this.url.href);
 }
 
 /**

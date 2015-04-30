@@ -127,10 +127,10 @@ Agent.prototype.start = function() {
         })
         .then(function() {
 
-            // register agent_server in rpc, with domain as peer_id
+            // register agent_server in rpc, with peer as my peer_id
             // to match only calls to me
             api.rpc.register_service(api.schema.agent_api, self.agent_server, {
-                domain: self.peer_id,
+                peer: self.peer_id,
                 authorize: function(req, method_api) {
                     // TODO verify aithorized tokens in agent?
                 }
@@ -557,8 +557,8 @@ Agent.prototype.replicate_block = function(req) {
     return self.client.agent.read_block({
             block_id: source.id
         }, {
-            address: source.addresses,
-            domain: source.peer,
+            peer: source.peer,
+            address: source.address,
         })
         .then(function(res) {
             return self.store.write_block(block_id, res.data);
@@ -617,8 +617,8 @@ Agent.prototype.self_test_peer = function(req) {
             data: new Buffer(req.rpc_params.request_length),
             response_length: req.rpc_params.response_length,
         }, {
-            address: target.addresses,
-            domain: target.peer,
+            peer: target.peer,
+            address: target.address,
         })
         .then(function(res) {
             var data = res.data;

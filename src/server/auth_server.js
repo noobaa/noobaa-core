@@ -3,10 +3,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var moment = require('moment');
 var db = require('./db');
-var api = require('../api');
 var jwt = require('jsonwebtoken');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -53,11 +50,10 @@ function create_auth(req) {
     var password = req.rpc_params.password;
     var system_name = req.rpc_params.system;
     var role_name = req.rpc_params.role;
-    var expiry = req.rpc_params.expiry;
+    // var expiry = req.rpc_params.expiry;
     var authenticated_account;
     var account;
     var system;
-    var role;
 
     return Q.fcall(function() {
 
@@ -226,7 +222,7 @@ function authorize(req) {
         try {
             req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
         } catch (err) {
-            console.error('AUTH JWT VERIFY FAILED', req, err);
+            dbg.error('AUTH JWT VERIFY FAILED', req, err);
             throw {
                 statusCode: 401,
                 data: 'unauthorized'

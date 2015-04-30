@@ -144,7 +144,6 @@ nb_api.factory('nbNodes', [
             $scope.self_test_results = [];
 
             function define_phase(test) {
-                console.log('SELF TEST define phase', kind, test.kind, test.name);
                 if (_.contains(test.kind, kind)) {
                     $scope.self_test_results.push(test);
                 }
@@ -396,8 +395,8 @@ nb_api.factory('nbNodes', [
                 data: new Buffer(request_length || 0),
                 response_length: response_length || 0,
             }, {
+                peer: node.peer_id,
                 address: node.addresses,
-                domain: node.peer_id,
             });
         }
 
@@ -409,8 +408,8 @@ nb_api.factory('nbNodes', [
                 data: new Buffer(request_length || 0),
                 response_length: response_length || 0,
             }, {
+                peer: node.peer_id,
                 address: node.addresses,
-                domain: node.peer_id,
             });
         }
 
@@ -420,14 +419,14 @@ nb_api.factory('nbNodes', [
             return nbClient.client.agent.self_test_peer({
                 target: {
                     id: target_node.id,
-                    addresses: target_node.addresses,
-                    peer: target_node.peer_id
+                    peer: target_node.peer_id,
+                    address: target_node.addresses,
                 },
                 request_length: request_length || 0,
                 response_length: response_length || 0,
             }, {
+                peer: node.peer_id,
                 address: node.addresses,
-                domain: node.peer_id,
             });
         }
 
@@ -437,13 +436,13 @@ nb_api.factory('nbNodes', [
             return nbClient.client.object.self_test_to_node_via_web({
                 target: {
                     id: target_node.id,
-                    addresses: target_node.addresses,
-                    peer: target_node.peer_id
+                    peer: target_node.peer_id,
+                    address: target_node.addresses,
                 },
                 source: {
                     id: node.id,
-                    addresses: node.addresses,
-                    peer: node.peer_id
+                    peer: node.peer_id,
+                    address: node.addresses,
                 },
                 request_length: request_length || 0,
                 response_length: response_length || 0,

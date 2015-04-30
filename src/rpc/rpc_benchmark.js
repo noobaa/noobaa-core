@@ -13,9 +13,6 @@ var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
 
-// allow self generated certificates
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
-
 // test arguments
 // time to run in seconds
 argv.time = argv.time || undefined;

@@ -39,6 +39,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var rpc_http = require('../rpc/rpc_http');
 var api = require('../api');
+var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
 
@@ -183,6 +184,20 @@ app.get('/', function(req, res) {
     return res.redirect('/console/');
 });
 
+// Upgrade checks
+app.get('/get_latest_version*', function(req, res) {
+    var query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
+    var ret_version = '';
+
+    if (!is_latest_version(query_version)) {
+        ret_version = config.on_premise.base_url + config.on_premise.version + '/' + config.on_premise.nva_part;
+    }
+
+    res.status(200).send({
+        version: ret_version,
+    });
+});
+
 
 
 ////////////
@@ -282,6 +297,48 @@ function error_501(req, res, next) {
 
 function can_accept_html(req) {
     return !req.xhr && req.accepts('html') && req.originalUrl.indexOf('/api/') !== 0;
+}
+
+// Check if given version is the latest version, or are there newer ones
+// Version is in the form of X.Y.Z, start checking from left to right
+function is_latest_version(query_version) {
+    console.log('Checking version', query_version, 'against', config.on_premise.version); //TODO: dbg3
+
+    if (query_version === config.on_premise.version) {
+        return true;
+    }
+
+    var srv_version_parts = config.on_premise.version.toString().split('.');
+    var query_version_parts = query_version.split('.');
+
+    var len = Math.min(srv_version_parts.length, query_version_parts.length);
+
+    // Compare common parts
+    for (var i = 0; i < len; i++) {
+        //current part of server is greater, query version is outdated
+        if (parseInt(srv_version_parts[i]) > parseInt(query_version_parts[i])) {
+            return false;
+        }
+
+        if (parseInt(srv_version_parts[i]) < parseInt(query_version_parts[i])) {
+            console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
+                config.on_premise.version, ') ! How can this happen?');
+            return true;
+        }
+    }
+
+    // All common parts are equal, check if there are tailing version parts
+    if (srv_version_parts.length > query_version_parts.length) {
+        return false;
+    }
+
+    if (srv_version_parts.length < query_version_parts.length) {
+        console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
+            config.on_premise.version, '), has more tailing parts! How can this happen?');
+        return true;
+    }
+
+    return true;
 }
 
 

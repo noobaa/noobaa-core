@@ -1,0 +1,40 @@
+#!/bin/sh
+ 
+# chkconfig: - 15 15
+ 
+. /etc/rc.d/init.d/functions
+ 
+SUPERVISORD="/usr/bin/supervisord"
+PIDFILE="/var/run/supervisord.pid"
+ 
+start() {
+    if [ ! -x "$SUPERVISORD" ]; then
+        echo "$SUPERVISORD is not executable."
+        exit 1
+    fi
+ 
+    echo "Starting ..."
+    $SUPERVISORD --pidfile $PIDFILE
+ 
+    return $?
+}
+ 
+stop() {
+    echo "Stopping ..."
+    kill -QUIT `cat $PIDFILE`
+    [ $? -eq 0 ] && rm -f $PIDFILE
+    return $retval
+}
+ 
+case $1 in
+    start)
+        start
+    ;;
+    stop)
+        stop
+    ;;
+    *)
+        echo "$0 start|srop"
+        exit 2
+    ;;
+esac

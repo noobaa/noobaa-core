@@ -391,6 +391,7 @@ function heartbeat(req) {
 
 
 
+/*
 function count_node_storage_used(node_id) {
     return Q.when(db.DataBlock.mapReduce({
             query: {
@@ -406,7 +407,7 @@ function count_node_storage_used(node_id) {
             return res && res[0] && res[0].value || 0;
         });
 }
-
+*/
 
 function get_node_full_info(node) {
     var info = _.pick(node, 'id', 'name', 'geolocation', 'srvmode');

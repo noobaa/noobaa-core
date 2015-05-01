@@ -126,7 +126,9 @@ function noobaa_string_to_sign (request) {
     // This is the "Date" header, but we use X-Amz-Date.
     // The S3 signing mechanism requires us to pass an empty
     // string for this Date header regardless.
-    parts.push(r.headers['presigned-expires'] || '');
+
+    //another noobaa addition - take into account signed urls
+    parts.push(r.headers['presigned-expires'] || ''||r.query.Expires);
 
     var headers = canonicalizedAmzHeaders(request);
     if (headers) parts.push(headers);

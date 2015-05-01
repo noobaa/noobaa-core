@@ -164,9 +164,10 @@ function connect_socket(socket, stun_host, stun_port) {
 
     function send_next_indication() {
         if (closed) return;
+        var delay = STUN.INDICATION_INTERVAL * chance.floating(STUN.INDICATION_JITTER);
         // dbg.log0('STUN INDICATION', stun_host, stun_port);
-        return send_indication(socket, stun_host, stun_port)
-            .delay(STUN.INDICATION_INTERVAL * chance.floating(STUN.INDICATION_JITTER))
+        send_indication(socket, stun_host, stun_port)
+            .delay(delay)
             .then(send_next_indication);
     }
 }

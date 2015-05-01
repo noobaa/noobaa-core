@@ -51,6 +51,7 @@ var SEND_BATCH_COUNT = 5;
 var SEND_RETRANSMIT_DELAY = 100;
 var ACK_DELAY = 5;
 var ACKS_PER_SEC_MIN = 1000;
+var FIN_DELAY = 500;
 
 var CONN_RAND_CHANCE = {
     min: 1,
@@ -97,7 +98,7 @@ function close(conn) {
 
     // send fin message
     if (nu.state !== STATE_CLOSED) {
-        send_fin(conn);
+        schedule_delayed_fin(conn);
     }
 
     // wakeup if anyone is waiting for connect
@@ -288,6 +289,8 @@ function init_nudp_conn(conn, nudp_context, time, rand) {
         packets_receive_message_buffers: [],
         packets_receive_message_bytes: 0,
 
+        delayed_syn_ack_timeout: {},
+        delayed_fin_timeout: {},
         delayed_acks_queue: new LinkedList('a'),
 
         mtu_min: MTU_MIN,
@@ -570,11 +573,13 @@ function receive_packet(rpc, nudp_context, buffer, rinfo) {
     var conn = nudp_context.connections[connid];
     if (!conn) {
         if (hdr.type !== PACKET_TYPE_SYN) {
-            dbg.log2('NUDP receive_packet: expected SYN', connid);
-            send_fin(fake_conn(
-                nudp_context.socket,
-                rinfo.address, rinfo.port,
-                connid, hdr.time, hdr.rand));
+            if (hdr.type !== PACKET_TYPE_FIN) {
+                dbg.log2('NUDP receive_packet: expected SYN or FIN', hdr.type, connid);
+                schedule_delayed_fin(fake_conn(
+                    nudp_context.socket,
+                    rinfo.address, rinfo.port,
+                    connid, hdr.time, hdr.rand));
+            }
             return;
         }
         dbg.log0('NUDP receive_packet: NEW CONNECTION', connid);
@@ -584,7 +589,7 @@ function receive_packet(rpc, nudp_context, buffer, rinfo) {
     var nu = conn.nudp;
     if (nu.state === STATE_CLOSED) {
         dbg.log2('receive_packet: connection is closed, send FIN', nu.connid);
-        send_fin(conn);
+        schedule_delayed_fin(conn);
         return;
     }
 
@@ -659,28 +664,58 @@ function receive_syn(conn, hdr) {
     var nu = conn.nudp;
     dbg.log0('NUDP receive_syn:',
         'state', nu.state,
-        'attempt', hdr.seq,
+        'syn seq', hdr.seq,
         nu.connid);
 
-    if (nu.state === STATE_INIT) {
-        nu.state = STATE_CONNECTED;
-        if (nu.connect_defer) {
-            nu.connect_defer.resolve();
-            nu.connect_defer = null;
-        }
-        // continue and send SYN ACK
-    }
-
-    // for every SYN we accept we reply with SYN ACK
-    // so even if the message is lost, the retries on send_syn will resolve.
-    // reply back the SYN attempt sequence which is sent over the hdr.seq field.
-    if (nu.state === STATE_CONNECTED) {
-        var syn_ack_buf = new Buffer(PACKET_HEADER_LEN);
-        write_packet_header(syn_ack_buf, PACKET_TYPE_SYN_ACK, nu.time, nu.rand, hdr.seq, 0);
-        nu.send_packet(syn_ack_buf);
+    switch (nu.state) {
+        case STATE_INIT:
+            nu.state = STATE_CONNECTED;
+            if (nu.connect_defer) {
+                nu.connect_defer.resolve();
+                nu.connect_defer = null;
+            }
+            schedule_syn_ack(conn, hdr);
+            break;
+        case STATE_CONNECTED:
+            schedule_syn_ack(conn, hdr);
+            break;
+        default:
+            break;
     }
 }
 
+
+/**
+ *
+ * schedule_syn_ack
+ *
+ */
+function schedule_syn_ack(conn, hdr) {
+    var nu = conn.nudp;
+    // schedule a delayed FIN
+    if (!nu.delayed_syn_ack_timeout[nu.connid]) {
+        nu.delayed_syn_ack_timeout[nu.connid] =
+            setTimeout(send_syn_ack, FIN_DELAY, conn, hdr);
+    }
+}
+
+/**
+ *
+ * send_syn_ack
+ *
+ */
+function send_syn_ack(conn, hdr) {
+    var nu = conn.nudp;
+    dbg.log0('NUDP send_syn_ack:',
+        'state', nu.state,
+        'attempt', hdr.seq,
+        nu.connid);
+
+    var syn_ack_buf = new Buffer(PACKET_HEADER_LEN);
+    write_packet_header(syn_ack_buf, PACKET_TYPE_SYN_ACK, nu.time, nu.rand, hdr.seq, 0);
+    nu.send_packet(syn_ack_buf);
+    delete nu.delayed_syn_ack_timeout[nu.connid];
+}
 
 
 /**
@@ -695,12 +730,31 @@ function receive_syn_ack(conn, hdr) {
         'attempt', hdr.seq,
         nu.connid);
 
-    if (nu.state === STATE_INIT) {
-        nu.state = STATE_CONNECTED;
-        if (nu.connect_defer) {
-            nu.connect_defer.resolve();
-            nu.connect_defer = null;
-        }
+    switch (nu.state) {
+        case STATE_INIT:
+            nu.state = STATE_CONNECTED;
+            if (nu.connect_defer) {
+                nu.connect_defer.resolve();
+                nu.connect_defer = null;
+            }
+            break;
+        default:
+            break;
+    }
+}
+
+
+/**
+ *
+ * schedule_delayed_fin
+ *
+ */
+function schedule_delayed_fin(conn) {
+    var nu = conn.nudp;
+    // schedule a delayed FIN
+    if (!nu.delayed_fin_timeout[nu.connid]) {
+        nu.delayed_fin_timeout[nu.connid] =
+            setTimeout(send_fin, FIN_DELAY, conn);
     }
 }
 
@@ -712,13 +766,16 @@ function receive_syn_ack(conn, hdr) {
  */
 function send_fin(conn) {
     var nu = conn.nudp;
-    dbg.log0('NUDP send_fin:',
-        'state', nu.state,
-        nu.connid);
+    if (nu.state !== 'fake') {
+        dbg.log0('NUDP send_fin:',
+            'state', nu.state,
+            nu.connid);
+    }
 
     var fin_buf = new Buffer(PACKET_HEADER_LEN);
     write_packet_header(fin_buf, PACKET_TYPE_FIN, nu.time, nu.rand, 0, 0);
     nu.send_packet(fin_buf);
+    delete nu.delayed_fin_timeout[nu.connid];
 }
 
 

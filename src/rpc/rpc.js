@@ -194,7 +194,8 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
         .then(null, function(err) {
 
             dbg.error('RPC client_request: response ERROR',
-                req.connection.url.href + req.srv,
+                req.connection ? req.connection.url.href : '' +
+                req.srv,
                 err.stack || err);
             self.emit_stats('stats.client_request.error', req);
             throw err;

@@ -215,6 +215,7 @@ function read_system(req) {
 
             }),
             objects: objects_sys.count || 0,
+            access_keys: req.system.access_keys,
         };
     });
 }

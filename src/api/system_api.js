@@ -273,6 +273,7 @@ module.exports = {
                 'nodes',
                 'buckets',
                 'objects',
+                'access_keys'
             ],
             properties: {
                 name: {
@@ -305,6 +306,12 @@ module.exports = {
                 objects: {
                     type: 'integer'
                 },
+                access_keys: {
+                    type: 'array',
+                    item: {
+                        $ref: '/system_api/definitions/access_keys'
+                    }
+                }
             }
         },
 
@@ -349,6 +356,19 @@ module.exports = {
                 },
             }
         },
+        access_keys: {
+            type: 'object',
+            required: ['access_key','secret_key'],
+            peroperties: {
+                access_key : {
+                    type: String,
+
+                },
+                secret_key : {
+                    type: String,
+                }
+            }
+        }
 
 
     }

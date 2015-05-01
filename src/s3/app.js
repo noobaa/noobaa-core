@@ -67,14 +67,12 @@ function s3_app(params) {
                     dbg.log0('signed url');
                 }
                 if (authenticated_request) {
-
-
                     var s3 = new s3_auth(req);
                     params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
                     // debug code.
                     // use it for faster detection of a problem in the signature calculation and verification
                     //
-                     //
+                    //
                     //  var s3_internal_signature = s3.sign(params.access_key, params.string_to_sign);
                     //  dbg.log0('s3 internal:::' + params.string_to_sign,req.query.Signature,req.headers.authorization);
                     //  if ((req.headers.authorization === 'AWS ' + params.access_key + ':' + s3_internal_signature) ||
@@ -82,7 +80,7 @@ function s3_app(params) {
                     //  {
                     //      dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
                     //  } else {
-                     //
+                    //
                     //      dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization || req.query.Signature);
                     //  }
 

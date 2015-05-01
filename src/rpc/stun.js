@@ -7,6 +7,7 @@ var url = require('url');
 var util = require('util');
 var dgram = require('dgram');
 var crypto = require('crypto');
+var chance = require('chance').Chance(Date.now());
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 // https://tools.ietf.org/html/rfc5389
@@ -25,7 +26,11 @@ var STUN = {
     // The key for XOR_MAPPED_ADDRESS includes magic key and transaction id
     XOR_KEY_OFFSET: 4,
     // ms between indications
-    INDICATION_INTERVAL: 10000,
+    INDICATION_INTERVAL: 5000,
+    INDICATION_JITTER: {
+        min: 0.8,
+        max: 1.2,
+    },
 
     // Method
     METHOD_MASK: 0x0110,
@@ -121,11 +126,10 @@ module.exports = {
  *
  */
 function connect_socket(socket, stun_host, stun_port) {
-    var interval;
+    var closed;
 
     socket.on('close', function() {
-        clearInterval(interval);
-        interval = null;
+        closed = true;
     });
 
     // other handlers of the 'message' event need to filter out stun messages
@@ -156,14 +160,15 @@ function connect_socket(socket, stun_host, stun_port) {
     });
 
     return send_request(socket, stun_host, stun_port)
-        .then(function() {
-            interval = setInterval(
-                send_indication,
-                STUN.INDICATION_INTERVAL,
-                socket,
-                stun_host,
-                stun_port);
-        });
+        .then(send_next_indication);
+
+    function send_next_indication() {
+        if (closed) return;
+        // dbg.log0('STUN INDICATION', stun_host, stun_port);
+        return send_indication(socket, stun_host, stun_port)
+            .delay(STUN.INDICATION_INTERVAL * chance.floating(STUN.INDICATION_JITTER))
+            .then(send_next_indication);
+    }
 }
 
 

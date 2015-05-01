@@ -23,37 +23,68 @@ function s3_app(params) {
     var app = express();
     var Controllers = require('./controllers');
     var controllers = new Controllers(params);
-
+    var allowCrossDomain = function(req, res, next) {
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag');
+        res.header('Access-Control-Allow-Origin', '*');
+        res.header('Access-Control-Expose-Headers', 'ETag');
+        if (req.method === 'OPTIONS') {
+            dbg.log3('OPTIONS!');
+            res.sendStatus(200);
+        } else {
+            next();
+        }
+    };
+    app.use(allowCrossDomain);
     app.use(function(req, res, next) {
 
         return Q.fcall(function() {
 
                 dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
 
+                res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+                res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,ETag');
+                res.header('Access-Control-Allow-Origin', '*');
+                // note that browsers will not allow origin=* with credentials
+                // but anyway we allow it by the agent server.
+                res.header('Access-Control-Allow-Credentials', true);
+                res.header('ETag', '1');
+                var authenticated_request = false;
+
                 if (req.headers.authorization) {
 
-                    var s3 = new s3_auth(req);
                     //Using noobaa's extraction function, due to compatibility problem in aws library with express.
-                    params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
-
-                    // debug code.
-                    // use it for faster detection of a problem in the signature calculation and verification
-                    //
-                    // var awsSecretKey = 'abc';
-                    // var awsAccessKey = '123';
-                    // var s3_internal_signature = s3.sign(awsSecretKey, params.string_to_sign);
-                    // dbg.log0('s3 internal:::' + params.string_to_sign);
-                    // if (req.headers.authorization === 'AWS ' + awsAccessKey + ':' + s3_internal_signature) {
-                    //     dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
-                    // } else {
-                    //     dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization);
-                    // }
-
 
                     var end_of_aws_key = req.headers.authorization.indexOf(':');
                     var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
                     params.access_key = req_access_key;
                     params.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
+                    authenticated_request = true;
+                } else if (req.query.AWSAccessKeyId && req.query.Signature) {
+                    params.access_key = req.query.AWSAccessKeyId;
+                    params.signature = req.query.Signature;
+                    authenticated_request = true;
+                    dbg.log0('signed url');
+                }
+                if (authenticated_request) {
+
+
+                    var s3 = new s3_auth(req);
+                    params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
+                    // debug code.
+                    // use it for faster detection of a problem in the signature calculation and verification
+                    //
+                     //
+                    //  var s3_internal_signature = s3.sign(params.access_key, params.string_to_sign);
+                    //  dbg.log0('s3 internal:::' + params.string_to_sign,req.query.Signature,req.headers.authorization);
+                    //  if ((req.headers.authorization === 'AWS ' + params.access_key + ':' + s3_internal_signature) ||
+                    //      (req.query.Signature === s3_internal_signature))
+                    //  {
+                    //      dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
+                    //  } else {
+                     //
+                    //      dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization || req.query.Signature);
+                    //  }
 
                     return Q.fcall(function() {
                         return controllers.is_system_client_exists(params.access_key);
@@ -69,8 +100,7 @@ function s3_app(params) {
                 } else {
                     //unauthorized...
                     dbg.error('Unauthorized request!');
-                    var template = templateBuilder.buildSignatureDoesNotMatch('');
-                    res = controllers.buildXmlResponse(res, 401, template);
+                    throw (new Error('Unauthorized request!'));
                 }
             }).then(function() {
                 if (req.headers.host) {
@@ -93,7 +123,7 @@ function s3_app(params) {
             })
             .then(null, function(err) {
                 dbg.error('Failure during new request handling', err, err.stack);
-                return controllers.build_unauthorized_response(res, params.string_to_sign);
+                controllers.build_unauthorized_response(res, params.string_to_sign);
             });
 
     });

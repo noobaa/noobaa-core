@@ -26,8 +26,15 @@ module.exports = function(params) {
     var clients = {};
 
     var extract_access_key = function(req) {
-        var end_of_aws_key = req.headers.authorization.indexOf(':');
-        var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+        var req_access_key;
+        if (req.headers.authorization){
+            var end_of_aws_key = req.headers.authorization.indexOf(':');
+            req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+        }else{
+            if (req.query.AWSAccessKeyId){
+                req_access_key = req.query.AWSAccessKeyId;
+            }
+        }
         return req_access_key;
     };
 

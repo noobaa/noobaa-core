@@ -72,9 +72,7 @@ RpcConnection.prototype.receive = function(msg) {
 RpcConnection.prototype.close = function() {
     var self = this;
     Q.fcall(function() {
-            if (self.transport.close) {
-                return self.transport.close(self);
-            }
+            return self.transport.close(self);
         })
         .then(function() {
             self.emit('close');

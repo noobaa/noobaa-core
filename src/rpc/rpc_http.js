@@ -45,6 +45,8 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
     http.Agent.defaultMaxSockets = 100;
 }
 
+var browser_location = global.window && global.window.location;
+var is_browser_secure = browser_location && browser_location.protocol === 'https:';
 
 /**
  *
@@ -52,6 +54,9 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
  *
  */
 function connect(conn, options) {
+    if (conn.url.protocol === 'http:' && is_browser_secure) {
+        throw new Error('HTTP INSECURE - cannot use http: from secure browser page');
+    }
     conn.http = {};
 }
 
@@ -162,6 +167,13 @@ function send_http_request(conn, msg, rpc_req) {
 
     // once a response arrives read and handle it
     req.on('response', function(res) {
+        if (!res.statusCode) {
+            // statusCode = 0 means ECONNREFUSED and the response
+            // will not emit events in such case
+            send_defer.reject('ECONNREFUSED');
+            conn.emit('error', new Error('ECONNREFUSED'));
+            return;
+        }
         send_defer.resolve();
         conn.http.res = res;
         read_http_response_data(res)
@@ -209,14 +221,9 @@ function read_http_response_data(res) {
     dbg.log3('HTTP response headers', res.statusCode, res.headers);
 
     var defer = Q.defer();
-    if (!res.statusCode) {
-        // statusCode = 0 means ECONNREFUSED and the response will not emit events in such case
-        defer.resolve('ECONNREFUSED');
-    } else {
-        res.on('error', defer.reject);
-        res.on('data', add_chunk);
-        res.on('end', finish);
-    }
+    res.on('error', defer.reject);
+    res.on('data', add_chunk);
+    res.on('end', finish);
     return defer.promise;
 
     function add_chunk(chunk) {

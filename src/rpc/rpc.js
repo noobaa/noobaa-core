@@ -325,22 +325,23 @@ RPC.prototype.handle_response = function(conn, msg) {
 
 
 // order protocol in ascending order of precendence (first is most prefered).
+// NOTE: http/s is used last because we generally prefer websocket.
 var PROTOCOL_ORDER;
 if (browser_location) {
     if (is_browser_secure) {
         // prefer secure protocols on secure browser page
         PROTOCOL_ORDER = [
             'wss:',
-            'https:',
             'ws:',
+            'https:',
             'http:'
         ];
     } else {
         // prefer insecure protocols on insecure browser page
         PROTOCOL_ORDER = [
             'ws:',
-            'http:',
             'wss:',
+            'http:',
             'https:'
         ];
     }
@@ -350,8 +351,8 @@ if (browser_location) {
         'nudps:',
         'nudp:',
         'wss:',
-        'https:',
         'ws:',
+        'https:',
         'http:'
     ];
 }

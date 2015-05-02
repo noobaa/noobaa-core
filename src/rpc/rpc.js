@@ -21,7 +21,6 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
 var browser_location = global.window && global.window.location;
 var is_browser_secure = browser_location && browser_location.protocol === 'https:';
-var is_browser_insecure = browser_location && browser_location.protocol === 'http:';
 
 util.inherits(RPC, EventEmitter);
 
@@ -326,23 +325,35 @@ RPC.prototype.handle_response = function(conn, msg) {
 
 
 // order protocol in ascending order of precendence (first is most prefered).
-var PROTOCOL_ORDER = [];
-PROTOCOL_ORDER.push('fcall:');
-if (!browser_location) {
-    PROTOCOL_ORDER.push('nudps:');
-    PROTOCOL_ORDER.push('nudp:');
-}
-if (!is_browser_insecure) {
-    PROTOCOL_ORDER.push('wss:');
-}
-if (!is_browser_secure) {
-    PROTOCOL_ORDER.push('ws:');
-}
-if (!is_browser_insecure) {
-    PROTOCOL_ORDER.push('https:');
-}
-if (!is_browser_secure) {
-    PROTOCOL_ORDER.push('http:');
+var PROTOCOL_ORDER;
+if (browser_location) {
+    if (is_browser_secure) {
+        // prefer secure protocols on secure browser page
+        PROTOCOL_ORDER = [
+            'wss:',
+            'https:',
+            'ws:',
+            'http:'
+        ];
+    } else {
+        // prefer insecure protocols on insecure browser page
+        PROTOCOL_ORDER = [
+            'ws:',
+            'http:',
+            'wss:',
+            'https:'
+        ];
+    }
+} else {
+    // prefer udp, then secure protocols
+    PROTOCOL_ORDER = [
+        'nudps:',
+        'nudp:',
+        'wss:',
+        'https:',
+        'ws:',
+        'http:'
+    ];
 }
 var PROTOCOL_ORDER_MAP = _.invert(PROTOCOL_ORDER);
 var FCALL_ADDRESS = [url.parse('fcall://fcall')];

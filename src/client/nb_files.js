@@ -2,10 +2,8 @@
 'use strict';
 
 var _ = require('lodash');
-var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var api = require('../api');
 var SliceReader = require('../util/slice_reader');
 var BrowserFileWriter = require('../util/browser_file_writer');
 var concat_stream = require('concat-stream');

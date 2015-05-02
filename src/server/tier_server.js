@@ -3,10 +3,6 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var moment = require('moment');
-var size_utils = require('../util/size_utils');
-var api = require('../api');
 var db = require('./db');
 
 

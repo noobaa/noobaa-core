@@ -1,4 +1,4 @@
-/* global angular, google */
+/* global angular */
 'use strict';
 
 var _ = require('lodash');

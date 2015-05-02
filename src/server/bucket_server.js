@@ -3,7 +3,6 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var api = require('../api');
 var db = require('./db');
 
 
@@ -30,8 +29,6 @@ module.exports = bucket_server;
  *
  */
 function create_bucket(req) {
-    var name = req.rpc_params.name;
-
     return resolve_tiering(req.rpc_params.tiering)
         .then(function(tiering) {
             var info = _.pick(req.rpc_params, 'name');

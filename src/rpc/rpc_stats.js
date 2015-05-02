@@ -103,7 +103,6 @@ RpcStats.prototype._handleStats = function() {
 RpcStats.prototype._getStats = function() {
     var self = this;
     var result = 'Statistics: ';
-    var name;
     var stat;
     try {
         _.each(self._stats, function(stats, name) {

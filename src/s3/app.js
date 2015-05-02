@@ -1,8 +1,6 @@
 'use strict';
 
-var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var https = require('https');
 var http = require('http');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -19,8 +17,7 @@ function s3_app(params) {
         app = express(),
         //logger = require('./logger')(false),
         Controllers = require('./controllers'),
-        controllers = new Controllers(params),
-        concat = require('concat-stream');
+        controllers = new Controllers(params);
 
 
 

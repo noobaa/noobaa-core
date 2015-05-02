@@ -21,7 +21,6 @@ var dot_engine = require('noobaa-util/dot_engine');
 var _ = require('lodash');
 var Q = require('q');
 var path = require('path');
-var URL = require('url');
 var http = require('http');
 var mongoose = require('mongoose');
 var dotenv = require('dotenv');
@@ -254,6 +253,7 @@ function error_404(req, res, next) {
     });
 }
 
+/*
 function error_403(req, res, next) {
     console.log('NO USER', req.originalMethod, req.originalUrl);
     if (can_accept_html(req)) {
@@ -278,6 +278,7 @@ function error_501(req, res, next) {
         message: 'Working on it... ' + req.originalUrl
     });
 }
+*/
 
 // decide if the client can accept html reply.
 // the xhr flag in the request (X-Requested-By header) is not commonly sent

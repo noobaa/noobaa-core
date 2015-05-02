@@ -2,15 +2,12 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var util = require('util');
-var async = require('async');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
-var AWS = require('aws-sdk');
 var google = require('googleapis');
 var compute = google.compute('v1');
-var OAuth2 = google.auth.OAuth2;
+// var OAuth2 = google.auth.OAuth2;
 Q.longStackSupport = true;
 
 //production
@@ -57,7 +54,7 @@ module.exports = {
 };
 
 
-var _gcloud_per_zone = {};
+// var _gcloud_per_zone = {};
 var app_name = '';
 // // returns a promise for the completion of the loop
 function promiseWhile(condition, body) {
@@ -335,7 +332,7 @@ function describe_instances(params) {
         return Q.nfcall(compute.instances.list, instancesListParams).then(
             function(instances_list_results) {
                 if (instances_list_results[0].hasOwnProperty('items')) {
-                    var number_of_instances_in_zone = instances_list_results[0].items.length;
+                    // var number_of_instances_in_zone = instances_list_results[0].items.length;
                     created_instance_data = created_instance_data.concat(instances_list_results[0].items);
                 }
 
@@ -360,16 +357,20 @@ function describe_instances(params) {
     );
 }
 
-
+/**
+ *
+ * getInstanceDataPerInstanceId - unused..
+ *
+ *
 function getInstanceDataPerInstanceId(instanceId) {
-    var instances_per_zone = [];
+    // var instances_per_zone = [];
     var index = 0;
     return compute.zones.list({
         project: NooBaaProject,
         auth: authClient
     }.then(function(zones_list) {
         return Q.all(_.map(zones_list, function(zone_name) {
-            var instances = instances_per_zone[zone_name] || [];
+            // var instances = instances_per_zone[zone_name] || [];
             return index < zones_list.items.length;
         }, function() {
 
@@ -392,8 +393,8 @@ function getInstanceDataPerInstanceId(instanceId) {
         })).then(function() {}).done();
 
     }));
-
 }
+*/
 
 /**
  *

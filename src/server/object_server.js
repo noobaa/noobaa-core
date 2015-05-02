@@ -2,8 +2,6 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
-var api = require('../api');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');

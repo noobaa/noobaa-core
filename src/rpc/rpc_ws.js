@@ -22,17 +22,18 @@ module.exports = {
  *
  */
 function connect(conn, options) {
-    if (conn.ws) {
-        if (conn.ws.connect_defer) {
-            return conn.ws.connect_defer.promise;
+    var ws = conn.ws;
+    if (ws) {
+        if (ws.connect_defer) {
+            return ws.connect_defer.promise;
         }
-        if (conn.ws.connected) {
+        if (ws.connected) {
             return;
         }
         throw new Error('WS disconnected ' + conn.connid);
     }
 
-    var ws = new WS(conn.url.href);
+    ws = new WS(conn.url.href);
     ws.connect_defer = Q.defer();
     ws.binaryType = 'arraybuffer';
     conn.ws = ws;
@@ -40,20 +41,10 @@ function connect(conn, options) {
     ws.onopen = function() {
 
         // send connect command
-        ws.send(JSON.stringify({
-            op: 'connect',
-            time: conn.time,
-            rand: conn.rand,
-        }));
+        send_command('connect');
 
-        // start keepalive
-        ws.keepalive_interval = setInterval(function() {
-            ws.send(JSON.stringify({
-                op: 'keepalive',
-                time: conn.time,
-                rand: conn.rand,
-            }));
-        }, 10000);
+        // start keepaliving
+        ws.keepalive_interval = setInterval(send_command, 10000, 'keepalive');
 
         ws.connected = true;
 
@@ -69,7 +60,7 @@ function connect(conn, options) {
     };
 
     ws.onerror = function(err) {
-        dbg.warn('WS ERROR', conn.connid, err.stack || err);
+        dbg.error('WS ERROR', conn.connid, err.stack || err);
         conn.emit('error', err);
     };
 
@@ -77,6 +68,18 @@ function connect(conn, options) {
         var buffer = buffer_utils.toBuffer(msg.data);
         conn.receive(buffer);
     };
+
+    function send_command(op) {
+        try {
+            ws.send(JSON.stringify({
+                op: op,
+                time: conn.time,
+                rand: conn.rand,
+            }));
+        } catch (err) {
+            conn.emit('error', err);
+        }
+    }
 
     return ws.connect_defer.promise;
 }
@@ -125,7 +128,7 @@ function listen(rpc, http_server) {
         // TODO find out if ws is secure and use wss:// address instead
         var conn;
         var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
-        dbg.log0('WS CONNECTION FROM', address, ws._socket);
+        dbg.log0('WS CONNECTION FROM', address);
 
         ws.on('close', function() {
             if (conn) {
@@ -138,10 +141,10 @@ function listen(rpc, http_server) {
 
         ws.on('error', function(err) {
             if (conn) {
-                dbg.warn('WS ERROR', conn.connid, err.stack || err);
+                dbg.error('WS ERROR', conn.connid, err.stack || err);
                 conn.emit('error', err);
             } else {
-                dbg.warn('WS ERROR (not connected)', address, err.stack || err);
+                dbg.error('WS ERROR (not connected)', address, err.stack || err);
                 ws.emit('close', err);
             }
         });
@@ -177,6 +180,7 @@ function listen(rpc, http_server) {
                     assert(!conn, 'ALREADY CONNECTED');
                     conn = rpc.new_connection(address, cmd.time, cmd.rand);
                     conn.ws = ws;
+                    ws.connected = true;
                     break;
                 default:
                     throw new Error('BAD MESSAGE');

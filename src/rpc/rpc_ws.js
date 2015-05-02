@@ -169,7 +169,6 @@ function listen(rpc, http_server) {
 
         function handle_command_message(msg) {
             var cmd = _.isString(msg) ? JSON.parse(msg) : msg;
-            dbg.log0('WS COMMAND', msg);
             switch (cmd.op) {
                 case 'keepalive':
                     assert(conn, 'NOT CONNECTED');
@@ -177,6 +176,7 @@ function listen(rpc, http_server) {
                     assert.strictEqual(cmd.rand, conn.rand, 'CONNECTION RAND MISMATCH');
                     break;
                 case 'connect':
+                    dbg.log0('WS CONNECT', msg);
                     assert(!conn, 'ALREADY CONNECTED');
                     conn = rpc.new_connection(address, cmd.time, cmd.rand);
                     conn.ws = ws;

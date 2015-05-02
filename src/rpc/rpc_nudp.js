@@ -49,8 +49,9 @@ var WINDOW_BYTES_MAX = 4 * 1024 * 1024;
 var WINDOW_LENGTH_MAX = 5000;
 var SEND_BATCH_COUNT = 5;
 var SEND_RETRANSMIT_DELAY = 100;
-var ACK_DELAY = 5;
 var ACKS_PER_SEC_MIN = 1000;
+var ACK_DELAY = 5;
+var SYN_ACK_DELAY = 50;
 var FIN_DELAY = 500;
 
 var CONN_RAND_CHANCE = {
@@ -699,10 +700,10 @@ function receive_syn(nc, hdr) {
                 nc.connect_defer.resolve();
                 nc.connect_defer = null;
             }
-            schedule_syn_ack(nc, hdr);
+            schedule_delayed_syn_ack(nc, hdr);
             break;
         case STATE_CONNECTED:
-            schedule_syn_ack(nc, hdr);
+            schedule_delayed_syn_ack(nc, hdr);
             break;
         default:
             break;
@@ -712,14 +713,13 @@ function receive_syn(nc, hdr) {
 
 /**
  *
- * schedule_syn_ack
+ * schedule_delayed_syn_ack
  *
  */
-function schedule_syn_ack(nc, hdr) {
-    // schedule a delayed FIN
+function schedule_delayed_syn_ack(nc, hdr) {
     if (!nc.delayed_syn_ack_timeout[nc.connid]) {
         nc.delayed_syn_ack_timeout[nc.connid] =
-            setTimeout(send_syn_ack, FIN_DELAY, nc, hdr);
+            setTimeout(send_syn_ack, SYN_ACK_DELAY, nc, hdr);
     }
 }
 
@@ -772,7 +772,6 @@ function receive_syn_ack(nc, hdr) {
  *
  */
 function schedule_delayed_fin(nc) {
-    // schedule a delayed FIN
     if (!nc.delayed_fin_timeout[nc.connid]) {
         nc.delayed_fin_timeout[nc.connid] =
             setTimeout(send_fin, FIN_DELAY, nc);

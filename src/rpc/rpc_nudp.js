@@ -324,13 +324,13 @@ function close_defer(container, name) {
 
 /**
  *
- * fake_nc
+ * init_fake_nc
  *
  * returns a sort of a connection object that is used just to send fin replies
  * to remote addresses that do not know that their connection is closed.
  *
  */
-function fake_nc(socket, hostname, port, address, time, rand) {
+function init_fake_nc(socket, hostname, port, address, time, rand) {
     return {
         state: 'fake',
         time: time,
@@ -568,11 +568,12 @@ function receive_packet(rpc, nudp_socket, buffer, rinfo) {
         // if we get FIN and no connection we can ignore.
         // for any other packet reply back with FIN.
         if (hdr.type !== PACKET_TYPE_FIN) {
-            dbg.log2('NUDP receive_packet: expected SYN or FIN', hdr.type,
-                'connid', conn.connid);
-            schedule_delayed_fin(fake_nc(
+            var fake_nc = init_fake_nc(
                 nudp_socket.socket, rinfo.address, rinfo.port,
-                address, hdr.time, hdr.rand));
+                address, hdr.time, hdr.rand);
+            dbg.log2('NUDP receive_packet: expected SYN or FIN', hdr.type,
+                'connid', fake_nc.connid);
+            schedule_delayed_fin(fake_nc);
         }
         return;
     }

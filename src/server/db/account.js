@@ -1,11 +1,9 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
 var bcrypt = require('bcrypt');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
-var types = mongoose.Schema.Types;
 
 /**
  *
@@ -84,4 +82,4 @@ account_schema.pre('save', function(callback) {
 });
 
 
-var Account = module.exports = mongoose.model('Account', account_schema);
+module.exports = mongoose.model('Account', account_schema);

@@ -183,4 +183,4 @@ node_schema.statics.aggregate_nodes = function(query) {
     });
 };
 
-var Node = module.exports = mongoose.model('Node', node_schema);
+module.exports = mongoose.model('Node', node_schema);

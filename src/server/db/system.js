@@ -1,8 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
-var bcrypt = require('bcrypt');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -54,4 +52,4 @@ system_schema.index({
     unique: true
 });
 
-var System = module.exports = mongoose.model('System', system_schema);
+module.exports = mongoose.model('System', system_schema);

@@ -64,6 +64,50 @@ module.exports = {
             }
         },
 
+        create_access_key_auth: {
+            doc: 'Authenticate account with access key, ' +
+                'and returns an access token. ' +
+                'supply a system name to create a token for acting on the system.',
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['access_key','string_to_sign','signature'],
+                properties: {
+                    access_key: {
+                        type: 'string',
+                    },
+                    string_to_sign: {
+                        doc: 'string used to sign with access key and secret key in order to verify the token',
+                        type: 'string',
+                    },
+                    signature: {
+                        type: 'string',
+                    },
+                    extra: {
+                        type: 'object',
+                        additionalProperties: true
+                    },
+                    expiry: {
+                        type: 'integer',
+                        doc: 'Number of seconds before the authentication expires',
+                    },
+                },
+            },
+            reply: {
+                type: 'object',
+                required: ['token'],
+                properties: {
+                    token: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
+
         read_auth: {
             doc: 'Get info about the authenticated token.',
             method: 'GET',

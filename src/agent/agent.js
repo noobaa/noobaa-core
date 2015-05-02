@@ -161,7 +161,7 @@ Agent.prototype.start = function() {
             return self.send_heartbeat();
         })
         .then(null, function(err) {
-            console.error('AGENT server failed to start', err);
+            console.error('AGENT server failed to start', err,err.stack);
             self.stop();
             throw err;
         });
@@ -208,7 +208,7 @@ Agent.prototype._init_node = function() {
         .then(function(res) {
             dbg.log0('res:', res);
             // if we are already authorized with our specific node_id, use it
-            if (res.account && res.system &&
+            if (res.system &&
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
                 self.peer_id = res.extra.peer_id;
@@ -218,7 +218,7 @@ Agent.prototype._init_node = function() {
             }
 
             // if we have authorization to create a node, do it
-            if (res.account && res.system &&
+            if (res.system &&
                 _.contains(['admin', 'create_node'], res.role) &&
                 res.extra && res.extra.tier) {
                 dbg.log0('create node', self.node_name, 'tier', res.extra.tier);
@@ -448,7 +448,7 @@ Agent.prototype.send_heartbeat = function() {
 
         }, function(err) {
 
-            dbg.log0('HEARTBEAT FAILED', err, err.stack);
+            dbg.error('HEARTBEAT FAILED', err, err.stack);
 
             // schedule delay to retry on error
             self.heartbeat_delay_ms = 30000 * (1 + Math.random());

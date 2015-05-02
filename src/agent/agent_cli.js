@@ -21,6 +21,7 @@ var config = require('../../config.js');
 var DebugModule = require('noobaa-util/debug_module');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var child_process = require('child_process');
+var s3_auth = require('aws-sdk/lib/signers/s3');
 
 Q.longStackSupport = true;
 
@@ -38,6 +39,7 @@ Q.longStackSupport = true;
 function AgentCLI(params) {
     this.params = params;
     this.client = new api.Client();
+    this.s3 = new s3_auth();
     this.agents = {};
     // this._mod = dbg;
     // this.modules = this._mod.get_module_structure();
@@ -61,13 +63,13 @@ AgentCLI.prototype.init = function() {
             self.params = _.defaults(self.params, agent_conf);
         })
         .then(null, function(err) {
-            dbg.log0('cannot find configuration file. Using defaults.');
+            dbg.log0('cannot find configuration file. Using defaults.',err);
             self.params = _.defaults(self.params, {
                 root_path: './agent_storage/',
                 address: 'http://localhost:5001',
                 port: 0,
-                email: 'demo@noobaa.com',
-                password: 'DeMo',
+                access_key: '123',
+                secret_key: 'abc',
                 system: 'demo',
                 tier: 'nodes',
                 bucket: 'files'
@@ -96,7 +98,7 @@ AgentCLI.prototype.init = function() {
                 .then(function() {
                     dbg.log0('COMPLETED: load');
                 }, function(err) {
-                    dbg.log0('ERROR: load', self.params, err.stack);
+                    dbg.error('ERROR: load', self.params, err.stack);
                     throw new Error(err);
                 });
         });
@@ -189,30 +191,25 @@ AgentCLI.prototype.create = function() {
             if (self.create_node_token) return;
             // authenticate and create a token for new nodes
 
-            var auth_params = _.pick(self.params,
-                'email', 'password', 'system', 'role');
-            if (_.isEmpty(auth_params)) {
-                if (_.isEmpty(self.params.noobaa_access_key)) {
-                    dbg.log0('Exiting as there is no credential information.');
-
-                    throw new Error("No credentials");
-
-                } else {
-
-                    var access_res = {
-                        res: "Access Param",
-                        token: self.params.noobaa_access_key
-                    };
-                    return access_res;
-                }
-
+            var basic_auth_params = _.pick(self.params,
+                'system', 'role');
+            if (_.isEmpty(basic_auth_params)) {
+                throw new Error("No credentials");
             } else {
+                var secret_key = self.params.secret_key;
+                var auth_params_str = JSON.stringify(basic_auth_params);
+                var signature = self.s3.sign(secret_key, auth_params_str);
+                var auth_params = {
+                    'access_key': self.params.access_key,
+                    'string_to_sign': auth_params_str,
+                    'signature': signature
+                };
                 if (self.params.tier) {
                     auth_params.extra = {
                         tier: self.params.tier
                     };
                 }
-                return self.client.create_auth_token(auth_params);
+                return self.client.create_access_key_auth(auth_params);
             }
         })
         .then(function(res) {
@@ -431,7 +428,7 @@ function main() {
         populate_general_help(help.general);
         repl_srv.context.help = help;
     }, function(err) {
-        dbg.log0('init err:' + err);
+        dbg.error('init err:' + err);
 
     });
 }
@@ -458,6 +455,6 @@ function exitHandler() {
 // });
 
 process.on('uncaughtException', function(err) {
-    dbg.log0('Process Caught exception: ' , err , err.stack,require('util').inspect(err));
+    dbg.log0('Process Caught exception: ', err, err.stack, require('util').inspect(err));
     //exitHandler();
 });

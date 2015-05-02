@@ -250,22 +250,6 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
 
             return Q.fcall(function() {
 
-                    // authorize the request
-                    if (options.authorize) {
-                        return options.authorize(req, method_api);
-                    }
-                })
-                .then(function() {
-
-                    // verify params
-                    var params_to_validate = method_api.param_raw ?
-                        _.omit(req.rpc_params, method_api.param_raw) :
-                        req.rpc_params;
-                    self._validate_schema(
-                        params_to_validate,
-                        method_api.params_schema,
-                        'SERVER PARAMS');
-
                     /**
                      * respond with error
                      * @param statusCode <Number> optional http status code.
@@ -287,11 +271,29 @@ RPC.prototype.register_service = function(server, api_name, domain, options) {
                         err.data = data;
                         return err;
                     };
+                    // rest_params and rest_error are DEPRECATED.
+                    // keeping for backwards compatability
+                    req.rest_error = req.rpc_error;
+
+                    // authorize the request
+                    if (options.authorize) {
+                        return options.authorize(req, method_api);
+                    }
+                })
+                .then(function() {
+
+                    // verify params
+                    var params_to_validate = method_api.param_raw ?
+                        _.omit(req.rpc_params, method_api.param_raw) :
+                        req.rpc_params;
+                    self._validate_schema(
+                        params_to_validate,
+                        method_api.params_schema,
+                        'SERVER PARAMS');
 
                     // rest_params and rest_error are DEPRECATED.
                     // keeping for backwards compatability
                     req.rest_params = req.rpc_params;
-                    req.rest_error = req.rpc_error;
 
                     // call the server function
                     return server_func(req);
@@ -359,6 +361,7 @@ RPC.prototype.create_client = function(api_name, default_options) {
                     options[k] = v;
                 }
             });
+            dbg.log0('sending request',method_name);
             return self._request(api, method_api, params, options);
         };
     });

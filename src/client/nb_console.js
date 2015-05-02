@@ -559,6 +559,7 @@ nb_console.controller('BucketViewCtrl', [
                     return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
+                    nbFiles.set_keys(nbSystem.system.access_keys);
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;
                     });
@@ -634,7 +635,8 @@ nb_console.controller('FileViewCtrl', [
                 redirectTo: 'parts'
             });
 
-        reload_view(true);
+            reload_view(true);
+
 
         function reload_view(init_only) {
             return $q.when()
@@ -642,6 +644,11 @@ nb_console.controller('FileViewCtrl', [
                     return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
+                    //Setting access keys.
+                    //TODO: consider separation to other object with only the keys
+                    //      also, check better solution in terms of security.
+                    nbFiles.set_keys(nbSystem.system.access_keys);
+
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;
                     });
@@ -667,11 +674,10 @@ nb_console.controller('FileViewCtrl', [
                         rest_address + '/' +
                         $routeParams.bucket_name + '/' +
                         $routeParams.file_name + '?download=1');
-                    $scope.play_url = $sce.trustAsResourceUrl(
-                        rest_address + '/' +
-                        $routeParams.bucket_name + '/' +
-                        // (/^video\//.test($scope.file.content_type) ? 'video/' : 'o/') +
-                        $routeParams.file_name);
+
+                    //now we get s3 rest signed url
+                    console.log('url', $scope.file.url, $sce.trustAsResourceUrl($scope.file.url));
+                    $scope.play_url = $sce.trustAsResourceUrl($scope.file.url);
 
                     // TODO handle file parts pages
                     $scope.parts_num_pages = 9;

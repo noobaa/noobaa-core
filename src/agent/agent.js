@@ -26,7 +26,7 @@ var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
-// var config = require('../../config.js');
+var config = require('../../config.js');
 var diskspace = require('../util/diskspace_util');
 
 module.exports = Agent;
@@ -109,6 +109,11 @@ function Agent(params) {
         'China', 'Japan', 'Korea',
         'Ireland', 'Germany',
     ]);
+
+    //If test, add test APIs
+    if (config.test_mode) {
+        self._add_test_APIs();
+    }
 }
 
 
@@ -147,7 +152,7 @@ Agent.prototype.start = function() {
             return self.send_heartbeat();
         })
         .then(null, function(err) {
-            console.error('AGENT server failed to start', err);
+            dbg.error('AGENT server failed to start', err.stack || err);
             self.stop();
             throw err;
         });
@@ -195,7 +200,7 @@ Agent.prototype._init_node = function() {
         .then(function(res) {
             dbg.log0('res:', res);
             // if we are already authorized with our specific node_id, use it
-            if (res.account && res.system &&
+            if (res.system &&
                 res.extra && res.extra.node_id) {
                 self.node_id = res.extra.node_id;
                 self.peer_id = res.extra.peer_id;
@@ -205,7 +210,7 @@ Agent.prototype._init_node = function() {
             }
 
             // if we have authorization to create a node, do it
-            if (res.account && res.system &&
+            if (res.system &&
                 _.contains(['admin', 'create_node'], res.role) &&
                 res.extra && res.extra.tier) {
                 dbg.log0('create node', self.node_name, 'tier', res.extra.tier);
@@ -425,6 +430,18 @@ Agent.prototype.send_heartbeat = function() {
                 },
             };
 
+            //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
+            var orig_ifaces = os.networkInterfaces();
+            var interfaces = _.clone(orig_ifaces);
+
+            _.each(orig_ifaces, function(iface, name) {
+                if (name.indexOf('.') !== -1) {
+                    var new_name = name.replace('.', '-');
+                    interfaces[new_name] = iface;
+                    delete interfaces[name];
+                }
+            });
+
             if (hourlyHB) {
                 device_info_send_time = now_time;
                 params.device_info = {
@@ -438,7 +455,7 @@ Agent.prototype.send_heartbeat = function() {
                     totalmem: os.totalmem(),
                     freemem: os.freemem(),
                     cpus: os.cpus(),
-                    networkInterfaces: os.networkInterfaces()
+                    networkInterfaces: interfaces
                 };
 
                 if (totalSpace && freeSpace) {
@@ -481,7 +498,7 @@ Agent.prototype.send_heartbeat = function() {
 
         }, function(err) {
 
-            dbg.log0('HEARTBEAT FAILED', err, err.stack);
+            dbg.error('HEARTBEAT FAILED', err, err.stack);
 
             // schedule delay to retry on error
             self.heartbeat_delay_ms = 30000 * (1 + Math.random());
@@ -515,9 +532,7 @@ Agent.prototype._start_stop_heartbeats = function() {
 };
 
 
-
 // AGENT API //////////////////////////////////////////////////////////////////
-
 
 
 Agent.prototype.read_block = function(req) {
@@ -627,4 +642,24 @@ Agent.prototype.self_test_peer = function(req) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });
+};
+
+
+// AGENT TEST API /////////////////////////////////////////////////////////////
+
+Agent.prototype._add_test_APIs = function() {
+    console.warn("Adding test APIs for Agent prototype");
+
+    Agent.prototype.corrupt_blocks = function(req) {
+        var self = this;
+        var blocks = req.rpc_params.blocks;
+        dbg.log0('AGENT TEST API corrupt_blocks', blocks);
+        return self.store.corrupt_blocks(blocks);
+    };
+
+    Agent.prototype.list_blocks = function() {
+        var self = this;
+        dbg.log0('AGENT TEST API list_blocks');
+        return self.store.list_blocks();
+    };
 };

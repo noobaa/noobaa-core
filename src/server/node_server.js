@@ -84,10 +84,13 @@ function create_node(req) {
                 event: 'node.create',
                 node: node,
             });
-
+            var account_id = '';
+            if (req.account){
+                account_id = req.account.id;
+            }
             // a token for the agent authorized to use the new node id.
             var token = req.make_auth_token({
-                account_id: req.account.id,
+                account_id: account_id,
                 system_id: req.system.id,
                 role: 'agent',
                 extra: {

@@ -65,4 +65,11 @@ function Client(default_options) {
         });
     };
 
+    self.create_access_key_auth = function(params) {
+        return self.auth.create_access_key_auth(params).then(function(res) {
+            self.options.auth_token = res.token;
+            return res;
+        });
+    };
+
 }

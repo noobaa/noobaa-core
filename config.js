@@ -1,5 +1,8 @@
 var config = {};
 
+// TEST Mode
+config.test_mode = false;
+
 // SIGNALING AND ICE
 // config.ws_address = 'wss://noobaa-signaling.herokuapp.com';
 config.ws_address = 'ws://localhost:5002';

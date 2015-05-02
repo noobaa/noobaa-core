@@ -6,7 +6,8 @@ var Q = require('q');
 var db = require('./db');
 var jwt = require('jsonwebtoken');
 var dbg = require('noobaa-util/debug_module')(__filename);
-
+var s3_auth = require('aws-sdk/lib/signers/s3');
+var s3 = new s3_auth();
 
 /**
  *
@@ -17,6 +18,7 @@ var auth_server = {
 
     create_auth: create_auth,
     read_auth: read_auth,
+    create_access_key_auth: create_access_key_auth,
 
     /**
      * authorize is exported to be used as an express middleware
@@ -180,6 +182,87 @@ function create_auth(req) {
 }
 
 
+/**
+ *
+ * CREATE_ACCESS_KEY_AUTH
+ *
+ * Access and Secret key authentication.
+ *
+ * We use it to authenticate requests from S3 REST server and Agents.
+ *
+ * S3 REST requests
+ *
+ * The authorization header or query params includes the access key and
+ * a signature.The signature uses the secret key and a string that includes
+ * part of the request headers (string_to_sign).
+ * The REST server forwards this authorization information to the web server.
+ * The Server simply validate (by signing the string_to_sign and comparing
+ * to the provided signature).
+ * This allows us to avoid saving access key and secret key on the s3 rest.
+ * It also allows s3 rest server to serve more than one system.
+ *
+ * Agent
+ *
+ * The agent sends authorization information, we identify the system and
+ * returns token that will be used from now on (exactly like we used it before)
+ *
+ */
+function create_access_key_auth(req) {
+
+    var access_key = req.rpc_params.access_key;
+    var string_to_sign = req.rpc_params.string_to_sign;
+    var signature = req.rpc_params.signature;
+    // var expiry = req.rpc_params.expiry;
+    var system;
+
+    dbg.log3('create_access_key_auth', access_key, string_to_sign, signature);
+
+    return Q.fcall(function() {
+
+        // find system by name
+        return db.System.
+        findOne({
+                "access_keys": {
+                    $elemMatch: {
+                        "access_key": access_key
+                    }
+                }
+            })
+            .exec()
+            .then(function(system_arg) {
+                system = system_arg;
+                //TODO: replace _doc with a better valid path.
+                dbg.log3('system._doc.access_keys', system._doc.access_keys);
+                if (!system || system.deleted) {
+                    throw req.unauthorized('system not found');
+                }
+
+            }).then(function() {
+                var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
+                var s3_signature = s3.sign(secret_key, string_to_sign);
+                dbg.log3('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
+                if (signature === s3_signature) {
+                    dbg.log3('s3 authentication test passed!!!');
+                } else {
+                    throw req.unauthorized('SignatureDoesNotMatch');
+                }
+
+            }).then(function() {
+
+                var token = req.make_auth_token({
+                    system_id: system && system.id,
+                    role: 'admin',
+                    extra: req.rpc_params.extra,
+                });
+                console.log('ACCESS TOKEN:', token);
+                return {
+                    token: token
+                };
+            });
+    });
+}
+
+
 
 /**
  *
@@ -217,10 +300,18 @@ function read_auth(req) {
 function authorize(req) {
 
     _prepare_auth_request(req);
+    var auth_token_obj;
 
     if (req.auth_token) {
         try {
-            req.auth = jwt.verify(req.auth_token, process.env.JWT_SECRET);
+            var auth_token;
+            if (req.auth_token.indexOf('auth_token') > 0) {
+                auth_token_obj = JSON.parse(req.auth_token);
+                auth_token = auth_token_obj.auth_token;
+            } else {
+                auth_token = req.auth_token;
+            }
+            req.auth = jwt.verify(auth_token, process.env.JWT_SECRET);
         } catch (err) {
             dbg.error('AUTH JWT VERIFY FAILED', req, err);
             throw {
@@ -231,7 +322,22 @@ function authorize(req) {
     }
 
     if (req.method_api.auth !== false) {
-        return req.load_auth(req.method_api.auth);
+        dbg.log3('authorize:', req.method_api.auth, req.srv);
+
+        return req.load_auth(req.method_api.auth)
+            .then(function() {
+                //if request request has access signature, validate the signature
+                if (auth_token_obj) {
+                    var secret_key = _.result(_.find(req.system._doc.access_keys, 'access_key', auth_token_obj.access_key), 'secret_key');
+                    var s3_signature = s3.sign(secret_key, auth_token_obj.string_to_sign);
+                    if (auth_token_obj.signature === s3_signature) {
+                        dbg.log3('Access key authentication (per request) test passed !!!');
+                    } else {
+                        dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
+                        throw req.unauthorized('SignatureDoesNotMatch');
+                    }
+                }
+            });
     }
 }
 
@@ -264,9 +370,9 @@ function _prepare_auth_request(req) {
         options = options || {};
 
         return Q.fcall(function() {
-
+            dbg.log3('options:', options, req.auth);
             // check that auth has account_id
-            var ignore_missing_account = (options.account === false);
+            var ignore_missing_account = (options.account === false || _.isEmpty(options.account));
             if (!req.auth || !req.auth.account_id) {
                 if (ignore_missing_account) {
                     return;
@@ -291,7 +397,7 @@ function _prepare_auth_request(req) {
         }).then(function() {
 
             // check that auth contains system
-            var ignore_missing_system = (options.system === false);
+            var ignore_missing_system = (options.system === false || _.isEmpty(options.system));
             if (!req.auth || !req.auth.system_id) {
                 if (ignore_missing_system) {
                     return;
@@ -318,6 +424,7 @@ function _prepare_auth_request(req) {
                     }
                     req.system = system;
                     req.role = req.auth.role;
+                    dbg.log3('load auth system:', req.system);
                 });
         });
     };
@@ -350,7 +457,6 @@ function _prepare_auth_request(req) {
         if (options.expiry) {
             jwt_options.expiresInMinutes = options.expiry / 60;
         }
-
         // create and return the signed token
         return jwt.sign(auth, process.env.JWT_SECRET, jwt_options);
     };

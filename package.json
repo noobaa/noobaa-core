@@ -98,7 +98,7 @@
     "newrelic": "~1.18.3",
     "node-gyp": "^1.0.3",
     "nodetime": "~0.8.15",
-    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#df5764d42a1bc007fc92c25bff5c57819c621312",
+    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#68ce000d24305930bce5584cf44475ea62446821",
     "pem": "~1.7.2",
     "q": "~1.2.0",
     "request": "~2.55.0",

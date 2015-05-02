@@ -3,6 +3,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
+var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
 var db = require('./db');
 var tier_server = require('./tier_server');
@@ -47,7 +48,19 @@ function create_system(req) {
 
     return Q.fcall(function() {
             var info = _.pick(req.rpc_params, 'name');
+            if (info.name === 'demo') {
+                info.access_keys = [{
+                    access_key: '123',
+                    secret_key: 'abc',
+                }];
+            } else {
+                info.access_keys = [{
+                    access_key: crypto.randomBytes(16).toString('hex'),
+                    secret_key: crypto.randomBytes(32).toString('hex'),
+                }];
+            }
             info.owner = req.account.id;
+
             return db.System.create(info);
         })
         .then(null, db.check_already_exists(req, 'system'))
@@ -198,6 +211,7 @@ function read_system(req) {
 
             }),
             objects: objects_sys.count || 0,
+            access_keys: req.system.access_keys,
         };
     });
 }

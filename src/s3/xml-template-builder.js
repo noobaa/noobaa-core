@@ -124,7 +124,7 @@ var xml = function() {
     return {
         buildBuckets: function(buckets) {
             return jstoxml.toXML({
-                _name: 'ListBucketResult',
+                _name: 'ListAllMyBucketsResult',
                 _attrs: {
                     'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
                 },
@@ -171,6 +171,23 @@ var xml = function() {
             }, {
                 header: true,
                 indent: '  '
+            });
+        },
+        buildSignatureDoesNotMatch: function(string_to_sign) {
+            return jstoxml.toXML({
+                Error: {
+                    Code: 'SignatureDoesNotMatch',
+                    Type: 'Sender',
+                    Message: 'The request signature we calculated does not match the signature you provided.'+
+                            ' Check your AWS Secret Access Key and signing method.'+
+                            'Consult the service documentation for details.The canonical string'+
+                            'for this request should have been '+'(no info)'+
+                            'The String - to - Sign should have been '+string_to_sign,
+                    RequestId: 1
+                }
+            }, {
+                header: true,
+                indent: ' '
             });
         },
         buildBucketNotEmpty: function(bucketName) {
@@ -289,10 +306,10 @@ var xml = function() {
             }
 
         },
-        buildInitiateMultipartUploadResult: function(key) {
+        buildInitiateMultipartUploadResult: function(key,bucket) {
             return jstoxml.toXML({
                 InitiateMultipartUploadResult: {
-                    Bucket: 'files',
+                    Bucket: bucket,
                     Key: key,
                     UploadId: key
                 }

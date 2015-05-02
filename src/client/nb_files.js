@@ -201,7 +201,6 @@ nb_api.factory('nbFiles', [
                 Body: tx.input_file,
                 ContentType: tx.content_type
             };
-            try {
 
                 tx.promise = $q(function(resolve, reject, notify) {
                     console.log('starting');
@@ -240,9 +239,7 @@ nb_api.factory('nbFiles', [
                     });
 
                 });
-            } catch (err) {
-                console.log('ERRRRRRR:', err);
-            }
+            
             $scope.uploads.push(tx);
             $scope.transfers.push(tx);
             return tx.promise;

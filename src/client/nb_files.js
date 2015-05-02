@@ -76,7 +76,7 @@ nb_api.factory('nbFiles', [
         });
         //update access keys.
         //TODO: find more secured approach
-        function set_keys(access_keys){
+        function set_keys(access_keys) {
             AWS.config.update({
                 accessKeyId: access_keys[0].access_key,
                 secretAccessKey: access_keys[0].secret_key,
@@ -88,8 +88,9 @@ nb_api.factory('nbFiles', [
                 sslEnabled: false,
 
             });
-            console.log('updated keys',access_keys[0].access_key);
+            console.log('updated keys', access_keys[0].access_key);
         }
+
         function list_files(params) {
             return $q.when()
                 .then(function() {
@@ -202,44 +203,44 @@ nb_api.factory('nbFiles', [
                 ContentType: tx.content_type
             };
 
-                tx.promise = $q(function(resolve, reject, notify) {
-                    console.log('starting');
-                    var s3req = s3.upload(params, function(err, data) {
-                        if (err) {
-                            console.error('upload failed', err);
-                            _.pull($scope.transfers, tx);
-                            tx.error = err;
-                            tx.running = false;
-                            nbAlertify.error('upload failed. ' + err.toString());
-                            reject(new Error('upload failed'));
-                            $rootScope.safe_apply();
-                        } else {
-                            // Success!
-                            console.log('upload done!!!!');
-                            _.pull($scope.transfers, tx);
-                            tx.done = true;
-                            tx.progress = 100;
-                            tx.running = false;
-                            tx.end_time = Date.now();
-                            var duration = (tx.end_time - tx.start_time) / 1000;
-                            var elapsed = duration.toFixed(1) + 'sec';
-                            var speed = $rootScope.human_size(tx.size / duration) + '/sec';
-                            console.log('upload completed', elapsed, speed);
-                            nbAlertify.success('upload completed');
-                            resolve();
-                            $rootScope.safe_apply();
-                        }
-                    }).on('httpUploadProgress', function(progress) {
-                        // Log Progress Information
-                        console.log(Math.round(progress.loaded / progress.total * 100) + '% done');
-                        console.log('prog info');
-                        var pos = progress.loaded && progress.total || 0;
-                        tx.progress = Math.round(progress.loaded / progress.total * 100);
+            tx.promise = $q(function(resolve, reject, notify) {
+                console.log('starting');
+                var s3req = s3.upload(params, function(err, data) {
+                    if (err) {
+                        console.error('upload failed', err);
+                        _.pull($scope.transfers, tx);
+                        tx.error = err;
+                        tx.running = false;
+                        nbAlertify.error('upload failed. ' + err.toString());
+                        reject(new Error('upload failed'));
                         $rootScope.safe_apply();
-                    });
-
+                    } else {
+                        // Success!
+                        console.log('upload done!!!!');
+                        _.pull($scope.transfers, tx);
+                        tx.done = true;
+                        tx.progress = 100;
+                        tx.running = false;
+                        tx.end_time = Date.now();
+                        var duration = (tx.end_time - tx.start_time) / 1000;
+                        var elapsed = duration.toFixed(1) + 'sec';
+                        var speed = $rootScope.human_size(tx.size / duration) + '/sec';
+                        console.log('upload completed', elapsed, speed);
+                        nbAlertify.success('upload completed');
+                        resolve();
+                        $rootScope.safe_apply();
+                    }
+                }).on('httpUploadProgress', function(progress) {
+                    // Log Progress Information
+                    console.log(Math.round(progress.loaded / progress.total * 100) + '% done');
+                    console.log('prog info');
+                    var pos = progress.loaded && progress.total || 0;
+                    tx.progress = Math.round(progress.loaded / progress.total * 100);
+                    $rootScope.safe_apply();
                 });
-            
+
+            });
+
             $scope.uploads.push(tx);
             $scope.transfers.push(tx);
             return tx.promise;
@@ -254,84 +255,84 @@ nb_api.factory('nbFiles', [
         }
 
         function download_file(bucket_name, file) {
-            return open_temp_file_write_stream()
-                .then(function(res) {
-                    var tx = {
-                        type: 'download',
-                        bucket: bucket_name,
-                        file: file,
-                        output_file: res.file_entry,
-                        url: res.file_entry.toURL(),
-                        name: file.name,
-                        size: file.size,
-                        content_type: file.type,
-                        start_time: Date.now(),
-                        progress: 0,
-                        running: true
-                    };
-                    tx.promise = $q(function(resolve, reject, progress) {
-                        var params = {
-                            Bucket: bucket_name,
-                            Key: file.name,
+                return open_temp_file_write_stream()
+                    .then(function(res) {
+                        var tx = {
+                            type: 'download',
+                            bucket: bucket_name,
+                            file: file,
+                            output_file: res.file_entry,
+                            url: res.file_entry.toURL(),
+                            name: file.name,
+                            size: file.size,
+                            content_type: file.type,
+                            start_time: Date.now(),
+                            progress: 0,
+                            running: true
                         };
+                        tx.promise = $q(function(resolve, reject, progress) {
+                            var params = {
+                                Bucket: bucket_name,
+                                Key: file.name,
+                            };
 
-                        var s3req = s3.getObject(params);
-                        var reader = createReadStream(s3req);
+                            var s3req = s3.getObject(params);
+                            var reader = createReadStream(s3req);
 
-                        reader.pipe(res.writer)
-                            .on('progress', function(pos) {
-                                console.log('progress', pos);
-                                tx.progress = (100 * pos / file.size);
-                                if (progress) {
-                                    progress(pos);
-                                }
-                                $rootScope.safe_apply();
-                            })
-                            .once('finish', function() {
+                            reader.pipe(res.writer)
+                                .on('progress', function(pos) {
+                                    console.log('progress', pos);
+                                    tx.progress = (100 * pos / file.size);
+                                    if (progress) {
+                                        progress(pos);
+                                    }
+                                    $rootScope.safe_apply();
+                                })
+                                .once('finish', function() {
 
+                                    _.pull($scope.transfers, tx);
+                                    tx.done = true;
+                                    tx.progress = 100;
+                                    tx.running = false;
+                                    tx.end_time = Date.now();
+                                    var duration = (tx.end_time - tx.start_time) / 1000;
+                                    var elapsed = duration.toFixed(1) + 'sec';
+                                    var speed = $rootScope.human_size(tx.size / duration) + '/sec';
+                                    console.log('download completed', elapsed, speed);
+
+                                    var a = $window.document.createElement('a');
+                                    a.href = tx.url;
+                                    a.target = '_blank';
+                                    a.download = tx.name || '';
+                                    var click = $window.document.createEvent('Event');
+                                    click.initEvent('click', true, true);
+                                    a.dispatchEvent(click);
+
+                                    nbAlertify.success('download completed');
+                                    resolve();
+                                    $rootScope.safe_apply();
+                                })
+                                .once('error', on_error);
+
+                            function on_error(err) {
                                 _.pull($scope.transfers, tx);
-                                tx.done = true;
-                                tx.progress = 100;
+                                tx.error = err;
                                 tx.running = false;
-                                tx.end_time = Date.now();
-                                var duration = (tx.end_time - tx.start_time) / 1000;
-                                var elapsed = duration.toFixed(1) + 'sec';
-                                var speed = $rootScope.human_size(tx.size / duration) + '/sec';
-                                console.log('download completed', elapsed, speed);
-
-                                var a = $window.document.createElement('a');
-                                a.href = tx.url;
-                                a.target = '_blank';
-                                a.download = tx.name || '';
-                                var click = $window.document.createEvent('Event');
-                                click.initEvent('click', true, true);
-                                a.dispatchEvent(click);
-
-                                nbAlertify.success('download completed');
-                                resolve();
+                                console.error('download failed ' + err + ' ; ' + err.stack);
+                                nbAlertify.error('download failed. ' + err.toString());
+                                reject(err);
                                 $rootScope.safe_apply();
-                            })
-                            .once('error', on_error);
-
-                        function on_error(err) {
-                            _.pull($scope.transfers, tx);
-                            tx.error = err;
-                            tx.running = false;
-                            console.error('download failed ' + err + ' ; ' + err.stack);
-                            nbAlertify.error('download failed. ' + err.toString());
-                            reject(err);
-                            $rootScope.safe_apply();
-                        }
+                            }
+                        });
+                        console.log('DOWNLOAD', tx, tx.promise);
+                        $scope.downloads.push(tx);
+                        $scope.transfers.push(tx);
+                        $rootScope.safe_apply();
+                        return tx;
                     });
-                    console.log('DOWNLOAD', tx, tx.promise);
-                    $scope.downloads.push(tx);
-                    $scope.transfers.push(tx);
-                    $rootScope.safe_apply();
-                    return tx;
-                });
-        }
-        //copied code.
-        //TODO: replace or better understand how to use the standard amazon API
+            }
+            //copied code.
+            //TODO: replace or better understand how to use the standard amazon API
         function createReadStream(req) {
             var stream = null;
             var legacyStreams = false;

@@ -187,17 +187,27 @@ function create_auth(req) {
     }
     /**
      *
-     * CREATE_AUTH
+     * CREATE_ACCESS_KEY_AUTH
      *
-     * authenticate and return an authorized token.
+     * Access and Secret key authentication.
      *
-     * the simplest usage is to send email & password, which will be verified
-     * to match the existing account, and will return an authorized token containing the account.
+     * We use it to authenticate requests from S3 REST server and Agents.
      *
-     * another usage is to get a system authorization by passing system_name.
-     * one option is to combine with email & password, and another is to call without
-     * email and password but with existing authorization token which contains
-     * a previously authenticated account.
+     * S3 REST requests
+     *
+     * The authorization header or query params includes the access key and
+     * a signature.The signature uses the secret key and a string that includes
+     * part of the request headers (string_to_sign).
+     * The REST server forwards this authorization information to the web server.
+     * The Server simply validate (by signing the string_to_sign and comparing
+     * to the provided signature).
+     * This allows us to avoid saving access key and secret key on the s3 rest.
+     * It also allows s3 rest server to serve more than one system.
+     *
+     * Agent
+     *
+     * The agent sends authorization information, we identify the system and
+     * returns token that will be used from now on (exactly like we used it before)
      *
      */
 function create_access_key_auth(req) {

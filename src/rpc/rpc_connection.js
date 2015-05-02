@@ -4,6 +4,7 @@
 var Q = require('q');
 var util = require('util');
 // var url = require('url');
+var chance = require('chance').Chance(Date.now());
 var dbg = require('noobaa-util/debug_module')(__filename);
 var EventEmitter = require('events').EventEmitter;
 // var promise_utils = require('../util/promise_utils');
@@ -23,19 +24,42 @@ var TRANSPORTS = {
     'nudps:': rpc_nudp,
     'fcall:': rpc_fcall,
 };
+var UINT32_MAX = (1 << 16) * (1 << 16) - 1;
+var CONN_RAND_CHANCE = {
+    min: 1,
+    max: UINT32_MAX
+};
+
 
 util.inherits(RpcConnection, EventEmitter);
 
 /**
  *
  */
-function RpcConnection(rpc, address_url) {
+function RpcConnection(rpc, address_url, time, rand) {
     EventEmitter.call(this);
     this.rpc = rpc;
     this.url = address_url;
+
+    // each connection keeps timestamp + random that are taken at connect time
+    // which are used to identify this connection by both ends.
+    // for udp connections this will also allow to detect the case when one
+    // of the sides crashes and the connection is dropped without communicating.
+    // in such case all pending requests will need to be rejected
+    // and retried on new connection.
+    this.time = time || Date.now();
+    this.rand = rand || chance.integer(CONN_RAND_CHANCE);
+    this.connid = this.url.href +
+        '/' + this.time.toString(16) +
+        '.' + this.rand.toString(16);
+
     this.transport = TRANSPORTS[this.url.protocol] || rpc_ws;
-    this.reusable = this.transport.reusable;
-    dbg.log0('RPC CONNECTION', this.url.href);
+    if (this.transport.singleplex) {
+        this.singleplex = this.transport.singleplex;
+        dbg.log1('RPC CONNECTION', this.url.href);
+    } else {
+        dbg.log0('RPC CONNECTION', this.url.href);
+    }
 }
 
 /**

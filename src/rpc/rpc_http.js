@@ -25,7 +25,7 @@ var BASE_PATH = '/rpc';
  */
 module.exports = {
     BASE_PATH: BASE_PATH,
-    reusable: false,
+    singleplex: true,
     connect: connect,
     close: close,
     listen: listen,
@@ -107,8 +107,11 @@ function send_http_response(conn, msg, req) {
 function send_http_request(conn, msg, rpc_req) {
     var headers = {};
 
-    // set the url path only for logging to show it
-    var path = BASE_PATH + rpc_req.srv;
+    // set the url path only for logging to show it,
+    // and encode the connection id in the path querystring
+    var path = BASE_PATH + rpc_req.srv +
+        '?nb_time=' + conn.time.toString(16) +
+        '&nb_rand=' + conn.rand.toString(16);
 
     conn.http.reqid = rpc_req.reqid;
 
@@ -276,7 +279,11 @@ function middleware(rpc) {
             var host = req.connection.remoteAddress;
             var port = req.connection.remotePort;
             var proto = req.get('X-Forwarded-Proto') || req.protocol;
-            var conn = rpc.get_connection(proto + '://' + host + ':' + port);
+            var address = proto + '://' + host + ':' + port;
+            var conn = rpc.new_connection(
+                address,
+                req.query.nb_time,
+                req.query.nb_rand);
             conn.http = {
                 req: req,
                 res: res

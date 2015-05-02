@@ -255,92 +255,70 @@ nb_api.factory('nbNodes', [
                         });
                     });
 
-                    // TODO: YAEL remove ?
                     define_phase({
-                        name: 'LOAD READ: connect from 1 win vm to other and read 0.5MB (4 times)',
-                        kind: ['none'],
-                        func: function(target_node) {
-                            var promises = [];
-                            _.each(online_nodes, function(target_node) {
-                                if (node.name !== target_node.name && target_node.name.indexOf('docker') > 0) {
-                                    var i;
-                                    for (i = 0; i < 4; ++i) {
-                                        promises.push(self_test_to_node(target_node, node, 0.5 * 1024 * 1024, 0));
-                                    }
-                                }
-                            });
-                            return Q.all(promises);
-                        }
-                    });
-
-
-                    // TODO: YAEL remove ?
-                    define_phase({
-                        name: 'LOAD WRITE: connect from 1 win vm to other and send 0.5MB (4 times)',
-                        kind: ['none'],
-                        func: function(target_node) {
-                            var promises = [];
-                            _.each(online_nodes, function(target_node) {
-                                if (node.name !== target_node.name && target_node.name.indexOf('docker') > 0) {
-                                    var i;
-                                    for (i = 0; i < 4; ++i) {
-                                        promises.push(self_test_to_node(target_node, node, 0, 0.5 * 1024 * 1024));
-                                    }
-                                }
-                            });
-                            return Q.all(promises);
-                        }
-                    });
-
-
-                    define_phase({
-                        name: 'LOAD WRITE: connect from all to one node and send 0.5MB (4 times from each)',
+                        name: 'LOAD WRITE: connect from all to one node and send 0.5MB (10 times from each)',
                         kind: ['full', 'load'],
+                        total: 0,
+                        position: 0,
                         func: function(target_node) {
-                            var promises = [];
-                            _.each(online_nodes, function(target_node) {
-                                if (node.name !== target_node.name) {
-                                    var i;
-                                    for (i = 0; i < 4; ++i) {
-                                        promises.push(self_test_to_node(target_node, node, 0, 0.5 * 1024 * 1024));
-                                    }
-                                }
-                            });
-                            return Q.all(promises);
+                            var self = this;
+                            var advance_pos = function() {
+                                self.position += 1;
+                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                $rootScope.safe_apply();
+                            };
+                            return Q.all(_.map(online_nodes, function(target_node) {
+                                self.total += 10;
+                                return promise_utils.loop(10, function() {
+                                    return self_test_to_node(target_node, node, 0, 512 * 1024)
+                                        .then(advance_pos);
+                                });
+                            }));
                         }
                     });
 
                     define_phase({
-                        name: 'LOAD READ: connect from all to one node and read 0.5MB (4 times from each)',
+                        name: 'LOAD READ: connect from all to one node and read 0.5MB (10 times from each)',
                         kind: ['full', 'load'],
+                        total: 0,
+                        position: 0,
                         func: function(target_node) {
-                            var promises = [];
-                            _.each(online_nodes, function(target_node) {
-                                if (node.name !== target_node.name) {
-                                    var i;
-                                    for (i = 0; i < 4; ++i) {
-                                        promises.push(self_test_to_node(target_node, node, 0.5 * 1024 * 1024, 0));
-                                    }
-                                }
-                            });
-                            return Q.all(promises);
+                            var self = this;
+                            var advance_pos = function() {
+                                self.position += 1;
+                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                $rootScope.safe_apply();
+                            };
+                            return Q.all(_.map(online_nodes, function(target_node) {
+                                self.total += 10;
+                                return promise_utils.loop(10, function() {
+                                    return self_test_to_node(target_node, node, 512 * 1024, 0)
+                                        .then(advance_pos);
+                                });
+                            }));
                         }
                     });
 
                     define_phase({
-                        name: 'LOAD VIA SERVER: connect from all to one node and send 0.5MB (4 times from each)',
+                        name: 'LOAD VIA SERVER: connect from all to one node and send 0.5MB (10 times from each)',
                         kind: ['full', 'load'],
+                        total: 0,
+                        position: 0,
                         func: function(target_node) {
-                            var promises = [];
-                            _.each(online_nodes, function(target_node) {
-                                if (node.name !== target_node.name) {
-                                    var i;
-                                    for (i = 0; i < 4; ++i) {
-                                        promises.push(self_test_to_node_via_web(target_node, node, 0, 0.5 * 1024 * 1024));
-                                    }
-                                }
-                            });
-                            return Q.all(promises);
+                            var self = this;
+                            var advance_pos = function() {
+                                self.position += 1;
+                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                $rootScope.safe_apply();
+                            };
+                            return Q.all(_.map(online_nodes, function(target_node) {
+                                self.total += 10;
+                                return promise_utils.loop(10, function() {
+                                    return self_test_to_node_via_web(
+                                            target_node, node, 0, 512 * 1024)
+                                        .then(advance_pos);
+                                });
+                            }));
                         }
                     });
 

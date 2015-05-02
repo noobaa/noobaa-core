@@ -1,14 +1,13 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var Q = require('q');
-// var util = require('util');
+var assert = require('assert');
 var buffer_utils = require('../util/buffer_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var WS = require('ws');
 
 module.exports = {
-    reusable: true,
     connect: connect,
     close: close,
     listen: listen,
@@ -24,53 +23,61 @@ module.exports = {
  */
 function connect(conn, options) {
     if (conn.ws) {
-        return conn.ws.connect_defer && conn.ws.connect_defer.promise;
+        if (conn.ws.connect_defer) {
+            return conn.ws.connect_defer.promise;
+        }
+        if (conn.ws.connected) {
+            return;
+        }
+        throw new Error('WS disconnected ' + conn.connid);
     }
+
     var ws = new WS(conn.url.href);
     ws.connect_defer = Q.defer();
     ws.binaryType = 'arraybuffer';
     conn.ws = ws;
+
     ws.onopen = function() {
-        if (conn.ws === ws) {
-            if (ws.connect_defer) {
-                ws.connect_defer.resolve();
-                ws.connect_defer = null;
-            }
-            ws.keepalive_interval = setInterval(function() {
-                ws.send('keepalive');
-            }, 10000);
+
+        // send connect command
+        ws.send(JSON.stringify({
+            op: 'connect',
+            time: conn.time,
+            rand: conn.rand,
+        }));
+
+        // start keepalive
+        ws.keepalive_interval = setInterval(function() {
+            ws.send(JSON.stringify({
+                op: 'keepalive',
+                time: conn.time,
+                rand: conn.rand,
+            }));
+        }, 10000);
+
+        ws.connected = true;
+
+        if (ws.connect_defer) {
+            ws.connect_defer.resolve();
+            ws.connect_defer = null;
         }
     };
 
-    function onfail(err) {
-        clearInterval(ws.keepalive_interval);
-        ws.keepalive_interval = null;
-        if (ws.connect_defer) {
-            ws.connect_defer.reject(err);
-            ws.connect_defer = null;
-        }
-        if (conn.ws === ws) {
-            // we call the connection close just to emit the event,
-            // since we already closed and nullified the socket itself
-            conn.ws = null;
-            conn.close();
-        } else {
-            ws.close();
-        }
-    }
     ws.onclose = function() {
-        dbg.warn('WS CLOSED', conn.url.href);
-        onfail('connection closed');
+        dbg.warn('WS CLOSED', conn.connid);
+        conn.emit('close');
     };
+
     ws.onerror = function(err) {
-        dbg.warn('WS ERROR', conn.url.href, err.stack || err);
-        onfail(err);
+        dbg.warn('WS ERROR', conn.connid, err.stack || err);
+        conn.emit('error', err);
     };
+
     ws.onmessage = function(msg) {
-        if (msg.data === 'keepalive') return;
         var buffer = buffer_utils.toBuffer(msg.data);
         conn.receive(buffer);
     };
+
     return ws.connect_defer.promise;
 }
 
@@ -81,8 +88,26 @@ function connect(conn, options) {
  *
  */
 function close(conn) {
-    if (conn.ws) {
-        conn.ws.close();
+    var ws = conn.ws;
+
+    if (!ws) {
+        return;
+    }
+
+    ws.connected = false;
+
+    if (ws.keepalive_interval) {
+        clearInterval(ws.keepalive_interval);
+        ws.keepalive_interval = null;
+    }
+
+    if (ws.connect_defer) {
+        ws.connect_defer.reject('WS CLOSED');
+        ws.connect_defer = null;
+    }
+
+    if (ws.readyState !== WS.CLOSED) {
+        ws.close();
     }
 }
 
@@ -98,33 +123,67 @@ function listen(rpc, http_server) {
     });
     ws_server.on('connection', function(ws) {
         // TODO find out if ws is secure and use wss:// address instead
+        var conn;
         var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
-        dbg.log0('WS CONNECTION FROM', address);
-        var conn = rpc.get_connection(address);
-        conn.ws = ws;
+        dbg.log0('WS CONNECTION FROM', address, ws._socket);
 
-        function onfail(err) {
-            if (conn.ws === ws) {
-                conn.ws = null;
-                conn.close();
+        ws.on('close', function() {
+            if (conn) {
+                dbg.warn('WS CLOSED', conn.connid);
+                conn.emit('close');
             } else {
-                ws.close();
+                dbg.warn('WS CLOSED (not connected)', address);
+            }
+        });
+
+        ws.on('error', function(err) {
+            if (conn) {
+                dbg.warn('WS ERROR', conn.connid, err.stack || err);
+                conn.emit('error', err);
+            } else {
+                dbg.warn('WS ERROR (not connected)', address, err.stack || err);
+                ws.emit('close', err);
+            }
+        });
+
+        ws.on('message', function(msg, flags) {
+            try {
+                if (flags.binary) {
+                    handle_data_message(msg);
+                } else {
+                    handle_command_message(msg);
+                }
+            } catch (err) {
+                conn.emit('error', err);
+            }
+        });
+
+        function handle_data_message(msg) {
+            assert(conn, 'NOT CONNECTED');
+            var buffer = buffer_utils.toBuffer(msg);
+            conn.receive(buffer);
+        }
+
+        function handle_command_message(msg) {
+            var cmd = _.isString(msg) ? JSON.parse(msg) : msg;
+            dbg.log0('WS COMMAND', msg);
+            switch (cmd.op) {
+                case 'keepalive':
+                    assert(conn, 'NOT CONNECTED');
+                    assert.strictEqual(cmd.time, conn.time, 'CONNECTION TIME MISMATCH');
+                    assert.strictEqual(cmd.rand, conn.rand, 'CONNECTION RAND MISMATCH');
+                    break;
+                case 'connect':
+                    assert(!conn, 'ALREADY CONNECTED');
+                    conn = rpc.new_connection(address, cmd.time, cmd.rand);
+                    conn.ws = ws;
+                    break;
+                default:
+                    throw new Error('BAD MESSAGE');
             }
         }
-        ws.onclose = function() {
-            dbg.warn('WS CLOSED', conn.url.href);
-            onfail('connection closed');
-        };
-        ws.onerror = function(err) {
-            dbg.warn('WS ERROR', conn.url.href, err.stack || err);
-            onfail(err);
-        };
-        ws.onmessage = function(msg) {
-            if (msg.data === 'keepalive') return;
-            var buffer = buffer_utils.toBuffer(msg.data);
-            conn.receive(buffer);
-        };
     });
+
     ws_server.on('error', function(err) {
         dbg.error('WS SERVER ERROR', err.stack || err);
     });

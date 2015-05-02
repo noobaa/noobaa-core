@@ -3,17 +3,13 @@
 // var _ = require('lodash');
 var Q = require('q');
 var dgram = require('dgram');
-// var rpc_nudp_native = require('../../build/Release/rpc_nudp_native.node');
-// var util = require('util');
-// var buffer_utils = require('../util/buffer_utils');
 var stun = require('./stun');
-var chance = require('chance').Chance(Date.now());
 var LinkedList = require('noobaa-util/linked_list');
 var dbg = require('noobaa-util/debug_module')(__filename);
+// var rpc_nudp_native = require('../../build/Release/rpc_nudp_native.node');
 
 
 module.exports = {
-    reusable: true,
     connect: connect,
     close: close,
     listen: listen,
@@ -37,7 +33,6 @@ var PACKET_TYPE_FIN = 3;
 var PACKET_TYPE_DATA = 4;
 var PACKET_TYPE_DATA_ACK = 5;
 
-var UINT32_MAX = (1 << 16) * (1 << 16) - 1;
 var MTU_DEFAULT = 1200;
 var MTU_MIN = 576;
 var MTU_MAX = 64 * 1024;
@@ -53,11 +48,6 @@ var ACKS_PER_SEC_MIN = 1000;
 var ACK_DELAY = 5;
 var SYN_ACK_DELAY = 50;
 var FIN_DELAY = 500;
-
-var CONN_RAND_CHANCE = {
-    min: 1,
-    max: UINT32_MAX
-};
 
 
 /**
@@ -78,7 +68,7 @@ function connect(conn, options) {
             nc.state + ' ' + nc.connid);
     }
 
-    nc = init_nudp_conn(conn, options.nudp_context);
+    nc = init_nudp_conn(conn, options.nudp_socket);
 
     // TODO nudp connection keepalive interval
 
@@ -104,48 +94,53 @@ function close(conn) {
  *
  */
 function listen(rpc, port) {
-    var nudp_context = {
+    var nudp_socket = {
         port: port,
         socket: dgram.createSocket('udp4'),
-        connections: {},
         addresses: {}
     };
-    nudp_context.socket.on('message',
-        receive_packet.bind(null, rpc, nudp_context));
-    nudp_context.socket.on('close', function() {
+    nudp_socket.socket.on('message', function(buffer, rinfo) {
+        // the socket multiplexes with stun so we receive also
+        // stun messages by our listener, but the stun listener already handled
+        // them so we just need to ignore it here.
+        if (!stun.is_stun_packet(buffer)) {
+            receive_packet(rpc, nudp_socket, buffer, rinfo);
+        }
+    });
+    nudp_socket.socket.on('close', function() {
         dbg.error('NUDP socket closed');
     });
-    nudp_context.socket.on('error', function(err) {
+    nudp_socket.socket.on('error', function(err) {
         dbg.error('NUDP socket error', err.stack || err);
     });
-    nudp_context.socket.on('stun.address', function(addr) {
+    nudp_socket.socket.on('stun.address', function(addr) {
         dbg.log0('NUDP STUN address', addr);
-        nudp_context.addresses[addr.address + ':' + addr.port] = addr;
+        nudp_socket.addresses[addr.address + ':' + addr.port] = addr;
     });
-    nudp_context.socket.on('stun.indication', function(rinfo) {
+    nudp_socket.socket.on('stun.indication', function(rinfo) {
         dbg.log1('NUDP STUN indication', rinfo.address + ':' + rinfo.port);
     });
-    nudp_context.socket.on('stun.error', function(rinfo) {
+    nudp_socket.socket.on('stun.error', function(rinfo) {
         dbg.warn('NUDP STUN ERROR', rinfo.address + ':' + rinfo.port);
     });
-    return Q.ninvoke(nudp_context.socket, 'bind', port)
+    return Q.ninvoke(nudp_socket.socket, 'bind', port)
         .then(function() {
             // update port in case it was 0 to bind to any port
-            nudp_context.port = nudp_context.socket.address().port;
+            nudp_socket.port = nudp_socket.socket.address().port;
             // pick some stun server and send request
-            nudp_context.stun_url = stun.STUN.PUBLIC_SERVERS[0];
+            nudp_socket.stun_url = stun.STUN.PUBLIC_SERVERS[0];
             /* TEST: send to myself...
-            nudp_context.stun_url = {
+            nudp_socket.stun_url = {
                 hostname: '127.0.0.1',
-                port: nudp_context.port,
+                port: nudp_socket.port,
             }; */
             return stun.connect_socket(
-                nudp_context.socket,
-                nudp_context.stun_url.hostname,
-                nudp_context.stun_url.port);
+                nudp_socket.socket,
+                nudp_socket.stun_url.hostname,
+                nudp_socket.stun_url.port);
         })
         .then(function() {
-            return nudp_context;
+            return nudp_socket;
         });
 }
 
@@ -162,6 +157,7 @@ function send(conn, buffer, op, req) {
     }
     var send_defer = Q.defer();
     nc.messages_send_queue.push_back({
+        req: req,
         send_defer: send_defer,
         buffer: buffer,
         offset: 0,
@@ -191,34 +187,28 @@ function authenticate(conn, auth_token) {
  * init_nudp_conn
  *
  */
-function init_nudp_conn(conn, nudp_context, time, rand) {
-    if (!nudp_context) {
-        throw new Error('NUDP no context');
+function init_nudp_conn(conn, nudp_socket) {
+    if (!nudp_socket) {
+        throw new Error('NUDP SOCKET MISSING');
     }
 
-    time = time || Date.now();
-    rand = rand || chance.integer(CONN_RAND_CHANCE);
-    var connid = conn.url.href +
-        '/' + time.toString(16) +
-        '.' + rand.toString(16);
+    // caching these for send_packet
+    var socket = nudp_socket.socket;
+    var hostname = conn.url.hostname;
+    var port = conn.url.port;
 
     var nc = {
-        context: nudp_context,
-        state: STATE_INIT,
-        url: conn.url,
-        connect_defer: Q.defer(),
-        send_packet: send_packet,
-        raise_error: raise_error,
-        receive_message: receive_message,
+        conn: conn,
+        time: conn.time,
+        rand: conn.rand,
+        connid: conn.connid,
 
-        // each connection keeps timestamp + random that are taken at connect time
-        // which are used to identify this connection by both ends, and react in case
-        // one of the sides crashes and the connection is dropped without communicating.
-        // in such case all pending requests will need to be rejected
-        // and retried on new connection.
-        time: time,
-        rand: rand,
-        connid: connid,
+        state: STATE_INIT,
+        connect_defer: Q.defer(),
+
+        send_packet: send_packet,
+        receive_message: receive_message,
+        raise_error: raise_error,
 
         // the message send queue is the first phase for sending messages,
         // and its main purpose is to maintain the buffer message boundary,
@@ -255,35 +245,26 @@ function init_nudp_conn(conn, nudp_context, time, rand) {
     };
 
     conn.nudp = nc;
-    nudp_context.connections[connid] = nc;
     return nc;
 
     function send_packet(buf, offset, count) {
-        nc.context.socket.send(
+        socket.send(
             buf,
             offset || 0,
             count || buf.length,
-            nc.url.port,
-            nc.url.hostname,
+            port,
+            hostname,
             raise_error);
     }
 
     function receive_message(msg) {
-        if (conn.nudp === nc) {
-            conn.receive(msg);
-        } else {
-            // TODO ?
-        }
+        conn.receive(msg);
     }
 
     function raise_error(err) {
         if (err) {
-            dbg.warn('NUDP ERROR', err.stack || err);
-            if (conn.nudp === nc) {
-                conn.emit('error', err);
-            } else {
-                close_nudp_conn(nc);
-            }
+            dbg.error('NUDP ERROR', err.stack || err);
+            conn.emit('error', err);
         }
     }
 }
@@ -294,7 +275,8 @@ function init_nudp_conn(conn, nudp_context, time, rand) {
  *
  */
 function close_nudp_conn(nc) {
-    // send fin message
+
+    // send fin message to other end
     if (nc.state !== STATE_CLOSED) {
         schedule_delayed_fin(nc);
     }
@@ -328,10 +310,6 @@ function close_nudp_conn(nc) {
         hdr = nc.delayed_acks_queue.pop_front();
     }
 
-    // update the state
-    if (nc.context.connections[nc.connid] === nc) {
-        delete nc.context.connections[nc.connid];
-    }
     nc.state = STATE_CLOSED;
 }
 
@@ -352,12 +330,12 @@ function close_defer(container, name) {
  * to remote addresses that do not know that their connection is closed.
  *
  */
-function fake_nc(socket, address, port, connid, time, rand) {
+function fake_nc(socket, hostname, port, address, time, rand) {
     return {
         state: 'fake',
         time: time,
         rand: rand,
-        connid: connid,
+        connid: address + '/' + time.toString(16) + '.' + rand.toString(16),
         delayed_fin_timeout: {},
         send_packet: function(buf, offset, count) {
             socket.send(
@@ -365,7 +343,7 @@ function fake_nc(socket, address, port, connid, time, rand) {
                 offset || 0,
                 count || buf.length,
                 port,
-                address);
+                hostname);
         }
     };
 }
@@ -580,43 +558,37 @@ function send_packets(nc) {
  * receive_packet
  *
  */
-function receive_packet(rpc, nudp_context, buffer, rinfo) {
-    if (stun.is_stun_packet(buffer)) {
-        return;
-    }
+function receive_packet(rpc, nudp_socket, buffer, rinfo) {
     var hdr = read_packet_header(buffer);
     var address = 'nudp://' + rinfo.address + ':' + rinfo.port;
-    var connid = address +
-        '/' + hdr.time.toString(16) +
-        '.' + hdr.rand.toString(16);
+    var allow_create_conn = hdr.type === PACKET_TYPE_SYN;
+    var conn = rpc.get_connection_by_id(address, hdr.time, hdr.rand, allow_create_conn);
+
+    if (!conn) {
+        // if we get FIN and no connection we can ignore.
+        // for any other packet reply back with FIN.
+        if (hdr.type !== PACKET_TYPE_FIN) {
+            dbg.log2('NUDP receive_packet: expected SYN or FIN', hdr.type,
+                'connid', conn.connid);
+            schedule_delayed_fin(fake_nc(
+                nudp_socket.socket, rinfo.address, rinfo.port,
+                address, hdr.time, hdr.rand));
+        }
+        return;
+    }
+
     dbg.log2('NUDP receive_packet:',
         'type', hdr.type,
         'seq', hdr.seq,
-        connid);
-    var nc = nudp_context.connections[connid];
+        'connid', conn.connid);
+
+    var nc = conn.nudp;
     if (!nc) {
-        if (hdr.type !== PACKET_TYPE_SYN) {
-            if (hdr.type !== PACKET_TYPE_FIN) {
-                dbg.log2('NUDP receive_packet: expected SYN or FIN', hdr.type, connid);
-                schedule_delayed_fin(fake_nc(
-                    nudp_context.socket,
-                    rinfo.address, rinfo.port,
-                    connid, hdr.time, hdr.rand));
-            }
-            return;
-        }
-        dbg.log0('NUDP receive_packet: NEW CONNECTION', connid);
-        var conn = rpc.get_connection(address);
-        nc = init_nudp_conn(conn, nudp_context, hdr.time, hdr.rand);
-    }
-    if (nc.connid !== connid) {
-        dbg.warn('receive_packet: mimatched connection id. closing',
-            nc.connid, 'expected', connid);
-        close_nudp_conn(nc);
-        return;
+        dbg.log0('NUDP receive_packet: NEW CONNECTION connid', conn.connid);
+        nc = init_nudp_conn(conn, nudp_socket);
     }
     if (nc.state === STATE_CLOSED) {
-        dbg.warn('receive_packet: connection is closed, send FIN', nc.connid);
+        dbg.warn('NUDP receive_packet: connection is closed, send FIN connid', nc.connid);
         schedule_delayed_fin(nc);
         return;
     }
@@ -638,7 +610,7 @@ function receive_packet(rpc, nudp_context, buffer, rinfo) {
             receive_acks(nc, hdr, buffer);
             break;
         default:
-            dbg.error('NUDP receive_packet BAD PACKET TYPE', hdr, nc.connid);
+            dbg.error('NUDP receive_packet BAD PACKET TYPE', hdr, 'connid', nc.connid);
             break;
     }
 }

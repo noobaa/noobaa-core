@@ -7,10 +7,7 @@ var size_utils = require('../util/size_utils');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
 var db = require('./db');
-var dbg = require('noobaa-util/debug_module')(__filename);
-var config = require('../../config.js');
-
-dbg.set_level(process.env.LOG_LEVEL ? parseInt(process.env.LOG_LEVEL, 10) : config.dbg_log_level);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**

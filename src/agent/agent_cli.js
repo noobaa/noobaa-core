@@ -39,8 +39,6 @@ function AgentCLI(params) {
     this.params = params;
     this.client = new api.Client();
     this.agents = {};
-    // this._mod = dbg;
-    // this.modules = this._mod.get_module_structure();
 }
 
 
@@ -350,23 +348,7 @@ AgentCLI.prototype.list.helper = function() {
     dbg.log0("List all agents status");
 };
 
-/**
- *
- * Set Log Level
- *
- * Set logging level for a module
- *
- */
-AgentCLI.prototype.set_log = function(mod, level) {
-    var self = this;
-    self._mod.set_level(level, mod);
-    dbg.log0("Log for " + mod + " with level of " + level + " was set");
 
-};
-
-AgentCLI.prototype.set_log.helper = function() {
-    dbg.log0('Setting log levels for module:   set_log <"module"> <level>');
-};
 /**
  *
  * Show

@@ -146,8 +146,8 @@ function start() {
                     nudps: 1,
                 }) {
                 return rpc_nudp.listen(rpc, argv.server ? argv.port : argv.port + 1)
-                    .then(function(nudp_context) {
-                        bench_client.options.nudp_context = nudp_context;
+                    .then(function(nudp_socket) {
+                        bench_client.options.nudp_socket = nudp_socket;
                     });
             }
         })

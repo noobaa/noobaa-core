@@ -250,9 +250,9 @@ Agent.prototype._start_stop_nudp_server = function() {
     }
 
     return rpc_nudp.listen(api.rpc, self.prefered_port)
-        .then(function(nudp_context) {
-            self.nudp_context = nudp_context;
-            self.client.options.nudp_context = nudp_context;
+        .then(function(nudp_socket) {
+            self.nudp_socket = nudp_socket;
+            self.client.options.nudp_socket = nudp_socket;
         });
 };
 
@@ -396,9 +396,9 @@ Agent.prototype.send_heartbeat = function() {
 
             var ip = ifconfig.get_main_external_ipv4();
             var addresses = [];
-            if (self.nudp_context) {
-                addresses.push('nudp://' + ip + ':' + self.nudp_context.port);
-                _.each(self.nudp_context.addresses, function(addr) {
+            if (self.nudp_socket) {
+                addresses.push('nudp://' + ip + ':' + self.nudp_socket.port);
+                _.each(self.nudp_socket.addresses, function(addr) {
                     addresses.push('nudp://' + addr.address + ':' + addr.port);
                 });
             }

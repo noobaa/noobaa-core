@@ -48,10 +48,6 @@ var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 var debug_mode = (process.env.DEBUG_MODE === 'true');
 
-if (process.env.DEBUG_LEVEL) {
-    dbg.set_level(process.env.DEBUG_LEVEL);
-}
-
 // connect to the database
 if (debug_mode) {
     mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
@@ -141,8 +137,8 @@ rpc_http.listen(api.rpc, app);
 rpc_ws.listen(api.rpc, server);
 // setup nudp socket
 rpc_nudp.listen(api.rpc, 0)
-    .then(function(nudp_context) {
-        api_servers.client.options.nudp_context = nudp_context;
+    .then(function(nudp_socket) {
+        api_servers.client.options.nudp_socket = nudp_socket;
     });
 
 // agent package json

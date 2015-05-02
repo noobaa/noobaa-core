@@ -1,12 +1,19 @@
 'use strict';
 
 module.exports = {
-    reusable: true,
-    connect: noop,
-    close: noop,
+    connect: connect,
+    close: close,
     send: send,
-    authenticate: noop,
+    authenticate: authenticate,
 };
+
+function connect(conn, options) {
+    // noop
+}
+
+function close(conn) {
+    // noop
+}
 
 function send(conn, msg) {
     setImmediate(function() {
@@ -14,4 +21,6 @@ function send(conn, msg) {
     });
 }
 
-function noop() {}
+function authenticate(conn, auth_token) {
+    // noop
+}

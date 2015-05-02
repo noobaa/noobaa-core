@@ -8,7 +8,6 @@ var Barrier = require('../util/barrier');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var size_utils = require('../util/size_utils');
 
-
 /**
  * we keep a map from peer_if to connection
  * to be used for

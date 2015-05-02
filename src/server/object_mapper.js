@@ -169,6 +169,9 @@ function allocate_object_parts(bucket, obj, parts) {
         })
         .then(function(new_blocks) {
             var blocks_by_chunk = _.groupBy(new_blocks, function(block) {
+                if (!block) {
+                    throw new Error('allocate_object_parts: no nodes for allocation');
+                }
                 return block.chunk._id;
             });
             _.each(new_parts, function(part, i) {
@@ -243,8 +246,8 @@ function finalize_object_parts(bucket, obj, parts) {
             var parts_by_start = _.groupBy(parts_res, 'start');
             chunks = _.flatten(_.map(parts, function(part) {
                 if (part.deleted) {
-                    //Part was deleted before we finalized the object, race with delete ?
-                    dbg.log0("BUG? during finalize found part marked as deleted ", part);
+                    // Part was deleted before we finalized the object, race with delete ?
+                    dbg.warn("BUG? during finalize found part marked as deleted ", part);
                 }
                 var part_res = parts_by_start[part.start];
                 if (!part_res) {
@@ -258,12 +261,12 @@ function finalize_object_parts(bucket, obj, parts) {
             var chunk_by_id = _.indexBy(chunks, '_id');
             _.each(blocks, function(block) {
                 if (block.deleted) {
-                    //Block was deleted before we finalized the object, race with delete ?
-                    dbg.log0("BUG? during finalize found block marked as deleted ", block);
+                    // Block was deleted before we finalized the object, race with delete ?
+                    dbg.warn("BUG? during finalize found block marked as deleted ", block);
                 }
                 dbg.log3('going to finalize block ', block);
                 if (!block.building) {
-                    dbg.log0("ERROR block not in building mode ", block);
+                    dbg.warn("ERROR block not in building mode ", block);
                     // for reentrancy we avoid failing if the building mode
                     //  was already unset, and just go ahead with calling build_chunks
                     // which will handle it all.
@@ -302,7 +305,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 })
                 .timeout(config.server_finalize_build_timeout, 'finalize build timeout')
                 .then(null, function(err) {
-                    dbg.log0('finalize_object_parts: BUILD FAILED',
+                    dbg.error('finalize_object_parts: BUILD FAILED',
                         'leave it to background worker', err.stack || err);
                 });
         })
@@ -316,7 +319,7 @@ function finalize_object_parts(bucket, obj, parts) {
         })
         .thenResolve()
         .then(null, function(err) {
-            console.error('error finalize_object_parts ' + err + ' ; ' + err.stack);
+            dbg.error('error finalize_object_parts ' + err + ' ; ' + err.stack);
             throw err;
         });
 }
@@ -551,13 +554,13 @@ function fix_multipart_parts(obj) {
         ])
         .spread(function(remaining_parts, last_stable_part) {
             var last_end = last_stable_part[0] ? last_stable_part[0].end : 0;
-            dbg.log0('complete_multipart_upload: found last_stable_part',last_stable_part);
-            dbg.log0('complete_multipart_upload: found remaining_parts',remaining_parts);
+            dbg.log0('complete_multipart_upload: found last_stable_part', last_stable_part);
+            dbg.log0('complete_multipart_upload: found remaining_parts', remaining_parts);
             var bulk_update = db.ObjectPart.collection.initializeUnorderedBulkOp();
             _.each(remaining_parts, function(part) {
                 var current_end = last_end + part.end - part.start;
                 dbg.log0('complete_multipart_upload: update part range',
-                    last_end, '-',current_end, part);
+                    last_end, '-', current_end, part);
                 bulk_update.find({
                     _id: part._id
                 }).updateOne({
@@ -763,6 +766,9 @@ function report_bad_block(params) {
                     })
                     .then(function(new_block_arg) {
                         new_block = new_block_arg;
+                        if (!new_block) {
+                            throw new Error('report_bad_block: no nodes for allocation');
+                        }
                         new_block.fragment = params.fragment;
                         return db.DataBlock.create(new_block);
                     })
@@ -795,8 +801,9 @@ var replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
 function build_chunks(chunks) {
     var chunks_status;
     var remove_blocks_promise;
-    var num_replicate_errors = 0;
+    var had_errors = 0;
     var replicated_block_ids = [];
+    var replicated_failed_ids = [];
     var chunk_ids = _.pluck(chunks, '_id');
     var in_chunk_ids = {
         $in: chunk_ids
@@ -864,6 +871,12 @@ function build_chunks(chunks) {
                 return promise_utils.iterate(blocks_info, function(block_info) {
                     return block_allocator.allocate_block(block_info.chunk, avoid_nodes)
                         .then(function(new_block) {
+                            if (!new_block) {
+                                had_errors += 1;
+                                dbg.error('build_chunks: no nodes for allocation.' +
+                                    ' continue to build but will not eventually fail');
+                                return;
+                            }
                             block_info.block = new_block;
                             avoid_nodes.push(new_block.node._id.toString());
                             return new_block;
@@ -877,8 +890,8 @@ function build_chunks(chunks) {
             // create blocks in db (in building mode)
 
             if (!new_blocks || !new_blocks.length) return;
-            new_blocks = _.flatten(new_blocks);
-            dbg.log0('build_chunks: creating blocks', new_blocks);
+            new_blocks = _.compact(_.flatten(new_blocks));
+            dbg.log0('build_chunks: creating blocks', new_blocks.length);
             return db.DataBlock.create(new_blocks);
 
         })
@@ -891,6 +904,10 @@ function build_chunks(chunks) {
                 var blocks_info = chunk_status.blocks_info_to_allocate;
                 return Q.allSettled(_.map(blocks_info, function(block_info) {
                     var block = block_info.block;
+                    if (!block) {
+                        // block that failed to allocate - skip replicate anyhow.
+                        return;
+                    }
                     var block_addr = get_block_address(block);
                     var source_addr = get_block_address(block_info.source);
 
@@ -908,12 +925,13 @@ function build_chunks(chunks) {
                             'to', block_addr.peer, 'from', source_addr.peer);
                         replicated_block_ids.push(block._id);
                     }, function(err) {
-                        dbg.log0('build_chunks FAILED replicate block', block._id,
+                        dbg.error('build_chunks FAILED replicate block', block._id,
                             'to', block_addr.peer, 'from', source_addr.peer,
                             err.stack || err);
+                        replicated_failed_ids.push(block._id);
                         block_info.replicate_error = err;
                         chunk_status.replicate_error = err;
-                        num_replicate_errors += 1;
+                        had_errors += 1;
                         // don't fail here yet to allow handling the successful blocks
                         // so just keep the error, and we will fail at the end of build_chunks
                     });
@@ -926,17 +944,29 @@ function build_chunks(chunks) {
             // update building blocks to remove the building mode timestamp
 
             dbg.log0("build_chunks unset block building mode ", replicated_block_ids);
-            return db.DataBlock.update({
-                _id: {
-                    $in: replicated_block_ids
-                }
-            }, {
-                $unset: {
-                    building: 1
-                }
-            }, {
-                multi: true
-            }).exec();
+            return Q.all([
+                db.DataBlock.update({
+                    _id: {
+                        $in: replicated_block_ids
+                    }
+                }, {
+                    $unset: {
+                        building: 1
+                    }
+                }, {
+                    multi: true
+                }).exec(),
+                // actually remove failed replications and not just mark as deleted
+                // because otherwise this may bloat when continuous build errors occur
+                db.DataBlock.remove({
+                    _id: {
+                        $in: replicated_failed_ids
+                    }
+                }, {
+                    multi: true
+                })
+                .exec()
+            ]);
 
         })
         .then(function() {
@@ -997,8 +1027,8 @@ function build_chunks(chunks) {
 
             // return error from the promise if any replication failed,
             // so that caller will know the build isn't really complete
-            if (num_replicate_errors) {
-                throw new Error('build_chunks failed to replicate all required blocks');
+            if (had_errors) {
+                throw new Error('build_chunks had errors');
             }
 
         });
@@ -1105,7 +1135,7 @@ if (process.env.BUILD_WORKER_DISABLED !== 'true') {
                     }
                 }, function(err) {
                     // return the delay before next batch
-                    dbg.log0('BUILD_WORKER:', 'ERROR', err, err.stack);
+                    dbg.error('BUILD_WORKER:', 'ERROR', err, err.stack);
                     return 10000;
                 });
         }

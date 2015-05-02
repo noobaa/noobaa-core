@@ -44,7 +44,8 @@ function connect(conn, options) {
         send_command('connect');
 
         // start keepaliving
-        ws.keepalive_interval = setInterval(send_command, 10000, 'keepalive');
+        ws.keepalive_interval =
+            setInterval(send_command, 10000, 'keepalive');
 
         ws.connected = true;
 
@@ -56,7 +57,7 @@ function connect(conn, options) {
 
     ws.onclose = function() {
         dbg.warn('WS CLOSED', conn.connid);
-        conn.emit('close');
+        conn.close();
     };
 
     ws.onerror = function(err) {
@@ -109,7 +110,8 @@ function close(conn) {
         ws.connect_defer = null;
     }
 
-    if (ws.readyState !== WS.CLOSED) {
+    if (ws.readyState !== WS.CLOSED &&
+        ws.readyState !== WS.CLOSING) {
         ws.close();
     }
 }
@@ -133,7 +135,7 @@ function listen(rpc, http_server) {
         ws.on('close', function() {
             if (conn) {
                 dbg.warn('WS CLOSED', conn.connid);
-                conn.emit('close');
+                conn.close();
             } else {
                 dbg.warn('WS CLOSED (not connected)', address);
             }

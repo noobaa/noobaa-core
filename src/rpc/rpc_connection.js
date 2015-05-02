@@ -1,7 +1,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+// var Q = require('q');
 var util = require('util');
 // var url = require('url');
 var chance = require('chance').Chance(Date.now());
@@ -94,11 +94,6 @@ RpcConnection.prototype.receive = function(msg) {
  *
  */
 RpcConnection.prototype.close = function() {
-    var self = this;
-    Q.fcall(function() {
-            return self.transport.close(self);
-        })
-        .then(function() {
-            self.emit('close');
-        });
+    this.emit('close');
+    return this.transport.close(this);
 };

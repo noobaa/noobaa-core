@@ -26,6 +26,12 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
         });
         return;
     }).then(function() {
+        //Just in case part of the information is missing, add default params.
+        params = _.defaults(params, {
+            address: 'http://localhost:5001',
+            port: 80,
+            ssl_port: 443,
+        });
         var s3rver = new S3rver(params);
         return Q.fcall(s3rver.run.bind(s3rver))
             .then(null, function(err) {

@@ -123,6 +123,7 @@ function close(conn) {
  *
  */
 function listen(rpc, http_server) {
+    dbg.log0('http server',http_server);
     var ws_server = new WS.Server({
         server: http_server
     });

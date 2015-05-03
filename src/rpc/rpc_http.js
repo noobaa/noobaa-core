@@ -9,7 +9,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var http = require('http');
 var https = require('https');
-var pem = require('pem');
+var pem = require('../util/pem');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 var BASE_PATH = '/rpc';
@@ -287,6 +287,7 @@ function middleware(rpc) {
             var port = req.connection.remotePort;
             var proto = req.get('X-Forwarded-Proto') || req.protocol;
             var address = proto + '://' + host + ':' + port;
+            dbg.log0('new_connection:',address);
             var conn = rpc.new_connection(
                 address,
                 req.query.nb_time,
@@ -319,6 +320,7 @@ function listen(rpc, app) {
  *
  */
 function create_server(rpc, port, secure, logging) {
+    dbg.log0('http create_server with port:',port);
     var app = express();
     if (logging) {
         app.use(express_morgan_logger('dev'));

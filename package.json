@@ -8,10 +8,10 @@
   },
   "main": "index.js",
   "scripts": {
-    "install": "node-gyp rebuild",
     "prepublish": "./node_modules/.bin/gulp install",
     "test": "./node_modules/.bin/gulp test",
-    "start": "./node_modules/.bin/gulp start"
+    "start": "./node_modules/.bin/gulp start",
+    "install": "node-gyp rebuild"
   },
   "repository": {
     "type": "git",
@@ -115,6 +115,8 @@
     "vinyl-buffer": "~1.0.0",
     "vinyl-source-stream": "~1.1.0",
     "ws": "~0.7.1",
-    "yargs": "^3.8.0"
+    "yargs": "^3.8.0",
+    "memwatch": "~0.2.2",
+      "which": "^1.0.9"
   }
 }

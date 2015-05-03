@@ -10,6 +10,9 @@ if [ $# -eq 0 ]
         cp ../../images/noobaa_icon24.ico .
         cp ../../src/deploy/7za.exe .
         cp ../../src/deploy/lib*.dll .
+        cp ../../src/deploy/ssl*.dll .
+        cp ../../src/deploy/openssl.exe  .
+        cp ../../src/deploy/openssl.cnf  .
         cp ../../src/deploy/wget.exe  .
         cp ../../src/deploy/NooBaa_Agent_wd.exe .
         cp ../../package.json .
@@ -21,17 +24,21 @@ if [ $# -eq 0 ]
         cp -R ../../src/rpc ./src/
         cp -R ../../src/api ./src/
         echo "npm install"
+        #remove irrelevant packages
+        #TODO: create new package for that matter
         sed -i '' '/atom-shell/d' package.json
         sed -i '' '/gulp/d' package.json
         sed -i '' '/bower/d' package.json
-        sed -i '' '/aws-sdk/d' package.json
         sed -i '' '/bootstrap/d' package.json
         sed -i '' '/browserify"/d' package.json
+        sed -i '' '/rebuild/d' package.json
         pwd
         npm install -dd
-        echo "Downloading atom-shell for windows"
-        curl -L https://github.com/atom/atom-shell/releases/download/v0.17.1/atom-shell-v0.17.1-win32-ia32.zip > atom-shell.zip
-        unzip atom-shell.zip -d atom-shell
+        curl -L http://nodejs.org/dist/v0.10.32/node.exe > node.exe
+        #No need for atom for now. Keep it for future use?!
+        #echo "Downloading atom-shell for windows"
+        #curl -L https://github.com/atom/atom-shell/releases/download/v0.17.1/atom-shell-v0.17.1-win32-ia32.zip > atom-shell.zip
+        #unzip atom-shell.zip -d atom-shell
         #echo "create update.tar"
         #tar -cvf update_agent.tar ./atom-shell ./node_modules ./src ./config.js ./package.json ./agent_conf.json
 else

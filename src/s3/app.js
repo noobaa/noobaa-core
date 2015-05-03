@@ -6,7 +6,7 @@ var http = require('http');
 var api = require('../api');
 var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var pem = require('./pem');
+var pem = require('../util/pem');
 var s3_util = require('../util/s3_utils');
 
 module.exports = s3_app;

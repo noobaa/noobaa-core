@@ -132,7 +132,7 @@ function listen(rpc, port) {
     // however we already see this occuring -
     // for example on ESRCH error from getaddrinfo() for dns resolve.
     nudp_socket.socket.on('error', function(err) {
-        dbg.error('NUDP SOCKET ERROR UNEXPECTEDLY', err.stack || err);
+        dbg.error('NUDP SOCKET ERROR', err.stack || err);
     });
 
     // this is a stun response from a stun server, letting us know

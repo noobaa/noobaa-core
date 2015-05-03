@@ -290,7 +290,6 @@ Agent.prototype._start_stop_http_server = function() {
             var promises = [];
 
             if (!self.http_server) {
-                dbg.log0('agent_app:',self);
                 self.http_server = http.createServer(self.agent_app)
                     .on('error', function(err) {
                         dbg.error('HTTP SERVER ERROR', err.stack || err);

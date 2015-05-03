@@ -18,32 +18,34 @@ function s3_app(params) {
     var app = express();
     var Controllers = require('./controllers');
     var controllers = new Controllers(params);
-    var allowCrossDomain = function(req, res, next) {
-        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-        res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag');
+
+    app.use(function allow_cross_domain(req, res, next) {
+
+        res.header('Access-Control-Allow-Methods',
+            'GET,POST,PUT,DELETE,OPTIONS');
+        res.header('Access-Control-Allow-Headers',
+            'Content-Type,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag');
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Expose-Headers', 'ETag');
+        // note that browsers will not allow origin=* with credentials
+        // but anyway we allow it by the agent server.
+        res.header('Access-Control-Allow-Credentials', true);
+        res.header('ETag', '1');
+
         if (req.method === 'OPTIONS') {
-            dbg.log3('OPTIONS!');
-            res.sendStatus(200);
+            dbg.log0('OPTIONS!');
+            res.status(200).end();
         } else {
             next();
         }
-    };
-    app.use(allowCrossDomain);
+    });
+
     app.use(function(req, res, next) {
 
         return Q.fcall(function() {
 
                 dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
 
-                res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-                res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization,ETag');
-                res.header('Access-Control-Allow-Origin', '*');
-                // note that browsers will not allow origin=* with credentials
-                // but anyway we allow it by the agent server.
-                res.header('Access-Control-Allow-Credentials', true);
-                res.header('ETag', '1');
                 var authenticated_request = false;
 
                 if (req.headers.authorization) {

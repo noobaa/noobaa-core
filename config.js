@@ -4,8 +4,8 @@ var config = {};
 config.test_mode = false;
 
 // SIGNALING AND ICE
-// config.ws_address = 'wss://noobaa-signaling.herokuapp.com';
-config.ws_address = 'ws://localhost:5002';
+config.ws_address = 'wss://noobaa-signaling.herokuapp.com';
+//config.ws_address = 'ws://localhost:5002';
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 50;
 config.connection_data_stale = 5 * 60 * 1000;
@@ -28,6 +28,7 @@ config.min_node_number = 3;
 config.READ_CONCURRENCY = 32;
 config.WRITE_CONCURRENCY = 16;
 config.READ_RANGE_CONCURRENCY = 8;
+
 config.REPLICATE_CONCURRENCY = 32;
 
 config.write_timeout = 30 * 1000;

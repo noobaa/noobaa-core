@@ -26,7 +26,7 @@ var STUN = {
     // The key for XOR_MAPPED_ADDRESS includes magic key and transaction id
     XOR_KEY_OFFSET: 4,
     // ms between indications
-    INDICATION_INTERVAL: 5000,
+    INDICATION_INTERVAL: 100,
     INDICATION_JITTER: {
         min: 0.8,
         max: 1.2,

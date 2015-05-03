@@ -7,9 +7,9 @@ var fs = require('fs');
 var util = require('util');
 var S3rver = require('./s3rver');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var argv = require('minimist')(process.argv);
 
-
-var params = {};
+var params = argv;
 
 Q.nfcall(fs.readFile, 'agent_conf.json')
     .then(function(data) {

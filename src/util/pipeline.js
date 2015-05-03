@@ -3,8 +3,6 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var util = require('util');
-var stream = require('stream');
 
 
 module.exports = Pipeline;

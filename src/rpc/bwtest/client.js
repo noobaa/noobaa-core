@@ -1,19 +1,32 @@
 /* jshint browser:true */
 'use strict';
 
+var Q = require('q');
+var _ = require('lodash');
+
 var debug = require('debug');
 debug.disable("*");
 // debug.enable("*");
-
-var Peer = require('simple-peer');
-var Q = require('q');
-var _ = require('lodash');
+var SimplePeer = require('simple-peer');
 var WebSock = require('ws');
+
+// try to find a wrtc module we can load
+var wrtc = _.find([
+    '../../../../webrtc-native',
+    '../../../../node-webrtc',
+    'wrtc'
+], function(module) {
+    try {
+        return require(module);
+    } catch (err) {
+        // not found, ignore
+    }
+});
 
 var ws;
 var peers = {};
 var running = true;
-var monitor_interval = setInterval(monitor, 1000);
+var monitor_interval;
 
 var state = {
     throttled: false,
@@ -31,8 +44,8 @@ var state = {
     time: Date.now()
 };
 
-var THROTTLE_HIGH = 0;
-var THROTTLE_LOW = 0;
+var THROTTLE_HIGH = 1024 * 1024;
+var THROTTLE_LOW = 1024 * 1024;
 
 console.log('LETS GO!');
 
@@ -105,16 +118,18 @@ function init_peer(msg) {
     if (!running) return;
 
     console.log('PEER init');
-    var peer = new Peer({
+    var peer = new SimplePeer({
+        wrtc: wrtc,
         initiator: msg.initiator,
         config: {
-            // we use ordered channel to verify order of received sequences
-            ordered: true,
+            // default channel is ordered
+            // and we use to verify order of received sequences
+            ordered: false,
 
             // default channel config is reliable
             // passing either maxRetransmits or maxPacketLifeTime will
             // set to unreliable mode (cant pass both).
-            // maxRetransmits: 0,
+            maxRetransmits: 0,
             // maxPacketLifeTime: 3000,
 
             iceServers: [{
@@ -164,6 +179,9 @@ function init_peer(msg) {
  *
  */
 function run_test(peer) {
+    if (!monitor_interval) {
+        monitor_interval = setInterval(monitor, 1000);
+    }
     if (!running) return;
     if (!peer.initiator) return;
 
@@ -227,6 +245,9 @@ function send_request(peer, request_size) {
  */
 function send_buffer(peer, buf_size, seq) {
     var test_buffer = new Buffer(buf_size);
+    // filling to avoid valgrind warnings
+    test_buffer.fill(0);
+    // write sequence to start of buffer
     test_buffer.writeUInt32BE(seq, 0);
     return Q.nfcall(peer.send.bind(peer), toArrayBuffer(test_buffer));
 }

@@ -1,8 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
-var bcrypt = require('bcrypt');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -27,6 +25,18 @@ var system_schema = new Schema({
         type: types.ObjectId,
         required: true,
     },
+
+    access_keys: [{
+        access_key : {
+            type: String,
+            required: true,
+        },
+        secret_key : {
+            type: String,
+            required: true,
+        }
+    }],
+
 
     // on delete set deletion time
     deleted: {
@@ -54,4 +64,4 @@ system_schema.index({
     unique: true
 });
 
-var System = module.exports = mongoose.model('System', system_schema);
+module.exports = mongoose.model('System', system_schema);

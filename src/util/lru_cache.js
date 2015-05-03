@@ -3,7 +3,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var LRU = require('noobaa-util/lru');
-var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = LRUCache;
 

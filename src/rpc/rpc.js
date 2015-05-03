@@ -2,28 +2,27 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var http = require('http');
+var ip = require('ip');
+var url = require('url');
+var util = require('util');
 var assert = require('assert');
-var tv4 = require('tv4');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var rpc_http = require('./rpc_http');
-var rpc_ice = require('./rpc_ice');
-var config = require('../../config.js');
-var Stats = require('fast-stats').Stats;
+var RpcRequest = require('./rpc_request');
+var RpcConnection = require('./rpc_connection');
+var EventEmitter = require('events').EventEmitter;
 
 module.exports = RPC;
 
-var VALID_HTTP_METHODS = {
-    GET: 1,
-    PUT: 1,
-    POST: 1,
-    DELETE: 1
-};
+// dbg.set_level(5, __dirname);
 
-var topStatSize = 60;
-var statIntervalPushCounter = 1000;
-var statIntervalPrint = 10000;
-var collectStats = true;
+// allow self generated certificates for testing
+// TODO NODE_TLS_REJECT_UNAUTHORIZED is not a proper flag to mess with...
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
+
+var browser_location = global.window && global.window.location;
+var is_browser_secure = browser_location && browser_location.protocol === 'https:';
+
+util.inherits(RPC, EventEmitter);
 
 /**
  *
@@ -31,162 +30,11 @@ var collectStats = true;
  *
  */
 function RPC() {
-    var self = this;
-    this._stats = {};
-    this._apis = {};
+    EventEmitter.call(this);
     this._services = {};
-    this._schemas = tv4.freshApi();
-    this._schemas.addFormat('date', function(data) {
-        var d = new Date(data);
-        return isNaN(d.getTime()) ? 'bad date' : null;
-    });
-
-    if (collectStats) {
-        this.intStat = setInterval(function(){
-            try {
-                self.handleStats();
-            } catch (err) {
-                dbg.error('Error running stats',err,err.stack);
-            }
-        }, statIntervalPushCounter);
-
-        this.intPrtStat = setInterval(function(){
-            try{
-                dbg.info(self.getStats());
-            } catch (err) {
-                dbg.error('Error running print stats',err,err.stack);
-            }
-        }, statIntervalPrint);
-    }
+    this._connection_by_id = {};
+    this._connection_by_address = {};
 }
-
-
-RPC.prototype.addStatsCounter = function(name, value) {
-    if (!collectStats) {return;}
-    var self = this;
-    try {
-        if (!self._stats[name]) {
-            self._stats[name] = {
-                stat: new Stats({sampling: true}),
-                current: 0,
-                isSum: true
-            };
-        }
-        self._stats[name].current += value;
-        dbg.log3('RPC addStatsVal',name,value);
-    } catch (err) {
-        dbg.error('Error addStatsVal',name,err,err.stack);
-    }
-};
-
-RPC.prototype.addStats = function(name, value) {
-    if (!collectStats) {return;}
-    var self = this;
-    try {
-        if (!self._stats[name]) {
-            self._stats[name] = {
-                stat: new Stats()
-            };
-        }
-        self._stats[name].stat.push(value);
-
-        dbg.log3('RPC addStats',name,value);
-    } catch (err) {
-        dbg.error('Error addStats',name,err,err.stack);
-    }
-};
-
-RPC.prototype.handleStats = function() {
-    var self = this;
-    var name;
-    var stat;
-
-    try {
-        for (name in self._stats) {
-            stat = self._stats[name].stat;
-
-            if (self._stats[name].isSum) {
-                stat.push(self._stats[name].current);
-            }
-
-            while (stat.length > topStatSize) {
-                stat.shift();
-            }
-
-        }
-    } catch (err) {
-        dbg.error('Error addToStat',err,err.stack);
-    }
-};
-
-RPC.prototype.getStats = function() {
-    var self = this;
-    var result = 'Statistics: ';
-    var name;
-    var stat;
-    try {
-        for (name in self._stats) {
-            stat = self._stats[name].stat;
-            result += '\nname: '+name+' size: '+stat.length+' mean: '+stat.amean().toFixed(2);
-            if (self._stats[name].isSum) {
-                result += ' (aprox last 60 secs) ';
-            } else {
-                result += ' (aprox last 60 tx) ';
-            }
-            result += ' median: '+stat.median().toFixed(2) + ' range: ['+stat.range()+']';
-            if (self._stats[name].isSum) {
-                result += ' current: '+self._stats[name].current;
-            }
-        }
-    } catch (err) {
-        dbg.error('Error getStats',err,err.stack);
-    }
-
-    return result;
-};
-
-/**
- *
- * register_api
- *
- */
-RPC.prototype.register_api = function(api) {
-    var self = this;
-
-    assert(!self._apis[api.name], 'RPC: api already registered ' + api.name);
-
-    // add all definitions
-    _.each(api.definitions, function(schema, name) {
-        self._schemas.addSchema('/' + api.name + '/definitions/' + name, schema);
-    });
-
-    // add all definitions
-    _.each(api.definitions, function(schema, name) {
-        self._schemas.addSchema('/' + api.name + '/definitions/' + name, schema);
-    });
-
-    // go over the api and check its validity
-    _.each(api.methods, function(method_api, method_name) {
-        // add the name to the info
-        method_api.name = method_name;
-        method_api.fullname = '/' + api.name + '/methods/' + method_name;
-        method_api.params_schema = method_api.fullname + '/params';
-        method_api.reply_schema = method_api.fullname + '/reply';
-
-        self._schemas.addSchema(method_api.params_schema, method_api.params || {});
-        self._schemas.addSchema(method_api.reply_schema, method_api.reply || {});
-        method_api.params_properties = self._schemas.getSchema(method_api.params_schema).properties;
-
-        assert(method_api.method in VALID_HTTP_METHODS,
-            'RPC: unexpected http method: ' +
-            method_api.method + ' for ' + method_api.fullname);
-    });
-
-    self._apis[api.name] = api;
-
-    return api;
-};
-
 
 
 /**
@@ -194,144 +42,38 @@ RPC.prototype.register_api = function(api) {
  * register_service
  *
  */
-RPC.prototype.register_service = function(server, api_name, domain, options) {
+RPC.prototype.register_service = function(api, server, options) {
     var self = this;
-    var api = self._apis[api_name];
-    domain = domain || '';
+    options = options || {};
+    options.peer = options.peer || '*';
 
-    assert(api,
-        'RPC: no such registered api ' + api_name);
-
-    var service = self._services[api_name];
-    if (!service) {
-        service = self._services[api_name] = {};
-    }
-
-    assert(!service[domain],
-        'RPC: service already registered ' + api_name + '-' + domain);
-
-    service[domain] = {
-        api: api,
-        server: server,
-        methods: _.mapValues(api.methods, make_service_method)
-    };
-
-    function make_service_method(method_api, method_name) {
-        var srv_name = '/' + api_name + '/' + method_name + '/' + domain;
-        var server_func = server[method_name];
-        if (!server_func && options.allow_missing_methods) {
-            server_func = function() {
+    _.each(api.methods, function(method_api, method_name) {
+        var srv = '/' + options.peer + '/' + api.name + '/' + method_name;
+        assert(!self._services[srv],
+            'RPC register_service: service already registered ' + srv);
+        var func = server[method_name];
+        if (!func && options.allow_missing_methods) {
+            func = function() {
                 return Q.reject({
-                    data: 'RPC: missing method implementation - ' + method_api.fullname
+                    data: 'RPC register_service:' +
+                        ' missing method implementation - ' +
+                        method_api.fullname
                 });
             };
         }
-        assert.strictEqual(typeof(server_func), 'function',
-            'RPC: server method should be a function - ' + method_api.fullname);
-        server_func = server_func.bind(server);
+        assert.strictEqual(typeof(func), 'function',
+            'RPC register_service: server method should be a function - ' +
+            method_api.fullname);
 
-        return {
+        self._services[srv] = {
+            api: api,
+            server: server,
+            options: options,
             method_api: method_api,
-            server_func: server_func,
-            handler: service_method_handler
+            server_func: func.bind(server)
         };
-
-        /**
-         * service method handler
-         */
-        function service_method_handler(req) {
-            dbg.log0('RPC START', srv_name);
-
-            var startTime = (new Date()).getTime();
-
-            self.addStatsCounter('RPC RESPONSE', 1);
-
-            return Q.fcall(function() {
-
-                    // authorize the request
-                    if (options.authorize) {
-                        return options.authorize(req, method_api);
-                    }
-                })
-                .then(function() {
-
-                    // verify params
-                    var params_to_validate = method_api.param_raw ?
-                        _.omit(req.rpc_params, method_api.param_raw) :
-                        req.rpc_params;
-                    self._validate_schema(
-                        params_to_validate,
-                        method_api.params_schema,
-                        'SERVER PARAMS');
-
-                    /**
-                     * respond with error
-                     * @param statusCode <Number> optional http status code.
-                     * @param data <String> the error response data to send
-                     * @param reason <Any> a reason for logging only
-                     * @return error to be thrown by the caller
-                     */
-                    req.rpc_error = function(statusCode, data, reason) {
-                        if (typeof(statusCode) === 'string') {
-                            // shift args if status is missing
-                            reason = data;
-                            data = statusCode;
-                            statusCode = 500;
-                        }
-                        console.error('RPC FAILED', srv_name,
-                            statusCode, data, reason);
-                        var err = new Error(reason);
-                        err.statusCode = statusCode;
-                        err.data = data;
-                        return err;
-                    };
-
-                    // rest_params and rest_error are DEPRECATED.
-                    // keeping for backwards compatability
-                    req.rest_params = req.rpc_params;
-                    req.rest_error = req.rpc_error;
-
-                    // call the server function
-                    return server_func(req);
-                })
-                .then(function(reply) {
-
-                    // verify reply (if not raw buffer)
-                    if (!method_api.reply_raw) {
-                        self._validate_schema(reply, method_api.reply_schema, 'SERVER REPLY');
-                    }
-                    dbg.log0('RPC COMPLETED', srv_name);
-                    self.addStatsCounter('RPC RESPONSE', -1);
-                    self.addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
-                    return reply;
-                })
-                .then(null, function(err) {
-                    console.error('RPC ERROR', srv_name, err, err.stack);
-                    self.addStatsCounter('RPC RESPONSE', -1);
-                    self.addStats('RPC RESP Time', ((new Date()).getTime() - startTime));
-                    throw err;
-                });
-        }
-    }
+    });
 };
-
-
-
-/**
- *
- * get_service_method
- *
- * @return object that includes: method_api, handler. see register_service()
- *
- */
-RPC.prototype.get_service_method = function(api_name, method_name, domain) {
-    domain = domain || '';
-    return this._services[api_name] &&
-        this._services[api_name][domain] &&
-        this._services[api_name][domain].methods[method_name];
-};
-
-
 
 
 /**
@@ -339,25 +81,40 @@ RPC.prototype.get_service_method = function(api_name, method_name, domain) {
  * create_client
  *
  */
-RPC.prototype.create_client = function(api_name, default_options) {
+RPC.prototype.create_client = function(api, default_options) {
     var self = this;
-    var api = self._apis[api_name];
+    var client = {
+        options: default_options || {}
+    };
+    if (!api || !api.name || !api.methods) {
+        throw new Error('RPC create_client: BAD API');
+    }
 
-    assert(api, 'RPC: no such registered api ' + api_name);
-
-    var client = {};
+    if (_.isEmpty(client.options.address)) {
+        // in the browser we take the address as the host of the web page -
+        // just like any ajax request.
+        if (browser_location) {
+            client.options.address = [
+                // ws address
+                (is_browser_secure ? 'wss://' : 'ws://') +
+                browser_location.host,
+                // http address
+                browser_location.protocol + '//' +
+                browser_location.host
+            ];
+        } else {
+            // set a default for development
+            client.options.address = 'ws://localhost:5001';
+        }
+    }
+    parse_options_address(client.options);
 
     // create client methods
     _.each(api.methods, function(method_api, method_name) {
         client[method_name] = function(params, options) {
-            // fill default options from client
-            options = options || {};
-            _.forIn(default_options, function(v, k) {
-                if (!(k in options)) {
-                    options[k] = v;
-                }
-            });
-            return self._request(api, method_api, params, options);
+            options = _.create(client.options, options);
+            parse_options_address(options);
+            return self.client_request(api, method_api, params, options);
         };
     });
 
@@ -368,133 +125,462 @@ RPC.prototype.create_client = function(api_name, default_options) {
 
 /**
  *
- * _request
+ * client_request
  *
  */
-RPC.prototype._request = function(api, method_api, params, options) {
-
+RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
+    var req = new RpcRequest();
 
-    var startTime = (new Date()).getTime();
+    // initialize the request
+    options = options || {};
+    req.new_request(api, method_api, params, options);
+    req.response_defer = Q.defer();
 
-    var srv_name =
-        '/' + api.name +
-        '/' + method_api.name +
-        '/' + options.domain;
-    dbg.log0('RPC REQUEST', srv_name);
+    dbg.log1('RPC client_request: START',
+        'reqid', req.reqid,
+        'srv', req.srv);
+    self.emit_stats('stats.client_request.start', req);
 
-    // if the service is registered locally,
-    // dispatch to simple function call
+    return Q.fcall(function() {
+            // verify params (local calls don't need it because server already verifies)
+            method_api.validate_params(params, 'CLIENT');
 
-    var local_method = self.get_service_method(
-        api.name, method_api.name, options.domain);
+            // assign a connection to the request
+            return self.assign_connection(req, options);
 
-    if (local_method) {
-        return local_method.handler({
-            auth_token: options.auth_token,
-            rpc_params: params
-        });
-    }
+        })
+        .then(function() {
 
-    self.addStatsCounter('RPC REQUEST', 1);
+            dbg.log1('RPC client_request: SEND',
+                'reqid', req.reqid,
+                'srv', req.srv,
+                'connid', req.connection.connid);
 
-    // verify params (local calls don't need it because server already verifies)
-    var params_to_validate = method_api.param_raw ?
-        _.omit(params, method_api.param_raw) :
-        params;
-    self._validate_schema(
-        params_to_validate,
-        method_api.params_schema,
-        'CLIENT PARAMS');
+            // send request over the connection
+            var req_buffer = req.export_request_buffer();
+            var send_promise = Q.when(req.connection.send(req_buffer, 'req', req));
 
-    var timeout = options.timeout || config.default_rpc_timeout; // a default high time
-    var retries = options.retries || config.default_rpc_retries;
-    var attempts = 0;
-    var timed_out = false;
-    var transport;
-
-    dbg.log2('RPC attempt at ', method_api, timeout, retries);
-
-    // choose suitable transport
-    if (config.use_ws_when_possible && options.is_ws && options.peer) {
-        transport = rpc_ice.request_ws;
-    } else if (config.use_ice_when_possible && options.peer) {
-        transport = rpc_ice.request;
-    } else {
-        transport = rpc_http.request;
-    }
-    if (!transport) {
-        dbg.log0('RPC: no transport available', srv_name, options);
-        throw new Error('RPC: no transport available ' + srv_name);
-    }
-
-    // send the request and loop as long as we didn't timeout
-    // and attempts below number of retries
-    function send_request() {
-        attempts += 1;
-        dbg.log1('RPC ATTEMPT', attempts, srv_name, params);
-        return transport(self, api, method_api, params, options)
-            .then(null, function(err) {
-                // error with statusCode means we got the reply from the server
-                // so there is no point to retry
-                if (err && err.statusCode && err.statusCode !== 503) {
-                    dbg.log0('RPC REQUEST FAILED', err);
-                    throw err;
-                }
-                if (timed_out) {
-                    dbg.log0('RPC REQUEST TIMEOUT', attempts, srv_name);
-                    throw err;
-                }
-                if (attempts >= retries) {
-                    dbg.log0('RPC RETRIES EXHAUSTED', attempts, srv_name);
-                    throw err;
-                }
-                dbg.log0('RPC REQUEST FAILED - DO RETRY', err, params);
-                return Q.delay(config.rpc_retry_delay).then(send_request);
-            });
-    }
-
-    return send_request()
-        .timeout(timeout)
-        .then(null, function(err) {
-            // we mark the timeout for the looping request to be able to break
-            if (err && err.code === 'ETIMEDOUT') {
-                timed_out = true;
+            // set timeout to abort if the specific connection/transport
+            // can do anything with it, for http this calls req.abort()
+            if (options.timeout) {
+                send_promise = send_promise.timeout(
+                    options.timeout, 'RPC client_request: send TIMEOUT');
             }
-            self.addStatsCounter('RPC REQUEST', -1);
-            self.addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
-            throw err;
+
+            return send_promise;
+        })
+        .then(function() {
+
+            dbg.log1('RPC client_request: WAIT',
+                'reqid', req.reqid,
+                'srv', req.srv,
+                'connid', req.connection.connid);
+
+            var reply_promise = req.response_defer.promise;
+
+            if (options.timeout) {
+                reply_promise = reply_promise.timeout(
+                    options.timeout, 'RPC client_request: response TIMEOUT');
+            }
+
+            return reply_promise;
+
         })
         .then(function(reply) {
 
+            dbg.log1('RPC client_request: DONE',
+                'reqid', req.reqid,
+                'srv', req.srv,
+                'connid', req.connection.connid);
+
             // validate reply
-            if (!method_api.reply_raw) {
-                self._validate_schema(reply, method_api.reply_schema, 'CLIENT REPLY');
-            }
-            self.addStatsCounter('RPC REQUEST', -1);
-            self.addStats('RPC REQ Time', ((new Date()).getTime() - startTime));
+            method_api.validate_reply(reply, 'CLIENT');
+
+            self.emit_stats('stats.client_request.done', req);
             return reply;
+
+        })
+        .then(null, function(err) {
+
+            dbg.error('RPC client_request: response ERROR reqid', req.reqid,
+                'srv', req.srv, 'connid', req.connection ? req.connection.connid : '',
+                err.stack || err);
+            self.emit_stats('stats.client_request.error', req);
+            throw err;
+
+        })
+        .fin(function() {
+            return self.release_connection(req);
         });
 };
 
 
+/**
+ *
+ * handle_request
+ *
+ */
+RPC.prototype.handle_request = function(conn, msg) {
+    var self = this;
+    var req = new RpcRequest();
+    req.connection = conn;
+    var srv =
+        '/' + msg.header.peer +
+        '/' + msg.header.api +
+        '/' + msg.header.method;
+    var service = this._services[srv];
+    if (!service) {
+        req.rpc_error('NOT_FOUND', srv);
+        return conn.send(req.export_response_buffer(), 'res', req);
+    }
+
+    // set api info to the request
+    req.import_request_message(msg, service.api, service.method_api);
+
+    dbg.log1('RPC handle_request: ENTER',
+        'reqid', req.reqid,
+        'srv', req.srv,
+        'connid', conn.connid);
+
+    self.emit_stats('stats.handle_request.start', req);
+
+    return Q.fcall(function() {
+            // authorize the request
+            if (service.options.authorize) {
+                return service.options.authorize(req);
+            }
+        })
+        .then(function() {
+            req.method_api.validate_params(req.params, 'SERVER');
+            // check if this request was already received and served,
+            // and if so then join the requests promise so that it will try
+            // not to call the server more than once.
+            var cached_req = conn.received_requests[req.reqid];
+            if (cached_req) {
+                return cached_req.server_promise;
+            }
+            // insert to requests map and process using the server func
+            conn.received_requests[req.reqid] = req;
+            req.server_promise = Q.fcall(service.server_func, req)
+                .fin(function() {
+                    // TODO keep received requests for some time after with LRU?
+                    delete conn.received_requests[req.reqid];
+                });
+            return req.server_promise;
+        })
+        .then(function(reply) {
+
+            req.method_api.validate_reply(reply, 'SERVER');
+            req.reply = reply;
+            dbg.log1('RPC handle_request: COMPLETED',
+                'reqid', req.reqid,
+                'srv', req.srv,
+                'connid', conn.connid);
+            self.emit_stats('stats.handle_request.done', req);
+            return conn.send(req.export_response_buffer(), 'res', req);
+        })
+        .then(null, function(err) {
+
+            console.error('RPC handle_request: ERROR',
+                'reqid', req.reqid,
+                'srv', req.srv,
+                'connid', conn.connid,
+                err.stack || err);
+            self.emit_stats('stats.handle_request.error', req);
+
+            // set default internal error if no other error was specified
+            if (!req.error) {
+                req.rpc_error('INTERNAL', err);
+            }
+            return conn.send(req.export_response_buffer(), 'res', req);
+        });
+};
+
 
 /**
  *
- * _validate_schema
+ * handle_response
  *
  */
-RPC.prototype._validate_schema = function(obj, schema, desc) {
-    var result = this._schemas.validateResult(
-        obj,
-        schema,
-        true /*checkRecursive*/ ,
-        true /*banUnknownProperties*/
-    );
+RPC.prototype.handle_response = function(conn, msg) {
+    var req = conn.sent_requests[msg.header.reqid];
+    if (!req) {
+        dbg.log0('RPC handle_response: GOT RESPONSE BUT NO REQUEST',
+            'reqid', msg.header.reqid,
+            'connid', conn.connid);
+        // TODO stats?
+        return;
+    }
 
-    if (!result.valid) {
-        dbg.log0('INVALID SCHEMA', desc, obj);
-        result.desc = desc;
-        throw result;
+    var is_pending = req.import_response_message(msg);
+    if (!is_pending) {
+        dbg.log0('RPC handle_response: GOT RESPONSE BUT REQUEST NOT PENDING',
+            'reqid', msg.header.reqid,
+            'connid', conn.connid);
+        // TODO stats?
+    }
+};
+
+
+
+// order protocol in ascending order of precendence (first is most prefered).
+// NOTE: http/s is used last because we generally prefer websocket.
+var PROTOCOL_ORDER;
+if (browser_location) {
+    if (is_browser_secure) {
+        // prefer secure protocols on secure browser page
+        PROTOCOL_ORDER = [
+            'wss:',
+            'ws:',
+            'https:',
+            'http:'
+        ];
+    } else {
+        // prefer insecure protocols on insecure browser page
+        PROTOCOL_ORDER = [
+            'ws:',
+            'wss:',
+            'http:',
+            'https:'
+        ];
+    }
+} else {
+    // prefer udp, then secure protocols
+    PROTOCOL_ORDER = [
+        'nudps:',
+        'nudp:',
+        'wss:',
+        'ws:',
+        'https:',
+        'http:'
+    ];
+}
+var PROTOCOL_ORDER_MAP = _.invert(PROTOCOL_ORDER);
+var FCALL_ADDRESS = [url.parse('fcall://fcall')];
+
+function address_order(u) {
+    return 1000 * (PROTOCOL_ORDER_MAP[u.protocol] || 1000) +
+        10 * (ip.isPrivate(u.hostname) ? 0 : 1);
+}
+
+function address_sort(u1, u2) {
+    return address_order(u1) - address_order(u2);
+}
+
+function parse_options_address(options) {
+    if (!options.address) {
+        return;
+    }
+    if (!_.isArray(options.address)) {
+        options.address = [options.address];
+    }
+    if (!options.address[0].protocol) {
+        options.address = _.map(options.address, function(addr) {
+            return addr.protocol ? addr : url.parse(addr);
+        });
+    }
+    options.address.sort(address_sort);
+    if (options.last_address) {
+        _.pull(options.address, options.last_address);
+        options.address.unshift(options.last_address);
+    }
+    dbg.log1('RPC parse_options_address:', _.map(options.address, 'href'));
+}
+
+/**
+ *
+ * assign_connection
+ *
+ */
+RPC.prototype.assign_connection = function(req, options) {
+    var self = this;
+    var address = options.address;
+    var next_address_index = 0;
+
+    // if the service is registered locally,
+    // we can ignore the address in options
+    // and dispatch to do function call.
+    if (options.allow_fcall && self._services[req.srv]) {
+        address = FCALL_ADDRESS;
+    }
+
+    return try_next_address();
+
+    function try_next_address() {
+        if (next_address_index >= address.length) {
+            dbg.error('RPC assign_connection: connect EXHAUSTED reqid', req.reqid,
+                _.map(options.address, 'href'));
+            throw new Error('RPC assign_connection: connect EXHAUSTED reqid ' + req.reqid);
+        }
+        var address_url = address[next_address_index++];
+        if (next_address_index > 1) {
+            dbg.log0('RPC assign_connection: try connecting reqid', req.reqid,
+                'address', address_url.href, '(' + next_address_index + '/' + address.length + ')');
+        }
+        var conn = self.get_connection_by_address(address_url);
+        return Q.when(conn.connect(options))
+            .then(function() {
+                return conn.authenticate(options.auth_token);
+            })
+            .then(function() {
+                req.connection = conn;
+                conn.sent_requests[req.reqid] = req;
+            }, function(err) {
+                dbg.warn('RPC assign_connection: connect ERROR reqid', req.reqid,
+                    'address', address_url.href, 'will try next address');
+                return try_next_address();
+            });
+    }
+};
+
+/**
+ *
+ * release_connection
+ *
+ */
+RPC.prototype.release_connection = function(req) {
+    if (req.connection) {
+        delete req.connection.sent_requests[req.reqid];
+    }
+};
+
+/**
+ *
+ */
+RPC.prototype.get_connection_by_address = function(address_url) {
+    if (_.isString(address_url)) {
+        address_url = url.parse(address_url);
+    }
+    var conn = this._connection_by_address[address_url.href];
+    if (conn) {
+        dbg.log1('RPC get_connection_by_address: existing', conn.connid);
+    } else {
+        conn = this.new_connection(address_url);
+        dbg.log1('RPC get_connection_by_address: new', conn.connid);
+    }
+    return conn;
+};
+
+/**
+ *
+ */
+RPC.prototype.get_connection_by_id = function(address, time, rand, allow_create) {
+    var connid = address +
+        '/' + time.toString(16) +
+        '.' + rand.toString(16);
+    var conn = this._connection_by_id[connid];
+    if (conn) {
+        return conn;
+    }
+    if (allow_create) {
+        conn = this.new_connection(address, time, rand);
+        dbg.log1('RPC get_connection_by_id: new', conn.connid);
+    }
+    return conn;
+};
+
+/**
+ *
+ */
+RPC.prototype.new_connection = function(address_url, time, rand) {
+    if (_.isString(address_url)) {
+        address_url = url.parse(address_url);
+    }
+    var conn = new RpcConnection(this, address_url, time, rand);
+    if (this._connection_by_id[conn.connid]) {
+        throw new Error('RPC new_connection: collision of connid');
+    }
+    this._connection_by_id[conn.connid] = conn;
+    if (!conn.singleplex) {
+        // always replace previous connection in the address map,
+        // assuming the new connection is preferred.
+        this._connection_by_address[conn.url.href] = conn;
+    }
+    conn.receive = this.on_connection_receive.bind(this, conn);
+    conn.on('close', this.on_connection_close.bind(this, conn));
+    conn.on('error', this.on_connection_error.bind(this, conn));
+    conn.sent_requests = {};
+    conn.received_requests = {};
+    return conn;
+};
+
+/**
+ *
+ */
+RPC.prototype.on_connection_close = function(conn) {
+    var self = this;
+    dbg.log0('RPC on_connection_close:', conn.connid);
+
+    delete this._connection_by_id[conn.connid];
+
+    // remove from connection pool
+    if (!conn.singleplex && self._connection_by_address[conn.url.href] === conn) {
+        delete self._connection_by_address[conn.url.href];
+    }
+
+    // reject pending requests
+    _.each(conn.sent_requests, function(req) {
+        dbg.warn('RPC on_connection_close: reject reqid', req.reqid,
+            'connid', conn.connid);
+        req.import_response_message({
+            header: {
+                op: 'res',
+                reqid: req.reqid,
+                error: 'connection closed'
+            }
+        });
+    });
+};
+
+/**
+ *
+ */
+RPC.prototype.on_connection_error = function(conn, err) {
+    dbg.error('RPC on_connection_error:', conn.connid, err.stack || err);
+    conn.close();
+};
+
+/**
+ *
+ */
+RPC.prototype.on_connection_receive = function(conn, msg_buffer) {
+    var self = this;
+    var msg = Buffer.isBuffer(msg_buffer) ?
+        RpcRequest.decode_message(msg_buffer) :
+        msg_buffer;
+
+    if (!msg || !msg.header) {
+        conn.emit('error', new Error('RPC on_connection_receive: BAD MESSAGE ' +
+            typeof(msg) + ' ' + (msg ? typeof(msg.header) : '') +
+            ' conn ' + conn.connid));
+        return;
+    }
+
+    dbg.log1('RPC on_connection_receive:',
+        'op', msg.header.op,
+        'reqid', msg.header.reqid,
+        'connid', conn.connid);
+
+    switch (msg.header.op) {
+        case 'req':
+            return self.handle_request(conn, msg);
+        case 'res':
+            return self.handle_response(conn, msg);
+        default:
+            conn.emit('error', new Error('RPC on_connection_receive:' +
+                ' BAD MESSAGE OP ' + msg.header.op +
+                ' reqid ' + msg.header.reqid +
+                ' conn ' + conn.connid));
+            break;
+    }
+};
+
+
+RPC.prototype.emit_stats = function(name, data) {
+    try {
+        this.emit(name, data);
+    } catch (err) {
+        dbg.error('RPC emit_stats: ERROR', err.stack || err);
     }
 };

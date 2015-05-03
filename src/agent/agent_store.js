@@ -5,10 +5,9 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var path = require('path');
-var assert = require('assert');
 var crypto = require('crypto');
 var mkdirp = require('mkdirp');
-var size_utils = require('../util/size_utils');
+var fs_utils = require('../util/fs_utils');
 var Semaphore = require('noobaa-util/semaphore');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -333,67 +332,13 @@ AgentStore.prototype._write_config = function(config) {
 AgentStore.prototype._count_usage = function() {
     var self = this;
     var sem = new Semaphore(10);
-    return disk_usage(self.blocks_path, sem, true)
+    return fs_utils.disk_usage(self.blocks_path, sem, true)
         .then(function(usage) {
             dbg.log0('counted disk usage', usage);
             self._usage = usage; // object with properties size and count
             return usage;
         });
 };
-
-
-
-
-// UTILS //////////////////////////////////////////////////////////
-
-
-
-/**
- *
- * DISK_USAGE
- *
- */
-function disk_usage(file_path, semaphore, recurse) {
-    // surround fs io with semaphore
-    return semaphore.surround(function() {
-            return Q.nfcall(fs.stat, file_path);
-        })
-        .then(function(stats) {
-
-            if (stats.isFile()) {
-                return {
-                    size: stats.size,
-                    count: 1,
-                };
-            }
-
-            if (stats.isDirectory() && recurse) {
-                // surround fs io with semaphore
-                return semaphore.surround(function() {
-                        return Q.nfcall(fs.readdir, file_path);
-                    })
-                    .then(function(entries) {
-                        return Q.all(_.map(entries, function(entry) {
-                            var entry_path = path.join(file_path, entry);
-                            return disk_usage(entry_path, semaphore, recurse);
-                        }));
-                    })
-                    .then(function(res) {
-                        var size = 0;
-                        var count = 0;
-                        for (var i = 0; i < res.length; i++) {
-                            if (!res[i]) continue;
-                            size += res[i].size;
-                            count += res[i].count;
-                        }
-                        return {
-                            size: size,
-                            count: count,
-                        };
-                    });
-            }
-        });
-}
 
 
 
@@ -428,7 +373,19 @@ function MemoryStore() {
         };
     };
     this.read_block = function(block_id) {
-        return this._blocks[block_id];
+        var b = this._blocks[block_id];
+        if (!b) {
+            throw new Error('No such block ' + block_id);
+        }
+        var hash_val = crypto.createHash('sha256').update(b.data).digest('base64');
+        var hash_info = b.data.length.toString(10) + ' ' + hash_val;
+
+        if (this._blocks[block_id].hash_val !== hash_val ||
+            this._blocks[block_id].hash_info !== hash_info) {
+            throw 'TAMPERING DETECTED';
+        }
+
+        return this._blocks[block_id].data;
     };
     this.write_block = function(block_id, data) {
         var b = this._blocks[block_id];
@@ -436,7 +393,15 @@ function MemoryStore() {
             this._used -= b.length;
             this._count -= 1;
         }
-        this._blocks[block_id] = data;
+
+        var hash_val = crypto.createHash('sha256').update(data).digest('base64');
+        var hash_info = data.length.toString(10) + ' ' + hash_val;
+        this._blocks[block_id] = {
+            data: data,
+            hash_val: hash_val,
+            hash_info: hash_info
+        };
+
         this._used += data.length;
         this._count += 1;
     };
@@ -456,5 +421,22 @@ function MemoryStore() {
         return b && {
             size: b.length
         };
+    };
+    /*
+     * Testing API
+     */
+    this.corrupt_blocks = function(block_ids) {
+        var self = this;
+        _.each(block_ids, function(block_id) {
+            var b = self._blocks[block_id];
+            if (b) {
+                b.hash_val = '';
+                b.hash_info = '';
+            }
+        });
+    };
+    this.list_blocks = function() {
+        var self = this;
+        return  _.keys(self._blocks);
     };
 }

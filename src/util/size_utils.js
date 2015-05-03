@@ -1,8 +1,6 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
-
 /**
  * functions to handle storage sizes that might not fit into single integer
  * supports either a single number;
@@ -44,6 +42,7 @@ module.exports = {
     EXABYTE: EXABYTE,
     ZETABYTE: ZETABYTE,
     YOTABYTE: YOTABYTE,
+    MAX_UINT32: MAX_UINT32,
 };
 
 

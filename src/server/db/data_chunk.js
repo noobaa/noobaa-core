@@ -1,7 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -100,4 +99,4 @@ data_chunk_schema.index({
     unique: false
 });
 
-var DataChunk = module.exports = mongoose.model('DataChunk', data_chunk_schema);
+module.exports = mongoose.model('DataChunk', data_chunk_schema);

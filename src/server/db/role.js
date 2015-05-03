@@ -1,8 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
-var bcrypt = require('bcrypt');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -46,4 +44,4 @@ role_schema.index({
     unique: true
 });
 
-var Role = module.exports = mongoose.model('Role', role_schema);
+module.exports = mongoose.model('Role', role_schema);

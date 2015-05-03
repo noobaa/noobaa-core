@@ -1,7 +1,6 @@
 'use strict';
 
 var _ = require('lodash');
-var util = require('util');
 var http = require('http');
 var express = require('express');
 var browserify = require('browserify-middleware');
@@ -12,11 +11,11 @@ var server = http.createServer(app);
 var port = process.env.PORT || 5999;
 
 var wss = new WebSocketServer({
-        server: server,
-        path: "/ws"
-    })
-    .on('connection', on_ws_connection)
-    .on('error', on_ws_error);
+    server: server,
+    path: "/ws"
+});
+wss.on('connection', on_ws_connection);
+wss.on('error', on_ws_error);
 
 app.get('/client.js', browserify(__dirname + '/client.js'));
 

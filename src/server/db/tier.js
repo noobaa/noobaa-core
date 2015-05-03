@@ -1,8 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
-var bcrypt = require('bcrypt');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -70,4 +68,4 @@ tier_schema.index({
     unique: true
 });
 
-var Tier = module.exports = mongoose.model('Tier', tier_schema);
+module.exports = mongoose.model('Tier', tier_schema);

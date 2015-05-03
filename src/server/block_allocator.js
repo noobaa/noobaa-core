@@ -39,7 +39,7 @@ function allocate_block(chunk, avoid_nodes) {
             }
             // we looped through all nodes and didn't find a node we can allocate
             dbg.log0('allocate_block: no available node', chunk, 'avoid_nodes', avoid_nodes);
-            throw new Error('allocate_block: no available node');
+            return null;
         });
 }
 

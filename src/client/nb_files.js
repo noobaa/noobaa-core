@@ -32,22 +32,10 @@ nb_api.factory('nbFiles', [
         $scope.uploads = [];
         $scope.downloads = [];
         $scope.transfers = [];
+        $scope.s3 = null;
 
-        /*
-        //TODO: move to ssl. disable certificate validation.
-        var ep = new AWS.Endpoint({
-            protocol: 'http',
-            port: 80,
-            hostname: '127.0.0.1'
-        });
-        */
-        //var access_key_id = 'd36e02598bf347148752';
-        //var secret_access_key = 'f25cd46a-e105-4518-ac75-0d033745b4e1';
-        var s3 = new AWS.S3({
-            endpoint: 'http://127.0.0.1',
-            s3ForcePathStyle: true,
-            sslEnabled: false,
-        });
+        // call first time with empty keys to initialize s3
+        set_access_keys();
 
         angular.element($window).on('beforeunload', function() {
             var num_uploads = 0;
@@ -74,21 +62,36 @@ nb_api.factory('nbFiles', [
         //update access keys.
         //TODO: find more secured approach
         function set_access_keys(access_keys) {
-            if (_.isEmpty(access_keys)) {
-                console.log('empty keys');
-                return;
+            if (!_.isEmpty(access_keys)) {
+                AWS.config.update({
+                    accessKeyId: access_keys[0].access_key,
+                    secretAccessKey: access_keys[0].secret_key,
+                    sslEnabled: false
+                });
+                console.log('updated keys', access_keys[0].access_key);
             }
-            AWS.config.update({
-                accessKeyId: access_keys[0].access_key,
-                secretAccessKey: access_keys[0].secret_key,
-                sslEnabled: false
+            /*
+            //TODO: move to ssl. disable certificate validation.
+            var ep = new AWS.Endpoint({
+                protocol: 'http',
+                port: 80,
+                hostname: '127.0.0.1'
             });
-            s3 = new AWS.S3({
-                endpoint: 'http://127.0.0.1',
+            */
+            //var access_key_id = 'd36e02598bf347148752';
+            //var secret_access_key = 'f25cd46a-e105-4518-ac75-0d033745b4e1';
+            var rest_port = 80;
+            var rest_ssl_port = 443;
+            var http_endpoint = 'http://127.0.0.1' +
+                (rest_port ? ':' + rest_port : '');
+            var https_endpoint = 'https://127.0.0.1' +
+                (rest_ssl_port ? ':' + rest_ssl_port : '');
+            $scope.s3 = new AWS.S3({
+                endpoint: $window.location.protocol === 'https:' ?
+                    https_endpoint : http_endpoint,
                 s3ForcePathStyle: true,
                 sslEnabled: false,
             });
-            console.log('updated keys', access_keys[0].access_key);
         }
 
         function list_files(params) {
@@ -115,7 +118,7 @@ nb_api.factory('nbFiles', [
                         info: res
                     });
 
-                    var url = s3.getSignedUrl('getObject', {
+                    var url = $scope.s3.getSignedUrl('getObject', {
                         Bucket: params.bucket,
                         Key: params.key
                     });
@@ -234,7 +237,7 @@ nb_api.factory('nbFiles', [
                 tx.promise = $q(function(resolve, reject, notify) {
                     console.log('starting');
                     // var s3req =
-                    s3.upload({
+                    $scope.s3.upload({
                         Key: tx.name,
                         Bucket: tx.bucket,
                         Body: tx.input_file,
@@ -315,7 +318,7 @@ nb_api.factory('nbFiles', [
                                 })
                                 .once('error', on_error);
                         } else {
-                            var s3req = s3.getObject({
+                            var s3req = $scope.s3.getObject({
                                 Bucket: bucket_name,
                                 Key: file.name,
                             });

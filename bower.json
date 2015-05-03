@@ -3,10 +3,10 @@
   "version": "0.0.1",
   "dependencies": {
     "alertify.js": "~0.3.11",
-    "ladda": "~0.9.7",
+    "ladda": "~0.9.8",
     "bootstrap-material-design": "~0.3.0",
     "bootstrap-sidebar": "~0.2.2",
     "spinkit": "1.0.1",
-    "datetimepicker": "~2.4.1"
+    "datetimepicker": "~2.4.3"
   }
 }

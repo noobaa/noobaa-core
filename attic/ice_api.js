@@ -2,8 +2,8 @@
 
 var ice = require('./ice_lib');
 var Q = require('q');
-var buf = require('./buffer_utils');
-var rand = require('./random_utils');
+var buffer_utils = require('./buffer_utils');
+var chance = require('chance');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
@@ -20,63 +20,61 @@ function onIceMessage(socket, channel, event) {
 
     dbg.log3('Got event '+event.data+' ; my id: '+channel.myId+' peer '+channel.peerId);
     var msgObj;
-    var req;
+    var reqId;
     var p2p_context = socket.p2p_context;
 
-    if (typeof event.data === 'string' || event.data instanceof String) {
+    if (typeof(event.data) === 'string') {
         try {
             var message = JSON.parse(event.data);
-            req = message.req;
+            reqId = message.req;
 
-            if (ice.isRequestEnded(p2p_context, req, channel)) {
+            if (ice.isRequestEnded(p2p_context, reqId, channel)) {
                 dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE '+' peer '+channel.peerId);
                 return;
             }
 
             dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' peer '+channel.peerId);
 
-            if (!channel.msgs[message.req]) {
-                channel.msgs[message.req] = {};
+            if (!channel.msgs[reqId]) {
+                channel.msgs[reqId] = {};
             }
-            msgObj = channel.msgs[message.req];
-
+            msgObj = channel.msgs[reqId];
             msgObj.peer_msg = message;
+            msgObj.requestId = reqId;
 
             if (!message.size || parseInt(message.size, 10) === 0) {
                 if (msgObj.action_defer) {
-                    dbg.log3('message str set action defer resolve for req '+message.req);
+                    dbg.log3('message str set action defer resolve for req '+reqId);
                     msgObj.action_defer.resolve(channel);
                 } else if (channel.handleRequestMethod) {
-                    dbg.log3('message str call handleRequestMethod resolve for req '+message.req);
-                    channel.handleRequestMethod(socket, channel, message);
+                    dbg.log3('message str call handleRequestMethod resolve for req '+reqId);
+                    channel.handleRequestMethod(socket, channel, msgObj);
                 } else {
-                    dbg.log2('ab NO 1 to call for req '+req);
+                    dbg.log2('ab NO 1 to call for req '+reqId);
                 }
             } else {
                 msgObj.msg_size = parseInt(message.size, 10);
             }
 
         } catch (ex) {
-            dbg.error('ex on string req ' + ex + ' ; ' + ex.stack+' for req '+req);
+            dbg.error('ex on string req ' + ex + ' ; ' + ex.stack+' for req '+reqId);
         }
     } else if (event.data instanceof ArrayBuffer) {
 
         try {
-            var bff = buf.toBuffer(event.data);
-            req = (bff.readInt32LE(0)).toString();
-            var part = bff.readInt32LE(4);
+            var buffer = buffer_utils.toBuffer(event.data);
+            reqId = (buffer.readInt32LE(0)).toString();
+            var part = buffer.readInt32LE(4);
 
-            if (ice.isRequestEnded(p2p_context, req, channel)) {
+            if (ice.isRequestEnded(p2p_context, reqId, channel)) {
                 dbg.log0('got message str ' + event.data + ' my id '+channel.myId+' REQUEST DONE IGNORE');
                 return;
             }
 
-            if (!channel.msgs[req]) {
-                channel.msgs[req] = {};
+            if (!channel.msgs[reqId]) {
+                channel.msgs[reqId] = {};
             }
-
-            msgObj = channel.msgs[req];
-
+            msgObj = channel.msgs[reqId];
             if (!msgObj.received_size) {
                 msgObj.received_size = 0;
             }
@@ -84,48 +82,44 @@ function onIceMessage(socket, channel, event) {
                 msgObj.chunk_num = 0;
             }
             if (!msgObj.chunks_map) {
-                msgObj.chunks_map = {};
+                msgObj.chunks_map = [];
             }
 
-            var partBuf = event.data.slice(config.iceBufferMetaPartSize);
-            msgObj.chunks_map[part] = partBuf;
-
-            dbg.log3('got chunk '+part+' with size ' + event.data.byteLength + " total size so far " + msgObj.received_size+' req '+req+' peer '+channel.peerId);
-
-            msgObj.chunk_num++;
-
-            msgObj.received_size += (event.data.byteLength - config.iceBufferMetaPartSize);
+            var partBuf = buffer.slice(config.iceBufferMetaPartSize);
+            if (msgObj.chunks_map[part]) {
+                dbg.log3('got EXISTING chunk '+part+' with size ' + partBuf.length + " total size so far " + msgObj.received_size+'/'+msgObj.msg_size +' req '+reqId+' peer '+channel.peerId);
+            } else {
+                msgObj.chunks_map[part] = partBuf;
+                msgObj.chunk_num++;
+                msgObj.received_size += partBuf.length;
+                dbg.log3('got chunk '+part+' with size ' + partBuf.length + " total size so far " + msgObj.received_size+'/'+msgObj.msg_size +' req '+reqId+' peer '+channel.peerId);
+            }
 
             if (msgObj.msg_size && msgObj.received_size === msgObj.msg_size) {
 
                 dbg.log0('all chunks received last '+part+' with size ' +
-                event.data.byteLength + " total size so far " + msgObj.received_size +
-                ' my id '+channel.myId+ ' request '+req+' peer '+channel.peerId);
+                buffer.length + " total size so far " + msgObj.received_size +
+                ' my id '+channel.myId+ ' request '+reqId+' peer '+channel.peerId);
 
-                var chunksParts = [];
-                var chunk_counter;
-                for (chunk_counter = 0; chunk_counter < msgObj.chunk_num; ++chunk_counter) {
-                    chunksParts.push(buf.toBuffer(msgObj.chunks_map[chunk_counter]));
-                }
-                msgObj.buffer = Buffer.concat(chunksParts, msgObj.msg_size);
+                msgObj.buffer = Buffer.concat(msgObj.chunks_map, msgObj.msg_size);
 
                 if (msgObj.action_defer) {
-                    dbg.log3('ab set action defer resolve for req '+req);
+                    dbg.log3('ab set action defer resolve for req '+reqId);
                     msgObj.action_defer.resolve(channel);
                 } else if (channel.handleRequestMethod) {
                     try {
-                        dbg.log3('ab call handleRequestMethod resolve for req '+req);
-                        channel.handleRequestMethod(socket, channel, event.data);
+                        dbg.log3('ab call handleRequestMethod resolve for req '+reqId);
+                        channel.handleRequestMethod(socket, channel, msgObj);
                     } catch (ex) {
-                        dbg.log0('ex on ArrayBuffer req ' + ex+' for req '+req);
+                        dbg.log0('ex on ArrayBuffer req ' + ex+' for req '+reqId);
                     }
                 } else {
-                    dbg.log2('ab NO 1 to call for req '+req);
+                    dbg.log2('ab NO 1 to call for req '+reqId);
                 }
             }
-            dbg.log3('got chunk handling ended '+part+' req '+req);
+            dbg.log3('got chunk handling ended '+part+' req '+reqId);
         } catch (ex) {
-            dbg.error('ex on ab got ' + ex.stack+' for req '+req+' and msg '+(channel && channel.msgs ? Object.keys(channel.msgs) : 'N/A'));
+            dbg.error('ex on ab got ' + ex.stack+' for req '+reqId+' and msg '+(channel && channel.msgs ? Object.keys(channel.msgs) : 'N/A'));
         }
     } else {
         dbg.error('WTF got ' + event.data);
@@ -140,8 +134,13 @@ module.exports.signalingSetup = function (handleRequestMethodTemp, agentId) {
     return ice.setup(onIceMessage, agentId, handleRequestMethodTemp);
 };
 
+var REQID_CHANCE_SPEC = {
+    min: 10000,
+    max: 9000000
+};
+
 function generateRequestId() {
-    return rand.getRandomInt(10000,9000000).toString();
+    return chance.integer(REQID_CHANCE_SPEC).toString();
 }
 
 
@@ -175,10 +174,8 @@ function writeBufferToSocket(socket, channel, block, reqId) {
     var begin = 0;
     var end = config.chunk_size;
 
-    block = buf.toArrayBuffer(block);
-
-    if (end > block.byteLength) {
-        end = block.byteLength;
+    if (end > block.length) {
+        end = block.length;
     }
 
     // define the loop func
@@ -193,14 +190,14 @@ function writeBufferToSocket(socket, channel, block, reqId) {
         // slice the current chunk
         var chunk = ice.createBufferToSend(block.slice(begin, end), sequence, reqId);
         dbg.log3('sending chunk req', reqId, 'chunk', sequence,
-            'length', chunk.byteLength, 'begin', begin, 'end', end, channel.peerId);
+            'length', chunk.length, 'begin', begin, 'end', end, channel.peerId);
 
         // increment sequence and slice buffer to rest of data
         sequence += 1;
         begin = end;
         end = end + config.chunk_size;
-        if (end > block.byteLength) {
-            end = block.byteLength;
+        if (end > block.length) {
+            end = block.length;
         }
 
         // send and recurse
@@ -401,8 +398,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         msgObj.action_defer = Q.defer();
 
         if (buffer) {
-            buffer = buf.toArrayBuffer(buffer);
-            request.size = buffer.byteLength;
+            request.size = buffer.length;
         }
         request.req = requestId;
 

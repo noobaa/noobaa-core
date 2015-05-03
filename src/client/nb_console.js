@@ -559,7 +559,7 @@ nb_console.controller('BucketViewCtrl', [
                     return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
-                    nbFiles.set_keys(nbSystem.system.access_keys);
+                    nbFiles.set_access_keys(nbSystem.system.access_keys);
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;
                     });
@@ -647,7 +647,7 @@ nb_console.controller('FileViewCtrl', [
                     //Setting access keys.
                     //TODO: consider separation to other object with only the keys
                     //      also, check better solution in terms of security.
-                    nbFiles.set_keys(nbSystem.system.access_keys);
+                    nbFiles.set_access_keys(nbSystem.system.access_keys);
 
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;

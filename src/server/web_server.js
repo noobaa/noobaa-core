@@ -1,8 +1,5 @@
 'use strict';
-
-process.on('uncaughtException', function(err) {
-    console.log(err.stack);
-});
+require('../util/panic');
 
 // newrelic monitoring should load first
 if (process.env.NEW_RELIC_LICENSE_KEY) {
@@ -23,9 +20,7 @@ require('heapdump');
 var dot_engine = require('noobaa-util/dot_engine');
 var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var path = require('path');
-var URL = require('url');
 var http = require('http');
 var mongoose = require('mongoose');
 var dotenv = require('dotenv');
@@ -38,6 +33,8 @@ var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var rpc_http = require('../rpc/rpc_http');
+var rpc_ws = require('../rpc/rpc_ws');
+var rpc_nudp = require('../rpc/rpc_nudp');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
@@ -50,10 +47,6 @@ if (!process.env.PORT) {
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 var debug_mode = (process.env.DEBUG_MODE === 'true');
-
-if (process.env.DEBUG_LEVEL) {
-    dbg.set_level(process.env.DEBUG_LEVEL);
-}
 
 // connect to the database
 if (debug_mode) {
@@ -76,6 +69,7 @@ mongoose.connect(
 // create express app
 var app = express();
 var web_port = process.env.PORT || 5001;
+var server = http.createServer(app);
 app.set('port', web_port);
 
 // setup view template engine with doT
@@ -129,17 +123,23 @@ app.use(express_cookie_session({
 }));
 app.use(express_compress());
 
-////////////
-// ROUTES //
-////////////
-// using router before static files is optimized
+/////////
+// RPC //
+/////////
+// using router before static files to optimize -
 // since we have less routes then files, and the routes are in memory.
 
 // register RPC servers
-require('./api_servers');
-// setup rpc http route
-app.use(rpc_http.BASE_PATH, rpc_http.middleware(api.rpc));
-
+var api_servers = require('./api_servers');
+// setup rpc http listener
+rpc_http.listen(api.rpc, app);
+// setup websocket rpc listener
+rpc_ws.listen(api.rpc, server);
+// setup nudp socket
+rpc_nudp.listen(api.rpc, 0)
+    .then(function(nudp_socket) {
+        api_servers.client.options.nudp_socket = nudp_socket;
+    });
 
 // agent package json
 
@@ -249,6 +249,7 @@ function error_404(req, res, next) {
     });
 }
 
+/*
 function error_403(req, res, next) {
     console.log('NO USER', req.originalMethod, req.originalUrl);
     if (can_accept_html(req)) {
@@ -273,6 +274,7 @@ function error_501(req, res, next) {
         message: 'Working on it... ' + req.originalUrl
     });
 }
+*/
 
 // decide if the client can accept html reply.
 // the xhr flag in the request (X-Requested-By header) is not commonly sent
@@ -287,7 +289,6 @@ function can_accept_html(req) {
 
 
 // start http server
-var server = http.createServer(app);
 server.listen(web_port, function() {
     console.log('Web server on port ' + web_port);
 });

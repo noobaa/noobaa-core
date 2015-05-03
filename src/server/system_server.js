@@ -3,17 +3,13 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var moment = require('moment');
-var LRU = require('noobaa-util/lru');
+var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
 var db = require('./db');
-var api = require('../api');
 var tier_server = require('./tier_server');
 var bucket_server = require('./bucket_server');
-var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 var AWS = require('aws-sdk');
-var uuid = require('node-uuid');
 
 
 /**
@@ -51,7 +47,7 @@ function create_system(req) {
     var system;
 
     return Q.fcall(function() {
-            var info = _.pick(req.rest_params, 'name');
+            var info = _.pick(req.rpc_params, 'name');
             if (info.name === 'demo') {
                 info.access_keys = [{
                     access_key: '123',
@@ -59,8 +55,8 @@ function create_system(req) {
                 }];
             } else {
                 info.access_keys = [{
-                    access_key: uuid.v4().replace(/-/g,'').substring(0,20),
-                    secret_key: uuid.v4(),
+                    access_key: crypto.randomBytes(16).toString('hex'),
+                    secret_key: crypto.randomBytes(32).toString('hex'),
                 }];
             }
             info.owner = req.account.id;
@@ -89,7 +85,7 @@ function create_system(req) {
             var tier_req = Object.create(req);
             tier_req.system = system;
             tier_req.role = 'admin';
-            tier_req.rest_params = {
+            tier_req.rpc_params = {
                 name: 'nodes',
                 kind: 'edge',
             };
@@ -100,7 +96,7 @@ function create_system(req) {
             var bucket_req = Object.create(req);
             bucket_req.system = system;
             bucket_req.role = 'admin';
-            bucket_req.rest_params = {
+            bucket_req.rpc_params = {
                 name: 'files',
                 tiering: ['nodes']
             };
@@ -222,7 +218,7 @@ function read_system(req) {
 
 
 function update_system(req) {
-    var info = _.pick(req.rest_params, 'name');
+    var info = _.pick(req.rpc_params, 'name');
     return Q.when(req.system.update(info).exec())
         .thenResolve();
 }
@@ -282,7 +278,7 @@ function add_role(req) {
     return Q.when(
             db.Account
             .findOne({
-                email: req.rest_params.email,
+                email: req.rpc_params.email,
                 deleted: null,
             })
             .exec())
@@ -291,7 +287,7 @@ function add_role(req) {
             return db.Role.create({
                 account: account.id,
                 system: req.system.id,
-                role: req.rest_params.role,
+                role: req.rpc_params.role,
             });
         })
         .then(null, db.check_already_exists(req, 'role'))
@@ -309,7 +305,7 @@ function remove_role(req) {
     return Q.when(
             db.Account
             .findOne({
-                email: req.rest_params.email,
+                email: req.rpc_params.email,
                 deleted: null,
             })
             .exec())
@@ -376,30 +372,30 @@ function read_activity_log(req) {
     });
 
     var reverse = true;
-    if (req.rest_params.till) {
+    if (req.rpc_params.till) {
         // query backwards from given time
-        req.rest_params.till = new Date(req.rest_params.till);
-        q.where('time').lt(req.rest_params.till).sort('-time');
+        req.rpc_params.till = new Date(req.rpc_params.till);
+        q.where('time').lt(req.rpc_params.till).sort('-time');
 
-    } else if (req.rest_params.since) {
+    } else if (req.rpc_params.since) {
         // query forward from given time
-        req.rest_params.since = new Date(req.rest_params.since);
-        q.where('time').gte(req.rest_params.since).sort('time');
+        req.rpc_params.since = new Date(req.rpc_params.since);
+        q.where('time').gte(req.rpc_params.since).sort('time');
         reverse = false;
     } else {
         // query backward from last time
         q.sort('-time');
     }
-    if (req.rest_params.event) {
+    if (req.rpc_params.event) {
         q.where({
-            event: new RegExp(req.rest_params.event)
+            event: new RegExp(req.rpc_params.event)
         });
     }
-    if (req.rest_params.events) {
-        q.where('event').in(req.rest_params.events);
+    if (req.rpc_params.events) {
+        q.where('event').in(req.rpc_params.events);
     }
-    if (req.rest_params.skip) q.skip(req.rest_params.skip);
-    q.limit(req.rest_params.limit || 10);
+    if (req.rpc_params.skip) q.skip(req.rpc_params.skip);
+    q.limit(req.rpc_params.limit || 10);
     q.populate('tier', 'name');
     q.populate('node', 'name');
     q.populate('bucket', 'name');

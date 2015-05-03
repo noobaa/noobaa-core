@@ -1,7 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -73,4 +72,4 @@ bucket_schema.index({
     sparse: true,
 });
 
-var Bucket = module.exports = mongoose.model('Bucket', bucket_schema);
+module.exports = mongoose.model('Bucket', bucket_schema);

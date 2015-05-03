@@ -4,7 +4,6 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var util = require('util');
-var async = require('async');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
 var AWS = require('aws-sdk');

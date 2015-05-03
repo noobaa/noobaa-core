@@ -3,13 +3,11 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var moment = require('moment');
 var db = require('./db');
-var api = require('../api');
 var jwt = require('jsonwebtoken');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var s3_auth = require('aws-sdk/lib/signers/s3');
+var s3 = new s3_auth();
 
 /**
  *
@@ -48,179 +46,177 @@ module.exports = auth_server;
  * a previously authenticated account.
  *
  */
-var s3 = new s3_auth();
-
 function create_auth(req) {
 
-        var email = req.rest_params.email;
-        var password = req.rest_params.password;
-        var system_name = req.rest_params.system;
-        var role_name = req.rest_params.role;
-        var expiry = req.rest_params.expiry;
-        var authenticated_account;
-        var account;
-        var system;
-        var role;
+    var email = req.rpc_params.email;
+    var password = req.rpc_params.password;
+    var system_name = req.rpc_params.system;
+    var role_name = req.rpc_params.role;
+    // var expiry = req.rpc_params.expiry;
+    var authenticated_account;
+    var account;
+    var system;
 
-        return Q.fcall(function() {
+    return Q.fcall(function() {
 
-            // if email is not provided we skip finding account by email
-            // and use the current auth account as the authenticated_account
-            if (!email) return;
+        // if email is not provided we skip finding account by email
+        // and use the current auth account as the authenticated_account
+        if (!email) return;
 
-            // find account by email
-            return db.Account
-                .findOne({
-                    email: email,
-                    deleted: null,
-                })
-                .exec()
-                .then(function(account_arg) {
+        // find account by email
+        return db.Account
+            .findOne({
+                email: email,
+                deleted: null,
+            })
+            .exec()
+            .then(function(account_arg) {
 
-                    // consider email not found the same as bad password to avoid phishing attacks.
-                    account = account_arg;
-                    if (!account) throw req.unauthorized('credentials account not found');
+                // consider email not found the same as bad password to avoid phishing attacks.
+                account = account_arg;
+                if (!account) throw req.unauthorized('credentials account not found');
 
-                    // when password is not provided it means we want to give authorization
-                    // by the currently authorized to another specific account instead of
-                    // using credentials.
-                    if (!password) return;
+                // when password is not provided it means we want to give authorization
+                // by the currently authorized to another specific account instead of
+                // using credentials.
+                if (!password) return;
 
-                    // use bcrypt to verify password
-                    return Q.npost(account, 'verify_password', [password])
-                        .then(function(match) {
-                            if (!match) throw req.unauthorized('password mismatch');
-                            // authentication passed!
-                            // so this account is the authenticated_account
-                            authenticated_account = account;
-                        });
-                });
-
-        }).then(function() {
-
-            // if both accounts were resolved (they can be the same account),
-            // then we can skip loading the current authorized account
-            if (authenticated_account && account) return;
-
-            // find the current authorized account and assign
-            if (!req.auth || !req.auth.account_id) {
-                throw req.unauthorized('no account_id in auth and no credetials');
-            }
-            return db.Account
-                .findById(req.auth.account_id)
-                .exec()
-                .then(function(account_arg) {
-                    account = account || account_arg;
-                    authenticated_account = authenticated_account || account_arg;
-                });
-
-        }).then(function() {
-
-            // check the accounts are valid
-            if (!authenticated_account || authenticated_account.deleted) {
-                throw req.unauthorized('authenticated account not found');
-            }
-            if (!account || account.deleted) throw req.unauthorized('account not found');
-
-            // system is optional, and will not be included in the token if not provided
-            if (!system_name) return;
-
-            // find system by name
-            return db.System
-                .findOne({
-                    name: system_name,
-                    deleted: null,
-                })
-                .exec()
-                .then(function(system_arg) {
-
-                    system = system_arg;
-                    if (!system || system.deleted) throw req.unauthorized('system not found');
-
-                    // now we need to approve the role.
-                    // "support accounts" or "system owners" can use any role the ask for.
-                    if (authenticated_account.is_support ||
-                        String(system.owner) === String(authenticated_account.id)) {
-                        role_name = role_name || 'admin';
-                        return;
-                    }
-
-                    // find the role of authenticated_account and system
-                    return db.Role
-                        .findOne({
-                            account: authenticated_account.id,
-                            system: system.id,
-                        })
-                        .exec()
-                        .then(function(role) {
-
-                            if (!role) throw req.unauthorized('account has no role in system');
-
-                            // "system admin" can use any role
-                            if (role.role === 'admin') {
-                                role_name = role_name || 'admin';
-                                return;
-                            }
-
-                            // non admin is not allowed to delegate to other accounts
-                            // and only allowed to use its formal role
-                            if (String(account.id) === String(authenticated_account.id) ||
-                                role_name !== role.role) {
-                                throw req.unauthorized('non admin cannot delegate');
-                            }
-                        });
-                });
-
-        }).then(function() {
-
-            var token = req.make_auth_token({
-                account_id: account.id,
-                system_id: system && system.id,
-                role: role_name,
-                extra: req.rest_params.extra,
+                // use bcrypt to verify password
+                return Q.npost(account, 'verify_password', [password])
+                    .then(function(match) {
+                        if (!match) throw req.unauthorized('password mismatch');
+                        // authentication passed!
+                        // so this account is the authenticated_account
+                        authenticated_account = account;
+                    });
             });
 
-            return {
-                token: token
-            };
+    }).then(function() {
+
+        // if both accounts were resolved (they can be the same account),
+        // then we can skip loading the current authorized account
+        if (authenticated_account && account) return;
+
+        // find the current authorized account and assign
+        if (!req.auth || !req.auth.account_id) {
+            throw req.unauthorized('no account_id in auth and no credetials');
+        }
+        return db.Account
+            .findById(req.auth.account_id)
+            .exec()
+            .then(function(account_arg) {
+                account = account || account_arg;
+                authenticated_account = authenticated_account || account_arg;
+            });
+
+    }).then(function() {
+
+        // check the accounts are valid
+        if (!authenticated_account || authenticated_account.deleted) {
+            throw req.unauthorized('authenticated account not found');
+        }
+        if (!account || account.deleted) throw req.unauthorized('account not found');
+
+        // system is optional, and will not be included in the token if not provided
+        if (!system_name) return;
+
+        // find system by name
+        return db.System
+            .findOne({
+                name: system_name,
+                deleted: null,
+            })
+            .exec()
+            .then(function(system_arg) {
+
+                system = system_arg;
+                if (!system || system.deleted) throw req.unauthorized('system not found');
+
+                // now we need to approve the role.
+                // "support accounts" or "system owners" can use any role the ask for.
+                if (authenticated_account.is_support ||
+                    String(system.owner) === String(authenticated_account.id)) {
+                    role_name = role_name || 'admin';
+                    return;
+                }
+
+                // find the role of authenticated_account and system
+                return db.Role
+                    .findOne({
+                        account: authenticated_account.id,
+                        system: system.id,
+                    })
+                    .exec()
+                    .then(function(role) {
+
+                        if (!role) throw req.unauthorized('account has no role in system');
+
+                        // "system admin" can use any role
+                        if (role.role === 'admin') {
+                            role_name = role_name || 'admin';
+                            return;
+                        }
+
+                        // non admin is not allowed to delegate to other accounts
+                        // and only allowed to use its formal role
+                        if (String(account.id) === String(authenticated_account.id) ||
+                            role_name !== role.role) {
+                            throw req.unauthorized('non admin cannot delegate');
+                        }
+                    });
+            });
+
+    }).then(function() {
+
+        var token = req.make_auth_token({
+            account_id: account.id,
+            system_id: system && system.id,
+            role: role_name,
+            extra: req.rpc_params.extra,
         });
-    }
-    /**
-     *
-     * CREATE_ACCESS_KEY_AUTH
-     *
-     * Access and Secret key authentication.
-     *
-     * We use it to authenticate requests from S3 REST server and Agents.
-     *
-     * S3 REST requests
-     *
-     * The authorization header or query params includes the access key and
-     * a signature.The signature uses the secret key and a string that includes
-     * part of the request headers (string_to_sign).
-     * The REST server forwards this authorization information to the web server.
-     * The Server simply validate (by signing the string_to_sign and comparing
-     * to the provided signature).
-     * This allows us to avoid saving access key and secret key on the s3 rest.
-     * It also allows s3 rest server to serve more than one system.
-     *
-     * Agent
-     *
-     * The agent sends authorization information, we identify the system and
-     * returns token that will be used from now on (exactly like we used it before)
-     *
-     */
+
+        return {
+            token: token
+        };
+    });
+}
+
+
+/**
+ *
+ * CREATE_ACCESS_KEY_AUTH
+ *
+ * Access and Secret key authentication.
+ *
+ * We use it to authenticate requests from S3 REST server and Agents.
+ *
+ * S3 REST requests
+ *
+ * The authorization header or query params includes the access key and
+ * a signature.The signature uses the secret key and a string that includes
+ * part of the request headers (string_to_sign).
+ * The REST server forwards this authorization information to the web server.
+ * The Server simply validate (by signing the string_to_sign and comparing
+ * to the provided signature).
+ * This allows us to avoid saving access key and secret key on the s3 rest.
+ * It also allows s3 rest server to serve more than one system.
+ *
+ * Agent
+ *
+ * The agent sends authorization information, we identify the system and
+ * returns token that will be used from now on (exactly like we used it before)
+ *
+ */
 function create_access_key_auth(req) {
 
     var access_key = req.rpc_params.access_key;
     var string_to_sign = req.rpc_params.string_to_sign;
     var signature = req.rpc_params.signature;
-    var expiry = req.rpc_params.expiry;
-    var authenticated_account;
-    var account;
+    // var expiry = req.rpc_params.expiry;
     var system;
-    var role;
+
     dbg.log3('create_access_key_auth', access_key, string_to_sign, signature);
+
     return Q.fcall(function() {
 
         // find system by name
@@ -263,7 +259,6 @@ function create_access_key_auth(req) {
                     token: token
                 };
             });
-
     });
 }
 
@@ -302,7 +297,7 @@ function read_auth(req) {
  * and assign the info in req.auth.
  *
  */
-function authorize(req, method_api) {
+function authorize(req) {
 
     _prepare_auth_request(req);
     var auth_token_obj;
@@ -326,10 +321,10 @@ function authorize(req, method_api) {
         }
     }
 
-    if (method_api.auth !== false) {
-        dbg.log3('authorize:', method_api.auth, method_api);
+    if (req.method_api.auth !== false) {
+        dbg.log3('authorize:', req.method_api.auth, req.srv);
 
-        return req.load_auth(method_api.auth)
+        return req.load_auth(req.method_api.auth)
             .then(function() {
                 //if request request has access signature, validate the signature
                 if (auth_token_obj) {
@@ -343,7 +338,6 @@ function authorize(req, method_api) {
                     }
                 }
             });
-
     }
 }
 
@@ -478,7 +472,7 @@ function _prepare_auth_request(req) {
      *
      */
     req.unauthorized = function(reason) {
-        return req.rest_error(401, 'unauthorized', reason);
+        return req.rpc_error('UNAUTHORIZED', null, reason);
     };
 
 
@@ -490,7 +484,7 @@ function _prepare_auth_request(req) {
      *
      */
     req.forbidden = function(reason) {
-        return req.rest_error(403, 'forbidden', reason);
+        return req.rpc_error('FORBIDDEN', null, reason);
     };
 
 }

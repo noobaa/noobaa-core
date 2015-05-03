@@ -1,17 +1,12 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var Q = require('q');
-var path = require('path');
-var mongoose = require('mongoose');
-var Semaphore = require('noobaa-util/semaphore');
-var api = require('../api');
-var db = require('../server/db');
 var Agent = require('../agent/agent');
-var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 
 var agntCtlConfig = {
     use_local: true,
@@ -84,11 +79,10 @@ function create_agent(howmany) {
     return Q.all(_.times(count, function(i) {
         return Q.fcall(function() {
                 var agent = new Agent({
-                    address: 'http://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
+                    address: 'ws://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
                     node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
                     // passing token instead of storage_path to use memory storage
                     token: agntCtlConfig.local_conf.auth,
-                    use_http_server: true,
                 });
                 return agent;
             })
@@ -146,11 +140,11 @@ function stop_agent(node_name) {
 
 function start_all_agents() {
     return Q.all(_.map(agntCtlConfig.allocated_agents,
-            function(data, id) {
-                if (data.started === false) {
-                    return start_agent(id);
-                }
-            }));
+        function(data, id) {
+            if (data.started === false) {
+                return start_agent(id);
+            }
+        }));
 }
 
 function stop_all_agents() {
@@ -241,11 +235,13 @@ function corrupt_blocks(node_name, block_ids) {
         return Q.reject('No block_ids supplied');
     }
 
+    /*
     var req = {
         blocks: _.map(block_ids, function(block) {
             return block._id.toString();
         })
     };
+    */
 
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {

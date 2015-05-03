@@ -1,7 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -70,4 +69,4 @@ activity_log_schema.index({
 });
 
 
-var ActivityLog = module.exports = mongoose.model('ActivityLog', activity_log_schema);
+module.exports = mongoose.model('ActivityLog', activity_log_schema);

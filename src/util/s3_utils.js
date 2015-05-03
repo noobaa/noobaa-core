@@ -2,8 +2,8 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
-var dbg = require('noobaa-util/debug_module')(__filename);
+// var Q = require('q');
+// var dbg = require('noobaa-util/debug_module')(__filename);
 var s3_util = require('aws-sdk/lib/util');
 
 // The original s3 code doesn't work well with express and query string.
@@ -39,7 +39,8 @@ var subResources = {
     'versions': 1,
     'website': 1
 };
-function canonicalizedResource (request) {
+
+function canonicalizedResource(request) {
     //handle path - modification on top of aws code.
     var r = request;
     var parts = r.url.split('?');
@@ -96,7 +97,8 @@ function canonicalizedResource (request) {
     }
     return resource;
 }
-function canonicalizedAmzHeaders (request) {
+
+function canonicalizedAmzHeaders(request) {
     var amzHeaders = [];
 
     s3_util.each(request.headers, function(name) {
@@ -109,13 +111,14 @@ function canonicalizedAmzHeaders (request) {
     });
 
     var parts = [];
-    s3_util.arrayEach( amzHeaders, function(name) {
+    s3_util.arrayEach(amzHeaders, function(name) {
         parts.push(name.toLowerCase() + ':' + String(request.headers[name]));
     });
 
     return parts.join('\n');
 }
-function noobaa_string_to_sign (request) {
+
+function noobaa_string_to_sign(request) {
     var r = request;
     var parts = [];
     parts.push(r.method);
@@ -128,7 +131,7 @@ function noobaa_string_to_sign (request) {
     // string for this Date header regardless.
 
     //another noobaa addition - take into account signed urls
-    parts.push(r.headers['presigned-expires'] || ''||r.query.Expires);
+    parts.push(r.headers['presigned-expires'] || '' || r.query.Expires);
 
     var headers = canonicalizedAmzHeaders(request);
     if (headers) parts.push(headers);

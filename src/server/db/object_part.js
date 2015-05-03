@@ -1,7 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -102,4 +101,4 @@ object_part_schema.index({
 });
 
 
-var ObjectPart = module.exports = mongoose.model('ObjectPart', object_part_schema);
+module.exports = mongoose.model('ObjectPart', object_part_schema);

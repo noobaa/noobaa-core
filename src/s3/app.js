@@ -1,23 +1,19 @@
 'use strict';
 
-var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var https = require('https');
 var http = require('http');
+var api = require('../api');
+var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var pem = require('pem');
-var s3_auth = require('aws-sdk/lib/signers/s3');
-var _ = require('lodash');
+// var s3_auth = require('aws-sdk/lib/signers/s3');
 var s3_util = require('../util/s3_utils');
-var templateBuilder = require('./xml-template-builder');
 
 module.exports = s3_app;
 
 
-
 function s3_app(params) {
-
 
     var express = require('express');
     var app = express();
@@ -67,7 +63,7 @@ function s3_app(params) {
                     dbg.log0('signed url');
                 }
                 if (authenticated_request) {
-                    var s3 = new s3_auth(req);
+                    // var s3 = new s3_auth(req);
                     params.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
                     // debug code.
                     // use it for faster detection of a problem in the signature calculation and verification
@@ -140,12 +136,20 @@ function s3_app(params) {
     app.head('/:bucket/:key(*)', controllers.getObject);
     app.delete('/:bucket/:key(*)', controllers.bucketExists, controllers.deleteObject);
     app.post('/:bucket/:key(*)', controllers.bucketExists, controllers.postMultipartObject);
+
     return {
         serve: function() {
             var certificate;
-            return Q.nfcall(pem.createCertificate.bind(pem), {
-                    days: 365 * 100,
-                    selfSigned: true
+            return Q.fcall(function() {
+                    // setup nudp socket
+                    return rpc_nudp.listen(api.rpc, 0);
+                })
+                .then(function(nudp_socket) {
+                    params.nudp_socket = nudp_socket;
+                    return Q.nfcall(pem.createCertificate.bind(pem), {
+                        days: 365 * 100,
+                        selfSigned: true
+                    });
                 })
                 .then(function(certificate_arg) {
                     certificate = certificate_arg;
@@ -172,20 +176,6 @@ function s3_app(params) {
                             .listen(params.ssl_port, function(err) {
                                 if (err) {
                                     dbg.error('HTTPS listen', err);
-                                    reject(err);
-                                } else {
-                                    resolve();
-                                }
-                            });
-                    });
-                })
-                .then(function() {
-                    return Q.Promise(function(resolve, reject) {
-                        dbg.log0('Starting Streamer', 5005);
-                        http.createServer(app.handle.bind(app))
-                            .listen(5005, function(err) {
-                                if (err) {
-                                    dbg.log0('Streamer listen', err);
                                     reject(err);
                                 } else {
                                     resolve();

@@ -1,18 +1,15 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
-var express = require('express');
-var request = require('request');
-var coretest = require('./coretest');
 var RPC = require('../rpc/rpc');
-var rpc_http = require('../rpc/rpc_http');
+var RpcSchema = require('../rpc/rpc_schema');
 
-
-describe('RPC HTTP', function() {
+describe('RPC', function() {
 
     // init the test api
     var test_api = {
@@ -33,7 +30,7 @@ describe('RPC HTTP', function() {
                     },
                     param4: {
                         type: 'integer',
-                        format: 'date',
+                        format: 'idate',
                     },
                     param5: {
                         type: 'array',
@@ -111,16 +108,18 @@ describe('RPC HTTP', function() {
             fucking: 'aWeSoMe'
         }]
     };
-    var ERROR_REPLY = 'testing error';
-    var ERROR_STATUS = 473;
+    var ERROR_DATA = 'testing error';
+    var ERROR_NAME = 'FORBIDDEN';
+    var ERROR_CODE = 403;
+    var schema = new RpcSchema();
+    schema.register_api(test_api);
 
-
-    describe('register_api', function() {
+    describe('schema.register_api', function() {
 
         it('should detect api with bad method', function() {
             assert.throws(function() {
-                var rpc = new RPC();
-                rpc.register_api({
+                var bad_schema = new RpcSchema();
+                bad_schema.register_api({
                     methods: {
                         a: {
                             method: 'POSTER',
@@ -136,8 +135,7 @@ describe('RPC HTTP', function() {
 
         it('should work on empty server with allow_missing_methods', function() {
             var rpc = new RPC();
-            rpc.register_api(test_api);
-            rpc.register_service({}, 'test_api', '', {
+            rpc.register_service(test_api, {},  {
                 allow_missing_methods: true
             });
         });
@@ -145,20 +143,20 @@ describe('RPC HTTP', function() {
         it('should detect missing api func', function() {
             // check that missing functions are detected
             var rpc = new RPC();
-            rpc.register_api(test_api);
             assert.throws(function() {
-                rpc.register_service({}, 'test_api', '');
+                rpc.register_service(test_api, {});
             }, Error);
         });
 
         it('should throw on duplicate service', function() {
             var rpc = new RPC();
-            rpc.register_api(test_api);
-            rpc.register_service({}, 'test_api', 17, {
+            rpc.register_service(test_api, {}, {
+                peer: 17,
                 allow_missing_methods: true
             });
             assert.throws(function() {
-                rpc.register_service({}, 'test_api', 17, {
+                rpc.register_service(test_api, {}, {
+                    peer: 17,
                     allow_missing_methods: true
                 });
             }, Error);
@@ -166,7 +164,6 @@ describe('RPC HTTP', function() {
 
         it('should work on mock server', function() {
             var rpc = new RPC();
-            rpc.register_api(test_api);
             var server = {
                 get: function() {},
                 put: function() {},
@@ -174,7 +171,7 @@ describe('RPC HTTP', function() {
                 delete: function() {},
                 use: function() {},
             };
-            rpc.register_service(server, 'test_api', '');
+            rpc.register_service(test_api, server);
         });
 
     });
@@ -186,12 +183,10 @@ describe('RPC HTTP', function() {
         _.each(test_api.methods, function(method_api, method_name) {
 
             var rpc = new RPC();
-            rpc.register_api(test_api);
 
             describe(method_name, function() {
 
                 var reply_error = false;
-                var server;
                 var client;
 
                 before(function() {
@@ -202,18 +197,18 @@ describe('RPC HTTP', function() {
                     methods[method_name] = function(req) {
                         // console.log('TEST SERVER REQUEST');
                         _.each(PARAMS, function(param, name) {
-                            assert.deepEqual(param, req.rest_params[name]);
+                            assert.deepEqual(param, req.rpc_params[name]);
                         });
                         if (reply_error) {
-                            throw req.rest_error(ERROR_STATUS, ERROR_REPLY);
+                            throw req.rpc_error(ERROR_NAME, ERROR_DATA);
                         } else {
                             return Q.resolve(REPLY);
                         }
                     };
-                    rpc.register_service(methods, 'test_api', '', {
+                    rpc.register_service(test_api, methods, {
                         allow_missing_methods: true
                     });
-                    client = rpc.create_client('test_api');
+                    client = rpc.create_client(test_api);
                 });
 
                 it('should call and get reply', function(done) {
@@ -232,20 +227,10 @@ describe('RPC HTTP', function() {
                         console.log('UNEXPECTED REPLY', res);
                         throw 'UNEXPECTED REPLY';
                     }, function(err) {
-                        assert.deepEqual(err.statusCode, ERROR_STATUS);
-                        assert.deepEqual(err.data, ERROR_REPLY);
+                        assert.deepEqual(err.code, ERROR_CODE);
+                        assert.deepEqual(err.name, ERROR_NAME);
+                        assert.deepEqual(err.data, ERROR_DATA);
                     }).nodeify(done);
-                });
-
-                it.skip('should return doc', function(done) {
-                    var doc_url = 'http://localhost:' + coretest.http_port() +
-                        '/doc/api/test_api/' + method_name;
-                    request(doc_url, function(error, response, body) {
-                        assert(!error);
-                        assert.strictEqual(response.statusCode, 200);
-                        assert.strictEqual(body, test_api.methods[method_name].doc);
-                        done();
-                    });
                 });
 
             });

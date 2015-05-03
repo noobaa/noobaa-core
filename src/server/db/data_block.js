@@ -1,7 +1,6 @@
 /* jshint node:true */
 'use strict';
 
-var _ = require('lodash');
 var mongoose = require('mongoose');
 var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
@@ -89,4 +88,4 @@ data_block_schema.index({
 });
 
 
-var DataBlock = module.exports = mongoose.model('DataBlock', data_block_schema);
+module.exports = mongoose.model('DataBlock', data_block_schema);

@@ -2,8 +2,6 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
-var api = require('../api');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
@@ -51,9 +49,9 @@ function create_multipart_upload(req) {
             var info = {
                 system: req.system.id,
                 bucket: req.bucket.id,
-                key: req.rest_params.key,
-                size: req.rest_params.size,
-                content_type: req.rest_params.content_type || 'application/octet-stream',
+                key: req.rpc_params.key,
+                size: req.rpc_params.size,
+                content_type: req.rpc_params.content_type || 'application/octet-stream',
                 upload_size: 0,
             };
             return db.ObjectMD.create(info);
@@ -71,7 +69,7 @@ function list_multipart_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(obj);
-            var params = _.pick(req.rest_params,
+            var params = _.pick(req.rpc_params,
                 'part_number_marker',
                 'max_parts');
             params.obj = obj;
@@ -145,7 +143,7 @@ function allocate_object_parts(req) {
             return object_mapper.allocate_object_parts(
                 req.bucket,
                 obj,
-                req.rest_params.parts);
+                req.rpc_params.parts);
         });
 }
 
@@ -162,7 +160,7 @@ function finalize_object_parts(req) {
             return object_mapper.finalize_object_parts(
                 req.bucket,
                 obj,
-                req.rest_params.parts);
+                req.rpc_params.parts);
         });
 }
 
@@ -174,7 +172,7 @@ function self_test_to_node_via_web(req) {
 function report_bad_block(req) {
     return find_object_md(req)
         .then(function(obj) {
-            var params = _.pick(req.rest_params,
+            var params = _.pick(req.rpc_params,
                 'start',
                 'end',
                 'fragment',
@@ -204,7 +202,7 @@ function read_object_mappings(req) {
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
-            var params = _.pick(req.rest_params,
+            var params = _.pick(req.rpc_params,
                 'start',
                 'end',
                 'skip',
@@ -249,7 +247,7 @@ function read_object_md(req) {
 function update_object_md(req) {
     return find_object_md(req)
         .then(function(obj) {
-            var updates = _.pick(req.rest_params, 'content_type');
+            var updates = _.pick(req.rpc_params, 'content_type');
             return obj.update(updates).exec();
         })
         .then(db.check_not_deleted(req, 'object'))
@@ -298,15 +296,15 @@ function list_objects(req) {
     return load_bucket(req)
         .then(function() {
             var info = _.omit(object_md_query(req), 'key');
-            if (req.rest_params.key) {
-                info.key = new RegExp('^' + escapeRegExp(req.rest_params.key));
-            } else if (req.rest_params.key_regexp) {
-                info.key = new RegExp(req.rest_params.key_regexp);
-            } else if (req.rest_params.key_glob) {
-                info.key = glob_to_regexp(req.rest_params.key_glob);
+            if (req.rpc_params.key) {
+                info.key = new RegExp('^' + escapeRegExp(req.rpc_params.key));
+            } else if (req.rpc_params.key_regexp) {
+                info.key = new RegExp(req.rpc_params.key_regexp);
+            } else if (req.rpc_params.key_glob) {
+                info.key = glob_to_regexp(req.rpc_params.key_glob);
             }
-            var skip = req.rest_params.skip;
-            var limit = req.rest_params.limit;
+            var skip = req.rpc_params.skip;
+            var limit = req.rpc_params.limit;
             var find = db.ObjectMD.find(info).sort('-_id');
             if (skip) {
                 find.skip(skip);
@@ -349,7 +347,7 @@ function get_object_info(md) {
 function load_bucket(req) {
     return db.BucketCache.get({
             system: req.system.id,
-            name: req.rest_params.bucket,
+            name: req.rpc_params.bucket,
         })
         .then(db.check_not_deleted(req, 'bucket'))
         .then(function(bucket) {
@@ -361,7 +359,7 @@ function object_md_query(req) {
     return {
         system: req.system.id,
         bucket: req.bucket.id,
-        key: req.rest_params.key,
+        key: req.rpc_params.key,
         deleted: null
     };
 }

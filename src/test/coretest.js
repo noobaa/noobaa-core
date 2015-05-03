@@ -1,19 +1,16 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
-var path = require('path');
-var rimraf = require('rimraf');
 var mongoose = require('mongoose');
 var Semaphore = require('noobaa-util/semaphore');
 var api = require('../api');
 var db = require('../server/db');
-var Agent = require('../agent/agent');
 var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 
 var agentctl = require('./core_agent_control');
 
@@ -69,9 +66,6 @@ before(function(done) {
 after(function() {
     // place for cleanups
 });
-
-
-var test_agents;
 
 
 // create some test nodes named 0, 1, 2, ..., count

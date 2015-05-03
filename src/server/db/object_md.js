@@ -111,4 +111,4 @@ objmd_schema.statics.aggregate_objects = function(query) {
 };
 
 
-var ObjectMD = module.exports = mongoose.model('ObjectMD', objmd_schema);
+module.exports = mongoose.model('ObjectMD', objmd_schema);

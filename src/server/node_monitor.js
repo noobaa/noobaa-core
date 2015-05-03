@@ -3,19 +3,21 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var moment = require('moment');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var size_utils = require('../util/size_utils');
-var promise_utils = require('../util/promise_utils');
 
+/**
+ * we keep a map from peer_if to connection
+ * to be used for
+ */
+var peers_last_address = {};
 
 module.exports = {
     heartbeat: heartbeat,
+    peers_last_address: peers_last_address
 };
-
-
 
 
 
@@ -36,7 +38,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                     },
                 })
                 // we are very selective to reduce overhead
-                .select('ip port storage geolocation device_info.last_update')
+                .select('ip port peer_id addresses storage geolocation device_info.last_update')
                 .exec())
             .then(function(res) {
                 var nodes_by_id = _.indexBy(res, '_id');
@@ -113,8 +115,28 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
  * HEARTBEAT
  *
  */
-function heartbeat(params) {
-    var node_id = params.id;
+function heartbeat(req) {
+    var node_id = req.rpc_params.id;
+
+    // verify the authorization to use this node for non admin roles
+    if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
+        throw req.forbidden();
+    }
+
+    var params = _.pick(req.rpc_params,
+        'id',
+        'geolocation',
+        'ip',
+        'port',
+        'addresses',
+        'storage',
+        'device_info');
+    params.ip = params.ip ||
+        (req.headers && req.headers['x-forwarded-for']) ||
+        (req.connection && req.connection.remoteAddress);
+    params.port = params.port || 0;
+    params.system = req.system;
+
     var node;
 
     dbg.log1('HEARTBEAT enter', node_id);
@@ -156,6 +178,10 @@ function heartbeat(params) {
                 return;
             }
 
+            // TODO switch from plain hash to LRU with expiry?
+            dbg.log1('PEER LAST ADDRESS', node.peer_id, req.connection.url.href);
+            peers_last_address[node.peer_id] = req.connection.url.href;
+
             var agent_storage = params.storage;
 
             // the heartbeat api returns the expected alloc to the agent
@@ -191,6 +217,9 @@ function heartbeat(params) {
             }
             if (params.port && params.port !== node.port) {
                 updates.port = params.port;
+            }
+            if (params.addresses && !_.isEqual(params.addresses, node.addresses)) {
+                updates.addresses = params.addresses;
             }
 
             // to avoid frequest updates of the node check if the last update of

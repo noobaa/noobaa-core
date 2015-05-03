@@ -1,23 +1,13 @@
 'use strict';
+require('../util/panic');
+
 var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var util = require('util');
-var md5 = require('MD5');
-var crypto = require('crypto');
 var md5_stream = require('../util/md5_stream');
-var path = require('path');
-var SliceReader = require('../util/slice_reader');
 var mime = require('mime');
-var concat_stream = require('concat-stream');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var S3Object = require('./models/s3-object');
-
-
-process.on('uncaughtException', function(err) {
-    dbg.log0('process uncaughtException: ' + err);
-});
 
 
 module.exports = function(params) {
@@ -27,11 +17,11 @@ module.exports = function(params) {
 
     var extract_access_key = function(req) {
         var req_access_key;
-        if (req.headers.authorization){
+        if (req.headers.authorization) {
             var end_of_aws_key = req.headers.authorization.indexOf(':');
             req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
-        }else{
-            if (req.query.AWSAccessKeyId){
+        } else {
+            if (req.query.AWSAccessKeyId) {
                 req_access_key = req.query.AWSAccessKeyId;
             }
         }
@@ -41,8 +31,6 @@ module.exports = function(params) {
 
     var uploadPart = function(req, res) {
         Q.fcall(function() {
-            var template;
-            var mydata = '';
             var content_length = req.headers['content-length'];
             var access_key = extract_access_key(req);
             var upload_part_info = {
@@ -236,9 +224,8 @@ module.exports = function(params) {
         dbg.log0('Listing objects with', list_params, delimiter, 'key:', access_key);
         return clients[access_key].object.list_objects(list_params)
             .then(function(results) {
-                var i = 0;
                 var folders = {};
-                dbg.log0('results:',results);
+                dbg.log0('results:', results);
                 var objects = _.filter(results.objects, function(obj) {
                     try {
                         var date = new Date(obj.info.create_time);
@@ -250,7 +237,7 @@ module.exports = function(params) {
                         //we will keep the full path for CloudBerry online cloud backup tool
 
                         var obj_sliced_key = obj.key.slice(prefix.length);
-                        dbg.log0('obj.key:', obj.key, ' prefix ', prefix,' sliced',obj_sliced_key);
+                        dbg.log0('obj.key:', obj.key, ' prefix ', prefix, ' sliced', obj_sliced_key);
                         if (obj_sliced_key.indexOf(delimiter) >= 0) {
                             var folder = obj_sliced_key.split(delimiter, 1)[0];
                             folders[prefix + folder + "/"] = true;
@@ -258,8 +245,8 @@ module.exports = function(params) {
                         }
 
                         if (list_params.key === obj.key) {
-                            dbg.log0('LISTED KEY same as REQUIRED',obj.key);
-                            if (prefix===obj.key && prefix.substring(prefix.length-1)!==delimiter){
+                            dbg.log0('LISTED KEY same as REQUIRED', obj.key);
+                            if (prefix === obj.key && prefix.substring(prefix.length - 1) !== delimiter) {
                                 return true;
                             }
 
@@ -391,7 +378,8 @@ module.exports = function(params) {
                     dbg.log0('Adding new system client.', params);
                     clients[params.access_key] = new api.Client({
                         address: params.address,
-                        bucket: params.bucket
+                        bucket: params.bucket,
+                        nudp_socket: params.nudp_socket
                     });
                     return clients[params.access_key];
                 }
@@ -432,15 +420,18 @@ module.exports = function(params) {
                     dbg.error('error while trying to check if bucket exists', err);
                 });
         },
+
         getBuckets: function(req, res) {
-            dbg.log0('getBuckets',req.params.bucket);
+            dbg.log0('getBuckets', req.params.bucket);
             var date = new Date();
             date.setMilliseconds(0);
             date = date.toISOString();
+            /*
             var buckets = [{
                 name: req.params.bucket,
                 creationDate: date
             }];
+            */
             var access_key = extract_access_key(req);
             var template;
 
@@ -455,7 +446,7 @@ module.exports = function(params) {
                     return buildXmlResponse(res, 200, template);
                 })
                 .then(null, function(err) {
-                    dbg.error('Failed to get list of buckets',err);
+                    dbg.error('Failed to get list of buckets', err);
                     if (err.status) {
                         if (err.status === 401) {
                             template = templateBuilder.buildSignatureDoesNotMatch('');
@@ -642,10 +633,9 @@ module.exports = function(params) {
                             } else {
                                 //read ranges
                                 if (req.header('range')) {
-                                    return clients[access_key].object_client.serve_http_stream(req, res, object_path);
+                                    clients[access_key].object_client.serve_http_stream(req, res, object_path);
                                 } else {
-                                    var stream = clients[access_key].object_client.open_read_stream(object_path).pipe(res);
-
+                                    clients[access_key].object_client.open_read_stream(object_path).pipe(res);
                                 }
                             }
 
@@ -677,7 +667,7 @@ module.exports = function(params) {
                                     if (req.method === 'HEAD') {
                                         return res.end();
                                     } else {
-                                        var stream = clients[access_key].object_client.open_read_stream(object_path).pipe(res);
+                                        clients[access_key].object_client.open_read_stream(object_path).pipe(res);
                                     }
                                 }).then(null, function(err) {
                                     dbg.error('ERROR: while download from noobaa', err);
@@ -829,7 +819,7 @@ module.exports = function(params) {
                     }
                     return clients[access_key].object.create_multipart_upload(create_params)
                         .then(function(info) {
-                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key,req.bucket);
+                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key, req.bucket);
                             return buildXmlResponse(res, 200, template);
                         }).then(null, function(err) {
                             template = templateBuilder.buildKeyNotFound(req.query.uploadId);

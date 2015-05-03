@@ -5,12 +5,13 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var os = require('os');
+var pem = require('pem');
 var util = require('util');
 var path = require('path');
 var http = require('http');
+var https = require('https');
 var assert = require('assert');
 var crypto = require('crypto');
-var mkdirp = require('mkdirp');
 var express = require('express');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
@@ -18,7 +19,8 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var api = require('../api');
 var rpc_http = require('../rpc/rpc_http');
-var rpc_ice = require('../rpc/rpc_ice');
+var rpc_ws = require('../rpc/rpc_ws');
+var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
@@ -40,7 +42,6 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
-    assert(params.address, 'missing param: address');
     self.client = new api.Client({
         address: params.address
     });
@@ -49,8 +50,8 @@ function Agent(params) {
     self.node_name = params.node_name;
     self.token = params.token;
     self.prefered_port = params.prefered_port;
+    self.prefered_secure_port = params.prefered_secure_port;
     self.storage_path = params.storage_path;
-    self.use_http_server = params.use_http_server;
 
     if (self.storage_path) {
         assert(!self.token, 'unexpected param: token. ' +
@@ -74,7 +75,7 @@ function Agent(params) {
         });
     }
 
-    var agent_server = {
+    self.agent_server = {
         write_block: self.write_block.bind(self),
         read_block: self.read_block.bind(self),
         replicate_block: self.replicate_block.bind(self),
@@ -98,31 +99,21 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-    app.use(rpc_http.BASE_PATH, rpc_http.middleware(api.rpc));
-
-    var http_server = http.createServer(app);
-    http_server.on('listening', self._server_listening_handler.bind(self));
-    http_server.on('close', self._server_close_handler.bind(self));
-    http_server.on('error', self._server_error_handler.bind(self));
-
+    rpc_http.listen(api.rpc, app);
     self.agent_app = app;
-    self.agent_server = agent_server;
-    self.http_server = http_server;
-    self.http_port = 0;
 
     // TODO these sample geolocations are just for testing
     self.geolocation = _.sample([
-        'United States', 'Canada', 'Brazil', 'Mexico',
-        'China', 'Japan', 'Korea', 'India', 'Australia',
-        'Israel', 'Romania', 'Russia',
-        'Germany', 'England', 'France', 'Spain'
+        'United States', 'Canada',
+        'Brazil',
+        'China', 'Japan', 'Korea',
+        'Ireland', 'Germany',
     ]);
 
     //If test, add test APIs
     if (config.test_mode) {
         self._add_test_APIs();
     }
-
 }
 
 
@@ -140,28 +131,28 @@ Agent.prototype.start = function() {
             return self._init_node();
         })
         .then(function() {
-            return self._start_stop_http_server();
-        })
-        .then(function() {
 
-            // register agent_server in rpc, with domain as peer_id
+            // register agent_server in rpc, with peer as my peer_id
             // to match only calls to me
-            api.rpc.register_service(self.agent_server, 'agent_api', self.peer_id, {
+            api.rpc.register_service(api.schema.agent_api, self.agent_server, {
+                peer: self.peer_id,
                 authorize: function(req, method_api) {
                     // TODO verify aithorized tokens in agent?
                 }
             });
 
-            if (config.use_ice_when_possible || config.use_ws_when_possible) {
-                dbg.log0('start ws agent id: ' + self.node_id + ' peer id: ' + self.peer_id);
-                self.ws_socket = rpc_ice.serve(api.rpc, self.peer_id);
-            }
+        })
+        .then(function() {
+            return self._start_stop_http_server();
+        })
+        .then(function() {
+            return self._start_stop_nudp_server();
         })
         .then(function() {
             return self.send_heartbeat();
         })
         .then(null, function(err) {
-            console.error('AGENT server failed to start', err,err.stack);
+            dbg.error('AGENT server failed to start', err.stack || err);
             self.stop();
             throw err;
         });
@@ -178,6 +169,7 @@ Agent.prototype.stop = function() {
     dbg.log0('stop agent ' + self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
+    self._start_stop_nudp_server();
     self._start_stop_heartbeats();
 };
 
@@ -202,7 +194,7 @@ Agent.prototype._init_node = function() {
         })
         .then(function(token) {
             // use the token as authorization and read the auth info
-            self.client.options.auth_token = token;
+            self.client.options.auth_token = token.toString();
             return self.client.auth.read_auth();
         })
         .then(function(res) {
@@ -246,8 +238,28 @@ Agent.prototype._init_node = function() {
 };
 
 
+// RPC SERVER /////////////////////////////////////////////////////////////////
 
-// HTTP SERVER ////////////////////////////////////////////////////////////////
+
+/**
+ *
+ * _start_stop_nudp_server
+ *
+ */
+Agent.prototype._start_stop_nudp_server = function() {
+    var self = this;
+
+    if (!self.is_started) {
+        // TODO stop nudp listening socket. what about the open connections?
+        return;
+    }
+
+    return rpc_nudp.listen(api.rpc, self.prefered_port)
+        .then(function(nudp_socket) {
+            self.nudp_socket = nudp_socket;
+            self.client.options.nudp_socket = nudp_socket;
+        });
+};
 
 
 /**
@@ -257,43 +269,62 @@ Agent.prototype._init_node = function() {
  */
 Agent.prototype._start_stop_http_server = function() {
     var self = this;
-    if (self.is_started) {
-        // using port to determine if the server is already listening
-        if (!self.http_port && self.use_http_server) {
-            return Q.Promise(function(resolve, reject) {
-                self.http_server.once('listening', resolve);
-                self.http_server.listen(self.prefered_port);
-            });
-        }
-    } else {
-        if (self.http_port) {
+
+    if (!self.is_started) {
+        if (self.http_server) {
             self.http_server.close();
         }
+        if (self.https_server) {
+            self.https_server.close();
+        }
+        return;
     }
-};
 
+    return Q.fcall(function() {
+            return Q.nfcall(pem.createCertificate, {
+                days: 365 * 100,
+                selfSigned: true
+            });
+        })
+        .then(function(cert) {
+            var promises = [];
 
-/**
- *
- * _server_listening_handler
- *
- */
-Agent.prototype._server_listening_handler = function() {
-    this.http_port = this.http_server.address().port;
-    dbg.log0('AGENT server listening on port ' + this.http_port);
-};
+            if (!self.http_server) {
+                self.http_server = http.createServer(self.agent_app)
+                    .on('error', function(err) {
+                        dbg.error('HTTP SERVER ERROR', err.stack || err);
+                    })
+                    .on('close', function() {
+                        dbg.error('HTTP SERVER CLOSED');
+                        self.http_server = null;
+                        setTimeout(self._start_stop_http_server.bind(this), 1000);
+                    });
+                promises.push(
+                    Q.ninvoke(self.http_server, 'listen', self.prefered_port));
+            }
 
+            if (!self.https_server) {
+                self.https_server = https.createServer({
+                        key: cert.serviceKey,
+                        cert: cert.certificate
+                    }, self.agent_app)
+                    .on('error', function(err) {
+                        dbg.error('HTTPS SERVER ERROR', err.stack || err);
+                    })
+                    .on('close', function() {
+                        dbg.error('HTTPS SERVER CLOSED');
+                        self.https_server = null;
+                        setTimeout(self._start_stop_http_server.bind(this), 1000);
+                    });
+                promises.push(
+                    Q.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
+            }
 
-/**
- *
- * _server_close_handler
- *
- */
-Agent.prototype._server_close_handler = function() {
-    dbg.log0('AGENT server closed');
-    this.http_port = 0;
-    // set timer to check the state and react by restarting or not
-    setTimeout(this._start_stop_http_server.bind(this), 1000);
+            rpc_ws.listen(api.rpc, self.http_server);
+            rpc_ws.listen(api.rpc, self.https_server);
+
+            return Q.all(promises);
+        });
 };
 
 
@@ -369,15 +400,34 @@ Agent.prototype.send_heartbeat = function() {
             }
 
             var ip = ifconfig.get_main_external_ipv4();
+            var addresses = [];
+            if (self.nudp_socket) {
+                addresses.push('nudp://' + ip + ':' + self.nudp_socket.port);
+                _.each(self.nudp_socket.addresses, function(addr) {
+                    addresses.push('nudp://' + addr.address + ':' + addr.port);
+                });
+            }
+            var http_port = 0;
+            if (self.http_server) {
+                http_port = self.http_server.address().port;
+                addresses.push('ws://' + ip + ':' + http_port);
+                addresses.push('http://' + ip + ':' + http_port);
+            }
+            if (self.https_server) {
+                addresses.push('wss://' + ip + ':' + self.https_server.address().port);
+                addresses.push('https://' + ip + ':' + self.https_server.address().port);
+            }
+
             var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
                 ip: ip,
-                port: self.http_port || 0,
+                port: http_port,
+                addresses: addresses,
                 storage: {
                     alloc: alloc,
                     used: store_stats.used
-                }
+                },
             };
 
             //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
@@ -386,7 +436,7 @@ Agent.prototype.send_heartbeat = function() {
 
             _.each(orig_ifaces, function(iface, name) {
                 if (name.indexOf('.') !== -1) {
-                    var new_name = name.replace('.','-');
+                    var new_name = name.replace('.', '-');
                     interfaces[new_name] = iface;
                     delete interfaces[name];
                 }
@@ -487,12 +537,16 @@ Agent.prototype._start_stop_heartbeats = function() {
 
 Agent.prototype.read_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
+    var block_id = req.rpc_params.block_id;
     dbg.log0('AGENT read_block', block_id);
     return self.store_cache.get(block_id)
-        .then(null, function(err) {
+        .then(function(data) {
+            return {
+                data: data
+            };
+        }, function(err) {
             if (err === 'TAMPERING DETECTED') {
-                err = req.rest_error(500, 'TAMPERING DETECTED');
+                err = req.rpc_error('INTERNAL', 'TAMPERING DETECTED');
             }
             throw err;
         });
@@ -500,8 +554,8 @@ Agent.prototype.read_block = function(req) {
 
 Agent.prototype.write_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
-    var data = req.rest_params.data;
+    var block_id = req.rpc_params.block_id;
+    var data = req.rpc_params.data;
     dbg.log0('AGENT write_block', block_id, data.length);
     self.store_cache.invalidate(block_id);
     return self.store.write_block(block_id, data);
@@ -509,8 +563,8 @@ Agent.prototype.write_block = function(req) {
 
 Agent.prototype.replicate_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
-    var source = req.rest_params.source;
+    var block_id = req.rpc_params.block_id;
+    var source = req.rpc_params.source;
     dbg.log0('AGENT replicate_block', block_id);
     self.store_cache.invalidate(block_id);
 
@@ -518,19 +572,17 @@ Agent.prototype.replicate_block = function(req) {
     return self.client.agent.read_block({
             block_id: source.id
         }, {
-            address: source.host,
-            domain: source.peer,
             peer: source.peer,
-            ws_socket: self.ws_socket,
+            address: source.address,
         })
-        .then(function(data) {
-            return self.store.write_block(block_id, data);
+        .then(function(res) {
+            return self.store.write_block(block_id, res.data);
         });
 };
 
 Agent.prototype.delete_blocks = function(req) {
     var self = this;
-    var blocks = req.rest_params.blocks;
+    var blocks = req.rpc_params.blocks;
     dbg.log0('AGENT delete_blocks', blocks);
     self.store_cache.multi_invalidate(blocks);
     return self.store.delete_blocks(blocks);
@@ -538,9 +590,9 @@ Agent.prototype.delete_blocks = function(req) {
 
 Agent.prototype.check_block = function(req) {
     var self = this;
-    var block_id = req.rest_params.block_id;
+    var block_id = req.rpc_params.block_id;
     dbg.log0('AGENT check_block', block_id);
-    var slices = req.rest_params.slices;
+    var slices = req.rpc_params.slices;
     return self.store_cache.get(block_id)
         .then(function(data) {
             // calculate the md5 of the requested slices
@@ -562,30 +614,31 @@ Agent.prototype.kill_agent = function(req) {
 };
 
 Agent.prototype.self_test_io = function(req) {
-    dbg.log0('SELF TEST IO got ' + (req.rest_params.data ? req.rest_params.data.length : 'N/A') + ' reply ' + req.rest_params.response_length);
-    return new Buffer(req.rest_params.response_length);
+    dbg.log0('SELF TEST IO got ' + (req.rpc_params.data ? req.rpc_params.data.length : 'N/A') + ' reply ' + req.rpc_params.response_length);
+    return {
+        data: new Buffer(req.rpc_params.response_length)
+    };
 };
 
 Agent.prototype.self_test_peer = function(req) {
     var self = this;
-    var target = req.rest_params.target;
-    dbg.log0('SELF TEST PEER req ' + req.rest_params.request_length +
-        ' res ' + req.rest_params.response_length +
+    var target = req.rpc_params.target;
+    dbg.log0('SELF TEST PEER req ' + req.rpc_params.request_length +
+        ' res ' + req.rpc_params.response_length +
         ' target ' + util.inspect(target));
 
     // read from target agent
     return self.client.agent.self_test_io({
-            data: new Buffer(req.rest_params.request_length),
-            response_length: req.rest_params.response_length,
+            data: new Buffer(req.rpc_params.request_length),
+            response_length: req.rpc_params.response_length,
         }, {
-            address: target.host,
-            domain: target.peer,
             peer: target.peer,
-            ws_socket: self.ws_socket,
+            address: target.address,
         })
-        .then(function(data) {
-            if (((!data || !data.length) && req.rest_params.response_length > 0) ||
-                (data && data.length && data.length !== req.rest_params.response_length)) {
+        .then(function(res) {
+            var data = res.data;
+            if (((!data || !data.length) && req.rpc_params.response_length > 0) ||
+                (data && data.length && data.length !== req.rpc_params.response_length)) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });
@@ -599,7 +652,7 @@ Agent.prototype._add_test_APIs = function() {
 
     Agent.prototype.corrupt_blocks = function(req) {
         var self = this;
-        var blocks = req.rest_params.blocks;
+        var blocks = req.rpc_params.blocks;
         dbg.log0('AGENT TEST API corrupt_blocks', blocks);
         return self.store.corrupt_blocks(blocks);
     };

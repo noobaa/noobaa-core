@@ -1,8 +1,6 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
-var Q = require('q');
 var util = require('util');
 var stream = require('stream');
 var crypto = require('crypto');

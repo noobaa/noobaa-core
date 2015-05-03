@@ -28,3 +28,4 @@ logs/
 
 ## local stash - use it by adding .STASH suffix to hide a file from git
 *.STASH
+.DS_Store

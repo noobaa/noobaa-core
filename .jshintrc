@@ -1,8 +1,6 @@
 {
     "indent": 4,
-    "latedef": "nofunc",
-    "curly": false,
-    "unused": false,
+    "node": true,
     "forin": true,
     "eqeqeq": true,
     "onevar": true,
@@ -16,5 +14,7 @@
     "immed": true,
     "undef": true,
 
-    "node":true
+    "latedef": "nofunc",
+    "unused": "vars",
+    "curly": false
 }

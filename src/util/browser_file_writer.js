@@ -3,8 +3,6 @@
 
 var util = require('util');
 var stream = require('stream');
-var _ = require('lodash');
-var Q = require('q');
 
 
 module.exports = BrowserFileWriter;

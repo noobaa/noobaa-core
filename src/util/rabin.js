@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var util = require('util');
 var stream = require('stream');
-var Poly = require('./poly');
+// var Poly = require('./poly');
 
 module.exports = {
     Rabin: Rabin,

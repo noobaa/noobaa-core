@@ -378,7 +378,8 @@ module.exports = function(params) {
                     dbg.log0('Adding new system client.', params);
                     clients[params.access_key] = new api.Client({
                         address: params.address,
-                        bucket: params.bucket
+                        bucket: params.bucket,
+                        nudp_socket: params.nudp_socket
                     });
                     return clients[params.access_key];
                 }

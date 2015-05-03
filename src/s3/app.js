@@ -3,6 +3,8 @@
 var Q = require('q');
 var https = require('https');
 var http = require('http');
+var api = require('../api');
+var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var pem = require('pem');
 // var s3_auth = require('aws-sdk/lib/signers/s3');
@@ -134,12 +136,20 @@ function s3_app(params) {
     app.head('/:bucket/:key(*)', controllers.getObject);
     app.delete('/:bucket/:key(*)', controllers.bucketExists, controllers.deleteObject);
     app.post('/:bucket/:key(*)', controllers.bucketExists, controllers.postMultipartObject);
+
     return {
         serve: function() {
             var certificate;
-            return Q.nfcall(pem.createCertificate.bind(pem), {
-                    days: 365 * 100,
-                    selfSigned: true
+            return Q.fcall(function() {
+                    // setup nudp socket
+                    return rpc_nudp.listen(api.rpc, 0);
+                })
+                .then(function(nudp_socket) {
+                    params.nudp_socket = nudp_socket;
+                    return Q.nfcall(pem.createCertificate.bind(pem), {
+                        days: 365 * 100,
+                        selfSigned: true
+                    });
                 })
                 .then(function(certificate_arg) {
                     certificate = certificate_arg;

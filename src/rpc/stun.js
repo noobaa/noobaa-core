@@ -4,7 +4,7 @@ var _ = require('lodash');
 var Q = require('q');
 var ip = require('ip');
 var url = require('url');
-var util = require('util');
+// var util = require('util');
 var dgram = require('dgram');
 var crypto = require('crypto');
 var chance = require('chance').Chance(Date.now());
@@ -586,7 +586,9 @@ function align_offset(offset) {
  *
  */
 function test() {
+    var argv = require('minimist')(process.argv);
     var socket = dgram.createSocket('udp4');
+    /*
     socket.on('message', function(buffer, rinfo) {
         if (is_stun_packet(buffer)) {
             console.log('\nREPLY:', rinfo.address + ':' + rinfo.port,
@@ -605,12 +607,40 @@ function test() {
         }
         // socket.close();
     });
-    return Q.allSettled(_.map(STUN.PUBLIC_SERVERS, function(stun_url) {
-            console.log('REQUEST:', stun_url.hostname + ':' + stun_url.port);
-            return send_request(socket, stun_url.hostname, stun_url.port);
-        }))
+    */
+    return Q.fcall(function() {
+            if (argv.bind) {
+                return Q.ninvoke(socket, 'bind', argv.bind);
+            }
+        })
         .then(function() {
-            console.log('SOCKET ADDRESS', socket.address());
+            var stun_url = STUN.PUBLIC_SERVERS[0];
+            if (argv.stun_host) {
+                stun_url = {
+                    hostname: argv.stun_host,
+                    port: argv.stun_port
+                };
+            }
+            socket.on('stun.address', function(addr) {
+                console.log('STUN ADDRESS', addr);
+            });
+            socket.on('listening', function() {
+                console.log('MY SOCKET ADDRESS', socket.address());
+            });
+            socket.on('message', function(buffer, rinfo) {
+                if (!is_stun_packet(buffer)) {
+                    console.log('MESSAGE', buffer.toString(), 'from', rinfo);
+                }
+            });
+            connect_socket(socket, stun_url.hostname, stun_url.port);
+            /*
+            return Q.allSettled(_.map(STUN.PUBLIC_SERVERS, function(stun_url) {
+                console.log('REQUEST:', stun_url.hostname + ':' + stun_url.port);
+                return send_request(socket, stun_url.hostname, stun_url.port);
+            }));
+            */
+        })
+        .done(function() {
             return socket;
         });
 }

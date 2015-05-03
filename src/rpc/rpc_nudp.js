@@ -58,14 +58,20 @@ var FIN_DELAY = 500;
 function connect(conn, options) {
     var nc = conn.nudp;
     if (nc) {
+
+        // if connect is called with concurrency we join
+        // the callers using the connect defer here.
         if (nc.connect_defer) {
             return nc.connect_defer.promise;
         }
+
+        // already connected
         if (nc.state === STATE_CONNECTED) {
             return;
         }
-        throw new Error('NUDP unexpected connection state ' +
-            nc.state + ' ' + nc.connid);
+
+        throw new Error('NUDP DISCONNECTED (state ' + nc.state + ')' +
+            ' connid ' + nc.connid);
     }
 
     nc = init_nudp_conn(conn, options.nudp_socket);
@@ -74,6 +80,8 @@ function connect(conn, options) {
 
     // send syn packet (with attempts) and wait for syn ack
     send_syn(nc);
+
+    // wait for connect to complete when peer sends SYN ACK
     return nc.connect_defer.promise;
 }
 
@@ -99,41 +107,77 @@ function listen(rpc, port) {
         socket: dgram.createSocket('udp4'),
         addresses: {}
     };
+
+    // the socket multiplexes with stun so we receive also
+    // stun messages by our listener, but the stun listener already handled
+    // them so we just need to ignore it here.
     nudp_socket.socket.on('message', function(buffer, rinfo) {
-        // the socket multiplexes with stun so we receive also
-        // stun messages by our listener, but the stun listener already handled
-        // them so we just need to ignore it here.
         if (!stun.is_stun_packet(buffer)) {
             receive_packet(rpc, nudp_socket, buffer, rinfo);
         }
     });
+
+    // if this can occur spontanuously, then we need to maintain
+    // all the connections that use this socket, and call close on them,
+    // which is tedious. so lets be optimistic about it for now.
+    // in the meanwhile we log and throw uncaught exception to panic the process.
     nudp_socket.socket.on('close', function() {
-        dbg.error('NUDP socket closed');
+        dbg.error('NUDP SOCKET CLOSED UNEXPECTEDLY');
+        process.nextTick(function() {
+            throw new Error('NUDP SOCKET CLOSED UNEXPECTEDLY');
+        });
     });
+
+    // see explanation in the close event above.
     nudp_socket.socket.on('error', function(err) {
-        dbg.error('NUDP socket error', err.stack || err);
+        dbg.error('NUDP SOCKET ERROR UNEXPECTEDLY', err.stack || err);
+        process.nextTick(function() {
+            throw new Error('NUDP SOCKET ERROR UNEXPECTEDLY');
+        });
     });
+
+    // this is a stun response from a stun server, letting us know
+    // what is our reflexive address as it sees us.
+    // we keep all the addresses we discover in a map (without dups),
+    // so they can be used later for contacting us from other peers.
     nudp_socket.socket.on('stun.address', function(addr) {
         dbg.log0('NUDP STUN address', addr);
         nudp_socket.addresses[addr.address + ':' + addr.port] = addr;
     });
+
+    // this is a stun keepalive that we receive as we are also
+    // acting as a mini stun server.
+    // anyhow indications are meant to be ignored.
     nudp_socket.socket.on('stun.indication', function(rinfo) {
-        dbg.log1('NUDP STUN indication', rinfo.address + ':' + rinfo.port);
+        dbg.log3('NUDP STUN indication', rinfo.address + ':' + rinfo.port);
     });
+
+    // this is an explicit error reply sent from stun server
+    // so most likely something wrong about the protocol.
+    // nothing much to do about it here since the udp socket and
+    // the connections are fine, so if this occurs we need to
+    // debug the stun request/response that caused it.
     nudp_socket.socket.on('stun.error', function(rinfo) {
         dbg.warn('NUDP STUN ERROR', rinfo.address + ':' + rinfo.port);
     });
+
+    // bind the udp socket to requested port (can be 0 to allocate random)
     return Q.ninvoke(nudp_socket.socket, 'bind', port)
         .then(function() {
             // update port in case it was 0 to bind to any port
             nudp_socket.port = nudp_socket.socket.address().port;
-            // pick some stun server and send request
+
+            // pick some stun server (google by default)
             nudp_socket.stun_url = stun.STUN.PUBLIC_SERVERS[0];
             /* TEST: send to myself...
             nudp_socket.stun_url = {
                 hostname: '127.0.0.1',
                 port: nudp_socket.port,
             }; */
+
+            // connet the socket to stun server by sending stun request
+            // and keep the stun mapping open after by sending indications
+            // periodically.
             return stun.connect_socket(
                 nudp_socket.socket,
                 nudp_socket.stun_url.hostname,

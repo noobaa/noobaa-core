@@ -162,9 +162,9 @@ AgentCLI.prototype.hide_storage_folder = function() {
                 //TODO: remove other users
                 return Q.nfcall(child_process.exec,
                     'icacls ' + current_path +
-                    ' /grant :r administrators:(oi)(ci)F' +
-                    ' /grant :r system:F' +
                     ' /t' +
+                    ' /grant:r administrators:(oi)(ci)F' +
+                    ' /grant:r system:F' +
                     ' /remove:g BUILTIN\\Users' +
                     ' /inheritance:r');
             });

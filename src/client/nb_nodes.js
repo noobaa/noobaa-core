@@ -7,7 +7,6 @@ var moment = require('moment');
 var chance = require('chance').Chance(Date.now());
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var api = require('../api');
 
 var nb_api = angular.module('nb_api');
 
@@ -245,16 +244,6 @@ nb_api.factory('nbNodes', [
                         });
                     });
 
-                    _.each(online_nodes, function(target_node) {
-                        define_phase({
-                            name: 'new connect from ' + node.name + ' to ' + target_node.name,
-                            kind: ['full', 'conn'],
-                            func: function() {
-                                return self_test_conn(node, target_node);
-                            }
-                        });
-                    });
-
                     define_phase({
                         name: 'LOAD WRITE: connect from all to one node and send 0.5MB (10 times from each)',
                         kind: ['full', 'load'],
@@ -370,19 +359,6 @@ nb_api.factory('nbNodes', [
 
         function self_test_io(node, request_length, response_length) {
             return nbClient.client.agent.self_test_io({
-                data: new Buffer(request_length || 0),
-                response_length: response_length || 0,
-            }, {
-                peer: node.peer_id,
-                address: node.addresses,
-            });
-        }
-
-        function self_test_conn(node, request_length, response_length) {
-            var client = new api.Client();
-            client.options.p2p_context = null;
-
-            return client.agent.self_test_io({
                 data: new Buffer(request_length || 0),
                 response_length: response_length || 0,
             }, {

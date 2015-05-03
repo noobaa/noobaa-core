@@ -9,6 +9,7 @@ var RpcSchema = require('./rpc_schema');
 var rpc_http = require('./rpc_http');
 var rpc_ws = require('./rpc_ws');
 var rpc_nudp = require('./rpc_nudp');
+var stun = require('./stun');
 var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
@@ -148,6 +149,15 @@ function start() {
                 return rpc_nudp.listen(rpc, argv.server ? argv.port : argv.port + 1)
                     .then(function(nudp_socket) {
                         bench_client.options.nudp_socket = nudp_socket;
+
+                        // try connecting stun directly to peer
+                        if (argv.stun) {
+                            return stun.connect_socket(
+                                nudp_socket.socket,
+                                argv.host,
+                                argv.server ? argv.port + 1 : argv.port);
+                        }
+
                     });
             }
         })

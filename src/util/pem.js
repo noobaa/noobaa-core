@@ -1,5 +1,5 @@
 'use strict';
-
+var _ = require('lodash');
 var spawn = require('child_process').spawn;
 var os = require('os');
 var pathlib = require('path');
@@ -56,9 +56,9 @@ function createPrivateKey(keyBitsize, options, callback) {
         params.push( '-passout' );
         params.push( 'file:' + clientKeyPassword );
     }
-    
+
     params.push(keyBitsize);
-    
+
     execOpenSSL(params, 'RSA PRIVATE KEY', function(error, key) {
         if(clientKeyPassword) {
             fs.unlink(clientKeyPassword);
@@ -562,10 +562,10 @@ function fetchCertificateData(certData, callback) {
 
 
 function linebrakes(content) {
-    var helper_x, p, subject, type;
+    var helper_x, subject, type;
     helper_x = content.replace(/(C|L|O|OU|ST|CN)=/g, '\n$1=');
     helper_x = preg_match_all('((C|L|O|OU|ST|CN)=[^\n].*)', helper_x);
-    for (p in helper_x) {
+    _.each (helper_x,function(p) {
         subject = helper_x[p].trim();
         type = subject.split('=');
         if(type[1].substring(0, 4) !== 'http'){
@@ -576,7 +576,7 @@ function linebrakes(content) {
         }
         subject = content.shift();
         helper_x[p] = rtrim(subject, ',');
-    }
+    });
     return ' ' + helper_x.join('\n') + '\n';
 }
 
@@ -593,11 +593,11 @@ function preg_match_all(regex, haystack) {
     var globalMatch = haystack.match(globalRegex);
     var matchArray = [],
         nonGlobalRegex, nonGlobalMatch;
-    for (var i in globalMatch) {
+    _.each ( globalMatch,function(i) {
         nonGlobalRegex = new RegExp(regex);
         nonGlobalMatch = globalMatch[i].match(nonGlobalRegex);
         matchArray.push(nonGlobalMatch[1]);
-    }
+    });
     return matchArray;
 }
 

@@ -186,16 +186,21 @@ app.get('/', function(req, res) {
 
 // Upgrade checks
 app.get('/get_latest_version*', function(req, res) {
-    var query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
-    var ret_version = '';
+    if (req.params[0].indexOf('&curr=') !== -1) {
+        try {
+            var query_version = req.params[0].substr(req.params[0].indexOf('&curr=') + 6);
+            var ret_version = '';
 
-    if (!is_latest_version(query_version)) {
-        ret_version = config.on_premise.base_url + config.on_premise.version + '/' + config.on_premise.nva_part;
+            if (!is_latest_version(query_version)) {
+                ret_version = config.on_premise.base_url + config.on_premise.version + '/' + config.on_premise.nva_part;
+            }
+
+            res.status(200).send({
+                version: ret_version,
+            });
+        } catch (err) {}
     }
-
-    res.status(200).send({
-        version: ret_version,
-    });
+    res.status(400).send({});
 });
 
 
@@ -302,13 +307,14 @@ function can_accept_html(req) {
 // Check if given version is the latest version, or are there newer ones
 // Version is in the form of X.Y.Z, start checking from left to right
 function is_latest_version(query_version) {
-    console.log('Checking version', query_version, 'against', config.on_premise.version); //TODO: dbg3
+    var srv_version = process.env.
+    console.log('Checking version', query_version, 'against', srv_version);
 
-    if (query_version === config.on_premise.version) {
+    if (query_version === srv_version) {
         return true;
     }
 
-    var srv_version_parts = config.on_premise.version.toString().split('.');
+    var srv_version_parts = srv_version.toString().split('.');
     var query_version_parts = query_version.split('.');
 
     var len = Math.min(srv_version_parts.length, query_version_parts.length);
@@ -322,7 +328,7 @@ function is_latest_version(query_version) {
 
         if (parseInt(srv_version_parts[i]) < parseInt(query_version_parts[i])) {
             console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
-                config.on_premise.version, ') ! How can this happen?');
+                srv_version, ') ! How can this happen?');
             return true;
         }
     }
@@ -334,7 +340,7 @@ function is_latest_version(query_version) {
 
     if (srv_version_parts.length < query_version_parts.length) {
         console.error('BUG?! Queried version (', query_version, ') is higher than server version(',
-            config.on_premise.version, '), has more tailing parts! How can this happen?');
+            srv_version, '), has more tailing parts! How can this happen?');
         return true;
     }
 

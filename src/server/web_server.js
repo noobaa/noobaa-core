@@ -192,7 +192,7 @@ app.get('/get_latest_version*', function(req, res) {
             var ret_version = '';
 
             if (!is_latest_version(query_version)) {
-                ret_version = config.on_premise.base_url + config.on_premise.version + '/' + config.on_premise.nva_part;
+                ret_version = config.on_premise.base_url + process.env.CURRENT_VERSION + '/' + config.on_premise.nva_part;
             }
 
             res.status(200).send({
@@ -307,7 +307,7 @@ function can_accept_html(req) {
 // Check if given version is the latest version, or are there newer ones
 // Version is in the form of X.Y.Z, start checking from left to right
 function is_latest_version(query_version) {
-    var srv_version = process.env.
+    var srv_version = process.env.CURRENT_VERSION;
     console.log('Checking version', query_version, 'against', srv_version);
 
     if (query_version === srv_version) {

@@ -112,6 +112,19 @@ var PATHS = {
         'src/api/**/*.js',
         'src/util/**/*.js',
     ],
+
+    NVA_Package_sources: [
+        'src/api/**/*.*',
+        'src/client/**/*.*',
+        'src/css/**/*.*',
+        'src/deploy/**/*.*',
+        'src/ngview/**/*.*',
+        'src/rpc/**/*.*',
+        'src/s3/**/*.*',
+        'src/server/**/*.*',
+        'src/util/**/*.*',
+        'src/views/**/*.*',
+    ],
 };
 
 var SRC_DONT_READ = {
@@ -296,6 +309,104 @@ gulp.task('agent', ['jshint'], function() {
         .pipe(gulp.dest(DEST));
 });
 
+gulp.task('build_agent_distro', function() {
+    var build_script = child_process.spawn('src/deploy/build_agent_win.sh', ['--access_key=123', '--secret_key=abc'], {
+        cwd: process.cwd()
+    });
+    var stdout = '',
+        stderr = '';
+
+    child_process.stdout.setEncoding('utf8');
+
+    child_process.stdout.on('data', function(data) {
+        stdout += data;
+        gutil.log(data);
+    });
+
+    child_process.stderr.setEncoding('utf8');
+    child_process.stderr.on('data', function(data) {
+        stderr += data;
+        gutil.log(gutil.colors.red(data));
+        gutil.beep();
+    });
+});
+
+gulp.task('NVA_build', ['jshint', 'build_agent_distro'], function() {
+    var DEST = 'build/public';
+    var NAME = 'noobaa-NVA.tar';
+
+    var pkg_stream = gulp
+        .src('package.json')
+        .pipe(gulp_json_editor(function(json) {
+            var deps = _.omit(json.dependencies, function(val, key) {
+                return /^gulp/.test(key) ||
+                    /^vinyl/.test(key) ||
+                    /^jshint/.test(key) ||
+                    /^browserify/.test(key) ||
+                    _.contains([
+                        'bower',
+                        'mocha',
+                        'mongoose',
+                        'bcrypt',
+                        'font-awesome',
+                        'bootstrap',
+                        'animate.css',
+                        'video.js'
+                    ], key);
+            });
+            return {
+                name: 'noobaa-NVA',
+                version: '0.0.0',
+                private: true,
+                main: 'index.js', 
+                dependencies: deps,
+            };
+        })).on('error', gutil.log);
+
+    var src_stream = gulp
+        .src(PATHS.NVA_Package_sources, {
+            base: 'src'
+        })
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('src', p.dirname);
+        }));
+    // TODO bring back uglify .pipe(gulp_uglify());
+
+    var images_stream = gulp
+        .src(['images/**/*', ], {
+            base: 'images'
+        })
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('images', p.dirname);
+        }));
+
+    var basejs_stream = gulp
+        .src(['bower.json', 'config.js', 'gulpfile.js', ], {});
+
+    var vendor_stream = gulp
+        .src(['vendor/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('vendor', p.dirname);
+        }));
+
+    var agent_distro = gulp
+        .src(['src/build/windows/noobaa_setup.exe'], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('deployment', p.dirname);
+        }));
+
+    return event_stream
+        .merge(pkg_stream, src_stream, images_stream, basejs_stream)
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('noobaa-core', p.dirname);
+        }))
+        .pipe(gulp_tar(NAME))
+        .pipe(gulp_gzip())
+        // .pipe(gulp_size_log(NAME))
+        .pipe(gulp.dest(DEST));
+
+});
+
 gulp.task('client', ['bower', 'ng'], function() {
     var DEST = 'build/public/js';
     var NAME = 'index.js';
@@ -397,7 +508,7 @@ function serve() {
     gulp_notify('noobaa serving...').end('stam');
 }
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent']);
+gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent',]);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
 gulp.task('install_server_and_serve', ['jshint'], serve);

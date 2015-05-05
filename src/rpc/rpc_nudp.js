@@ -104,6 +104,7 @@ function receive_signal(conn, message) {
     dbg.log0('NUDP receive_signal', addresses);
     Q.all(_.map(addresses, function(address) {
         return promise_utils.loop(SYN_ATTEMPTS, function() {
+            dbg.log0('NUDP receive_signal: STUN to', address.hostname + ':' + address.port);
             return stun.send_request(
                 nc.socket,
                 address.hostname,

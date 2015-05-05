@@ -109,9 +109,11 @@ function receive_signal(conn, message) {
                 nc.socket,
                 addr.address,
                 addr.port
-            ).delay(SYN_ATTEMPT_DELAY);
+            ).then(function() {
+                return Q.delay(SYN_ATTEMPT_DELAY);
+            });
         });
-    }));
+    })).done();
 }
 
 

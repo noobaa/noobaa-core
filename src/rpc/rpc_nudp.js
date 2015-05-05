@@ -102,13 +102,13 @@ function receive_signal(conn, message) {
     var nc = conn.nudp;
     var addresses = message.addresses;
     dbg.log0('NUDP receive_signal', addresses);
-    Q.all(_.map(addresses, function(address) {
+    Q.all(_.map(addresses, function(addr) {
         return promise_utils.loop(SYN_ATTEMPTS, function() {
-            dbg.log0('NUDP receive_signal: STUN to', address.hostname + ':' + address.port);
+            dbg.log0('NUDP receive_signal: STUN to', addr.address + ':' + addr.port);
             return stun.send_request(
                 nc.socket,
-                address.hostname,
-                address.port
+                addr.address,
+                addr.port
             ).delay(SYN_ATTEMPT_DELAY);
         });
     }));

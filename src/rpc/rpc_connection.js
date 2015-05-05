@@ -50,9 +50,8 @@ function RpcConnection(rpc, address_url, time, rand) {
     // and retried on new connection.
     self.time = time || Date.now();
     self.rand = rand || chance.integer(CONN_RAND_CHANCE);
-    self.connid = self.url.href +
-        '/' + self.time.toString(16) +
-        '.' + self.rand.toString(16);
+    self.connid = //self.url.href + '/' + 
+        self.time.toString(16) + '.' + self.rand.toString(16);
 
     self.transport = TRANSPORTS[self.url.protocol] || rpc_ws;
     if (self.transport.singleplex) {

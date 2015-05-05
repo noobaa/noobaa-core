@@ -424,7 +424,8 @@ function init_fake_nc(socket, hostname, port, address, time, rand) {
         state: 'fake',
         time: time,
         rand: rand,
-        connid: address + '/' + time.toString(16) + '.' + rand.toString(16),
+        connid: //address + '/' + 
+            time.toString(16) + '.' + rand.toString(16),
         delayed_fin_timeout: {},
         send_packet: function(buf, offset, count) {
             socket.send(

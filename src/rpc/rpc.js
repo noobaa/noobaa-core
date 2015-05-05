@@ -467,9 +467,8 @@ RPC.prototype.get_connection_by_address = function(address_url) {
  *
  */
 RPC.prototype.get_connection_by_id = function(address, time, rand, allow_create) {
-    var connid = address +
-        '/' + time.toString(16) +
-        '.' + rand.toString(16);
+    var connid = //address + '/' +
+        time.toString(16) + '.' + rand.toString(16);
     var conn = this._connection_by_id[connid];
     if (conn) {
         return conn;

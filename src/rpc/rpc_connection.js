@@ -122,8 +122,8 @@ RpcConnection.prototype.send_signal = function(message) {
 /**
  *
  */
-RpcConnection.prototype.receive_signal = function(message) {
+RpcConnection.prototype.receive_signal = function(message, signal_socket) {
     if (this.transport.receive_signal) {
-        return this.transport.receive_signal(this, message);
+        return this.transport.receive_signal(this, message, signal_socket);
     }
 };

@@ -98,8 +98,11 @@ function connect(conn, options) {
  * receive_signal
  *
  */
-function receive_signal(conn, message) {
+function receive_signal(conn, message, nudp_socket) {
     var nc = conn.nudp;
+    if (!nc) {
+        nc = init_nudp_conn(conn, nudp_socket);
+    }
     var addresses = message.addresses;
     dbg.log0('NUDP receive_signal', addresses);
     Q.all(_.map(addresses, function(addr) {
@@ -138,6 +141,10 @@ function listen(rpc, port) {
         socket: dgram.createSocket('udp4'),
         addresses: {}
     };
+
+    // TODO this is abusing the signal socket to use the last created socket
+    rpc.signal_socket = nudp_socket;
+
     // the socket multiplexes with stun so we receive also
     // stun messages by our listener, but the stun listener already handled
     // them so we just need to ignore it here.

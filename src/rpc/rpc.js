@@ -599,7 +599,7 @@ RPC.prototype.receive_signal = function(params) {
         params.info.conn_rand,
         true);
     // TODO if this connection is new but will not connect we should cleanup
-    return conn.receive_signal(params.info.message);
+    return conn.receive_signal(params.info.message, this.signal_socket);
 };
 
 

@@ -37,7 +37,6 @@ module.exports = {
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
     build_chunks: build_chunks,
-    self_test_to_node_via_web: self_test_to_node_via_web
 };
 
 // default split of chunks with kfrag
@@ -1032,29 +1031,6 @@ function build_chunks(chunks) {
             }
 
         });
-}
-
-
-/**
- *
- * self_test_to_node_via_web
- *
- */
-function self_test_to_node_via_web(req) {
-    var target = req.rpc_params.target;
-    var source = req.rpc_params.source;
-
-    console.log('SELF TEST', target.peer, 'from', source.peer);
-
-    return api_servers.client.agent.self_test_peer({
-        target: target,
-        request_length: req.rpc_params.request_length || 1024,
-        response_length: req.rpc_params.response_length || 1024,
-    }, {
-        peer: source.peer,
-        address: source.address,
-        last_address: node_monitor.peers_last_address[source.peer],
-    });
 }
 
 

@@ -5,8 +5,9 @@ var _ = require('lodash');
 var Q = require('q');
 var db = require('./db');
 var Barrier = require('../util/barrier');
-var dbg = require('noobaa-util/debug_module')(__filename);
 var size_utils = require('../util/size_utils');
+var api_servers = require('../server/api_servers');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
  * we keep a map from peer_if to connection
@@ -16,7 +17,9 @@ var peers_last_address = {};
 
 module.exports = {
     heartbeat: heartbeat,
-    peers_last_address: peers_last_address
+    send_signal: send_signal,
+    peers_last_address: peers_last_address,
+    self_test_to_node_via_web: self_test_to_node_via_web
 };
 
 
@@ -255,6 +258,46 @@ function heartbeat(req) {
     }
 }
 
+
+
+/**
+ *
+ * send_signal
+ *
+ */
+function send_signal(req) {
+    var target = req.rpc_params.target;
+    console.log('send_signal', target.peer);
+    return api_servers.client.agent.receive_signal(req.rpc_params, {
+        peer: target.peer,
+        address: target.address,
+        last_address: peers_last_address[target.peer],
+    });
+}
+
+
+
+/**
+ *
+ * self_test_to_node_via_web
+ *
+ */
+function self_test_to_node_via_web(req) {
+    var target = req.rpc_params.target;
+    var source = req.rpc_params.source;
+
+    console.log('SELF TEST', target.peer, 'from', source.peer);
+
+    return api_servers.client.agent.self_test_peer({
+        target: target,
+        request_length: req.rpc_params.request_length || 1024,
+        response_length: req.rpc_params.response_length || 1024,
+    }, {
+        peer: source.peer,
+        address: source.address,
+        last_address: peers_last_address[source.peer],
+    });
+}
 
 
 

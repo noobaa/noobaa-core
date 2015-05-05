@@ -130,6 +130,25 @@ module.exports = {
             },
         },
 
+        receive_signal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target'],
+                properties: {
+                    target: {
+                        $ref: '/common_api/definitions/block_address'
+                    },
+                    info: {
+                        type: 'object',
+                        additionalProperties: true
+                    },
+                    buffer: {
+                        type: 'buffer'
+                    }
+                }
+            }
+        },
 
         self_test_io: {
             method: 'POST',

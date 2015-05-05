@@ -26,7 +26,7 @@ var STUN = {
     // The key for XOR_MAPPED_ADDRESS includes magic key and transaction id
     XOR_KEY_OFFSET: 4,
     // ms between indications
-    INDICATION_INTERVAL: 100,
+    INDICATION_INTERVAL: 5000,
     INDICATION_JITTER: {
         min: 0.8,
         max: 1.2,
@@ -105,10 +105,11 @@ _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
 
 module.exports = {
     STUN: STUN,
+    is_stun_packet: is_stun_packet,
+    handle_stun_packet: handle_stun_packet,
     connect_socket: connect_socket,
     send_request: send_request,
     send_indication: send_indication,
-    is_stun_packet: is_stun_packet,
     new_packet: new_packet,
     get_method_field: get_method_field,
     get_method_name: get_method_name,
@@ -132,33 +133,6 @@ function connect_socket(socket, stun_host, stun_port) {
         closed = true;
     });
 
-    // other handlers of the 'message' event need to filter out stun messages
-    // using is_stun_packet check since stun is multiplexed on the same data
-    // socket, and therefore data messages need to have a first byte that looks
-    // different than stun.
-    socket.on('message', function(buffer, rinfo) {
-        if (!is_stun_packet(buffer)) {
-            return;
-        }
-        var method = get_method_field(buffer);
-        switch (method) {
-            case STUN.METHODS.REQUEST:
-                receive_stun_request(socket, buffer, rinfo);
-                break;
-            case STUN.METHODS.SUCCESS:
-                receive_stun_response(socket, buffer, rinfo);
-                break;
-            case STUN.METHODS.INDICATION:
-                socket.emit('stun.indication', rinfo);
-                break;
-            case STUN.METHODS.ERROR:
-                socket.emit('stun.error', rinfo);
-                break;
-            default:
-                break;
-        }
-    });
-
     return send_request(socket, stun_host, stun_port)
         .then(send_next_indication);
 
@@ -170,6 +144,37 @@ function connect_socket(socket, stun_host, stun_port) {
         send_indication(socket, stun_host, stun_port)
             .delay(delay)
             .then(send_next_indication);
+    }
+}
+
+
+/**
+ *
+ * handle_stun_packet
+ *
+ * other handlers of the 'message' event need to filter out stun messages
+ * using is_stun_packet check since stun is multiplexed on the same data
+ * socket, and therefore data messages need to have a first byte that looks
+ * different than stun.
+ *
+ */
+function handle_stun_packet(socket, buffer, rinfo) {
+    var method = get_method_field(buffer);
+    switch (method) {
+        case STUN.METHODS.REQUEST:
+            receive_stun_request(socket, buffer, rinfo);
+            break;
+        case STUN.METHODS.SUCCESS:
+            receive_stun_response(socket, buffer, rinfo);
+            break;
+        case STUN.METHODS.INDICATION:
+            socket.emit('stun.indication', rinfo);
+            break;
+        case STUN.METHODS.ERROR:
+            socket.emit('stun.error', rinfo);
+            break;
+        default:
+            break;
     }
 }
 

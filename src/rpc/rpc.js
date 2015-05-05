@@ -130,10 +130,10 @@ RPC.prototype.create_client = function(api, default_options) {
  */
 RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
-    var req = new RpcRequest();
+    options = options || {};
 
     // initialize the request
-    options = options || {};
+    var req = new RpcRequest();
     req.new_request(api, method_api, params, options);
     req.response_defer = Q.defer();
 
@@ -419,6 +419,7 @@ RPC.prototype.assign_connection = function(req, options) {
                 'address', address_url.href, '(' + next_address_index + '/' + address.length + ')');
         }
         var conn = self.get_connection_by_address(address_url);
+        conn.peer = options.peer;
         return Q.when(conn.connect(options))
             .then(function() {
                 return conn.authenticate(options.auth_token);
@@ -497,9 +498,6 @@ RPC.prototype.new_connection = function(address_url, time, rand) {
         // assuming the new connection is preferred.
         this._connection_by_address[conn.url.href] = conn;
     }
-    conn.receive = this.on_connection_receive.bind(this, conn);
-    conn.on('close', this.on_connection_close.bind(this, conn));
-    conn.on('error', this.on_connection_error.bind(this, conn));
     conn.sent_requests = {};
     conn.received_requests = {};
     return conn;
@@ -508,9 +506,9 @@ RPC.prototype.new_connection = function(address_url, time, rand) {
 /**
  *
  */
-RPC.prototype.on_connection_close = function(conn) {
+RPC.prototype.connection_close = function(conn) {
     var self = this;
-    dbg.log0('RPC on_connection_close:', conn.connid);
+    dbg.log0('RPC connection_close:', conn.connid);
 
     delete this._connection_by_id[conn.connid];
 
@@ -521,7 +519,7 @@ RPC.prototype.on_connection_close = function(conn) {
 
     // reject pending requests
     _.each(conn.sent_requests, function(req) {
-        dbg.warn('RPC on_connection_close: reject reqid', req.reqid,
+        dbg.warn('RPC connection_close: reject reqid', req.reqid,
             'connid', conn.connid);
         req.import_response_message({
             header: {
@@ -536,28 +534,20 @@ RPC.prototype.on_connection_close = function(conn) {
 /**
  *
  */
-RPC.prototype.on_connection_error = function(conn, err) {
-    dbg.error('RPC on_connection_error:', conn.connid, err.stack || err);
-    conn.close();
-};
-
-/**
- *
- */
-RPC.prototype.on_connection_receive = function(conn, msg_buffer) {
+RPC.prototype.connection_receive_message = function(conn, msg_buffer) {
     var self = this;
     var msg = Buffer.isBuffer(msg_buffer) ?
         RpcRequest.decode_message(msg_buffer) :
         msg_buffer;
 
     if (!msg || !msg.header) {
-        conn.emit('error', new Error('RPC on_connection_receive: BAD MESSAGE ' +
+        conn.emit('error', new Error('RPC connection_receive_message: BAD MESSAGE ' +
             typeof(msg) + ' ' + (msg ? typeof(msg.header) : '') +
             ' conn ' + conn.connid));
         return;
     }
 
-    dbg.log1('RPC on_connection_receive:',
+    dbg.log1('RPC connection_receive_message:',
         'op', msg.header.op,
         'reqid', msg.header.reqid,
         'connid', conn.connid);
@@ -568,12 +558,48 @@ RPC.prototype.on_connection_receive = function(conn, msg_buffer) {
         case 'res':
             return self.handle_response(conn, msg);
         default:
-            conn.emit('error', new Error('RPC on_connection_receive:' +
+            conn.emit('error', new Error('RPC connection_receive_message:' +
                 ' BAD MESSAGE OP ' + msg.header.op +
                 ' reqid ' + msg.header.reqid +
                 ' conn ' + conn.connid));
             break;
     }
+};
+
+
+/**
+ *
+ */
+RPC.prototype.connection_send_signal = function(conn, message) {
+    if (this.send_signal) {
+        dbg.log0('RPC connection_send_signal', conn.peer, conn.connid, message);
+        this.send_signal({
+            target: {
+                id: 'unused',
+                peer: conn.peer,
+                address: conn.url.href,
+            },
+            info: {
+                conn_time: conn.time,
+                conn_rand: conn.rand,
+                message: message,
+            }
+        });
+    }
+};
+
+
+/**
+ *
+ */
+RPC.prototype.receive_signal = function(params) {
+    var conn = this.get_connection_by_id(
+        params.target.address,
+        params.info.conn_time,
+        params.info.conn_rand,
+        true);
+    // TODO if this connection is new but will not connect we should cleanup
+    return conn.receive_signal(params.info.message);
 };
 
 

@@ -82,6 +82,7 @@ function Agent(params) {
         delete_blocks: self.delete_blocks.bind(self),
         check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
+        receive_signal: self.receive_signal.bind(self),
         self_test_io: self.self_test_io.bind(self),
         self_test_peer: self.self_test_peer.bind(self),
     };
@@ -611,6 +612,10 @@ Agent.prototype.check_block = function(req) {
 Agent.prototype.kill_agent = function(req) {
     dbg.log0('AGENT kill requested, exiting');
     process.exit();
+};
+
+Agent.prototype.receive_signal = function(req) {
+    return api.rpc.receive_signal(req.rpc_params);
 };
 
 Agent.prototype.self_test_io = function(req) {

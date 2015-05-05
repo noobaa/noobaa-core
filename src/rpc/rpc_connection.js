@@ -37,9 +37,10 @@ util.inherits(RpcConnection, EventEmitter);
  *
  */
 function RpcConnection(rpc, address_url, time, rand) {
-    EventEmitter.call(this);
-    this.rpc = rpc;
-    this.url = address_url;
+    var self = this;
+    EventEmitter.call(self);
+    self.rpc = rpc;
+    self.url = address_url;
 
     // each connection keeps timestamp + random that are taken at connect time
     // which are used to identify this connection by both ends.
@@ -47,19 +48,24 @@ function RpcConnection(rpc, address_url, time, rand) {
     // of the sides crashes and the connection is dropped without communicating.
     // in such case all pending requests will need to be rejected
     // and retried on new connection.
-    this.time = time || Date.now();
-    this.rand = rand || chance.integer(CONN_RAND_CHANCE);
-    this.connid = this.url.href +
-        '/' + this.time.toString(16) +
-        '.' + this.rand.toString(16);
+    self.time = time || Date.now();
+    self.rand = rand || chance.integer(CONN_RAND_CHANCE);
+    self.connid = self.url.href +
+        '/' + self.time.toString(16) +
+        '.' + self.rand.toString(16);
 
-    this.transport = TRANSPORTS[this.url.protocol] || rpc_ws;
-    if (this.transport.singleplex) {
-        this.singleplex = this.transport.singleplex;
-        dbg.log1('RPC CONNECTION', this.url.href);
+    self.transport = TRANSPORTS[self.url.protocol] || rpc_ws;
+    if (self.transport.singleplex) {
+        self.singleplex = self.transport.singleplex;
+        dbg.log1('RPC CONNECTION', self.url.href);
     } else {
-        dbg.log0('RPC CONNECTION', this.url.href);
+        dbg.log0('RPC CONNECTION', self.url.href);
     }
+
+    self.on('error', function(err) {
+        dbg.error('RPC connection ERROR:', self.connid, err.stack || err);
+        self.close();
+    });
 }
 
 /**
@@ -95,5 +101,29 @@ RpcConnection.prototype.receive = function(msg) {
  */
 RpcConnection.prototype.close = function() {
     this.emit('close');
+    this.rpc.connection_close(this);
     return this.transport.close(this);
+};
+
+/**
+ *
+ */
+RpcConnection.prototype.receive = function(message) {
+    return this.rpc.connection_receive_message(this, message);
+};
+
+/**
+ *
+ */
+RpcConnection.prototype.send_signal = function(message) {
+    return this.rpc.connection_send_signal(this, message);
+};
+
+/**
+ *
+ */
+RpcConnection.prototype.receive_signal = function(message) {
+    if (this.transport.receive_signal) {
+        return this.transport.receive_signal(this, message);
+    }
 };

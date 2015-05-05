@@ -51,6 +51,9 @@ function Client(default_options) {
     self.bucket = rpc.create_client(schema.bucket_api, self.options);
     self.object = rpc.create_client(schema.object_api, self.options);
 
+    // TODO this is abusing this client as the signal_client for the rpc
+    rpc.send_signal = self.node.send_signal;
+
     // the object client is a "heavy" object with caches
     self.object_client = new ObjectClient(self.object, self.agent);
 

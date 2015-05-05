@@ -1,9 +1,10 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var Q = require('q');
 var dgram = require('dgram');
 var stun = require('./stun');
+var promise_utils = require('../util/promise_utils');
 var LinkedList = require('noobaa-util/linked_list');
 var dbg = require('noobaa-util/debug_module')(__filename);
 // var rpc_nudp_native = require('../../build/Release/rpc_nudp_native.node');
@@ -11,6 +12,7 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = {
     connect: connect,
+    receive_signal: receive_signal,
     close: close,
     listen: listen,
     send: send,
@@ -78,11 +80,36 @@ function connect(conn, options) {
 
     // TODO nudp connection keepalive interval
 
+    conn.send_signal({
+        addresses: options.nudp_socket.addresses
+    });
+
     // send syn packet (with attempts) and wait for syn ack
     send_syn(nc);
 
     // wait for connect to complete when peer sends SYN ACK
     return nc.connect_defer.promise;
+}
+
+
+/**
+ *
+ * receive_signal
+ *
+ */
+function receive_signal(conn, message) {
+    var nc = conn.nudp;
+    var addresses = message.addresses;
+    dbg.log0('NUDP receive_signal', addresses);
+    Q.all(_.map(addresses, function(address) {
+        return promise_utils.loop(SYN_ATTEMPTS, function() {
+            return stun.send_request(
+                nc.socket,
+                address.hostname,
+                address.port
+            ).delay(SYN_ATTEMPT_DELAY);
+        });
+    }));
 }
 
 
@@ -112,7 +139,9 @@ function listen(rpc, port) {
     // stun messages by our listener, but the stun listener already handled
     // them so we just need to ignore it here.
     nudp_socket.socket.on('message', function(buffer, rinfo) {
-        if (!stun.is_stun_packet(buffer)) {
+        if (stun.is_stun_packet(buffer)) {
+            stun.handle_stun_packet(nudp_socket.socket, buffer, rinfo);
+        } else {
             receive_packet(rpc, nudp_socket, buffer, rinfo);
         }
     });
@@ -245,6 +274,7 @@ function init_nudp_conn(conn, nudp_socket) {
         time: conn.time,
         rand: conn.rand,
         connid: conn.connid,
+        socket: socket,
 
         state: STATE_INIT,
         connect_defer: Q.defer(),

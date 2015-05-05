@@ -297,6 +297,53 @@ module.exports = {
             }
         },
 
+        send_signal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target'],
+                properties: {
+                    target: {
+                        $ref: '/common_api/definitions/block_address'
+                    },
+                    info: {
+                        type: 'object',
+                        additionalProperties: true
+                    },
+                    buffer: {
+                        type: 'buffer'
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'agent', 'user']
+            }
+        },
+
+        self_test_to_node_via_web: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['source', 'target', 'request_length', 'response_length'],
+                properties: {
+                    source: {
+                        $ref: '/common_api/definitions/block_address'
+                    },
+                    target: {
+                        $ref: '/common_api/definitions/block_address'
+                    },
+                    request_length: {
+                        type: 'integer'
+                    },
+                    response_length: {
+                        type: 'integer'
+                    }
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
 
     },
 

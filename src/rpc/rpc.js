@@ -2,10 +2,10 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var ip = require('ip');
 var url = require('url');
 var util = require('util');
 var assert = require('assert');
+var ip_module = require('ip');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcConnection = require('./rpc_connection');
@@ -361,7 +361,7 @@ var FCALL_ADDRESS = [url.parse('fcall://fcall')];
 
 function address_order(u) {
     return 1000 * (PROTOCOL_ORDER_MAP[u.protocol] || 1000) +
-        10 * (ip.isPrivate(u.hostname) ? 0 : 1);
+        10 * (ip_module.isPrivate(u.hostname) ? 0 : 1);
 }
 
 function address_sort(u1, u2) {

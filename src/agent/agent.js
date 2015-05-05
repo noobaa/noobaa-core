@@ -17,6 +17,7 @@ var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var ip_module = require('ip');
 var api = require('../api');
 var rpc_http = require('../rpc/rpc_http');
 var rpc_ws = require('../rpc/rpc_ws');
@@ -24,7 +25,6 @@ var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
-var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
 var diskspace = require('../util/diskspace_util');
@@ -400,14 +400,13 @@ Agent.prototype.send_heartbeat = function() {
                 alloc = Math.min(alloc, freeSpace);
             }
 
-            var ip = ifconfig.get_main_external_ipv4();
             var addresses = [];
             if (self.nudp_socket) {
-                addresses.push('nudp://' + ip + ':' + self.nudp_socket.port);
                 _.each(self.nudp_socket.addresses, function(addr) {
                     addresses.push('nudp://' + addr.address + ':' + addr.port);
                 });
             }
+            var ip = ip_module.address();
             var http_port = 0;
             if (self.http_server) {
                 http_port = self.http_server.address().port;

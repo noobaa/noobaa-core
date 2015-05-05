@@ -224,6 +224,7 @@ nb_api.factory('nbNodes', [
                             return self_test_io(node);
                         }
                     });
+                    /*
                     _.each(online_nodes, function(target_node) {
                         define_phase({
                             name: 'connect from browser to ' + target_node.name,
@@ -233,7 +234,7 @@ nb_api.factory('nbNodes', [
                             }
                         });
                     });
-
+                    */
                     _.each(online_nodes, function(target_node) {
                         define_phase({
                             name: 'connect from ' + node.name + ' to ' + target_node.name,

@@ -2,11 +2,11 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var ip = require('ip');
 var url = require('url');
 // var util = require('util');
 var dgram = require('dgram');
 var crypto = require('crypto');
+var ip_module = require('ip');
 var chance = require('chance').Chance(Date.now());
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -469,7 +469,7 @@ function encode_attrs(buffer, attrs) {
 function decode_attr_mapped_addr(buffer, start, end) {
     var family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
     var port = buffer.readUInt16BE(start + 2);
-    var address = ip.toString(buffer, start + 4, family);
+    var address = ip_module.toString(buffer, start + 4, family);
 
     return {
         family: 'IPv' + family,
@@ -496,7 +496,7 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
     for (var i = 0; i < xor_buf.length; ++i) {
         xor_buf[i] = addr_buf[i] ^ buffer[k++];
     }
-    var address = ip.toString(xor_buf, 0, family);
+    var address = ip_module.toString(xor_buf, 0, family);
 
     return {
         family: 'IPv' + family,
@@ -543,7 +543,7 @@ function encode_attr_mapped_addr(addr, buffer, offset, end) {
     // xor the port against the magic key
     buffer.writeUInt16BE(addr.port, offset + 2);
 
-    ip.toBuffer(addr.address, buffer, offset + 4);
+    ip_module.toBuffer(addr.address, buffer, offset + 4);
 }
 
 
@@ -557,7 +557,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
     // xor the port against the magic key
     buffer.writeUInt16BE(addr.port ^ buffer.readUInt16BE(STUN.XOR_KEY_OFFSET), offset + 2);
 
-    ip.toBuffer(addr.address, buffer, offset + 4);
+    ip_module.toBuffer(addr.address, buffer, offset + 4);
     var k = STUN.XOR_KEY_OFFSET;
     for (var i = offset + 4; i < end; ++i) {
         buffer[i] = buffer[i] ^ buffer[k++];

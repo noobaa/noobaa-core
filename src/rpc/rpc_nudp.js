@@ -4,6 +4,7 @@ var _ = require('lodash');
 var Q = require('q');
 var dgram = require('dgram');
 var stun = require('./stun');
+var ip_module = require('ip');
 var promise_utils = require('../util/promise_utils');
 var LinkedList = require('noobaa-util/linked_list');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -134,7 +135,6 @@ function listen(rpc, port) {
         socket: dgram.createSocket('udp4'),
         addresses: {}
     };
-
     // the socket multiplexes with stun so we receive also
     // stun messages by our listener, but the stun listener already handled
     // them so we just need to ignore it here.
@@ -194,6 +194,12 @@ function listen(rpc, port) {
         .then(function() {
             // update port in case it was 0 to bind to any port
             nudp_socket.port = nudp_socket.socket.address().port;
+            var ip = ip_module.address();
+            nudp_socket.addresses[ip] = {
+                family: 'IPv4',
+                address: ip,
+                port: nudp_socket.port
+            };
 
             // pick some stun server (google by default)
             nudp_socket.stun_url = stun.STUN.PUBLIC_SERVERS[0];

@@ -459,8 +459,10 @@ RPC.prototype._new_connection = function(addr_url) {
  *
  */
 RPC.prototype._accept_new_connection = function(conn) {
-    dbg.log0('RPC CONNECTION', conn.connid, conn.url.href);
-    this._connection_by_address[conn.url.href] = conn;
+    if (!conn.transient) {
+        dbg.log0('RPC CONNECTION', conn.connid, conn.url.href);
+        this._connection_by_address[conn.url.href] = conn;
+    }
     conn._rpc_req_seq = 1;
     conn._sent_requests = {};
     conn._received_requests = {};
@@ -485,10 +487,13 @@ RPC.prototype.connection_error = function(conn, err) {
  */
 RPC.prototype.connection_closed = function(conn) {
     var self = this;
-    dbg.log0('RPC connection_closed:', conn.connid);
+
+    if (!conn.quiet) {
+        dbg.log0('RPC connection_closed:', conn.connid);
+    }
 
     // remove from connection pool
-    if (self._connection_by_address[conn.url.href] === conn) {
+    if (!conn.transient && self._connection_by_address[conn.url.href] === conn) {
         delete self._connection_by_address[conn.url.href];
     }
 

@@ -18,9 +18,9 @@ util.inherits(RpcWsConnection, EventEmitter);
  * RpcWsConnection
  *
  */
-function RpcWsConnection(address_url) {
+function RpcWsConnection(addr_url) {
     EventEmitter.call(this);
-    this.url = address_url;
+    this.url = addr_url;
 
     // generate connection id only used for identifying in debug prints
     var t = process.hrtime();
@@ -137,8 +137,8 @@ function RpcWsServer(http_server) {
         try {
             // TODO how to find out if ws is secure and use wss:// address instead
             var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
-            var address_url = url.parse(address);
-            conn = new RpcWsConnection(address_url);
+            var addr_url = url.parse(address);
+            conn = new RpcWsConnection(addr_url);
             dbg.log0('WS ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);
             conn.ws = ws;
             conn._init();

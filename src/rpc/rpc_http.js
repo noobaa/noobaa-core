@@ -13,6 +13,7 @@ var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var pem = require('../util/pem');
+var RpcRequest = require('./rpc_request');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 
@@ -25,18 +26,12 @@ util.inherits(RpcHttpConnection, EventEmitter);
  * RpcHttpConnection
  *
  */
-function RpcHttpConnection(address_url) {
+function RpcHttpConnection(addr_url) {
     EventEmitter.call(this);
-    this.url = address_url;
+    this.url = addr_url;
+    this.connid = addr_url.href;
+    this._http_server_requests = {};
 }
-
-/**
- * marked as not "singleplex" so that the rpc connection will not be cached
- * for other requests on the same address, since node's http module
- * does socket pooling by http.globalAgent, then in this http transport
- * simply uses a new RpcConnection for every request.
- */
-RpcHttpConnection.prototype.singleplex = true;
 
 var BASE_PATH = '/rpc';
 var browser_location = global.window && global.window.location;
@@ -72,11 +67,13 @@ RpcHttpConnection.prototype.connect = function(options) {
 RpcHttpConnection.prototype.close = function() {
     this.emit('close');
 
-    // try to abort the connetion's running request
-    var req = this.req;
-    if (req && req.abort) {
-        req.abort();
-    }
+    // try to abort the connetion's running requests
+    _.each(this._http_server_requests, function(http_req, reqid) {
+        dbg.warn('HTTP ABORT REQ', reqid);
+        if (http_req && http_req.abort) {
+            http_req.abort();
+        }
+    });
 };
 
 
@@ -86,10 +83,6 @@ RpcHttpConnection.prototype.close = function() {
  *
  */
 RpcHttpConnection.prototype.send = function(msg, op, req) {
-
-    // http 1.1 has no multiplexing over connections,
-    // so we issue a single request per connection.
-
     if (op === 'res') {
         return this.send_http_response(msg, req);
     } else {
@@ -104,7 +97,13 @@ RpcHttpConnection.prototype.send = function(msg, op, req) {
  *
  */
 RpcHttpConnection.prototype.send_http_response = function(msg, req) {
-    this.res.status(200).end(msg);
+    var http_req = this._http_server_requests[req.reqid];
+    if (http_req) {
+        http_req.res.status(200).end(msg);
+        delete this._http_server_requests[req.reqid];
+    } else {
+        dbg.warn('HTTP NO MATCHING REQUEST', req.reqid);
+    }
 };
 
 
@@ -146,21 +145,20 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
         responseType: 'arraybuffer'
     };
 
-    var req = self.req =
+    var http_req =
         (http_options.protocol === 'https:') ?
         https.request(http_options) :
         http.request(http_options);
 
-    dbg.log3('HTTP request', req.method,
-        req.path, req._headers);
+    dbg.log3('HTTP request', http_req.method, http_req.path, http_req._headers);
 
     var send_defer = Q.defer();
 
     // reject on send errors
-    req.on('error', send_defer.reject);
+    http_req.on('error', send_defer.reject);
 
     // once a response arrives read and handle it
-    req.on('response', function(res) {
+    http_req.on('response', function(res) {
         if (!res.statusCode) {
             // statusCode = 0 means ECONNREFUSED and the response
             // will not emit events in such case
@@ -168,7 +166,6 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
             return;
         }
         send_defer.resolve();
-        self.res = res;
         read_http_response_data(res)
             .then(function(data) {
                 if (res.statusCode !== 200) {
@@ -192,9 +189,9 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
 
     // send the request data
     if (body) {
-        req.end(body);
+        http_req.end(body);
     } else {
-        req.end();
+        http_req.end();
     }
 
     return send_defer.promise;
@@ -266,7 +263,14 @@ RpcHttpConnection.Server = RpcHttpServer;
 util.inherits(RpcHttpServer, EventEmitter);
 
 function RpcHttpServer() {
-    EventEmitter.call(this);
+    var self = this;
+    EventEmitter.call(self);
+
+    // initialize a single connection that will be used to handle incoming requests
+    self._http_server_conn = new RpcHttpConnection(url.parse('http-server://http-server'));
+    process.nextTick(function() {
+        self.emit('connection', self._http_server_conn);
+    });
 }
 
 /**
@@ -296,16 +300,25 @@ RpcHttpServer.prototype.middleware = function(req, res) {
             res.status(200).end();
             return;
         }
-        var host = req.connection.remoteAddress;
-        var port = req.connection.remotePort;
-        var proto = req.get('X-Forwarded-Proto') || req.protocol;
-        var address = proto + '://' + host + ':' + port;
-        var address_url = url.parse(address);
-        var conn = new RpcHttpConnection(address_url);
-        conn.req = req;
-        conn.res = res;
-        this.emit('connection', conn);
-        conn.emit('message', req.body);
+
+        // var host = req.connection.remoteAddress;
+        // var port = req.connection.remotePort;
+        // var proto = req.get('X-Forwarded-Proto') || req.protocol;
+        // var address = proto + '://' + host + ':' + port;
+
+        // we decode the message here because we need the reqid
+        // in order to keep the map of server requests
+        var msg = Buffer.isBuffer(req.body) ?
+            RpcRequest.decode_message(req.body) :
+            req.body;
+        this._http_server_conn.emit('message', msg);
+        req.res = res;
+
+        // keep the server requests so that we can locate it and respond
+        // when rpc will send the reply.
+        // see in RpcHttpConnection.prototype.send_http_response
+        this._http_server_conn._http_server_requests[msg.header.reqid] = req;
+
     } catch (err) {
         res.status(500).send(err);
     }

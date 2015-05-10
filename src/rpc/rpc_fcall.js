@@ -7,10 +7,10 @@ module.exports = RpcFcallConnection;
 
 util.inherits(RpcFcallConnection, EventEmitter);
 
-function RpcFcallConnection(address_url) {
+function RpcFcallConnection(addr_url) {
     var self = this;
-    self.connid = address_url.host;
-    self.url = address_url;
+    self.connid = addr_url.host;
+    self.url = addr_url;
     EventEmitter.call(self);
 
     self.close = function() {};

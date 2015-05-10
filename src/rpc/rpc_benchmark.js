@@ -6,13 +6,13 @@ var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
-var rpc_http = require('./rpc_http');
-var rpc_ws = require('./rpc_ws');
 var rpc_nudp = require('./rpc_nudp');
 var stun = require('./stun');
 var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
+
+// Q.longStackSupport = true;
 
 // test arguments
 // time to run in seconds
@@ -102,10 +102,10 @@ schema.register_api({
 });
 
 // create rpc
-var rpc = new RPC();
-
-// create rpc client
-var bench_client = rpc.create_client(schema.bench);
+var rpc = new RPC({
+    schema: schema,
+    base_address: argv.proto + '://' + argv.host + ':' + argv.port,
+});
 
 var io_count = 0;
 var io_rbytes = 0;
@@ -135,9 +135,9 @@ function start() {
                     ws: 1,
                     wss: 1,
                 }) {
-                return rpc_http.create_server(rpc, argv.port, secure)
+                return rpc.start_http_server(argv.port, secure)
                     .then(function(server) {
-                        return rpc_ws.listen(rpc, server);
+                        return rpc.register_ws_transport(server);
                     });
             }
 
@@ -148,7 +148,7 @@ function start() {
                 }) {
                 return rpc_nudp.listen(rpc, argv.server ? argv.port : argv.port + 1)
                     .then(function(nudp_socket) {
-                        bench_client.options.nudp_socket = nudp_socket;
+                        rpc.client.options.nudp_socket = nudp_socket;
 
                         // try connecting stun directly to peer
                         if (argv.stun) {
@@ -183,14 +183,11 @@ function call_next_io(res) {
         io_rbytes += res.data.length;
         io_wbytes += argv.wsize;
     }
-    return bench_client.io({
+    return rpc.client.bench.io({
             kushkush: {
                 data: new Buffer(argv.wsize),
                 rsize: argv.rsize
             }
-        }, {
-            allow_fcall: argv.allow_fcall,
-            address: argv.proto + '://' + argv.host + ':' + argv.port
         })
         .then(call_next_io);
 }

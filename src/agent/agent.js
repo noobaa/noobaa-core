@@ -19,8 +19,6 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var ip_module = require('ip');
 var api = require('../api');
-var rpc_http = require('../rpc/rpc_http');
-var rpc_ws = require('../rpc/rpc_ws');
 var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
@@ -100,7 +98,7 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-    rpc_http.listen(api.rpc, app);
+    api.rpc.register_http_transport(app);
     self.agent_app = app;
 
     // TODO these sample geolocations are just for testing
@@ -296,7 +294,7 @@ Agent.prototype._start_stop_http_server = function() {
                         dbg.error('HTTP SERVER ERROR', err.stack || err);
                     })
                     .on('close', function() {
-                        dbg.error('HTTP SERVER CLOSED');
+                        dbg.warn('HTTP SERVER CLOSED');
                         self.http_server = null;
                         setTimeout(self._start_stop_http_server.bind(this), 1000);
                     });
@@ -313,7 +311,7 @@ Agent.prototype._start_stop_http_server = function() {
                         dbg.error('HTTPS SERVER ERROR', err.stack || err);
                     })
                     .on('close', function() {
-                        dbg.error('HTTPS SERVER CLOSED');
+                        dbg.warn('HTTPS SERVER CLOSED');
                         self.https_server = null;
                         setTimeout(self._start_stop_http_server.bind(this), 1000);
                     });
@@ -321,8 +319,8 @@ Agent.prototype._start_stop_http_server = function() {
                     Q.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
             }
 
-            rpc_ws.listen(api.rpc, self.http_server);
-            rpc_ws.listen(api.rpc, self.https_server);
+            api.rpc.register_ws_transport(self.http_server);
+            api.rpc.register_ws_transport(self.https_server);
 
             return Q.all(promises);
         });

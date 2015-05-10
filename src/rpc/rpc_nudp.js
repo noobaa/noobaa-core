@@ -107,6 +107,9 @@ function receive_signal(conn, message, nudp_socket) {
     dbg.log0('NUDP receive_signal', addresses);
     Q.all(_.map(addresses, function(addr) {
         return promise_utils.loop(SYN_ATTEMPTS, function() {
+            if (nc.state === STATE_CONNECTED) {
+                return;
+            }
             dbg.log0('NUDP receive_signal: STUN to', addr.address + ':' + addr.port);
             return stun.send_request(
                 nc.socket,
@@ -424,7 +427,7 @@ function init_fake_nc(socket, hostname, port, address, time, rand) {
         state: 'fake',
         time: time,
         rand: rand,
-        connid: //address + '/' + 
+        connid: //address + '/' +
             time.toString(16) + '.' + rand.toString(16),
         delayed_fin_timeout: {},
         send_packet: function(buf, offset, count) {

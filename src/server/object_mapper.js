@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var db = require('./db');
-var api_servers = require('../server/api_servers');
+var server_rpc = require('../server/server_rpc');
 var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
@@ -587,7 +587,7 @@ function fix_multipart_parts(obj) {
 function agent_delete_call(node, del_blocks) {
     return Q.fcall(function() {
         var block_addr = get_block_address(del_blocks[0]);
-        return api_servers.client.agent.delete_blocks({
+        return server_rpc.client.agent.delete_blocks({
             blocks: _.map(del_blocks, function(block) {
                 return block._id.toString();
             })
@@ -911,7 +911,7 @@ function build_chunks(chunks) {
                     var source_addr = get_block_address(block_info.source);
 
                     return replicate_block_sem.surround(function() {
-                        return api_servers.client.agent.replicate_block({
+                        return server_rpc.client.agent.replicate_block({
                             block_id: block._id.toString(),
                             source: source_addr
                         }, {

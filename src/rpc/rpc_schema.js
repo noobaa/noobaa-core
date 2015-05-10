@@ -58,6 +58,7 @@ RpcSchema.prototype.register_api = function(api) {
     // go over the api and check its validity
     _.each(api.methods, function(method_api, method_name) {
         // add the name to the info
+        method_api.api = api;
         method_api.name = method_name;
         method_api.fullname = '/' + api.name + '/methods/' + method_name;
         method_api.params = method_api.params || {};
@@ -106,6 +107,7 @@ function prepare_schema(base, schema, path) {
         schema = base;
         path = [];
     }
+
     if (schema.type === 'buffer') {
         delete schema.type;
         delete schema.additionalProperties;
@@ -122,7 +124,7 @@ function prepare_schema(base, schema, path) {
             prepare_schema(base, schema.items, path.concat('[]'));
         }
     } else if (schema.type === 'object') {
-        // TODO this is a temporary way to support banUnknownProperties - see above
+        // this is a temporary way to support banUnknownProperties - see above
         if (!('additionalProperties' in schema)) {
             schema.additionalProperties = false;
         }
@@ -131,6 +133,7 @@ function prepare_schema(base, schema, path) {
             prepare_schema(base, val, path.concat(key));
         });
     }
+
     if (schema === base) {
         /**
          * generating functions to extract/combine the buffers from objects
@@ -159,6 +162,7 @@ function prepare_schema(base, schema, path) {
             efn('return buffers;');
         }
         base.export_buffers = efn('}').toFunction();
+
         // the import_buffers counterpart
         var ifn = genfun()
             ('function import_buffers(obj, data) {');
@@ -166,6 +170,7 @@ function prepare_schema(base, schema, path) {
             ifn('var start = 0;');
             ifn('var end = 0;');
             ifn('var len;');
+            ifn('data = data || new Buffer(0);');
             _.each(base.buffers, function(b, i) {
                 ifn('len = obj%s;', b.jspath);
                 ifn('if (typeof(len) === "number") {');

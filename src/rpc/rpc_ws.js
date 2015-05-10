@@ -2,88 +2,64 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var assert = require('assert');
+var url = require('url');
+var util = require('util');
+var EventEmitter = require('events').EventEmitter;
 var buffer_utils = require('../util/buffer_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var WS = require('ws');
 
-module.exports = {
-    connect: connect,
-    close: close,
-    listen: listen,
-    send: send,
-    authenticate: authenticate,
-};
+module.exports = RpcWsConnection;
 
+util.inherits(RpcWsConnection, EventEmitter);
+
+/**
+ *
+ * RpcWsConnection
+ *
+ */
+function RpcWsConnection(address_url) {
+    EventEmitter.call(this);
+    this.url = address_url;
+
+    // generate connection id only used for identifying in debug prints
+    var t = process.hrtime();
+    this.connid = t[0].toString(36) + '_' + t[1].toString(36);
+}
+
+var KEEPALIVE_OP = 'keepalive';
+var KEEPALIVE_COMMAND = JSON.stringify({
+    op: KEEPALIVE_OP
+});
 
 /**
  *
  * connect
  *
  */
-function connect(conn, options) {
-    var ws = conn.ws;
+RpcWsConnection.prototype.connect = function(options) {
+    var self = this;
+    var ws = self.ws;
     if (ws) {
-        if (ws.connect_defer) {
-            return ws.connect_defer.promise;
+        if (self.connect_defer) {
+            return self.connect_defer.promise;
         }
-        if (ws.connected) {
-            return;
+        if (self.closed) {
+            throw new Error('WS DISCONNECTED ' + self.connid + ' ' + self.url.href);
         }
-        throw new Error('WS disconnected ' + conn.connid);
+        return;
     }
 
-    ws = new WS(conn.url.href);
-    ws.connect_defer = Q.defer();
+    ws = new WS(self.url.href);
+    self.connect_defer = Q.defer();
     ws.binaryType = 'arraybuffer';
-    conn.ws = ws;
+    self.ws = ws;
+    self._init();
 
-    ws.onopen = function() {
+    ws.onopen = this._on_open.bind(this);
 
-        // send connect command
-        send_command('connect');
-
-        // start keepaliving
-        ws.keepalive_interval =
-            setInterval(send_command, 10000, 'keepalive');
-
-        ws.connected = true;
-
-        if (ws.connect_defer) {
-            ws.connect_defer.resolve();
-            ws.connect_defer = null;
-        }
-    };
-
-    ws.onclose = function() {
-        dbg.warn('WS CLOSED', conn.connid);
-        conn.close();
-    };
-
-    ws.onerror = function(err) {
-        dbg.error('WS ERROR', conn.connid, err.stack || err);
-        conn.emit('error', err);
-    };
-
-    ws.onmessage = function(msg) {
-        var buffer = buffer_utils.toBuffer(msg.data);
-        conn.receive(buffer);
-    };
-
-    function send_command(op) {
-        try {
-            ws.send(JSON.stringify({
-                op: op,
-                time: conn.time,
-                rand: conn.rand,
-            }));
-        } catch (err) {
-            conn.emit('error', err);
-        }
-    }
-
-    return ws.connect_defer.promise;
-}
+    return self.connect_defer.promise;
+};
 
 
 /**
@@ -91,109 +67,32 @@ function connect(conn, options) {
  * close
  *
  */
-function close(conn) {
-    var ws = conn.ws;
+RpcWsConnection.prototype.close = function() {
 
+    this.closed = true;
+    this.emit('close');
+
+    var ws = this.ws;
     if (!ws) {
         return;
     }
 
-    ws.connected = false;
 
     if (ws.keepalive_interval) {
         clearInterval(ws.keepalive_interval);
         ws.keepalive_interval = null;
     }
 
-    if (ws.connect_defer) {
-        ws.connect_defer.reject('WS CLOSED');
-        ws.connect_defer = null;
+    if (this.connect_defer) {
+        this.connect_defer.reject('WS DISCONNECTED ' + this.connid + ' ' + this.url.href);
+        this.connect_defer = null;
     }
 
     if (ws.readyState !== WS.CLOSED &&
         ws.readyState !== WS.CLOSING) {
         ws.close();
     }
-}
-
-
-/**
- *
- * listen
- *
- */
-function listen(rpc, http_server) {
-    var ws_server = new WS.Server({
-        server: http_server
-    });
-    ws_server.on('connection', function(ws) {
-        // TODO find out if ws is secure and use wss:// address instead
-        var conn;
-        var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
-        dbg.log0('WS CONNECTION FROM', address);
-
-        ws.on('close', function() {
-            if (conn) {
-                dbg.warn('WS CLOSED', conn.connid);
-                conn.close();
-            } else {
-                dbg.warn('WS CLOSED (not connected)', address);
-            }
-        });
-
-        ws.on('error', function(err) {
-            if (conn) {
-                dbg.error('WS ERROR', conn.connid, err.stack || err);
-                conn.emit('error', err);
-            } else {
-                dbg.error('WS ERROR (not connected)', address, err.stack || err);
-                ws.emit('close', err);
-            }
-        });
-
-        ws.on('message', function(msg, flags) {
-            try {
-                if (flags.binary) {
-                    handle_data_message(msg);
-                } else {
-                    handle_command_message(msg);
-                }
-            } catch (err) {
-                conn.emit('error', err);
-            }
-        });
-
-        function handle_data_message(msg) {
-            assert(conn, 'NOT CONNECTED');
-            var buffer = buffer_utils.toBuffer(msg);
-            conn.receive(buffer);
-        }
-
-        function handle_command_message(msg) {
-            var cmd = _.isString(msg) ? JSON.parse(msg) : msg;
-            switch (cmd.op) {
-                case 'keepalive':
-                    assert(conn, 'NOT CONNECTED');
-                    assert.strictEqual(cmd.time, conn.time, 'CONNECTION TIME MISMATCH');
-                    assert.strictEqual(cmd.rand, conn.rand, 'CONNECTION RAND MISMATCH');
-                    break;
-                case 'connect':
-                    dbg.log0('WS CONNECT', msg);
-                    assert(!conn, 'ALREADY CONNECTED');
-                    conn = rpc.new_connection(address, cmd.time, cmd.rand);
-                    conn.ws = ws;
-                    ws.connected = true;
-                    break;
-                default:
-                    throw new Error('BAD MESSAGE');
-            }
-        }
-    });
-
-    ws_server.on('error', function(err) {
-        dbg.error('WS SERVER ERROR', err.stack || err);
-    });
-}
+};
 
 
 var WS_SEND_OPTIONS = {
@@ -208,19 +107,121 @@ var WS_SEND_OPTIONS = {
  * send
  *
  */
-function send(conn, msg, op, req) {
-    if (!conn.ws) {
-        throw new Error('WS CLOSED cannot send ' + op + ' to ' + conn.url.href);
+RpcWsConnection.prototype.send = function(msg) {
+    if (!this.ws || this.closed) {
+        throw new Error('WS NOT OPEN ' + this.connid + ' ' + this.url.href);
     }
-    conn.ws.send(msg, WS_SEND_OPTIONS);
-}
+    this.ws.send(msg, WS_SEND_OPTIONS);
+};
 
 
 /**
  *
- * authenticate
+ * RpcWsServer
  *
  */
-function authenticate(conn, auth_token) {
-    // TODO for now just save auth_token and send with every message, better send once
+RpcWsConnection.Server = RpcWsServer;
+
+util.inherits(RpcWsServer, EventEmitter);
+
+function RpcWsServer(http_server) {
+    var self = this;
+    EventEmitter.call(self);
+
+    var ws_server = new WS.Server({
+        server: http_server
+    });
+
+    ws_server.on('connection', function(ws) {
+        var conn;
+        try {
+            // TODO find out if ws is secure and use wss:// address instead
+            var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
+            var address_url = url.parse(address);
+            conn = new RpcWsConnection(address_url);
+            dbg.log0('WS ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);
+            conn.ws = ws;
+            conn._init();
+            self.emit('connection', conn);
+        } catch (err) {
+            dbg.log0('WS ACCEPT ERROR', address, err.stack || err);
+            if (conn) {
+                conn.close();
+            } else {
+                ws.close();
+            }
+        }
+    });
+
+    ws_server.on('error', function(err) {
+        dbg.error('WS SERVER ERROR', err.stack || err);
+    });
 }
+
+
+
+RpcWsConnection.prototype._on_open = function() {
+    var self = this;
+    var ws = self.ws;
+
+    // start keepaliving
+    ws.keepalive_interval =
+        setInterval(send_command, 10000, KEEPALIVE_COMMAND);
+
+    if (self.connect_defer) {
+        self.connect_defer.resolve();
+        self.connect_defer = null;
+    }
+
+    function send_command(command_string) {
+        try {
+            ws.send(command_string);
+        } catch (err) {
+            self.emit('error', err);
+        }
+    }
+};
+
+
+RpcWsConnection.prototype._init = function() {
+    var self = this;
+    var ws = self.ws;
+
+    ws.onclose = function() {
+        dbg.warn('WS CLOSED', self.connid, self.url.href);
+        self.close();
+    };
+
+    ws.onerror = function(err) {
+        dbg.error('WS ERROR', self.connid, self.url.href, err.stack || err);
+        self.close();
+    };
+
+    ws.onmessage = function(msg) {
+        try {
+            if (Buffer.isBuffer(msg.data)) {
+                handle_data_message(msg);
+            } else {
+                handle_command_message(msg);
+            }
+        } catch (err) {
+            self.emit('error', err);
+        }
+
+        function handle_data_message(msg) {
+            var buffer = buffer_utils.toBuffer(msg.data);
+            self.emit('message', buffer);
+        }
+
+        function handle_command_message(msg) {
+            var cmd = _.isString(msg.data) ? JSON.parse(msg.data) : msg.data;
+            switch (cmd.op) {
+                case KEEPALIVE_OP:
+                    // noop
+                    break;
+                default:
+                    throw new Error('BAD COMMAND ' + self.connid + ' ' + self.url.href);
+            }
+        }
+    };
+};

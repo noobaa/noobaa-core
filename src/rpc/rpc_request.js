@@ -29,18 +29,24 @@ Object.defineProperty(RpcRequest.prototype, 'rpc_params', {
 /**
  *
  */
-RpcRequest.prototype.new_request = function(api, method_api, params, options) {
+RpcRequest.prototype.new_request = function(peer, api, method_api, params, auth_token) {
     this.time = Date.now();
-    this.reqid = this.time.toString(16) + Math.random().toString(16).slice(1);
-    this.peer = options.peer || '*';
+    // reqid will be set by the connection...
+    // this.reqid = this.time.toString(16) + Math.random().toString(16).slice(1);
+    this.peer = peer;
     this.api = api;
     this.method_api = method_api;
     this.params = params;
-    this.auth_token = options.auth_token;
+    this.auth_token = auth_token;
     this.srv =
         '/' + this.peer +
         '/' + api.name +
         '/' + method_api.name;
+    try {
+        this.method_api.validate_params(this.params, 'CLIENT');
+    } catch (err) {
+        throw this.rpc_error('BAD_REQUEST', err);
+    }
 };
 
 /**
@@ -66,7 +72,7 @@ RpcRequest.decode_message = function(msg_buffer) {
     var len = msg_buffer.readUInt32BE(0);
     dbg.log3('decode_message', msg_buffer.length, len);
     var header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
-    var buffer = msg_buffer.slice(4 + len);
+    var buffer = (4 + len < msg_buffer.length) ? msg_buffer.slice(4 + len) : null;
     return {
         header: header,
         buffer: buffer
@@ -105,9 +111,14 @@ RpcRequest.prototype.import_request_message = function(msg, api, method_api) {
     this.auth_token = msg.header.auth_token;
     if (method_api) {
         method_api.params.import_buffers(this.params, msg.buffer);
+        try {
+            method_api.validate_params(this.params, 'SERVER');
+        } catch (err) {
+            throw this.rpc_error('BAD_REQUEST', err);
+        }
     }
     this.srv =
-        '/' + (this.peer || '?') +
+        '/' + (this.peer || '') +
         '/' + (api ? api.name : '?') +
         '/' + (method_api ? method_api.name : '?');
 };
@@ -121,6 +132,14 @@ RpcRequest.prototype.export_response_buffer = function() {
         reqid: this.reqid
     };
     var buffers;
+    // check reply schema and set error if needed
+    if (!this.error) {
+        try {
+            this.method_api.validate_reply(this.reply, 'SERVER');
+        } catch (err) {
+            this.rpc_error('BAD_REPLY', err);
+        }
+    }
     if (this.error) {
         header.error = this.error;
     } else {
@@ -144,7 +163,12 @@ RpcRequest.prototype.import_response_message = function(msg) {
     } else {
         this.reply = msg.header.reply;
         this.method_api.reply.import_buffers(this.reply, msg.buffer);
-        this.response_defer.resolve(this.reply);
+        try {
+            this.method_api.validate_reply(this.reply, 'CLIENT');
+            this.response_defer.resolve(this.reply);
+        } catch (err) {
+            this.response_defer.reject(err);
+        }
     }
     return is_pending;
 };
@@ -195,6 +219,16 @@ RpcRequest.ERRORS = {
      * a classic case for delay and retry.
      */
     UNAVAILABLE: 503,
+
+    /**
+     * bad request means invalid params schema.
+     */
+    BAD_REQUEST: 400,
+
+    /**
+     * bad reply means invalid reply schema.
+     */
+    BAD_REPLY: 500,
 
     /**
      * not found means that the requested api or method was not found.

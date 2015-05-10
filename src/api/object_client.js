@@ -36,11 +36,10 @@ module.exports = ObjectClient;
  * defined in object_api to the web server.
  *
  */
-function ObjectClient(object_rpc_client, agent_rpc_client) {
+function ObjectClient(client) {
     var self = this;
 
-    self.object_rpc_client = object_rpc_client;
-    self.agent_rpc_client = agent_rpc_client;
+    self.client = client;
 
     // some constants that might be provided as options to the client one day
 
@@ -92,13 +91,13 @@ ObjectClient.prototype.upload_stream = function(params) {
     var bucket_key_params = _.pick(params, 'bucket', 'key');
 
     dbg.log0('upload_stream: create multipart', params.key);
-    return self.object_rpc_client.create_multipart_upload(create_params)
+    return self.client.object.create_multipart_upload(create_params)
         .then(function() {
             return self.upload_stream_parts(params);
         })
         .then(function() {
             dbg.log0('upload_stream: complete multipart', params.key);
-            return self.object_rpc_client.complete_multipart_upload(bucket_key_params);
+            return self.client.object.complete_multipart_upload(bucket_key_params);
         }, function(err) {
             dbg.log0('upload_stream: error write stream', params.key, err);
             throw err;
@@ -183,7 +182,7 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                 var stream = this;
                 dbg.log0('upload_stream: allocating parts', parts.length);
                 // send parts to server
-                return self.object_rpc_client.allocate_object_parts({
+                return self.client.object.allocate_object_parts({
                         bucket: params.bucket,
                         key: params.key,
                         parts: _.map(parts, function(part) {
@@ -254,7 +253,7 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                 dbg.log0('upload_stream: finalize parts', parts.length);
                 // send parts to server
                 return self._finalize_sem.surround(function() {
-                        return self.object_rpc_client.finalize_object_parts({
+                        return self.client.object.finalize_object_parts({
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
@@ -368,7 +367,7 @@ ObjectClient.prototype._attempt_write_block = function(params) {
                 });
             dbg.log0('write block remaining attempts',
                 params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
-            return self.object_rpc_client.report_bad_block(bad_block_params)
+            return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
                     // update the block itself in the part so
@@ -399,7 +398,7 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
-        return self.agent_rpc_client.write_block({
+        return self.client.agent.write_block({
             block_id: block_address.id,
             data: buffer,
         }, {
@@ -455,7 +454,7 @@ ObjectClient.prototype._init_object_md_cache = function() {
         },
         load: function(params) {
             dbg.log1('MDCache: load', params.key, 'bucket', params.bucket);
-            return self.object_rpc_client.read_object_md(params);
+            return self.client.object.read_object_md(params);
         }
     });
 };
@@ -742,7 +741,7 @@ ObjectClient.prototype._init_object_map_cache = function() {
             map_params.end = map_params.start + self.MAP_RANGE_ALIGN;
             dbg.log1('MappingsCache: load', range_utils.human_range(params),
                 'aligned', range_utils.human_range(map_params));
-            return self.object_rpc_client.read_object_mappings(map_params);
+            return self.client.object.read_object_mappings(map_params);
         },
         make_val: function(val, params) {
             var mappings = _.clone(val);
@@ -889,7 +888,7 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
             size_utils.human_size(block_size), block_address.id,
             'from', block_address.peer);
 
-        return self.agent_rpc_client.read_block({
+        return self.client.agent.read_block({
                 block_id: block_address.id
             }, {
                 peer: block_address.peer,

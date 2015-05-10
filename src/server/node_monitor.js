@@ -6,7 +6,7 @@ var Q = require('q');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
-var api_servers = require('../server/api_servers');
+var server_rpc = require('../server/server_rpc');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
@@ -268,7 +268,7 @@ function heartbeat(req) {
 function send_signal(req) {
     var target = req.rpc_params.target;
     console.log('send_signal', target.peer);
-    return api_servers.client.agent.receive_signal(req.rpc_params, {
+    return server_rpc.client.agent.receive_signal(req.rpc_params, {
         peer: target.peer,
         address: target.address,
         last_address: peers_last_address[target.peer],
@@ -288,7 +288,7 @@ function self_test_to_node_via_web(req) {
 
     console.log('SELF TEST', target.peer, 'from', source.peer);
 
-    return api_servers.client.agent.self_test_peer({
+    return server_rpc.client.agent.self_test_peer({
         target: target,
         request_length: req.rpc_params.request_length || 1024,
         response_length: req.rpc_params.response_length || 1024,

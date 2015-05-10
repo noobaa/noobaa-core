@@ -135,7 +135,7 @@ function RpcWsServer(http_server) {
     ws_server.on('connection', function(ws) {
         var conn;
         try {
-            // TODO find out if ws is secure and use wss:// address instead
+            // TODO how to find out if ws is secure and use wss:// address instead
             var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
             var address_url = url.parse(address);
             conn = new RpcWsConnection(address_url);
@@ -177,7 +177,8 @@ RpcWsConnection.prototype._on_open = function() {
         try {
             ws.send(command_string);
         } catch (err) {
-            self.emit('error', err);
+            dbg.error('WS SEND COMMAND ERROR', self.connid, self.url.href, err.stack || err);
+            self.close();
         }
     }
 };
@@ -205,7 +206,8 @@ RpcWsConnection.prototype._init = function() {
                 handle_command_message(msg);
             }
         } catch (err) {
-            self.emit('error', err);
+            dbg.error('WS MESSAGE ERROR', self.connid, self.url.href, err.stack || err);
+            self.close();
         }
 
         function handle_data_message(msg) {

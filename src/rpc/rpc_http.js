@@ -165,7 +165,6 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
             // statusCode = 0 means ECONNREFUSED and the response
             // will not emit events in such case
             send_defer.reject('ECONNREFUSED');
-            self.emit('error', new Error('ECONNREFUSED'));
             return;
         }
         send_defer.resolve();

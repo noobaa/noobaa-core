@@ -461,14 +461,27 @@ RPC.prototype.accept_new_connection = function(conn) {
         // http connections are opened per request ad not saved
         // since they are not really connections but rather just a single req-res.
         this._connection_by_address[conn.url.href] = conn;
+        dbg.log0('RPC CONNECTION', conn.connid, conn.url.href);
+    } else {
+        dbg.log1('RPC CONNECTION', conn.connid, conn.url.href);
     }
     conn.sent_requests = {};
     conn.received_requests = {};
     conn.on('message', this.connection_receive_message.bind(this, conn));
     conn.on('close', this.connection_closed.bind(this, conn));
+
+    // we prefer to let the connection handle it's own errors and decide if to close or not
     // conn.on('error', this.connection_error.bind(this, conn));
 };
 
+
+/**
+ *
+ */
+RPC.prototype.connection_error = function(conn, err) {
+    dbg.error('RPC CONNECTION ERROR:', conn.connid, conn.url.href, err.stack || err);
+    conn.close();
+};
 
 /**
  *

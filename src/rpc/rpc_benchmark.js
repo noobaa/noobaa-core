@@ -6,8 +6,6 @@ var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
-var rpc_nudp = require('./rpc_nudp');
-var stun = require('./stun');
 var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
@@ -31,8 +29,7 @@ if (!(argv.proto in {
         https: 1,
         ws: 1,
         wss: 1,
-        nudp: 1,
-        nudps: 1,
+        n2n: 1,
         fcall: 1,
     })) {
     throw new Error('BAD PROTOCOL ' + argv.proto);
@@ -40,7 +37,6 @@ if (!(argv.proto in {
 var secure = argv.proto in {
     https: 1,
     wss: 1,
-    nudps: 1
 };
 // client mode
 argv.client = argv.client || false;
@@ -142,22 +138,10 @@ function start() {
             }
 
             // open udp listening port for udp based protocols (needed also for client)
-            if (argv.proto in {
-                    nudp: 1,
-                    nudps: 1,
-                }) {
-                return rpc_nudp.listen(rpc, argv.server ? argv.port : argv.port + 1)
-                    .then(function(nudp_socket) {
-                        rpc.client.options.nudp_socket = nudp_socket;
-
-                        // try connecting stun directly to peer
-                        if (argv.stun) {
-                            return stun.connect_socket(
-                                nudp_socket.socket,
-                                argv.host,
-                                argv.server ? argv.port + 1 : argv.port);
-                        }
-
+            if (argv.proto === 'n2n') {
+                return rpc.register_n2n_transport(argv.server ? argv.port : argv.port + 1)
+                    .then(function(n2n) {
+                        rpc.client.options.n2n = n2n;
                     });
             }
         })

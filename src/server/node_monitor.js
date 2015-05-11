@@ -17,7 +17,7 @@ var peers_last_address = {};
 
 module.exports = {
     heartbeat: heartbeat,
-    send_signal: send_signal,
+    n2n_signal: n2n_signal,
     peers_last_address: peers_last_address,
     self_test_to_node_via_web: self_test_to_node_via_web
 };
@@ -262,13 +262,13 @@ function heartbeat(req) {
 
 /**
  *
- * send_signal
+ * n2n_signal
  *
  */
-function send_signal(req) {
+function n2n_signal(req) {
     var target = req.rpc_params.target;
-    console.log('send_signal', target.peer);
-    return server_rpc.client.agent.receive_signal(req.rpc_params, {
+    console.log('n2n_signal', target.peer);
+    return server_rpc.client.agent.n2n_signal(req.rpc_params, {
         peer: target.peer,
         address: target.address,
         last_address: peers_last_address[target.peer],

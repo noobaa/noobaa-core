@@ -8,7 +8,7 @@ var ip_module = require('ip');
 var promise_utils = require('../util/promise_utils');
 var LinkedList = require('noobaa-util/linked_list');
 var dbg = require('noobaa-util/debug_module')(__filename);
-// var rpc_nudp_native = require('../../build/Release/rpc_nudp_native.node');
+// var nudp_native = require('../../build/Release/nudp_native.node');
 
 
 module.exports = {

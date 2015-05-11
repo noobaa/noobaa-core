@@ -10,7 +10,7 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
 var RpcHttpConnection = require('./rpc_http');
-var RpcNudpConnection = require('./rpc_nudp');
+var RpcN2NConnection = require('./rpc_n2n');
 var RpcFcallConnection = require('./rpc_fcall');
 var EventEmitter = require('events').EventEmitter;
 
@@ -56,7 +56,6 @@ function RPC(options) {
     this._services = {};
     this._connection_by_id = {};
     this._connection_by_address = {};
-    this._peers = {};
 
     options = options || {};
 
@@ -390,7 +389,7 @@ RPC.prototype.handle_response = function(conn, msg) {
 RPC.prototype._assign_connection = function(req, options) {
     var self = this;
     var address = options.address || self.base_address;
-    var addr_url = url.parse(address);
+    var addr_url = url.parse(address, true);
     var conn = self._get_connection_by_address(addr_url);
     var rseq = conn._rpc_req_seq;
     req.connection = conn;
@@ -433,12 +432,12 @@ RPC.prototype._new_connection = function(addr_url) {
     // always replace previous connection in the address map,
     // assuming the new connection is preferred.
     switch (addr_url.protocol) {
+        case 'n2n:':
+            conn = new RpcN2NConnection(this.n2n_agent, addr_url);
+            break;
         case 'ws:':
         case 'wss:':
             conn = new RpcWsConnection(addr_url);
-            break;
-        case 'nudp:':
-            conn = new RpcNudpConnection(addr_url);
             break;
         case 'http:':
         case 'https:':
@@ -468,6 +467,9 @@ RPC.prototype._accept_new_connection = function(conn) {
     conn._received_requests = {};
     conn.on('message', this.connection_receive_message.bind(this, conn));
     conn.on('close', this.connection_closed.bind(this, conn));
+    if (conn.n2n_agent) {
+        conn.on('signal', this.connection_n2n_signal.bind(this, conn));
+    }
 
     // we prefer to let the connection handle it's own errors and decide if to close or not
     // conn.on('error', this.connection_error.bind(this, conn));
@@ -551,42 +553,6 @@ RPC.prototype.connection_receive_message = function(conn, msg_buffer) {
 };
 
 
-/**
- *
- */
-RPC.prototype.connection_send_signal = function(conn, message) {
-    if (this.send_signal) {
-        dbg.log0('RPC connection_send_signal', conn.peer, conn.connid, message);
-        this.send_signal({
-            target: {
-                id: 'unused',
-                peer: conn.peer,
-                address: conn.url.href,
-            },
-            info: {
-                conn_time: conn.time,
-                conn_rand: conn.rand,
-                message: message,
-            }
-        });
-    }
-};
-
-
-/**
- *
- */
-RPC.prototype.receive_signal = function(params) {
-    var conn = this.get_connection_by_id(
-        params.target.address,
-        params.info.conn_time,
-        params.info.conn_rand,
-        true);
-    // TODO if this connection is new but will not connect we should cleanup
-    return conn.receive_signal(params.info.message, this.signal_socket);
-};
-
-
 RPC.prototype.emit_stats = function(name, data) {
     try {
         this.emit(name, data);
@@ -635,11 +601,35 @@ RPC.prototype.register_ws_transport = function(http_server) {
 
 /**
  *
- * register_nudp_transport
+ * register_n2n_transport
  *
  */
-RPC.prototype.register_nudp_transport = function(port) {
-    var nudp_server = new RpcNudpConnection.Server(port);
-    nudp_server.on('connection', this._accept_new_connection.bind(this));
-    return nudp_server;
+RPC.prototype.register_n2n_transport = function(preferred_port) {
+    if (this.n2n_agent) {
+        return this.n2n_agent;
+    }
+    var n2n_agent = new RpcN2NConnection.Agent({
+        port: preferred_port
+    });
+    n2n_agent.on('connection', this._accept_new_connection.bind(this));
+    n2n_agent.on('signal', this._agent_n2n_signal.bind(this));
+    this.n2n_agent = n2n_agent;
+    return n2n_agent;
+};
+
+/**
+ *
+ */
+RPC.prototype.n2n_signal = function(params) {
+    return this.n2n_agent.signal(params);
+};
+
+/**
+ * callback from the connection in order to send a signal away.
+ */
+RPC.prototype._agent_n2n_signal = function(params) {
+    if (this.n2n_signaller) {
+        dbg.log0('RPC connection_n2n_signal', params);
+        this.n2n_signaller(params);
+    }
 };

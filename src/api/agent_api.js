@@ -130,7 +130,7 @@ module.exports = {
             },
         },
 
-        receive_signal: {
+        n2n_signal: {
             method: 'POST',
             params: {
                 type: 'object',

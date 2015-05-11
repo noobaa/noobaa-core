@@ -297,7 +297,7 @@ module.exports = {
             }
         },
 
-        send_signal: {
+        n2n_signal: {
             method: 'POST',
             params: {
                 type: 'object',

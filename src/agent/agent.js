@@ -19,7 +19,6 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var ip_module = require('ip');
 var api = require('../api');
-var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
@@ -253,11 +252,7 @@ Agent.prototype._start_stop_nudp_server = function() {
         return;
     }
 
-    return rpc_nudp.listen(api.rpc, self.prefered_port)
-        .then(function(nudp_socket) {
-            self.nudp_socket = nudp_socket;
-            self.client.options.nudp_socket = nudp_socket;
-        });
+    return api.rpc.register_n2n_transport();
 };
 
 

@@ -309,10 +309,17 @@ module.exports = {
                     info: {
                         type: 'object',
                         additionalProperties: true
-                    },
-                    buffer: {
-                        type: 'buffer'
                     }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [],
+                properties: {
+                    info: {
+                        type: 'object',
+                        additionalProperties: true
+                    },
                 }
             },
             auth: {

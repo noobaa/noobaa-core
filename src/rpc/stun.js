@@ -7,7 +7,7 @@ var url = require('url');
 var dgram = require('dgram');
 var crypto = require('crypto');
 var ip_module = require('ip');
-var chance = require('chance').Chance(Date.now());
+var chance = require('chance').Chance();
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 // https://tools.ietf.org/html/rfc5389
@@ -94,6 +94,7 @@ var STUN = {
 };
 STUN.METHOD_NAMES = _.invert(STUN.METHODS);
 STUN.ATTR_NAMES = _.invert(STUN.ATTRS);
+STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
 _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
     if (!stun_url.port) {
         stun_url.port =
@@ -185,6 +186,7 @@ function handle_stun_packet(socket, buffer, rinfo) {
 function receive_stun_request(socket, buffer, rinfo) {
     dbg.log0('STUN REQUESTED from', rinfo.address + ':' + rinfo.port,
         'me', socket.address().address + ':' + socket.address().port);
+    // socket.emit('stun.request', rinfo);
     var reply = new_packet(STUN.METHODS.SUCCESS, [{
         type: STUN.ATTRS.XOR_MAPPED_ADDRESS,
         value: {
@@ -619,7 +621,7 @@ function test() {
             }
         })
         .then(function() {
-            var stun_url = STUN.PUBLIC_SERVERS[0];
+            var stun_url = STUN.DEFAULT_SERVER;
             if (argv.stun_host) {
                 stun_url = {
                     hostname: argv.stun_host,

@@ -1,0 +1,197 @@
+'use strict';
+
+module.exports = NiceConnection;
+
+var _ = require('lodash');
+var Q = require('q');
+var util = require('util');
+var EventEmitter = require('events').EventEmitter;
+var libnice = require('node-libnice');
+var stun = require('./stun');
+var dbg = require('noobaa-util/debug_module')(__filename);
+
+util.inherits(NiceConnection, EventEmitter);
+
+var global_nice_agent;
+
+/**
+ *
+ * NiceConnection
+ *
+ * using libnice as a connector.
+ *
+ */
+function NiceConnection(options) {
+    var self = this;
+    EventEmitter.call(self);
+    self.addr_url = options.addr_url;
+    self.signaller = options.signaller;
+
+    // TODO is it right to use a global libnice agent and create stream per connection?
+    if (!global_nice_agent) {
+        global_nice_agent = new libnice.NiceAgent();
+        global_nice_agent.setStunServer(
+            stun.STUN.DEFAULT_SERVER.hostname,
+            stun.STUN.DEFAULT_SERVER.port);
+    }
+}
+
+
+/**
+ *
+ * connect
+ *
+ */
+NiceConnection.prototype.connect = function(options) {
+    var self = this;
+    if (self.ready) {
+        return;
+    }
+    if (self.accept_defer) {
+        return self.accept_defer;
+    }
+    if (self.stream) {
+        throw new Error('NICE invalid connect state');
+    }
+    self.connect_defer = Q.defer();
+
+    // create a nice-stream to be used for connecting.
+    // 1 is number of components to init
+    var stream = self.stream = global_nice_agent.createStream(1);
+
+    stream.on('stateChanged', function(component, state) {
+        dbg.log0('NICE CONNECT stateChanged', state);
+        self.ready = false;
+        switch (state) {
+            case 'ready':
+                self.ready = true;
+                if (self.connect_defer) {
+                    self.connect_defer.resolve();
+                    self.connect_defer = null;
+                }
+                break;
+            case 'connected':
+            case 'connecting':
+                break;
+            default:
+                if (self.connect_defer) {
+                    self.connect_defer.reject('libnice ' + state);
+                }
+                break;
+        }
+    });
+
+    stream.on('receive', function(component, data) {
+        self.emit('message', data);
+    });
+
+    stream.on('gatheringDone', function(candidates) {
+        self.signaller({
+                credentials: self.stream.getLocalCredentials(),
+                candidates: self.stream.getLocalIceCandidates()
+            })
+            .then(function(info) {
+                dbg.log0('NICE SIGNAL RESPONSE', info);
+                self.stream.setRemoteCredentials(
+                    info.credentials.ufrag,
+                    info.credentials.pwd);
+                _.each(info.candidates, function(candidate) {
+                    self.stream.addRemoteIceCandidate(candidate);
+                });
+            })
+            .then(null, function(err) {
+                dbg.error('NICE SIGNAL ERROR', err.stack || err);
+                self.emit('error', err);
+            });
+    });
+
+    self.stream.gatherCandidates();
+
+    return self.connect_defer.promise;
+};
+
+
+/**
+ *
+ * accept
+ *
+ */
+NiceConnection.prototype.accept = function(info) {
+    var self = this;
+    if (self.ready) {
+        return;
+    }
+    if (self.accept_defer) {
+        return self.accept_defer;
+    }
+    if (self.stream) {
+        throw new Error('NICE invalid accept state');
+    }
+    self.accept_defer = Q.defer();
+
+    // create a nice-stream to be used for connecting.
+    // 1 is number of components to init
+    var stream = self.stream = global_nice_agent.createStream(1);
+
+    stream.on('stateChanged', function(component, state) {
+        dbg.log0('NICE ACCEPT stateChanged', state);
+        self.ready = false;
+        switch (state) {
+            case 'ready':
+                self.ready = true;
+                break;
+            case 'connected':
+            case 'connecting':
+                break;
+            default:
+                if (self.accept_defer) {
+                    self.accept_defer.reject('libnice ' + state);
+                }
+                break;
+        }
+    });
+
+    self.stream.on('receive', function(component, data) {
+        self.emit('message', data);
+    });
+
+    self.stream.on('gatheringDone', function(candidates) {
+        self.accept_defer.resolve({
+            credentials: self.stream.getLocalCredentials(),
+            candidates: self.stream.getLocalIceCandidates()
+        });
+        self.accept_defer = null;
+    });
+
+    self.stream.gatherCandidates();
+    self.stream.setRemoteCredentials(
+        info.credentials.ufrag,
+        info.credentials.pwd);
+    _.each(info.candidates, function(candidate) {
+        self.stream.addRemoteIceCandidate(candidate);
+    });
+
+    return self.accept_defer.promise;
+};
+
+
+/**
+ *
+ * send
+ *
+ */
+NiceConnection.prototype.send = function(msg) {
+    this.stream.send(1, msg);
+};
+
+
+/**
+ *
+ * close
+ *
+ */
+NiceConnection.prototype.close = function() {
+    this.ready = false;
+    this.stream.close();
+    this.emit('close');
+};

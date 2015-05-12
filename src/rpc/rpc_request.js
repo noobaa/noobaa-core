@@ -1,10 +1,10 @@
 'use strict';
 
+module.exports = RpcRequest;
+
 var _ = require('lodash');
 // var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
-
-module.exports = RpcRequest;
 
 /**
  *

@@ -1,5 +1,7 @@
 'use strict';
 
+module.exports = RpcHttpConnection;
+
 var _ = require('lodash');
 var Q = require('q');
 var url = require('url');
@@ -15,8 +17,6 @@ var express_compress = require('compression');
 var pem = require('../util/pem');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-
-module.exports = RpcHttpConnection;
 
 util.inherits(RpcHttpConnection, EventEmitter);
 

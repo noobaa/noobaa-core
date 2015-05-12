@@ -1,5 +1,7 @@
 'use strict';
 
+module.exports = RpcWsConnection;
+
 var _ = require('lodash');
 var Q = require('q');
 var url = require('url');
@@ -8,8 +10,6 @@ var EventEmitter = require('events').EventEmitter;
 var buffer_utils = require('../util/buffer_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var WS = require('ws');
-
-module.exports = RpcWsConnection;
 
 util.inherits(RpcWsConnection, EventEmitter);
 
@@ -24,7 +24,7 @@ function RpcWsConnection(addr_url) {
 
     // generate connection id only used for identifying in debug prints
     var t = process.hrtime();
-    this.connid = t[0].toString(36) + '_' + t[1].toString(36);
+    this.connid = 'WS-' + t[0].toString(36) + t[1].toString(36);
 }
 
 var KEEPALIVE_OP = 'keepalive';

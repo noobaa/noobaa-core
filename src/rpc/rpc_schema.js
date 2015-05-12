@@ -1,12 +1,12 @@
 'use strict';
 
+module.exports = RpcSchema;
+
 var _ = require('lodash');
 var assert = require('assert');
 var validator = require('is-my-json-valid');
 var genfun = require('generate-function');
 var dbg = require('noobaa-util/debug_module')(__filename);
-
-module.exports = RpcSchema;
 
 /**
  * a registry for api's

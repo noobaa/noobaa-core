@@ -1,5 +1,7 @@
 'use strict';
 
+module.exports = RPC;
+
 var _ = require('lodash');
 var Q = require('q');
 var url = require('url');
@@ -13,8 +15,6 @@ var RpcHttpConnection = require('./rpc_http');
 var RpcN2NConnection = require('./rpc_n2n');
 var RpcFcallConnection = require('./rpc_fcall');
 var EventEmitter = require('events').EventEmitter;
-
-module.exports = RPC;
 
 // dbg.set_level(5, __dirname);
 
@@ -429,11 +429,9 @@ RPC.prototype._get_connection_by_address = function(addr_url) {
  */
 RPC.prototype._new_connection = function(addr_url) {
     var conn;
-    // always replace previous connection in the address map,
-    // assuming the new connection is preferred.
     switch (addr_url.protocol) {
         case 'n2n:':
-            conn = new RpcN2NConnection(this.n2n_agent, addr_url);
+            conn = new RpcN2NConnection(addr_url, this.n2n_agent);
             break;
         case 'ws:':
         case 'wss:':
@@ -458,6 +456,8 @@ RPC.prototype._new_connection = function(addr_url) {
  *
  */
 RPC.prototype._accept_new_connection = function(conn) {
+    // always replace previous connection in the address map,
+    // assuming the new connection is preferred.
     if (!conn.transient) {
         dbg.log0('RPC CONNECTION', conn.connid, conn.url.href);
         this._connection_by_address[conn.url.href] = conn;
@@ -467,9 +467,6 @@ RPC.prototype._accept_new_connection = function(conn) {
     conn._received_requests = {};
     conn.on('message', this.connection_receive_message.bind(this, conn));
     conn.on('close', this.connection_closed.bind(this, conn));
-    if (conn.n2n_agent) {
-        conn.on('signal', this.connection_n2n_signal.bind(this, conn));
-    }
 
     // we prefer to let the connection handle it's own errors and decide if to close or not
     // conn.on('error', this.connection_error.bind(this, conn));
@@ -491,7 +488,7 @@ RPC.prototype.connection_closed = function(conn) {
     var self = this;
 
     if (!conn.quiet) {
-        dbg.log0('RPC connection_closed:', conn.connid);
+        dbg.log0('RPC connection_closed:', conn.connid, new Error().stack);
     }
 
     // remove from connection pool
@@ -604,15 +601,14 @@ RPC.prototype.register_ws_transport = function(http_server) {
  * register_n2n_transport
  *
  */
-RPC.prototype.register_n2n_transport = function(preferred_port) {
+RPC.prototype.register_n2n_transport = function() {
     if (this.n2n_agent) {
         return this.n2n_agent;
     }
     var n2n_agent = new RpcN2NConnection.Agent({
-        port: preferred_port
+        signaller: this.n2n_signaller,
     });
     n2n_agent.on('connection', this._accept_new_connection.bind(this));
-    n2n_agent.on('signal', this._agent_n2n_signal.bind(this));
     this.n2n_agent = n2n_agent;
     return n2n_agent;
 };
@@ -622,14 +618,4 @@ RPC.prototype.register_n2n_transport = function(preferred_port) {
  */
 RPC.prototype.n2n_signal = function(params) {
     return this.n2n_agent.signal(params);
-};
-
-/**
- * callback from the connection in order to send a signal away.
- */
-RPC.prototype._agent_n2n_signal = function(params) {
-    if (this.n2n_signaller) {
-        dbg.log0('RPC connection_n2n_signal', params);
-        this.n2n_signaller(params);
-    }
 };

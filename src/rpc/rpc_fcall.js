@@ -1,9 +1,9 @@
 'use strict';
 
+module.exports = RpcFcallConnection;
+
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
-
-module.exports = RpcFcallConnection;
 
 util.inherits(RpcFcallConnection, EventEmitter);
 

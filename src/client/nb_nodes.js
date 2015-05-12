@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
-var chance = require('chance').Chance(Date.now());
+var chance = require('chance').Chance();
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 

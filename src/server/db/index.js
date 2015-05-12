@@ -16,7 +16,7 @@ var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
-var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
  *
@@ -109,14 +109,14 @@ module.exports = {
 
 function check_not_found(req, entity) {
     return function(doc) {
-        if (!doc) throw req.rest_error(entity + ' not found');
+        if (!doc) throw req.rpc_error('NOT_FOUND', entity + ' not found');
         return doc;
     };
 }
 
 function check_not_deleted(req, entity) {
     return function(doc) {
-        if (!doc || doc.deleted) throw req.rest_error(entity + ' not found');
+        if (!doc || doc.deleted) throw req.rpc_error('NOT_FOUND', entity + ' not found');
         return doc;
     };
 }
@@ -124,7 +124,7 @@ function check_not_deleted(req, entity) {
 function check_already_exists(req, entity) {
     return function(err) {
         if (is_err_exists(err)) {
-            throw req.rest_error(entity + ' already exists');
+            throw req.rpc_error('CONFLICT', entity + ' already exists');
         }
         throw err;
     };

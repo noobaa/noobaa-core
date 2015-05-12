@@ -495,7 +495,7 @@ module.exports = {
                 },
                 create_time: {
                     type: 'integer',
-                    format: 'date',
+                    format: 'idate',
                 },
                 upload_size: {
                     type: 'integer',

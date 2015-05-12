@@ -103,58 +103,15 @@ function request_ws(rpc, api, method_api, params, options) {
  */
 function serve(rpc, peer_id) {
 
-    function handle_request(socket, channel, message) {
+    function handle_request(socket, channel, msgObj) {
 
-        var msg;
-        var body;
-        var reqId;
-        var isWs = false;
+        var msg = msgObj.peer_msg;
+        var reqId = msgObj.requestId;
         var rpc_method;
-        var handle = true;
 
         return Q.fcall(function() {
 
-                // TODO YAEL - explain these cases. better simplify them.
-
-                if (typeof message === 'string' || message instanceof String) {
-                    msg = JSON.parse(message);
-                    reqId = msg.req || msg.requestId;
-                    body = msg.body;
-                    dbg.log0('ice do something ' + util.inspect(msg));
-                } else if (message instanceof ArrayBuffer) {
-                    try {
-                        reqId = (buffer_utils.toBuffer(message.slice(0, 32))
-                            .readInt32LE(0)).toString();
-                    } catch (ex) {
-                        dbg.error('problem reading req id rest_api ' + ex);
-                    }
-                    var msgObj = channel.msgs[reqId];
-                    body = msgObj.buffer;
-                    msg = msgObj.peer_msg;
-                    dbg.log0('ice do something with buffer ' + util.inspect(msg) + ' for req ' + reqId);
-                } else if (message.method) {
-                    msg = message;
-                    body = msg.body;
-                    reqId = msg.req || msg.requestId;
-                    dbg.log0('ice do something json ' + util.inspect(message) + ' req ' + reqId);
-                } else {
-                    handle = false;
-                    throw new Error('ice got weird msg '+ util.inspect(message));
-                }
-
-                if (msg && msg.sigType) {
-                    isWs = true;
-                }
-
-                var reqMsg = msg;
-                var reqBody = body;
-                if (body && body.body) {
-                    reqMsg = body;
-                    reqBody = body.body;
-                }
-
-                if (!reqMsg.path) {
-                    handle = false;
+                if (!msg.path) {
                     throw {
                         statusCode: 400,
                         data: 'RPC: no method sent'
@@ -162,27 +119,26 @@ function serve(rpc, peer_id) {
                 }
 
                 // skip first split item if empty due to leading '/'
-                var path_split = reqMsg.path.split('/', 4);
+                var path_split = msg.path.split('/', 4);
                 var api_name = path_split.shift() || path_split.shift();
                 var method_name = path_split.shift();
                 var domain = path_split.shift();
-                rpc_method = rpc.get_service_method(api_name, method_name, domain);
+                rpc_method = rpc.get_service_method(api_name, domain, method_name);
 
                 if (!rpc_method) {
-                    handle = false;
                     throw {
                         statusCode: 400,
-                        data: 'RPC: no such method ' + reqMsg.path
+                        data: 'RPC: no such method ' + msg.path
                     };
                 }
 
-                dbg.log0('reqMsg', reqMsg, 'reqBody', reqBody);
+                dbg.log0('reqId', reqId, 'msg', msg);
                 var rpc_req = {};
                 if (rpc_method.method_api.param_raw) {
-                    rpc_req.rpc_params = reqMsg.body;
-                    rpc_req.rpc_params[rpc_method.method_api.param_raw] = reqBody;
+                    rpc_req.rpc_params = msg.body;
+                    rpc_req.rpc_params[rpc_method.method_api.param_raw] = msgObj.buffer;
                 } else {
-                    rpc_req.rpc_params = reqBody;
+                    rpc_req.rpc_params = msg.body;
                 }
 
                 return rpc_method.handler(rpc_req);
@@ -194,57 +150,56 @@ function serve(rpc, peer_id) {
                     return send_reply(200, reply, null);
                 }
             }, function(err) {
-                dbg.error('RPC ICE FAILED ',reqId, err.stack || err);
-                return handle ? send_reply(500, err.toString(), null) : null;
+                dbg.error('RPC ICE FAILED ', reqId, err.stack || err);
+                return send_reply(err.statusCode || 500, err.toString(), null);
             });
 
         function send_reply(status, data, buffer) {
             var reply;
             return Q.fcall(function() {
-                    if (buffer && !(buffer instanceof ArrayBuffer)) {
-                        buffer = buffer_utils.toArrayBuffer(buffer);
-                    }
 
-                    dbg.log0('done manual status: ' + status + " reply: " + data + ' buffer: ' + (buffer ? buffer.byteLength : 0) + ' req ' + reqId, isWs ? msg.from : channel.peerId);
+                    dbg.log0('done manual status: ' + status + " reply: " + data + ' buffer: ' + (buffer ? buffer.length : 0) + ' req ' + reqId, 'from', msgObj.from || channel.peerId);
 
                     reply = {
                         status: status,
                         statusCode: status,
-                        size: (buffer ? buffer.byteLength : 0),
+                        size: (buffer ? buffer.length : 0),
                         data: data,
                         req: reqId
                     };
 
-                    if (isWs) {
-                        reply.sigType = 'response';
-                        reply.requestId = reqId;
-                        reply.from = msg.to;
-                        reply.to = msg.from;
-                    }
-                })
-                .then(function() {
-                    if (isWs) {
+                    if (msgObj.isWS) {
                         if (buffer) {
                             throw new Error('UNEXPECTED BUFFER WITH WS ' + rpc_method.method_api.name);
                         }
+                        reply.sigType = 'response';
+                        reply.requestId = reqId;
+                        reply.from = msgObj.to;
+                        reply.to = msgObj.from;
+
                         // TODO isn't there a callback to WS send? need to return to promise chain..
-                        dbg.log3('done return ws reply ',reqId);
+                        dbg.log2('done return ws reply ', reqId, reply);
                         return channel.send(JSON.stringify(reply));
                     } else {
                         // write has timeout internally
-                        dbg.log3('done return ice reply ',reqId, channel.peerId);
+                        dbg.log2('done return ice reply ', reqId, channel.peerId, reply);
                         return ice_api.writeMessage(socket, channel, reply, buffer, reqId);
                     }
                 })
                 .then(function() {
-                    dbg.log3('done request, close conn if needed ',reqId, isWs ? msg.from : channel.peerId);
-                    try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (err) {
+                    dbg.log3('done request, close conn if needed ', reqId,
+                        'from', msgObj.from || channel.peerId);
+                    try {
+                        ice_lib.closeIce(socket, reqId, msgObj.isWS ? null : channel, true);
+                    } catch (err) {
                         dbg.error('closeIce err ' + reqId, err);
                     }
                 })
                 .then(null, function(err) {
-                    dbg.log3('send_reply error ',reqId, err);
-                    try {ice_lib.closeIce(socket, reqId, isWs ? null : channel, true);} catch (ex) {
+                    dbg.log3('send_reply error ', reqId, err);
+                    try {
+                        ice_lib.closeIce(socket, reqId, msgObj.isWS ? null : channel, true);
+                    } catch (ex) {
                         dbg.error('closeIce ex on err ' + reqId, ex);
                     }
                     throw err;

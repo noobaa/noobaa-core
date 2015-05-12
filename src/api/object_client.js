@@ -8,11 +8,9 @@ var Q = require('q');
 var Semaphore = require('noobaa-util/semaphore');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
-var ChunkStream = require('../util/chunk_stream');
 var CoalesceStream = require('../util/coalesce_stream');
 var rabin = require('../util/rabin');
 var Poly = require('../util/poly');
-var crypto = require('crypto');
 var chunk_crypto = require('../util/chunk_crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
@@ -272,9 +270,6 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                                 }
                                 return p;
                             })
-                        }, {
-                            timeout: config.client_replicate_timeout,
-                            retries: 3
                         });
                     })
                     .then(function() {
@@ -400,7 +395,7 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
 
         dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block_address.id,
-            'to', block_address.host);
+            'to', block_address.peer);
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
@@ -408,14 +403,13 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
             block_id: block_address.id,
             data: buffer,
         }, {
-            address: block_address.host,
-            domain: block_address.peer,
             peer: block_address.peer,
+            address: block_address.address,
             timeout: config.write_timeout,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block_address.id,
-                'from', block_address.host);
+                'from', block_address.peer);
             throw err;
         });
 
@@ -893,17 +887,17 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
 
         dbg.log1('read_block', size_utils.human_offset(offset),
             size_utils.human_size(block_size), block_address.id,
-            'from', block_address.host);
+            'from', block_address.peer);
 
         return self.agent_rpc_client.read_block({
                 block_id: block_address.id
             }, {
-                address: block_address.host,
-                domain: block_address.peer,
                 peer: block_address.peer,
+                address: block_address.address,
                 timeout: config.read_timeout,
             })
-            .then(function(buffer) {
+            .then(function(res) {
+                var buffer = res.data;
                 // verify the received buffer length must be full size
                 if (!Buffer.isBuffer(buffer)) {
                     throw new Error('NOT A BUFFER ' + typeof(buffer));
@@ -915,7 +909,7 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
             }, function(err) {
                 console.error('FAILED read_block', size_utils.human_offset(offset),
                     size_utils.human_size(block_size), block_address.id,
-                    'from', block_address.host);
+                    'from', block_address.peer);
                 throw err;
             });
     });

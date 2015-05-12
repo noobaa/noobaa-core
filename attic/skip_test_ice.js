@@ -1,13 +1,14 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
+require('../util/panic');
 
-var buf = require('../util/buffer_utils');
-var _ = require('lodash');
+// var _ = require('lodash');
 var Q = require('q');
 var assert = require("assert");
 var sinon     = require('sinon');
-var config = require('../../config.js');
+var buffer_utils = require('../util/buffer_utils');
 var rewire = require('rewire');
 
 function mockIceApi() {
@@ -96,7 +97,7 @@ describe('create buffer to send', function() {
         var block = new Buffer('stam','utf-8');
         var res = require('../util/ice_lib').createBufferToSend(block, 2, '45344');
 
-        var bff = buf.toBuffer(res);
+        var bff = buffer_utils.toBuffer(res);
         var req = (bff.readInt32LE(0)).toString();
         var part = bff.readInt32LE(4);
 
@@ -122,8 +123,8 @@ describe('write buffer to socket', function() {
         channel.offset = 0;
         channel.bufferedAmount = 0;
         channel.send = function(data) {
-            var bff = buf.chunkToBuffer(data);
-            var old = buf.chunkToBuffer(channel.buffer);
+            var bff = buffer_utils.toBuffer(data);
+            var old = buffer_utils.toBuffer(channel.buffer);
             channel.buffer = Buffer.concat([old, bff]);
         };
 
@@ -133,7 +134,7 @@ describe('write buffer to socket', function() {
             return ice_api.writeBufferToSocket(null,channel, block, '45344');
         }).then(function() {
 
-            var myResultBuffer = buf.chunkToBuffer(channel.buffer);
+            var myResultBuffer = buffer_utils.toBuffer(channel.buffer);
 
             var req = (myResultBuffer.readInt32LE(0)).toString();
             var part = myResultBuffer.readInt32LE(4);
@@ -227,14 +228,14 @@ describe('on ice message', function() {
 
         var blockEvent = require('../util/ice_lib').createBufferToSend(block, 0, requestId);
         event = {
-            data: buf.toArrayBuffer(blockEvent)
+            data: buffer_utils.toArrayBuffer(blockEvent)
         };
 
         ice_api.onIceMessage(socket, channel, event);
 
         blockEvent = require('../util/ice_lib').createBufferToSend(block, 1, requestId);
         event = {
-            data: buf.toArrayBuffer(blockEvent)
+            data: buffer_utils.toArrayBuffer(blockEvent)
         };
         ice_api.onIceMessage(socket, channel, event);
 
@@ -581,8 +582,4 @@ describe('on ice message', function() {
 
     });
 
-});
-
-process.on('uncaughtException', function(err) {
-    console.error('Caught exception: ' + err + ' ; ' + err.stack);
 });

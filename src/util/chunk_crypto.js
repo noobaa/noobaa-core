@@ -1,16 +1,13 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
 var Q = require('q');
-var util = require('util');
-var stream = require('stream');
 var crypto = require('crypto');
 var subtle_crypto = global && global.crypto && global.crypto.subtle;
 if (subtle_crypto) {
     var evp_bytes_to_key = require('browserify-aes/EVP_BytesToKey');
 }
-var buf_utils = require('../util/buffer_utils');
+var buffer_utils = require('../util/buffer_utils');
 
 /**
  *
@@ -53,7 +50,7 @@ function encrypt_chunk(plain_buffer, crypt_info) {
         if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
             var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
 
-            var keyToUse = buf_utils.toArrayBuffer(keys.key);
+            var keyToUse = buffer_utils.toArrayBuffer(keys.key);
 
             return subtle_crypto.importKey('raw', keyToUse, {
                     name: "AES-CBC",
@@ -61,12 +58,12 @@ function encrypt_chunk(plain_buffer, crypt_info) {
                 }, false, ['encrypt'])
                 .then(function(key) {
                     var iv;
-                    if (buf_utils.isAbv(keys.iv)) {
+                    if (buffer_utils.isAbv(keys.iv)) {
                         iv = keys.iv;
                     } else {
-                        iv = buf_utils.toArrayBufferView(keys.iv);
+                        iv = buffer_utils.toArrayBufferView(keys.iv);
                     }
-                    var plnBuf = buf_utils.toArrayBuffer(plain_buffer);
+                    var plnBuf = buffer_utils.toArrayBuffer(plain_buffer);
 
                     return subtle_crypto.encrypt({
                         name: "AES-CBC",
@@ -112,7 +109,7 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
         if (subtle_crypto && crypt_info.cipher_type === 'aes256') {
             var keys = evp_bytes_to_key(crypt_info.cipher_val, 256, 16);
 
-            var keyToUse = buf_utils.toArrayBuffer(keys.key);
+            var keyToUse = buffer_utils.toArrayBuffer(keys.key);
 
             return subtle_crypto.importKey('raw', keyToUse, {
                     name: "AES-CBC",
@@ -120,12 +117,12 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
                 }, false, ['decrypt'])
                 .then(function(key) {
 
-                    var encBuf = buf_utils.toArrayBuffer(encrypted_buffer);
+                    var encBuf = buffer_utils.toArrayBuffer(encrypted_buffer);
                     var iv;
-                    if (buf_utils.isAbv(keys.iv)) {
+                    if (buffer_utils.isAbv(keys.iv)) {
                         iv = keys.iv;
                     } else {
-                        iv = buf_utils.toArrayBufferView(keys.iv);
+                        iv = buffer_utils.toArrayBufferView(keys.iv);
                     }
 
                     return subtle_crypto.decrypt({
@@ -163,7 +160,7 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
 
 function digest_hash_base64(hash_type, buffer) {
 
-    var plnBuf = buf_utils.toArrayBuffer(buffer);
+    var plnBuf = buffer_utils.toArrayBuffer(buffer);
 
     // WebCrypto optimization
     if (subtle_crypto && hash_type === 'sha256') {

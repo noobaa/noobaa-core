@@ -1,6 +1,5 @@
 'use strict';
 
-var _ = require('lodash');
 var Q = require('q');
 var LinkedList = require('noobaa-util/linked_list');
 

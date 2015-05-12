@@ -2,15 +2,14 @@
 'use strict';
 
 var _ = require('lodash');
-var util = require('util');
 var moment = require('moment');
 var size_utils = require('../util/size_utils');
-var api = require('../api');
 var SliceReader = require('../util/slice_reader');
 var BrowserFileWriter = require('../util/browser_file_writer');
 var concat_stream = require('concat-stream');
-
+var AWS = require('aws-sdk');
 var nb_api = angular.module('nb_api');
+var streams = require('stream');
 
 
 nb_api.factory('nbFiles', [
@@ -28,17 +27,22 @@ nb_api.factory('nbFiles', [
         $scope.clear_download = clear_download;
         $scope.read_entire_object = read_entire_object;
         $scope.read_as_media_stream = read_as_media_stream;
+        $scope.set_access_keys = set_access_keys;
 
         $scope.uploads = [];
         $scope.downloads = [];
         $scope.transfers = [];
+        $scope.s3 = null;
+
+        // call first time with empty keys to initialize s3
+        set_access_keys();
 
         angular.element($window).on('beforeunload', function() {
             var num_uploads = 0;
             var num_downloads = 0;
             _.each($scope.transfers, function(tx) {
                 if (tx.running) {
-                    if (tx.type==='upload') {
+                    if (tx.type === 'upload') {
                         num_uploads += 1;
                     } else {
                         num_downloads += 1;
@@ -54,6 +58,41 @@ nb_api.factory('nbFiles', [
                 return 'Downloads are in progress. ' + warning;
             }
         });
+
+        //update access keys.
+        //TODO: find more secured approach
+        function set_access_keys(access_keys) {
+            if (!_.isEmpty(access_keys)) {
+                AWS.config.update({
+                    accessKeyId: access_keys[0].access_key,
+                    secretAccessKey: access_keys[0].secret_key,
+                    sslEnabled: false
+                });
+                console.log('updated keys', access_keys[0].access_key);
+            }
+            /*
+            //TODO: move to ssl. disable certificate validation.
+            var ep = new AWS.Endpoint({
+                protocol: 'http',
+                port: 80,
+                hostname: '127.0.0.1'
+            });
+            */
+            //var access_key_id = 'd36e02598bf347148752';
+            //var secret_access_key = 'f25cd46a-e105-4518-ac75-0d033745b4e1';
+            var rest_port = 80;
+            var rest_ssl_port = 443;
+            var http_endpoint = 'http://127.0.0.1' +
+                (rest_port ? ':' + rest_port : '');
+            var https_endpoint = 'https://127.0.0.1' +
+                (rest_ssl_port ? ':' + rest_ssl_port : '');
+            $scope.s3 = new AWS.S3({
+                endpoint: $window.location.protocol === 'https:' ?
+                    https_endpoint : http_endpoint,
+                s3ForcePathStyle: true,
+                sslEnabled: false,
+            });
+        }
 
         function list_files(params) {
             return $q.when()
@@ -74,10 +113,17 @@ nb_api.factory('nbFiles', [
                 })
                 .then(function(res) {
                     console.log('FILE', res);
-                    return make_file_info({
+                    var file_info = make_file_info({
                         key: params.key,
-                        info: res,
+                        info: res
                     });
+
+                    var url = $scope.s3.getSignedUrl('getObject', {
+                        Bucket: params.bucket,
+                        Key: params.key
+                    });
+                    file_info.url = url;
+                    return file_info;
                 });
         }
 
@@ -135,7 +181,7 @@ nb_api.factory('nbFiles', [
             });
         }
 
-        function run_upload(input_file, bucket_name) {
+        function run_upload(input_file, bucket_name, use_object_client) {
             var ext_match = input_file.name.match(/^(.*)(\.[^\.]*)$/);
             var serial = (((Date.now() / 1000) % 10000000) | 0).toString();
             var tx = {
@@ -151,40 +197,88 @@ nb_api.factory('nbFiles', [
                 running: true,
             };
             console.log('upload', tx);
-            tx.promise = $q.when(nbClient.client.object_client.upload_stream({
-                    bucket: tx.bucket,
-                    key: tx.name,
-                    size: tx.size,
-                    content_type: tx.content_type,
-                    source_stream: new SliceReader(tx.input_file, {
-                        highWaterMark: size_utils.MEGABYTE,
-                        FileReader: $window.FileReader,
-                    }),
-                }))
-                .then(function() {
-                    _.pull($scope.transfers, tx);
-                    tx.done = true;
-                    tx.progress = 100;
-                    tx.running = false;
-                    tx.end_time = Date.now();
-                    var duration = (tx.end_time - tx.start_time) / 1000;
-                    var elapsed = duration.toFixed(1) + 'sec';
-                    var speed = $rootScope.human_size(tx.size / duration) + '/sec';
-                    console.log('upload completed', elapsed, speed);
-                    nbAlertify.success('upload completed');
-                }, function(err) {
-                    _.pull($scope.transfers, tx);
-                    tx.error = err;
-                    tx.running = false;
-                    console.error('upload failed', err);
-                    nbAlertify.error('upload failed. ' + err.toString());
-                }, function(progress) {
-                    if (progress.event === 'part:after') {
-                        var pos = progress.part && progress.part.end || 0;
-                        tx.progress = 100 * pos / tx.size;
-                    }
-                    return progress;
+
+            if (use_object_client) {
+                tx.promise = $q.when(nbClient.client.object_client.upload_stream({
+                        bucket: tx.bucket,
+                        key: tx.name,
+                        size: tx.size,
+                        content_type: tx.content_type,
+                        source_stream: new SliceReader(tx.input_file, {
+                            highWaterMark: size_utils.MEGABYTE,
+                            FileReader: $window.FileReader,
+                        }),
+                    }))
+                    .then(function() {
+                        _.pull($scope.transfers, tx);
+                        tx.done = true;
+                        tx.progress = 100;
+                        tx.running = false;
+                        tx.end_time = Date.now();
+                        var duration = (tx.end_time - tx.start_time) / 1000;
+                        var elapsed = duration.toFixed(1) + 'sec';
+                        var speed = $rootScope.human_size(tx.size / duration) + '/sec';
+                        console.log('upload completed', elapsed, speed);
+                        nbAlertify.success('upload completed');
+                    }, function(err) {
+                        _.pull($scope.transfers, tx);
+                        tx.error = err;
+                        tx.running = false;
+                        console.error('upload failed', err);
+                        nbAlertify.error('upload failed. ' + err.toString());
+                    }, function(progress) {
+                        if (progress.event === 'part:after') {
+                            var pos = progress.part && progress.part.end || 0;
+                            tx.progress = 100 * pos / tx.size;
+                            return progress;
+                        }
+                    });
+            } else {
+                tx.promise = $q(function(resolve, reject, notify) {
+                    console.log('starting');
+                    // var s3req =
+                    $scope.s3.upload({
+                        Key: tx.name,
+                        Bucket: tx.bucket,
+                        Body: tx.input_file,
+                        ContentType: tx.content_type
+                    }, function(err, data) {
+                        if (err) {
+                            console.error('upload failed', err);
+                            _.pull($scope.transfers, tx);
+                            tx.error = err;
+                            tx.running = false;
+                            nbAlertify.error('upload failed. ' + err.toString());
+                            reject(new Error('upload failed'));
+                            $rootScope.safe_apply();
+                        } else {
+                            // Success!
+                            console.log('upload done!!!!');
+                            _.pull($scope.transfers, tx);
+                            tx.done = true;
+                            tx.progress = 100;
+                            tx.running = false;
+                            tx.end_time = Date.now();
+                            var duration = (tx.end_time - tx.start_time) / 1000;
+                            var elapsed = duration.toFixed(1) + 'sec';
+                            var speed = $rootScope.human_size(tx.size / duration) + '/sec';
+                            console.log('upload completed', elapsed, speed);
+                            nbAlertify.success('upload completed');
+                            resolve();
+                            $rootScope.safe_apply();
+                        }
+                    }).on('httpUploadProgress', function(progress) {
+                        // Log Progress Information
+                        console.log(Math.round(progress.loaded / progress.total * 100) + '% done');
+                        console.log('prog info');
+                        // var pos = progress.loaded && progress.total || 0;
+                        tx.progress = Math.round(progress.loaded / progress.total * 100);
+                        $rootScope.safe_apply();
+                    });
+
                 });
+            }
+
             $scope.uploads.push(tx);
             $scope.transfers.push(tx);
             return tx.promise;
@@ -198,7 +292,7 @@ nb_api.factory('nbFiles', [
             _.pull($scope.downloads, tx);
         }
 
-        function download_file(bucket_name, file) {
+        function download_file(bucket_name, file, use_object_client) {
             return open_temp_file_write_stream()
                 .then(function(res) {
                     var tx = {
@@ -216,15 +310,24 @@ nb_api.factory('nbFiles', [
                     };
                     tx.promise = $q(function(resolve, reject, progress) {
 
-                        var reader = nbClient.client.object_client.open_read_stream({
-                                bucket: bucket_name,
-                                key: file.name,
-                            })
-                            .once('error', on_error);
+                        var reader;
+                        if (use_object_client) {
+                            reader = nbClient.client.object_client.open_read_stream({
+                                    bucket: bucket_name,
+                                    key: file.name,
+                                })
+                                .once('error', on_error);
+                        } else {
+                            var s3req = $scope.s3.getObject({
+                                Bucket: bucket_name,
+                                Key: file.name,
+                            });
+                            reader = createReadStream(s3req);
+                        }
 
                         reader.pipe(res.writer)
                             .on('progress', function(pos) {
-
+                                console.log('progress', pos);
                                 tx.progress = (100 * pos / file.size);
                                 if (progress) {
                                     progress(pos);
@@ -267,12 +370,82 @@ nb_api.factory('nbFiles', [
                             $rootScope.safe_apply();
                         }
                     });
-                    console.log('DOWNLOAD', tx);
+                    console.log('DOWNLOAD', tx, tx.promise);
                     $scope.downloads.push(tx);
                     $scope.transfers.push(tx);
                     $rootScope.safe_apply();
                     return tx;
                 });
+        }
+
+
+        //copied code.
+        //TODO: replace or better understand how to use the standard amazon API
+        function createReadStream(req) {
+            var stream = null;
+            var legacyStreams = false;
+
+            if (AWS.HttpClient.streamsApiVersion === 2) {
+                stream = new streams.Readable();
+                stream._read = function() {};
+            } else {
+                stream = new streams.Stream();
+                stream.readable = true;
+            }
+
+            stream.sent = false;
+            stream.on('newListener', function(event) {
+                if (!stream.sent && (event === 'data' || event === 'readable')) {
+                    if (event === 'data') legacyStreams = true;
+                    stream.sent = true;
+                    process.nextTick(function() {
+                        req.send(function() {});
+                    });
+                }
+            });
+
+            req.on('httpHeaders', function streamHeaders(statusCode, headers, resp) {
+                if (statusCode < 300) {
+                    req.removeListener('httpData', AWS.EventListeners.Core.HTTP_DATA);
+                    req.removeListener('httpError', AWS.EventListeners.Core.HTTP_ERROR);
+                    req.on('httpError', function streamHttpError(error) {
+                        resp.error = error;
+                        resp.error.retryable = false;
+                    });
+
+                    var httpStream = resp.httpResponse.createUnbufferedStream();
+                    if (legacyStreams) {
+                        httpStream.on('data', function(arg) {
+                            stream.emit('data', arg);
+                        });
+                        httpStream.on('end', function() {
+                            stream.emit('end');
+                        });
+                    } else {
+                        httpStream.on('readable', function() {
+                            var chunk;
+                            do {
+                                chunk = httpStream.read();
+                                if (chunk !== null) stream.push(chunk);
+                            } while (chunk !== null);
+                            stream.read(0);
+                        });
+                        httpStream.on('end', function() {
+                            stream.push(null);
+                        });
+                    }
+
+                    httpStream.on('error', function(err) {
+                        stream.emit('error', err);
+                    });
+                }
+            });
+
+            req.on('error', function(err) {
+                stream.emit('error', err);
+            });
+
+            return stream;
         }
 
         function open_temp_file_write_stream() {

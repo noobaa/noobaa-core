@@ -1,13 +1,12 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
 var _ = require('lodash');
 var Q = require('q');
-var path = require('path');
 var assert = require('assert');
 var argv = require('minimist')(process.argv);
-var Semaphore = require('noobaa-util/semaphore');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var coretest = require('./coretest');

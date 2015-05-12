@@ -1,60 +1,103 @@
-var exports = module.exports = {};
+'use strict';
 
+module.exports = {
+    toArrayBuffer: toArrayBuffer,
+    toBuffer: toBuffer,
+    addToBuffer: addToBuffer,
+    isAbv: isAbv,
+    toArrayBufferView: toArrayBufferView,
+};
+
+
+/**
+ *
+ * toArrayBuffer
+ *
+ */
 function toArrayBuffer(buffer) {
 
     if (buffer instanceof ArrayBuffer) {
         return buffer;
     }
 
+    // in browserify the buffer can just convert immediately to arraybuffer
+    if (buffer.toArrayBuffer) {
+        return buffer.toArrayBuffer();
+    }
+
+    // TODO support strings? need to convert chars to bytes? with utf8 support or not?
+
+    // slow convert from buffer
     var ab = new ArrayBuffer(buffer.length);
-    var view = new Uint8Array(ab);
+    var bytes_view = new Uint8Array(ab);
     for (var i = 0; i < buffer.length; ++i) {
-        view[i] = buffer[i];
+        bytes_view[i] = buffer[i];
     }
     return ab;
-};
-exports.toArrayBuffer = toArrayBuffer;
+}
 
+
+/**
+ *
+ * toBuffer
+ *
+ */
 function toBuffer(ab) {
-    var buffer = new Buffer(ab.byteLength);
-    var view = new Uint8Array(ab);
-    for (var i = 0; i < buffer.length; ++i) {
-        buffer[i] = view[i];
+    if (Buffer.isBuffer(ab)) {
+        return ab;
     }
-    return buffer;
-};
-exports.toBuffer = toBuffer;
 
-function chunkToBuffer(chunk) {
-    var buffer;
+    // for strings or anything other than arraybuffer the class buffer can convert
+    if (!(ab instanceof ArrayBuffer)) {
+        return new Buffer(ab);
+    }
 
-    if (chunk instanceof ArrayBuffer) {
-        buffer = toBuffer(chunk);
-    } else {
-        buffer = (Buffer.isBuffer(chunk)) ?
-            chunk :  // already is Buffer use it
-            new Buffer(chunk);  // string, convert
+    var bytes_view = new Uint8Array(ab);
+
+    // in browserify the buffer can just convert immediately to arraybuffer
+    if (Buffer.TYPED_ARRAY_SUPPORT) {
+        return new Buffer(bytes_view);
+    }
+
+    // slow convert
+    var buffer = new Buffer(ab.byteLength);
+    for (var i = 0; i < buffer.length; ++i) {
+        buffer[i] = bytes_view[i];
     }
     return buffer;
 }
-exports.chunkToBuffer = chunkToBuffer;
 
+
+/**
+ *
+ * addToBuffer
+ *
+ */
 function addToBuffer(chunk1, chunk2) {
-    var buffer1 = chunkToBuffer(chunk1);
-    var buffer2 = chunkToBuffer(chunk2);
+    var buffer1 = toBuffer(chunk1);
+    var buffer2 = toBuffer(chunk2);
 
     // concat to the buffer already there
     return Buffer.concat([buffer1, buffer2]);
-};
-exports.addToBuffer = addToBuffer;
+}
 
+
+/**
+ *
+ * isAbv
+ *
+ */
 function isAbv(value) {
     return value && value.buffer instanceof ArrayBuffer && value.byteLength !== undefined;
-};
-exports.isAbv = isAbv;
+}
 
+
+/**
+ *
+ * toArrayBufferView
+ *
+ */
 function toArrayBufferView(buffer) {
     var arrBuffer = toArrayBuffer(buffer);
     return new DataView(arrBuffer);
-};
-exports.toArrayBufferView = toArrayBufferView;
+}

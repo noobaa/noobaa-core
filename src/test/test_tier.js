@@ -1,8 +1,9 @@
 // make jshint ignore mocha globals
 /* global describe, it, before, after, beforeEach, afterEach */
+/* exported describe, it, before, after, beforeEach, afterEach */
 'use strict';
 
-var _ = require('lodash');
+// var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var coretest = require('./coretest');
@@ -14,7 +15,6 @@ describe('tier', function() {
 
     it('crud', function(done) {
         this.timeout(20000);
-        var system_id;
         Q.fcall(function() {
             return client.system.create_system({
                 name: SYS

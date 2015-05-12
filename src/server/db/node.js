@@ -79,6 +79,9 @@ var node_schema = new Schema({
         type: Number,
     },
 
+    // list of addresses (urls) for RPC connectivity to the node agent
+    addresses: [String],
+
     // the last time the agent sent heartbeat
     heartbeat: {
         type: Date,
@@ -180,4 +183,4 @@ node_schema.statics.aggregate_nodes = function(query) {
     });
 };
 
-var Node = module.exports = mongoose.model('Node', node_schema);
+module.exports = mongoose.model('Node', node_schema);

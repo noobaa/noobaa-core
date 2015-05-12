@@ -3,20 +3,11 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var mongoose = require('mongoose');
 var size_utils = require('../util/size_utils');
-var promise_utils = require('../util/promise_utils');
-var api = require('../api');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
-var Semaphore = require('noobaa-util/semaphore');
-var Agent = require('../agent/agent');
 var db = require('./db');
-var Barrier = require('../util/barrier');
-var dbg = require('noobaa-util/debug_module')(__filename);
-var config = require('../../config.js');
-
-dbg.set_level(process.env.LOG_LEVEL ? parseInt(process.env.LOG_LEVEL, 10) : config.dbg_log_level);
+// var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**
@@ -34,7 +25,7 @@ var node_server = {
     list_nodes: list_nodes,
     group_nodes: group_nodes,
 
-    heartbeat: heartbeat,
+    heartbeat: node_monitor.heartbeat,
 };
 
 module.exports = node_server;
@@ -47,7 +38,7 @@ module.exports = node_server;
  *
  */
 function create_node(req) {
-    var info = _.pick(req.rest_params,
+    var info = _.pick(req.rpc_params,
         'name',
         'is_server',
         'geolocation'
@@ -56,14 +47,14 @@ function create_node(req) {
     info.heartbeat = new Date(0);
     info.peer_id = db.new_object_id();
     info.storage = {
-        alloc: req.rest_params.storage_alloc,
+        alloc: req.rpc_params.storage_alloc,
         used: 0,
     };
 
     // when the request role is admin it can provide any of the system tiers.
     // when the role was authorized only for create_node the athorization
     // must include the allowed tier.
-    var tier_name = req.rest_params.tier;
+    var tier_name = req.rpc_params.tier;
     if (req.role !== 'admin') {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
@@ -77,7 +68,8 @@ function create_node(req) {
             info.tier = tier;
 
             if (String(tier.system) !== String(info.system)) {
-                throw req.rest_error('tier not found', ['TIER SYSTEM MISMATCH', info]);
+                throw req.rpc_error('NOT_FOUND', null,
+                    'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
             }
 
             return db.Node.create(info);
@@ -92,10 +84,13 @@ function create_node(req) {
                 event: 'node.create',
                 node: node,
             });
-
+            var account_id = '';
+            if (req.account){
+                account_id = req.account.id;
+            }
             // a token for the agent authorized to use the new node id.
             var token = req.make_auth_token({
-                account_id: req.account.id,
+                account_id: account_id,
                 system_id: req.system.id,
                 role: 'agent',
                 extra: {
@@ -134,14 +129,14 @@ function read_node(req) {
  *
  */
 function update_node(req) {
-    var updates = _.pick(req.rest_params,
+    var updates = _.pick(req.rpc_params,
         'is_server',
         'geolocation',
         'srvmode'
     );
-    if (req.rest_params.storage_alloc) {
+    if (req.rpc_params.storage_alloc) {
         updates.storage = {
-            alloc: req.rest_params.storage_alloc,
+            alloc: req.rpc_params.storage_alloc,
         };
     }
     if (updates.srvmode === 'connect') {
@@ -153,7 +148,7 @@ function update_node(req) {
     }
 
     // TODO move node between tiers - requires decomission
-    if (req.rest_params.tier) throw req.rest_error('TODO switch tier');
+    if (req.rpc_params.tier) throw req.rpc_error('INTERNAL', 'TODO switch tier');
 
     return Q.when(db.Node
             .findOneAndUpdate(get_node_query(req), updates)
@@ -196,7 +191,7 @@ function read_node_maps(req) {
     return find_node_by_name(req)
         .then(function(node_arg) {
             node = node_arg;
-            var params = _.pick(req.rest_params, 'skip', 'limit');
+            var params = _.pick(req.rpc_params, 'skip', 'limit');
             params.node = node;
             return object_mapper.read_node_mappings(params);
         })
@@ -218,7 +213,7 @@ function read_node_maps(req) {
 function list_nodes(req) {
     var info;
     return Q.fcall(function() {
-            var query = req.rest_params.query;
+            var query = req.rpc_params.query;
             info = {
                 system: req.system.id,
                 deleted: null,
@@ -242,8 +237,8 @@ function list_nodes(req) {
             }
         })
         .then(function() {
-            var skip = req.rest_params.skip;
-            var limit = req.rest_params.limit;
+            var skip = req.rpc_params.skip;
+            var limit = req.rpc_params.limit;
             var find = db.Node.find(info)
                 .sort('-_id')
                 .populate('tier', 'name');
@@ -273,7 +268,7 @@ function group_nodes(req) {
     return Q.fcall(function() {
             var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
             var reduce_sum = size_utils.reduce_sum;
-            var group_by = req.rest_params.group_by;
+            var group_by = req.rpc_params.group_by;
             var by_system = {
                 system: req.system.id,
                 deleted: null,
@@ -356,45 +351,11 @@ function group_nodes(req) {
 
 
 
-/**
- *
- * HEARTBEAT
- *
- */
-function heartbeat(req) {
-    var node_id = req.rest_params.id;
-
-    // verify the authorization to use this node for non admin roles
-    if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
-        throw req.forbidden();
-    }
-
-    var params = _.pick(req.rest_params,
-        'id',
-        'geolocation',
-        'ip',
-        'port',
-        'storage',
-        'device_info');
-
-    params.ip = params.ip ||
-        (req.headers && req.headers['x-forwarded-for']) ||
-        (req.connection && req.connection.remoteAddress);
-    params.port = params.port || 0;
-
-    params.system = req.system;
-
-    return node_monitor.heartbeat(params);
-}
-
-
-
-
-
 // UTILS //////////////////////////////////////////////////////////
 
 
 
+/*
 function count_node_storage_used(node_id) {
     return Q.when(db.DataBlock.mapReduce({
             query: {
@@ -410,7 +371,7 @@ function count_node_storage_used(node_id) {
             return res && res[0] && res[0].value || 0;
         });
 }
-
+*/
 
 function get_node_full_info(node) {
     var info = _.pick(node, 'id', 'name', 'geolocation', 'srvmode');
@@ -419,6 +380,7 @@ function get_node_full_info(node) {
     info.peer_id = node.peer_id || '';
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
+    info.addresses = node.addresses;
     info.heartbeat = node.heartbeat.getTime();
     info.storage = {
         alloc: node.storage.alloc || 0,
@@ -440,7 +402,7 @@ function find_node_by_name(req) {
 function get_node_query(req) {
     return {
         system: req.system.id,
-        name: req.rest_params.name,
+        name: req.rpc_params.name,
         deleted: null,
     };
 }

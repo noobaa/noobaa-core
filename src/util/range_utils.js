@@ -1,7 +1,6 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var _ = require('lodash');
 var size_utils = require('./size_utils');
 
 module.exports = {

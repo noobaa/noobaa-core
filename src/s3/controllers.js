@@ -1,76 +1,38 @@
 'use strict';
+require('../util/panic');
+
 var _ = require('lodash');
 var Q = require('q');
-var fs = require('fs');
 var util = require('util');
-var md5 = require('MD5');
-var crypto = require('crypto');
 var md5_stream = require('../util/md5_stream');
-var path = require('path');
-var SliceReader = require('../util/slice_reader');
 var mime = require('mime');
-var concat_stream = require('concat-stream');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var S3Object = require('./models/s3-object');
-
-
-process.on('uncaughtException', function(err) {
-    dbg.log0('process uncaughtException: ' + err);
-});
 
 
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
     var objects_avarage_part_size = {};
-    var client;
-    params.bucket = 'files';
-    Q.fcall(function() {
-        var auth_params = _.pick(params,
-            'email', 'password', 'system', 'role');
-        if (_.isEmpty(auth_params)) {
-            if (_.isEmpty(params.s3_access_key)) {
-                dbg.log0('Exiting as there is no credential information.');
+    var clients = {};
 
-                throw new Error("No credentials");
-
-            } else {
-                dbg.log0('Using noobaa access key.');
-                var access_res = {
-                    res: "Access Param",
-                    token: params.s3_access_key
-                };
-                client = new api.Client({
-                    address: params.address,
-                    auth_token: params.s3_access_key,
-                    bucket: params.bucket
-                });
-                return access_res;
-            }
+    var extract_access_key = function(req) {
+        var req_access_key;
+        if (req.headers.authorization) {
+            var end_of_aws_key = req.headers.authorization.indexOf(':');
+            req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
         } else {
-            client = new api.Client({
-                address: params.address
-            });
-            if (params.bucket) {
-                auth_params.extra = {
-                    bucket: params.bucket
-                };
+            if (req.query.AWSAccessKeyId) {
+                req_access_key = req.query.AWSAccessKeyId;
             }
-            dbg.log1('create auth', auth_params);
-            var token = client.create_auth_token(auth_params);
-            return token;
         }
-    }).then(function(token) {
-        dbg.log0('token:', token);
+        return req_access_key;
+    };
 
-    });
 
     var uploadPart = function(req, res) {
         Q.fcall(function() {
-            var template;
-            var mydata = '';
             var content_length = req.headers['content-length'];
-
+            var access_key = extract_access_key(req);
             var upload_part_info = {
                 bucket: req.bucket,
                 key: replaceSpaces(req.query.uploadId),
@@ -84,7 +46,7 @@ module.exports = function(params) {
             dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                 'content_type', 'upload_part_number'));
 
-            return client.object_client.upload_stream_parts(upload_part_info)
+            return clients[access_key].object_client.upload_stream_parts(upload_part_info)
                 .then(function() {
                     try {
                         dbg.log0('COMPLETED: upload', req.query.uploadId);
@@ -95,7 +57,7 @@ module.exports = function(params) {
                     }
                     return res.status(200).end();
                 }, function(err) {
-                    dbg.log0('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
+                    dbg.error('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
                     return res.status(500).end();
                 });
 
@@ -106,7 +68,7 @@ module.exports = function(params) {
             var template;
             var upload_id = req.query.uploadId;
             var max_parts = req.query['max-parts'] || 1000;
-
+            var access_key = extract_access_key(req);
             var part_number_marker = req.query['part-number​-marker'] || '';
             dbg.log0('List part results for upload id:', upload_id, 'max parts', max_parts, 'part marker', part_number_marker);
             var list_options = {
@@ -115,7 +77,7 @@ module.exports = function(params) {
                 part_number_marker: 1,
                 max_parts: 1000
             };
-            return client.object.list_multipart_parts(list_options)
+            return clients[access_key].object.list_multipart_parts(list_options)
                 .then(function(list_result) {
                     list_options.NextPartNumberMarker = list_result.next_part_number_marker;
                     list_options.IsTruncated = list_result.next_part_number_marker > list_result.max_parts;
@@ -132,9 +94,9 @@ module.exports = function(params) {
         dbg.log2('template:', template);
         return res.send(template);
     };
-    var delete_if_exists = function(target_object) {
+    var delete_if_exists = function(target_object, access_key) {
         dbg.log0('listing ', target_object.key, ' in bucket:', target_object.bucket);
-        return client.object.list_objects(target_object)
+        return clients[access_key].object.list_objects(target_object)
             .then(function(list_results) {
                 //object exists. Delete and write.
                 if (list_results.objects.length > 0) {
@@ -144,19 +106,19 @@ module.exports = function(params) {
                     //the current implementation of list_objects returns list of objects with key
                     // that starts with the provided name. we will validate it.
                     if (obj_index >= 0) {
-                        return client.object.delete_object({
+                        return clients[access_key].object.delete_object({
                             bucket: target_object.bucket,
                             key: target_object.key
                         }).then(function() {
                             dbg.log0('Deleted old version of object "%s" in bucket "%s"', target_object.key, target_object.bucket);
                         }, function(err) {
-                            dbg.log0('Failure while trying to delete old version of object "%s"', target_object.key, err);
+                            dbg.error('Failure while trying to delete old version of object "%s"', target_object.key, err);
                         });
                     }
                 }
             });
     };
-    var copy_object = function(from_object, to_object, src_bucket, target_bucket) {
+    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key) {
         from_object = decodeURIComponent(from_object);
         var object_path = {
             bucket: src_bucket,
@@ -165,7 +127,7 @@ module.exports = function(params) {
         var create_params = {};
         var source_object_md;
         //read source object meta data. if doesn't exist, send error to the client.
-        return client.object_client.get_object_md(object_path)
+        return clients[access_key].object_client.get_object_md(object_path)
             .then(function(md) {
                 var target_object_path = {
                     bucket: target_bucket,
@@ -173,28 +135,31 @@ module.exports = function(params) {
                 };
                 source_object_md = md;
                 //check if target exists. if so, delete it (s3 overwrites objects)
-                return delete_if_exists(target_object_path)
+                return delete_if_exists(target_object_path, access_key)
                     .then(function() {
                         //check if folder
                         if (source_object_md.size === 0) {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
-                            list_objects_with_prefix(from_object, '/', src_bucket)
+                            list_objects_with_prefix(from_object, '/', src_bucket, access_key)
                                 .then(function(objects_and_folders) {
                                     return Q.all(_.times(objects_and_folders.objects.length, function(i) {
                                         dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
-                                        copy_object(objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object), src_bucket, target_bucket);
+                                        copy_object(objects_and_folders.objects[i].key,
+                                            objects_and_folders.objects[i].key.replace(from_object, to_object),
+                                            src_bucket, target_bucket, access_key);
                                     })).then(function() {
                                         //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
                                         return Q.all(_.each(_.keys(objects_and_folders.folders), function(folder) {
                                             dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
-                                            copy_object(folder, folder.replace(from_object, to_object), src_bucket, target_bucket);
+                                            copy_object(folder, folder.replace(from_object, to_object),
+                                                src_bucket, target_bucket, access_key);
                                         }));
                                     });
                                 });
                         }
                         create_params.content_type = md.content_type;
                         create_params.size = md.size;
-                        return client.object.read_object_mappings({
+                        return clients[access_key].object.read_object_mappings({
                                 bucket: src_bucket,
                                 key: from_object,
                             })
@@ -221,13 +186,13 @@ module.exports = function(params) {
                                 create_params.bucket = target_bucket;
                                 create_params.key = to_object;
 
-                                return client.object.create_multipart_upload(create_params)
+                                return clients[access_key].object.create_multipart_upload(create_params)
                                     .then(function(info) {
-                                        return client.object.allocate_object_parts(new_obj_parts)
+                                        return clients[access_key].object.allocate_object_parts(new_obj_parts)
                                             .then(function(res) {
                                                 dbg.log0('complete multipart copy ', create_params);
                                                 var bucket_key_params = _.pick(create_params, 'bucket', 'key');
-                                                return client.object.complete_multipart_upload(bucket_key_params);
+                                                return clients[access_key].object.complete_multipart_upload(bucket_key_params);
                                             })
                                             .then(function(res) {
                                                 dbg.log0('COMPLETED: copy');
@@ -244,7 +209,7 @@ module.exports = function(params) {
             });
 
     };
-    var list_objects_with_prefix = function(prefix, delimiter, bucket_name) {
+    var list_objects_with_prefix = function(prefix, delimiter, bucket_name, access_key) {
         var list_params = {
             bucket: bucket_name,
         };
@@ -256,11 +221,11 @@ module.exports = function(params) {
         if (delimiter) {
             delimiter = decodeURI(delimiter);
         }
-        dbg.log0('Listing objects with', list_params, delimiter);
-        return client.object.list_objects(list_params)
+        dbg.log0('Listing objects with', list_params, delimiter, 'key:', access_key);
+        return clients[access_key].object.list_objects(list_params)
             .then(function(results) {
-                var i = 0;
                 var folders = {};
+                dbg.log0('results:', results);
                 var objects = _.filter(results.objects, function(obj) {
                     try {
                         var date = new Date(obj.info.create_time);
@@ -272,13 +237,19 @@ module.exports = function(params) {
                         //we will keep the full path for CloudBerry online cloud backup tool
 
                         var obj_sliced_key = obj.key.slice(prefix.length);
-                        dbg.log3('obj.key:', obj.key, ' prefix ', prefix);
+                        dbg.log0('obj.key:', obj.key, ' prefix ', prefix, ' sliced', obj_sliced_key);
                         if (obj_sliced_key.indexOf(delimiter) >= 0) {
                             var folder = obj_sliced_key.split(delimiter, 1)[0];
                             folders[prefix + folder + "/"] = true;
                             return false;
                         }
+
                         if (list_params.key === obj.key) {
+                            dbg.log0('LISTED KEY same as REQUIRED', obj.key);
+                            if (prefix === obj.key && prefix.substring(prefix.length - 1) !== delimiter) {
+                                return true;
+                            }
+
                             return false;
                         }
                         if (!obj.key) {
@@ -295,7 +266,7 @@ module.exports = function(params) {
                     objects: objects,
                     folders: folders
                 };
-                dbg.log3('About to return objects and folders:', objects_and_folders);
+                dbg.log0('About to return objects and folders:', objects_and_folders);
                 return objects_and_folders;
             }).then(null, function(err) {
                 dbg.error('failed to list object with prefix', err);
@@ -308,6 +279,7 @@ module.exports = function(params) {
 
     var uploadObject = function(req, res, file_key_name) {
         try {
+            var access_key = extract_access_key(req);
             var md5 = 0;
             //
             // tranform stream that calculates md5 on-the-fly
@@ -319,7 +291,7 @@ module.exports = function(params) {
                 dbg.log3('MD5 data (end)', md5);
             });
 
-            return client.object_client.upload_stream({
+            return clients[access_key].object_client.upload_stream({
                 bucket: req.bucket,
                 key: file_key_name,
                 size: parseInt(req.headers['content-length']),
@@ -343,8 +315,9 @@ module.exports = function(params) {
         }
     };
 
-    var isBucketExists = function(bucketName) {
-        return client.bucket.list_buckets()
+    var isBucketExists = function(bucketName, access_key) {
+        dbg.log0('isBucketExists', bucketName, ' key:', access_key);
+        return clients[access_key].bucket.list_buckets()
             .then(function(reply) {
                 dbg.log3('trying to find', bucketName, 'in', reply.buckets);
                 if (_.findIndex(reply.buckets, {
@@ -359,20 +332,85 @@ module.exports = function(params) {
     var replaceSpaces = function(instr) {
         return instr.replace(/ /g, '%20');
     };
+
     /**
      * The following methods correspond the S3 api. For more information visit:
      * http://docs.aws.amazon.com/AWSJavaScriptSDK/latest/AWS/S3.html
      */
     return {
+        build_unauthorized_response: function(res, string_to_sign) {
+            var template = templateBuilder.buildSignatureDoesNotMatch(params.string_to_sign);
+            return buildXmlResponse(res, 401, template);
+        },
+        update_system_auth: function(access_key, params) {
+            return Q.fcall(function() {
+                if (clients[params.access_key].options.auth_token.indexOf('auth_token') > 0) {
+                    //update signature and string_to_sign
+                    //TODO: optimize this part. two converstions per request is a bit too much.
+
+                    var auth_token_obj = JSON.parse(clients[access_key].options.auth_token);
+                    auth_token_obj.signature = params.signature;
+                    auth_token_obj.string_to_sign = params.string_to_sign;
+                    clients[access_key].options.auth_token = JSON.stringify(auth_token_obj);
+
+                } else {
+                    params.auth_token = clients[params.access_key].options.auth_token;
+                    clients[access_key].options.auth_token = JSON.stringify(params);
+                }
+
+                dbg.log0('Update system auth', clients[access_key].options.auth_token);
+            });
+        },
+        is_system_client_exists: function(access_key) {
+            return Q.fcall(function() {
+                dbg.log0('check if system exists for key:', access_key, _.has(clients, access_key));
+                return _.has(clients, access_key);
+            });
+        },
+        add_new_system_client: function(params) {
+            dbg.log0('add_new_system_client', params);
+            return Q.fcall(function() {
+                if (_.isEmpty(params.access_key)) {
+                    dbg.log0('Exiting as there is no credential information.');
+                    throw new Error("No credentials");
+
+                } else {
+                    dbg.log0('Adding new system client.', params);
+                    clients[params.access_key] = new api.Client({
+                        address: params.address,
+                        bucket: params.bucket,
+                        nudp_socket: params.nudp_socket
+                    });
+                    return clients[params.access_key];
+                }
+            }).then(function(new_client_system) {
+                dbg.log3('create auth', new_client_system);
+                return clients[params.access_key].create_access_key_auth({
+                    'access_key': params.access_key,
+                    'string_to_sign': params.string_to_sign,
+                    'signature': params.signature,
+                });
+            }).then(function(token) {
+                dbg.log0('Got Token:', token);
+            }).then(null, function(err) {
+                dbg.error('failure while creating new client', err, err.stack);
+                //clients[params.access_key] =
+                throw {
+                    statusCode: 401,
+                    data: 'SignatureDoesNotMatch'
+                };
+            });
+        },
+
         /**
          * Middleware to check if a bucket exists
          */
         bucketExists: function(req, res, next) {
             var bucketName = req.params.bucket;
-            isBucketExists(bucketName)
+            isBucketExists(bucketName, extract_access_key(req))
                 .then(function(exists) {
                     if (!exists) {
-                        dbg.log0('(1) No bucket found for "%s"', bucketName);
+                        dbg.error('(1) No bucket found for "%s"', bucketName);
                         var template = templateBuilder.buildBucketNotFound(bucketName);
                         return buildXmlResponse(res, 404, template);
                     }
@@ -382,25 +420,46 @@ module.exports = function(params) {
                     dbg.error('error while trying to check if bucket exists', err);
                 });
         },
+
         getBuckets: function(req, res) {
+            dbg.log0('getBuckets', req.params.bucket);
             var date = new Date();
             date.setMilliseconds(0);
             date = date.toISOString();
+            /*
             var buckets = [{
                 name: req.params.bucket,
                 creationDate: date
             }];
+            */
+            var access_key = extract_access_key(req);
+            var template;
 
-            client.bucket.list_buckets()
+            clients[access_key].bucket.list_buckets()
                 .then(function(reply) {
-                    dbg.log0('list_buckets (A)', reply);
                     _.each(reply.buckets, function(bucket) {
                         bucket.creationDate = date;
                     });
                     dbg.log3('Fetched %d buckets', reply.buckets.length, ' b: ', reply.buckets);
                     var template = templateBuilder.buildBuckets(reply.buckets);
-                    dbg.log2('bucket response:', template);
+                    dbg.log3('bucket response:', template);
                     return buildXmlResponse(res, 200, template);
+                })
+                .then(null, function(err) {
+                    dbg.error('Failed to get list of buckets', err);
+                    if (err.status) {
+                        if (err.status === 401) {
+                            template = templateBuilder.buildSignatureDoesNotMatch('');
+                            return buildXmlResponse(res, 401, template);
+                        } else {
+                            template = templateBuilder.buildBuckets({});
+                            return buildXmlResponse(res, err.status, template);
+                        }
+
+                    } else {
+                        template = templateBuilder.buildBuckets({});
+                        return buildXmlResponse(res, 500, template);
+                    }
                 });
         },
         getBucket: function(req, res) {
@@ -419,7 +478,7 @@ module.exports = function(params) {
 
             } else {
 
-                list_objects_with_prefix(options.prefix, options.delimiter, req.bucket)
+                list_objects_with_prefix(options.prefix, options.delimiter, req.bucket, extract_access_key(req))
                     .then(function(objects_and_folders) {
                         options.bucketName = req.bucket || params.bucket;
                         options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
@@ -451,6 +510,19 @@ module.exports = function(params) {
                         dbg.log0('COMPLETED: list');
                     }).then(null, function(err) {
                         dbg.error('ERROR: list', err, err.stack, options);
+                        if (err.status) {
+                            if (err.status === 401) {
+                                template = templateBuilder.buildSignatureDoesNotMatch('');
+                                return buildXmlResponse(res, 401, template);
+                            } else {
+                                template = templateBuilder.buildBuckets({});
+                                return buildXmlResponse(res, err.status, template);
+                            }
+
+                        } else {
+                            template = templateBuilder.buildBuckets({});
+                            return buildXmlResponse(res, 500, template);
+                        }
                     });
             }
 
@@ -458,6 +530,7 @@ module.exports = function(params) {
         putBucket: function(req, res) {
             var bucketName = req.params.bucket;
             var template;
+            var access_key = extract_access_key(req);
             /**
              * Derived from http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
              */
@@ -475,7 +548,7 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 400, template);
             }
             Q.fcall(function() {
-                return isBucketExists(bucketName)
+                return isBucketExists(bucketName, extract_access_key(req))
                     .then(function(exists) {
                         if (exists) {
                             dbg.error('Error creating bucket. Bucket "%s" already exists', bucketName);
@@ -483,7 +556,7 @@ module.exports = function(params) {
                                 'The requested bucket already exists');
                             return buildXmlResponse(res, 409, template);
                         } else {
-                            client.bucket.create_bucket({
+                            clients[access_key].bucket.create_bucket({
                                     name: bucketName,
                                     tiering: ['nodes']
                                 })
@@ -518,6 +591,7 @@ module.exports = function(params) {
             var keyName = req.params.key;
             var acl = req.query.acl;
             var template;
+            var access_key = extract_access_key(req);
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
                 return buildXmlResponse(res, 200, template);
@@ -538,7 +612,7 @@ module.exports = function(params) {
                         key: keyName
                     };
                     dbg.log0('getObject', object_path, req.method);
-                    return client.object_client.get_object_md(object_path)
+                    return clients[access_key].object_client.get_object_md(object_path)
                         .then(function(object_md) {
                             var create_date = new Date(object_md.create_time);
                             create_date.setMilliseconds(0);
@@ -559,10 +633,9 @@ module.exports = function(params) {
                             } else {
                                 //read ranges
                                 if (req.header('range')) {
-                                    return client.object_client.serve_http_stream(req, res, object_path);
+                                    clients[access_key].object_client.serve_http_stream(req, res, object_path);
                                 } else {
-                                    var stream = client.object_client.open_read_stream(object_path).pipe(res);
-
+                                    clients[access_key].object_client.open_read_stream(object_path).pipe(res);
                                 }
                             }
 
@@ -581,7 +654,7 @@ module.exports = function(params) {
                                 object_path.key = object_path.key + '/';
                             }
 
-                            return client.object_client.get_object_md(object_path)
+                            return clients[access_key].object_client.get_object_md(object_path)
                                 .then(function(object_md) {
                                     dbg.log3('obj_md2', object_md);
                                     var create_date = new Date(object_md.create_time);
@@ -594,7 +667,7 @@ module.exports = function(params) {
                                     if (req.method === 'HEAD') {
                                         return res.end();
                                     } else {
-                                        var stream = client.object_client.open_read_stream(object_path).pipe(res);
+                                        clients[access_key].object_client.open_read_stream(object_path).pipe(res);
                                     }
                                 }).then(null, function(err) {
                                     dbg.error('ERROR: while download from noobaa', err);
@@ -610,6 +683,7 @@ module.exports = function(params) {
             dbg.log0('put object');
             var template;
             var acl = req.query.acl;
+            var access_key = extract_access_key(req);
             var delimiter = req.query.delimiter;
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
@@ -640,7 +714,7 @@ module.exports = function(params) {
                 var srcBucket = srcObjectParams[0];
                 var srcObject = srcObjectParams.slice(1).join(delimiter);
                 dbg.log0('Attempt to copy object:', srcObject, ' from bucket:', srcBucket, ' to ', req.params.key, ' srcObjectParams: ', srcObjectParams, ' delimiter:', delimiter);
-                return isBucketExists(srcBucket)
+                return isBucketExists(srcBucket, extract_access_key(req))
                     .then(function(exists) {
                         if (!exists) {
                             dbg.error('No bucket found (2) for "%s"', srcBucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
@@ -651,7 +725,8 @@ module.exports = function(params) {
                             template = templateBuilder.buildCopyObject(req.params.key);
                             return buildXmlResponse(res, 200, template);
                         } else {
-                            copy_object(srcObject, req.params.key, srcBucket, req.bucket)
+                            copy_object(srcObject, req.params.key, srcBucket,
+                                    req.bucket, access_key)
                                 .then(function(is_copied) {
                                     if (is_copied) {
                                         template = templateBuilder.buildCopyObject(req.params.key);
@@ -682,7 +757,7 @@ module.exports = function(params) {
 
                 Q.fcall(function() {
                     dbg.log0('listing ', req.params.key, ' in bucket:', req.bucket);
-                    return client.object.list_objects({
+                    return clients[access_key].object.list_objects({
                         bucket: req.bucket,
                         key: file_key_name
                     });
@@ -695,14 +770,14 @@ module.exports = function(params) {
                         //the current implementation of list_objects returns list of objects with key
                         // that starts with the provided name. we will validate it.
                         if (obj_index >= 0) {
-                            return client.object.delete_object({
+                            return clients[access_key].object.delete_object({
                                 bucket: req.bucket,
                                 key: file_key_name
                             }).then(function() {
                                 dbg.log0('Deleted old version of object "%s" in bucket "%s"', file_key_name, req.bucket);
                                 uploadObject(req, res, file_key_name);
                             }, function(err) {
-                                dbg.log0('Failure while trying to delete old version of object "%s"', file_key_name, err);
+                                dbg.error('Failure while trying to delete old version of object "%s"', file_key_name, err);
                                 var template = templateBuilder.buildKeyNotFound(file_key_name);
                                 return buildXmlResponse(res, 500, template);
 
@@ -723,6 +798,7 @@ module.exports = function(params) {
         postMultipartObject: function(req, res) {
             Q.fcall(function() {
                 var template;
+                var access_key = extract_access_key(req);
                 //init multipart upload
                 if (req.query.uploads === '') {
                     dbg.log0('Init Multipart', req.originalUrl);
@@ -741,9 +817,9 @@ module.exports = function(params) {
                         create_params.content_type = mime.lookup(key) || create_params.content_type;
                         dbg.log0('Init Multipart - create_multipart_upload - override mime ', create_params);
                     }
-                    return client.object.create_multipart_upload(create_params)
+                    return clients[access_key].object.create_multipart_upload(create_params)
                         .then(function(info) {
-                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key);
+                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key, req.bucket);
                             return buildXmlResponse(res, 200, template);
                         }).then(null, function(err) {
                             template = templateBuilder.buildKeyNotFound(req.query.uploadId);
@@ -754,7 +830,7 @@ module.exports = function(params) {
                 //CompleteMultipartUpload
                 else if (!_.isUndefined(req.query.uploadId)) {
                     dbg.log0('request to complete ', req.query.uploadId);
-                    return client.object.complete_multipart_upload({
+                    return clients[access_key].object.complete_multipart_upload({
                         bucket: req.bucket,
                         key: replaceSpaces(req.query.uploadId),
                         fix_parts_size: true
@@ -783,9 +859,9 @@ module.exports = function(params) {
         deleteObject: function(req, res) {
             //this is also valid for the Abort Multipart Upload
             var key = req.params.key;
-
+            var access_key = extract_access_key(req);
             Q.fcall(function() {
-                    return client.object.list_objects({
+                    return clients[access_key].object.list_objects({
                         bucket: req.bucket,
                         key: key
                     });
@@ -803,7 +879,7 @@ module.exports = function(params) {
                         dbg.log2('#' + i, obj.key, '\t', obj.info.size, 'bytes');
                         i++;
                     });
-                    return client.object.delete_object({
+                    return clients[access_key].object.delete_object({
                         bucket: req.bucket,
                         key: key
                     });

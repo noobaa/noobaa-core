@@ -6,9 +6,14 @@ var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
-var libnice = require('node-libnice');
 var stun = require('./stun');
 var dbg = require('noobaa-util/debug_module')(__filename);
+
+try {
+    var libnice = require('node-libnice');
+} catch (err) {
+    dbg.warn('libnice is unavailble');
+}
 
 util.inherits(NiceConnection, EventEmitter);
 

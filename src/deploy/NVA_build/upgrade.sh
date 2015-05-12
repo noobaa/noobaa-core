@@ -4,8 +4,6 @@
 
 TMP_PACKAGE_FILE="new_version.tgz"
 TMP_PACKAGE="/tmp/${TMP_PACKAGE_FILE}"
-SUPERD="/usr/bin/supervisord"
-SUPERCTL="/usr/bin/supervisorctl"
 VER_CHECK="./version_check.js"
 
 
@@ -30,7 +28,7 @@ function check_latest_version {
 
   if [ "$path" != "" ]; then
     deploy_log "Upgrade needed, path ${path}"
-    curl -sL ${path} > ${TMP_PACKAGE}
+    curl -sL ${path} > ${TMP_PACKAGE} || true
     exit 1
   else
     deploy_log "Version is up to date"
@@ -50,11 +48,13 @@ function do_upgrade {
     exit 1
   fi
 
+  deploy_log "Tar extracted successfully, backup of current version"
   #Backup and extract
   mv ${CORE_DIR} /backup
   mkdir ${CORE_DIR}
   mv ${TMP_PACKAGE} ${CORE_DIR}
   cd ${CORE_DIR}
+  deploy_log "Extracting new version"
 	tar -xzvf ./${TMP_PACKAGE_FILE}
 
   # Re-setup Repos
@@ -69,5 +69,5 @@ if [ should_upgrade -eq 1 ]; then
   disable_supervisord
   do_upgrade
   enable_supervisord
-  deploy_log "Upgrade Success!"
+  deploy_log "Upgrade finished successfully!"
 fi

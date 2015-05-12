@@ -134,7 +134,7 @@ describe('object', function() {
                     for (var i = 0; i < size; i++) {
                         data[i] = chance.integer(CHANCE_BYTE);
                     }
-                    return client.object_client.upload_stream({
+                    return client.object_driver_lazy().upload_stream({
                         bucket: BKT,
                         key: key,
                         size: size,
@@ -142,7 +142,7 @@ describe('object', function() {
                         source_stream: new SliceReader(data),
                     });
                 }).then(function() {
-                    return client.object_client.read_entire_object({
+                    return client.object_driver_lazy().read_entire_object({
                         bucket: BKT,
                         key: key,
                         start: 0,
@@ -213,7 +213,7 @@ describe('object', function() {
                 .then(function() {
                     var i = 0;
                     return promise_utils.loop(10, function() {
-                        return client.object_client.upload_stream_parts({
+                        return client.object_driver_lazy().upload_stream_parts({
                             bucket: BKT,
                             key: key,
                             size: part_size,
@@ -245,7 +245,7 @@ describe('object', function() {
                     });
                 })
                 .then(function() {
-                    return client.object_client.read_entire_object({
+                    return client.object_driver_lazy().read_entire_object({
                         bucket: BKT,
                         key: key,
                     });

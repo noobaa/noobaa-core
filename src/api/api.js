@@ -3,7 +3,7 @@
 var _ = require('lodash');
 var RPC = require('../rpc/rpc');
 var RpcSchema = require('../rpc/rpc_schema');
-var ObjectClient = require('./object_client');
+var ObjectDriver = require('./object_driver');
 
 // registring all api's on the same RpcSchema object
 // so they share the schema namespace
@@ -43,9 +43,6 @@ function Client(default_options) {
     // TODO this is abusing this client as the signal_client for the rpc
     api_rpc.n2n_signaller = self.node.n2n_signal;
 
-    // the object client is a "heavy" object with caches
-    self.object_client = new ObjectClient(self);
-
     /**
      * authenticate using the provided params,
      * and save the token in options for next calls.
@@ -66,3 +63,11 @@ function Client(default_options) {
 
     return self;
 }
+
+Client.prototype.object_driver_lazy = function() {
+    // the object driver is a "heavy" object with caches
+    if (!this.object_driver) {
+        this.object_driver = new ObjectDriver(this);
+    }
+    return this.object_driver;
+};

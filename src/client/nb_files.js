@@ -109,7 +109,7 @@ nb_api.factory('nbFiles', [
         function get_file(params, cache_miss) {
             return $q.when()
                 .then(function() {
-                    return nbClient.client.object_client.get_object_md(params, cache_miss);
+                    return nbClient.client.object_driver_lazy().get_object_md(params, cache_miss);
                 })
                 .then(function(res) {
                     console.log('FILE', res);
@@ -199,7 +199,7 @@ nb_api.factory('nbFiles', [
             console.log('upload', tx);
 
             if (use_object_client) {
-                tx.promise = $q.when(nbClient.client.object_client.upload_stream({
+                tx.promise = $q.when(nbClient.client.object_driver_lazy().upload_stream({
                         bucket: tx.bucket,
                         key: tx.name,
                         size: tx.size,
@@ -312,7 +312,7 @@ nb_api.factory('nbFiles', [
 
                         var reader;
                         if (use_object_client) {
-                            reader = nbClient.client.object_client.open_read_stream({
+                            reader = nbClient.client.object_driver_lazy().open_read_stream({
                                     bucket: bucket_name,
                                     key: file.name,
                                 })
@@ -486,7 +486,7 @@ nb_api.factory('nbFiles', [
             };
             var defer = $q.defer();
             var stream = concat_stream(defer.resolve);
-            var source = nbClient.client.object_client.open_read_stream(object_path);
+            var source = nbClient.client.object_driver_lazy().open_read_stream(object_path);
             source.once('error', defer.reject);
             stream.once('error', defer.reject);
             source.pipe(stream);
@@ -505,7 +505,7 @@ nb_api.factory('nbFiles', [
             ms.addEventListener('sourceopen', function(e) {
                 // TODO need to have content type, and check support for types
                 var source_buffer = ms.addSourceBuffer('video/webm; codecs="vp8, vorbis"');
-                var stream = nbClient.client.object_client.open_read_stream(object_path);
+                var stream = nbClient.client.object_driver_lazy().open_read_stream(object_path);
                 var video = $window.document.getElementsByTagName('video')[0];
                 video.addEventListener('progress', function() {
                     stream.resume();

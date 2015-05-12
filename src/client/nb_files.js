@@ -13,8 +13,8 @@ var streams = require('stream');
 
 
 nb_api.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope', 'nbClient',
-    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope, nbClient) {
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope', 'nbClient','$location',
+    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope, nbClient,$location) {
         var $scope = {};
 
         $scope.list_files = list_files;
@@ -82,9 +82,9 @@ nb_api.factory('nbFiles', [
             //var secret_access_key = 'f25cd46a-e105-4518-ac75-0d033745b4e1';
             var rest_port = 80;
             var rest_ssl_port = 443;
-            var http_endpoint = 'http://127.0.0.1' +
+            var http_endpoint = 'http://'+$location.host()+
                 (rest_port ? ':' + rest_port : '');
-            var https_endpoint = 'https://127.0.0.1' +
+            var https_endpoint = 'https://' +$location.host()+
                 (rest_ssl_port ? ':' + rest_ssl_port : '');
             $scope.s3 = new AWS.S3({
                 endpoint: $window.location.protocol === 'https:' ?
@@ -122,6 +122,7 @@ nb_api.factory('nbFiles', [
                         Bucket: params.bucket,
                         Key: params.key
                     });
+                    console.log('urlll:',url);
                     file_info.url = url;
                     return file_info;
                 });

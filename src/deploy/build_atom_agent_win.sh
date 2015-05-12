@@ -1,7 +1,32 @@
 #!/bin/sh
-# if no params, build clean
-if [ $# -eq 0 ]
-        then
+# default - clean build
+
+clean=true;
+#extract parms
+while [[ $# > 0 ]]; do
+  key=$(echo $1 | sed "s:\(.*\)=.*:\1:")
+  case $key in
+      --clean)
+        clean=$(echo $1 | sed "s:.*=\(.*\):\1:")
+        ;;
+    --access_key)
+      ACCESS_KEY=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
+    --secret_key)
+      SECRET_KEY=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
+    *)
+      usage
+      # unknown option
+      ;;
+  esac
+  shift
+done
+echo "$clean"
+echo "$ACCESS_KEY"
+echo "$SECRET_KEY"
+
+if [ "$clean" = true ] ; then
         echo "delete old files"
         rm -rf build/windows
         mkdir build/windows
@@ -17,7 +42,7 @@ if [ $# -eq 0 ]
         cp ../../src/deploy/NooBaa_Agent_wd.exe .
         cp ../../package.json .
         cp ../../config.js .
-        cp ../../agent_conf.json .
+
         mkdir ./src/
         cp -R ../../src/agent ./src/
         cp -R ../../src/util ./src/
@@ -44,6 +69,20 @@ if [ $# -eq 0 ]
 else
     cd build/windows
 fi
+echo "create agent conf"
+echo "$SECRET_KEY"
+echo '{' > agent_conf.json
+echo '    "dbg_log_level": 2,' >> agent_conf.json
+echo '    "address": "http://127.0.0.1:5001",' >> agent_conf.json
+echo '    "system": "demo",' >> agent_conf.json
+echo '    "tier": "nodes",' >> agent_conf.json
+echo '    "prod": "true",' >> agent_conf.json
+echo '    "bucket": "files",' >> agent_conf.json
+echo '    "root_path": "./agent_storage_test/",' >> agent_conf.json
+echo '    "access_key":"'"$ACCESS_KEY"'",' >> agent_conf.json
+echo '    "secret_key":"'"$SECRET_KEY"'"' >> agent_conf.json
+echo '}' >> agent_conf.json
+
 echo "make installer"
 pwd
 makensis -NOCD ../../src/deploy/atom_agent_win.nsi

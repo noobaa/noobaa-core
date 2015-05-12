@@ -6,6 +6,8 @@ CORE_DIR="/root/node_modules/noobaa-core"
 CONFIG_JS="${CORE_DIR}/config.js"
 ENV_FILE="${CORE_DIR}/.env"
 LOG_FILE="/var/log/noobaa_deploy.log"
+SUPERD="/usr/bin/supervisord"
+SUPERCTL="/usr/bin/supervisorctl"
 
 function deploy_log {
 	if [ $1 != "" ]; then
@@ -114,8 +116,8 @@ function setup_supervisors {
 	echo "[include]" >> /etc/supervisord.conf
 	echo "files = /etc/noobaa_supervisor.conf" >> /etc/supervisord.conf
 	cp -f ./noobaa_supervisor.conf /etc
-	supervisorctl reread
-	supervisorctl update
+	${SUPERCTL} reread
+	${SUPERCTL} update
 	deploy_log "setup_supervisors done"
 }
 

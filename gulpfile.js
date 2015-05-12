@@ -310,24 +310,23 @@ gulp.task('agent', ['jshint'], function() {
 });
 
 gulp.task('build_agent_distro', function() {
-    var build_script = child_process.spawn('src/deploy/build_agent_win.sh', ['--access_key=123', '--secret_key=abc'], {
+    var build_script = child_process.spawn('src/deploy/build_atom_agent_win.sh', ['--access_key=123', '--secret_key=abc'], {
         cwd: process.cwd()
     });
     var stdout = '',
         stderr = '';
 
-    child_process.stdout.setEncoding('utf8');
+    build_script.stdout.setEncoding('utf8');
 
-    child_process.stdout.on('data', function(data) {
+    build_script.stdout.on('data', function(data) {
         stdout += data;
         gutil.log(data);
     });
 
-    child_process.stderr.setEncoding('utf8');
-    child_process.stderr.on('data', function(data) {
+    build_script.stderr.setEncoding('utf8');
+    build_script.stderr.on('data', function(data) {
         stderr += data;
-        gutil.log(gutil.colors.red(data));
-        gutil.beep();
+        gutil.log(data);
     });
 });
 
@@ -358,7 +357,7 @@ gulp.task('NVA_build', ['jshint', 'build_agent_distro'], function() {
                 name: 'noobaa-NVA',
                 version: '0.0.0',
                 private: true,
-                main: 'index.js', 
+                main: 'index.js',
                 dependencies: deps,
             };
         })).on('error', gutil.log);

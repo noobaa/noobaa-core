@@ -69,7 +69,7 @@ function RpcN2NConnection(addr_url, n2n_agent) {
 
     // use the configuration from the url query (parsed before)
     var conf = self.conf = _.defaults(self.url.query, DEFAULT_N2N_CONF);
-    dbg.log0('N2N', conf.con, conf.sec, conf.flow);
+    dbg.log0('N2N', 'con=' + conf.con, 'sec=' + conf.sec, 'flow=' + conf.flow);
     self.connector = new CONNECTORS[conf.con]({
         addr_url: addr_url,
         signaller: self.signaller.bind(self)
@@ -102,7 +102,10 @@ RpcN2NConnection.prototype.connect = function(options) {
     return this.connector.connect(options);
 };
 
-RpcN2NConnection.prototype.close = function(err_optional) {
+RpcN2NConnection.prototype.close = function(err) {
+    if (err) {
+        dbg.error('N2N CONNECTION ERROR', err.stack || err);
+    }
     if (this.closed) {
         return;
     }
@@ -125,7 +128,7 @@ RpcN2NConnection.prototype.accept = function(info) {
 RpcN2NConnection.prototype.signaller = function(info) {
     return this.n2n_agent.signaller({
         target: {
-            id: 'unused',
+            id: '-',
             peer: this.peer,
             address: this.url.href,
         },
@@ -155,7 +158,9 @@ function RpcN2NAgent(options) {
 
 RpcN2NAgent.prototype.signal = function(params) {
     dbg.log0('N2N AGENT signal', params);
+
     // TODO target address is me, should use the source address ...
+
     var addr_url = url.parse(params.target.address, true);
     var conn = new RpcN2NConnection(addr_url, this);
     this.emit('connection', conn);

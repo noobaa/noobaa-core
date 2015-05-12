@@ -60,8 +60,20 @@ function IceConnection(options) {
     // we keep all the addresses we discover in a map (without dups),
     // so they can be used later for contacting us from other peers.
     socket.on('stun.address', function(addr) {
-        dbg.log0('ICE STUN address', addr);
+        dbg.log0('ICE STUN ME', addr);
         self.addresses[addr.address + ':' + addr.port] = addr;
+    });
+
+    socket.on('stun.request', function(rinfo) {
+        dbg.log0('ICE STUN REMOTE', rinfo.address + ':' + rinfo.port);
+        // we pick the first address that we get a proper request for
+        if (!self.selected_addr) {
+            self.selected_addr = rinfo;
+        }
+        if (self.select_addr_defer) {
+            self.select_addr_defer.resolve();
+            self.select_addr_defer = null;
+        }
     });
 
     // this is a stun keepalive that we receive as we are also
@@ -139,15 +151,15 @@ IceConnection.prototype._bind = function() {
  */
 IceConnection.prototype.connect = function() {
     var self = this;
-    if (this.ready) {
+    if (this.selected_addr) {
         return;
     }
-    if (self.connect_promise) {
-        return self.connect_promise;
+    if (self.select_addr_defer) {
+        return self.select_addr_defer.promise;
     }
 
-    self.connect_promise =
-        self._bind()
+    self.select_addr_defer = Q.defer();
+    return self._bind()
         .then(function() {
             // send my addresses using the signaller
             return self.signaller({
@@ -158,11 +170,6 @@ IceConnection.prototype.connect = function() {
             dbg.log0('ICE CONNECT SIGNAL', info);
             // send stun request to each of the remote addresses
             return Q.all(_.map(info.addresses, function(addr) {
-                // naively picking one of the remote addresses
-                if (!self.selected_addr) {
-                    self.selected_addr = addr;
-                    self.ready = true;
-                }
                 return stun.send_request(
                     self.socket,
                     addr.address,
@@ -170,17 +177,15 @@ IceConnection.prototype.connect = function() {
             }));
         })
         .then(function() {
-            self.connect_promise = null;
-            if (!self.ready) {
-                throw new Error('ICE CONNECT EXHAUSTED');
+            if (self.select_addr_defer) {
+                return self.select_addr_defer.promise
+                    .timeout(30000, 'ICE CONNECT EXHAUSTED');
             }
         })
         .then(null, function(err) {
             self.emit('error', err);
             throw err;
         });
-
-    return self.connect_promise;
 };
 
 
@@ -191,24 +196,19 @@ IceConnection.prototype.connect = function() {
  */
 IceConnection.prototype.accept = function(info) {
     var self = this;
-    if (this.ready) {
+    if (this.selected_addr) {
         return;
     }
-    if (self.accept_promise) {
-        return self.accept_promise;
+    if (self.select_addr_defer) {
+        return self.select_addr_defer.promise;
     }
 
-    self.accept_promise =
-        self._bind()
+    self.select_addr_defer = Q.defer();
+    return self._bind()
         .then(function() {
             dbg.log0('ICE ACCEPT SIGNAL', info);
             // send stun request to each of the remote addresses
             return Q.all(_.map(info.addresses, function(addr) {
-                // naively picking one of the remote addresses
-                if (!self.selected_addr) {
-                    self.selected_addr = addr;
-                    self.ready = true;
-                }
                 return stun.send_request(
                     self.socket,
                     addr.address,
@@ -216,10 +216,20 @@ IceConnection.prototype.accept = function(info) {
             }));
         })
         .then(function() {
-            self.accept_promise = null;
-            if (!self.ready) {
-                throw new Error('ICE ACCEPT EXHAUSTED');
+
+            // don't wait for the address selection
+            // because we need to return the addresses first
+            // to the sender of the signal so that it will send us
+            // stun requests.
+            if (self.select_addr_defer) {
+                self.select_addr_defer.promise
+                    .timeout(30000, 'ICE ACCEPT EXHAUSTED')
+                    .then(null, function(err) {
+                        self.emit('error', err);
+                        throw err;
+                    });
             }
+
             // return my addresses over the signal
             return {
                 addresses: _.values(self.addresses)
@@ -229,8 +239,6 @@ IceConnection.prototype.accept = function(info) {
             self.emit('error', err);
             throw err;
         });
-
-    return self.accept_promise;
 };
 
 
@@ -240,7 +248,7 @@ IceConnection.prototype.accept = function(info) {
  *
  */
 IceConnection.prototype.send = function(buffer, offset, length) {
-    if (!this.ready) {
+    if (!this.selected_addr) {
         dbg.log0('ICE SOCKET NOT READY TO SEND');
         return;
     }
@@ -260,7 +268,7 @@ IceConnection.prototype.send = function(buffer, offset, length) {
  *
  */
 IceConnection.prototype.close = function() {
-    this.ready = false;
+    this.selected_addr = null;
     if (this.closed) {
         return;
     }

@@ -184,9 +184,9 @@ function handle_stun_packet(socket, buffer, rinfo) {
  *
  */
 function receive_stun_request(socket, buffer, rinfo) {
-    dbg.log0('STUN REQUESTED from', rinfo.address + ':' + rinfo.port,
+    dbg.log0('STUN REQUEST from', rinfo.address + ':' + rinfo.port,
         'me', socket.address().address + ':' + socket.address().port);
-    // socket.emit('stun.request', rinfo);
+    socket.emit('stun.request', rinfo);
     var reply = new_packet(STUN.METHODS.SUCCESS, [{
         type: STUN.ATTRS.XOR_MAPPED_ADDRESS,
         value: {

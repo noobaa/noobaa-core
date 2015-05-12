@@ -395,7 +395,7 @@ gulp.task('NVA_build', ['jshint', 'build_agent_distro'], function() {
         }));
 
     return event_stream
-        .merge(pkg_stream, src_stream, images_stream, basejs_stream)
+        .merge(pkg_stream, src_stream, images_stream, basejs_stream, vendor_stream, agent_distro)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))

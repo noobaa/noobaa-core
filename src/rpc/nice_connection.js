@@ -74,9 +74,11 @@ NiceConnection.prototype.connect = function(options) {
             case 'connecting':
                 break;
             default:
-                if (self.connect_defer) {
-                    self.connect_defer.reject('libnice ' + state);
-                }
+                setTimeout(function() {
+                    if (self.connect_defer) {
+                        self.connect_defer.reject('libnice ' + state);
+                    }
+                }, 10000);
                 break;
         }
     });
@@ -144,9 +146,11 @@ NiceConnection.prototype.accept = function(info) {
             case 'connecting':
                 break;
             default:
-                if (self.accept_defer) {
-                    self.accept_defer.reject('libnice ' + state);
-                }
+                setTimeout(function() {
+                    if (self.accept_defer) {
+                        self.accept_defer.reject('libnice ' + state);
+                    }
+                }, 10000);
                 break;
         }
     });

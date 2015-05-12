@@ -133,7 +133,7 @@ Agent.prototype.start = function() {
             // register agent_server in rpc, with peer as my peer_id
             // to match only calls to me
             api.rpc.register_service(api.schema.agent_api, self.agent_server, {
-                peer: self.peer_id,
+                address: 'n2n://' + self.peer_id,
                 authorize: function(req, method_api) {
                     // TODO verify aithorized tokens in agent?
                 }
@@ -144,7 +144,7 @@ Agent.prototype.start = function() {
             return self._start_stop_http_server();
         })
         .then(function() {
-            return self._start_stop_nudp_server();
+            return api.rpc.register_n2n_transport();
         })
         .then(function() {
             return self.send_heartbeat();
@@ -167,7 +167,6 @@ Agent.prototype.stop = function() {
     dbg.log0('stop agent ' + self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
-    self._start_stop_nudp_server();
     self._start_stop_heartbeats();
 };
 
@@ -237,23 +236,6 @@ Agent.prototype._init_node = function() {
 
 
 // RPC SERVER /////////////////////////////////////////////////////////////////
-
-
-/**
- *
- * _start_stop_nudp_server
- *
- */
-Agent.prototype._start_stop_nudp_server = function() {
-    var self = this;
-
-    if (!self.is_started) {
-        // TODO stop nudp listening socket. what about the open connections?
-        return;
-    }
-
-    return api.rpc.register_n2n_transport();
-};
 
 
 /**
@@ -393,22 +375,10 @@ Agent.prototype.send_heartbeat = function() {
                 alloc = Math.min(alloc, freeSpace);
             }
 
-            var addresses = [];
-            if (self.nudp_socket) {
-                _.each(self.nudp_socket.addresses, function(addr) {
-                    addresses.push('nudp://' + addr.address + ':' + addr.port);
-                });
-            }
             var ip = ip_module.address();
             var http_port = 0;
             if (self.http_server) {
                 http_port = self.http_server.address().port;
-                addresses.push('ws://' + ip + ':' + http_port);
-                addresses.push('http://' + ip + ':' + http_port);
-            }
-            if (self.https_server) {
-                addresses.push('wss://' + ip + ':' + self.https_server.address().port);
-                addresses.push('https://' + ip + ':' + self.https_server.address().port);
             }
 
             var params = {
@@ -416,7 +386,6 @@ Agent.prototype.send_heartbeat = function() {
                 geolocation: self.geolocation,
                 ip: ip,
                 port: http_port,
-                addresses: addresses,
                 storage: {
                     alloc: alloc,
                     used: store_stats.used
@@ -565,8 +534,7 @@ Agent.prototype.replicate_block = function(req) {
     return self.client.agent.read_block({
             block_id: source.id
         }, {
-            peer: source.peer,
-            address: source.address,
+            address: source.url,
         })
         .then(function(res) {
             return self.store.write_block(block_id, res.data);
@@ -629,8 +597,7 @@ Agent.prototype.self_test_peer = function(req) {
             data: new Buffer(req.rpc_params.request_length),
             response_length: req.rpc_params.response_length,
         }, {
-            peer: target.peer,
-            address: target.address,
+            address: target.url,
         })
         .then(function(res) {
             var data = res.data;

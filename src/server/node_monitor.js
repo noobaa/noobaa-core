@@ -10,15 +10,15 @@ var server_rpc = require('../server/server_rpc');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
- * we keep a map from peer_if to connection
- * to be used for
+ * we keep a map from peer_id to connection address
+ * to be used for signaling and notifications from the server.
  */
-var peers_last_address = {};
+var peers_reverse_address = {};
 
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
-    peers_last_address: peers_last_address,
+    peers_reverse_address: peers_reverse_address,
     self_test_to_node_via_web: self_test_to_node_via_web
 };
 
@@ -41,7 +41,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                     },
                 })
                 // we are very selective to reduce overhead
-                .select('ip port peer_id addresses storage geolocation device_info.last_update')
+                .select('ip port peer_id storage geolocation device_info.last_update')
                 .exec())
             .then(function(res) {
                 var nodes_by_id = _.indexBy(res, '_id');
@@ -131,7 +131,6 @@ function heartbeat(req) {
         'geolocation',
         'ip',
         'port',
-        'addresses',
         'storage',
         'device_info');
     params.ip = params.ip ||
@@ -182,8 +181,9 @@ function heartbeat(req) {
             }
 
             // TODO switch from plain hash to LRU with expiry?
-            dbg.log1('PEER LAST ADDRESS', node.peer_id, req.connection.url.href);
-            peers_last_address[node.peer_id] = req.connection.url.href;
+            dbg.log1('PEER REVERSE ADDRESS', node.peer_id, req.connection.url.href);
+            var node_listen_addr = 'n2n://' + node.peer_id;
+            peers_reverse_address[node_listen_addr] = req.connection.url.href;
 
             var agent_storage = params.storage;
 
@@ -220,9 +220,6 @@ function heartbeat(req) {
             }
             if (params.port && params.port !== node.port) {
                 updates.port = params.port;
-            }
-            if (params.addresses && !_.isEqual(params.addresses, node.addresses)) {
-                updates.addresses = params.addresses;
             }
 
             // to avoid frequest updates of the node check if the last update of
@@ -267,11 +264,9 @@ function heartbeat(req) {
  */
 function n2n_signal(req) {
     var target = req.rpc_params.target;
-    console.log('n2n_signal', target.peer);
+    console.log('n2n_signal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
-        peer: target.peer,
-        address: target.address,
-        last_address: peers_last_address[target.peer],
+        address: peers_reverse_address[target] || target,
     });
 }
 
@@ -286,16 +281,14 @@ function self_test_to_node_via_web(req) {
     var target = req.rpc_params.target;
     var source = req.rpc_params.source;
 
-    console.log('SELF TEST', target.peer, 'from', source.peer);
+    console.log('SELF TEST', target, 'from', source);
 
     return server_rpc.client.agent.self_test_peer({
         target: target,
         request_length: req.rpc_params.request_length || 1024,
         response_length: req.rpc_params.response_length || 1024,
     }, {
-        peer: source.peer,
-        address: source.address,
-        last_address: peers_last_address[source.peer],
+        address: peers_reverse_address[source] || source,
     });
 }
 

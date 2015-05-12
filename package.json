@@ -27,7 +27,9 @@
     "morgan": false,
     "body-parser": false,
     "method-override": false,
-    "compression": false
+    "compression": false,
+    "node-libnice": false,
+    "libnice": false
   },
   "dependencies": {
     "MD5": "~1.2.1",

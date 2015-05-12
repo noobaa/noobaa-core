@@ -18,13 +18,22 @@ api_schema.register_api(require('./bucket_api'));
 api_schema.register_api(require('./object_api'));
 api_schema.register_api(require('./agent_api'));
 
-var api_rpc = new RPC({
-    schema: api_schema
-});
+function new_rpc(options) {
+    options = options || {};
+    options.schema = options.schema || api_schema;
+    var rpc = new RPC(options);
+    // abusing the default rpc client as the n2n_signaller for the rpc
+    rpc.n2n_signaller = rpc.client.node.n2n_signal;
+    return rpc;
+}
+
+var api_rpc = new_rpc();
+
 
 module.exports = {
     schema: api_schema,
     rpc: api_rpc,
+    new_rpc: new_rpc,
     Client: Client,
 };
 
@@ -39,9 +48,6 @@ function Client(default_options) {
 
     // for options use prototype inheritance to create new object but with defaults
     var self = api_rpc.create_schema_client(api_schema, _.create(default_options));
-
-    // TODO this is abusing this client as the signal_client for the rpc
-    api_rpc.n2n_signaller = self.node.n2n_signal;
 
     /**
      * authenticate using the provided params,

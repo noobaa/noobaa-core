@@ -26,7 +26,7 @@ var node_server = {
     group_nodes: group_nodes,
 
     heartbeat: node_monitor.heartbeat,
-    send_signal: node_monitor.send_signal,
+    n2n_signal: node_monitor.n2n_signal,
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web
 };
 
@@ -382,7 +382,6 @@ function get_node_full_info(node) {
     info.peer_id = node.peer_id || '';
     info.ip = node.ip || '0.0.0.0';
     info.port = node.port || 0;
-    info.addresses = node.addresses;
     info.heartbeat = node.heartbeat.getTime();
     info.storage = {
         alloc: node.storage.alloc || 0,

@@ -137,7 +137,7 @@ module.exports = {
                 required: ['target'],
                 properties: {
                     target: {
-                        $ref: '/common_api/definitions/block_address'
+                        type: 'string'
                     },
                     info: {
                         type: 'object',
@@ -191,7 +191,7 @@ module.exports = {
                 required: ['target', 'request_length', 'response_length'],
                 properties: {
                     target: {
-                        $ref: '/common_api/definitions/block_address'
+                        type: 'string'
                     },
                     request_length: {
                         type: 'integer'

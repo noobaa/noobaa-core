@@ -23,18 +23,8 @@ module.exports = {
                 id: {
                     type: 'string'
                 },
-                peer: {
+                url: {
                     type: 'string'
-                },
-                address: {
-                    anyOf: [{
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    }, {
-                        type: 'string'
-                    }]
                 }
             }
         },

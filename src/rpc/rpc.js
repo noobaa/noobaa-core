@@ -78,8 +78,8 @@ RPC.prototype.register_service = function(api, server, options) {
     options = options || {};
 
     _.each(api.methods, function(method_api, method_name) {
-        var peer = options.peer || '';
-        var srv = '/' + peer + '/' + api.name + '/' + method_name;
+        var address = options.address || '';
+        var srv = address + '/' + api.name + '/' + method_name;
         assert(!self._services[srv],
             'RPC register_service: service already registered ' + srv);
         var func = server[method_name];
@@ -161,11 +161,11 @@ RPC.prototype.create_client = function(api, default_options) {
 RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
     options = options || {};
-    var peer = options.peer || '';
+    var address = options.address || '';
 
     // initialize the request
     var req = new RpcRequest();
-    req.new_request(peer, api, method_api, params, options.auth_token);
+    req.new_request(address, api, method_api, params, options.auth_token);
     req.response_defer = Q.defer();
 
     return Q.fcall(function() {
@@ -264,8 +264,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     req.reqid = rseq + '@' + conn.connid;
 
     // find the requested service
-    var srv =
-        '/' + msg.header.peer +
+    var srv = msg.header.addr +
         '/' + msg.header.api +
         '/' + msg.header.method;
     var service = this._services[srv];

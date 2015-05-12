@@ -23,8 +23,8 @@ function RpcWsConnection(addr_url) {
     this.url = addr_url;
 
     // generate connection id only used for identifying in debug prints
-    var t = process.hrtime();
-    this.connid = 'WS-' + t[0].toString(36) + t[1].toString(36);
+    var t = Date.now();
+    this.connid = 'WS-' + t.toString(36);
 }
 
 var KEEPALIVE_OP = 'keepalive';
@@ -200,7 +200,7 @@ RpcWsConnection.prototype._init = function() {
 
     ws.onmessage = function(msg) {
         try {
-            if (Buffer.isBuffer(msg.data)) {
+            if (Buffer.isBuffer(msg.data) || msg.data instanceof ArrayBuffer) {
                 handle_data_message(msg);
             } else {
                 handle_command_message(msg);

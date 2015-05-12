@@ -189,6 +189,7 @@ nb_api.factory('nbNodes', [
                         });
                 })
                 .then(function() {
+                    /*
                     define_phase({
                         name: 'write 0.5 MB from browser to ' + node.name,
                         kind: ['full', 'rw'],
@@ -224,7 +225,6 @@ nb_api.factory('nbNodes', [
                             return self_test_io(node);
                         }
                     });
-                    /*
                     _.each(online_nodes, function(target_node) {
                         define_phase({
                             name: 'connect from browser to ' + target_node.name,
@@ -240,57 +240,13 @@ nb_api.factory('nbNodes', [
                             name: 'connect from ' + node.name + ' to ' + target_node.name,
                             kind: ['full', 'conn'],
                             func: function() {
-                                return self_test_to_node(node, target_node);
+                                return self_test_to_node_via_web(node, target_node);
                             }
                         });
                     });
 
                     define_phase({
                         name: 'LOAD WRITE: connect from all to one node and send 0.5MB (10 times from each)',
-                        kind: ['full', 'load'],
-                        total: 0,
-                        position: 0,
-                        func: function(target_node) {
-                            var self = this;
-                            var advance_pos = function() {
-                                self.position += 1;
-                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                $rootScope.safe_apply();
-                            };
-                            return Q.all(_.map(online_nodes, function(target_node) {
-                                self.total += 10;
-                                return promise_utils.loop(10, function() {
-                                    return self_test_to_node(target_node, node, 0, 512 * 1024)
-                                        .then(advance_pos);
-                                });
-                            }));
-                        }
-                    });
-
-                    define_phase({
-                        name: 'LOAD READ: connect from all to one node and read 0.5MB (10 times from each)',
-                        kind: ['full', 'load'],
-                        total: 0,
-                        position: 0,
-                        func: function(target_node) {
-                            var self = this;
-                            var advance_pos = function() {
-                                self.position += 1;
-                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                $rootScope.safe_apply();
-                            };
-                            return Q.all(_.map(online_nodes, function(target_node) {
-                                self.total += 10;
-                                return promise_utils.loop(10, function() {
-                                    return self_test_to_node(target_node, node, 512 * 1024, 0)
-                                        .then(advance_pos);
-                                });
-                            }));
-                        }
-                    });
-
-                    define_phase({
-                        name: 'LOAD VIA SERVER: connect from all to one node and send 0.5MB (10 times from each)',
                         kind: ['full', 'load'],
                         total: 0,
                         position: 0,
@@ -313,6 +269,29 @@ nb_api.factory('nbNodes', [
                     });
 
                     define_phase({
+                        name: 'LOAD READ: connect from all to one node and read 0.5MB (10 times from each)',
+                        kind: ['full', 'load'],
+                        total: 0,
+                        position: 0,
+                        func: function(target_node) {
+                            var self = this;
+                            var advance_pos = function() {
+                                self.position += 1;
+                                self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
+                                $rootScope.safe_apply();
+                            };
+                            return Q.all(_.map(online_nodes, function(target_node) {
+                                self.total += 10;
+                                return promise_utils.loop(10, function() {
+                                    return self_test_to_node_via_web(
+                                            target_node, node, 512 * 1024, 0)
+                                        .then(advance_pos);
+                                });
+                            }));
+                        }
+                    });
+
+                    define_phase({
                         name: 'transfer 100 MB between ' + node.name + ' and the other nodes',
                         kind: ['full', 'tx'],
                         total: 100 * 1024 * 1024,
@@ -321,7 +300,8 @@ nb_api.factory('nbNodes', [
                             var self = this;
                             if (self.position >= self.total) return;
                             var target_node = chance.pick(online_nodes);
-                            return self_test_to_node(target_node, node, 512 * 1024, 512 * 1024)
+                            return self_test_to_node_via_web(
+                                    target_node, node, 512 * 1024, 512 * 1024)
                                 .then(function() {
                                     self.position += 1024 * 1024;
                                     self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
@@ -330,6 +310,8 @@ nb_api.factory('nbNodes', [
                                 });
                         }
                     });
+
+                    /*
                     define_phase({
                         name: 'transfer 100 MB between browser and ' + node.name,
                         kind: ['full', 'tx'],
@@ -347,6 +329,8 @@ nb_api.factory('nbNodes', [
                                 });
                         }
                     });
+                    */
+
                     return run_phases();
                 })
                 .then(function() {
@@ -358,13 +342,13 @@ nb_api.factory('nbNodes', [
                 });
         }
 
+        /*
         function self_test_io(node, request_length, response_length) {
             return nbClient.client.agent.self_test_io({
                 data: new Buffer(request_length || 0),
                 response_length: response_length || 0,
             }, {
-                peer: node.peer_id,
-                address: node.addresses,
+                address: 'n2n://' + node.peer_id,
             });
         }
 
@@ -372,33 +356,21 @@ nb_api.factory('nbNodes', [
             console.log('SELF TEST', node.name, 'to', target_node.name);
 
             return nbClient.client.agent.self_test_peer({
-                target: {
-                    id: target_node.id,
-                    peer: target_node.peer_id,
-                    address: target_node.addresses,
-                },
+                target: 'n2n://' + target_node.peer_id,
                 request_length: request_length || 0,
                 response_length: response_length || 0,
             }, {
-                peer: node.peer_id,
-                address: node.addresses,
+                address: 'n2n://' + node.peer_id,
             });
         }
+        */
 
         function self_test_to_node_via_web(node, target_node, request_length, response_length) {
             console.log('SELF TEST', node.name, 'to', target_node.name);
 
-            return nbClient.client.object.self_test_to_node_via_web({
-                target: {
-                    id: target_node.id,
-                    peer: target_node.peer_id,
-                    address: target_node.addresses,
-                },
-                source: {
-                    id: node.id,
-                    peer: node.peer_id,
-                    address: node.addresses,
-                },
+            return nbClient.client.node.self_test_to_node_via_web({
+                target: 'n2n://' + target_node.peer_id,
+                source: 'n2n://' + node.peer_id,
                 request_length: request_length || 0,
                 response_length: response_length || 0,
             });

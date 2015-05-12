@@ -29,17 +29,16 @@ Object.defineProperty(RpcRequest.prototype, 'rpc_params', {
 /**
  *
  */
-RpcRequest.prototype.new_request = function(peer, api, method_api, params, auth_token) {
+RpcRequest.prototype.new_request = function(addr, api, method_api, params, auth_token) {
     this.time = Date.now();
     // reqid will be set by the connection...
     // this.reqid = this.time.toString(16) + Math.random().toString(16).slice(1);
-    this.peer = peer;
+    this.addr = addr;
     this.api = api;
     this.method_api = method_api;
     this.params = params;
     this.auth_token = auth_token;
-    this.srv =
-        '/' + this.peer +
+    this.srv = this.addr +
         '/' + api.name +
         '/' + method_api.name;
     try {
@@ -86,7 +85,7 @@ RpcRequest.prototype.export_request_buffer = function() {
     var header = {
         op: 'req',
         reqid: this.reqid,
-        peer: this.peer,
+        addr: this.addr,
         api: this.api.name,
         method: this.method_api.name,
         params: this.params,
@@ -104,7 +103,7 @@ RpcRequest.prototype.export_request_buffer = function() {
 RpcRequest.prototype.import_request_message = function(msg, api, method_api) {
     this.time = Date.now();
     this.reqid = msg.header.reqid;
-    this.peer = msg.header.peer;
+    this.addr = msg.header.addr;
     this.api = api;
     this.method_api = method_api;
     this.params = msg.header.params;
@@ -117,8 +116,7 @@ RpcRequest.prototype.import_request_message = function(msg, api, method_api) {
             throw this.rpc_error('BAD_REQUEST', err);
         }
     }
-    this.srv =
-        '/' + (this.peer || '') +
+    this.srv = (this.addr || '') +
         '/' + (api ? api.name : '?') +
         '/' + (method_api ? method_api.name : '?');
 };

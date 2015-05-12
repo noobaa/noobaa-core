@@ -143,8 +143,7 @@ function s3_app(params) {
             return Q.fcall(function() {
                     return api.rpc.register_n2n_transport();
                 })
-                .then(function(nudp_socket) {
-                    params.nudp_socket = nudp_socket;
+                .then(function() {
                     return Q.nfcall(pem.createCertificate.bind(pem), {
                         days: 365 * 100,
                         selfSigned: true

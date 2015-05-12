@@ -367,6 +367,7 @@ IceConnection.prototype._handle_stun_request = function(buffer, rinfo) {
         type: stun.STUN.ATTRS.PASSWORD_OLD,
         value: this.remote_info.credentials.pwd
     }], buffer);
+
     return Q.ninvoke(this.socket, 'send',
             reply, 0, reply.length,
             rinfo.port, rinfo.address)

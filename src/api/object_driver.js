@@ -395,7 +395,7 @@ ObjectDriver.prototype._write_block = function(block_address, buffer, offset) {
 
         dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block_address.id,
-            'to', block_address.peer);
+            'to', block_address.url);
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
@@ -403,13 +403,12 @@ ObjectDriver.prototype._write_block = function(block_address, buffer, offset) {
             block_id: block_address.id,
             data: buffer,
         }, {
-            peer: block_address.peer,
-            address: block_address.address,
+            address: block_address.url,
             timeout: config.write_timeout,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block_address.id,
-                'from', block_address.peer);
+                'from', block_address.url);
             throw err;
         });
 
@@ -887,13 +886,12 @@ ObjectDriver.prototype._read_block = function(block_address, block_size, offset)
 
         dbg.log1('read_block', size_utils.human_offset(offset),
             size_utils.human_size(block_size), block_address.id,
-            'from', block_address.peer);
+            'from', block_address.url);
 
         return self.client.agent.read_block({
                 block_id: block_address.id
             }, {
-                peer: block_address.peer,
-                address: block_address.address,
+                address: block_address.url,
                 timeout: config.read_timeout,
             })
             .then(function(res) {
@@ -909,7 +907,7 @@ ObjectDriver.prototype._read_block = function(block_address, block_size, offset)
             }, function(err) {
                 console.error('FAILED read_block', size_utils.human_offset(offset),
                     size_utils.human_size(block_size), block_address.id,
-                    'from', block_address.peer);
+                    'from', block_address.url);
                 throw err;
             });
     });

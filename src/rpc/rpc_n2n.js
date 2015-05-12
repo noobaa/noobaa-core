@@ -17,7 +17,7 @@ var CONNECTORS = {
     ice: IceConnection,
     nice: NiceConnection,
     // jingle: jingle,
-    // webrtc: webrtc
+    // webrtc: webrtc,
 };
 
 var SECURITY = {
@@ -31,6 +31,7 @@ var FLOW_CONTROL = {
     // utp: utp,
     // sctp: sctp,
     // quic: quic,
+    // dccp: dccp,
 };
 
 var DEFAULT_N2N_CONF = {
@@ -127,11 +128,7 @@ RpcN2NConnection.prototype.accept = function(info) {
 // forward signals
 RpcN2NConnection.prototype.signaller = function(info) {
     return this.n2n_agent.signaller({
-        target: {
-            id: '-',
-            peer: this.peer,
-            address: this.url.href,
-        },
+        target: this.url.href,
         info: info
     });
 };

@@ -262,12 +262,6 @@ module.exports = {
                     port: {
                         type: 'integer'
                     },
-                    addresses: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    },
                     storage: {
                         $ref: '/common_api/definitions/storage_info'
                     },
@@ -304,7 +298,7 @@ module.exports = {
                 required: ['target'],
                 properties: {
                     target: {
-                        $ref: '/common_api/definitions/block_address'
+                        type: 'string'
                     },
                     info: {
                         type: 'object',
@@ -323,7 +317,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: ['admin', 'agent', 'user']
+                system: false
             }
         },
 
@@ -334,10 +328,10 @@ module.exports = {
                 required: ['source', 'target', 'request_length', 'response_length'],
                 properties: {
                     source: {
-                        $ref: '/common_api/definitions/block_address'
+                        type: 'string'
                     },
                     target: {
-                        $ref: '/common_api/definitions/block_address'
+                        type: 'string'
                     },
                     request_length: {
                         type: 'integer'
@@ -398,7 +392,6 @@ module.exports = {
                 'peer_id',
                 'ip',
                 'port',
-                'addresses',
                 'online',
                 'heartbeat',
                 'storage',
@@ -428,12 +421,6 @@ module.exports = {
                 },
                 port: {
                     type: 'integer'
-                },
-                addresses: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    }
                 },
                 online: {
                     type: 'boolean',

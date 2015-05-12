@@ -587,14 +587,13 @@ function fix_multipart_parts(obj) {
 function agent_delete_call(node, del_blocks) {
     return Q.fcall(function() {
         var block_addr = get_block_address(del_blocks[0]);
+        var reverse_addr = node_monitor.peers_reverse_address[del_blocks[0].node.peer_id];
         return server_rpc.client.agent.delete_blocks({
             blocks: _.map(del_blocks, function(block) {
                 return block._id.toString();
             })
         }, {
-            peer: block_addr.peer,
-            address: block_addr.address,
-            last_address: node_monitor.peers_last_address[block_addr.peer],
+            address: reverse_addr || block_addr.url,
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -908,6 +907,7 @@ function build_chunks(chunks) {
                         return;
                     }
                     var block_addr = get_block_address(block);
+                    var reverse_addr = node_monitor.peers_last_address[block.node.peer_id];
                     var source_addr = get_block_address(block_info.source);
 
                     return replicate_block_sem.surround(function() {
@@ -915,17 +915,15 @@ function build_chunks(chunks) {
                             block_id: block._id.toString(),
                             source: source_addr
                         }, {
-                            peer: block_addr.peer,
-                            address: block_addr.address,
-                            last_address: node_monitor.peers_last_address[block_addr.peer],
+                            address: reverse_addr || block_addr.url,
                         });
                     }).then(function() {
                         dbg.log1('build_chunks replicated block', block._id,
-                            'to', block_addr.peer, 'from', source_addr.peer);
+                            'to', block_addr.url, 'from', source_addr.url);
                         replicated_block_ids.push(block._id);
                     }, function(err) {
                         dbg.error('build_chunks FAILED replicate block', block._id,
-                            'to', block_addr.peer, 'from', source_addr.peer,
+                            'to', block_addr.url, 'from', source_addr.url,
                             err.stack || err);
                         replicated_failed_ids.push(block._id);
                         block_info.replicate_error = err;
@@ -1340,8 +1338,7 @@ function get_part_info(params) {
 function get_block_address(block) {
     var b = {};
     b.id = block._id.toString();
-    b.peer = block.node.peer_id;
-    b.address = block.node.addresses;
+    b.url = 'n2n://' + block.node.peer_id;
     return b;
 }
 

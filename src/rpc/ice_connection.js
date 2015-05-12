@@ -29,6 +29,7 @@ function IceConnection(options) {
     var socket = dgram.createSocket('udp4');
     self.signaller = options.signaller;
     self.addr_url = options.addr_url;
+    self.select_addr_defer = Q.defer();
     self.socket = socket;
     self.addresses = {};
     self.port = 0;
@@ -65,9 +66,9 @@ function IceConnection(options) {
     });
 
     socket.on('stun.request', function(rinfo) {
-        dbg.log0('ICE STUN REMOTE', rinfo.address + ':' + rinfo.port);
         // we pick the first address that we get a proper request for
         if (!self.selected_addr) {
+            dbg.log0('ICE READY - SELECTED ADDRESS', rinfo.address + ':' + rinfo.port);
             self.selected_addr = rinfo;
         }
         if (self.select_addr_defer) {
@@ -146,6 +147,63 @@ IceConnection.prototype._bind = function() {
 
 /**
  *
+ * _punch_hole
+ *
+ */
+IceConnection.prototype._punch_hole = function(addr, attempts) {
+    var self = this;
+    attempts = attempts || 0;
+
+    // we are done if address was selected
+    if (self.selected_addr) {
+        return;
+    }
+    if (attempts >= 300) {
+        dbg.warn('ICE _punch_hole ADDRESS EXHAUSTED', addr);
+        return;
+    }
+    return stun.send_request(
+            self.socket,
+            addr.address,
+            addr.port)
+        .then(null, function(err) {
+            dbg.warn('ICE _punch_hole SEND STUN FAILED', addr, err.stack || err);
+        })
+        .then(function() {
+            return Q.delay(100);
+        })
+        .then(function() {
+            return self._punch_hole(addr, attempts + 1);
+        });
+};
+
+
+/**
+ *
+ * _punch_holes
+ *
+ */
+IceConnection.prototype._punch_holes = function(addresses) {
+    var self = this;
+    return Q.fcall(function() {
+        dbg.log0('ICE _punch_holes addresses', addresses);
+        // send stun request to each of the remote addresses
+        return Q.all(_.map(addresses, self._punch_hole.bind(self)));
+    })
+    .then(function() {
+        if (!self.selected_addr) {
+            throw new Error('ICE _punch_holes EXHAUSTED');
+        }
+    })
+    .then(null, function(err) {
+        self.emit('error', err);
+        throw err;
+    });
+};
+
+
+/**
+ *
  * connect
  *
  */
@@ -154,11 +212,7 @@ IceConnection.prototype.connect = function() {
     if (this.selected_addr) {
         return;
     }
-    if (self.select_addr_defer) {
-        return self.select_addr_defer.promise;
-    }
 
-    self.select_addr_defer = Q.defer();
     return self._bind()
         .then(function() {
             // send my addresses using the signaller
@@ -167,22 +221,8 @@ IceConnection.prototype.connect = function() {
             });
         })
         .then(function(info) {
-            dbg.log0('ICE CONNECT SIGNAL', info);
-            // send stun request to each of the remote addresses
-            return Q.all(_.map(info.addresses, function(addr) {
-                return stun.send_request(
-                    self.socket,
-                    addr.address,
-                    addr.port);
-            }));
-        })
-        .then(function() {
-            if (self.select_addr_defer) {
-                return self.select_addr_defer.promise
-                    .timeout(30000, 'ICE CONNECT EXHAUSTED');
-            }
-        })
-        .then(null, function(err) {
+            return self._punch_holes(info.addresses);
+        }, function(err) {
             self.emit('error', err);
             throw err;
         });
@@ -199,36 +239,16 @@ IceConnection.prototype.accept = function(info) {
     if (this.selected_addr) {
         return;
     }
-    if (self.select_addr_defer) {
-        return self.select_addr_defer.promise;
-    }
 
-    self.select_addr_defer = Q.defer();
     return self._bind()
         .then(function() {
             dbg.log0('ICE ACCEPT SIGNAL', info);
-            // send stun request to each of the remote addresses
-            return Q.all(_.map(info.addresses, function(addr) {
-                return stun.send_request(
-                    self.socket,
-                    addr.address,
-                    addr.port);
-            }));
-        })
-        .then(function() {
 
             // don't wait for the address selection
             // because we need to return the addresses first
             // to the sender of the signal so that it will send us
             // stun requests.
-            if (self.select_addr_defer) {
-                self.select_addr_defer.promise
-                    .timeout(30000, 'ICE ACCEPT EXHAUSTED')
-                    .then(null, function(err) {
-                        self.emit('error', err);
-                        throw err;
-                    });
-            }
+            self._punch_holes(info.addresses);
 
             // return my addresses over the signal
             return {

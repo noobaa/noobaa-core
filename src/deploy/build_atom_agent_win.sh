@@ -1,14 +1,24 @@
 #!/bin/sh
 # default - clean build
 
-clean=true;
+CLEAN=true;
+SYSTEM="demo"
+ADDRESS="http://127.0.0.1:5001"
+ACCESS_KEY="123"
+SECRET_KEY="abc"
 #extract parms
 while [[ $# > 0 ]]; do
   key=$(echo $1 | sed "s:\(.*\)=.*:\1:")
   case $key in
       --clean)
-        clean=$(echo $1 | sed "s:.*=\(.*\):\1:")
-        ;;
+      CLEAN=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
+      --system)
+      SYSTEM=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
+      --address)
+      ADDRESS=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
     --access_key)
       ACCESS_KEY=$(echo $1 | sed "s:.*=\(.*\):\1:")
       ;;
@@ -22,22 +32,27 @@ while [[ $# > 0 ]]; do
   esac
   shift
 done
-echo "$clean"
-echo "$ACCESS_KEY"
-echo "$SECRET_KEY"
 
-if [ "$clean" = true ] ; then
+echo "SYSTEM:$SYSTEM"
+echo "CLEAN BUILD:$CLEAN"
+echo "ADDRESS:$ADDRESS"
+echo "ACCESS_KEY:$ACCESS_KEY"
+echo "SECRET_KEY:$SECRET_KEY"
+
+if [ "$CLEAN" = true ] ; then
         echo "delete old files"
         rm -rf build/windows
         mkdir build/windows
         cd build/windows
+        mkdir ./ssl/
         echo "copy files"
         cp ../../images/noobaa_icon24.ico .
         cp ../../src/deploy/7za.exe .
-        cp ../../src/deploy/lib*.dll .
-        cp ../../src/deploy/ssl*.dll .
-        cp ../../src/deploy/openssl.exe  .
-        cp ../../src/deploy/openssl.cnf  .
+        #no longer needed with new openssl
+        #cp ../../src/deploy/lib*.dll .
+        #cp ../../src/deploy/ssl*.dll .
+        curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
+        cp ../../src/deploy/openssl.cnf  ./ssl/
         cp ../../src/deploy/wget.exe  .
         cp ../../src/deploy/NooBaa_Agent_wd.exe .
         cp ../../package.json .
@@ -73,15 +88,17 @@ echo "create agent conf"
 echo "$SECRET_KEY"
 echo '{' > agent_conf.json
 echo '    "dbg_log_level": 2,' >> agent_conf.json
-echo '    "address": "http://127.0.0.1:5001",' >> agent_conf.json
-echo '    "system": "demo",' >> agent_conf.json
+echo '    "address": "'"$ADDRESS"'",' >> agent_conf.json
+echo '    "system": "'"$SYSTEM"'",' >> agent_conf.json
 echo '    "tier": "nodes",' >> agent_conf.json
 echo '    "prod": "true",' >> agent_conf.json
 echo '    "bucket": "files",' >> agent_conf.json
-echo '    "root_path": "./agent_storage_test/",' >> agent_conf.json
+echo '    "root_path": "./agent_storage/",' >> agent_conf.json
 echo '    "access_key":"'"$ACCESS_KEY"'",' >> agent_conf.json
 echo '    "secret_key":"'"$SECRET_KEY"'"' >> agent_conf.json
 echo '}' >> agent_conf.json
+
+
 
 echo "make installer"
 pwd

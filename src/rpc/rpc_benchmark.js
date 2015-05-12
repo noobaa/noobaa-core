@@ -138,8 +138,8 @@ function start() {
                 'wss:': 1,
             };
 
-            return rpc.start_http_server(argv.addr.port, secure)
             // open http listening port for http based protocols
+            return rpc.start_http_server(argv.addr.port, secure)
                 .then(function(server) {
                     return rpc.register_ws_transport(server);
                 });
@@ -157,7 +157,8 @@ function start() {
             // set rpc address to use n2n.
             // the hostname doesn't matter here since our signalling
             // is not using the url for routing.
-            io_rpc_options.address = 'n2n://unused';
+            io_rpc_options.address = typeof(argv.n2n) === 'string' ?
+                argv.n2n : 'n2n://unused';
 
             // open udp listening port for udp based protocols
             // (both server and client)

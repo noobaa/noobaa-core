@@ -69,6 +69,7 @@ function RpcN2NConnection(addr_url, n2n_agent) {
 
     // use the configuration from the url query (parsed before)
     var conf = self.conf = _.defaults(self.url.query, DEFAULT_N2N_CONF);
+    dbg.log0('N2N', conf.con, conf.sec, conf.flow);
     self.connector = new CONNECTORS[conf.con]({
         addr_url: addr_url,
         signaller: self.signaller.bind(self)

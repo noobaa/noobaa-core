@@ -258,11 +258,20 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
     if (self.selected_addr) {
         return;
     }
+
+    // stop fast if socket is closed
+    if (self.closed) {
+        return;
+    }
+
+    // dont throw on attempts exhausted,
+    // because some other candidate might succeed
     if (attempts >= 300) {
         dbg.warn('ICE _punch_hole: ATTEMPTS EXHAUSTED for address', addr,
             'my port', self.port);
         return;
     }
+
     var buffer = stun.new_packet(stun.STUN.METHODS.REQUEST, [{
         type: stun.STUN.ATTRS.USERNAME,
         value: credentials.ufrag + ':' + self.credentials.ufrag
@@ -270,15 +279,17 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
         type: stun.STUN.ATTRS.PASSWORD_OLD,
         value: credentials.pwd
     }]);
+
     return Q.ninvoke(self.socket, 'send',
             buffer, 0, buffer.length,
             addr.port, addr.address)
         .then(null, function(err) {
 
-            // on send error just log and continue retrying
-            // although it might mean that the socket is faulty ?
+            // on send error it probably means that the socket is faulty
+            // so propagate the error to the caller to close.
             dbg.warn('ICE _punch_hole: SEND STUN FAILED to address', addr,
                 'my port', self.port, err.stack || err);
+            throw err;
 
         })
         .then(function() {

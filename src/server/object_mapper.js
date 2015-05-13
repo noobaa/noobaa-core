@@ -1303,6 +1303,7 @@ function get_part_info(params) {
                 var details = {
                     tier_name: 'nodes', // TODO get tier name
                     node_name: node.name,
+                    node_ip: node.ip,
                     online: node.is_online(),
                 };
                 if (node.srvmode) {

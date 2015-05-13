@@ -556,6 +556,9 @@ module.exports = {
                         node_name: {
                             type: 'string',
                         },
+                        node_ip: {
+                            type: 'string',
+                        },
                         srvmode: {
                             $ref: '/node_api/definitions/srvmode'
                         },

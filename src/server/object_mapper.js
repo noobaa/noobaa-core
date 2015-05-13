@@ -4,11 +4,10 @@
 var _ = require('lodash');
 var Q = require('q');
 var db = require('./db');
-var api_servers = require('../server/api_servers');
+var server_rpc = require('../server/server_rpc');
 var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
-var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -37,7 +36,6 @@ module.exports = {
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
     build_chunks: build_chunks,
-    self_test_to_node_via_web: self_test_to_node_via_web
 };
 
 // default split of chunks with kfrag
@@ -588,14 +586,12 @@ function fix_multipart_parts(obj) {
 function agent_delete_call(node, del_blocks) {
     return Q.fcall(function() {
         var block_addr = get_block_address(del_blocks[0]);
-        return api_servers.client.agent.delete_blocks({
+        return server_rpc.client.agent.delete_blocks({
             blocks: _.map(del_blocks, function(block) {
                 return block._id.toString();
             })
         }, {
-            peer: block_addr.peer,
-            address: block_addr.address,
-            last_address: node_monitor.peers_last_address[block_addr.peer],
+            address: block_addr.addr,
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -912,21 +908,19 @@ function build_chunks(chunks) {
                     var source_addr = get_block_address(block_info.source);
 
                     return replicate_block_sem.surround(function() {
-                        return api_servers.client.agent.replicate_block({
+                        return server_rpc.client.agent.replicate_block({
                             block_id: block._id.toString(),
                             source: source_addr
                         }, {
-                            peer: block_addr.peer,
-                            address: block_addr.address,
-                            last_address: node_monitor.peers_last_address[block_addr.peer],
+                            address: block_addr.addr,
                         });
                     }).then(function() {
                         dbg.log1('build_chunks replicated block', block._id,
-                            'to', block_addr.peer, 'from', source_addr.peer);
+                            'to', block_addr.addr, 'from', source_addr.addr);
                         replicated_block_ids.push(block._id);
                     }, function(err) {
                         dbg.error('build_chunks FAILED replicate block', block._id,
-                            'to', block_addr.peer, 'from', source_addr.peer,
+                            'to', block_addr.addr, 'from', source_addr.addr,
                             err.stack || err);
                         replicated_failed_ids.push(block._id);
                         block_info.replicate_error = err;
@@ -1032,29 +1026,6 @@ function build_chunks(chunks) {
             }
 
         });
-}
-
-
-/**
- *
- * self_test_to_node_via_web
- *
- */
-function self_test_to_node_via_web(req) {
-    var target = req.rpc_params.target;
-    var source = req.rpc_params.source;
-
-    console.log('SELF TEST', target.peer, 'from', source.peer);
-
-    return api_servers.client.agent.self_test_peer({
-        target: target,
-        request_length: req.rpc_params.request_length || 1024,
-        response_length: req.rpc_params.response_length || 1024,
-    }, {
-        peer: source.peer,
-        address: source.address,
-        last_address: node_monitor.peers_last_address[source.peer],
-    });
 }
 
 
@@ -1332,6 +1303,7 @@ function get_part_info(params) {
                 var details = {
                     tier_name: 'nodes', // TODO get tier name
                     node_name: node.name,
+                    node_ip: node.ip,
                     online: node.is_online(),
                 };
                 if (node.srvmode) {
@@ -1364,8 +1336,7 @@ function get_part_info(params) {
 function get_block_address(block) {
     var b = {};
     b.id = block._id.toString();
-    b.peer = block.node.peer_id;
-    b.address = block.node.addresses;
+    b.addr = 'n2n://' + block.node.peer_id;
     return b;
 }
 

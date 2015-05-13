@@ -262,12 +262,6 @@ module.exports = {
                     port: {
                         type: 'integer'
                     },
-                    addresses: {
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    },
                     storage: {
                         $ref: '/common_api/definitions/storage_info'
                     },
@@ -297,6 +291,53 @@ module.exports = {
             }
         },
 
+        n2n_signal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target'],
+                additionalProperties: true,
+                properties: {
+                    target: {
+                        type: 'string'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [],
+                additionalProperties: true,
+                properties: {}
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        self_test_to_node_via_web: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['source', 'target', 'request_length', 'response_length'],
+                properties: {
+                    source: {
+                        type: 'string'
+                    },
+                    target: {
+                        type: 'string'
+                    },
+                    request_length: {
+                        type: 'integer'
+                    },
+                    response_length: {
+                        type: 'integer'
+                    }
+                },
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
 
     },
 
@@ -344,7 +385,6 @@ module.exports = {
                 'peer_id',
                 'ip',
                 'port',
-                'addresses',
                 'online',
                 'heartbeat',
                 'storage',
@@ -374,12 +414,6 @@ module.exports = {
                 },
                 port: {
                     type: 'integer'
-                },
-                addresses: {
-                    type: 'array',
-                    items: {
-                        type: 'string'
-                    }
                 },
                 online: {
                     type: 'boolean',

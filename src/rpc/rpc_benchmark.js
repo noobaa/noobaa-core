@@ -2,55 +2,41 @@
 
 var _ = require('lodash');
 var Q = require('q');
+var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
-var rpc_http = require('./rpc_http');
-var rpc_ws = require('./rpc_ws');
-var rpc_nudp = require('./rpc_nudp');
-var stun = require('./stun');
 var memwatch = require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
 
+// Q.longStackSupport = true;
+
 // test arguments
+
 // time to run in seconds
 argv.time = argv.time || undefined;
+
 // io concurrency
 argv.concur = argv.concur || 1;
+
 // io size in bytes
 argv.wsize = !_.isUndefined(argv.wsize) ? argv.wsize : MB;
 argv.rsize = argv.rsize || 0;
-// proto, host and port to use
-argv.proto = argv.proto || 'ws';
-argv.host = argv.host || '127.0.0.1';
-argv.port = argv.port || 5656;
-if (!(argv.proto in {
-        http: 1,
-        https: 1,
-        ws: 1,
-        wss: 1,
-        nudp: 1,
-        nudps: 1,
-        fcall: 1,
-    })) {
-    throw new Error('BAD PROTOCOL ' + argv.proto);
-}
-var secure = argv.proto in {
-    https: 1,
-    wss: 1,
-    nudps: 1
-};
-// client mode
+
+// client/server mode
 argv.client = argv.client || false;
-// server mode
 argv.server = argv.server || false;
-if (!argv.client && !argv.server) {
-    argv.client = argv.server = true;
-}
+argv.n2n = argv.n2n || false;
+argv.addr = url.parse(argv.addr || '');
+argv.addr.protocol = argv.addr.protocol || 'ws:';
+argv.addr.hostname = argv.addr.hostname || '127.0.0.1';
+argv.addr.port = argv.addr.port || 5656;
+
 // debug level
 argv.debug = argv.debug || 0;
+
 // profiling tools
 if (argv.look) {
     require('look').start();
@@ -68,7 +54,7 @@ dbg.set_level(argv.debug, __dirname);
 
 var schema = new RpcSchema();
 schema.register_api({
-    name: 'bench',
+    name: 'rpcbench',
     methods: {
         io: {
             method: 'POST',
@@ -97,15 +83,38 @@ schema.register_api({
                     }
                 }
             }
+        },
+        n2n_signal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {}
+            },
+            reply: {
+                type: 'object',
+                additionalProperties: true,
+                properties: {}
+            }
         }
     }
 });
 
 // create rpc
-var rpc = new RPC();
+var rpc = new RPC({
+    schema: schema,
+    base_address: url.format(argv.addr),
+});
 
-// create rpc client
-var bench_client = rpc.create_client(schema.bench);
+// register the rpc service handler
+rpc.register_service(schema.rpcbench, {
+    io: io_service,
+    n2n_signal: function(req) {
+        return rpc.n2n_signal(req.params);
+    }
+});
+
+var io_rpc_options = {};
 
 var io_count = 0;
 var io_rbytes = 0;
@@ -118,57 +127,58 @@ var report_io_wbytes = 0;
 start();
 
 function start() {
-    setInterval(report, 1000);
     Q.fcall(function() {
 
-            // register rpc service handler
-            if (argv.server) {
-                rpc.register_service(schema.bench, {
-                    io: io_service
-                });
+            if (!argv.server) {
+                return;
             }
+
+            var secure = argv.addr.protocol in {
+                'https:': 1,
+                'wss:': 1,
+            };
 
             // open http listening port for http based protocols
-            if (argv.server && argv.proto in {
-                    http: 1,
-                    https: 1,
-                    ws: 1,
-                    wss: 1,
-                }) {
-                return rpc_http.create_server(rpc, argv.port, secure)
-                    .then(function(server) {
-                        return rpc_ws.listen(rpc, server);
-                    });
-            }
+            return rpc.start_http_server(argv.addr.port, secure)
+                .then(function(server) {
+                    return rpc.register_ws_transport(server);
+                });
 
-            // open udp listening port for udp based protocols (needed also for client)
-            if (argv.proto in {
-                    nudp: 1,
-                    nudps: 1,
-                }) {
-                return rpc_nudp.listen(rpc, argv.server ? argv.port : argv.port + 1)
-                    .then(function(nudp_socket) {
-                        bench_client.options.nudp_socket = nudp_socket;
-
-                        // try connecting stun directly to peer
-                        if (argv.stun) {
-                            return stun.connect_socket(
-                                nudp_socket.socket,
-                                argv.host,
-                                argv.server ? argv.port + 1 : argv.port);
-                        }
-
-                    });
-            }
         })
         .then(function() {
-            if (argv.client) {
 
-                // run io with concurrency
-                return Q.all(_.times(argv.concur, function() {
-                    return call_next_io();
-                }));
+            if (!argv.n2n) {
+                return;
             }
+
+            // setup a signaller callback
+            rpc.n2n_signaller = rpc.client.rpcbench.n2n_signal;
+
+            // set rpc address to use n2n.
+            // the hostname doesn't matter here since our signalling
+            // is not using the url for routing.
+            io_rpc_options.address = typeof(argv.n2n) === 'string' ?
+                argv.n2n : 'n2n://unused';
+
+            // open udp listening port for udp based protocols
+            // (both server and client)
+            return rpc.register_n2n_transport();
+
+        })
+        .then(function() {
+
+            // start report interval (both server and client)
+            setInterval(report, 1000);
+
+            if (!argv.client) {
+                return;
+            }
+
+            // run io with concurrency
+            return Q.all(_.times(argv.concur, function() {
+                return call_next_io();
+            }));
+
         })
         .then(null, function(err) {
             dbg.error('BENCHMARK ERROR', err.stack || err);
@@ -183,15 +193,12 @@ function call_next_io(res) {
         io_rbytes += res.data.length;
         io_wbytes += argv.wsize;
     }
-    return bench_client.io({
+    return rpc.client.rpcbench.io({
             kushkush: {
                 data: new Buffer(argv.wsize),
                 rsize: argv.rsize
             }
-        }, {
-            allow_fcall: argv.allow_fcall,
-            address: argv.proto + '://' + argv.host + ':' + argv.port
-        })
+        }, io_rpc_options)
         .then(call_next_io);
 }
 

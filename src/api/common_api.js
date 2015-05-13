@@ -18,24 +18,14 @@ module.exports = {
 
         block_address: {
             type: 'object',
-            required: ['id'],
+            required: ['id', 'addr'],
             properties: {
                 id: {
                     type: 'string'
                 },
-                peer: {
+                addr: {
                     type: 'string'
                 },
-                address: {
-                    anyOf: [{
-                        type: 'array',
-                        items: {
-                            type: 'string'
-                        }
-                    }, {
-                        type: 'string'
-                    }]
-                }
             }
         },
 

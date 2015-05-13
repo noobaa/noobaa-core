@@ -1,26 +1,24 @@
 'use strict';
 
-module.exports = {
-    connect: connect,
-    close: close,
-    send: send,
-    authenticate: authenticate,
-};
+module.exports = RpcFcallConnection;
 
-function connect(conn, options) {
-    // noop
-}
+var util = require('util');
+var EventEmitter = require('events').EventEmitter;
 
-function close(conn) {
-    // noop
-}
+util.inherits(RpcFcallConnection, EventEmitter);
 
-function send(conn, msg) {
-    setImmediate(function() {
-        conn.receive(msg);
-    });
-}
+function RpcFcallConnection(addr_url) {
+    var self = this;
+    self.connid = addr_url.host;
+    self.url = addr_url;
+    EventEmitter.call(self);
 
-function authenticate(conn, auth_token) {
-    // noop
+    self.close = function() {};
+    self.connect = function() {};
+
+    self.send = function(msg) {
+        setImmediate(function() {
+            self.emit('message', msg);
+        });
+    };
 }

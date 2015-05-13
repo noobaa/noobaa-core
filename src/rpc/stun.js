@@ -2,12 +2,12 @@
 
 var _ = require('lodash');
 var Q = require('q');
-var ip = require('ip');
 var url = require('url');
 // var util = require('util');
 var dgram = require('dgram');
 var crypto = require('crypto');
-var chance = require('chance').Chance(Date.now());
+var ip_module = require('ip');
+var chance = require('chance').Chance();
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 // https://tools.ietf.org/html/rfc5389
@@ -26,7 +26,7 @@ var STUN = {
     // The key for XOR_MAPPED_ADDRESS includes magic key and transaction id
     XOR_KEY_OFFSET: 4,
     // ms between indications
-    INDICATION_INTERVAL: 100,
+    INDICATION_INTERVAL: 5000,
     INDICATION_JITTER: {
         min: 0.8,
         max: 1.2,
@@ -94,6 +94,7 @@ var STUN = {
 };
 STUN.METHOD_NAMES = _.invert(STUN.METHODS);
 STUN.ATTR_NAMES = _.invert(STUN.ATTRS);
+STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
 _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
     if (!stun_url.port) {
         stun_url.port =
@@ -105,10 +106,9 @@ _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
 
 module.exports = {
     STUN: STUN,
-    connect_socket: connect_socket,
+    is_stun_packet: is_stun_packet,
     send_request: send_request,
     send_indication: send_indication,
-    is_stun_packet: is_stun_packet,
     new_packet: new_packet,
     get_method_field: get_method_field,
     get_method_name: get_method_name,
@@ -117,96 +117,22 @@ module.exports = {
     get_attrs_len_field: get_attrs_len_field,
     set_attrs_len_field: set_attrs_len_field,
     set_magic_and_tid_field: set_magic_and_tid_field,
+    get_attrs_map: get_attrs_map,
+    handle_stun_packet: handle_stun_packet,
+    indication_loop: indication_loop,
     decode_attrs: decode_attrs,
     test: test,
 };
 
-
 /**
- *
+ * detect stun packet according to header first byte
  */
-function connect_socket(socket, stun_host, stun_port) {
-    var closed;
-
-    socket.on('close', function() {
-        closed = true;
-    });
-
-    // other handlers of the 'message' event need to filter out stun messages
-    // using is_stun_packet check since stun is multiplexed on the same data
-    // socket, and therefore data messages need to have a first byte that looks
-    // different than stun.
-    socket.on('message', function(buffer, rinfo) {
-        if (!is_stun_packet(buffer)) {
-            return;
-        }
-        var method = get_method_field(buffer);
-        switch (method) {
-            case STUN.METHODS.REQUEST:
-                receive_stun_request(socket, buffer, rinfo);
-                break;
-            case STUN.METHODS.SUCCESS:
-                receive_stun_response(socket, buffer, rinfo);
-                break;
-            case STUN.METHODS.INDICATION:
-                socket.emit('stun.indication', rinfo);
-                break;
-            case STUN.METHODS.ERROR:
-                socket.emit('stun.error', rinfo);
-                break;
-            default:
-                break;
-        }
-    });
-
-    return send_request(socket, stun_host, stun_port)
-        .then(send_next_indication);
-
-    function send_next_indication() {
-        if (closed) return;
-        var delay = STUN.INDICATION_INTERVAL *
-            chance.floating(STUN.INDICATION_JITTER);
-        // dbg.log0('STUN INDICATION', stun_host, stun_port);
-        send_indication(socket, stun_host, stun_port)
-            .delay(delay)
-            .then(send_next_indication);
-    }
+function is_stun_packet(buffer) {
+    var block = buffer.readUInt8(0);
+    var bit1 = block & 0x80;
+    var bit2 = block & 0x40;
+    return bit1 === 0 && bit2 === 0;
 }
-
-
-/**
- *
- */
-function receive_stun_request(socket, buffer, rinfo) {
-    dbg.log0('STUN REQUESTED from', rinfo.address + ':' + rinfo.port,
-        'me', socket.address().address + ':' + socket.address().port);
-    var reply = new_packet(STUN.METHODS.SUCCESS, [{
-        type: STUN.ATTRS.XOR_MAPPED_ADDRESS,
-        value: {
-            family: 'IPv4',
-            port: rinfo.port,
-            address: rinfo.address
-        }
-    }], buffer);
-    return Q.ninvoke(socket, 'send',
-        reply, 0, reply.length,
-        rinfo.port, rinfo.address);
-}
-
-/**
- *
- */
-function receive_stun_response(socket, buffer, rinfo) {
-    var attrs = decode_attrs(buffer);
-    _.each(attrs, function(attr) {
-        // if we have an address then emit to the socket
-        if (attr.type === STUN.ATTRS.XOR_MAPPED_ADDRESS ||
-            attr.type === STUN.ATTRS.MAPPED_ADDRESS) {
-            socket.emit('stun.address', attr.value);
-        }
-    });
-}
-
 
 /**
  * send stun request.
@@ -228,16 +154,6 @@ function send_indication(socket, stun_host, stun_port) {
     return Q.ninvoke(socket, 'send',
         buffer, 0, buffer.length,
         stun_port || STUN.PORT, stun_host);
-}
-
-/**
- * detect stun packet according to header first byte
- */
-function is_stun_packet(buffer) {
-    var block = buffer.readUInt8(0);
-    var bit1 = block & 0x80;
-    var bit2 = block & 0x40;
-    return bit1 === 0 && bit2 === 0;
 }
 
 /**
@@ -323,6 +239,121 @@ function set_magic_and_tid_field(buffer, req_buffer) {
 }
 
 /**
+ * simply create a map from common attributes.
+ * dup keys will be overriden by last value.
+ */
+function get_attrs_map(buffer) {
+    var attrs = decode_attrs(buffer);
+    var map = {};
+    _.each(attrs, function(attr) {
+        switch(attr.type) {
+            case STUN.ATTRS.XOR_MAPPED_ADDRESS:
+            case STUN.ATTRS.MAPPED_ADDRESS:
+                map.address = attr.value;
+                break;
+            case STUN.ATTRS.USERNAME:
+                map.username = attr.value;
+                break;
+            case STUN.ATTRS.PASSWORD_OLD:
+                map.password = attr.value;
+                break;
+        }
+    });
+    return map;
+}
+
+/**
+ *
+ */
+function indication_loop(socket, stun_host, stun_port) {
+    var loop = {
+        stop: false
+    };
+
+    socket.on('close', function() {
+        loop.stop = true;
+    });
+
+    send_next_indication();
+
+    return loop;
+
+    function send_next_indication() {
+        if (loop.stop) return;
+        var delay = STUN.INDICATION_INTERVAL *
+            chance.floating(STUN.INDICATION_JITTER);
+        // dbg.log0('STUN INDICATION', stun_host, stun_port);
+        send_indication(socket, stun_host, stun_port)
+            .delay(delay)
+            .then(send_next_indication);
+    }
+}
+
+
+/**
+ *
+ * handle_stun_packet
+ *
+ * other handlers of the 'message' event need to filter out stun messages
+ * using is_stun_packet check since stun is multiplexed on the same data
+ * socket, and therefore data messages need to have a first byte that looks
+ * different than stun.
+ *
+ */
+function handle_stun_packet(socket, buffer, rinfo) {
+    var method = get_method_field(buffer);
+    switch (method) {
+        case STUN.METHODS.REQUEST:
+            receive_stun_request(socket, buffer, rinfo);
+            break;
+        case STUN.METHODS.SUCCESS:
+            receive_stun_response(socket, buffer, rinfo);
+            break;
+        case STUN.METHODS.INDICATION:
+            socket.emit('stun.indication', rinfo);
+            break;
+        case STUN.METHODS.ERROR:
+            socket.emit('stun.error', rinfo);
+            break;
+        default:
+            break;
+    }
+}
+
+
+/**
+ *
+ */
+function receive_stun_request(socket, buffer, rinfo) {
+    dbg.log0('STUN REQUEST from', rinfo.address + ':' + rinfo.port,
+        'me', socket.address().address + ':' + socket.address().port);
+    socket.emit('stun.request', rinfo);
+    var reply = new_packet(STUN.METHODS.SUCCESS, [{
+        type: STUN.ATTRS.XOR_MAPPED_ADDRESS,
+        value: {
+            family: 'IPv4',
+            port: rinfo.port,
+            address: rinfo.address
+        }
+    }], buffer);
+    return Q.ninvoke(socket, 'send',
+        reply, 0, reply.length,
+        rinfo.port, rinfo.address);
+}
+
+/**
+ *
+ */
+function receive_stun_response(socket, buffer, rinfo) {
+    var map = get_attrs_map(buffer);
+    // if we have an address then emit to the socket
+    if (map.address) {
+        socket.emit('stun.address', map.address);
+    }
+}
+
+
+/**
  * decode packet attributes
  */
 function decode_attrs(buffer) {
@@ -357,6 +388,7 @@ function decode_attrs(buffer) {
                 break;
             case STUN.ATTRS.SOFTWARE:
             case STUN.ATTRS.USERNAME:
+            case STUN.ATTRS.PASSWORD_OLD:
             case STUN.ATTRS.REALM:
                 value = buffer.slice(offset, next).toString('utf8');
                 break;
@@ -406,6 +438,7 @@ function encoded_attr_len(attr) {
             return attr.value.family === 'IPv6' ? 12 : 8;
         case STUN.ATTRS.SOFTWARE:
         case STUN.ATTRS.USERNAME:
+        case STUN.ATTRS.PASSWORD_OLD:
         case STUN.ATTRS.REALM:
             return Buffer.byteLength(attr.value, 'utf8');
         default:
@@ -443,6 +476,7 @@ function encode_attrs(buffer, attrs) {
                 break;
             case STUN.ATTRS.SOFTWARE:
             case STUN.ATTRS.USERNAME:
+            case STUN.ATTRS.PASSWORD_OLD:
             case STUN.ATTRS.REALM:
                 buffer.write(attr.value, offset, length, 'utf8');
                 break;
@@ -464,7 +498,7 @@ function encode_attrs(buffer, attrs) {
 function decode_attr_mapped_addr(buffer, start, end) {
     var family = (buffer.readUInt16BE(start) === 0x02) ? 6 : 4;
     var port = buffer.readUInt16BE(start + 2);
-    var address = ip.toString(buffer, start + 4, family);
+    var address = ip_module.toString(buffer, start + 4, family);
 
     return {
         family: 'IPv' + family,
@@ -491,7 +525,7 @@ function decode_attr_xor_mapped_addr(buffer, start, end) {
     for (var i = 0; i < xor_buf.length; ++i) {
         xor_buf[i] = addr_buf[i] ^ buffer[k++];
     }
-    var address = ip.toString(xor_buf, 0, family);
+    var address = ip_module.toString(xor_buf, 0, family);
 
     return {
         family: 'IPv' + family,
@@ -538,7 +572,7 @@ function encode_attr_mapped_addr(addr, buffer, offset, end) {
     // xor the port against the magic key
     buffer.writeUInt16BE(addr.port, offset + 2);
 
-    ip.toBuffer(addr.address, buffer, offset + 4);
+    ip_module.toBuffer(addr.address, buffer, offset + 4);
 }
 
 
@@ -552,7 +586,7 @@ function encode_attr_xor_mapped_addr(addr, buffer, offset, end) {
     // xor the port against the magic key
     buffer.writeUInt16BE(addr.port ^ buffer.readUInt16BE(STUN.XOR_KEY_OFFSET), offset + 2);
 
-    ip.toBuffer(addr.address, buffer, offset + 4);
+    ip_module.toBuffer(addr.address, buffer, offset + 4);
     var k = STUN.XOR_KEY_OFFSET;
     for (var i = offset + 4; i < end; ++i) {
         buffer[i] = buffer[i] ^ buffer[k++];
@@ -588,6 +622,13 @@ function align_offset(offset) {
 function test() {
     var argv = require('minimist')(process.argv);
     var socket = dgram.createSocket('udp4');
+    var stun_url = STUN.DEFAULT_SERVER;
+    if (argv.stun_host) {
+        stun_url = {
+            hostname: argv.stun_host,
+            port: argv.stun_port
+        };
+    }
     /*
     socket.on('message', function(buffer, rinfo) {
         if (is_stun_packet(buffer)) {
@@ -614,13 +655,6 @@ function test() {
             }
         })
         .then(function() {
-            var stun_url = STUN.PUBLIC_SERVERS[0];
-            if (argv.stun_host) {
-                stun_url = {
-                    hostname: argv.stun_host,
-                    port: argv.stun_port
-                };
-            }
             socket.on('stun.address', function(addr) {
                 console.log('STUN ADDRESS', addr);
             });
@@ -632,7 +666,7 @@ function test() {
                     console.log('MESSAGE', buffer.toString(), 'from', rinfo);
                 }
             });
-            connect_socket(socket, stun_url.hostname, stun_url.port);
+            return send_request(socket, stun_url.hostname, stun_url.port);
             /*
             return Q.allSettled(_.map(STUN.PUBLIC_SERVERS, function(stun_url) {
                 console.log('REQUEST:', stun_url.hostname + ':' + stun_url.port);
@@ -641,6 +675,7 @@ function test() {
             */
         })
         .done(function() {
+            indication_loop(socket, stun_url.hostname, stun_url.port);
             return socket;
         });
 }

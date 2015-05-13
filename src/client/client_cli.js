@@ -130,7 +130,7 @@ ClientCLI.prototype.upload = function(file_path) {
             return Q.nfcall(fs.stat, file_path);
         })
         .then(function(stats) {
-            return self.client.object_client.upload_stream({
+            return self.client.object_driver_lazy().upload_stream({
                 bucket: self.params.bucket,
                 key: key,
                 size: stats.size,

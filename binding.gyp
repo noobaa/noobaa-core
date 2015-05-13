@@ -1,8 +1,8 @@
 {
     "targets": [{
-        "target_name": "rpc_nudp_native",
+        "target_name": "nudp_native",
         "sources": [
-            "src/rpc/rpc_nudp_native.cc"
+            "src/rpc/nudp_native.cc"
         ]
     }]
 }

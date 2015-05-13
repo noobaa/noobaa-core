@@ -19,28 +19,28 @@ var devnull = require('dev-null');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-module.exports = ObjectClient;
+module.exports = ObjectDriver;
 
 
 
 /**
  *
- * OBJECT CLIENT
+ * OBJECT DRIVER
+ *
+ * the object driver is a "heavy" object with data caches.
  *
  * extends object_api which is plain REST api with logic to provide access
  * to remote object storage, and does the necessary distributed of io.
  * the client functions usually have the signature function(params), and return a promise.
  *
- *
  * this is the client side (web currently) that sends the commands
  * defined in object_api to the web server.
  *
  */
-function ObjectClient(object_rpc_client, agent_rpc_client) {
+function ObjectDriver(client) {
     var self = this;
 
-    self.object_rpc_client = object_rpc_client;
-    self.agent_rpc_client = agent_rpc_client;
+    self.client = client;
 
     // some constants that might be provided as options to the client one day
 
@@ -86,19 +86,19 @@ function ObjectClient(object_rpc_client, agent_rpc_client) {
  * UPLOAD_STREAM
  *
  */
-ObjectClient.prototype.upload_stream = function(params) {
+ObjectDriver.prototype.upload_stream = function(params) {
     var self = this;
     var create_params = _.pick(params, 'bucket', 'key', 'size', 'content_type');
     var bucket_key_params = _.pick(params, 'bucket', 'key');
 
     dbg.log0('upload_stream: create multipart', params.key);
-    return self.object_rpc_client.create_multipart_upload(create_params)
+    return self.client.object.create_multipart_upload(create_params)
         .then(function() {
             return self.upload_stream_parts(params);
         })
         .then(function() {
             dbg.log0('upload_stream: complete multipart', params.key);
-            return self.object_rpc_client.complete_multipart_upload(bucket_key_params);
+            return self.client.object.complete_multipart_upload(bucket_key_params);
         }, function(err) {
             dbg.log0('upload_stream: error write stream', params.key, err);
             throw err;
@@ -111,7 +111,7 @@ ObjectClient.prototype.upload_stream = function(params) {
  * UPLOAD_STREAM_PART
  *
  */
-ObjectClient.prototype.upload_stream_parts = function(params) {
+ObjectDriver.prototype.upload_stream_parts = function(params) {
     var self = this;
     var start = params.start || 0;
     var upload_part_number = params.upload_part_number || 0;
@@ -183,7 +183,7 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                 var stream = this;
                 dbg.log0('upload_stream: allocating parts', parts.length);
                 // send parts to server
-                return self.object_rpc_client.allocate_object_parts({
+                return self.client.object.allocate_object_parts({
                         bucket: params.bucket,
                         key: params.key,
                         parts: _.map(parts, function(part) {
@@ -254,7 +254,7 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
                 dbg.log0('upload_stream: finalize parts', parts.length);
                 // send parts to server
                 return self._finalize_sem.surround(function() {
-                        return self.object_rpc_client.finalize_object_parts({
+                        return self.client.object.finalize_object_parts({
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
@@ -313,7 +313,7 @@ ObjectClient.prototype.upload_stream_parts = function(params) {
  * _write_part_blocks
  *
  */
-ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
+ObjectDriver.prototype._write_part_blocks = function(bucket, key, part) {
     var self = this;
 
     if (part.dedup) {
@@ -352,7 +352,7 @@ ObjectClient.prototype._write_part_blocks = function(bucket, key, part) {
  * write a block to the storage node
  *
  */
-ObjectClient.prototype._attempt_write_block = function(params) {
+ObjectDriver.prototype._attempt_write_block = function(params) {
     var self = this;
     dbg.log3('write block _attempt_write_block', params);
     return self._write_block(params.block.address, params.buffer, params.offset)
@@ -368,7 +368,7 @@ ObjectClient.prototype._attempt_write_block = function(params) {
                 });
             dbg.log0('write block remaining attempts',
                 params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
-            return self.object_rpc_client.report_bad_block(bad_block_params)
+            return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
                     // update the block itself in the part so
@@ -387,7 +387,7 @@ ObjectClient.prototype._attempt_write_block = function(params) {
  * write a block to the storage node
  *
  */
-ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
+ObjectDriver.prototype._write_block = function(block_address, buffer, offset) {
     var self = this;
 
     // use semaphore to surround the IO
@@ -395,21 +395,20 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
 
         dbg.log1('write_block', size_utils.human_offset(offset),
             size_utils.human_size(buffer.length), block_address.id,
-            'to', block_address.peer);
+            'to', block_address.addr);
 
         // if (Math.random() < 0.5) throw new Error('testing error');
 
-        return self.agent_rpc_client.write_block({
+        return self.client.agent.write_block({
             block_id: block_address.id,
             data: buffer,
         }, {
-            peer: block_address.peer,
-            address: block_address.address,
+            address: block_address.addr,
             timeout: config.write_timeout,
         }).then(null, function(err) {
             console.error('FAILED write_block', size_utils.human_offset(offset),
                 size_utils.human_size(buffer.length), block_address.id,
-                'from', block_address.peer);
+                'from', block_address.addr);
             throw err;
         });
 
@@ -434,7 +433,7 @@ ObjectClient.prototype._write_block = function(block_address, buffer, offset) {
  *   - key (String)
  * @param cache_miss (String): pass 'cache_miss' to force read
  */
-ObjectClient.prototype.get_object_md = function(params, cache_miss) {
+ObjectDriver.prototype.get_object_md = function(params, cache_miss) {
     return this._object_md_cache.get(params, cache_miss);
 };
 
@@ -444,7 +443,7 @@ ObjectClient.prototype.get_object_md = function(params, cache_miss) {
  * _init_object_md_cache
  *
  */
-ObjectClient.prototype._init_object_md_cache = function() {
+ObjectDriver.prototype._init_object_md_cache = function() {
     var self = this;
     self._object_md_cache = new LRUCache({
         name: 'MDCache',
@@ -455,7 +454,7 @@ ObjectClient.prototype._init_object_md_cache = function() {
         },
         load: function(params) {
             dbg.log1('MDCache: load', params.key, 'bucket', params.bucket);
-            return self.object_rpc_client.read_object_md(params);
+            return self.client.object.read_object_md(params);
         }
     });
 };
@@ -475,7 +474,7 @@ ObjectClient.prototype._init_object_md_cache = function() {
  * see ObjectReader.
  *
  */
-ObjectClient.prototype.read_entire_object = function(params) {
+ObjectDriver.prototype.read_entire_object = function(params) {
     var self = this;
     return Q.Promise(function(resolve, reject) {
         var buffers = [];
@@ -506,7 +505,7 @@ ObjectClient.prototype.read_entire_object = function(params) {
  * see ObjectReader.
  *
  */
-ObjectClient.prototype.open_read_stream = function(params, watermark) {
+ObjectDriver.prototype.open_read_stream = function(params, watermark) {
     return new ObjectReader(this, params, watermark || this.OBJECT_RANGE_ALIGN);
 };
 
@@ -604,7 +603,7 @@ ObjectReader.prototype._read = function(requested_size) {
  *      null is returned on empty range or EOF.
  *
  */
-ObjectClient.prototype.read_object = function(params) {
+ObjectDriver.prototype.read_object = function(params) {
     var self = this;
 
     dbg.log1('read_object1', range_utils.human_range(params));
@@ -640,7 +639,7 @@ ObjectClient.prototype.read_object = function(params) {
  * _init_object_range_cache
  *
  */
-ObjectClient.prototype._init_object_range_cache = function() {
+ObjectDriver.prototype._init_object_range_cache = function() {
     var self = this;
     self._object_range_cache = new LRUCache({
         name: 'RangesCache',
@@ -700,7 +699,7 @@ ObjectClient.prototype._init_object_range_cache = function() {
  * @return {Promise} buffer - the data. can be shorter than requested if EOF.
  *
  */
-ObjectClient.prototype._read_object_range = function(params) {
+ObjectDriver.prototype._read_object_range = function(params) {
     var self = this;
     var obj_size;
 
@@ -724,7 +723,7 @@ ObjectClient.prototype._read_object_range = function(params) {
  * _init_object_map_cache
  *
  */
-ObjectClient.prototype._init_object_map_cache = function() {
+ObjectDriver.prototype._init_object_map_cache = function() {
     var self = this;
     self._object_map_cache = new LRUCache({
         name: 'MappingsCache',
@@ -742,7 +741,7 @@ ObjectClient.prototype._init_object_map_cache = function() {
             map_params.end = map_params.start + self.MAP_RANGE_ALIGN;
             dbg.log1('MappingsCache: load', range_utils.human_range(params),
                 'aligned', range_utils.human_range(map_params));
-            return self.object_rpc_client.read_object_mappings(map_params);
+            return self.client.object.read_object_mappings(map_params);
         },
         make_val: function(val, params) {
             var mappings = _.clone(val);
@@ -769,7 +768,7 @@ ObjectClient.prototype._init_object_map_cache = function() {
 /**
  * read one part of the object.
  */
-ObjectClient.prototype._read_object_part = function(part) {
+ObjectDriver.prototype._read_object_part = function(part) {
     var self = this;
     var block_size = (part.chunk_size / part.kfrag) | 0;
     var buffer_per_fragment = {};
@@ -852,7 +851,7 @@ ObjectClient.prototype._read_object_part = function(part) {
  * _init_blocks_cache
  *
  */
-ObjectClient.prototype._init_blocks_cache = function() {
+ObjectDriver.prototype._init_blocks_cache = function() {
     var self = this;
     self._blocks_cache = new LRUCache({
         name: 'BlocksCache',
@@ -879,7 +878,7 @@ ObjectClient.prototype._init_blocks_cache = function() {
  * read a block from the storage node
  *
  */
-ObjectClient.prototype._read_block = function(block_address, block_size, offset) {
+ObjectDriver.prototype._read_block = function(block_address, block_size, offset) {
     var self = this;
 
     // use semaphore to surround the IO
@@ -887,13 +886,12 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
 
         dbg.log1('read_block', size_utils.human_offset(offset),
             size_utils.human_size(block_size), block_address.id,
-            'from', block_address.peer);
+            'from', block_address.addr);
 
-        return self.agent_rpc_client.read_block({
+        return self.client.agent.read_block({
                 block_id: block_address.id
             }, {
-                peer: block_address.peer,
-                address: block_address.address,
+                address: block_address.addr,
                 timeout: config.read_timeout,
             })
             .then(function(res) {
@@ -909,7 +907,7 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
             }, function(err) {
                 console.error('FAILED read_block', size_utils.human_offset(offset),
                     size_utils.human_size(block_size), block_address.id,
-                    'from', block_address.peer);
+                    'from', block_address.addr);
                 throw err;
             });
     });
@@ -931,7 +929,7 @@ ObjectClient.prototype._read_block = function(block_address, block_size, offset)
  *  - bucket (String)
  *  - key (String)
  */
-ObjectClient.prototype.serve_http_stream = function(req, res, params) {
+ObjectDriver.prototype.serve_http_stream = function(req, res, params) {
     var self = this;
     var read_stream;
 

@@ -16,7 +16,7 @@ var agentctl = require('./core_agent_control');
 
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
-// Q.longStackSupport = true;
+Q.longStackSupport = true;
 
 process.env.JWT_SECRET = 'coretest';
 
@@ -28,7 +28,7 @@ var account_credentials = {
 var client = new api.Client();
 
 // register api servers
-require('../server/api_servers');
+require('../server/server_rpc');
 
 _.each(mongoose.modelNames(), function(model_name) {
     mongoose.model(model_name).schema.set('autoIndex', false);
@@ -47,11 +47,6 @@ before(function(done) {
             return Q.npost(mongoose.model(model_name), 'ensureIndexes');
         }));
     }).then(function() {
-
-        // use http only for test
-        config.use_ws_when_possible = false;
-        config.use_ice_when_possible = false;
-        client.options.port = utilitest.http_port();
 
         config.test_mode = true;
 

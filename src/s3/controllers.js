@@ -46,7 +46,7 @@ module.exports = function(params) {
             dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                 'content_type', 'upload_part_number'));
 
-            return clients[access_key].object_client.upload_stream_parts(upload_part_info)
+            return clients[access_key].object_driver_lazy().upload_stream_parts(upload_part_info)
                 .then(function() {
                     try {
                         dbg.log0('COMPLETED: upload', req.query.uploadId);
@@ -127,7 +127,7 @@ module.exports = function(params) {
         var create_params = {};
         var source_object_md;
         //read source object meta data. if doesn't exist, send error to the client.
-        return clients[access_key].object_client.get_object_md(object_path)
+        return clients[access_key].object_driver_lazy().get_object_md(object_path)
             .then(function(md) {
                 var target_object_path = {
                     bucket: target_bucket,
@@ -291,7 +291,7 @@ module.exports = function(params) {
                 dbg.log3('MD5 data (end)', md5);
             });
 
-            return clients[access_key].object_client.upload_stream({
+            return clients[access_key].object_driver_lazy().upload_stream({
                 bucket: req.bucket,
                 key: file_key_name,
                 size: parseInt(req.headers['content-length']),
@@ -378,8 +378,6 @@ module.exports = function(params) {
                     dbg.log0('Adding new system client.', params);
                     clients[params.access_key] = new api.Client({
                         address: params.address,
-                        bucket: params.bucket,
-                        nudp_socket: params.nudp_socket
                     });
                     return clients[params.access_key];
                 }
@@ -612,7 +610,7 @@ module.exports = function(params) {
                         key: keyName
                     };
                     dbg.log0('getObject', object_path, req.method);
-                    return clients[access_key].object_client.get_object_md(object_path)
+                    return clients[access_key].object_driver_lazy().get_object_md(object_path)
                         .then(function(object_md) {
                             var create_date = new Date(object_md.create_time);
                             create_date.setMilliseconds(0);
@@ -633,9 +631,9 @@ module.exports = function(params) {
                             } else {
                                 //read ranges
                                 if (req.header('range')) {
-                                    clients[access_key].object_client.serve_http_stream(req, res, object_path);
+                                    clients[access_key].object_driver_lazy().serve_http_stream(req, res, object_path);
                                 } else {
-                                    clients[access_key].object_client.open_read_stream(object_path).pipe(res);
+                                    clients[access_key].object_driver_lazy().open_read_stream(object_path).pipe(res);
                                 }
                             }
 
@@ -654,7 +652,7 @@ module.exports = function(params) {
                                 object_path.key = object_path.key + '/';
                             }
 
-                            return clients[access_key].object_client.get_object_md(object_path)
+                            return clients[access_key].object_driver_lazy().get_object_md(object_path)
                                 .then(function(object_md) {
                                     dbg.log3('obj_md2', object_md);
                                     var create_date = new Date(object_md.create_time);
@@ -667,7 +665,7 @@ module.exports = function(params) {
                                     if (req.method === 'HEAD') {
                                         return res.end();
                                     } else {
-                                        clients[access_key].object_client.open_read_stream(object_path).pipe(res);
+                                        clients[access_key].object_driver_lazy().open_read_stream(object_path).pipe(res);
                                     }
                                 }).then(null, function(err) {
                                     dbg.error('ERROR: while download from noobaa', err);

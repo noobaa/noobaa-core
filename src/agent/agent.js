@@ -6,7 +6,6 @@ var Q = require('q');
 var fs = require('fs');
 var os = require('os');
 var pem = require('pem');
-var util = require('util');
 var path = require('path');
 var http = require('http');
 var https = require('https');
@@ -579,30 +578,41 @@ Agent.prototype.n2n_signal = function(req) {
 };
 
 Agent.prototype.self_test_io = function(req) {
-    dbg.log0('SELF TEST IO got ' + (req.rpc_params.data ? req.rpc_params.data.length : 'N/A') + ' reply ' + req.rpc_params.response_length);
+    var data = req.rpc_params.data;
+    var req_len = data ? data.length : 0;
+    var res_len = req.rpc_params.response_length;
+
+    dbg.log0('SELF TEST IO',
+        'req_len', req_len,
+        'res_len', res_len);
+
     return {
-        data: new Buffer(req.rpc_params.response_length)
+        data: new Buffer(res_len)
     };
 };
 
 Agent.prototype.self_test_peer = function(req) {
     var self = this;
     var target = req.rpc_params.target;
-    dbg.log0('SELF TEST PEER req ' + req.rpc_params.request_length +
-        ' res ' + req.rpc_params.response_length +
-        ' target ' + util.inspect(target));
+    var req_len = req.rpc_params.request_length;
+    var res_len = req.rpc_params.response_length;
 
-    // read from target agent
+    dbg.log0('SELF TEST PEER',
+        'req_len', req_len,
+        'res_len', res_len,
+        'target', target);
+
+    // read/write from target agent
     return self.client.agent.self_test_io({
-            data: new Buffer(req.rpc_params.request_length),
-            response_length: req.rpc_params.response_length,
+            data: new Buffer(req_len),
+            response_length: res_len,
         }, {
-            address: target.url,
+            address: target,
         })
         .then(function(res) {
             var data = res.data;
-            if (((!data || !data.length) && req.rpc_params.response_length > 0) ||
-                (data && data.length && data.length !== req.rpc_params.response_length)) {
+            if (((!data || !data.length) && res_len > 0) ||
+                (data && data.length && data.length !== res_len)) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });

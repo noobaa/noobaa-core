@@ -154,11 +154,11 @@ function RpcN2NAgent(options) {
 
 
 RpcN2NAgent.prototype.signal = function(params) {
-    dbg.log0('N2N AGENT signal', params);
+    dbg.log0('N2N AGENT signal:', params);
 
     // TODO target address is me, should use the source address ...
 
-    var addr_url = url.parse(params.target.address, true);
+    var addr_url = url.parse(params.target, true);
     var conn = new RpcN2NConnection(addr_url, this);
     this.emit('connection', conn);
     return conn.accept(params.info);

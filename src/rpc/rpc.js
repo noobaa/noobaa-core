@@ -76,9 +76,10 @@ function RPC(options) {
 RPC.prototype.register_service = function(api, server, options) {
     var self = this;
     options = options || {};
+    var address = options.address || '';
+    dbg.log0('RPC register_service', address + '/' + api.name + '/...');
 
     _.each(api.methods, function(method_api, method_name) {
-        var address = options.address || '';
         var srv = address + '/' + api.name + '/' + method_name;
         assert(!self._services[srv],
             'RPC register_service: service already registered ' + srv);
@@ -161,11 +162,10 @@ RPC.prototype.create_client = function(api, default_options) {
 RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
     options = options || {};
-    var address = options.address || '';
 
     // initialize the request
     var req = new RpcRequest();
-    req.new_request(address, api, method_api, params, options.auth_token);
+    req.new_request(options.address || '', api, method_api, params, options.auth_token);
     req.response_defer = Q.defer();
 
     return Q.fcall(function() {
@@ -269,6 +269,9 @@ RPC.prototype.handle_request = function(conn, msg) {
         '/' + msg.header.method;
     var service = this._services[srv];
     if (!service) {
+        dbg.warn('RPC handle_request: NOT FOUND', srv,
+            'reqid', msg.header.reqid,
+            'connid', conn.connid);
         req.rpc_error('NOT_FOUND', srv);
         return conn.send(req.export_response_buffer(), 'res', req);
     }
@@ -359,6 +362,10 @@ RPC.prototype.handle_request = function(conn, msg) {
  *
  */
 RPC.prototype.handle_response = function(conn, msg) {
+    dbg.log1('RPC handle_response:',
+        'reqid', msg.header.reqid,
+        'connid', conn.connid);
+
     var req = conn._sent_requests[msg.header.reqid];
     if (!req) {
         dbg.log0('RPC handle_response: GOT RESPONSE BUT NO REQUEST',
@@ -386,10 +393,28 @@ RPC.prototype.handle_response = function(conn, msg) {
  *
  */
 RPC.prototype._assign_connection = function(req, options) {
-    var self = this;
-    var address = options.address || self.base_address;
+    var address = options.address || this.base_address;
     var addr_url = url.parse(address, true);
-    var conn = self._get_connection_by_address(addr_url);
+
+    // a lookup table may be provided to translate the address
+    // before the actual lookup of the connection.
+    // this allows to redirect requests through a proxy -
+    // in our case that proxy is the signaller.
+    var lookup_addr =
+        options.addr_lookup_table &&
+        options.addr_lookup_table[address] ||
+        address;
+    var conn = this._connection_by_address[lookup_addr];
+
+    if (conn) {
+        dbg.log2('RPC _assign_connection: existing',
+            'srv', req.srv, 'connid', conn.connid);
+    } else {
+        conn = this._new_connection(addr_url);
+        dbg.log1('RPC _assign_connection: new',
+            'srv', req.srv, 'connid', conn.connid);
+    }
+
     var rseq = conn._rpc_req_seq;
     req.connection = conn;
     req.reqid = rseq + '@' + conn.connid;
@@ -407,20 +432,6 @@ RPC.prototype._release_connection = function(req) {
     if (req.connection) {
         delete req.connection._sent_requests[req.reqid];
     }
-};
-
-/**
- *
- */
-RPC.prototype._get_connection_by_address = function(addr_url) {
-    var conn = this._connection_by_address[addr_url.href];
-    if (conn) {
-        dbg.log2('RPC get_connection_by_address: existing', conn.connid);
-    } else {
-        conn = this._new_connection(addr_url);
-        dbg.log1('RPC get_connection_by_address: new', conn.connid);
-    }
-    return conn;
 };
 
 /**
@@ -458,13 +469,13 @@ RPC.prototype._accept_new_connection = function(conn) {
     // always replace previous connection in the address map,
     // assuming the new connection is preferred.
     if (!conn.transient) {
-        dbg.log0('RPC CONNECTION', conn.connid, conn.url.href);
+        dbg.log0('RPC NEW CONNECTION', conn.connid, conn.url.href);
         this._connection_by_address[conn.url.href] = conn;
     }
     conn._rpc_req_seq = 1;
     conn._sent_requests = {};
     conn._received_requests = {};
-    conn.on('message', this.connection_receive_message.bind(this, conn));
+    conn.on('message', this.connection_receive.bind(this, conn));
     conn.on('close', this.connection_closed.bind(this, conn));
 
     // we prefer to let the connection handle it's own errors and decide if to close or not
@@ -486,9 +497,7 @@ RPC.prototype.connection_error = function(conn, err) {
 RPC.prototype.connection_closed = function(conn) {
     var self = this;
 
-    if (!conn.quiet) {
-        dbg.log0('RPC connection_closed:', conn.connid, new Error().stack);
-    }
+    dbg.log0('RPC connection_closed:', conn.connid);
 
     // remove from connection pool
     if (!conn.transient && self._connection_by_address[conn.url.href] === conn) {
@@ -512,7 +521,7 @@ RPC.prototype.connection_closed = function(conn) {
 /**
  *
  */
-RPC.prototype.connection_receive_message = function(conn, msg_buffer) {
+RPC.prototype.connection_receive = function(conn, msg_buffer) {
     var self = this;
 
     // we allow to receive also objects that are already in "decoded" message form
@@ -523,16 +532,12 @@ RPC.prototype.connection_receive_message = function(conn, msg_buffer) {
         msg_buffer;
 
     if (!msg || !msg.header) {
-        conn.emit('error', new Error('RPC connection_receive_message: BAD MESSAGE ' +
-            typeof(msg) + ' ' + (msg ? typeof(msg.header) : '') +
+        conn.emit('error', new Error('RPC connection_receive: BAD MESSAGE' +
+            ' typeof(msg) ' + typeof(msg) +
+            ' typeof(msg.header) ' + typeof(msg && msg.header) +
             ' conn ' + conn.connid));
         return;
     }
-
-    dbg.log1('RPC connection_receive_message:',
-        'op', msg.header.op,
-        'reqid', msg.header.reqid,
-        'connid', conn.connid);
 
     switch (msg.header.op) {
         case 'req':
@@ -540,7 +545,7 @@ RPC.prototype.connection_receive_message = function(conn, msg_buffer) {
         case 'res':
             return self.handle_response(conn, msg);
         default:
-            conn.emit('error', new Error('RPC connection_receive_message:' +
+            conn.emit('error', new Error('RPC connection_receive:' +
                 ' BAD MESSAGE OP ' + msg.header.op +
                 ' reqid ' + msg.header.reqid +
                 ' connid ' + conn.connid));
@@ -550,11 +555,12 @@ RPC.prototype.connection_receive_message = function(conn, msg_buffer) {
 
 
 RPC.prototype.emit_stats = function(name, data) {
-    try {
-        this.emit(name, data);
-    } catch (err) {
-        dbg.error('RPC emit_stats: ERROR', err.stack || err);
-    }
+    // TODO COLLECT STATS
+    // try {
+    // this.emit(name, data);
+    // } catch (err) {
+    // dbg.error('RPC emit_stats: ERROR', err.stack || err);
+    // }
 };
 
 
@@ -564,6 +570,7 @@ RPC.prototype.emit_stats = function(name, data) {
  *
  */
 RPC.prototype.start_http_server = function(port, secure, logging) {
+    dbg.log0('RPC start_http_server port', port, secure ? 'secure' : '');
     var http_server = new RpcHttpConnection.Server();
     http_server.on('connection', this._accept_new_connection.bind(this));
     return http_server.start(port, secure, logging);
@@ -576,6 +583,7 @@ RPC.prototype.start_http_server = function(port, secure, logging) {
  *
  */
 RPC.prototype.register_http_transport = function(express_app) {
+    dbg.log0('RPC register_http_transport');
     var http_server = new RpcHttpConnection.Server();
     http_server.on('connection', this._accept_new_connection.bind(this));
     http_server.install(express_app);
@@ -589,6 +597,7 @@ RPC.prototype.register_http_transport = function(express_app) {
  *
  */
 RPC.prototype.register_ws_transport = function(http_server) {
+    dbg.log0('RPC register_ws_transport');
     var ws_server = new RpcWsConnection.Server(http_server);
     ws_server.on('connection', this._accept_new_connection.bind(this));
     return ws_server;
@@ -604,6 +613,7 @@ RPC.prototype.register_n2n_transport = function() {
     if (this.n2n_agent) {
         return this.n2n_agent;
     }
+    dbg.log0('RPC register_n2n_transport');
     var n2n_agent = new RpcN2NConnection.Agent({
         signaller: this.n2n_signaller,
     });

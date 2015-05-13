@@ -181,7 +181,7 @@ function heartbeat(req) {
             }
 
             // TODO switch from plain hash to LRU with expiry?
-            dbg.log1('PEER REVERSE ADDRESS', node.peer_id, req.connection.url.href);
+            dbg.log0('PEER REVERSE ADDRESS', node.peer_id, req.connection.url.href);
             var node_listen_addr = 'n2n://' + node.peer_id;
             peers_reverse_address[node_listen_addr] = req.connection.url.href;
 
@@ -266,7 +266,8 @@ function n2n_signal(req) {
     var target = req.rpc_params.target;
     console.log('n2n_signal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
-        address: peers_reverse_address[target] || target,
+        address: target,
+        addr_lookup_table: peers_reverse_address
     });
 }
 
@@ -288,7 +289,8 @@ function self_test_to_node_via_web(req) {
         request_length: req.rpc_params.request_length || 1024,
         response_length: req.rpc_params.response_length || 1024,
     }, {
-        address: peers_reverse_address[source] || source,
+        address: source,
+        addr_lookup_table: peers_reverse_address
     });
 }
 

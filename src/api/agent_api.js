@@ -135,25 +135,18 @@ module.exports = {
             params: {
                 type: 'object',
                 required: ['target'],
+                additionalProperties: true,
                 properties: {
                     target: {
                         type: 'string'
-                    },
-                    info: {
-                        type: 'object',
-                        additionalProperties: true
-                    },
+                    }
                 }
             },
             reply: {
                 type: 'object',
                 required: [],
-                properties: {
-                    info: {
-                        type: 'object',
-                        additionalProperties: true
-                    },
-                }
+                additionalProperties: true,
+                properties: {}
             },
         },
 

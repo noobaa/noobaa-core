@@ -587,13 +587,13 @@ function fix_multipart_parts(obj) {
 function agent_delete_call(node, del_blocks) {
     return Q.fcall(function() {
         var block_addr = get_block_address(del_blocks[0]);
-        var reverse_addr = node_monitor.peers_reverse_address[del_blocks[0].node.peer_id];
         return server_rpc.client.agent.delete_blocks({
             blocks: _.map(del_blocks, function(block) {
                 return block._id.toString();
             })
         }, {
-            address: reverse_addr || block_addr.url,
+            address: block_addr.url,
+            addr_lookup_table: node_monitor.peers_reverse_address,
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -907,7 +907,6 @@ function build_chunks(chunks) {
                         return;
                     }
                     var block_addr = get_block_address(block);
-                    var reverse_addr = node_monitor.peers_last_address[block.node.peer_id];
                     var source_addr = get_block_address(block_info.source);
 
                     return replicate_block_sem.surround(function() {
@@ -915,7 +914,8 @@ function build_chunks(chunks) {
                             block_id: block._id.toString(),
                             source: source_addr
                         }, {
-                            address: reverse_addr || block_addr.url,
+                            address: block_addr.url,
+                            addr_lookup_table: node_monitor.peers_reverse_address,
                         });
                     }).then(function() {
                         dbg.log1('build_chunks replicated block', block._id,

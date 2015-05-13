@@ -108,11 +108,13 @@ function setup_supervisors {
 	echo_supervisord_conf > /etc/supervisord.conf
 
 	# Autostart supervisor
+	deploy_log "setup_supervisors autostart"
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
 	chmod 777 /etc/rc.d/init.d/supervisord
 	chkconfig supervisord on
 
 	# Add NooBaa services configuration to supervisor
+	deploy_log "setup_supervisors adding noobaa config to supervisord"
 	echo "[include]" >> /etc/supervisord.conf
 	echo "files = /etc/noobaa_supervisor.conf" >> /etc/supervisord.conf
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc

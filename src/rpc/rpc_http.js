@@ -37,7 +37,7 @@ function RpcHttpConnection(addr_url) {
  */
 RpcHttpConnection.prototype.transient = true;
 
-var BASE_PATH = '/rpc';
+var BASE_PATH = '/rpc/';
 var browser_location = global.window && global.window.location;
 var is_browser_secure = browser_location && browser_location.protocol === 'https:';
 

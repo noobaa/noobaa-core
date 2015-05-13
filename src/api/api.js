@@ -67,13 +67,13 @@ function Client(default_options) {
         });
     };
 
+    self.object_driver_lazy = function() {
+        // the object driver is a "heavy" object with caches
+        if (!this.object_driver) {
+            this.object_driver = new ObjectDriver(this);
+        }
+        return this.object_driver;
+    };
+
     return self;
 }
-
-Client.prototype.object_driver_lazy = function() {
-    // the object driver is a "heavy" object with caches
-    if (!this.object_driver) {
-        this.object_driver = new ObjectDriver(this);
-    }
-    return this.object_driver;
-};

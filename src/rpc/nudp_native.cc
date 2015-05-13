@@ -17,4 +17,4 @@ void nudp_init(Handle<Object> exports) {
         FunctionTemplate::New(nudp_send_message)->GetFunction());
 }
 
-NODE_MODULE(rpc_nudp_native, nudp_init)
+NODE_MODULE(nudp_native, nudp_init)

@@ -1,42 +1,47 @@
 'use strict';
 
+module.exports = RpcHttpConnection;
+
 var _ = require('lodash');
 var Q = require('q');
+var url = require('url');
+var util = require('util');
+var EventEmitter = require('events').EventEmitter;
+var http = require('http');
+var https = require('https');
 var express = require('express');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
-var http = require('http');
-var https = require('https');
 var pem = require('../util/pem');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-var BASE_PATH = '/rpc';
+
+util.inherits(RpcHttpConnection, EventEmitter);
 
 /**
  *
- * rpc http transport
+ * RpcHttpConnection
  *
- * marked as not "reusable" so that the rpc connection will not be cached
- * for other requests on the same address, since node's http module
- * does socket pooling by http.globalAgent, then in this http transport
- * simply uses a new RpcConnection for every request.
  */
-module.exports = {
-    BASE_PATH: BASE_PATH,
-    singleplex: true,
-    connect: connect,
-    close: close,
-    listen: listen,
-    create_server: create_server,
-    middleware: middleware,
-    send: send,
-    authenticate: authenticate,
-};
+function RpcHttpConnection(addr_url) {
+    EventEmitter.call(this);
+    this.url = addr_url;
+    this.connid = addr_url.href;
+}
 
+/**
+ * mark to rpc that this connection is transient
+ * because we create http connection per request
+ */
+RpcHttpConnection.prototype.transient = true;
 
-// increase the maximum sockets per host, the default is 5 which is very low
+var BASE_PATH = '/rpc';
+var browser_location = global.window && global.window.location;
+var is_browser_secure = browser_location && browser_location.protocol === 'https:';
+
+// increase the maximum sockets per host, the default is 5 which is low
 if (http.globalAgent && http.globalAgent.maxSockets < 100) {
     http.globalAgent.maxSockets = 100;
 }
@@ -45,20 +50,17 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
     http.Agent.defaultMaxSockets = 100;
 }
 
-var browser_location = global.window && global.window.location;
-var is_browser_secure = browser_location && browser_location.protocol === 'https:';
 
 /**
  *
  * connect
  *
  */
-function connect(conn, options) {
-    if (conn.url.protocol === 'http:' && is_browser_secure) {
+RpcHttpConnection.prototype.connect = function(options) {
+    if (this.url.protocol === 'http:' && is_browser_secure) {
         throw new Error('HTTP INSECURE - cannot use http: from secure browser page');
     }
-    conn.http = {};
-}
+};
 
 
 /**
@@ -66,13 +68,18 @@ function connect(conn, options) {
  * close
  *
  */
-function close(conn) {
+RpcHttpConnection.prototype.close = function() {
+    this.emit('close');
+
     // try to abort the connetion's running request
-    var req = conn.http.req;
-    if (req && req.abort) {
-        req.abort();
+    if (this.req) {
+        if (this.req.abort) {
+            dbg.warn('HTTP ABORT REQ', this.reqid);
+            this.req.abort();
+        }
+        this.req = null;
     }
-}
+};
 
 
 /**
@@ -80,17 +87,13 @@ function close(conn) {
  * send
  *
  */
-function send(conn, msg, op, req) {
-
-    // http 1.1 has no multiplexing over connections,
-    // so we issue a single request per connection.
-
+RpcHttpConnection.prototype.send = function(msg, op, req) {
     if (op === 'res') {
-        return send_http_response(conn, msg, req);
+        return this.send_http_response(msg, req);
     } else {
-        return send_http_request(conn, msg, req);
+        return this.send_http_request(msg, req);
     }
-}
+};
 
 
 /**
@@ -98,10 +101,14 @@ function send(conn, msg, op, req) {
  * send_http_response
  *
  */
-function send_http_response(conn, msg, req) {
-    var res = conn.http.res;
-    res.status(200).end(msg);
-}
+RpcHttpConnection.prototype.send_http_response = function(msg, req) {
+    if (this.res) {
+        this.res.status(200).end(msg);
+        this.res = null;
+    } else {
+        dbg.warn('HTTP RESPONSE ALREADY SENT', req.reqid);
+    }
+};
 
 
 /**
@@ -109,24 +116,14 @@ function send_http_response(conn, msg, req) {
  * send_http_request
  *
  */
-function send_http_request(conn, msg, rpc_req) {
+RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
+    var self = this;
     var headers = {};
 
-    // set the url path only for logging to show it,
-    // and encode the connection id in the path querystring
-    var path = BASE_PATH + rpc_req.srv +
-        '?nb_time=' + conn.time.toString(16) +
-        '&nb_rand=' + conn.rand.toString(16);
+    // set the url path only for logging to show it
+    var path = BASE_PATH + rpc_req.srv;
 
-    conn.http.reqid = rpc_req.reqid;
-
-    // encode the auth_token in the authorization header,
-    // we don't really need to, it's just to try and look like a normal http resource
-    // if (conn.http.auth_token) {
-    // headers.authorization = 'Bearer ' + conn.http.auth_token;
-    // }
-
-    // for now just use POST for all requests instead of req.method_api.method,
+    // use POST for all requests (used to be req.method_api.method but unneeded),
     // and send the body as binary buffer
     var http_method = 'POST';
     var body = msg;
@@ -139,9 +136,9 @@ function send_http_request(conn, msg, rpc_req) {
     }
 
     var http_options = {
-        protocol: conn.url.protocol,
-        hostname: conn.url.hostname,
-        port: conn.url.port,
+        protocol: self.url.protocol,
+        hostname: self.url.hostname,
+        port: self.url.port,
         method: http_method,
         path: path,
         headers: headers,
@@ -152,45 +149,55 @@ function send_http_request(conn, msg, rpc_req) {
         responseType: 'arraybuffer'
     };
 
-    var req = conn.http.req =
+    var http_req = self.req =
         (http_options.protocol === 'https:') ?
         https.request(http_options) :
         http.request(http_options);
 
-    dbg.log3('HTTP request', req.method,
-        req.path, req._headers);
+    dbg.log3('HTTP request', http_req.method, http_req.path, http_req._headers);
 
     var send_defer = Q.defer();
 
     // reject on send errors
-    req.on('error', send_defer.reject);
+    http_req.on('error', send_defer.reject);
 
     // once a response arrives read and handle it
-    req.on('response', function(res) {
+    http_req.on('response', function(res) {
+
+        // statusCode = 0 means ECONNREFUSED and the response
+        // will not emit events in such case
         if (!res.statusCode) {
-            // statusCode = 0 means ECONNREFUSED and the response
-            // will not emit events in such case
             send_defer.reject('ECONNREFUSED');
-            conn.emit('error', new Error('ECONNREFUSED'));
             return;
         }
+
+        // sending is done, so resolve the send promise
         send_defer.resolve();
-        conn.http.res = res;
+
+        // read the response data from the socket
         read_http_response_data(res)
             .then(function(data) {
+
+                // the connection's req is done so no need to abort it on close no more
+                self.req = null;
+
                 if (res.statusCode !== 200) {
                     throw new Error('HTTP ERROR ' + res.statusCode + ' ' +
-                        data + ' to ' + conn.url.href);
+                        data + ' to ' + self.url.href);
                 }
                 dbg.log3('HTTP RESPONSE', res.statusCode, 'length', data.length);
-                conn.receive(data);
+                self.emit('message', data);
             })
             .done(null, function(err) {
+
+                // the connection's req is done so no need to abort it on close no more
+                self.req = null;
+
                 dbg.error('HTTP RESPONSE ERROR', err.stack || err);
-                conn.receive({
+                self.emit('message', {
                     header: {
                         op: 'res',
-                        reqid: conn.http.reqid,
+                        reqid: rpc_req.reqid,
                         error: err
                     }
                 });
@@ -199,13 +206,13 @@ function send_http_request(conn, msg, rpc_req) {
 
     // send the request data
     if (body) {
-        req.end(body);
+        http_req.end(body);
     } else {
-        req.end();
+        http_req.end();
     }
 
     return send_defer.promise;
-}
+};
 
 
 /**
@@ -265,62 +272,67 @@ function read_http_response_data(res) {
 
 /**
  *
+ * RpcHttpServer
+ *
+ */
+RpcHttpConnection.Server = RpcHttpServer;
+
+util.inherits(RpcHttpServer, EventEmitter);
+
+function RpcHttpServer() {
+    EventEmitter.call(this);
+}
+
+/**
+ *
+ * install
+ *
+ */
+RpcHttpServer.prototype.install = function(app) {
+    app.use(BASE_PATH, this.middleware.bind(this));
+};
+
+
+/**
+ *
  * middleware
  *
- * @return express middleware to route requests and call rpc methods
- *
  */
-function middleware(rpc) {
-    return function(req, res) {
-        Q.fcall(function() {
-            res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
-            res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-            res.header('Access-Control-Allow-Origin', '*');
-            // note that browsers will not allow origin=* with credentials
-            // but anyway we allow it by the agent server.
-            res.header('Access-Control-Allow-Credentials', true);
-            if (req.method === 'OPTIONS') {
-                res.status(200).end();
-                return;
-            }
-            var host = req.connection.remoteAddress;
-            var port = req.connection.remotePort;
-            var proto = req.get('X-Forwarded-Proto') || req.protocol;
-            var address = proto + '://' + host + ':' + port;
-            dbg.log0('new_connection:',address);
-            var conn = rpc.new_connection(
-                address,
-                req.query.nb_time,
-                req.query.nb_rand);
-            conn.http = {
-                req: req,
-                res: res
-            };
-            return conn.receive(req.body);
-        }).then(null, function(err) {
-            res.status(500).send(err);
-        });
-    };
-}
+RpcHttpServer.prototype.middleware = function(req, res) {
+    try {
+        res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
+        res.header('Access-Control-Allow-Origin', '*');
+        // note that browsers will not allow origin=* with credentials
+        // but anyway we allow it by the agent server.
+        res.header('Access-Control-Allow-Credentials', true);
+        if (req.method === 'OPTIONS') {
+            res.status(200).end();
+            return;
+        }
+
+        var host = req.connection.remoteAddress;
+        var port = req.connection.remotePort;
+        var proto = req.get('X-Forwarded-Proto') || req.protocol;
+        var address = proto + '://' + host + ':' + port;
+        var conn = new RpcHttpConnection(url.parse(address));
+        conn.req = req;
+        conn.res = res;
+        this.emit('connection', conn);
+        conn.emit('message', req.body);
+    } catch (err) {
+        res.status(500).send(err);
+    }
+};
 
 
 /**
  *
- * listen
+ * start
  *
  */
-function listen(rpc, app) {
-    app.use(BASE_PATH, middleware(rpc));
-}
-
-
-/**
- *
- * create_server
- *
- */
-function create_server(rpc, port, secure, logging) {
-    dbg.log0('http create_server with port:',port);
+RpcHttpServer.prototype.start = function(port, secure, logging) {
+    dbg.log0('HTTP SERVER start with port:', port);
     var app = express();
     if (logging) {
         app.use(express_morgan_logger('dev'));
@@ -336,7 +348,7 @@ function create_server(rpc, port, secure, logging) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-    app.use(BASE_PATH, middleware(rpc));
+    this.install(app);
 
     return Q.fcall(function() {
             return secure && Q.nfcall(pem.createCertificate, {
@@ -354,14 +366,4 @@ function create_server(rpc, port, secure, logging) {
             return Q.ninvoke(server, 'listen', port)
                 .thenResolve(server);
         });
-}
-
-
-/**
- *
- * authenticate
- *
- */
-function authenticate(conn, auth_token) {
-    // TODO for now just save auth_token and send with every message, better send once
-}
+};

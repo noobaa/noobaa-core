@@ -4,7 +4,6 @@ var Q = require('q');
 var https = require('https');
 var http = require('http');
 var api = require('../api');
-var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var pem = require('../util/pem');
 var s3_util = require('../util/s3_utils');
@@ -142,11 +141,9 @@ function s3_app(params) {
         serve: function() {
             var certificate;
             return Q.fcall(function() {
-                    // setup nudp socket
-                    return rpc_nudp.listen(api.rpc, 0);
+                    return api.rpc.register_n2n_transport();
                 })
-                .then(function(nudp_socket) {
-                    params.nudp_socket = nudp_socket;
+                .then(function() {
                     return Q.nfcall(pem.createCertificate.bind(pem), {
                         days: 365 * 100,
                         selfSigned: true

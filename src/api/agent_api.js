@@ -130,6 +130,25 @@ module.exports = {
             },
         },
 
+        n2n_signal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target'],
+                additionalProperties: true,
+                properties: {
+                    target: {
+                        type: 'string'
+                    }
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [],
+                additionalProperties: true,
+                properties: {}
+            },
+        },
 
         self_test_io: {
             method: 'POST',
@@ -165,7 +184,7 @@ module.exports = {
                 required: ['target', 'request_length', 'response_length'],
                 properties: {
                     target: {
-                        $ref: '/common_api/definitions/block_address'
+                        type: 'string'
                     },
                     request_length: {
                         type: 'integer'

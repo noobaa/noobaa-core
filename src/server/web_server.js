@@ -32,10 +32,6 @@ var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
-var rpc_http = require('../rpc/rpc_http');
-var rpc_ws = require('../rpc/rpc_ws');
-var rpc_nudp = require('../rpc/rpc_nudp');
-var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
 
@@ -43,6 +39,9 @@ if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
     dotenv.load();
 }
+
+// address means the address of the server as reachable from the internet
+process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
 
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
@@ -123,29 +122,23 @@ app.use(express_cookie_session({
 }));
 app.use(express_compress());
 
+
 /////////
 // RPC //
 /////////
-// using router before static files to optimize -
-// since we have less routes then files, and the routes are in memory.
 
-// register RPC servers
-var api_servers = require('./api_servers');
-// setup rpc http listener
-rpc_http.listen(api.rpc, app);
-// setup websocket rpc listener
-rpc_ws.listen(api.rpc, server);
-// setup nudp socket
-rpc_nudp.listen(api.rpc, 0)
-    .then(function(nudp_socket) {
-        api_servers.client.options.nudp_socket = nudp_socket;
-    });
+// register RPC services and transports
+var server_rpc = require('./server_rpc');
+server_rpc.register_http_transport(app);
+server_rpc.register_ws_transport(server);
+// server_rpc.register_n2n_transport();
+
+
+////////////
+// ROUTES //
+////////////
 
 // agent package json
-
-// address means the address of the server as reachable from the internet
-process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
-
 app.get('/agent/package.json', function(req, res) {
     res.status(200).send({
         name: 'agent',
@@ -188,6 +181,9 @@ app.get('/', function(req, res) {
 ////////////
 // STATIC //
 ////////////
+
+// using router before static files to optimize -
+// since we usually have less routes then files, and the routes are in memory.
 
 function cache_control(seconds) {
     var millis = 1000 * seconds;

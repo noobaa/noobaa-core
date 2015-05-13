@@ -6,7 +6,6 @@ var Q = require('q');
 var fs = require('fs');
 var os = require('os');
 var pem = require('pem');
-var util = require('util');
 var path = require('path');
 var http = require('http');
 var https = require('https');
@@ -17,14 +16,11 @@ var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var ip_module = require('ip');
 var api = require('../api');
-var rpc_http = require('../rpc/rpc_http');
-var rpc_ws = require('../rpc/rpc_ws');
-var rpc_nudp = require('../rpc/rpc_nudp');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
-var ifconfig = require('../util/ifconfig');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
 var diskspace = require('../util/diskspace_util');
@@ -42,9 +38,11 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
-    self.client = new api.Client({
-        address: params.address
-    });
+    self.rpc = api.new_rpc();
+    if (params.address) {
+        self.rpc.base_address = params.address;
+    }
+    self.client = self.rpc.client;
 
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
@@ -82,6 +80,7 @@ function Agent(params) {
         delete_blocks: self.delete_blocks.bind(self),
         check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
+        n2n_signal: self.n2n_signal.bind(self),
         self_test_io: self.self_test_io.bind(self),
         self_test_peer: self.self_test_peer.bind(self),
     };
@@ -99,7 +98,7 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-    rpc_http.listen(api.rpc, app);
+    self.rpc.register_http_transport(app);
     self.agent_app = app;
 
     // TODO these sample geolocations are just for testing
@@ -134,8 +133,7 @@ Agent.prototype.start = function() {
 
             // register agent_server in rpc, with peer as my peer_id
             // to match only calls to me
-            api.rpc.register_service(api.schema.agent_api, self.agent_server, {
-                peer: self.peer_id,
+            self.rpc.register_service(api.schema.agent_api, self.agent_server, {
                 authorize: function(req, method_api) {
                     // TODO verify aithorized tokens in agent?
                 }
@@ -146,7 +144,7 @@ Agent.prototype.start = function() {
             return self._start_stop_http_server();
         })
         .then(function() {
-            return self._start_stop_nudp_server();
+            return self.rpc.register_n2n_transport();
         })
         .then(function() {
             return self.send_heartbeat();
@@ -169,7 +167,6 @@ Agent.prototype.stop = function() {
     dbg.log0('stop agent ' + self.node_id);
     self.is_started = false;
     self._start_stop_http_server();
-    self._start_stop_nudp_server();
     self._start_stop_heartbeats();
 };
 
@@ -243,27 +240,6 @@ Agent.prototype._init_node = function() {
 
 /**
  *
- * _start_stop_nudp_server
- *
- */
-Agent.prototype._start_stop_nudp_server = function() {
-    var self = this;
-
-    if (!self.is_started) {
-        // TODO stop nudp listening socket. what about the open connections?
-        return;
-    }
-
-    return rpc_nudp.listen(api.rpc, self.prefered_port)
-        .then(function(nudp_socket) {
-            self.nudp_socket = nudp_socket;
-            self.client.options.nudp_socket = nudp_socket;
-        });
-};
-
-
-/**
- *
  * _start_stop_http_server
  *
  */
@@ -295,7 +271,7 @@ Agent.prototype._start_stop_http_server = function() {
                         dbg.error('HTTP SERVER ERROR', err.stack || err);
                     })
                     .on('close', function() {
-                        dbg.error('HTTP SERVER CLOSED');
+                        dbg.warn('HTTP SERVER CLOSED');
                         self.http_server = null;
                         setTimeout(self._start_stop_http_server.bind(this), 1000);
                     });
@@ -312,7 +288,7 @@ Agent.prototype._start_stop_http_server = function() {
                         dbg.error('HTTPS SERVER ERROR', err.stack || err);
                     })
                     .on('close', function() {
-                        dbg.error('HTTPS SERVER CLOSED');
+                        dbg.warn('HTTPS SERVER CLOSED');
                         self.https_server = null;
                         setTimeout(self._start_stop_http_server.bind(this), 1000);
                     });
@@ -320,8 +296,8 @@ Agent.prototype._start_stop_http_server = function() {
                     Q.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
             }
 
-            rpc_ws.listen(api.rpc, self.http_server);
-            rpc_ws.listen(api.rpc, self.https_server);
+            self.rpc.register_ws_transport(self.http_server);
+            self.rpc.register_ws_transport(self.https_server);
 
             return Q.all(promises);
         });
@@ -399,23 +375,10 @@ Agent.prototype.send_heartbeat = function() {
                 alloc = Math.min(alloc, freeSpace);
             }
 
-            var ip = ifconfig.get_main_external_ipv4();
-            var addresses = [];
-            if (self.nudp_socket) {
-                addresses.push('nudp://' + ip + ':' + self.nudp_socket.port);
-                _.each(self.nudp_socket.addresses, function(addr) {
-                    addresses.push('nudp://' + addr.address + ':' + addr.port);
-                });
-            }
+            var ip = ip_module.address();
             var http_port = 0;
             if (self.http_server) {
                 http_port = self.http_server.address().port;
-                addresses.push('ws://' + ip + ':' + http_port);
-                addresses.push('http://' + ip + ':' + http_port);
-            }
-            if (self.https_server) {
-                addresses.push('wss://' + ip + ':' + self.https_server.address().port);
-                addresses.push('https://' + ip + ':' + self.https_server.address().port);
             }
 
             var params = {
@@ -423,7 +386,6 @@ Agent.prototype.send_heartbeat = function() {
                 geolocation: self.geolocation,
                 ip: ip,
                 port: http_port,
-                addresses: addresses,
                 storage: {
                     alloc: alloc,
                     used: store_stats.used
@@ -572,8 +534,7 @@ Agent.prototype.replicate_block = function(req) {
     return self.client.agent.read_block({
             block_id: source.id
         }, {
-            peer: source.peer,
-            address: source.address,
+            address: source.addr,
         })
         .then(function(res) {
             return self.store.write_block(block_id, res.data);
@@ -613,32 +574,46 @@ Agent.prototype.kill_agent = function(req) {
     process.exit();
 };
 
+Agent.prototype.n2n_signal = function(req) {
+    return this.rpc.n2n_signal(req.rpc_params);
+};
+
 Agent.prototype.self_test_io = function(req) {
-    dbg.log0('SELF TEST IO got ' + (req.rpc_params.data ? req.rpc_params.data.length : 'N/A') + ' reply ' + req.rpc_params.response_length);
+    var data = req.rpc_params.data;
+    var req_len = data ? data.length : 0;
+    var res_len = req.rpc_params.response_length;
+
+    dbg.log0('SELF TEST IO',
+        'req_len', req_len,
+        'res_len', res_len);
+
     return {
-        data: new Buffer(req.rpc_params.response_length)
+        data: new Buffer(res_len)
     };
 };
 
 Agent.prototype.self_test_peer = function(req) {
     var self = this;
     var target = req.rpc_params.target;
-    dbg.log0('SELF TEST PEER req ' + req.rpc_params.request_length +
-        ' res ' + req.rpc_params.response_length +
-        ' target ' + util.inspect(target));
+    var req_len = req.rpc_params.request_length;
+    var res_len = req.rpc_params.response_length;
 
-    // read from target agent
+    dbg.log0('SELF TEST PEER',
+        'req_len', req_len,
+        'res_len', res_len,
+        'target', target);
+
+    // read/write from target agent
     return self.client.agent.self_test_io({
-            data: new Buffer(req.rpc_params.request_length),
-            response_length: req.rpc_params.response_length,
+            data: new Buffer(req_len),
+            response_length: res_len,
         }, {
-            peer: target.peer,
-            address: target.address,
+            address: target,
         })
         .then(function(res) {
             var data = res.data;
-            if (((!data || !data.length) && req.rpc_params.response_length > 0) ||
-                (data && data.length && data.length !== req.rpc_params.response_length)) {
+            if (((!data || !data.length) && res_len > 0) ||
+                (data && data.length && data.length !== res_len)) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
         });

@@ -117,7 +117,7 @@ function client_streamer(client, port) {
     app.get('/b/:bucket/video/:key', function(req, res) {
         var bucket = req.params.bucket;
         var key = req.params.key;
-        client.object_client.get_object_md({
+        client.object_driver_lazy().get_object_md({
                 bucket: bucket,
                 key: key,
             })
@@ -172,7 +172,7 @@ function client_streamer(client, port) {
         console.log('read', req.path);
         res.header('content-disposition',
             name_to_content_dispos(req.param('key'), req.query.download));
-        client.object_client.serve_http_stream(req, res, _.pick(req.params, 'bucket', 'key'));
+        client.object_driver_lazy().serve_http_stream(req, res, _.pick(req.params, 'bucket', 'key'));
     });
 
     app.use('/video.js/', express.static('./node_modules/video.js/dist/video-js/'));

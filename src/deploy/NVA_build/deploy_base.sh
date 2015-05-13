@@ -10,7 +10,7 @@ SUPERD="/usr/bin/supervisord"
 SUPERCTL="/usr/bin/supervisorctl"
 
 function deploy_log {
-	if [ $1 != "" ]; then
+	if [ "$1" != "" ]; then
 			local now=$(date)
 			echo "${now} ${1}" >> ${LOG_FILE}
 	fi
@@ -52,9 +52,9 @@ function install_aux {
 
 function install_repos {
 	deploy_log "install_repos start"
-	mkdir -p ${CORE_DIR}
-	mv /tmp/noobaa-NVA.tar.gz ${CORE_DIR}
-	cd ${CORE_DIR}
+	mkdir -p /root/node_modules
+	mv /tmp/noobaa-NVA.tar.gz /root/node_modules
+	cd /root/node_modules
 	tar -xzvf ./noobaa-NVA.tar.gz
 	cd ~
 	deploy_log "install_repos done"
@@ -64,14 +64,14 @@ function setup_repos {
 	deploy_log "setup_repos start"
 	cd ~
 	# Setup Repos
-	cp -f ${CORE_DIR}/src/deploy/NVA_build/.env ${CORE_DIR}
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 	cd ${CORE_DIR}
-	npm_log=$(npm install --unsafe-perm -dd)
-	deploy_log "npm install ${npm_log}"
+	$(npm install -dd >> ${LOG_FILE})
 
 	# Setup config.js with on_premise configuration
 	cat ${CONFIG_JS} | sed "s:config.on_premise.enabled = false:config.on_premise.enabled = true:" > ${CONFIG_JS}
 
+	deploy_log "setting up crontab"
 	# Setup crontab job for upgrade checks
 	# once a day at HH = midnight + RAND[0,2], MM = RAND[0,59]
 	local hour_skew=$(((RANDOM)%3))
@@ -83,7 +83,7 @@ function setup_repos {
 function install_mongo {
 	deploy_log "install_mongo start"
 	# create a Mongo 2.4 Repo file
-	cp ./mongo.repo /etc/yum.repos.d/mongodb-org-2.4.repo
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-2.4.repo
 
 	# install the needed RPM
 	yum install -y mongo-10gen.x86_64 mongo-10gen-server.x86_64
@@ -95,8 +95,8 @@ function install_mongo {
 
 function setup_mongo {
 	deploy_log "setup_mongo start"
-	mkdir /data
-	mkdir /data/db
+	mkdir -p /data
+	mkdir -p /data/db
 	#add mongod to rc.d
 	chkconfig mongod on
 	deploy_log "setup_mongo done"
@@ -108,14 +108,14 @@ function setup_supervisors {
 	echo_supervisord_conf > /etc/supervisord.conf
 
 	# Autostart supervisor
-	cp -f ./supervisord /etc/rc.d/init.d/supervisord
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
 	chmod 777 /etc/rc.d/init.d/supervisord
 	chkconfig supervisord on
 
 	# Add NooBaa services configuration to supervisor
 	echo "[include]" >> /etc/supervisord.conf
 	echo "files = /etc/noobaa_supervisor.conf" >> /etc/supervisord.conf
-	cp -f ./noobaa_supervisor.conf /etc
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc
 	${SUPERCTL} reread
 	${SUPERCTL} update
 	deploy_log "setup_supervisors done"

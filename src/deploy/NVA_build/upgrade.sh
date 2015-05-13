@@ -1,10 +1,10 @@
 #!/bin/bash
 
-. ./deploy_base.sh
+. /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
 TMP_PACKAGE_FILE="new_version.tgz"
 TMP_PACKAGE="/tmp/${TMP_PACKAGE_FILE}"
-VER_CHECK="./version_check.js"
+VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
 
 
 function disable_supervisord {

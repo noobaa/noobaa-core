@@ -65,7 +65,7 @@ NiceConnection.prototype.connect = function(options) {
     var stream = self.stream = global_nice_agent.createStream(1);
 
     stream.on('stateChanged', function(component, state) {
-        dbg.log0('NICE CONNECT stateChanged', state);
+        dbg.log0('NICE connect: stateChanged', state);
         self.ready = false;
         switch (state) {
             case 'ready':
@@ -98,7 +98,7 @@ NiceConnection.prototype.connect = function(options) {
                 candidates: self.stream.getLocalIceCandidates()
             })
             .then(function(info) {
-                dbg.log0('NICE SIGNAL RESPONSE', info);
+                dbg.log0('NICE connect: signal response', info);
                 self.stream.setRemoteCredentials(
                     info.credentials.ufrag,
                     info.credentials.pwd);
@@ -107,7 +107,7 @@ NiceConnection.prototype.connect = function(options) {
                 });
             })
             .then(null, function(err) {
-                dbg.error('NICE SIGNAL ERROR', err.stack || err);
+                dbg.error('NICE connect: SIGNAL ERROR', err.stack || err);
                 self.emit('error', err);
             });
     });
@@ -141,7 +141,7 @@ NiceConnection.prototype.accept = function(info) {
     var stream = self.stream = global_nice_agent.createStream(1);
 
     stream.on('stateChanged', function(component, state) {
-        dbg.log0('NICE ACCEPT stateChanged', state);
+        dbg.log0('NICE accept: stateChanged', state);
         self.ready = false;
         switch (state) {
             case 'ready':

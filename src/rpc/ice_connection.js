@@ -47,6 +47,7 @@ function IceConnection(options) {
     self.socket = socket;
     self.addresses = {};
     self.port = 0;
+    self.ip = ip_module.address();
     self.credentials = {
         ufrag: chance.string(RAND_ICE_UFRAG),
         pwd: chance.string(RAND_ICE_PWD),
@@ -64,13 +65,13 @@ function IceConnection(options) {
     });
 
     socket.on('close', function() {
-        dbg.error('ICE SOCKET CLOSED', new Error().stack);
+        dbg.error('ICE SOCKET CLOSED my port', self.port);
         self.close();
     });
 
     // this might occur on ESRCH error from getaddrinfo() for dns resolve.
     socket.on('error', function(err) {
-        dbg.error('ICE SOCKET ERROR', err.stack || err);
+        dbg.error('ICE SOCKET ERROR my port', self.port, err.stack || err);
         self.emit('error', new Error('ICE SOCKET ERROR'));
     });
 
@@ -171,7 +172,7 @@ IceConnection.prototype.accept = function(info) {
  */
 IceConnection.prototype.send = function(buffer, offset, length) {
     if (!this.selected_addr) {
-        dbg.log0('ICE SOCKET NOT READY TO SEND');
+        dbg.log0('ICE send: SOCKET NOT READY port', this.port);
         return;
     }
     this.socket.send(
@@ -219,14 +220,13 @@ IceConnection.prototype._bind = function() {
             self.port = self.socket.address().port;
 
             // add my host address
-            var ip = ip_module.address();
-            self.addresses[ip] = {
+            self.addresses[self.ip] = {
                 family: 'IPv4',
-                address: ip,
+                address: self.ip,
                 port: self.port
             };
 
-            dbg.log0('ICE bind', ip + ':' + self.port);
+            dbg.log0('ICE bind: port', self.port);
 
             // connet the socket to stun server by sending stun request
             // and keep the stun mapping open after by sending indications
@@ -259,7 +259,8 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
         return;
     }
     if (attempts >= 300) {
-        dbg.warn('ICE _punch_hole ADDRESS EXHAUSTED', addr);
+        dbg.warn('ICE _punch_hole: ATTEMPTS EXHAUSTED for address', addr,
+            'my port', self.port);
         return;
     }
     var buffer = stun.new_packet(stun.STUN.METHODS.REQUEST, [{
@@ -273,7 +274,12 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
             buffer, 0, buffer.length,
             addr.port, addr.address)
         .then(null, function(err) {
-            dbg.warn('ICE _punch_hole SEND STUN FAILED', addr, err.stack || err);
+
+            // on send error just log and continue retrying
+            // although it might mean that the socket is faulty ?
+            dbg.warn('ICE _punch_hole: SEND STUN FAILED to address', addr,
+                'my port', self.port, err.stack || err);
+
         })
         .then(function() {
             // TODO implement ICE scheduling https://tools.ietf.org/html/rfc5245#page-37
@@ -293,14 +299,15 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
 IceConnection.prototype._punch_holes = function() {
     var self = this;
     return Q.fcall(function() {
-            dbg.log0('ICE _punch_holes REMOTE INFO', self.remote_info);
+            dbg.log0('ICE _punch_holes: remote info', self.remote_info,
+                'my port', self.port);
             // send stun request to each of the remote addresses
             return Q.all(_.map(self.remote_info.addresses,
                 self._punch_hole.bind(self, self.remote_info.credentials)));
         })
         .then(function() {
             if (!self.selected_addr) {
-                throw new Error('ICE _punch_holes EXHAUSTED');
+                throw new Error('ICE _punch_holes: EXHAUSTED');
             }
         })
         .then(null, function(err) {
@@ -320,11 +327,13 @@ IceConnection.prototype._handle_stun_packet = function(buffer, rinfo) {
     switch (method) {
         case stun.STUN.METHODS.INDICATION:
             // indication = keepalives
-            dbg.log3('ICE STUN indication', rinfo.address + ':' + rinfo.port);
+            dbg.log3('ICE _handle_stun_packet: stun indication',
+                rinfo.address + ':' + rinfo.port, 'my port', this.port);
             break;
         case stun.STUN.METHODS.ERROR:
             // most likely a problem in the request we sent.
-            dbg.warn('ICE STUN ERROR', rinfo.address + ':' + rinfo.port);
+            dbg.warn('ICE _handle_stun_packet: STUN ERROR',
+                rinfo.address + ':' + rinfo.port, 'my port', this.port);
             break;
         case stun.STUN.METHODS.REQUEST:
             this._handle_stun_request(buffer, rinfo);
@@ -372,7 +381,7 @@ IceConnection.prototype._handle_stun_request = function(buffer, rinfo) {
             reply, 0, reply.length,
             rinfo.port, rinfo.address)
         .then(null, function(err) {
-            dbg.warn('ICE _handle_stun_request SEND RESPONSE FAILED',
+            dbg.warn('ICE _handle_stun_request: SEND RESPONSE FAILED',
                 rinfo, err.stack || err);
         });
 };
@@ -395,7 +404,7 @@ IceConnection.prototype._handle_stun_response = function(buffer, rinfo) {
     }
     var addr = attr_map.address;
     if (addr) {
-        dbg.log0('ICE _handle_stun_response ADDRESS', addr);
+        dbg.log0('ICE _handle_stun_response: address', addr, 'my port', this.port);
         this.addresses[addr.address + ':' + addr.port] = addr;
 
         // select this remote address since we got a valid response from it
@@ -412,11 +421,13 @@ IceConnection.prototype._handle_stun_response = function(buffer, rinfo) {
 IceConnection.prototype._check_stun_credentials = function(buffer, rinfo) {
     var attr_map = stun.get_attrs_map(buffer);
     if (!this.remote_info || !this.remote_info.credentials) {
-        dbg.log0('ICE _check_stun_credentials NO REMOTE INFO');
+        dbg.warn('ICE _check_stun_credentials: NO REMOTE INFO',
+            'my port', this.port);
         return;
     }
     if (!attr_map.username) {
-        dbg.log0('ICE _check_stun_credentials NO USERNAME', attr_map);
+        dbg.warn('ICE _check_stun_credentials: NO USERNAME', attr_map,
+            'my port', this.port);
         return;
     }
 
@@ -425,8 +436,9 @@ IceConnection.prototype._check_stun_credentials = function(buffer, rinfo) {
     if (frags[0] !== this.credentials.ufrag ||
         frags[1] !== this.remote_info.credentials.ufrag ||
         attr_map.password !== this.credentials.pwd) {
-        dbg.log0('ICE _check_stun_credentials CREDENTIALS MISMATCH',
-            attr_map, this.credentials, this.remote_info.credentials);
+        dbg.error('ICE _check_stun_credentials: CREDENTIALS MISMATCH',
+            attr_map, this.credentials, this.remote_info.credentials,
+            'my port', this.port);
         return;
     }
 
@@ -441,7 +453,8 @@ IceConnection.prototype._check_stun_credentials = function(buffer, rinfo) {
  */
 IceConnection.prototype._select_remote_address = function(rinfo) {
     if (!this.selected_addr) {
-        dbg.log0('ICE READY - SELECTED ADDRESS', rinfo.address + ':' + rinfo.port);
+        dbg.log0('ICE READY ~~~ SELECTED ADDRESS',
+            rinfo.address + ':' + rinfo.port, 'my port', this.port);
         this.selected_addr = rinfo;
         stun.indication_loop(this.socket, rinfo.address, rinfo.port);
     }

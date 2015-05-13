@@ -345,12 +345,6 @@ gulp.task('NVA_build', ['jshint', 'build_agent_distro'], function() {
                     _.contains([
                         'bower',
                         'mocha',
-                        'mongoose',
-                        'bcrypt',
-                        'font-awesome',
-                        'bootstrap',
-                        'animate.css',
-                        'video.js'
                     ], key);
             });
             return {

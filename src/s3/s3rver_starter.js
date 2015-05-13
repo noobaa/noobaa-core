@@ -8,6 +8,7 @@ var util = require('util');
 var S3rver = require('./s3rver');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var argv = require('minimist')(process.argv);
+var api = require('../api');
 
 var params = argv;
 
@@ -30,6 +31,9 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
             port: 80,
             ssl_port: 443,
         });
+        if (params.address) {
+            api.rpc.base_address = params.address;
+        }
         var s3rver = new S3rver(params);
         return Q.fcall(s3rver.run.bind(s3rver))
             .then(null, function(err) {

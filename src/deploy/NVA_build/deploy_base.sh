@@ -118,6 +118,7 @@ function setup_supervisors {
 	echo "[include]" >> /etc/supervisord.conf
 	echo "files = /etc/noobaa_supervisor.conf" >> /etc/supervisord.conf
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc
+	${SUPERD}
 	${SUPERCTL} reread
 	${SUPERCTL} update
 	deploy_log "setup_supervisors done"
@@ -133,4 +134,5 @@ if [ "$1" == "runinstall" ]; then
 	install_mongo
 	setup_mongo
 	setup_supervisors
+	reboot -fn
 fi

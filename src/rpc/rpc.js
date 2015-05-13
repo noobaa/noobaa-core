@@ -76,11 +76,11 @@ function RPC(options) {
 RPC.prototype.register_service = function(api, server, options) {
     var self = this;
     options = options || {};
-    var address = options.address || '';
-    dbg.log0('RPC register_service', address + '/' + api.name + '/...');
+
+    dbg.log0('RPC register_service', api.name);
 
     _.each(api.methods, function(method_api, method_name) {
-        var srv = address + '/' + api.name + '/' + method_name;
+        var srv = api.name + '.' + method_name;
         assert(!self._services[srv],
             'RPC register_service: service already registered ' + srv);
         var func = server[method_name];
@@ -158,6 +158,10 @@ RPC.prototype.create_client = function(api, default_options) {
  *
  * client_request
  *
+ * @param options Object:
+ * - address: String - url for the request target.
+ * - auth_token: String - token to send for request quthorization.
+ * - timeout: Number - ms to wait for send-request/wait-for-reponse to complete
  */
 RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
@@ -165,7 +169,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
     // initialize the request
     var req = new RpcRequest();
-    req.new_request(options.address || '', api, method_api, params, options.auth_token);
+    req.new_request(api, method_api, params, options.auth_token);
     req.response_defer = Q.defer();
 
     return Q.fcall(function() {
@@ -264,9 +268,8 @@ RPC.prototype.handle_request = function(conn, msg) {
     req.reqid = rseq + '@' + conn.connid;
 
     // find the requested service
-    var srv = msg.header.addr +
-        '/' + msg.header.api +
-        '/' + msg.header.method;
+    var srv = msg.header.api +
+        '.' + msg.header.method;
     var service = this._services[srv];
     if (!service) {
         dbg.warn('RPC handle_request: NOT FOUND', srv,
@@ -386,6 +389,15 @@ RPC.prototype.handle_response = function(conn, msg) {
 };
 
 
+/**
+ *
+ * map_address_to_connection
+ *
+ */
+RPC.prototype.map_address_to_connection = function(address, conn) {
+    this._connection_by_address[address] = conn;
+};
+
 
 /**
  *
@@ -395,24 +407,30 @@ RPC.prototype.handle_response = function(conn, msg) {
 RPC.prototype._assign_connection = function(req, options) {
     var address = options.address || this.base_address;
     var addr_url = url.parse(address, true);
-
-    // a lookup table may be provided to translate the address
-    // before the actual lookup of the connection.
-    // this allows to redirect requests through a proxy -
-    // in our case that proxy is the signaller.
-    var lookup_addr =
-        options.addr_lookup_table &&
-        options.addr_lookup_table[address] ||
-        address;
-    var conn = this._connection_by_address[lookup_addr];
+    var conn = this._connection_by_address[addr_url.href];
 
     if (conn) {
-        dbg.log2('RPC _assign_connection: existing',
-            'srv', req.srv, 'connid', conn.connid);
-    } else {
+        if (conn.closed) {
+            dbg.log0('RPC _assign_connection: remove stale connection',
+                'address', addr_url.href,
+                'srv', req.srv,
+                'connid', conn.connid);
+            delete this._connection_by_address[addr_url.href];
+            conn = null;
+        } else {
+            dbg.log2('RPC _assign_connection: existing',
+                'address', addr_url.href,
+                'srv', req.srv,
+                'connid', conn.connid);
+        }
+    }
+
+    if (!conn) {
         conn = this._new_connection(addr_url);
         dbg.log1('RPC _assign_connection: new',
-            'srv', req.srv, 'connid', conn.connid);
+            'address', addr_url.href,
+            'srv', req.srv,
+            'connid', conn.connid);
     }
 
     var rseq = conn._rpc_req_seq;
@@ -496,6 +514,8 @@ RPC.prototype.connection_error = function(conn, err) {
  */
 RPC.prototype.connection_closed = function(conn) {
     var self = this;
+
+    conn.closed = true;
 
     dbg.log0('RPC connection_closed:', conn.connid);
 

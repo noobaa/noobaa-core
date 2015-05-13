@@ -8,7 +8,6 @@ var server_rpc = require('../server/server_rpc');
 var range_utils = require('../util/range_utils');
 var promise_utils = require('../util/promise_utils');
 var block_allocator = require('./block_allocator');
-var node_monitor = require('./node_monitor');
 var Semaphore = require('noobaa-util/semaphore');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -592,8 +591,7 @@ function agent_delete_call(node, del_blocks) {
                 return block._id.toString();
             })
         }, {
-            address: block_addr.url,
-            addr_lookup_table: node_monitor.peers_reverse_address,
+            address: block_addr.addr,
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -914,16 +912,15 @@ function build_chunks(chunks) {
                             block_id: block._id.toString(),
                             source: source_addr
                         }, {
-                            address: block_addr.url,
-                            addr_lookup_table: node_monitor.peers_reverse_address,
+                            address: block_addr.addr,
                         });
                     }).then(function() {
                         dbg.log1('build_chunks replicated block', block._id,
-                            'to', block_addr.url, 'from', source_addr.url);
+                            'to', block_addr.addr, 'from', source_addr.addr);
                         replicated_block_ids.push(block._id);
                     }, function(err) {
                         dbg.error('build_chunks FAILED replicate block', block._id,
-                            'to', block_addr.url, 'from', source_addr.url,
+                            'to', block_addr.addr, 'from', source_addr.addr,
                             err.stack || err);
                         replicated_failed_ids.push(block._id);
                         block_info.replicate_error = err;
@@ -1338,7 +1335,7 @@ function get_part_info(params) {
 function get_block_address(block) {
     var b = {};
     b.id = block._id.toString();
-    b.url = 'n2n://' + block.node.peer_id;
+    b.addr = 'n2n://' + block.node.peer_id;
     return b;
 }
 

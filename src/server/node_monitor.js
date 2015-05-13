@@ -9,16 +9,9 @@ var size_utils = require('../util/size_utils');
 var server_rpc = require('../server/server_rpc');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
-/**
- * we keep a map from peer_id to connection address
- * to be used for signaling and notifications from the server.
- */
-var peers_reverse_address = {};
-
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
-    peers_reverse_address: peers_reverse_address,
     self_test_to_node_via_web: self_test_to_node_via_web
 };
 
@@ -180,10 +173,9 @@ function heartbeat(req) {
                 return;
             }
 
-            // TODO switch from plain hash to LRU with expiry?
-            dbg.log0('PEER REVERSE ADDRESS', node.peer_id, req.connection.url.href);
             var node_listen_addr = 'n2n://' + node.peer_id;
-            peers_reverse_address[node_listen_addr] = req.connection.url.href;
+            dbg.log0('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
+            server_rpc.map_address_to_connection(node_listen_addr, req.connection);
 
             var agent_storage = params.storage;
 
@@ -267,7 +259,6 @@ function n2n_signal(req) {
     console.log('n2n_signal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
         address: target,
-        addr_lookup_table: peers_reverse_address
     });
 }
 
@@ -290,7 +281,6 @@ function self_test_to_node_via_web(req) {
         response_length: req.rpc_params.response_length || 1024,
     }, {
         address: source,
-        addr_lookup_table: peers_reverse_address
     });
 }
 

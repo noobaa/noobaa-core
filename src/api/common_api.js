@@ -18,14 +18,14 @@ module.exports = {
 
         block_address: {
             type: 'object',
-            required: ['id'],
+            required: ['id', 'addr'],
             properties: {
                 id: {
                     type: 'string'
                 },
-                url: {
+                addr: {
                     type: 'string'
-                }
+                },
             }
         },
 

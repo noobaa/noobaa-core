@@ -38,9 +38,11 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
-    self.client = new api.Client({
-        address: params.address
-    });
+    self.rpc = api.new_rpc();
+    if (params.address) {
+        self.rpc.base_address = params.address;
+    }
+    self.client = self.rpc.client;
 
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
@@ -96,7 +98,7 @@ function Agent(params) {
     }));
     app.use(express_method_override());
     app.use(express_compress());
-    api.rpc.register_http_transport(app);
+    self.rpc.register_http_transport(app);
     self.agent_app = app;
 
     // TODO these sample geolocations are just for testing
@@ -131,8 +133,7 @@ Agent.prototype.start = function() {
 
             // register agent_server in rpc, with peer as my peer_id
             // to match only calls to me
-            api.rpc.register_service(api.schema.agent_api, self.agent_server, {
-                address: 'n2n://' + self.peer_id,
+            self.rpc.register_service(api.schema.agent_api, self.agent_server, {
                 authorize: function(req, method_api) {
                     // TODO verify aithorized tokens in agent?
                 }
@@ -143,7 +144,7 @@ Agent.prototype.start = function() {
             return self._start_stop_http_server();
         })
         .then(function() {
-            return api.rpc.register_n2n_transport();
+            return self.rpc.register_n2n_transport();
         })
         .then(function() {
             return self.send_heartbeat();
@@ -295,8 +296,8 @@ Agent.prototype._start_stop_http_server = function() {
                     Q.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
             }
 
-            api.rpc.register_ws_transport(self.http_server);
-            api.rpc.register_ws_transport(self.https_server);
+            self.rpc.register_ws_transport(self.http_server);
+            self.rpc.register_ws_transport(self.https_server);
 
             return Q.all(promises);
         });
@@ -533,7 +534,7 @@ Agent.prototype.replicate_block = function(req) {
     return self.client.agent.read_block({
             block_id: source.id
         }, {
-            address: source.url,
+            address: source.addr,
         })
         .then(function(res) {
             return self.store.write_block(block_id, res.data);
@@ -574,7 +575,7 @@ Agent.prototype.kill_agent = function(req) {
 };
 
 Agent.prototype.n2n_signal = function(req) {
-    return api.rpc.n2n_signal(req.rpc_params);
+    return this.rpc.n2n_signal(req.rpc_params);
 };
 
 Agent.prototype.self_test_io = function(req) {

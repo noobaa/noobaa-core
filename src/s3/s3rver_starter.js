@@ -20,7 +20,6 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
     }).then(null, function(err) {
         dbg.log0('cannot find configuration file. Using defaults.' + err);
         params = _.defaults(params, {
-            address: 'http://localhost:5001',
             port: 80,
             ssl_port: 443,
         });
@@ -28,7 +27,6 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
     }).then(function() {
         //Just in case part of the information is missing, add default params.
         params = _.defaults(params, {
-            address: 'http://localhost:5001',
             port: 80,
             ssl_port: 443,
         });

@@ -131,7 +131,7 @@ app.use(express_compress());
 var server_rpc = require('./server_rpc');
 server_rpc.register_http_transport(app);
 server_rpc.register_ws_transport(server);
-server_rpc.register_n2n_transport();
+// server_rpc.register_n2n_transport();
 
 
 ////////////

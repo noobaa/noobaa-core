@@ -57,6 +57,10 @@ var STUN = {
         REALM: 0x0014,
         NONCE: 0x0015,
         XOR_MAPPED_ADDRESS: 0x0020,
+        PRIORITY: 0x0024,
+        USE_CANDIDATE: 0x0025,
+        ICE_CONTROLLED: 0x0026,
+        ICE_CONTROLLING: 0x0027,
         SOFTWARE: 0x8022,
         ALTERNATE_SERVER: 0x8023,
         FINGERPRINT: 0x8028
@@ -69,6 +73,7 @@ var STUN = {
         401: 'Unauthorized',
         420: 'Unknown Attribute',
         438: 'Stale Nonce',
+        487: 'Role Conflict',
         500: 'Server Error'
     },
 

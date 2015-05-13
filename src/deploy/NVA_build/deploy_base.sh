@@ -98,7 +98,7 @@ function setup_mongo {
 	mkdir -p /data
 	mkdir -p /data/db
 	#add mongod to rc.d
-	chkconfig mongod on
+	#chkconfig mongod on
 	deploy_log "setup_mongo done"
 }
 

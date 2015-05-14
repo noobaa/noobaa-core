@@ -50,7 +50,7 @@ function install_aux {
 	deploy_log "install_aux done"
 
 	# Install Expect
-	yum install -i expect 
+	yum install -y expect
 }
 
 function install_repos {

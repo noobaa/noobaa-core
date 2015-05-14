@@ -82,9 +82,9 @@ nb_api.factory('nbFiles', [
             //var secret_access_key = 'f25cd46a-e105-4518-ac75-0d033745b4e1';
             var rest_port = 80;
             var rest_ssl_port = 443;
-            var http_endpoint = 'http://'+$location.host()+
+            var http_endpoint = 'http://127.0.0.1' +
                 (rest_port ? ':' + rest_port : '');
-            var https_endpoint = 'https://' +$location.host()+
+            var https_endpoint = 'https://127.0.0.1' +
                 (rest_ssl_port ? ':' + rest_ssl_port : '');
             $scope.s3 = new AWS.S3({
                 endpoint: $window.location.protocol === 'https:' ?

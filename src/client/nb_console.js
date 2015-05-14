@@ -667,8 +667,8 @@ nb_console.controller('FileViewCtrl', [
                     // TODO take address from system
                     var rest_address =
                         ($location.protocol() === 'https') ?
-                        'https://'+$location.host()+':5006' :
-                        'http://'+$location.host()+':5005';
+                        'https://localhost:5006' :
+  -                     'http://localhost:5005';
                     console.log('rest_addres',rest_address);
                     $scope.download_url = $sce.trustAsResourceUrl(
                         rest_address + '/' +

@@ -48,6 +48,9 @@ function install_aux {
 	/tmp/turnserver-4.3.1.3/install.sh
 	cd ~
 	deploy_log "install_aux done"
+
+	# Install Expect
+	yum install -i expect 
 }
 
 function install_repos {

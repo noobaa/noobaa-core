@@ -72,9 +72,17 @@ if [ "$CLEAN" = true ] ; then
         sed -i '' '/bootstrap/d' package.json
         sed -i '' '/browserify"/d' package.json
         sed -i '' '/rebuild/d' package.json
+        sed -i '' '/nodetime/d' package.json
+        sed -i '' '/newrelic/d' package.json
+
+
+
         pwd
         npm install -dd
         curl -L http://nodejs.org/dist/v0.10.32/node.exe > node.exe
+        rm -rf ./node_modules/noobaa-util/node_modules/gulp*
+        rm -rf ./node_modules/noobaa-util/node_modules/node-gyp*
+
         #No need for atom for now. Keep it for future use?!
         #echo "Downloading atom-shell for windows"
         #curl -L https://github.com/atom/atom-shell/releases/download/v0.17.1/atom-shell-v0.17.1-win32-ia32.zip > atom-shell.zip
@@ -85,7 +93,6 @@ else
     cd build/windows
 fi
 echo "create agent conf"
-echo "$SECRET_KEY"
 echo '{' > agent_conf.json
 echo '    "dbg_log_level": 2,' >> agent_conf.json
 echo '    "address": "'"$ADDRESS"'",' >> agent_conf.json

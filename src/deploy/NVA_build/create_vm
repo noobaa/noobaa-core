@@ -1,0 +1,47 @@
+#!/bin/bash
+#!/usr/bin/expect -f
+
+IP="10.128.152.5"
+
+#Import the CentOS image, with the following params:
+# CPUs - 1
+# Mem  - 2GB
+VBoxManage import ~/Downloads/NVA_Base.ova --vsys 0 --cpus 1 --memory 2048 --description "NVA (NooBaa Virtual Appliance)" --vmname NooBaa_NVA
+
+#Start VM
+VBoxHeadless --startvm NooBaa_NVA &
+
+#Get IP
+#IP=
+
+#SCP deployment files
+/usr/bin/expect << EOD
+spawn scp deploy.tgz root@${IP}:/tmp
+expect "Are you sure you want to continue connecting "
+send "yes\r"
+expect "password:"
+send "roonoobaa\r"
+expect "*\r"
+expect "\r"
+EOD
+
+/usr/bin/expect << EOD
+#Run deployment
+spawn ssh root@${IP}
+expect "password: "
+send "roonoobaa\r"
+expect "$ "
+send "cd \tmp\r"
+expect "$ "
+send "tar -xzvf deploy.tgz"
+expect "$ "
+send "\tmp\deploy_base.sh runinstall\r"
+expect "$ "
+send "exit\r"
+EOD
+
+#Stop machine
+VBoxManage controlvm NooBaa_NVA poweroff
+
+#Export
+VBoxManage export NooBaa_NVA_Base -o ./NooBaa_NVA.ova

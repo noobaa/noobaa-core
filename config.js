@@ -3,6 +3,13 @@ var config = {};
 // TEST Mode
 config.test_mode = false;
 
+// On Premise NVA params
+config.on_premise = {
+    enabled: false,
+    base_url: "https://s3-eu-west-1.amazonaws.com/noobaa-download/on_premise/v_",
+    nva_part: "NVA_Upgrade.tgz"
+};
+
 // SIGNALING AND ICE
 config.ws_address = 'wss://noobaa-signaling.herokuapp.com';
 //config.ws_address = 'ws://localhost:5002';
@@ -47,11 +54,13 @@ config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
 
 config.ice_servers = {
-    'iceServers': [
-        {'url': 'stun:stun.l.google.com:19302'},
-        {'url': 'stun:stun.stunprotocol.org:3478'},
-        {'url': 'stun:54.93.86.231:3478'}
-    ]
+    'iceServers': [{
+        'url': 'stun:stun.l.google.com:19302'
+    }, {
+        'url': 'stun:stun.stunprotocol.org:3478'
+    }, {
+        'url': 'stun:54.93.86.231:3478'
+    }]
 };
 
 module.exports = config;

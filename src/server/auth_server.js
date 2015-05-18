@@ -215,13 +215,12 @@ function create_access_key_auth(req) {
     // var expiry = req.rpc_params.expiry;
     var system;
 
-    dbg.log3('create_access_key_auth', access_key, string_to_sign, signature);
+    dbg.log0('create_access_key_auth', access_key, string_to_sign, signature);
 
     return Q.fcall(function() {
 
         // find system by name
-        return db.System.
-        findOne({
+        return db.System.findOne({
                 "access_keys": {
                     $elemMatch: {
                         "access_key": access_key
@@ -232,7 +231,7 @@ function create_access_key_auth(req) {
             .then(function(system_arg) {
                 system = system_arg;
                 //TODO: replace _doc with a better valid path.
-                dbg.log3('system._doc.access_keys', system._doc.access_keys);
+                dbg.log0('system._doc.access_keys', system._doc.access_keys);
                 if (!system || system.deleted) {
                     throw req.unauthorized('system not found');
                 }
@@ -240,9 +239,9 @@ function create_access_key_auth(req) {
             }).then(function() {
                 var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
                 var s3_signature = s3.sign(secret_key, string_to_sign);
-                dbg.log3('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
+                dbg.log0('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
                 if (signature === s3_signature) {
-                    dbg.log3('s3 authentication test passed!!!');
+                    dbg.log0('s3 authentication test passed!!!');
                 } else {
                     throw req.unauthorized('SignatureDoesNotMatch');
                 }

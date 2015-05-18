@@ -564,6 +564,7 @@ nb_console.controller('BucketViewCtrl', [
             console.log('rest_server_information');
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
+            scope.rest_endpoint = $window.location.protocol+'//' +$window.location.host+'/s3';
             scope.rest_package = download_rest_server_package;
             scope.modal = nbModal({
                 template: 'console/rest_server_information.html',

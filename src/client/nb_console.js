@@ -193,6 +193,9 @@ nb_console.controller('OverviewCtrl', [
             $location.path('tier/' + tier_name);
             $location.hash('overview&add_node=1');
         }
+
+
+
     }
 ]);
 
@@ -241,6 +244,7 @@ nb_console.controller('TierViewCtrl', [
         $scope.nodes_num_pages = 0;
         $scope.nodes_page_size = 10;
         $scope.nodes_query = {};
+        $scope.rest_server_information = rest_server_information;
 
         var tier_router = $scope.tier_router =
             nbHashRouter($scope)
@@ -354,6 +358,15 @@ nb_console.controller('TierViewCtrl', [
             };
             scope.modal = nbModal({
                 template: 'console/add_node_dialog.html',
+                scope: scope,
+            });
+        }
+
+        function rest_server_information() {
+            console.log('rest_server_information');
+            var scope = $scope.$new();
+            scope.modal = nbModal({
+                template: 'console/bucket_link.html',
                 scope: scope,
             });
         }
@@ -515,15 +528,16 @@ nb_console.controller('NodeViewCtrl', [
 
 nb_console.controller('BucketViewCtrl', [
     '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
-    'nbSystem', 'nbFiles', 'nbHashRouter',
+    'nbSystem', 'nbFiles', 'nbHashRouter', 'nbModal',
     function($scope, $q, $timeout, $window, $location, $routeParams,
-        nbSystem, nbFiles, nbHashRouter) {
+        nbSystem, nbFiles, nbHashRouter, nbModal) {
         $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
         $scope.upload = upload;
         $scope.files_num_pages = 0;
         $scope.files_page_size = 10;
         $scope.files_query = {};
+        $scope.rest_server_information = rest_server_information;
 
         var bucket_router = $scope.bucket_router =
             nbHashRouter($scope)
@@ -552,6 +566,17 @@ nb_console.controller('BucketViewCtrl', [
             });
 
         reload_view(true);
+
+        function rest_server_information() {
+            console.log('rest_server_information');
+            var scope = $scope.$new();
+            scope.access_keys = nbSystem.system.access_keys;
+            scope.secret_keys = nbSystem.system.secret_keys;
+            scope.modal = nbModal({
+                template: 'console/rest_server_information.html',
+                scope: scope,
+            });
+        }
 
         function reload_view(init_only) {
             return $q.when()

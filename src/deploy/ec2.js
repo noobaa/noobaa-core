@@ -283,7 +283,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
     } else {
         if (is_win) {
             run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
-            instance_type = 'c4.large';
+            instance_type = 'm3.large';
         } else {
 
             test_instances_counter = (run_script.match(/test/g) || []).length;

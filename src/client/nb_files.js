@@ -68,7 +68,7 @@ nb_api.factory('nbFiles', [
                     secretAccessKey: access_keys[0].secret_key,
                     sslEnabled: false
                 });
-                console.log('updated keys', access_keys[0].access_key);
+                console.log('updated keys', access_keys[0].access_key,$location);
             }
             /*
             //TODO: move to ssl. disable certificate validation.
@@ -80,15 +80,19 @@ nb_api.factory('nbFiles', [
             */
             //var access_key_id = 'd36e02598bf347148752';
             //var secret_access_key = 'f25cd46a-e105-4518-ac75-0d033745b4e1';
-            var rest_port = 80;
-            var rest_ssl_port = 443;
-            var http_endpoint = 'http://127.0.0.1' +
-                (rest_port ? ':' + rest_port : '');
-            var https_endpoint = 'https://127.0.0.1' +
-                (rest_ssl_port ? ':' + rest_ssl_port : '');
+
+            // var rest_port = 80;
+            // var rest_ssl_port = 443;
+            // var http_endpoint = 'http://127.0.0.1' +
+            //     (rest_port ? ':' + rest_port : '')+'/s3';
+            // var https_endpoint = 'https://127.0.0.1' +
+            //     (rest_ssl_port ? ':' + rest_ssl_port : '')+'/s3';
+            var rest_endpoint = $window.location.protocol+'//' +$window.location.host+'/s3';
+            console.log('win:',$window.location,":",rest_endpoint);
             $scope.s3 = new AWS.S3({
-                endpoint: $window.location.protocol === 'https:' ?
-                    https_endpoint : http_endpoint,
+                // endpoint: $window.location.protocol === 'https:' ?
+                //     https_endpoint : http_endpoint,
+                endpoint: rest_endpoint,
                 s3ForcePathStyle: true,
                 sslEnabled: false,
             });

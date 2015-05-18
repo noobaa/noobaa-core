@@ -10,6 +10,9 @@ SECRET_KEY="abc"
 while [[ $# > 0 ]]; do
   key=$(echo $1 | sed "s:\(.*\)=.*:\1:")
   case $key in
+      --system_id)
+      SYSTEM_ID=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
       --clean)
       CLEAN=$(echo $1 | sed "s:.*=\(.*\):\1:")
       ;;
@@ -94,8 +97,14 @@ cat agent_conf.json
 
 echo "make installer"
 pwd
+
+cp ../../src/deploy/atom_rest_win.nsi ../../src/deploy/atom_rest_win.bak
+sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_rest_win.nsi
+
 makensis -NOCD ../../src/deploy/atom_rest_win.nsi
+
+mv ../../src/deploy/atom_rest_win.bak ../../src/deploy/atom_rest_win.nsi
 
 echo "uploading to S3"
 
-s3cmd -P put noobaa-s3rest-setup.exe s3://noobaa-download/ness/
+s3cmd -P put noobaa-s3rest-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-s3rest-setup.exe

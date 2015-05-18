@@ -5,7 +5,6 @@
 !include "FileFunc.nsh"
 !include "StrFunc.nsh"
 !include "LogicLib.nsh"
-
 ; Usage example:
 ; noobaa-setup.exe /address=noobaa-alpha.herokuapp.com /serverport=443 /agentport=4003 /updateserver=noobaa-alpha.herokuapp.com
 
@@ -235,18 +234,29 @@ Section "install"
 	;Debug:
 	;MessageBox MB_OK "Value of address parameter is $2 $3 $4 $5"
 	Var /global UPGRADE
+	Var /global AUTO_UPGRADE
 
 	;Install or upgrade?
 	StrCpy $UPGRADE "false"
+
 	IfFileExists $INSTDIR\*.* Upgrades Standard
 		Upgrades:
 			StrCpy $UPGRADE "true"
 		Standard:
 
+	StrCpy $AUTO_UPGRADE "false"
+	IfFileExists $INSTDIR\noobaa-setup.exe Auto_Upgrades Auto_Standard
+		Auto_Upgrades:
+			StrCpy $AUTO_UPGRADE "true"
+		Auto_Standard:
+
 	SetOutPath $INSTDIR
 
 	${If} $UPGRADE == "true" ;delete all files that we want to update
-		nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+
+		${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
+			nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+		${EndIf}
 		Delete "$INSTDIR\config.js"
 		Delete "$INSTDIR\package.json"
 		Delete "$INSTDIR\agent_conf.conf"
@@ -257,19 +267,15 @@ Section "install"
 		RMDir /r "$INSTDIR\node_modules"
 		RMDir /r "$INSTDIR\src"
 		RMDir /r "$INSTDIR\ssl"
-		Delete "$INSTDIR\service.bat"
-		Delete "$INSTDIR\service_uninstaller.bat"
-		Delete "$INSTDIR\service_installer.bat"
-		Delete "$INSTDIR\node.exe"
+		${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
+			Delete "$INSTDIR\service_uninstaller.bat"
+			Delete "$INSTDIR\service_installer.bat"
+			Delete "$INSTDIR\node.exe"
+			Delete "$INSTDIR\service.bat"
+		${EndIf}
 	${Else}
 		File "7za.exe"
 		File "NooBaa_Agent_wd.exe"
-		#no longer needed with openssl
-		#File "libeay32.dll"
-		#File "libiconv2.dll"
-		#File "libintl3.dll"
-		#File "libssl32.dll"
-		#File "ssleay32.dll"
 		File "wget.exe"
 		File "openssl.exe"
 
@@ -284,35 +290,41 @@ Section "install"
 	File /r "src"
 	File /r "ssl"
 	File /r "node_modules"
-	#file /r "atom-shell"
-	${WriteFile} "$INSTDIR\service.bat" "@echo off"
-	${WriteFile} "$INSTDIR\service.bat" "rem Version 0.1"
-	${WriteFile} "$INSTDIR\service.bat" ">service.log ("
-	${WriteFile} "$INSTDIR\service.bat" "  cd $\"$INSTDIR$\""
-	${WriteFile} "$INSTDIR\service.bat" "  rem upgrade only if service is up and running"
-	${WriteFile} "$INSTDIR\service.bat" "  $\"$INSTDIR\NooBaa_Agent_wd$\" status 'Noobaa Local Service'"
-	${WriteFile} "$INSTDIR\service.bat" "  set level=$\"%errorlevel%$\""
-	${WriteFile} "$INSTDIR\service.bat" "  echo %level% "
-	${WriteFile} "$INSTDIR\service.bat" "  if $\"%level%$\" == $\"0$\" ("
-	${WriteFile} "$INSTDIR\service.bat" "  		echo Upgrading..."
-	${WriteFile} "$INSTDIR\service.bat" "  		wget -t 1 https://s3-eu-west-1.amazonaws.com/noobaa-download/ness/noobaa-setup.exe"
-	${WriteFile} "$INSTDIR\service.bat" "  		if exist noobaa-setup.exe ("
-	${WriteFile} "$INSTDIR\service.bat" "    		noobaa-setup.exe"
-	${WriteFile} "$INSTDIR\service.bat" "    		del noobaa-setup.exe"
-	${WriteFile} "$INSTDIR\service.bat" "  		)"
-	${WriteFile} "$INSTDIR\service.bat" ")"
-	#${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\atom-shell\atom.exe$\" $\"$INSTDIR\src\agent\index.js$\" "
-	${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\node.exe$\" $\"$INSTDIR\src\agent\agent_cli.js$\" "
-	${WriteFile} "$INSTDIR\service.bat" ")"
-	${WriteFile} "$INSTDIR\service_installer.bat" "cd $\"$INSTDIR$\""
-	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd install $\"Noobaa Local Service$\" $\"$INSTDIR\service.bat$\""
-	${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd start $\"Noobaa Local Service$\""
-	${WriteFile} "$INSTDIR\service_uninstaller.bat" "cd $\"$INSTDIR$\""
-	${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd stop $\"Noobaa Local Service$\""
-	${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd remove $\"Noobaa Local Service$\" confirm"
-	CreateDirectory "${SMDIR}"
-	CreateShortCut "${SMDIR}\${UNINST}.lnk" "$INSTDIR\uninstall-noobaa.exe"
-	nsExec::ExecToStack '$\"$INSTDIR\service_installer.bat$\""'
+
+	Delete "$INSTDIR\ver.txt"
+	${WriteFile} "$INSTDIR\ver.txt" "Version 0.2"
+
+	${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
+
+		${WriteFile} "$INSTDIR\service.bat" "@echo on"
+		${WriteFile} "$INSTDIR\service.bat" "rem Version 0.1"
+		${WriteFile} "$INSTDIR\service.bat" "cd $\"$INSTDIR$\""
+		${WriteFile} "$INSTDIR\service.bat" "del /q/f noobaa-setup.exe"
+		${WriteFile} "$INSTDIR\service.bat" "$\"$INSTDIR\node.exe$\" $\"$INSTDIR\src\agent\agent_cli.js$\" "
+		${WriteFile} "$INSTDIR\service.bat" "set level=$\"%errorlevel%$\""
+		${WriteFile} "$INSTDIR\service.bat" "echo %level% "
+		${WriteFile} "$INSTDIR\service.bat" "if %level% == $\"0$\" ("
+
+		;<SYSTEM_ID> replaced by build script with system_id parameter.
+		${WriteFile} "$INSTDIR\service.bat" " wget -t 2 http://s3.eu-central-1.amazonaws.com/noobaa-core/systems/<SYSTEM_ID>/noobaa-setup.exe"
+		${WriteFile} "$INSTDIR\service.bat" " 	echo Upgrading..."
+		${WriteFile} "$INSTDIR\service.bat" "  	if exist noobaa-setup.exe ("
+		${WriteFile} "$INSTDIR\service.bat" "      $\"$INSTDIR\noobaa-setup.exe$\""
+		${WriteFile} "$INSTDIR\service.bat" "	)"
+		${WriteFile} "$INSTDIR\service.bat" ")"
+		${WriteFile} "$INSTDIR\service_installer.bat" "cd $\"$INSTDIR$\""
+		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd install $\"Noobaa Local Service$\" $\"$INSTDIR\service.bat$\""
+		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa Local Service$\" AppStderr $\"$INSTDIR\Noobaa_Local_Service.log$\""
+	    ${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd set $\"Noobaa Local Service$\" AppStdout $\"$INSTDIR\Noobaa_Local_Service.log$\""
+		${WriteFile} "$INSTDIR\service_installer.bat" "NooBaa_Agent_wd start $\"Noobaa Local Service$\""
+		${WriteFile} "$INSTDIR\service_uninstaller.bat" "cd $\"$INSTDIR$\""
+		${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd stop $\"Noobaa Local Service$\""
+		${WriteFile} "$INSTDIR\service_uninstaller.bat" "NooBaa_Agent_wd remove $\"Noobaa Local Service$\" confirm"
+		CreateDirectory "${SMDIR}"
+		CreateShortCut "${SMDIR}\${UNINST}.lnk" "$INSTDIR\uninstall-noobaa.exe"
+		nsExec::ExecToStack '$\"$INSTDIR\service_installer.bat$\""'
+${EndIf}
+
 SectionEnd
 
 Section "uninstall"

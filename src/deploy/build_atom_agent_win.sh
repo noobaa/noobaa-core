@@ -6,10 +6,14 @@ SYSTEM="demo"
 ADDRESS="http://127.0.0.1:5001"
 ACCESS_KEY="123"
 SECRET_KEY="abc"
+SYSTEM_ID="0"
 #extract parms
 while [[ $# > 0 ]]; do
   key=$(echo $1 | sed "s:\(.*\)=.*:\1:")
   case $key in
+      --system_id)
+      SYSTEM_ID=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
       --clean)
       CLEAN=$(echo $1 | sed "s:.*=\(.*\):\1:")
       ;;
@@ -106,12 +110,24 @@ echo '    "secret_key":"'"$SECRET_KEY"'"' >> agent_conf.json
 echo '}' >> agent_conf.json
 
 
+cat agent_conf.json
 
 echo "make installer"
 pwd
+
+cp ../../src/deploy/atom_agent_win.nsi ../../src/deploy/atom_agent_win.bak
+sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
+
+# update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
+
+sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
+
+
 makensis -NOCD ../../src/deploy/atom_agent_win.nsi
 
-echo "uploading to S3"
+mv ../../src/deploy/atom_agent_win.bak ../../src/deploy/atom_agent_win.nsi
 
-s3cmd -P put noobaa-setup.exe s3://noobaa-download/ness/
-#s3cmd -P put update_agent.tar s3://noobaa-download/ness/
+echo "uploading to S3"
+#sudo cp noobaa-setup.exe /Users/eran/Downloads
+
+s3cmd -P put noobaa-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-setup.exe

@@ -577,6 +577,7 @@ nb_console.controller('BucketViewCtrl', [
             console.log('rest_package');
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
+                    console.log('GOT URL:',url);
                     var link = $window.document.createElement("a");
                     link.download = '';
                     link.href = url;

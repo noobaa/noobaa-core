@@ -48,6 +48,8 @@ function canonicalizedResource(request) {
     var querystring = parts[1];
     console.log('path:',path, 'parts',parts);
     //Quick patch - add prefix for REST routing on top of MD server
+    //TODO: Replace with s3 rest param, initiated from the constructor
+
     path = '/s3'+path;
     parts[0] = '/s3' +parts[0];
     var resource = '';

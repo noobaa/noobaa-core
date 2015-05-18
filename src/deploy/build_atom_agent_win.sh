@@ -1,6 +1,6 @@
 #!/bin/sh
-# default - clean build
 
+# default - clean build
 CLEAN=true;
 SYSTEM="demo"
 ADDRESS="http://127.0.0.1:5001"
@@ -96,6 +96,7 @@ if [ "$CLEAN" = true ] ; then
 else
     cd build/windows
 fi
+
 echo "create agent conf"
 echo '{' > agent_conf.json
 echo '    "dbg_log_level": 2,' >> agent_conf.json
@@ -109,8 +110,6 @@ echo '    "access_key":"'"$ACCESS_KEY"'",' >> agent_conf.json
 echo '    "secret_key":"'"$SECRET_KEY"'"' >> agent_conf.json
 echo '}' >> agent_conf.json
 
-
-cat agent_conf.json
 
 echo "make installer"
 pwd

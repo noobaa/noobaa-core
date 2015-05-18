@@ -244,7 +244,6 @@ nb_console.controller('TierViewCtrl', [
         $scope.nodes_num_pages = 0;
         $scope.nodes_page_size = 10;
         $scope.nodes_query = {};
-        $scope.rest_server_information = rest_server_information;
 
         var tier_router = $scope.tier_router =
             nbHashRouter($scope)
@@ -362,14 +361,7 @@ nb_console.controller('TierViewCtrl', [
             });
         }
 
-        function rest_server_information() {
-            console.log('rest_server_information');
-            var scope = $scope.$new();
-            scope.modal = nbModal({
-                template: 'console/bucket_link.html',
-                scope: scope,
-            });
-        }
+
     }
 ]);
 
@@ -538,6 +530,7 @@ nb_console.controller('BucketViewCtrl', [
         $scope.files_page_size = 10;
         $scope.files_query = {};
         $scope.rest_server_information = rest_server_information;
+        $scope.download_rest_server_package = download_rest_server_package;
 
         var bucket_router = $scope.bucket_router =
             nbHashRouter($scope)
@@ -571,11 +564,23 @@ nb_console.controller('BucketViewCtrl', [
             console.log('rest_server_information');
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
-            scope.secret_keys = nbSystem.system.secret_keys;
+            scope.rest_package = download_rest_server_package;
             scope.modal = nbModal({
                 template: 'console/rest_server_information.html',
                 scope: scope,
             });
+        }
+
+        function download_rest_server_package() {
+            console.log('rest_package');
+            return nbSystem.get_s3_rest_installer()
+                .then(function(url) {
+                    var link = $window.document.createElement("a");
+                    link.download = '';
+                    link.href = url;
+                    link.click();
+                    return Q.delay(2000);
+                });
         }
 
         function reload_view(init_only) {

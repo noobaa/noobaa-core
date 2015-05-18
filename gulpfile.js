@@ -520,6 +520,7 @@ gulp.task('start_dev', ['install_and_serve'], function() {
     ], ['install_client_and_serve']);
     gulp.watch([
         'src/agent/**/*',
+        'src/s3/**/*',
         'src/server/**/*',
         'src/views/**/*',
     ], ['serve']);

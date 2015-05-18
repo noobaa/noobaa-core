@@ -35,6 +35,7 @@ var express_compress = require('compression');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
+var s3app = require('../s3/app');
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -76,6 +77,9 @@ app.set('port', web_port);
 var views_path = path.join(rootdir, 'src', 'views');
 app.set('views', views_path);
 app.engine('html', dot_engine(views_path));
+
+// copied from s3rver. not sure why. but copy.
+app.disable('x-powered-by');
 
 
 ////////////////
@@ -134,6 +138,12 @@ server_rpc.register_http_transport(app);
 server_rpc.register_ws_transport(server);
 // server_rpc.register_n2n_transport();
 
+
+////////////
+// S3 APP //
+////////////
+
+app.use('/s3', s3app({}));
 
 ////////////
 // ROUTES //

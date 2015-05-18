@@ -339,26 +339,26 @@ module.exports = function(params) {
      */
     return {
         build_unauthorized_response: function(res, string_to_sign) {
-            var template = templateBuilder.buildSignatureDoesNotMatch(params.string_to_sign);
+            var template = templateBuilder.buildSignatureDoesNotMatch(string_to_sign);
             return buildXmlResponse(res, 401, template);
         },
-        update_system_auth: function(access_key, params) {
+        update_system_auth: function(req) {
             return Q.fcall(function() {
-                if (clients[params.access_key].options.auth_token.indexOf('auth_token') > 0) {
+                if (clients[req.access_key].options.auth_token.indexOf('auth_token') > 0) {
                     //update signature and string_to_sign
                     //TODO: optimize this part. two converstions per request is a bit too much.
 
-                    var auth_token_obj = JSON.parse(clients[access_key].options.auth_token);
-                    auth_token_obj.signature = params.signature;
-                    auth_token_obj.string_to_sign = params.string_to_sign;
-                    clients[access_key].options.auth_token = JSON.stringify(auth_token_obj);
+                    var auth_token_obj = JSON.parse(clients[req.access_key].options.auth_token);
+                    auth_token_obj.signature = req.signature;
+                    auth_token_obj.string_to_sign = req.string_to_sign;
+                    clients[req.access_key].options.auth_token = JSON.stringify(auth_token_obj);
 
                 } else {
-                    params.auth_token = clients[params.access_key].options.auth_token;
-                    clients[access_key].options.auth_token = JSON.stringify(params);
+                    params.auth_token = clients[req.access_key].options.auth_token;
+                    clients[req.access_key].options.auth_token = JSON.stringify(params);
                 }
 
-                dbg.log0('Update system auth', clients[access_key].options.auth_token);
+                dbg.log0('Update system auth', clients[req.access_key].options.auth_token);
             });
         },
         is_system_client_exists: function(access_key) {
@@ -367,32 +367,30 @@ module.exports = function(params) {
                 return _.has(clients, access_key);
             });
         },
-        add_new_system_client: function(params) {
-            dbg.log0('add_new_system_client', params);
+        add_new_system_client: function(req) {
+            dbg.log0('add_new_system_client', req.access_key);
             return Q.fcall(function() {
-                if (_.isEmpty(params.access_key)) {
+                if (_.isEmpty(req.access_key)) {
                     dbg.log0('Exiting as there is no credential information.');
                     throw new Error("No credentials");
 
                 } else {
-                    dbg.log0('Adding new system client.', params);
-                    clients[params.access_key] = new api.Client({
-                        address: params.address,
-                    });
-                    return clients[params.access_key];
+                    dbg.log0('Adding new system client.', req.access_key);
+                    clients[req.access_key] = new api.Client();
+                    return clients[req.access_key];
                 }
             }).then(function(new_client_system) {
                 dbg.log3('create auth', new_client_system);
-                return clients[params.access_key].create_access_key_auth({
-                    'access_key': params.access_key,
-                    'string_to_sign': params.string_to_sign,
-                    'signature': params.signature,
+                return clients[req.access_key].create_access_key_auth({
+                    'access_key': req.access_key,
+                    'string_to_sign': req.string_to_sign,
+                    'signature': req.signature,
                 });
             }).then(function(token) {
                 dbg.log0('Got Token:', token);
             }).then(null, function(err) {
                 dbg.error('failure while creating new client', err, err.stack);
-                //clients[params.access_key] =
+                delete clients[req.access_key];
                 throw {
                     statusCode: 401,
                     data: 'SignatureDoesNotMatch'

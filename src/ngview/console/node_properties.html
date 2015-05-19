@@ -50,6 +50,46 @@
 
     <div class="row">
         <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Hard Drive</h4>
+        </div>
+        <div class="content-col col-sm-6">
+            <table class="table table-no-borders">
+                <tr>
+                    <th>Total Space</th>
+                    <td>{{human_size(node.storage.total_disk)}}</td>
+                </tr>
+                <tr>
+                    <th>Free Space</th>
+                    <td>{{human_size(node.storage.free_disk)}}</td>
+                </tr>
+                <tr>
+                    <th>Operating System Size</th>
+                    <td>{{human_size(node.storage.operating_sys)}}</td>
+                </tr>
+                <tr>
+                    <th>Noobaa Allocated</th>
+                    <td>{{human_size(node.storage.alloc)}}</td>
+                </tr>
+                <tr>
+                    <th>Noobaa Unused</th>
+                    <td>{{human_size(node.storage.unused)}}</td>
+                </tr>
+                <tr>
+                    <th>Noobaa Used</th>
+                    <td>{{human_size(node.storage.used)}}</td>
+                </tr>
+                <tr>
+                    <th>Noobaa Used Percent</th>
+                    <td>{{node.storage.usage_percent}}%</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <hr/>
+
+    <div class="row">
+        <div class="heading-col col-sm-3">
             <h4 class="text-primary">Operating system</h4>
         </div>
         <div class="content-col col-sm-6">

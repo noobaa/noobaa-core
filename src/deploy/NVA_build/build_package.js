@@ -3,7 +3,7 @@
 
 var request = require('request');
 var child_proc = require('child_process');
-var Q = require('q');
+
 //var npm = require("npm");
 
 var args = process.argv.slice(2);
@@ -20,7 +20,6 @@ var token = '92a46eb3c399aaafb250a04633a9c3ee64f2396d';
 var cd_command = 'cd C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core ';
 var git_command = '&& "C:\\Program Files (x86)\\Git\\bin\\git.exe" ';
 
-var failed = false;
 var current_version, next_version;
 
 function advance_version(current_version, increment) {
@@ -60,9 +59,6 @@ function advance_version(current_version, increment) {
     return output_version;
 }
 
-function get_latest_release() {
-
-}
 
 //Assuming git config credential.helper store was called and password is not required anymore
 function create_branch(next_version) {
@@ -77,18 +73,16 @@ function create_branch(next_version) {
     process.stdout.write(out);
 }
 
-/*function build_package() {
-	npm.load(function (err) {
-	  // catch errors
-	  npm.commands.install(["ffi"], function (er, data) {
-		// log the error or data
-	  });
-	  npm.on("log", function (message) {
-		// log the progress of the installation
-		console.log(message);
-	  });
-	});
-}*/
+function build_package() {
+	var out;
+	var orig = 'C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core\\src\\deploy\\NVA_build\\env.orig';
+	var dest = 'C:\\Users\\Administrator\\Documents\\GitHub\\noobaa-core\\.env';
+	out = child_proc.execSync('copy ' + orig + ' ' + dest);
+	process.stdout.write(out);
+
+	out = child_proc.execSync(cd_command + ' && gulp NVA_build');
+	process.stdout.write(out);
+}
 
 
 request({
@@ -113,7 +107,7 @@ request({
             create_branch(next_version);
 
             //Build upgrade package
-            //build_package();
+            build_package();
             //upload_package();
 
             //Create new release

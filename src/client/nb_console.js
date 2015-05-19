@@ -546,10 +546,12 @@ nb_console.controller('BucketViewCtrl', [
         reload_view(true);
 
         function rest_server_information() {
-            console.log('rest_server_information');
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
+            scope.rest_endpoint = $window.location.protocol+'//' +$window.location.host+'/s3';
             scope.rest_package = download_rest_server_package;
+            console.log('rest_server_information',scope.rest_package,scope.rest_endpoint);
+            console.log('rest_server_information',$window.location,$location);
             scope.modal = nbModal({
                 template: 'console/rest_server_information.html',
                 scope: scope,
@@ -560,6 +562,7 @@ nb_console.controller('BucketViewCtrl', [
             console.log('rest_package');
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
+                    console.log('GOT URL:',url);
                     var link = $window.document.createElement("a");
                     link.download = '';
                     link.href = url;

@@ -119,6 +119,7 @@ module.exports = function(params) {
             });
     };
     var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key) {
+        dbg.log0('copy:',from_object, to_object, src_bucket, target_bucket, access_key);
         from_object = decodeURIComponent(from_object);
         var object_path = {
             bucket: src_bucket,
@@ -266,7 +267,7 @@ module.exports = function(params) {
                     objects: objects,
                     folders: folders
                 };
-                dbg.log0('About to return objects and folders:', objects_and_folders);
+                dbg.log3('About to return objects and folders:', objects_and_folders);
                 return objects_and_folders;
             }).then(null, function(err) {
                 dbg.error('failed to list object with prefix', err);
@@ -316,7 +317,8 @@ module.exports = function(params) {
     };
 
     var isBucketExists = function(bucketName, access_key) {
-        dbg.log0('isBucketExists', bucketName, ' key:', access_key);
+        dbg.log0('isBucketExists', bucketName, ' key:', access_key,'auth',clients[access_key].options.auth_token);
+
         return clients[access_key].bucket.list_buckets()
             .then(function(reply) {
                 dbg.log3('trying to find', bucketName, 'in', reply.buckets);
@@ -351,14 +353,24 @@ module.exports = function(params) {
                     var auth_token_obj = JSON.parse(clients[req.access_key].options.auth_token);
                     auth_token_obj.signature = req.signature;
                     auth_token_obj.string_to_sign = req.string_to_sign;
+                    auth_token_obj.access_key = req.access_key;
                     clients[req.access_key].options.auth_token = JSON.stringify(auth_token_obj);
 
                 } else {
-                    params.auth_token = clients[req.access_key].options.auth_token;
-                    clients[req.access_key].options.auth_token = JSON.stringify(params);
+                    //TODO:
+                    //Quick patch.
+                    //Need to find a better way to use client objects in parallel and pass the request information
+                    var new_params = {
+                        'auth_token' : clients[req.access_key].options.auth_token,
+                        'signature' : req.signature,
+                        'string_to_sign' : req.string_to_sign,
+                        'access_key' : req.access_key
+                    };
+
+                    clients[req.access_key].options.auth_token = JSON.stringify(new_params);
                 }
 
-                dbg.log0('Update system auth', clients[req.access_key].options.auth_token);
+                dbg.log0('Update system auth',req.access_key, clients[req.access_key].options.auth_token);
             });
         },
         is_system_client_exists: function(access_key) {
@@ -799,6 +811,8 @@ module.exports = function(params) {
                 if (req.query.uploads === '') {
                     dbg.log0('Init Multipart', req.originalUrl);
                     var key = (req.originalUrl).replace('/' + req.bucket + '/', '');
+                    //TODO:Replace with s3 rest param, initiated from the constructor
+                    key = key.replace('/s3','');
                     key = key.substring(0, key.indexOf('?uploads'));
                     key = replaceSpaces(key);
                     var create_params = {

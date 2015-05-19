@@ -12,7 +12,7 @@ var child_process = require('child_process');
 var node_df = require('node-df');
 
 function get_windows_drives() {
-    return Q.nfcall(child_process.exec, 'wmic logicaldisk get Caption,Size,FreeSpace')
+    return Q.nfcall(child_process.exec, 'wmic logicaldisk get Caption,FreeSpace,Size')
         .then(function(res) {
             var lines = res[0].split('\n');
             var drives = {};
@@ -21,9 +21,12 @@ function get_windows_drives() {
                 if (!values) {
                     continue;
                 }
+                // the order of items is decided by wmic and seems like it's
+                // a alphabetical order of the column name.
+                // therefore: [1] Caption [2] FreeSpace [3] Size.
                 drives[values[1]] = {
-                    total: parseInt(values[2], 10),
-                    free: parseInt(values[3], 10),
+                    total: parseInt(values[3], 10),
+                    free: parseInt(values[2], 10),
                 };
             }
             return drives;

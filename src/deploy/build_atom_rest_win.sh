@@ -107,4 +107,4 @@ mv ../../src/deploy/atom_rest_win.bak ../../src/deploy/atom_rest_win.nsi
 
 echo "uploading to S3"
 
-s3cmd -P put noobaa-s3rest-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-s3rest-setup.exe
+s3cmd -P put noobaa-s3rest-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-s3rest.exe

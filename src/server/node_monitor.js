@@ -341,7 +341,7 @@ function should_update_device_info(node_device_info, new_device_info) {
     var last_time = last.getTime() || 0;
     var now = new Date();
     var now_time = now.getTime();
-    var skip_time = 3600000;
+    var skip_time = 600000;
 
     if (last_time > now_time - skip_time &&
         last_time < now_time + skip_time) {

@@ -99,6 +99,7 @@
     "mongoose": "~4.0.1",
     "morgan": "~1.5.2",
     "newrelic": "~1.18.3",
+    "node-df": "^0.1.1",
     "node-gyp": "^1.0.3",
     "nodetime": "~0.8.15",
     "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#68ce000d24305930bce5584cf44475ea62446821",

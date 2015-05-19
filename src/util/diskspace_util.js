@@ -1,66 +1,69 @@
 'use strict';
+
+module.exports = {
+    get_drives: get_drives,
+    get_main_drive: get_main_drive,
+};
+
+var _ = require('lodash');
+var Q = require('q');
 var os = require('os');
 var child_process = require('child_process');
-var path = require('path');
+var node_df = require('node-df');
 
-function check(drive, callback) {
-    var total = 0;
-    var free = 0;
-    var status = null;
-
-    if (!drive) {
-        status = 'NOTFOUND';
-        var error = new Error('Necessary parameter absent');
-
-        return callback ?
-            callback(error, total, free, status) :
-            console.error(error);
-    }
-
-    //Windows
-    if (os.type() === 'Windows_NT') {
-        var execCmd = path.join('./node_modules/diskspace', 'drivespace.exe');
-        execCmd = '\"' + execCmd + '\" drive-' + drive; // handle path with spaces
-        child_process.exec(execCmd, function(error, stdout, stderr) {
-            if (error) {
-                status = 'STDERR';
-                callback ? callback(error, total, free, status) : console.error(stderr);
-            } else {
-                var disk_info = stdout.split(',');
-
-                total = disk_info[0];
-                free = disk_info[1];
-                status = disk_info[2];
-
-                callback && callback(null, total, free, status);
-            }
-        });
-    } else {
-        child_process.exec("df -k '" + drive.replace(/'/g, "'\\''") + "'", function(error, stdout, stderr) {
-            if (error) {
-                if (stderr.indexOf("No such file or directory") !== -1) {
-                    status = 'NOTFOUND';
-                } else {
-                    status = 'STDERR';
+function get_windows_drives() {
+    return Q.nfcall(child_process.exec, 'wmic logicaldisk get Caption,Size,FreeSpace')
+        .then(function(res) {
+            var lines = res[0].split('\n');
+            var drives = {};
+            for (var i = 1; i < lines.length; ++i) {
+                var values = lines[i].trim().match(/\s*(\S+)\s+(\S+)\s+(\S+)\s*/);
+                if (!values) {
+                    continue;
                 }
-                callback ? callback(error, total, free, status) : console.error(stderr);
-            } else {
-                var lines = stdout.trim().split("\n");
-
-                var str_disk_info = lines[lines.length - 1].replace(/[\s\n\r]+/g, ' ');
-                var disk_info = str_disk_info.split(' ');
-
-                total = disk_info[1] * 1024;
-                free = disk_info[3] * 1024;
-                status = 'READY';
-
-                callback && callback(null, total, free, status);
+                drives[values[1]] = {
+                    total: parseInt(values[2], 10),
+                    free: parseInt(values[3], 10),
+                };
             }
+            return drives;
         });
+}
+
+function get_mac_linux_drives() {
+    return Q.nfcall(node_df)
+        .then(function(res) {
+            var drives = {};
+            _.each(res, function(info) {
+                drives[info.mount] = {
+                    total: info.size * 1024,
+                    free: info.available * 1024,
+                };
+            });
+            return drives;
+        });
+}
+
+function get_drives() {
+    if (os.type() === 'Windows_NT') {
+        return get_windows_drives();
+    } else {
+        return get_mac_linux_drives();
     }
 }
 
-// Export public API
-module.exports = {
-    check: check
-};
+function get_main_drive() {
+    if (os.type() === 'Windows_NT') {
+        return get_windows_drives().get('C:');
+    } else {
+        return get_mac_linux_drives().get('/');
+    }
+}
+
+
+if (require.main === module) {
+    get_drives()
+        .done(function(drives) {
+            console.log(drives);
+        });
+}

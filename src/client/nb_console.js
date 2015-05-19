@@ -156,12 +156,15 @@ nb_console.controller('SupportViewCtrl', [
 
 
 nb_console.controller('OverviewCtrl', [
-    '$scope', '$q', '$location', '$timeout',
-    function($scope, $q, $location, $timeout) {
+    '$scope', '$q', '$location', '$timeout','$window','nbSystem', 'nbModal',
+    function($scope, $q, $location, $timeout,$window,nbSystem,nbModal) {
         $scope.nav.active = 'overview';
         $scope.nav.reload_view = reload_view;
         $scope.upload = upload;
         $scope.add_node = add_node;
+        $scope.rest_server_information = rest_server_information;
+        $scope.download_rest_server_package = download_rest_server_package;
+
 
         return $scope.nbSystem.init_system
             .then(function() {
@@ -194,6 +197,31 @@ nb_console.controller('OverviewCtrl', [
             $location.hash('overview&add_node=1');
         }
 
+        function rest_server_information() {
+            var scope = $scope.$new();
+            scope.access_keys = nbSystem.system.access_keys;
+            scope.rest_endpoint = $window.location.protocol+'//' +$window.location.host+'/s3';
+            scope.rest_package = download_rest_server_package;
+            console.log('rest_server_information',scope.rest_package,scope.rest_endpoint);
+            console.log('rest_server_information',$window.location,$location);
+            scope.modal = nbModal({
+                template: 'console/rest_server_information.html',
+                scope: scope,
+            });
+        }
+
+        function download_rest_server_package() {
+            console.log('rest_package');
+            return nbSystem.get_s3_rest_installer()
+                .then(function(url) {
+                    console.log('GOT URL:',url);
+                    var link = $window.document.createElement("a");
+                    link.download = '';
+                    link.href = url;
+                    link.click();
+                    return Q.delay(2000);
+                });
+        }
 
 
     }

@@ -261,6 +261,7 @@ gulp.task('jshint', function() {
 
 gulp.task('agent', ['jshint'], function() {
     var DEST = 'build/public';
+    var BUILD_DEST = 'build/windows';
     var NAME = 'noobaa-agent.tar';
 
     var pkg_stream = gulp
@@ -279,7 +280,15 @@ gulp.task('agent', ['jshint'], function() {
                         'font-awesome',
                         'bootstrap',
                         'animate.css',
-                        'video.js'
+                        'video.js',
+                        'heapdump',
+                        'atom-shell',
+                        'gulp',
+                        'browserify',
+                        'rebuild',
+                        'nodetime',
+                        'newrelic',
+                        'memwatch'
                     ], key);
             });
             return {
@@ -298,6 +307,11 @@ gulp.task('agent', ['jshint'], function() {
         });
     // TODO bring back uglify .pipe(gulp_uglify());
 
+    event_stream.pipe(gulp_rename(function(p) {
+            p.dirname = path.join('package', p.dirname);
+        }))
+        .pipe(gulp.dest(BUILD_DEST));
+
     return event_stream
         .merge(pkg_stream, src_stream)
         .pipe(gulp_rename(function(p) {
@@ -309,7 +323,7 @@ gulp.task('agent', ['jshint'], function() {
         .pipe(gulp.dest(DEST));
 });
 
-gulp.task('build_agent_distro', function() {
+gulp.task('build_agent_distro', ['agent'], function() {
     var build_script = child_process.spawn('src/deploy/build_atom_agent_win.sh', ['--access_key=123', '--secret_key=abc'], {
         cwd: process.cwd()
     });

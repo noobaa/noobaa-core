@@ -46,7 +46,7 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/tier_view.html',
                 reloadOnSearch: false,
             })
-            .when('/tier/:tier_name/:node_name', {
+            .when('/tier/:tier_name/:node_name*', {
                 templateUrl: 'console/node_view.html',
                 reloadOnSearch: false,
             })
@@ -54,7 +54,7 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/bucket_view.html',
                 reloadOnSearch: false,
             })
-            .when('/bucket/:bucket_name/:file_name', {
+            .when('/bucket/:bucket_name/:file_name*', {
                 templateUrl: 'console/file_view.html',
                 reloadOnSearch: false,
             })

@@ -46,7 +46,7 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/tier_view.html',
                 reloadOnSearch: false,
             })
-            .when('/tier/:tier_name/:node_name', {
+            .when('/tier/:tier_name/:node_name*', {
                 templateUrl: 'console/node_view.html',
                 reloadOnSearch: false,
             })
@@ -54,7 +54,7 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/bucket_view.html',
                 reloadOnSearch: false,
             })
-            .when('/bucket/:bucket_name/:file_name', {
+            .when('/bucket/:bucket_name/:file_name*', {
                 templateUrl: 'console/file_view.html',
                 reloadOnSearch: false,
             })
@@ -418,29 +418,14 @@ nb_console.controller('NodeViewCtrl', [
                     }
                     return nbNodes.read_node($routeParams.node_name);
                 })
-                .then(function(res) {
-                    $scope.node = res;
-
-                    var used = $scope.node.storage.used;
-                    var unused = $scope.node.storage.alloc - used;
-                    var operating_sys = 0;
-                    var free_disk = 0;
-                    if ($scope.node.device_info && $scope.node.device_info.freestorage) {
-                        free_disk = Math.max(0, $scope.node.device_info.freestorage - unused);
-                    }
-                    if ($scope.node.device_info && $scope.node.device_info.totalstorage) {
-                        operating_sys = Math.max(0,
-                            $scope.node.device_info.totalstorage -
-                            free_disk -
-                            used -
-                            unused);
-                    }
+                .then(function(node) {
+                    $scope.node = node;
                     $scope.pie_chart = {
                         options: {
-                            is3D: true,
+                            is3D: false,
                             legend: {
                                 position: 'right',
-                                alignment: 'start',
+                                alignment: 'center',
                                 maxLines: 10,
                                 textStyle: {
                                     color: 'white'
@@ -463,20 +448,20 @@ nb_console.controller('NodeViewCtrl', [
                         data: [
                             ['Storage', 'Capacity'],
                             ['Operating system', {
-                                v: operating_sys,
-                                f: $scope.human_size(operating_sys)
+                                v: node.storage.operating_sys,
+                                f: $scope.human_size(node.storage.operating_sys)
                             }],
-                            ['Free disk', {
-                                v: free_disk,
-                                f: $scope.human_size(free_disk)
+                            ['Free disk space', {
+                                v: node.storage.free_disk,
+                                f: $scope.human_size(node.storage.free_disk)
                             }],
                             ['Noobaa used', {
-                                v: used,
-                                f: $scope.human_size(used)
+                                v: node.storage.used,
+                                f: $scope.human_size(node.storage.used)
                             }],
                             ['Noobaa unused', {
-                                v: unused,
-                                f: $scope.human_size(unused)
+                                v: node.storage.unused,
+                                f: $scope.human_size(node.storage.unused)
                             }],
                         ]
                     };

@@ -92,7 +92,30 @@ nb_api.factory('nbNodes', [
 
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
-            node.usage_percent = 100 * node.storage.used / node.storage.alloc;
+            var used = node.storage.used;
+            var unused = node.storage.alloc - used;
+            var operating_sys = 0;
+            var free_disk = 0;
+            var total_disk = 0;
+            if (node.device_info) {
+                if (node.device_info.freestorage) {
+                    free_disk = Math.max(0, node.device_info.freestorage - unused);
+                }
+                if (node.device_info.totalstorage) {
+                    total_disk = node.device_info.totalstorage;
+                    operating_sys = Math.max(0,
+                        total_disk -
+                        free_disk -
+                        used -
+                        unused);
+                }
+            }
+            node.storage.unused = unused;
+            node.storage.operating_sys = operating_sys;
+            node.storage.free_disk = free_disk;
+            node.storage.total_disk = total_disk;
+            node.storage.usage_percent =
+                $rootScope.human_percent(node.storage.used / node.storage.alloc);
         }
 
         function update_srvmode(node, srvmode) {
@@ -186,6 +209,10 @@ nb_api.factory('nbNodes', [
                             });
                             dbg.log0('SELF TEST got', online_nodes.length,
                                 'online nodes out of', nodes.length, 'total nodes');
+                            if (online_nodes.length < 3) {
+                                nbAlertify.error('Not enough online nodes');
+                                throw new Error('Not enough online nodes');
+                            }
                         });
                 })
                 .then(function() {

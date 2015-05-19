@@ -1,3 +1,5 @@
+//Depricated and NOT COMPLETE
+
 /* jshint node:true */
 'use strict';
 

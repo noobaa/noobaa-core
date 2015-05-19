@@ -17,7 +17,9 @@ noobaa-core/deploy/NVA_build
 - version_check.js - simple http request to the SaaS werbserver for version verification
 - mongo.repo - mongodb repo definitions
 - create_vm - Create the NVA machine using the VirtualBox CLI
-- build_release.js - Node script which runs on our EC2 building server
+- build_release.js - Node script which runs on our EC2 building server.
+                     DEPRECATED & NOT COMPLETE.
+- build_package.sh - shell script runs on our EC2 building server.
 
 
 * ###NVA_Build (NooBaa Virtual Appliance):

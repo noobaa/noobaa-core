@@ -623,13 +623,14 @@ nb_console.controller('BucketViewCtrl', [
 
         function reload_files(hash_query) {
             $scope.files_query = _.clone(hash_query);
+            console.log('$scope.files_query',$scope.files_query);
             var params = {
                 bucket: $routeParams.bucket_name,
                 skip: $scope.files_query.page * $scope.files_page_size,
                 limit: $scope.files_page_size,
             };
             if ($scope.files_query.search) {
-                params.key_glob = $scope.files_query.search;
+                params.key = $scope.files_query.search;
             }
             return nbFiles.list_files(params)
                 .then(function(res) {

@@ -211,11 +211,12 @@ nb_console.controller('OverviewCtrl', [
         }
 
         function download_rest_server_package() {
-            console.log('rest_package');
+            console.log('rest_package1');
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
-                    console.log('GOT URL:',url);
+                    console.log('GOT URL1:',url);
                     var link = $window.document.createElement("a");
+                    $window.document.body.appendChild(link) ;
                     link.download = '';
                     link.href = url;
                     link.click();
@@ -376,6 +377,7 @@ nb_console.controller('TierViewCtrl', [
                         var link = $window.document.createElement("a");
                         link.download = '';
                         link.href = url;
+                        $window.document.body.appendChild(link) ;
                         link.click();
                         return Q.delay(2000);
                     })
@@ -587,13 +589,14 @@ nb_console.controller('BucketViewCtrl', [
         }
 
         function download_rest_server_package() {
-            console.log('rest_package');
+            console.log('rest_package2');
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
-                    console.log('GOT URL:',url);
+                    console.log('GOT URL2:',url);
                     var link = $window.document.createElement("a");
                     link.download = '';
                     link.href = url;
+                    $window.document.body.appendChild(link) ;
                     link.click();
                     return Q.delay(2000);
                 });

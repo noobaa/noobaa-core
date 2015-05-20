@@ -78,6 +78,7 @@ var STUN = {
     },
 
     PUBLIC_SERVERS: _.map([
+//        'stun://52.28.108.6:3478', //NooBaa STUN on EC2 (Frankfurt)
         'stun://stun.l.google.com:19302',
         'stun://stun1.l.google.com:19302',
         'stun://stun2.l.google.com:19302',

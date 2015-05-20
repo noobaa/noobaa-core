@@ -633,7 +633,7 @@ nb_console.controller('BucketViewCtrl', [
                 limit: $scope.files_page_size,
             };
             if ($scope.files_query.search) {
-                params.key = $scope.files_query.search;
+                params.key_query = $scope.files_query.search;
             }
             return nbFiles.list_files(params)
                 .then(function(res) {

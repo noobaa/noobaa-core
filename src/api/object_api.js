@@ -396,13 +396,16 @@ module.exports = {
                     bucket: {
                         type: 'string',
                     },
-                    key: {
+                    key_prefix: {
                         type: 'string',
                     },
                     key_regexp: {
                         type: 'string',
                     },
                     key_glob: {
+                        type: 'string',
+                    },
+                    key_query: {
                         type: 'string',
                     },
                     skip: {

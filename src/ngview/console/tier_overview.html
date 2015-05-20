@@ -34,19 +34,20 @@
     <div class="col-sm-6">
         <div class="well well-sm clearfix" style="height: 400px">
             <div class="clearfix">
-                <a class="btn btn-flat btn-info btn-sm pull-right" ng-click="tier_router.set('stats')">See more</a>
+                <!-- <a class="btn btn-flat btn-info btn-sm pull-right" ng-click="tier_router.set('stats')">See more</a> -->
             </div>
-            <div style="padding: 0 0 0 0">
+
+            <div class="row" style="padding: 80px 0">
                 <p>
                     <i class="fa fa-hdd-o" style="font-size: 85px"></i>
                 </p>
-                <h3 style="margin-top: 10px">
+                <h3 class="row text-center">
                     <b>STORAGE</b>
-                </h3>
-                <small>
+                    <br>
+                    <br>
                     Noobaa allocated size: {{human_size(tier.storage.alloc)}}
                     <br/> Current usage by noobaa: {{human_size(tier.storage.used)}}
-                </small>
+                </h3>
             </div>
             <!-- <div nb-pie-chart="pie_chart" style="height: 250px"></div> -->
         </div>

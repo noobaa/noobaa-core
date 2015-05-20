@@ -280,7 +280,7 @@ Section "install"
 	${WriteFile} "$INSTDIR\service.bat" ">service.log ("
 	${WriteFile} "$INSTDIR\service.bat" "  cd $\"$INSTDIR$\""
 	${WriteFile} "$INSTDIR\service.bat" "  rem upgrade only if service is up and running"
-	${WriteFile} "$INSTDIR\service.bat" "  $\"$INSTDIR\nssm$\" status 'Noobaa S3REST Service'"
+	${WriteFile} "$INSTDIR\service.bat" "  $\"$INSTDIR\NooBaa_Agent_wd$\" status 'Noobaa S3REST Service'"
 	${WriteFile} "$INSTDIR\service.bat" "  set level=$\"%errorlevel%$\""
 	${WriteFile} "$INSTDIR\service.bat" "  echo %level% "
 	${WriteFile} "$INSTDIR\service.bat" "  if $\"%level%$\" == $\"0$\" ("
@@ -304,8 +304,8 @@ Section "install"
 SectionEnd
 
 Section "uninstall"
-	nsExec::ExecToStack 'nssm stop "Noobaa S3REST Service" >> "$INSTDIR\uninstall.log"'
-	nsExec::ExecToStack 'nssm remove "Noobaa S3REST Service" confirm >> "$INSTDIR\uninstall.log"'
+	nsExec::ExecToStack 'NooBaa_Agent_wd stop "Noobaa S3REST Service" >> "$INSTDIR\uninstall.log"'
+	nsExec::ExecToStack 'NooBaa_Agent_wd remove "Noobaa S3REST Service" confirm >> "$INSTDIR\uninstall.log"'
 	Delete "$INSTDIR\NooBaa_Agent_wd.exe"
 	Delete "$INSTDIR\config.js"
 	Delete "$INSTDIR\7za.exe"

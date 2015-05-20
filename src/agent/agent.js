@@ -23,7 +23,7 @@ var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
-var diskspace = require('../util/diskspace_util');
+var diskspace_util = require('../util/diskspace_util');
 
 module.exports = Agent;
 
@@ -330,15 +330,12 @@ Agent.prototype.send_heartbeat = function() {
     var self = this;
     var store_stats;
     var device_info_send_time;
-    var now_time;
-    var drive = '/';
-    var totalSpace;
-    var freeSpace;
-    var hourlyHB = false;
+    var disk_space;
+    var hourlyHB;
 
-    // chk if windows
-    if (os.type().match(/win/i) && !os.type().match(/darwin/i)) {
-        drive = 'c';
+    if (!self.device_info_send_time ||
+        Date.now() > self.device_info_send_time + 3600000) {
+        hourlyHB = true;
     }
 
     dbg.log0('send heartbeat by agent', self.node_id);
@@ -346,34 +343,18 @@ Agent.prototype.send_heartbeat = function() {
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
-            now_time = Date.now();
 
-            if (!self.device_info_send_time ||
-                now_time > self.device_info_send_time + 3600000) {
-                hourlyHB = true;
-                return Q.nfcall(diskspace.check, drive);
-            } else {
-                return [];
-            }
-        })
-        .spread(function(total, free, status) {
             if (hourlyHB) {
-                if (status && status.trim() === 'READY') {
-                    freeSpace = free;
-                    totalSpace = total;
-                } else {
-                    dbg.log0('AGENT problem getting FS space, status: ', status);
-                }
+                return Q.fcall(diskspace_util.get_main_drive)
+                    .then(function(disk_space_arg) {
+                        disk_space = disk_space_arg;
+                        dbg.log0('AGENT disk space', disk_space);
+                    }, function(err) {
+                        dbg.error('AGENT get disk space failed', err.stack || err);
+                    });
             }
-        }, function(err) {
-            dbg.log0('AGENT error getting FS space, result: ', err);
         })
         .then(function() {
-
-            var alloc = store_stats.alloc;
-            if (hourlyHB && freeSpace && !isNaN(freeSpace)) {
-                alloc = Math.min(alloc, freeSpace);
-            }
 
             var ip = ip_module.address();
             var http_port = 0;
@@ -387,7 +368,7 @@ Agent.prototype.send_heartbeat = function() {
                 ip: ip,
                 port: http_port,
                 storage: {
-                    alloc: alloc,
+                    alloc: store_stats.alloc,
                     used: store_stats.used
                 },
             };
@@ -405,7 +386,7 @@ Agent.prototype.send_heartbeat = function() {
             });
 
             if (hourlyHB) {
-                device_info_send_time = now_time;
+                device_info_send_time = Date.now();
                 params.device_info = {
                     hostname: os.hostname(),
                     type: os.type(),
@@ -419,10 +400,9 @@ Agent.prototype.send_heartbeat = function() {
                     cpus: os.cpus(),
                     networkInterfaces: interfaces
                 };
-
-                if (totalSpace && freeSpace) {
-                    params.device_info.totalstorage = totalSpace;
-                    params.device_info.freestorage = freeSpace;
+                if (disk_space) {
+                    params.device_info.totalstorage = disk_space.total;
+                    params.device_info.freestorage = disk_space.free;
                 }
             }
 

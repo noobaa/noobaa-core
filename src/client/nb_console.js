@@ -642,7 +642,10 @@ nb_console.controller('BucketViewCtrl', [
         }
 
         function upload() {
-            return nbFiles.upload_file($routeParams.bucket_name);
+            return nbFiles.upload_file($routeParams.bucket_name)
+                .then(function() {
+                    return reload_view();
+                });
         }
     }
 ]);

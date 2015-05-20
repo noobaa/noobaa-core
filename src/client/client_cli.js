@@ -56,9 +56,13 @@ ClientCLI.prototype.init = function() {
             });
         })
         .then(function() {
-            self.client = new api.Client({
-                address: self.params.address
-            });
+            self.client = new api.Client();
+            if (self.params.address) {
+                api.rpc.base_address = self.params.address;
+            }
+            return api.rpc.register_n2n_transport();
+        })
+        .then(function() {
 
             if (self.params.setup) {
                 var account_params = _.pick(self.params, 'email', 'password');

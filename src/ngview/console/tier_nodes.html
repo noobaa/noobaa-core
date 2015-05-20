@@ -37,7 +37,7 @@
                         </a>
                     </td>
                     <td>{{node.ip}}</td>
-                    <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
+                    <td>{{human_size(node.storage.used)}}</td>
                     <td>
                         <span ng-switch="node.srvmode">
                             <span ng-switch-when="disabled" class="text-muted">Disabled</span>

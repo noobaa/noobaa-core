@@ -91,13 +91,13 @@ ObjectDriver.prototype.upload_stream = function(params) {
     var create_params = _.pick(params, 'bucket', 'key', 'size', 'content_type');
     var bucket_key_params = _.pick(params, 'bucket', 'key');
 
-    dbg.log0('upload_stream: create multipart', params.key);
+    dbg.log0('upload_stream: start upload', params.key);
     return self.client.object.create_multipart_upload(create_params)
         .then(function() {
             return self.upload_stream_parts(params);
         })
         .then(function() {
-            dbg.log0('upload_stream: complete multipart', params.key);
+            dbg.log0('upload_stream: complete upload', params.key);
             return self.client.object.complete_multipart_upload(bucket_key_params);
         }, function(err) {
             dbg.log0('upload_stream: error write stream', params.key, err);
@@ -116,7 +116,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     var start = params.start || 0;
     var upload_part_number = params.upload_part_number || 0;
 
-    dbg.log0('upload_stream: create multipart', params.key);
+    dbg.log0('upload_stream_parts: start', params.key, 'part number', upload_part_number);
     return Q.fcall(function() {
         var pipeline = new Pipeline(params.source_stream);
 
@@ -147,6 +147,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 this._pos = 0;
             },
             transform: function(chunk) {
+                dbg.log1('upload_stream_parts: encrypt_chunk pos', this._pos);
                 var stream = this;
                 var crypt = _.clone(self.CRYPT_TYPE);
                 return chunk_crypto.encrypt_chunk(chunk, crypt)

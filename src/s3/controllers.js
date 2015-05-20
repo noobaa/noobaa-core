@@ -28,6 +28,33 @@ module.exports = function(params) {
         return req_access_key;
     };
 
+    var extract_s3_info = function(req) {
+
+        if (clients[req.access_key].options.auth_token.indexOf('auth_token') > 0) {
+            //update signature and string_to_sign
+            //TODO: optimize this part. two converstions per request is a bit too much.
+
+            var auth_token_obj = JSON.parse(clients[req.access_key].options.auth_token);
+            auth_token_obj.signature = req.signature;
+            auth_token_obj.string_to_sign = req.string_to_sign;
+            auth_token_obj.access_key = req.access_key;
+            return auth_token_obj;
+
+        } else {
+            //TODO:
+            //Quick patch.
+            //Need to find a better way to use client objects in parallel and pass the request information
+            var new_params = {
+                'auth_token': clients[req.access_key].options.auth_token,
+                'signature': req.signature,
+                'string_to_sign': req.string_to_sign,
+                'access_key': req.access_key
+            };
+
+            return new_params;
+        }
+    };
+
 
     var uploadPart = function(req, res) {
         Q.fcall(function() {
@@ -77,7 +104,11 @@ module.exports = function(params) {
                 part_number_marker: 1,
                 max_parts: 1000
             };
-            return clients[access_key].object.list_multipart_parts(list_options)
+            var options = {
+                auth_token: JSON.stringify(extract_s3_info(req))
+            };
+
+            return clients[access_key].object.list_multipart_parts(list_options, options)
                 .then(function(list_result) {
                     list_options.NextPartNumberMarker = list_result.next_part_number_marker;
                     list_options.IsTruncated = list_result.next_part_number_marker > list_result.max_parts;
@@ -96,6 +127,7 @@ module.exports = function(params) {
     };
     var delete_if_exists = function(target_object, access_key) {
         dbg.log0('listing ', target_object.key, ' in bucket:', target_object.bucket);
+
         return clients[access_key].object.list_objects(target_object)
             .then(function(list_results) {
                 //object exists. Delete and write.
@@ -118,8 +150,9 @@ module.exports = function(params) {
                 }
             });
     };
-    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key) {
-        dbg.log0('copy:',from_object, to_object, src_bucket, target_bucket, access_key);
+    var copy_object = function(from_object, to_object, src_bucket, target_bucket, s3_info) {
+        dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, s3_info.access_key);
+
         from_object = decodeURIComponent(from_object);
         var object_path = {
             bucket: src_bucket,
@@ -128,7 +161,7 @@ module.exports = function(params) {
         var create_params = {};
         var source_object_md;
         //read source object meta data. if doesn't exist, send error to the client.
-        return clients[access_key].object_driver_lazy().get_object_md(object_path)
+        return clients[s3_info.access_key].object_driver_lazy().get_object_md(object_path)
             .then(function(md) {
                 var target_object_path = {
                     bucket: target_bucket,
@@ -136,31 +169,31 @@ module.exports = function(params) {
                 };
                 source_object_md = md;
                 //check if target exists. if so, delete it (s3 overwrites objects)
-                return delete_if_exists(target_object_path, access_key)
+                return delete_if_exists(target_object_path, s3_info.access_key)
                     .then(function() {
                         //check if folder
                         if (source_object_md.size === 0) {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
-                            list_objects_with_prefix(from_object, '/', src_bucket, access_key)
+                            list_objects_with_prefix(from_object, '/', src_bucket, s3_info)
                                 .then(function(objects_and_folders) {
                                     return Q.all(_.times(objects_and_folders.objects.length, function(i) {
                                         dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
                                         copy_object(objects_and_folders.objects[i].key,
                                             objects_and_folders.objects[i].key.replace(from_object, to_object),
-                                            src_bucket, target_bucket, access_key);
+                                            src_bucket, target_bucket, s3_info.access_key);
                                     })).then(function() {
                                         //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
                                         return Q.all(_.each(_.keys(objects_and_folders.folders), function(folder) {
                                             dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
                                             copy_object(folder, folder.replace(from_object, to_object),
-                                                src_bucket, target_bucket, access_key);
+                                                src_bucket, target_bucket, s3_info.access_key);
                                         }));
                                     });
                                 });
                         }
                         create_params.content_type = md.content_type;
                         create_params.size = md.size;
-                        return clients[access_key].object.read_object_mappings({
+                        return clients[s3_info.access_key].object.read_object_mappings({
                                 bucket: src_bucket,
                                 key: from_object,
                             })
@@ -187,13 +220,13 @@ module.exports = function(params) {
                                 create_params.bucket = target_bucket;
                                 create_params.key = to_object;
 
-                                return clients[access_key].object.create_multipart_upload(create_params)
+                                return clients[s3_info.access_key].object.create_multipart_upload(create_params)
                                     .then(function(info) {
-                                        return clients[access_key].object.allocate_object_parts(new_obj_parts)
+                                        return clients[s3_info.access_key].object.allocate_object_parts(new_obj_parts)
                                             .then(function(res) {
                                                 dbg.log0('complete multipart copy ', create_params);
                                                 var bucket_key_params = _.pick(create_params, 'bucket', 'key');
-                                                return clients[access_key].object.complete_multipart_upload(bucket_key_params);
+                                                return clients[s3_info.access_key].object.complete_multipart_upload(bucket_key_params);
                                             })
                                             .then(function(res) {
                                                 dbg.log0('COMPLETED: copy');
@@ -210,7 +243,8 @@ module.exports = function(params) {
             });
 
     };
-    var list_objects_with_prefix = function(prefix, delimiter, bucket_name, access_key) {
+    var list_objects_with_prefix = function(prefix, delimiter, bucket_name, s3_info) {
+
         var list_params = {
             bucket: bucket_name,
         };
@@ -222,8 +256,8 @@ module.exports = function(params) {
         if (delimiter) {
             delimiter = decodeURI(delimiter);
         }
-        dbg.log0('Listing objects with', list_params, delimiter, 'key:', access_key);
-        return clients[access_key].object.list_objects(list_params)
+        dbg.log0('Listing objects with', list_params, delimiter, 'key:', s3_info.access_key);
+        return clients[s3_info.access_key].object.list_objects(list_params)
             .then(function(results) {
                 var folders = {};
                 dbg.log0('results:', results);
@@ -280,7 +314,9 @@ module.exports = function(params) {
 
     var uploadObject = function(req, res, file_key_name) {
         try {
+
             var access_key = extract_access_key(req);
+
             var md5 = 0;
             //
             // tranform stream that calculates md5 on-the-fly
@@ -316,10 +352,14 @@ module.exports = function(params) {
         }
     };
 
-    var isBucketExists = function(bucketName, access_key) {
-        dbg.log0('isBucketExists', bucketName, ' key:', access_key,'auth',clients[access_key].options.auth_token);
+    var isBucketExists = function(bucketName, s3_info) {
+        dbg.log0('isBucketExists', bucketName, ' info:', s3_info, 'key:', s3_info.access_key, 'auth', clients[s3_info.access_key].options.auth_token);
 
-        return clients[access_key].bucket.list_buckets()
+        var options = {
+            auth_token: JSON.stringify(s3_info)
+        };
+
+        return clients[s3_info.access_key].bucket.list_buckets({}, options)
             .then(function(reply) {
                 dbg.log3('trying to find', bucketName, 'in', reply.buckets);
                 if (_.findIndex(reply.buckets, {
@@ -345,33 +385,33 @@ module.exports = function(params) {
             return buildXmlResponse(res, 401, template);
         },
         update_system_auth: function(req) {
-            return Q.fcall(function() {
-                if (clients[req.access_key].options.auth_token.indexOf('auth_token') > 0) {
-                    //update signature and string_to_sign
-                    //TODO: optimize this part. two converstions per request is a bit too much.
-
-                    var auth_token_obj = JSON.parse(clients[req.access_key].options.auth_token);
-                    auth_token_obj.signature = req.signature;
-                    auth_token_obj.string_to_sign = req.string_to_sign;
-                    auth_token_obj.access_key = req.access_key;
-                    clients[req.access_key].options.auth_token = JSON.stringify(auth_token_obj);
-
-                } else {
-                    //TODO:
-                    //Quick patch.
-                    //Need to find a better way to use client objects in parallel and pass the request information
-                    var new_params = {
-                        'auth_token' : clients[req.access_key].options.auth_token,
-                        'signature' : req.signature,
-                        'string_to_sign' : req.string_to_sign,
-                        'access_key' : req.access_key
-                    };
-
-                    clients[req.access_key].options.auth_token = JSON.stringify(new_params);
-                }
-
-                dbg.log0('Update system auth',req.access_key, clients[req.access_key].options.auth_token);
-            });
+            // return Q.fcall(function() {
+            //     if (clients[req.access_key].options.auth_token.indexOf('auth_token') > 0) {
+            //         //update signature and string_to_sign
+            //         //TODO: optimize this part. two converstions per request is a bit too much.
+            //
+            //         var auth_token_obj = JSON.parse(clients[req.access_key].options.auth_token);
+            //         auth_token_obj.signature = req.signature;
+            //         auth_token_obj.string_to_sign = req.string_to_sign;
+            //         auth_token_obj.access_key = req.access_key;
+            //         clients[req.access_key].options.auth_token = JSON.stringify(auth_token_obj);
+            //
+            //     } else {
+            //         //TODO:
+            //         //Quick patch.
+            //         //Need to find a better way to use client objects in parallel and pass the request information
+            //         var new_params = {
+            //             'auth_token' : clients[req.access_key].options.auth_token,
+            //             'signature' : req.signature,
+            //             'string_to_sign' : req.string_to_sign,
+            //             'access_key' : req.access_key
+            //         };
+            //
+            //         clients[req.access_key].options.auth_token = JSON.stringify(new_params);
+            //     }
+            //
+            //     dbg.log0('Update system auth',req.access_key, clients[req.access_key].options.auth_token);
+            // });
         },
         is_system_client_exists: function(access_key) {
             return Q.fcall(function() {
@@ -399,7 +439,7 @@ module.exports = function(params) {
                     'signature': req.signature,
                 });
             }).then(function(token) {
-                dbg.log0('Got Token:', token);
+                dbg.log0('Got Token:', token, clients[req.access_key]);
             }).then(null, function(err) {
                 dbg.error('failure while creating new client', err, err.stack);
                 delete clients[req.access_key];
@@ -415,7 +455,7 @@ module.exports = function(params) {
          */
         bucketExists: function(req, res, next) {
             var bucketName = req.params.bucket;
-            isBucketExists(bucketName, extract_access_key(req))
+            isBucketExists(bucketName, extract_s3_info(req))
                 .then(function(exists) {
                     if (!exists) {
                         dbg.error('(1) No bucket found for "%s"', bucketName);
@@ -434,6 +474,7 @@ module.exports = function(params) {
             var date = new Date();
             date.setMilliseconds(0);
             date = date.toISOString();
+
             /*
             var buckets = [{
                 name: req.params.bucket,
@@ -442,8 +483,10 @@ module.exports = function(params) {
             */
             var access_key = extract_access_key(req);
             var template;
-
-            clients[access_key].bucket.list_buckets()
+            var options = {
+                auth_token: JSON.stringify(extract_s3_info(req))
+            };
+            clients[access_key].bucket.list_buckets({}, options)
                 .then(function(reply) {
                     _.each(reply.buckets, function(bucket) {
                         bucket.creationDate = date;
@@ -486,7 +529,7 @@ module.exports = function(params) {
 
             } else {
 
-                list_objects_with_prefix(options.prefix, options.delimiter, req.bucket, extract_access_key(req))
+                list_objects_with_prefix(options.prefix, options.delimiter, req.bucket, extract_s3_info(req))
                     .then(function(objects_and_folders) {
                         options.bucketName = req.bucket || params.bucket;
                         options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
@@ -538,7 +581,9 @@ module.exports = function(params) {
         putBucket: function(req, res) {
             var bucketName = req.params.bucket;
             var template;
-            var access_key = extract_access_key(req);
+            var s3_info = extract_access_key(req);
+            var access_key = s3_info.access_key;
+
             /**
              * Derived from http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
              */
@@ -556,7 +601,7 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 400, template);
             }
             Q.fcall(function() {
-                return isBucketExists(bucketName, extract_access_key(req))
+                return isBucketExists(bucketName, s3_info)
                     .then(function(exists) {
                         if (exists) {
                             dbg.error('Error creating bucket. Bucket "%s" already exists', bucketName);
@@ -596,10 +641,12 @@ module.exports = function(params) {
             if (!_.isUndefined(req.query.uploadId)) {
                 return listPartsResult(req, res);
             }
+
             var keyName = req.params.key;
             var acl = req.query.acl;
             var template;
             var access_key = extract_access_key(req);
+
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
                 return buildXmlResponse(res, 200, template);
@@ -722,7 +769,7 @@ module.exports = function(params) {
                 var srcBucket = srcObjectParams[0];
                 var srcObject = srcObjectParams.slice(1).join(delimiter);
                 dbg.log0('Attempt to copy object:', srcObject, ' from bucket:', srcBucket, ' to ', req.params.key, ' srcObjectParams: ', srcObjectParams, ' delimiter:', delimiter);
-                return isBucketExists(srcBucket, extract_access_key(req))
+                return isBucketExists(srcBucket, extract_s3_info(req))
                     .then(function(exists) {
                         if (!exists) {
                             dbg.error('No bucket found (2) for "%s"', srcBucket, delimiter, copy.indexOf(delimiter), copy.indexOf('/'), srcObjectParams, srcObject);
@@ -812,7 +859,7 @@ module.exports = function(params) {
                     dbg.log0('Init Multipart', req.originalUrl);
                     var key = (req.originalUrl).replace('/' + req.bucket + '/', '');
                     //TODO:Replace with s3 rest param, initiated from the constructor
-                    key = key.replace('/s3','');
+                    key = key.replace('/s3', '');
                     key = key.substring(0, key.indexOf('?uploads'));
                     key = replaceSpaces(key);
                     var create_params = {
@@ -870,6 +917,7 @@ module.exports = function(params) {
             //this is also valid for the Abort Multipart Upload
             var key = req.params.key;
             var access_key = extract_access_key(req);
+
             Q.fcall(function() {
                     return clients[access_key].object.list_objects({
                         bucket: req.bucket,
@@ -897,7 +945,7 @@ module.exports = function(params) {
                     dbg.log0('Deleted object "%s" in bucket "%s"', key, req.bucket);
                     return res.status(204).end();
                 }, function(err) {
-                    dbg.error('Failure while trying to delete object "%s"', key, err);
+                    dbg.error('Failure while trying to delete object "%s"', key, err, err.stack);
                     var template = templateBuilder.buildKeyNotFound(key);
                     return buildXmlResponse(res, 500, template);
 

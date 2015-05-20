@@ -6,6 +6,7 @@ var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var string_utils = require('../util/string_utils');
 
 /**
  *
@@ -278,9 +279,6 @@ function delete_object(req) {
 }
 
 
-function escapeRegExp(str) {
-    return str.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&");
-}
 
 /**
  *
@@ -292,7 +290,7 @@ function list_objects(req) {
         .then(function() {
             var info = _.omit(object_md_query(req), 'key');
             if (req.rpc_params.key) {
-                info.key = new RegExp('^' + escapeRegExp(req.rpc_params.key));
+                info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key),'i');
             } else if (req.rpc_params.key_regexp) {
                 info.key = new RegExp(req.rpc_params.key_regexp);
             } else if (req.rpc_params.key_glob) {

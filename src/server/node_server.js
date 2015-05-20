@@ -4,6 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var size_utils = require('../util/size_utils');
+var string_utils = require('../util/string_utils');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
 var db = require('./db');
@@ -222,7 +223,11 @@ function list_nodes(req) {
             };
             if (!query) return;
             if (query.name) {
-                info.name = new RegExp(query.name);
+                info = {$or:[
+                                {'name': new RegExp(query.name,'i')},
+                                {'ip': new RegExp(string_utils.escapeRegExp(query.name),'i')}
+                            ]
+                        };
             }
             if (query.geolocation) {
                 info.geolocation = new RegExp(query.geolocation);

@@ -129,32 +129,24 @@ module.exports = function(params) {
 
     var delete_if_exists = function(target_object, access_key) {
         dbg.log0('listing ', target_object.key, ' in bucket:', target_object.bucket);
+        return clients[access_key].object.delete_object({
+            bucket: target_object.bucket,
+            key: target_object.key
+        }).then(function() {
+            dbg.log0('Deleted old version of object "%s" in bucket "%s"', target_object.key, target_object.bucket);
+        }, function(err) {
+            if (err.name === 'NOT_FOUND') {
+                //ignore
+            } else {
+                dbg.error('Failure while trying to delete old version of object "%s"', target_object.key, err);
+            }
+        });
 
-        return clients[access_key].object.list_objects(target_object)
-            .then(function(list_results) {
-                //object exists. Delete and write.
-                if (list_results.objects.length > 0) {
-                    var obj_index = _.findIndex(list_results.objects, function(chr) {
-                        return chr.key === target_object.key;
-                    });
-                    //the current implementation of list_objects returns list of objects with key
-                    // that starts with the provided name. we will validate it.
-                    if (obj_index >= 0) {
-                        return clients[access_key].object.delete_object({
-                            bucket: target_object.bucket,
-                            key: target_object.key
-                        }).then(function() {
-                            dbg.log0('Deleted old version of object "%s" in bucket "%s"', target_object.key, target_object.bucket);
-                        }, function(err) {
-                            dbg.error('Failure while trying to delete old version of object "%s"', target_object.key, err);
-                        });
-                    }
-                }
-            });
+
     };
 
-    var copy_object = function(from_object, to_object, src_bucket, target_bucket, s3_info) {
-        dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, s3_info.access_key);
+    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key) {
+        dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, access_key);
 
         from_object = decodeURIComponent(from_object);
         var object_path = {
@@ -164,7 +156,7 @@ module.exports = function(params) {
         var create_params = {};
         var source_object_md;
         //read source object meta data. if doesn't exist, send error to the client.
-        return clients[s3_info.access_key].object_driver_lazy().get_object_md(object_path)
+        return clients[access_key].object_driver_lazy().get_object_md(object_path)
             .then(function(md) {
                 var target_object_path = {
                     bucket: target_bucket,
@@ -172,31 +164,31 @@ module.exports = function(params) {
                 };
                 source_object_md = md;
                 //check if target exists. if so, delete it (s3 overwrites objects)
-                return delete_if_exists(target_object_path, s3_info.access_key)
+                return delete_if_exists(target_object_path, access_key)
                     .then(function() {
                         //check if folder
                         if (source_object_md.size === 0) {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
-                            list_objects_with_prefix(from_object, '/', src_bucket, s3_info)
+                            list_objects_with_prefix(from_object, '/', src_bucket, access_key)
                                 .then(function(objects_and_folders) {
                                     return Q.all(_.times(objects_and_folders.objects.length, function(i) {
                                         dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
                                         copy_object(objects_and_folders.objects[i].key,
                                             objects_and_folders.objects[i].key.replace(from_object, to_object),
-                                            src_bucket, target_bucket, s3_info.access_key);
+                                            src_bucket, target_bucket, access_key);
                                     })).then(function() {
                                         //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
                                         return Q.all(_.each(_.keys(objects_and_folders.folders), function(folder) {
                                             dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
                                             copy_object(folder, folder.replace(from_object, to_object),
-                                                src_bucket, target_bucket, s3_info.access_key);
+                                                src_bucket, target_bucket, access_key);
                                         }));
                                     });
                                 });
                         }
                         create_params.content_type = md.content_type;
                         create_params.size = md.size;
-                        return clients[s3_info.access_key].object.read_object_mappings({
+                        return clients[access_key].object.read_object_mappings({
                                 bucket: src_bucket,
                                 key: from_object,
                             })
@@ -223,13 +215,13 @@ module.exports = function(params) {
                                 create_params.bucket = target_bucket;
                                 create_params.key = to_object;
 
-                                return clients[s3_info.access_key].object.create_multipart_upload(create_params)
+                                return clients[access_key].object.create_multipart_upload(create_params)
                                     .then(function(info) {
-                                        return clients[s3_info.access_key].object.allocate_object_parts(new_obj_parts)
+                                        return clients[access_key].object.allocate_object_parts(new_obj_parts)
                                             .then(function(res) {
                                                 dbg.log0('complete multipart copy ', create_params);
                                                 var bucket_key_params = _.pick(create_params, 'bucket', 'key');
-                                                return clients[s3_info.access_key].object.complete_multipart_upload(bucket_key_params);
+                                                return clients[access_key].object.complete_multipart_upload(bucket_key_params);
                                             })
                                             .then(function(res) {
                                                 dbg.log0('COMPLETED: copy');
@@ -246,20 +238,20 @@ module.exports = function(params) {
             });
 
     };
-    var list_objects_with_prefix = function(prefix, delimiter, bucket_name, s3_info) {
+    var list_objects_with_prefix = function(prefix, delimiter, bucket_name, access_key) {
         var list_params = {
             bucket: bucket_name,
         };
         if (prefix) {
             //prefix = prefix.replace(/%2F/g, '/');
             prefix = decodeURI(prefix);
-            list_params.key = prefix;
+            list_params.key_prefix = prefix;
         }
         if (delimiter) {
             delimiter = decodeURI(delimiter);
         }
-        dbg.log0('Listing objects with', list_params, delimiter, 'key:', s3_info.access_key);
-        return clients[s3_info.access_key].object.list_objects(list_params)
+        dbg.log0('Listing objects with', list_params, delimiter, 'key:', access_key);
+        return clients[access_key].object.list_objects(list_params)
             .then(function(results) {
                 var folders = {};
                 dbg.log0('results:', results);
@@ -528,7 +520,7 @@ module.exports = function(params) {
 
             } else {
 
-                list_objects_with_prefix(options.prefix, options.delimiter, req.bucket, extract_s3_info(req))
+                list_objects_with_prefix(options.prefix, options.delimiter, req.bucket, extract_access_key(req))
                     .then(function(objects_and_folders) {
                         options.bucketName = req.bucket || params.bucket;
                         options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
@@ -809,37 +801,49 @@ module.exports = function(params) {
                 //     file_key_name = file_key_name + '_' + serial;
                 // }
 
-                Q.fcall(function() {
+                return Q.fcall(function() {
                     dbg.log0('listing ', req.params.key, ' in bucket:', req.bucket);
-                    return clients[access_key].object.list_objects({
+                    return clients[access_key].object_driver_lazy().get_object_md({
                         bucket: req.bucket,
                         key: file_key_name
                     });
+                }).then(null,function(err){
+                    dbg.log0('Got Error:',err.name,err);
+                    if (err.name==='NOT_FOUND'){
+                        //ignore.
+                        dbg.log0('ignore not found');
+                        return null;
+                    }
+                    else{
+                        dbg.error('Failure while trying to find previous versions "%s"', file_key_name, err);
+                        var template = templateBuilder.buildKeyNotFound(file_key_name);
+                        return buildXmlResponse(res, 500, template);
+
+                    }
                 }).then(function(list_results) {
+                    dbg.log0('listlllllll',list_results);
                     //object exists. Delete and write.
-                    if (list_results.objects.length > 0) {
-                        var obj_index = _.findIndex(list_results.objects, function(chr) {
-                            return chr.key === file_key_name;
-                        });
+                    if (list_results) {
+                        dbg.log0('delete',list_results);
+
+
+                        dbg.log0('delete2');
+
                         //the current implementation of list_objects returns list of objects with key
                         // that starts with the provided name. we will validate it.
-                        if (obj_index >= 0) {
-                            return clients[access_key].object.delete_object({
-                                bucket: req.bucket,
-                                key: file_key_name
-                            }).then(function() {
-                                dbg.log0('Deleted old version of object "%s" in bucket "%s"', file_key_name, req.bucket);
-                                uploadObject(req, res, file_key_name);
-                            }, function(err) {
-                                dbg.error('Failure while trying to delete old version of object "%s"', file_key_name, err);
-                                var template = templateBuilder.buildKeyNotFound(file_key_name);
-                                return buildXmlResponse(res, 500, template);
-
-                            });
-                        } else {
-                            dbg.warning('no real old version');
+                        return clients[access_key].object.delete_object({
+                            bucket: req.bucket,
+                            key: file_key_name
+                        }).then(function() {
+                            dbg.log0('Deleted old version of object "%s" in bucket "%s"', file_key_name, req.bucket);
                             uploadObject(req, res, file_key_name);
-                        }
+                        }).then(null, function(err) {
+                            dbg.error('Failure while trying to delete old version of object "%s"', file_key_name, err);
+                            var template = templateBuilder.buildKeyNotFound(file_key_name);
+                            return buildXmlResponse(res, 500, template);
+
+                        });
+
                     } else {
                         dbg.log0('body:', parseInt(req.headers['content-length']));
                         uploadObject(req, res, file_key_name);
@@ -916,39 +920,29 @@ module.exports = function(params) {
             //this is also valid for the Abort Multipart Upload
             var key = req.params.key;
             var access_key = extract_access_key(req);
-
+            var template;
             Q.fcall(function() {
-                    return clients[access_key].object.list_objects({
-                        bucket: req.bucket,
-                        key: key
-                    });
-                })
-                .then(function(res) {
-
-                    if (res.objects.length === 0) {
-                        dbg.log2('Could not delete object "%s"', key);
-                        var template = templateBuilder.buildKeyNotFound(key);
-                        return buildXmlResponse(res, 404, template);
-                    }
-                    dbg.log2('objects in bucket', req.bucket, ' with key ', key, ':');
-                    var i = 0;
-                    _.each(res.objects, function(obj) {
-                        dbg.log2('#' + i, obj.key, '\t', obj.info.size, 'bytes');
-                        i++;
-                    });
-                    return clients[access_key].object.delete_object({
-                        bucket: req.bucket,
-                        key: key
-                    });
-                }).then(function() {
-                    dbg.log0('Deleted object "%s" in bucket "%s"', key, req.bucket);
-                    return res.status(204).end();
-                }, function(err) {
-                    dbg.error('Failure while trying to delete object "%s"', key, err, err.stack);
-                    var template = templateBuilder.buildKeyNotFound(key);
-                    return buildXmlResponse(res, 500, template);
-
+                return clients[access_key].object.delete_object({
+                    bucket: req.bucket,
+                    key: key
                 });
+            }).then(function() {
+                dbg.log0('Deleted object "%s" in bucket "%s"', key, req.bucket);
+                return res.status(204).end();
+            }).
+            then(null, function(err) {
+                template = templateBuilder.buildKeyNotFound(key);
+
+                if (err.name === 'NOT_FOUND') {
+                    dbg.log2('Could not delete object "%s"', key);
+                    return buildXmlResponse(res, 404, template);
+
+                } else {
+                    dbg.error('Failure while trying to delete object "%s"', key, err, err.stack);
+                    return buildXmlResponse(res, 500, template);
+                }
+
+            });
         }
     };
 };

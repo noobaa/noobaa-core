@@ -80,9 +80,10 @@ function s3app(params) {
                     }).then(function(is_exists) {
                         if (!is_exists) {
                             return controllers.add_new_system_client(req);
-                        } else {
-                            controllers.update_system_auth(req);
                         }
+                        // else {
+                        //     controllers.update_system_auth(req);
+                        // }
                     });
 
                 } else {
@@ -101,6 +102,12 @@ function s3app(params) {
 
     /**
      * Routes for the application
+     *
+     * We will authenticate the signatures on the following methods:
+     * getBuckets (listBuckets)
+     * bucketExists (listBuckets)
+     * putBucket (listBuckets)
+     * 
      */
     app.get('/', controllers.getBuckets);
     app.get('/:bucket', controllers.bucketExists, controllers.getBucket);
@@ -108,7 +115,7 @@ function s3app(params) {
     app.put('/:bucket', controllers.putBucket);
     app.put('/:bucket/:key(*)', controllers.bucketExists, controllers.putObject);
     app.get('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
-    app.head('/:bucket/:key(*)', controllers.getObject);
+    app.head('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.delete('/:bucket/:key(*)', controllers.bucketExists, controllers.deleteObject);
     app.post('/:bucket/:key(*)', controllers.bucketExists, controllers.postMultipartObject);
 

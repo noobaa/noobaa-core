@@ -33,22 +33,21 @@
 
     <div class="col-sm-6">
         <div class="well well-sm clearfix" style="height: 400px">
-            <!--
-            <div class="clearfix">
+            <div class="clearfix" style="min-height: 50px">
+                <!--
                 <a class="btn btn-flat btn-info btn-sm pull-right" ng-click="tier_router.set('stats')">See more</a>
+                -->
             </div>
-            -->
             <div style="padding: 0 0 0 0">
                 <p>
                     <i class="fa fa-hdd-o" style="font-size: 85px"></i>
                 </p>
-                <h3 style="margin-top: 10px">
+                <h4 style="margin-top: 10px">
                     <b>STORAGE</b>
-                </h3>
-                <small>
-                    Noobaa allocated size: {{human_size(tier.storage.alloc)}}
-                    <br/> Current usage by noobaa: {{human_size(tier.storage.used)}}
-                </small>
+                </h4>
+                <br>
+                Noobaa allocated size: {{human_size(tier.storage.alloc)}}
+                <br/> Current usage by noobaa: {{human_size(tier.storage.used)}}
             </div>
             <!-- <div nb-pie-chart="pie_chart" style="height: 250px"></div> -->
         </div>

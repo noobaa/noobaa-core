@@ -109,14 +109,14 @@ app.use(function(req, res, next) {
     }
     return next();
 });
-app.use(express_cookie_parser(process.env.COOKIE_SECRET));
-app.use(express_body_parser.json());
-app.use(express_body_parser.raw());
-app.use(express_body_parser.text());
-app.use(express_body_parser.urlencoded({
-    extended: false
-}));
 app.use(express_method_override());
+app.use(express_cookie_parser(process.env.COOKIE_SECRET));
+app.use(use_exclude('/s3', express_body_parser.json()));
+app.use(use_exclude('/s3', express_body_parser.raw()));
+app.use(use_exclude('/s3', express_body_parser.text()));
+app.use(use_exclude('/s3', express_body_parser.urlencoded({
+    extended: false
+})));
 app.use(express_cookie_session({
     key: 'noobaa_session',
     secret: process.env.COOKIE_SECRET,
@@ -126,6 +126,16 @@ app.use(express_cookie_session({
     maxage: 356 * 24 * 60 * 60 * 1000 // 1 year
 }));
 app.use(express_compress());
+
+function use_exclude(path, middleware) {
+    return function(req, res, next) {
+        if (_.startsWith(req.path, path)) {
+            return next();
+        } else {
+            return middleware(req, res, next);
+        }
+    };
+}
 
 
 /////////

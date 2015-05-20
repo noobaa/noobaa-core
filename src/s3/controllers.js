@@ -58,38 +58,38 @@ module.exports = function(params) {
 
     var uploadPart = function(req, res) {
         Q.fcall(function() {
-            var content_length = req.headers['content-length'];
-            var access_key = extract_access_key(req);
-            var upload_part_info = {
-                bucket: req.bucket,
-                key: replaceSpaces(req.query.uploadId),
-                size: content_length,
-                content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
-                source_stream: req,
-                upload_part_number: parseInt(req.query.partNumber)
-            };
-            dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ',
-                req.query.uploadId, 'content length:', req.headers['content-length']);
-            dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
-                'content_type', 'upload_part_number'));
+                var content_length = req.headers['content-length'];
+                var access_key = extract_access_key(req);
+                var upload_part_info = {
+                    bucket: req.bucket,
+                    key: replaceSpaces(req.query.uploadId),
+                    size: content_length,
+                    content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
+                    source_stream: req,
+                    upload_part_number: parseInt(req.query.partNumber, 10)
+                };
+                dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ',
+                    req.query.uploadId, 'content length:', req.headers['content-length']);
+                dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
+                    'content_type', 'upload_part_number'));
 
-            return clients[access_key].object_driver_lazy().upload_stream_parts(upload_part_info)
-                .then(function() {
-                    try {
-                        dbg.log0('COMPLETED: upload', req.query.uploadId);
-                        res.header('ETag', req.query.uploadId + req.query.partNumber);
-                    } catch (err) {
-                        dbg.log0('FAILED', err, res);
+                return clients[access_key].object_driver_lazy().upload_stream_parts(upload_part_info);
+            })
+            .then(function() {
+                try {
+                    dbg.log0('COMPLETED: upload', req.query.uploadId);
+                    res.header('ETag', req.query.uploadId + req.query.partNumber);
+                } catch (err) {
+                    dbg.log0('FAILED', err, res);
 
-                    }
-                    return res.status(200).end();
-                }, function(err) {
-                    dbg.error('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
-                    return res.status(500).end();
-                });
-
-        });
+                }
+                return res.status(200).end();
+            }, function(err) {
+                dbg.error('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
+                return res.status(500).end();
+            });
     };
+
     var listPartsResult = function(req, res) {
         Q.fcall(function() {
             var template;
@@ -118,6 +118,7 @@ module.exports = function(params) {
                 });
         });
     };
+
     var buildXmlResponse = function(res, status, template) {
         //dbg.log("build",res);
         res.header('Content-Type', 'application/xml');
@@ -125,6 +126,7 @@ module.exports = function(params) {
         dbg.log2('template:', template);
         return res.send(template);
     };
+
     var delete_if_exists = function(target_object, access_key) {
         dbg.log0('listing ', target_object.key, ' in bucket:', target_object.bucket);
 
@@ -150,6 +152,7 @@ module.exports = function(params) {
                 }
             });
     };
+
     var copy_object = function(from_object, to_object, src_bucket, target_bucket, s3_info) {
         dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, s3_info.access_key);
 
@@ -244,7 +247,6 @@ module.exports = function(params) {
 
     };
     var list_objects_with_prefix = function(prefix, delimiter, bucket_name, s3_info) {
-
         var list_params = {
             bucket: bucket_name,
         };
@@ -313,44 +315,41 @@ module.exports = function(params) {
     };
 
     var uploadObject = function(req, res, file_key_name) {
-        try {
 
-            var access_key = extract_access_key(req);
+        var md5 = 0;
+        Q.fcall(function() {
+                var access_key = extract_access_key(req);
+                dbg.log0('uploadObject: upload', file_key_name);
 
-            var md5 = 0;
-            //
-            // tranform stream that calculates md5 on-the-fly
-            var md5_calc = new md5_stream();
-            req.pipe(md5_calc);
 
-            md5_calc.on('finish', function() {
-                md5 = md5_calc.toString();
-                dbg.log3('MD5 data (end)', md5);
-            });
+                // tranform stream that calculates md5 on-the-fly
+                var md5_calc = new md5_stream();
+                req.pipe(md5_calc);
 
-            return clients[access_key].object_driver_lazy().upload_stream({
-                bucket: req.bucket,
-                key: file_key_name,
-                size: parseInt(req.headers['content-length']),
-                content_type: req.headers['content-type'] || mime.lookup(file_key_name),
-                source_stream: md5_calc,
-            }).then(function() {
-                try {
-                    dbg.log0('COMPLETED: upload', file_key_name, md5);
-                    res.header('ETag', md5);
-                } catch (err) {
-                    dbg.error('Failed to upload stream', err, res);
+                md5_calc.on('finish', function() {
+                    md5 = md5_calc.toString();
+                    dbg.log0('uploadObject: MD5 data (end)', md5);
+                });
 
-                }
+                return clients[access_key].object_driver_lazy().upload_stream({
+                    bucket: req.bucket,
+                    key: file_key_name,
+                    size: parseInt(req.headers['content-length'], 10),
+                    content_type: req.headers['content-type'] || mime.lookup(file_key_name),
+                    source_stream: md5_calc,
+                });
+            })
+            .then(function() {
+                dbg.log0('COMPLETED: uploadObject', file_key_name, md5);
+                res.header('ETag', md5);
                 return res.status(200).end();
-            }, function(err) {
-                dbg.error('ERROR: upload:' + file_key_name + ' err:' + util.inspect(err.stack));
+            })
+            .then(null, function(err) {
+                dbg.error('ERROR: uploadObject:' + file_key_name + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
-        } catch (err) {
-            dbg.error('Failed upload stream to noobaa:', err);
-        }
     };
+
 
     var isBucketExists = function(bucketName, s3_info) {
         dbg.log0('isBucketExists', bucketName, ' info:', s3_info, 'key:', s3_info.access_key, 'auth', clients[s3_info.access_key].options.auth_token);

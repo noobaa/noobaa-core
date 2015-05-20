@@ -88,7 +88,7 @@ function create_node(req) {
                 node: node,
             });
             var account_id = '';
-            if (req.account){
+            if (req.account) {
                 account_id = req.account.id;
             }
             // a token for the agent authorized to use the new node id.
@@ -223,11 +223,11 @@ function list_nodes(req) {
             };
             if (!query) return;
             if (query.name) {
-                info = {$or:[
-                                {'name': new RegExp(query.name,'i')},
-                                {'ip': new RegExp(string_utils.escapeRegExp(query.name),'i')}
-                            ]
-                        };
+                info.$or = [{
+                    'name': new RegExp(query.name, 'i')
+                }, {
+                    'ip': new RegExp(string_utils.escapeRegExp(query.name), 'i')
+                }];
             }
             if (query.geolocation) {
                 info.geolocation = new RegExp(query.geolocation);

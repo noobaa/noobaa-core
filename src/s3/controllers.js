@@ -241,11 +241,12 @@ module.exports = function(params) {
     var list_objects_with_prefix = function(prefix, delimiter, bucket_name, access_key) {
         var list_params = {
             bucket: bucket_name,
+            key_s3_prefix : ''
         };
         if (prefix) {
             //prefix = prefix.replace(/%2F/g, '/');
             prefix = decodeURI(prefix);
-            list_params.key_prefix = prefix;
+            list_params.key_s3_prefix = prefix;
         }
         if (delimiter) {
             delimiter = decodeURI(delimiter);
@@ -254,7 +255,7 @@ module.exports = function(params) {
         return clients[access_key].object.list_objects(list_params)
             .then(function(results) {
                 var folders = {};
-                dbg.log0('results:', results);
+                dbg.log3('results:', results);
                 var objects = _.filter(results.objects, function(obj) {
                     try {
                         var date = new Date(obj.info.create_time);

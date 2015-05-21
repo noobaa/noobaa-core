@@ -399,6 +399,10 @@ module.exports = {
                     key_prefix: {
                         type: 'string',
                     },
+                    //filter subdirectories
+                    key_s3_prefix: {
+                        type: 'string',
+                    },
                     key_regexp: {
                         type: 'string',
                     },

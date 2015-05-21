@@ -83,6 +83,31 @@ function setup_repos {
 	deploy_log "setup_repos done"
 }
 
+function setup_makensis {
+	#Download
+	mkdir /nsis
+	cd /nsis
+	curl -L "http://downloads.sourceforge.net/project/nsis/NSIS%203%20Pre-release/3.0b1/nsis-3.0b1-src.tar.bz2?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnsis%2Ffiles%2FNSIS%25203%2520Pre-release%2F3.0b1%2F&ts=1423381229&use_mirror=garr" > nsis-3.0b1-src.tar.bz2
+	curl -L "http://downloads.sourceforge.net/project/nsis/NSIS%203%20Pre-release/3.0b1/nsis-3.0b1.zip?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnsis%2Ffiles%2FNSIS%25203%2520Pre-release%2F3.0b1%2F&ts=1423381286&use_mirror=garr" >> nsis-3.0b1.zip
+	unzip nsis-3.0b1.zip
+	bzip2 -dk nsis-3.0b1-src.tar.bz2
+	tar -xvf nsis-3.0b1-src.tar
+	yum -y install zlib-devel
+	yum -y install gcc-c++
+
+	#update SConstruct
+	sed -i "s:\(.*STRIP_CP.*as symbols', '\)yes')):\1no')):" ./nsis-3.0b1-src/SConstruct
+
+	#build
+	cd nsis-3.0b1-src
+	scons SKIPSTUBS=all SKIPPLUGINS=all SKIPUTILS=all SKIPMISC=all NSIS_CONFIG_CONST_DATA=no PREFIX=/nsis/nsis-3.0b1 install-compiler
+	chmod +x /nsis/nsis-3.0b1/bin/makensis
+	ln -s /nsis/nsis-3.0b1/bin/makensis /usr/local/bin/makensis
+	mkdir /nsis/nsis-3.0b1/share
+	cd /nsis/nsis-3.0b1/share
+	ln -s /nsis/nsis-3.0b1 nsis
+}
+
 function install_mongo {
 	deploy_log "install_mongo start"
 	# create a Mongo 2.4 Repo file
@@ -134,6 +159,7 @@ if [ "$1" == "runinstall" ]; then
 	install_aux
 	install_repos
 	setup_repos
+	setup_makensis
 	install_mongo
 	setup_mongo
 	setup_supervisors

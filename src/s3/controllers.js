@@ -8,6 +8,7 @@ var md5_stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var string_utils = require('../util/string_utils');
 
 
 module.exports = function(params) {
@@ -62,14 +63,14 @@ module.exports = function(params) {
                 var access_key = extract_access_key(req);
                 var upload_part_info = {
                     bucket: req.bucket,
-                    key: replaceSpaces(req.query.uploadId),
+                    key: encodeURI(req.query.uploadId),
                     size: content_length,
                     content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
                     source_stream: req,
                     upload_part_number: parseInt(req.query.partNumber, 10)
                 };
                 dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ',
-                    req.query.uploadId, 'content length:', req.headers['content-length']);
+                req.query.uploadId,' VS ',req.query.uploadId, 'content length:', req.headers['content-length']);
                 dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                     'content_type', 'upload_part_number'));
 
@@ -265,7 +266,6 @@ module.exports = function(params) {
                         obj.size = obj.info.size;
 
                         //we will keep the full path for CloudBerry online cloud backup tool
-
                         var obj_sliced_key = obj.key.slice(prefix.length);
                         dbg.log0('obj.key:', obj.key, ' prefix ', prefix, ' sliced', obj_sliced_key);
                         if (obj_sliced_key.indexOf(delimiter) >= 0) {
@@ -277,6 +277,7 @@ module.exports = function(params) {
                         if (list_params.key === obj.key) {
                             dbg.log0('LISTED KEY same as REQUIRED', obj.key);
                             if (prefix === obj.key && prefix.substring(prefix.length - 1) !== delimiter) {
+                                
                                 return true;
                             }
 
@@ -546,7 +547,7 @@ module.exports = function(params) {
                         } else {
                             template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
                         }
-
+                        dbg.log0('get object template ',template);
                         return buildXmlResponse(res, 200, template);
                     })
                     .then(function() {
@@ -788,19 +789,7 @@ module.exports = function(params) {
                     });
             } else {
 
-
                 var file_key_name = req.params.key;
-
-                // generate unique name - disable for now
-                //
-                // var ext_match = file_key_name.match(/^(.*)(\.[^\.]*)$/);
-                //
-                // var serial = (((Date.now() / 1000) % 10000000) | 0).toString();
-                // if (ext_match) {
-                //     file_key_name = ext_match[1] + '_' + serial + ext_match[2];
-                // } else {
-                //     file_key_name = file_key_name + '_' + serial;
-                // }
 
                 return Q.fcall(function() {
                     dbg.log0('listing ', req.params.key, ' in bucket:', req.bucket);
@@ -822,13 +811,8 @@ module.exports = function(params) {
 
                     }
                 }).then(function(list_results) {
-                    dbg.log0('listlllllll',list_results);
                     //object exists. Delete and write.
                     if (list_results) {
-                        dbg.log0('delete',list_results);
-
-
-                        dbg.log0('delete2');
 
                         //the current implementation of list_objects returns list of objects with key
                         // that starts with the provided name. we will validate it.
@@ -865,7 +849,8 @@ module.exports = function(params) {
                     //TODO:Replace with s3 rest param, initiated from the constructor
                     key = key.replace('/s3', '');
                     key = key.substring(0, key.indexOf('?uploads'));
-                    key = replaceSpaces(key);
+                    key = encodeURI(decodeURI(key));
+
                     var create_params = {
                         bucket: req.bucket,
                         key: key,
@@ -893,15 +878,15 @@ module.exports = function(params) {
                     dbg.log0('request to complete ', req.query.uploadId);
                     return clients[access_key].object.complete_multipart_upload({
                         bucket: req.bucket,
-                        key: replaceSpaces(req.query.uploadId),
+                        key: encodeURI(req.query.uploadId),
                         fix_parts_size: true
                     }).then(function(info) {
                         dbg.log0('done complete', info, 'https://' + req.hostname + '/' + req.bucket + '/' + req.query.uploadId);
                         delete objects_avarage_part_size[req.query.uploadId];
                         var completeMultipartInformation = {
                             Bucket: req.bucket,
-                            Key: replaceSpaces(req.query.uploadId),
-                            Location: 'https://' + req.hostname + '/' + req.bucket + '/' + replaceSpaces(req.query.uploadId),
+                            Key: encodeURI(req.query.uploadId),
+                            Location: 'https://' + req.hostname + '/' + req.bucket + '/' + encodeURI(req.query.uploadId),
                             ETag: 1234
                         };
 

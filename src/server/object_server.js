@@ -286,20 +286,22 @@ function delete_object(req) {
  *
  */
 function list_objects(req) {
-    console.log('key query');
+    console.log('key query',req.rpc_params);
     return load_bucket(req)
         .then(function() {
             var info = _.omit(object_md_query(req), 'key');
             if (req.rpc_params.key_query) {
                 info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query),'i');
-                console.log('key query',info);
             } else if (req.rpc_params.key_regexp) {
                 info.key = new RegExp(req.rpc_params.key_regexp);
             } else if (req.rpc_params.key_glob) {
                 info.key = glob_to_regexp(req.rpc_params.key_glob);
             } else if (req.rpc_params.key_prefix) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
+            } else if (!_.isUndefined(req.rpc_params.key_s3_prefix)) {
+                info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_s3_prefix) + '[^/]*/?$');
             }
+
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
             console.log('key query2',info);

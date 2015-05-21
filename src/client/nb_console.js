@@ -212,15 +212,19 @@ nb_console.controller('OverviewCtrl', [
 
         function download_rest_server_package() {
             console.log('rest_package1');
+            var link;
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
                     console.log('GOT URL1:',url);
-                    var link = $window.document.createElement("a");
+                    link = $window.document.createElement("a");
+                    link.id ='noobaa_link_rest_package';
                     $window.document.body.appendChild(link) ;
                     link.download = '';
                     link.href = url;
                     link.click();
                     return Q.delay(2000);
+                }).then(function(){
+                    $window.document.body.removeChild(link);
                 });
         }
 
@@ -372,16 +376,18 @@ nb_console.controller('TierViewCtrl', [
                 });
             };
             scope.download_agent = function() {
+                var link;
                 return nbSystem.get_agent_installer()
                     .then(function(url) {
-                        var link = $window.document.createElement("a");
+                        link = $window.document.createElement("a");
                         link.download = '';
                         link.href = url;
                         $window.document.body.appendChild(link) ;
                         link.click();
                         return Q.delay(2000);
-                    })
-                    .then(function() {
+                    }).then(function(){
+                        $window.document.body.removeChild(link);
+                    }).then(function() {
                         scope.next_stage();
                     });
             };
@@ -590,15 +596,18 @@ nb_console.controller('BucketViewCtrl', [
 
         function download_rest_server_package() {
             console.log('rest_package2');
+            var link;
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
                     console.log('GOT URL2:',url);
-                    var link = $window.document.createElement("a");
+                    link = $window.document.createElement("a");
                     link.download = '';
                     link.href = url;
                     $window.document.body.appendChild(link) ;
                     link.click();
                     return Q.delay(2000);
+                }).then(function(){
+                    $window.document.body.removeChild(link);
                 });
         }
 

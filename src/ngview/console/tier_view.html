@@ -15,44 +15,7 @@
                 <a href="/console/resource/">Pools</a>
             </li>
             <li class="active">{{tier.name}}</li>
-        
         </ol>
-
-        <!--
-        <div class="page-properties">
-            <table class="table table-properties">
-                <tr>
-                    <th>Status</th>
-                    <td>Healthy <i class="fa fa-check fa-lg"></i>
-                    </td>
-                    <th>Nodes</th>
-                    <td>{{tier.nodes.online}}</td>
-                    <th>Net Storage</th>
-                    <td>{{human_size(tier.storage.used/3)}} of {{human_size(tier.storage.alloc/3)}}</td>
-                    <th>Raw Storage</th>
-                    <td>{{human_size(tier.storage.used)}} of {{human_size(tier.storage.alloc)}}</td>
-                    <td></td>
-                </tr>
-            </table>
-        </div>
-        -->
-
-        <!--
-        <ul class="nav nav-tabs">
-            <li ng-class="{active: tier_router.route == 'nodes'}">
-                <a ng-click="tier_router.set('nodes')">Nodes List</a>
-            </li>
-            <li ng-class="{active: tier_router.route == 'settings'}">
-                <a ng-click="tier_router.set('settings')">Settings</a>
-            </li>
-            -->
-            <!--
-             <li ng-class="{active: tier_router.route == 'stats'}">
-                <a ng-click="tier_router.set('stats')">Statistics</a>
-            </li>
-        </ul>
-        -->
-
     </div>
 
     <div nb-hash-router-view="tier_router"></div>

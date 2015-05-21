@@ -271,7 +271,10 @@ IceConnection.prototype._gather_local_candidates = function() {
                 stun_url.port);
 
             return self.stun_candidate_defer.promise
-                .timeout(10000, 'STUN SERVER RESPONSE EXHAUSTED');
+                .timeout(3000, 'STUN SERVER RESPONSE EXHAUSTED');
+        }).then(null,function(err){
+            stun.STUN.DEFAULT_SERVER = stun.STUN.PUBLIC_SERVERS[Math.floor(Math.random()*stun.STUN.PUBLIC_SERVERS.length)];
+            dbg.log0('Changed default STUN server to ',stun.STUN.DEFAULT_SERVER);
         });
 };
 

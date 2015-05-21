@@ -8,7 +8,6 @@ var md5_stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var string_utils = require('../util/string_utils');
 
 
 module.exports = function(params) {
@@ -277,7 +276,7 @@ module.exports = function(params) {
                         if (list_params.key === obj.key) {
                             dbg.log0('LISTED KEY same as REQUIRED', obj.key);
                             if (prefix === obj.key && prefix.substring(prefix.length - 1) !== delimiter) {
-                                
+
                                 return true;
                             }
 
@@ -363,9 +362,6 @@ module.exports = function(params) {
                     return true;
                 }
             });
-    };
-    var replaceSpaces = function(instr) {
-        return instr.replace(/ /g, '%20');
     };
 
     /**

@@ -515,7 +515,7 @@ function serve() {
     gulp_notify('noobaa serving...').end('stam');
 }
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client']);
+gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent']);
 gulp.task('serve', [], serve);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);

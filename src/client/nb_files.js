@@ -229,7 +229,7 @@ nb_api.factory('nbFiles', [
                         _.pull($scope.transfers, tx);
                         tx.error = err;
                         tx.running = false;
-                        console.error('upload failed', err);
+                        console.error('upload failed1', err);
                         nbAlertify.error('upload failed. ' + err.toString());
                     }, function(progress) {
                         if (progress.event === 'part:after') {
@@ -245,15 +245,15 @@ nb_api.factory('nbFiles', [
                     $scope.s3.upload({
                         Key: tx.name,
                         Bucket: tx.bucket,
-                        Body: tx.input_file,
+                        Body: encodeURI(tx.input_file),
                         ContentType: tx.content_type
                     }, function(err, data) {
                         if (err) {
-                            console.error('upload failed', err);
+                            console.error('upload failed (s3)', err,err.stack);
                             _.pull($scope.transfers, tx);
                             tx.error = err;
                             tx.running = false;
-                            nbAlertify.error('upload failed. ' + err.toString());
+                            nbAlertify.error('upload failed (s3). ' + err.toString());
                             reject(new Error('upload failed'));
                             $rootScope.safe_apply();
                         } else {

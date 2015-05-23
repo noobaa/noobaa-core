@@ -1,8 +1,11 @@
 <div ng-cloak>
 
+    <hr/>
+
     <div class="row">
         <div class="heading-col col-sm-3">
             <h4 class="text-primary">Last heartbeat</h4>
+            <p><i class="fa fa-heartbeat text-muted" style="font-size: 40px"></i></p>
         </div>
         <div class="content-col col-sm-3">
             {{node.hearbeat_moment.fromNow()}}
@@ -13,37 +16,37 @@
 
     <div class="row">
         <div class="heading-col col-sm-3">
-            <h4 class="text-primary">Hard Drive</h4>
+            <h4 class="text-primary">Hard Drives</h4>
+            <p><i class="fa fa-hdd-o text-muted" style="font-size: 40px"></i></p>
         </div>
         <div class="content-col col-sm-6">
             <table class="table table-no-borders">
                 <tr>
+                    <th>Drive</th>
+                    <th>NooBaa Used Space</th>
                     <th>Total Space</th>
-                    <td>{{human_size(node.storage.total_disk)}}</td>
-                </tr>
-                <tr>
                     <th>Free Space</th>
-                    <td>{{human_size(node.storage.free_disk)}}</td>
+                    <th></th>
                 </tr>
-                <tr>
-                    <th>Operating System Size</th>
-                    <td>{{human_size(node.storage.operating_sys)}}</td>
+                <tr ng-repeat="drive in node.drives">
+                    <td>{{drive.mount}}</td>
+                    <td>{{human_size(drive.storage.used)}}</td>
+                    <td>{{human_size(drive.storage.total)}}</td>
+                    <td>{{human_size(drive.storage.free)}}</td>
+                    <td>
+                        <div class="progress" style="margin: 7px 0 0 0">
+                            <div class="progress-bar" role="progressbar" aria-valuenow="{{100*(1-drive.storage.used/drive.storage.total)}}" aria-valuemin="0" aria-valuemax="100" style="width: {{100*(1-drive.storage.used/drive.storage.total)}}%; background-color: #03a9f4">
+                            </div>
+                            <div class="progress-bar" role="progressbar" aria-valuenow="{{100*drive.storage.used/drive.storage.total}}" aria-valuemin="0" aria-valuemax="100" style="width: {{100*drive.storage.used/drive.storage.total}}%; background-color: #ff008b">
+                            </div>
+                        </div>
+                    </td>
                 </tr>
-                <tr>
-                    <th>Noobaa Allocated</th>
-                    <td>{{human_size(node.storage.alloc)}}</td>
-                </tr>
-                <tr>
-                    <th>Noobaa Unused</th>
-                    <td>{{human_size(node.storage.unused)}}</td>
-                </tr>
-                <tr>
-                    <th>Noobaa Used</th>
+                <tr style="border-top: 1px dashed #999">
+                    <td>Summary</td>
                     <td>{{human_size(node.storage.used)}}</td>
-                </tr>
-                <tr>
-                    <th>Noobaa Used Percent</th>
-                    <td>{{node.storage.usage_percent}}%</td>
+                    <td>{{human_size(node.storage.total)}}</td>
+                    <td>{{human_size(node.storage.free)}}</td>
                 </tr>
             </table>
         </div>
@@ -57,7 +60,7 @@
         </div>
         <div class="content-col col-sm-6">
             <table class="table table-no-borders">
-                <tr ng-repeat="(key,val) in node.device_info">
+                <tr ng-repeat="(key,val) in node.os_info">
                     <th>{{key}}</th>
                     <td ng-switch="key">
                         <span ng-switch-when="freemem">{{human_size(val)}}</span>

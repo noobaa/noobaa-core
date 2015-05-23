@@ -35,7 +35,6 @@ describe('node', function() {
                 name: 'haha',
                 tier: 'tier',
                 geolocation: 'home',
-                storage_alloc: 10 * size_utils.GIGABYTE,
             });
         }).then(function(res) {
             return client.node.heartbeat({
@@ -46,7 +45,7 @@ describe('node', function() {
                     alloc: 10 * size_utils.GIGABYTE,
                     used: size_utils.GIGABYTE,
                 },
-                device_info: {
+                os_info: {
                     os: 'os'
                 },
             });

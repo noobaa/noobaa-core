@@ -203,7 +203,6 @@ function read_system(req) {
                 });
                 var a = objects_aggregate[bucket.id] || {};
                 b.storage = {
-                    alloc: 0, // TODO bucket quota
                     used: a.size || 0,
                 };
                 b.num_objects = a.count || 0;

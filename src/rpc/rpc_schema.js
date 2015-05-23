@@ -78,9 +78,9 @@ RpcSchema.prototype.register_api = function(api) {
         method_api.validate_params = function(params, desc) {
             var result = method_api.params_validator(params);
             if (!result) {
-                dbg.error('INVALID PARAMS SCHEMA',
-                    desc, method_api.fullname, params,
-                    method_api.params_validator.errors);
+                dbg.error('INVALID PARAMS SCHEMA', desc, method_api.fullname,
+                    'ERRORS:', method_api.params_validator.errors,
+                    'PARAMS:', params);
                 throw new Error('INVALID PARAMS SCHEMA ' + desc + ' ' + method_api.fullname);
             }
         };
@@ -88,9 +88,9 @@ RpcSchema.prototype.register_api = function(api) {
         method_api.validate_reply = function(reply, desc) {
             var result = method_api.reply_validator(reply);
             if (!result) {
-                dbg.error('INVALID REPLY SCHEMA',
-                    desc, method_api.fullname, reply,
-                    method_api.params_validator.errors);
+                dbg.error('INVALID REPLY SCHEMA', desc, method_api.fullname,
+                    'ERRORS:', method_api.params_validator.errors,
+                    'REPLY:', reply);
                 throw new Error('INVALID REPLY SCHEMA ' + desc + ' ' + method_api.fullname);
             }
         };
@@ -183,8 +183,8 @@ function prepare_schema(base, schema, path) {
         base.import_buffers = ifn('}').toFunction();
         if (base.buffers) {
             // dbg.log1('SCHEMA BUFFERS', base.id, base.buffers,
-                // base.export_buffers.toString(),
-                // base.import_buffers.toString());
+            // base.export_buffers.toString(),
+            // base.import_buffers.toString());
         }
     }
 }

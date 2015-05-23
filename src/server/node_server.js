@@ -49,9 +49,13 @@ function create_node(req) {
     info.system = req.system.id;
     info.heartbeat = new Date(0);
     info.peer_id = db.new_object_id();
+
+    // storage info will be updated by heartbeat
     info.storage = {
-        alloc: req.rpc_params.storage_alloc,
+        alloc: 0,
         used: 0,
+        total: 0,
+        free: 0,
     };
 
     // when the request role is admin it can provide any of the system tiers.
@@ -137,13 +141,9 @@ function update_node(req) {
         'geolocation',
         'srvmode'
     );
-    if (req.rpc_params.storage_alloc) {
-        updates.storage = {
-            alloc: req.rpc_params.storage_alloc,
-        };
-    }
+
+    // to connect we remove the srvmode field
     if (updates.srvmode === 'connect') {
-        // to connect we remove the srvmode field
         delete updates.srvmode;
         updates.$unset = {
             srvmode: 1
@@ -380,21 +380,49 @@ function count_node_storage_used(node_id) {
 }
 */
 
+var NODE_PICK_FIELDS = [
+    'id',
+    'name',
+    'geolocation',
+    'peer_id',
+    'ip',
+    'port',
+    'srvmode',
+    'version'
+];
+
+var NODE_DEFAULT_FIELDS = {
+    ip: '0.0.0.0',
+    port: 0,
+    version: '',
+    peer_id: ''
+};
+
 function get_node_full_info(node) {
-    var info = _.pick(node, 'id', 'name', 'geolocation', 'srvmode');
-    if (!info.srvmode) delete info.srvmode;
+    var info = _.defaults(_.pick(node, NODE_PICK_FIELDS), NODE_DEFAULT_FIELDS);
+    if (node.srvmode) {
+        info.srvmode = node.srvmode;
+    }
     info.tier = node.tier.name;
-    info.peer_id = node.peer_id || '';
-    info.ip = node.ip || '0.0.0.0';
-    info.port = node.port || 0;
     info.heartbeat = node.heartbeat.getTime();
-    info.storage = {
-        alloc: node.storage.alloc || 0,
-        used: node.storage.used || 0,
-    };
+    info.storage = get_storage_info(node.storage);
+    info.drives = _.map(node.drives, function(drive) {
+        return {
+            mount: drive.mount,
+            drive_id: drive.drive_id,
+            storage: get_storage_info(drive.storage)
+        };
+    });
     info.online = node.is_online();
-    info.device_info = node.device_info || {};
+    info.os_info = node.os_info && node.os_info.toObject() || {};
+    if (info.os_info.uptime) {
+        info.os_info.uptime = info.os_info.uptime.getTime();
+    }
     return info;
+}
+
+function get_storage_info(storage) {
+    return _.omit(_.pick(storage, 'total', 'free', 'used', 'alloc', 'limit'), _.isUndefined);
 }
 
 function find_node_by_name(req) {

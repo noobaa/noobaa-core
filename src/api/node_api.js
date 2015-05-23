@@ -262,12 +262,20 @@ module.exports = {
                     port: {
                         type: 'integer'
                     },
+                    version: {
+                        type: 'string'
+                    },
                     storage: {
                         $ref: '/common_api/definitions/storage_info'
                     },
-                    device_info: {
-                        type: 'object',
-                        additionalProperties: true,
+                    drives: {
+                        type: 'array',
+                        items: {
+                            $ref: '/common_api/definitions/drive_info'
+                        }
+                    },
+                    os_info: {
+                        $ref: '/common_api/definitions/os_info'
                     },
                 }
             },
@@ -362,10 +370,7 @@ module.exports = {
                 },
                 srvmode: {
                     $ref: '/node_api/definitions/srvmode'
-                },
-                storage_alloc: {
-                    type: 'integer'
-                },
+                }
             }
         },
 
@@ -387,8 +392,8 @@ module.exports = {
                 'port',
                 'online',
                 'heartbeat',
+                'version',
                 'storage',
-                'device_info',
             ],
             properties: {
                 id: {
@@ -422,12 +427,20 @@ module.exports = {
                     type: 'integer',
                     format: 'idate',
                 },
+                version: {
+                    type: 'string'
+                },
                 storage: {
                     $ref: '/common_api/definitions/storage_info'
                 },
-                device_info: {
-                    type: 'object',
-                    additionalProperties: true,
+                drives: {
+                    type: 'array',
+                    items: {
+                        $ref: '/common_api/definitions/drive_info'
+                    }
+                },
+                os_info: {
+                    $ref: '/common_api/definitions/os_info'
                 },
             }
         }

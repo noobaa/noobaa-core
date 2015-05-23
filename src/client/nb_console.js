@@ -460,7 +460,7 @@ nb_console.controller('NodeViewCtrl', [
                         options: {
                             is3D: false,
                             legend: {
-                                position: 'right',
+                                position: 'bottom',
                                 alignment: 'center',
                                 maxLines: 10,
                                 textStyle: {
@@ -470,34 +470,34 @@ nb_console.controller('NodeViewCtrl', [
                             backgroundColor: {
                                 fill: 'transparent',
                             },
+                            tooltip: {
+                                showColorCode: true,
+                            },
+                            // reverseCategories: true, // counter-clock-wise
                             sliceVisibilityThreshold: 0,
+                            pieSliceText: 'value',
                             slices: [{
-                                color: '#03a9f4'
+                                color: '#ff008b',
+                                offset: 0.10
                             }, {
-                                color: '#81d4fa'
+                                color: '#666',
                             }, {
-                                color: '#ff008b'
-                            }, {
-                                color: '#ffa0d3'
+                                color: '#03a9f4',
                             }]
                         },
                         data: [
                             ['Storage', 'Capacity'],
-                            ['Operating system', {
-                                v: node.storage.operating_sys,
-                                f: $scope.human_size(node.storage.operating_sys)
-                            }],
-                            ['Free disk space', {
-                                v: node.storage.free_disk,
-                                f: $scope.human_size(node.storage.free_disk)
-                            }],
-                            ['Noobaa used', {
+                            ['NooBaa Usage', {
                                 v: node.storage.used,
                                 f: $scope.human_size(node.storage.used)
                             }],
-                            ['Noobaa unused', {
-                                v: node.storage.unused,
-                                f: $scope.human_size(node.storage.unused)
+                            ['Free Space', {
+                                v: node.storage.free,
+                                f: $scope.human_size(node.storage.free)
+                            }],
+                            ['OS Usage', {
+                                v: node.storage.used_os,
+                                f: $scope.human_size(node.storage.used_os)
                             }],
                         ]
                     };

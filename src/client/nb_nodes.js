@@ -92,30 +92,13 @@ nb_api.factory('nbNodes', [
 
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
-            var used = node.storage.used;
-            var unused = node.storage.alloc - used;
-            var operating_sys = 0;
-            var free_disk = 0;
-            var total_disk = 0;
-            if (node.device_info) {
-                if (node.device_info.freestorage) {
-                    free_disk = Math.max(0, node.device_info.freestorage - unused);
-                }
-                if (node.device_info.totalstorage) {
-                    total_disk = node.device_info.totalstorage;
-                    operating_sys = Math.max(0,
-                        total_disk -
-                        free_disk -
-                        used -
-                        unused);
-                }
-            }
-            node.storage.unused = unused;
-            node.storage.operating_sys = operating_sys;
-            node.storage.free_disk = free_disk;
-            node.storage.total_disk = total_disk;
-            node.storage.usage_percent =
-                $rootScope.human_percent(node.storage.used / node.storage.alloc);
+            node.storage.used_os = node.storage.total - node.storage.used;
+            node.storage.used_percent =
+                $rootScope.human_percent(node.storage.used / node.storage.total);
+            node.storage.used_os_percent =
+                $rootScope.human_percent(node.storage.used_os / node.storage.total);
+            node.storage.free_percent =
+                $rootScope.human_percent(node.storage.free / node.storage.total);
         }
 
         function update_srvmode(node, srvmode) {

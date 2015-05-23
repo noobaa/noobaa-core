@@ -4,7 +4,6 @@
 var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
-var os = require('os');
 var pem = require('pem');
 var path = require('path');
 var http = require('http');
@@ -23,7 +22,7 @@ var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
-var diskspace_util = require('../util/diskspace_util');
+var os_util = require('../util/os_util');
 
 module.exports = Agent;
 
@@ -215,7 +214,6 @@ Agent.prototype._init_node = function() {
                     name: self.node_name,
                     tier: res.extra.tier,
                     geolocation: self.geolocation,
-                    storage_alloc: 100 * size_utils.GIGABYTE
                 }).then(function(node) {
                     self.node_id = node.id;
                     self.peer_id = node.peer_id;
@@ -329,13 +327,13 @@ Agent.prototype._server_error_handler = function(err) {
 Agent.prototype.send_heartbeat = function() {
     var self = this;
     var store_stats;
-    var device_info_send_time;
-    var disk_space;
-    var hourlyHB;
+    var extended_hb;
 
-    if (!self.device_info_send_time ||
-        Date.now() > self.device_info_send_time + 3600000) {
-        hourlyHB = true;
+    // var EXTENDED_HB_PERIOD = 3600000;
+    var EXTENDED_HB_PERIOD = 1000;
+    if (!self.extended_hb_last_time ||
+        Date.now() > self.extended_hb_last_time + EXTENDED_HB_PERIOD) {
+        extended_hb = true;
     }
 
     dbg.log0('send heartbeat by agent', self.node_id);
@@ -344,13 +342,12 @@ Agent.prototype.send_heartbeat = function() {
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
 
-            if (hourlyHB) {
-                return Q.fcall(diskspace_util.get_main_drive)
-                    .then(function(disk_space_arg) {
-                        disk_space = disk_space_arg;
-                        dbg.log0('AGENT disk space', disk_space);
+            if (extended_hb) {
+                return Q.fcall(os_util.read_drives)
+                    .then(function(drives_arg) {
+                        self.drives = drives_arg;
                     }, function(err) {
-                        dbg.error('AGENT get disk space failed', err.stack || err);
+                        dbg.error('AGENT read_drives: ERROR', err.stack || err);
                     });
             }
         })
@@ -367,52 +364,27 @@ Agent.prototype.send_heartbeat = function() {
                 geolocation: self.geolocation,
                 ip: ip,
                 port: http_port,
+                version: self.heartbeat_version || '',
                 storage: {
                     alloc: store_stats.alloc,
                     used: store_stats.used
                 },
             };
 
-            //Convert X.Y eth name style to X-Y as mongo doesn't accept . in it's keys
-            var orig_ifaces = os.networkInterfaces();
-            var interfaces = _.clone(orig_ifaces);
-
-            _.each(orig_ifaces, function(iface, name) {
-                if (name.indexOf('.') !== -1) {
-                    var new_name = name.replace('.', '-');
-                    interfaces[new_name] = iface;
-                    delete interfaces[name];
-                }
-            });
-
-            if (hourlyHB) {
-                device_info_send_time = Date.now();
-                params.device_info = {
-                    hostname: os.hostname(),
-                    type: os.type(),
-                    platform: os.platform(),
-                    arch: os.arch(),
-                    release: os.release(),
-                    uptime: os.uptime(),
-                    loadavg: os.loadavg(),
-                    totalmem: os.totalmem(),
-                    freemem: os.freemem(),
-                    cpus: os.cpus(),
-                    networkInterfaces: interfaces
-                };
-                if (disk_space) {
-                    params.device_info.totalstorage = disk_space.total;
-                    params.device_info.freestorage = disk_space.free;
+            if (extended_hb) {
+                params.os_info = os_util.os_info();
+                if (self.drives) {
+                    params.drives = self.drives;
                 }
             }
 
-            dbg.log3('AGENT HB params: ', params);
+            dbg.log0('AGENT heartbeat params:', params);
 
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {
-            if (device_info_send_time) {
-                self.device_info_send_time = device_info_send_time;
+            if (extended_hb) {
+                self.extended_hb_last_time = Date.now();
             }
 
             if (res.storage) {

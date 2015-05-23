@@ -245,7 +245,7 @@ nb_api.factory('nbFiles', [
                     $scope.s3.upload({
                         Key: tx.name,
                         Bucket: tx.bucket,
-                        Body: encodeURI(tx.input_file),
+                        Body: tx.input_file,
                         ContentType: tx.content_type
                     }, function(err, data) {
                         if (err) {

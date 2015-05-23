@@ -8,7 +8,7 @@ var md5_stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
-
+var string_utils = require('../util/string_utils');
 
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
@@ -62,7 +62,7 @@ module.exports = function(params) {
                 var access_key = extract_access_key(req);
                 var upload_part_info = {
                     bucket: req.bucket,
-                    key: encodeURI(req.query.uploadId),
+                    key: (req.query.uploadId),
                     size: content_length,
                     content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
                     source_stream: req,
@@ -845,7 +845,7 @@ module.exports = function(params) {
                     //TODO:Replace with s3 rest param, initiated from the constructor
                     key = key.replace('/s3', '');
                     key = key.substring(0, key.indexOf('?uploads'));
-                    key = encodeURI(decodeURI(key));
+                    key = decodeURIComponent(key);
 
                     var create_params = {
                         bucket: req.bucket,
@@ -861,7 +861,7 @@ module.exports = function(params) {
                     }
                     return clients[access_key].object.create_multipart_upload(create_params)
                         .then(function(info) {
-                            template = templateBuilder.buildInitiateMultipartUploadResult(req.params.key, req.bucket);
+                            template = templateBuilder.buildInitiateMultipartUploadResult(string_utils.encodeXML(req.params.key), req.bucket);
                             return buildXmlResponse(res, 200, template);
                         }).then(null, function(err) {
                             template = templateBuilder.buildKeyNotFound(req.query.uploadId);
@@ -874,14 +874,14 @@ module.exports = function(params) {
                     dbg.log0('request to complete ', req.query.uploadId);
                     return clients[access_key].object.complete_multipart_upload({
                         bucket: req.bucket,
-                        key: encodeURI(req.query.uploadId),
+                        key: (req.query.uploadId),
                         fix_parts_size: true
                     }).then(function(info) {
                         dbg.log0('done complete', info, 'https://' + req.hostname + '/' + req.bucket + '/' + req.query.uploadId);
                         delete objects_avarage_part_size[req.query.uploadId];
                         var completeMultipartInformation = {
                             Bucket: req.bucket,
-                            Key: encodeURI(req.query.uploadId),
+                            Key: (req.query.uploadId),
                             Location: 'https://' + req.hostname + '/' + req.bucket + '/' + encodeURI(req.query.uploadId),
                             ETag: 1234
                         };

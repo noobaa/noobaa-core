@@ -411,10 +411,10 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
             var noobaa_env_name = app_name;
 
             var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro';
-            var startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/init_agent.sh';
+            var startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.sh';
 
             if (is_docker_host) {
-                startup_script = 'http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/docker_setup.sh';
+                startup_script = 'http://noobaa-download.s3.amazonaws.com/docker_setup.sh';
                 machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
 
             }

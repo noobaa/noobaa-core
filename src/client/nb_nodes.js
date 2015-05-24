@@ -99,15 +99,20 @@ nb_api.factory('nbNodes', [
                     function(count, model) {
                         return count + 'x  ' + model;
                     }).join(', ');
+                node.os_info.addresses = [];
+                node.os_info.addresses6 = [];
                 _.each(node.os_info.networkInterfaces,
                     function(ifc, name) {
-                        ifc.name = name;
-                        ifc.addr = _.map(_.filter(ifc, {
-                            family: 'IPv4'
-                        }), 'address').join(', ');
-                        ifc.addr6 = _.map(_.reject(ifc, {
-                            family: 'IPv4'
-                        }), 'address').join(', ');
+                        _.each(ifc, function(addr) {
+                            addr = _.extend({
+                                name: name
+                            }, addr);
+                            if (addr.family === 'IPv4') {
+                                node.os_info.addresses.push(addr);
+                            } else {
+                                node.os_info.addresses6.push(addr);
+                            }
+                        });
                     });
                 node.os_info.loadavg_str = _.map(node.os_info.loadavg,
                     function(x) {

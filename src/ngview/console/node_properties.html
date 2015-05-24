@@ -84,11 +84,15 @@
         <div class="heading-col col-sm-3">
             <h4 class="text-primary">Operating System</h4>
         </div>
-        <div class="content-col col-sm-6">
+        <div class="content-col col-sm-9">
             <table class="table table-no-borders">
                 <tr>
                     <th>Host Name</th>
                     <td>{{node.os_info.hostname}}</td>
+                </tr>
+                <tr>
+                    <th>Up Time</th>
+                    <td>{{node.os_info.uptime_moment.fromNow()}}</td>
                 </tr>
                 <tr>
                     <th>OS Type</th>
@@ -102,17 +106,26 @@
                     <th>Memory</th>
                     <td>{{human_size(node.os_info.totalmem)}}</td>
                 </tr>
-                <tr ng-repeat="net in node.os_info.networkInterfaces">
-                    <th>Network: {{net.name}}</th>
-                    <td>{{net.addr}} <small>{{net.addr6}}</small></td>
-                </tr>
                 <tr>
-                    <th>Load Average</th>
-                    <td>{{node.os_info.loadavg_str}}</td>
-                </tr>
-                <tr>
-                    <th>Up Time</th>
-                    <td>{{node.os_info.uptime_moment.fromNow()}}</td>
+                    <th>Networks</th>
+                    <td>
+                        <div ng-repeat="addr in node.os_info.addresses">
+                            {{addr.address}}
+                            - {{addr.name}}
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input ng-model="show_ipv6" type="checkbox"/>
+                                <small>show IPv6</small>
+                            </label>
+                        </div>
+                        <div ng-if="show_ipv6">
+                            <div ng-repeat="addr in node.os_info.addresses6">
+                                {{addr.address}}
+                                - {{addr.name}}
+                            </div>
+                        </div>
+                    </td>
                 </tr>
             </table>
         </div>

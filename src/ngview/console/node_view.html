@@ -20,53 +20,6 @@
             <li class="active">This node</li>
         </ol>
 
-
-        <!--
-        <div class="page-properties">
-            <table class="table table-properties">
-                <tr>
-                    <th>Status</th>
-                    <td>
-                        <span ng-if="node.online">
-                            Healthy <i class="fa fa-check fa-lg"></i>
-                        </span>
-                        <span ng-if="!node.online">
-                            Offline <i class="fa fa-plug fa-lg text-warning"></i>
-                        </span>
-                    </td>
-                    <th>Trust Level</th>
-                    <td>Trusted <i class="mdi-action-verified-user"></i>
-                    </td>
-                    <th>Network Address</th>
-                    <td>{{node.ip}}:{{node.port}}</td>
-                    <th>Used Storage</th>
-                    <td>{{human_size(node.storage.used)}} of {{human_size(node.storage.alloc)}}</td>
-                    <td></td>
-                </tr>
-            </table>
-        </div>
-        -->
-
-        <!--
-        <ul class="nav nav-tabs">
-            <li ng-class="{active: node_router.route == 'overview'}">
-                <a ng-click="node_router.set('overview')">Device Details</a>
-            </li>
-            <li ng-class="{active: node_router.route == 'parts'}">
-                <a ng-click="node_router.set('parts')">Files Parts</a>
-            </li>
-            <li ng-class="{active: node_router.route == 'properties'}">
-                <a ng-click="node_router.set('properties')">Properties</a>
-            </li>
-            <li ng-class="{active: node_router.route == 'settings'}">
-                <a ng-click="node_router.set('settings')">Settings</a>
-            </li>
-            <li ng-class="{active: node_router.route == 'stats'}">
-                <a ng-click="node_router.set('stats')">Statistics</a>
-            </li>
-        </ul>
-        -->
-
     </div>
 
     <div class="text-center clearfix" style="margin: -10px 0 20px 0">

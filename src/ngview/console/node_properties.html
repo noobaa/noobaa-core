@@ -1,87 +1,160 @@
 <div ng-cloak>
-
-    <div class="row">
-        <div class="heading-col col-sm-3">
-            <h4 class="text-primary">Last heartbeat</h4>
-        </div>
-        <div class="content-col col-sm-3">
-            {{node.hearbeat_moment.fromNow()}}
-        </div>
-    </div>
-
     <hr/>
-
     <div class="row">
         <div class="heading-col col-sm-3">
-            <h4 class="text-primary">Hard Drive</h4>
+            <h4 class="text-primary">Agent Status</h4>
         </div>
         <div class="content-col col-sm-6">
             <table class="table table-no-borders">
                 <tr>
-                    <th>Total Space</th>
-                    <td>{{human_size(node.storage.total_disk)}}</td>
+                    <th>
+                        <i class="fa fa-heartbeat fa-lg fa-fw text-muted"></i>
+                        Heartbeat
+                    </th>
+                    <td>{{node.hearbeat_moment.fromNow()}}</td>
                 </tr>
                 <tr>
-                    <th>Free Space</th>
-                    <td>{{human_size(node.storage.free_disk)}}</td>
-                </tr>
-                <tr>
-                    <th>Operating System Size</th>
-                    <td>{{human_size(node.storage.operating_sys)}}</td>
-                </tr>
-                <tr>
-                    <th>Noobaa Allocated</th>
-                    <td>{{human_size(node.storage.alloc)}}</td>
-                </tr>
-                <tr>
-                    <th>Noobaa Unused</th>
-                    <td>{{human_size(node.storage.unused)}}</td>
-                </tr>
-                <tr>
-                    <th>Noobaa Used</th>
-                    <td>{{human_size(node.storage.used)}}</td>
-                </tr>
-                <tr>
-                    <th>Noobaa Used Percent</th>
-                    <td>{{node.storage.usage_percent}}%</td>
+                    <th>
+                        <i class="fa fa-tag fa-lg fa-fw text-muted"></i>
+                        Version
+                    </th>
+                    <td>{{node.version}}</td>
                 </tr>
             </table>
         </div>
     </div>
-
     <hr/>
-
     <div class="row">
         <div class="heading-col col-sm-3">
-            <h4 class="text-primary">Operating system</h4>
+            <h4 class="text-primary">Hard Drives</h4>
         </div>
-        <div class="content-col col-sm-6">
+        <div class="content-col col-sm-9">
             <table class="table table-no-borders">
-                <tr ng-repeat="(key,val) in node.device_info">
-                    <th>{{key}}</th>
-                    <td ng-switch="key">
-                        <span ng-switch-when="freemem">{{human_size(val)}}</span>
-                        <span ng-switch-when="totalmem">{{human_size(val)}}</span>
-                        <span ng-switch-when="cpus">{{val.length}}</span>
-                        <span ng-switch-when="loadavg">{{val[0].toFixed(1)}} {{val[1].toFixed(1)}} {{val[2].toFixed(1)}}</span>
-                        <span ng-switch-when="networkInterfaces">{{_.keys(val).join(', ')}}</span>
-                        <span ng-switch-default>{{val}}</span>
+                <tr style="border-bottom: 1px dashed #666">
+                    <th>Drive</th>
+                    <th>
+                        <i class="fa fa-circle fa-fw" style="color: #03a9f4"></i>
+                        OS Usage
+                    </th>
+                    <th>
+                        <i class="fa fa-circle fa-fw" style="color: #ff008b"></i>
+                        NooBaa Usage
+                    </th>
+                    <th>
+                        <i class="fa fa-circle fa-fw" style="color: #666"></i>
+                        Free Space
+                    </th>
+                    <th></th>
+                </tr>
+                <tr ng-repeat="drive in node.drives">
+                    <td>
+                        <i class="fa fa-hdd-o fa-lg fa-fw text-muted"></i>
+                        {{drive.mount}}
+                    </td>
+                    <td>{{human_size(drive.storage.used_os)}}</td>
+                    <td>
+                        <span ng-if="drive.storage.used === undefined">
+                            -- not in use --
+                        </span>
+                        <span ng-if="drive.storage.used !== undefined">
+                            {{human_size(drive.storage.used)}}
+                        </span>
+                    </td>
+                    <td>{{human_size(drive.storage.free)}}</td>
+                    <td>
+                        <div class="progress"
+                            style="width: 100px; height: 15px; margin: 2px 0 0 0; background-color: #666">
+                            <div aria-valuemax="100" aria-valuemin="0"
+                                aria-valuenow="{{drive.storage.used_os_percent}}" class="progress-bar" role="progressbar"
+                                style="width: {{drive.storage.used_os_percent}}%; background-color: #03a9f4"></div>
+                            <div aria-valuemax="100" aria-valuemin="0"
+                                aria-valuenow="{{drive.storage.used_percent}}" class="progress-bar" role="progressbar"
+                                style="width: {{drive.storage.used_percent}}%; background-color: #ff008b"></div>
+                        </div>
+                    </td>
+                </tr>
+                <tr style="border-top: 1px dashed #666">
+                    <th>Total</th>
+                    <th>{{human_size(node.storage.used_os)}}</th>
+                    <th>{{human_size(node.storage.used)}}</th>
+                    <th>{{human_size(node.storage.free)}}</th>
+                    <th>
+                        <div class="progress"
+                            style="width: 100px; height: 15px; margin: 2px 0 0 0; background-color: #666">
+                            <div aria-valuemax="100" aria-valuemin="0"
+                                aria-valuenow="{{node.storage.used_os_percent}}" class="progress-bar" role="progressbar"
+                                style="width: {{node.storage.used_os_percent}}%; background-color: #03a9f4"></div>
+                            <div aria-valuemax="100" aria-valuemin="0"
+                                aria-valuenow="{{node.storage.used_percent}}" class="progress-bar" role="progressbar"
+                                style="width: {{node.storage.used_percent}}%; background-color: #ff008b"></div>
+                        </div>
+                    </th>
+                </tr>
+            </table>
+        </div>
+    </div>
+    <hr/>
+    <div class="row">
+        <div class="heading-col col-sm-3">
+            <h4 class="text-primary">Operating System</h4>
+        </div>
+        <div class="content-col col-sm-9">
+            <table class="table table-no-borders">
+                <tr>
+                    <th>Host Name</th>
+                    <td>{{node.os_info.hostname}}</td>
+                </tr>
+                <tr>
+                    <th>Up Time</th>
+                    <td>{{node.os_info.uptime_moment.fromNow()}}</td>
+                </tr>
+                <tr>
+                    <th>OS Type</th>
+                    <td>{{node.os_info.ostype}}</td>
+                </tr>
+                <tr>
+                    <th>CPUs</th>
+                    <td>{{node.os_info.cpus_str}}</td>
+                </tr>
+                <tr>
+                    <th>Memory</th>
+                    <td>{{human_size(node.os_info.totalmem)}}</td>
+                </tr>
+                <tr>
+                    <th>Networks</th>
+                    <td>
+                        <div ng-repeat="addr in node.os_info.addresses">
+                            {{addr.address}}
+                            - {{addr.name}}
+                        </div>
+                        <div class="checkbox">
+                            <label>
+                                <input ng-model="show_ipv6" type="checkbox"/>
+                                <small>show IPv6</small>
+                            </label>
+                        </div>
+                        <div ng-if="show_ipv6">
+                            <div ng-repeat="addr in node.os_info.addresses6">
+                                {{addr.address}}
+                                - {{addr.name}}
+                            </div>
+                        </div>
                     </td>
                 </tr>
             </table>
         </div>
     </div>
-
     <hr/>
-
     <div class="row">
         <div class="heading-col col-sm-3">
-            <h4 class="text-primary">Self test</h4>
+            <h4 class="text-primary">Self Test</h4>
         </div>
         <div class="content-col col-sm-9">
-            <button class="btn btn-primary" nb-click-ladda="nbNodes.self_test(node, self_test_kind)">Start</button>
+            <button class="btn btn-primary"
+                nb-click-ladda="nbNodes.self_test(node, self_test_kind)">Start</button>
             <div style="display: inline-block; width: 150px">
-                <select ng-init="self_test_kind='conn'" ng-model="self_test_kind" class="form-control">
+                <select class="form-control" ng-init="self_test_kind='conn'"
+                    ng-model="self_test_kind">
                     <option value="conn">Connectivity</option>
                     <option value="rw">Read-Write</option>
                     <option value="load">Load one node</option>
@@ -101,14 +174,13 @@
                         <span ng-if="test.start && !test.done && !test.error">
                             <i class="fa fa-spinner fa-spin fa-lg fa-fw"></i>
                         </span>
-                        <i ng-if="test.done" class="fa fa-check fa-lg fa-fw text-success"></i>
-                        <i ng-if="test.error" class="fa fa-times fa-lg fa-fw text-danger" rel="tooltip" ng-attr-title="{{test.error}}"></i>
+                        <i class="fa fa-check fa-lg fa-fw text-success" ng-if="test.done"></i>
+                        <i class="fa fa-times fa-lg fa-fw text-danger" ng-attr-title="{{test.error}}"
+                            ng-if="test.error" rel="tooltip"></i>
                     </td>
                 </tr>
             </table>
         </div>
     </div>
-
     <hr/>
-
 </div>

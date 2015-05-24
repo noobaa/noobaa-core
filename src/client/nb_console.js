@@ -477,16 +477,20 @@ nb_console.controller('NodeViewCtrl', [
                             sliceVisibilityThreshold: 0,
                             pieSliceText: 'value',
                             slices: [{
+                                color: '#03a9f4',
+                            }, {
                                 color: '#ff008b',
                                 offset: 0.10
                             }, {
                                 color: '#666',
-                            }, {
-                                color: '#03a9f4',
                             }]
                         },
                         data: [
                             ['Storage', 'Capacity'],
+                            ['OS Usage', {
+                                v: node.storage.used_os,
+                                f: $scope.human_size(node.storage.used_os)
+                            }],
                             ['NooBaa Usage', {
                                 v: node.storage.used,
                                 f: $scope.human_size(node.storage.used)
@@ -494,10 +498,6 @@ nb_console.controller('NodeViewCtrl', [
                             ['Free Space', {
                                 v: node.storage.free,
                                 f: $scope.human_size(node.storage.free)
-                            }],
-                            ['OS Usage', {
-                                v: node.storage.used_os,
-                                f: $scope.human_size(node.storage.used_os)
                             }],
                         ]
                     };

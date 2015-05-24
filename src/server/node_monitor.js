@@ -215,6 +215,7 @@ function heartbeat(req) {
                 var drives_total = 0;
                 var drives_free = 0;
                 _.each(params.drives, function(drive) {
+                    drive.storage.used = drive.storage.used || 0;
                     drives_total += drive.storage.total;
                     drives_free += drive.storage.free;
                 });

@@ -38,7 +38,14 @@
                         {{drive.mount}}
                     </td>
                     <td>{{human_size(drive.storage.used_os)}}</td>
-                    <td>{{human_size(drive.storage.used)}}</td>
+                    <td>
+                        <span ng-if="drive.storage.used === undefined">
+                            -- not in use --
+                        </span>
+                        <span ng-if="drive.storage.used !== undefined">
+                            {{human_size(drive.storage.used)}}
+                        </span>
+                    </td>
                     <td>{{human_size(drive.storage.free)}}</td>
                     <td>
                         <div class="progress"
@@ -53,7 +60,7 @@
                     </td>
                 </tr>
                 <tr style="border-top: 1px dashed #666">
-                    <th>Summary</th>
+                    <th>Total</th>
                     <th>{{human_size(node.storage.used_os)}}</th>
                     <th>{{human_size(node.storage.used)}}</th>
                     <th>{{human_size(node.storage.free)}}</th>

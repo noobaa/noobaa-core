@@ -214,8 +214,12 @@ function heartbeat(req) {
                 updates.drives = params.drives;
                 var drives_total = 0;
                 var drives_free = 0;
+                var first = true;
                 _.each(params.drives, function(drive) {
-                    drive.storage.used = drive.storage.used || 0;
+                    if (first) {
+                        drive.storage.used = drive.storage.used || storage_used;
+                        first = false;
+                    }
                     drives_total += drive.storage.total;
                     drives_free += drive.storage.free;
                 });

@@ -99,13 +99,12 @@ nb_api.factory('nbNodes', [
         }
 
         function extend_storage_info(storage) {
-            storage.used_os = storage.total - storage.used - storage.free;
-            storage.used_percent =
-                $rootScope.human_percent(storage.used / storage.total);
-            storage.used_os_percent =
-                $rootScope.human_percent(storage.used_os / storage.total);
-            storage.free_percent =
-                $rootScope.human_percent(storage.free / storage.total);
+            // allowing used to be undefined
+            var used = storage.used || 0;
+            storage.used_os = storage.total - used - storage.free;
+            storage.used_percent = 100 * used / storage.total;
+            storage.used_os_percent = 100 * storage.used_os / storage.total;
+            storage.free_percent = 100 * storage.free / storage.total;
         }
 
         function update_srvmode(node, srvmode) {

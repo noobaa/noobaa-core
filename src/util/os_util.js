@@ -58,13 +58,13 @@ function get_main_drive_name() {
 }
 
 function read_mac_linux_drives() {
-    return Q.nfcall(node_df)
+    return Q.nfcall(node_df, {
+            // this is a hack to make node_df append the -l flag to the df command
+            // in order to get only local file systems.
+            file: '-l'
+        })
         .then(function(drives) {
             return _.compact(_.map(drives, function(drive) {
-                // for now only consider the root mount
-                // to use other mounts we should check the type of disk/fs
-                // and only return local disks, and filter ramfs mounts, automounts, etc.
-                if (drive.mount !== '/') return;
                 return {
                     mount: drive.mount,
                     drive_id: drive.filesystem,

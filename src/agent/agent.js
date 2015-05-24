@@ -329,8 +329,8 @@ Agent.prototype.send_heartbeat = function() {
     var store_stats;
     var extended_hb;
 
-    // var EXTENDED_HB_PERIOD = 3600000;
-    var EXTENDED_HB_PERIOD = 1000;
+    var EXTENDED_HB_PERIOD = 3600000;
+    // var EXTENDED_HB_PERIOD = 1000;
     if (!self.extended_hb_last_time ||
         Date.now() > self.extended_hb_last_time + EXTENDED_HB_PERIOD) {
         extended_hb = true;

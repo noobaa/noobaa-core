@@ -32,7 +32,7 @@ function os_info() {
         platform: os.platform(),
         arch: os.arch(),
         release: os.release(),
-        uptime: Date.now() - os.uptime(),
+        uptime: Date.now() - Math.floor(1000 * os.uptime()),
         loadavg: os.loadavg(),
         totalmem: os.totalmem(),
         freemem: os.freemem(),

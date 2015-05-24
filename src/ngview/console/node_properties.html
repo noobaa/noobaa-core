@@ -82,22 +82,37 @@
     <hr/>
     <div class="row">
         <div class="heading-col col-sm-3">
-            <h4 class="text-primary">Operating system</h4>
+            <h4 class="text-primary">Operating System</h4>
         </div>
         <div class="content-col col-sm-6">
             <table class="table table-no-borders">
-                <tr ng-repeat="(key,val) in node.os_info">
-                    <th>{{key}}</th>
-                    <td ng-switch="key">
-                        <span ng-switch-when="freemem">{{human_size(val)}}</span>
-                        <span ng-switch-when="totalmem">{{human_size(val)}}</span>
-                        <span ng-switch-when="cpus">{{val.length}}</span>
-                        <span ng-switch-when="loadavg">{{val[0].toFixed(1)}}
-                            {{val[1].toFixed(1)}}
-                            {{val[2].toFixed(1)}}</span>
-                        <span ng-switch-when="networkInterfaces">{{_.keys(val).join(', ')}}</span>
-                        <span ng-switch-default>{{val}}</span>
-                    </td>
+                <tr>
+                    <th>Host Name</th>
+                    <td>{{node.os_info.hostname}}</td>
+                </tr>
+                <tr>
+                    <th>OS Type</th>
+                    <td>{{node.os_info.ostype}}</td>
+                </tr>
+                <tr>
+                    <th>CPUs</th>
+                    <td>{{node.os_info.cpus_str}}</td>
+                </tr>
+                <tr>
+                    <th>Memory</th>
+                    <td>{{human_size(node.os_info.totalmem)}}</td>
+                </tr>
+                <tr ng-repeat="net in node.os_info.networkInterfaces">
+                    <th>Network: {{net.name}}</th>
+                    <td>{{net.addr}} <small>{{net.addr6}}</small></td>
+                </tr>
+                <tr>
+                    <th>Load Average</th>
+                    <td>{{node.os_info.loadavg_str}}</td>
+                </tr>
+                <tr>
+                    <th>Up Time</th>
+                    <td>{{node.os_info.uptime_moment.fromNow()}}</td>
                 </tr>
             </table>
         </div>

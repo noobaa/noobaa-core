@@ -92,6 +92,28 @@ nb_api.factory('nbNodes', [
 
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
+            if (node.os_info) {
+                node.os_info.uptime_moment = moment(new Date(node.os_info.uptime));
+                var cpus = _.countBy(node.os_info.cpus, 'model');
+                node.os_info.cpus_str = _.map(cpus,
+                    function(count, model) {
+                        return count + 'x  ' + model;
+                    }).join(', ');
+                _.each(node.os_info.networkInterfaces,
+                    function(ifc, name) {
+                        ifc.name = name;
+                        ifc.addr = _.map(_.filter(ifc, {
+                            family: 'IPv4'
+                        }), 'address').join(', ');
+                        ifc.addr6 = _.map(_.reject(ifc, {
+                            family: 'IPv4'
+                        }), 'address').join(', ');
+                    });
+                node.os_info.loadavg_str = _.map(node.os_info.loadavg,
+                    function(x) {
+                        return x.toFixed(1);
+                    }).join(' ');
+            }
             extend_storage_info(node.storage);
             _.each(node.drives, function(drive) {
                 extend_storage_info(drive.storage);

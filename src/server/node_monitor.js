@@ -193,6 +193,9 @@ function heartbeat(req) {
             if (params.port && params.port !== node.port) {
                 updates.port = params.port;
             }
+            if (params.version && params.version !== node.version) {
+                updates.version = params.version;
+            }
 
             // verify the agent's reported usage
             var agent_storage = params.storage;

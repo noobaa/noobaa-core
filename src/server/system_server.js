@@ -8,8 +8,9 @@ var size_utils = require('../util/size_utils');
 var db = require('./db');
 var tier_server = require('./tier_server');
 var bucket_server = require('./bucket_server');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('noobaa-util/debug_module')(__filename);
 var AWS = require('aws-sdk');
+var child_process = require('child_process');
 
 
 /**
@@ -45,9 +46,9 @@ module.exports = system_server;
  */
 function create_system(req) {
     var system;
+    var info = _.pick(req.rpc_params, 'name');
 
     return Q.fcall(function() {
-            var info = _.pick(req.rpc_params, 'name');
             if (info.name === 'demo') {
                 info.access_keys = [{
                     access_key: '123',
@@ -109,6 +110,37 @@ function create_system(req) {
             return bucket_server.create_bucket(bucket_req);
         })
         .then(function() {
+            if (process.env.ON_PREMISE) {
+
+                var build_params = [
+                    '--access_key='+info.access_keys[0].access_key,
+                    '--secret_key='+info.access_keys[0].secret_key,
+                    '--system_id='+system.id,
+                    '--system='+system.name,
+                    '--on_premise_env=1',
+                    '--address=wss://noobaa.local:443'
+                ];
+
+                var build_script = child_process.spawn('src/deploy/build_atom_agent_win.sh', build_params, {
+                    cwd: process.cwd()
+                });
+                var stdout = '',
+                    stderr = '';
+
+                build_script.stdout.setEncoding('utf8');
+
+                build_script.stdout.on('data', function(data) {
+                    stdout += data;
+                    dbg.log0(data);
+                });
+
+                build_script.stderr.setEncoding('utf8');
+                build_script.stderr.on('data', function(data) {
+                    stderr += data;
+                    dbg.log0(data);
+                });            }
+        })
+        .then(function(){
 
             // a token for the new system
             /* TODO add the token to the response

@@ -42,6 +42,12 @@ if (!process.env.PORT) {
 }
 
 var active_server;
+var build_on_premise = false;
+for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
+    if (process.argv[arg_idx] === '--on_premise') {
+        build_on_premise = true;
+    }
+}
 
 function leave_no_wounded(err) {
     if (err) {
@@ -328,7 +334,19 @@ gulp.task('agent', ['jshint'], function() {
 });
 
 gulp.task('build_agent_distro', ['agent'], function() {
-    var build_script = child_process.spawn('src/deploy/build_atom_agent_win.sh', ['--access_key=123', '--secret_key=abc'], {
+    var build_params = [];
+    if (build_on_premise === true) {
+        build_params = ['--on_premise'];
+    } else {
+        build_params = ['--access_key=2ad3ecd3f066d6f881c9e3c2b7044412',
+            '--secret_key=e168c0557f5d973d50ccd437209d6ad6a4271a21aed8e4a18109bd5b4b04eecb',
+            '--system_id=5558c06d3aa4700e008f68ba',
+            '--system=nesstest',
+            '--address=wss://noobaa-alpha.herokuapp.com:443'
+        ];
+    }
+
+    var build_script = child_process.spawn('src/deploy/build_atom_agent_win.sh', build_params, {
         cwd: process.cwd()
     });
     var stdout = '',

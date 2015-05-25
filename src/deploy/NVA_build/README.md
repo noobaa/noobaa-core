@@ -29,6 +29,8 @@ noobaa-core/deploy/NVA_build
   2) Running the following:
       2.1) yum -y update
       2.2) passwd -> current pass reverse change to roonoobaa
+      2.3) download scones from  http://downloads.sourceforge.net/project/scons/scons/2.3.4/scons-2.3.4.tar.gz?r=http%3A%2F%2Fwww.scons.org%2Fdownload.php&ts=1431437307&use_mirror=garr
+           open it and python setup.py install
   3) In the core repo dir, run gulp NVA_build.
   4) SCP src/deploy/NVA_build/* and build/public/noobaa-NVA.tar.gz to the machine at /tmp
   5) run /tmp/deploy_base runinstall

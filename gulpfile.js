@@ -323,7 +323,7 @@ gulp.task('agent', ['jshint'], function() {
         .pipe(gulp.dest(BUILD_DEST));
 
     return event_stream
-        .merge(pkg_stream, src_stream,basejs_stream)
+        .merge(pkg_stream, src_stream, basejs_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('package', p.dirname);
         }))
@@ -366,9 +366,14 @@ gulp.task('build_agent_distro', ['agent'], function() {
     });
 });
 
-gulp.task('NVA_build', ['jshint', 'build_agent_distro'], function() {
+gulp.task('NVA_build', ['jshint', 'install', 'build_agent_distro'], function() {
     var DEST = 'build/public';
     var NAME = 'noobaa-NVA.tar';
+
+    //Remove previously build package
+    child_process.spawnSync('rm -f ' + DEST + '/' + NAME + '.gz', '', {
+        cwd: process.cwd()
+    });
 
     var pkg_stream = gulp
         .src('package.json')
@@ -424,8 +429,15 @@ gulp.task('NVA_build', ['jshint', 'build_agent_distro'], function() {
             p.dirname = path.join('deployment', p.dirname);
         }));
 
+    var build_stream = gulp
+        .src(['build/public/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('build/public', p.dirname);
+        }));
+
     return event_stream
-        .merge(pkg_stream, src_stream, images_stream, basejs_stream, vendor_stream, agent_distro)
+        .merge(pkg_stream, src_stream, images_stream, basejs_stream,
+            vendor_stream, agent_distro, build_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))

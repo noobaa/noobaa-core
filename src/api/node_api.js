@@ -156,6 +156,10 @@ module.exports = {
                                 // regexp
                                 type: 'string'
                             },
+                            state: {
+                                type: 'string',
+                                enum: ['online', 'offline']
+                            },
                         }
                     },
                     skip: {
@@ -164,12 +168,18 @@ module.exports = {
                     limit: {
                         type: 'integer'
                     },
+                    pagination: {
+                        type: 'boolean'
+                    },
                 }
             },
             reply: {
                 type: 'object',
                 required: ['nodes'],
                 properties: {
+                    total_count: {
+                        type: 'integer'
+                    },
                     nodes: {
                         type: 'array',
                         items: {

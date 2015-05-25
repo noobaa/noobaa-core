@@ -64,7 +64,7 @@ nb_api.factory('nbNodes', [
                     console.log('NODES', res);
                     var nodes = res.nodes;
                     _.each(nodes, extend_node_info);
-                    return nodes;
+                    return res;
                 });
         }
 
@@ -218,7 +218,8 @@ nb_api.factory('nbNodes', [
                 .then(function() {
                     dbg.log0('SELF TEST listing nodes');
                     return list_nodes({})
-                        .then(function(nodes) {
+                        .then(function(res) {
+                            var nodes = res.nodes;
                             online_nodes = _.filter(nodes, function(target_node) {
                                 if (target_node.online) return true;
                                 dbg.log0('SELF TEST filter offline node', target_node.name);

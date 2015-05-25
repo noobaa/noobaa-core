@@ -156,8 +156,8 @@ nb_console.controller('SupportViewCtrl', [
 
 
 nb_console.controller('OverviewCtrl', [
-    '$scope', '$q', '$location', '$timeout','$window','nbSystem', 'nbModal',
-    function($scope, $q, $location, $timeout,$window,nbSystem,nbModal) {
+    '$scope', '$q', '$location', '$timeout', '$window', 'nbSystem', 'nbModal',
+    function($scope, $q, $location, $timeout, $window, nbSystem, nbModal) {
         $scope.nav.active = 'overview';
         $scope.nav.reload_view = reload_view;
         $scope.upload = upload;
@@ -200,10 +200,10 @@ nb_console.controller('OverviewCtrl', [
         function rest_server_information() {
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
-            scope.rest_endpoint = $window.location.protocol+'//' +$window.location.host+'/s3';
+            scope.rest_endpoint = $window.location.protocol + '//' + $window.location.host + '/s3';
             scope.rest_package = download_rest_server_package;
-            console.log('rest_server_information',scope.rest_package,scope.rest_endpoint);
-            console.log('rest_server_information',$window.location,$location);
+            console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
+            console.log('rest_server_information', $window.location, $location);
             scope.modal = nbModal({
                 template: 'console/rest_server_information.html',
                 scope: scope,
@@ -215,15 +215,15 @@ nb_console.controller('OverviewCtrl', [
             var link;
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
-                    console.log('GOT URL1:',url);
+                    console.log('GOT URL1:', url);
                     link = $window.document.createElement("a");
-                    link.id ='noobaa_link_rest_package';
-                    $window.document.body.appendChild(link) ;
+                    link.id = 'noobaa_link_rest_package';
+                    $window.document.body.appendChild(link);
                     link.download = '';
                     link.href = url;
                     link.click();
                     return Q.delay(2000);
-                }).then(function(){
+                }).then(function() {
                     $window.document.body.removeChild(link);
                 });
         }
@@ -314,10 +314,7 @@ nb_console.controller('TierViewCtrl', [
                         $location.path('/tier/');
                         return;
                     }
-                    $scope.nodes_num_pages = Math.ceil(
-                        $scope.tier.nodes.count / $scope.nodes_page_size);
-                    $scope.nodes_pages = _.times(Math.min(15, $scope.nodes_num_pages), _.identity);
-                    tier_router.set_num_pages('nodes', $scope.nodes_num_pages);
+                    $scope.pie_chart = storage_pie_chart($scope, $scope.tier.storage);
                     tier_router.done();
                 });
         }
@@ -333,13 +330,26 @@ nb_console.controller('TierViewCtrl', [
             if ($scope.nodes_query.geo) {
                 query.geolocation = $scope.nodes_query.geo;
             }
+            if ($scope.nodes_query.state) {
+                // online/offline
+                query.state = $scope.nodes_query.state;
+            }
             return nbNodes.list_nodes({
                 query: query,
                 skip: $scope.nodes_query.page * $scope.nodes_page_size,
                 limit: $scope.nodes_page_size,
+                pagination: true
             }).then(function(res) {
-                $scope.nodes = res;
+                $scope.nodes = res.nodes;
+                set_number_of_nodes(res.total_count);
             });
+        }
+
+        function set_number_of_nodes(count) {
+            $scope.nodes_num_pages = Math.ceil(
+                count / $scope.nodes_page_size);
+            $scope.nodes_pages = _.times(Math.min(15, $scope.nodes_num_pages), _.identity);
+            tier_router.set_num_pages('nodes', $scope.nodes_num_pages);
         }
 
         function reload_overview(hash_query) {
@@ -382,10 +392,10 @@ nb_console.controller('TierViewCtrl', [
                         link = $window.document.createElement("a");
                         link.download = '';
                         link.href = url;
-                        $window.document.body.appendChild(link) ;
+                        $window.document.body.appendChild(link);
                         link.click();
                         return Q.delay(2000);
-                    }).then(function(){
+                    }).then(function() {
                         $window.document.body.removeChild(link);
                     }).then(function() {
                         scope.next_stage();
@@ -456,51 +466,7 @@ nb_console.controller('NodeViewCtrl', [
                 })
                 .then(function(node) {
                     $scope.node = node;
-                    $scope.pie_chart = {
-                        options: {
-                            is3D: false,
-                            legend: {
-                                position: 'bottom',
-                                alignment: 'center',
-                                maxLines: 10,
-                                textStyle: {
-                                    color: 'white'
-                                }
-                            },
-                            backgroundColor: {
-                                fill: 'transparent',
-                            },
-                            tooltip: {
-                                showColorCode: true,
-                            },
-                            // reverseCategories: true, // counter-clock-wise
-                            sliceVisibilityThreshold: 0,
-                            pieSliceText: 'value',
-                            slices: [{
-                                color: '#03a9f4',
-                            }, {
-                                color: '#ff008b',
-                                offset: 0.10
-                            }, {
-                                color: '#666',
-                            }]
-                        },
-                        data: [
-                            ['Storage', 'Capacity'],
-                            ['OS Usage', {
-                                v: node.storage.used_os,
-                                f: $scope.human_size(node.storage.used_os)
-                            }],
-                            ['NooBaa Usage', {
-                                v: node.storage.used,
-                                f: $scope.human_size(node.storage.used)
-                            }],
-                            ['Free Space', {
-                                v: node.storage.free,
-                                f: $scope.human_size(node.storage.free)
-                            }],
-                        ]
-                    };
+                    $scope.pie_chart = storage_pie_chart($scope, node.storage);
 
                     // TODO handle node parts pages
                     $scope.parts_num_pages = 9;
@@ -584,10 +550,10 @@ nb_console.controller('BucketViewCtrl', [
         function rest_server_information() {
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
-            scope.rest_endpoint = $window.location.protocol+'//' +$window.location.host+'/s3';
+            scope.rest_endpoint = $window.location.protocol + '//' + $window.location.host + '/s3';
             scope.rest_package = download_rest_server_package;
-            console.log('rest_server_information',scope.rest_package,scope.rest_endpoint);
-            console.log('rest_server_information',$window.location,$location);
+            console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
+            console.log('rest_server_information', $window.location, $location);
             scope.modal = nbModal({
                 template: 'console/rest_server_information.html',
                 scope: scope,
@@ -599,14 +565,14 @@ nb_console.controller('BucketViewCtrl', [
             var link;
             return nbSystem.get_s3_rest_installer()
                 .then(function(url) {
-                    console.log('GOT URL2:',url);
+                    console.log('GOT URL2:', url);
                     link = $window.document.createElement("a");
                     link.download = '';
                     link.href = url;
-                    $window.document.body.appendChild(link) ;
+                    $window.document.body.appendChild(link);
                     link.click();
                     return Q.delay(2000);
-                }).then(function(){
+                }).then(function() {
                     $window.document.body.removeChild(link);
                 });
         }
@@ -625,29 +591,34 @@ nb_console.controller('BucketViewCtrl', [
                         $location.path('/bucket/');
                         return;
                     }
-                    $scope.files_num_pages = Math.ceil(
-                        $scope.bucket.num_objects / $scope.files_page_size);
-                    $scope.files_pages = _.times(Math.min(15, $scope.files_num_pages), _.identity);
-                    bucket_router.set_num_pages('files', $scope.files_num_pages);
                     bucket_router.done();
                 });
         }
 
         function reload_files(hash_query) {
             $scope.files_query = _.clone(hash_query);
-            console.log('$scope.files_query',$scope.files_query);
+            console.log('$scope.files_query', $scope.files_query);
             var params = {
                 bucket: $routeParams.bucket_name,
                 skip: $scope.files_query.page * $scope.files_page_size,
                 limit: $scope.files_page_size,
+                pagination: true
             };
             if ($scope.files_query.search) {
                 params.key_query = $scope.files_query.search;
             }
             return nbFiles.list_files(params)
                 .then(function(res) {
-                    $scope.files = res;
+                    $scope.files = res.files;
+                    set_number_of_files(res.total_count);
                 });
+        }
+
+        function set_number_of_files(count) {
+            $scope.files_num_pages = Math.ceil(
+                count / $scope.files_page_size);
+            $scope.files_pages = _.times(Math.min(15, $scope.files_num_pages), _.identity);
+            bucket_router.set_num_pages('files', $scope.files_num_pages);
         }
 
         function upload() {
@@ -697,7 +668,7 @@ nb_console.controller('FileViewCtrl', [
                 redirectTo: 'parts'
             });
 
-            reload_view(true);
+        reload_view(true);
 
 
         function reload_view(init_only) {
@@ -730,8 +701,8 @@ nb_console.controller('FileViewCtrl', [
                     var rest_address =
                         ($location.protocol() === 'https') ?
                         'https://localhost:5006' :
-  -                     'http://localhost:5005';
-                    console.log('rest_addres',rest_address);
+                        -'http://localhost:5005';
+                    console.log('rest_addres', rest_address);
                     $scope.download_url = $sce.trustAsResourceUrl(
                         rest_address + '/' +
                         $routeParams.bucket_name + '/' +
@@ -789,3 +760,55 @@ nb_console.controller('FileViewCtrl', [
 
     }
 ]);
+
+
+function storage_pie_chart($scope, storage) {
+    return {
+        options: {
+            is3D: false,
+            legend: {
+                position: 'bottom',
+                // position: 'labeled',
+                alignment: 'center',
+                maxLines: 10,
+                textStyle: {
+                    color: '#eeeeee'
+                }
+            },
+            backgroundColor: {
+                fill: 'transparent',
+            },
+            tooltip: {
+                showColorCode: true,
+            },
+            sliceVisibilityThreshold: 0,
+            pieSliceText: 'value',
+            pieSliceTextStyle: {
+                color: '#eeeeee'
+            },
+            slices: [{
+                color: '#ff008b',
+                // offset: 0.10
+            }, {
+                color: '#03a9f4',
+            }, {
+                color: '#666',
+            }]
+        },
+        data: [
+            ['Storage', 'Capacity'],
+            ['NooBaa Usage', {
+                v: storage.used,
+                f: $scope.human_size(storage.used)
+            }],
+            ['OS Usage', {
+                v: storage.used_os,
+                f: $scope.human_size(storage.used_os)
+            }],
+            ['Free Space', {
+                v: storage.free,
+                f: $scope.human_size(storage.free)
+            }],
+        ]
+    };
+}

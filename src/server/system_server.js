@@ -176,7 +176,7 @@ function read_system(req) {
             tiers: _.map(tiers, function(tier) {
                 var t = _.pick(tier, 'name', 'kind');
                 var a = nodes_aggregate[tier.id];
-                t.storage = _.defaults(_.pick(a, 'alloc', 'used'), {
+                t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
                     alloc: 0,
                     used: 0
                 });
@@ -187,6 +187,8 @@ function read_system(req) {
                 return t;
             }),
             storage: {
+                total: nodes_sys.total || 0,
+                free: nodes_sys.free || 0,
                 alloc: nodes_sys.alloc || 0,
                 used: objects_sys.size || 0,
                 real: blocks.size || 0,

@@ -43,6 +43,15 @@ echo "ADDRESS:$ADDRESS"
 echo "ACCESS_KEY:$ACCESS_KEY"
 echo "SECRET_KEY:$SECRET_KEY"
 
+#linux is our on-premise
+platform='unknown'
+unamestr=`uname`
+if [[ "$unamestr" == 'Linux' ]]; then
+   platform='linux'
+else
+   platform='other'
+fi
+
 if [ "$CLEAN" = true ] ; then
         echo "delete old files"
         rm -rf build/windows
@@ -55,7 +64,6 @@ if [ "$CLEAN" = true ] ; then
         #no longer needed with new openssl
         #cp ../../src/deploy/lib*.dll .
         #cp ../../src/deploy/ssl*.dll .
-        curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
         cp ../../src/deploy/openssl.cnf  ./ssl/
         cp ../../src/deploy/wget.exe  .
         cp ../../src/deploy/NooBaa_Agent_wd.exe .
@@ -67,26 +75,46 @@ if [ "$CLEAN" = true ] ; then
         cp -R ../../src/util ./src/
         cp -R ../../src/rpc ./src/
         cp -R ../../src/api ./src/
-        echo "npm install"
         #remove irrelevant packages
         #TODO: create new package for that matter
-        sed -i '' '/atom-shell/d' package.json
-        sed -i '' '/gulp/d' package.json
-        sed -i '' '/bower/d' package.json
-        sed -i '' '/bootstrap/d' package.json
-        sed -i '' '/browserify"/d' package.json
-        sed -i '' '/rebuild/d' package.json
-        sed -i '' '/nodetime/d' package.json
-        sed -i '' '/newrelic/d' package.json
 
+        if [[ $platform == 'linux' ]]; then
+                cp -R   ../../node_modules ./
+                sed -i  '/atom-shell/d' package.json
+                sed -i  '/gulp/d' package.json
+                sed -i  '/bower/d' package.json
+                sed -i  '/bootstrap/d' package.json
+                sed -i  '/browserify"/d' package.json
+                sed -i  '/rebuild/d' package.json
+                sed -i  '/nodetime/d' package.json
+                sed -i  '/newrelic/d' package.json
+                rm -rf ./node_modules/gulp*
+        	    rm -rf ./node_modules/bower*
+                rm -rf ./node_modules/bootstrap*
+                rm -rf ./node_modules/browserify*
+                rm -rf ./node_modules/nodetime*
+                rm -rf ./node_modules/newrelic*
+                cp ../public/node.exe ./
+                cp ../public/openssl.exe ./
+        else
 
-
-        pwd
-        npm install -dd
-        curl -L http://nodejs.org/dist/v0.10.32/node.exe > node.exe
-        rm -rf ./node_modules/noobaa-util/node_modules/gulp*
-        rm -rf ./node_modules/noobaa-util/node_modules/node-gyp*
-
+                echo "npm install"
+                sed -i '' '/atom-shell/d' package.json
+                sed -i '' '/gulp/d' package.json
+                sed -i '' '/bower/d' package.json
+                sed -i '' '/bootstrap/d' package.json
+                sed -i '' '/browserify"/d' package.json
+                sed -i '' '/rebuild/d' package.json
+                sed -i '' '/nodetime/d' package.json
+                sed -i '' '/newrelic/d' package.json
+                npm install -dd
+                curl -L http://nodejs.org/dist/v0.10.32/node.exe > node.exe
+                curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
+                cp node.exe ../public/node.exe
+                cp openssl.exe ../public/openssl.exe
+                rm -rf ./node_modules/noobaa-util/node_modules/gulp*
+                rm -rf ./node_modules/noobaa-util/node_modules/node-gyp*
+        fi
         #No need for atom for now. Keep it for future use?!
         #echo "Downloading atom-shell for windows"
         #curl -L https://github.com/atom/atom-shell/releases/download/v0.17.1/atom-shell-v0.17.1-win32-ia32.zip > atom-shell.zip
@@ -115,12 +143,15 @@ echo "make installer"
 pwd
 
 cp ../../src/deploy/atom_agent_win.nsi ../../src/deploy/atom_agent_win.bak
-sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
-
-# update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
-
-sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
-
+if [[ $platform == 'linux' ]]; then
+   sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
+   # update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
+   sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
+else
+   sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
+   # update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
+   sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
+fi
 
 makensis -NOCD ../../src/deploy/atom_agent_win.nsi
 
@@ -128,5 +159,8 @@ mv ../../src/deploy/atom_agent_win.bak ../../src/deploy/atom_agent_win.nsi
 
 echo "uploading to S3"
 #sudo cp noobaa-setup.exe /Users/eran/Downloads
-
-s3cmd -P put noobaa-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-setup.exe
+if [[ $platform == 'linux' ]]; then
+    cp noobaa-setup.exe ../../build/public/systems/$SYSTEM_ID/
+else
+    s3cmd -P put noobaa-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-setup.exe
+fi

@@ -3,7 +3,8 @@
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
 TMP_PACKAGE_FILE="new_version.tgz"
-TMP_PACKAGE="/tmp/${TMP_PACKAGE_FILE}"
+TMP_WRAPPER="upgrade_wrapper.sh"
+TMP_PATH="/tmp/"
 VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
 
 
@@ -28,7 +29,7 @@ function check_latest_version {
 
   if [ "$path" != "" ]; then
     deploy_log "Upgrade needed, path ${path}"
-    curl -sL ${path} > ${TMP_PACKAGE} || true
+    curl -sL ${path} > ${TMP_PATH}${TMP_PACKAGE_FILE} || true
     exit 1
   else
     deploy_log "Version is up to date"
@@ -39,8 +40,9 @@ function check_latest_version {
 function do_upgrade {
 
   #Verify package integrity
-  cd /tmp
-  cp ${TMP_PACKAGE} .
+  mkdir -p /tmp/test
+  cd /tmp/tesr
+  cp ${TMP_PATH}${TMP_PACKAGE_FILE} .
   local rc=$(tar -xzvf ./${TMP_PACKAGE_FILE})
 
   if [ $rc -ne 0 ]; then
@@ -51,11 +53,14 @@ function do_upgrade {
 
   disable_supervisord
 
-  deploy_log "Tar extracted successfully, backup of current version"
+  deploy_log "Tar extracted successfully, Running pre upgrade"
+  ${TMP_PATH}${TMP_WRAPPER} pre
+
+  deploy_log "Backup of current version and extract of new"
   #Backup and extract
   mv ${CORE_DIR} /backup
   mkdir ${CORE_DIR}
-  mv ${TMP_PACKAGE} ${CORE_DIR}
+  mv ${TMP_PATH}${TMP_PACKAGE_FILE} ${CORE_DIR}
   cd ${CORE_DIR}
   deploy_log "Extracting new version"
 	tar -xzvf ./${TMP_PACKAGE_FILE}
@@ -63,13 +68,16 @@ function do_upgrade {
   # Re-setup Repos
   setup_repos
 
+  deploy_log "Running post upgrade"
+  ${TMP_PATH}${TMP_WRAPPER} post
+
   enable_supervisord
   deploy_log "Upgrade finished successfully!"
 }
 
 if [ "$1" == "from_file" ]; then
   if [ "$2" != "" ]; then
-    cp -f $2 TMP_PACKAGE
+    cp -f $2 ${TMP_PATH}${TMP_PACKAGE_FILE}
     do_upgrade
   else
     echo "Must supply path to upgrade package"

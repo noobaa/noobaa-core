@@ -56,6 +56,7 @@ echo "CLEAN BUILD:$CLEAN"
 echo "ADDRESS:$ADDRESS"
 echo "ACCESS_KEY:$ACCESS_KEY"
 echo "SECRET_KEY:$SECRET_KEY"
+echo "ON_PREMISE_ENV:$ON_PREMISE_ENV"
 
 
 
@@ -85,7 +86,8 @@ if [ "$CLEAN" = true ] ; then
     #remove irrelevant packages
     #TODO: create new package for that matter
 
-    if [ {$ON_PREMISE_ENV} -eq 1 ]; then
+    if [ ${ON_PREMISE_ENV} -eq 1 ]; then
+            rm -rf  ../../node_modules/atom-shell*
             cp -R   ../../node_modules ./
             sed -i  '/atom-shell/d' package.json
             sed -i  '/gulp/d' package.json
@@ -150,7 +152,7 @@ pwd
 
 cp ../../src/deploy/atom_agent_win.nsi ../../src/deploy/atom_agent_win.bak
 
-if [ {$ON_PREMISE_ENV} -eq 1 ]; then
+if [ ${ON_PREMISE_ENV} -eq 1 ]; then
    sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
    # update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
    sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
@@ -165,8 +167,10 @@ if [ ${ON_PREMISE} -eq 0 ]; then
   makensis -NOCD ../../src/deploy/atom_agent_win.nsi
   mv ../../src/deploy/atom_agent_win.bak ../../src/deploy/atom_agent_win.nsi
   echo "uploading to S3"
-  if [ {$ON_PREMISE_ENV} -eq 1 ]; then
-      cp noobaa-setup.exe ../../build/public/systems/$SYSTEM_ID/
+  if [ ${ON_PREMISE_ENV} -eq 1 ]; then
+      mkdir ../public/systems/
+      mkdir ../public/systems/$SYSTEM_ID/
+      cp noobaa-setup.exe ../public/systems/$SYSTEM_ID/
   else
       s3cmd -P put noobaa-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-setup.exe
   fi

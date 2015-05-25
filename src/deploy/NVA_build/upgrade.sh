@@ -41,11 +41,11 @@ function do_upgrade {
 
   #Verify package integrity
   mkdir -p /tmp/test
-  cd /tmp/tesr
+  cd /tmp/test
   cp ${TMP_PATH}${TMP_PACKAGE_FILE} .
-  local rc=$(tar -xzvf ./${TMP_PACKAGE_FILE})
+  tar -xzvf ./${TMP_PACKAGE_FILE}
 
-  if [ $rc -ne 0 ]; then
+  if [ $?-ne 0 ]; then
     deploy_log "Corrupted package file, could not open"
     enable_supervisord
     exit 1
@@ -60,8 +60,8 @@ function do_upgrade {
   #Backup and extract
   mv ${CORE_DIR} /backup
   mkdir ${CORE_DIR}
-  mv ${TMP_PATH}${TMP_PACKAGE_FILE} ${CORE_DIR}
-  cd ${CORE_DIR}
+  mv ${TMP_PATH}${TMP_PACKAGE_FILE} /root/node_modules
+  cd /root/node_modules
   deploy_log "Extracting new version"
 	tar -xzvf ./${TMP_PACKAGE_FILE}
 

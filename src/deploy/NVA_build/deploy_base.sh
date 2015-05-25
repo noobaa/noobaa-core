@@ -36,6 +36,7 @@ function install_aux {
 	deploy_log "install_aux start"
 	# Install Debug packages
 	yum install -y tcpdump
+	yum install -y lsof
 
 	# Install Supervisord
 	yum install -y python-setuptools
@@ -100,9 +101,20 @@ function setup_mongo {
 	deploy_log "setup_mongo start"
 	mkdir -p /data
 	mkdir -p /data/db
-	#add mongod to rc.d
-	#chkconfig mongod on
 	deploy_log "setup_mongo done"
+}
+
+function general_settings {
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
+	/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+	/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+	service iptables save
+	echo "export LC_ALL=C" >> ~/.bashrc
+	echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
+	echo "alias ll='ls -lha'" >> ~/.bashrc
+	echo "alias less='less -R'" >> ~/.bashrc
+	echo "alias zless='zless -R'" >> ~/.bashrc
+	echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 }
 
 function setup_supervisors {
@@ -136,6 +148,7 @@ if [ "$1" == "runinstall" ]; then
 	setup_repos
 	install_mongo
 	setup_mongo
+	general_settings
 	setup_supervisors
 	reboot -fn
 fi

@@ -2,6 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
+var Q = require('q');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
@@ -279,6 +280,22 @@ function delete_object(req) {
 }
 
 
+/**
+ * return a regexp pattern to be appended to a prefix
+ * to make it match "prefix/file" or "prefix/dir/"
+ * but with a custom delimiter instead of /
+ * @param delimiter - a single character.
+ */
+function one_level_delimiter(delimiter) {
+    var d = string_utils.escapeRegExp(delimiter[0]);
+    return '[^' + d + ']*' + d + '?$';
+}
+
+/**
+ * common case is / as delimiter
+ */
+var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
+
 
 /**
  *
@@ -286,12 +303,12 @@ function delete_object(req) {
  *
  */
 function list_objects(req) {
-    console.log('key query',req.rpc_params);
+    console.log('key query', req.rpc_params);
     return load_bucket(req)
         .then(function() {
             var info = _.omit(object_md_query(req), 'key');
             if (req.rpc_params.key_query) {
-                info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query),'i');
+                info.key = new RegExp(string_utils.escapeRegExp(req.rpc_params.key_query), 'i');
             } else if (req.rpc_params.key_regexp) {
                 info.key = new RegExp(req.rpc_params.key_regexp);
             } else if (req.rpc_params.key_glob) {
@@ -299,12 +316,17 @@ function list_objects(req) {
             } else if (req.rpc_params.key_prefix) {
                 info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_prefix));
             } else if (!_.isUndefined(req.rpc_params.key_s3_prefix)) {
-                info.key = new RegExp('^' + string_utils.escapeRegExp(req.rpc_params.key_s3_prefix) + '[^/]*/?$');
+                // match "prefix/file" or "prefix/dir/"
+                var one_level = req.rpc_params.delimiter ?
+                    one_level_delimiter(req.rpc_params.delimiter) :
+                    ONE_LEVEL_SLASH_DELIMITER;
+                var prefix = string_utils.escapeRegExp(req.rpc_params.key_s3_prefix);
+                info.key = new RegExp('^' + prefix + one_level);
             }
 
             var skip = req.rpc_params.skip;
             var limit = req.rpc_params.limit;
-            console.log('key query2',info);
+            console.log('key query2', info);
             var find = db.ObjectMD.find(info).sort('-_id');
             if (skip) {
                 find.skip(skip);
@@ -312,10 +334,13 @@ function list_objects(req) {
             if (limit) {
                 find.limit(limit);
             }
-            return find.exec();
+            return Q.all([
+                find.exec(),
+                req.rpc_params.pagination && db.ObjectMD.count(info)
+            ]);
         })
-        .then(function(objects) {
-            return {
+        .spread(function(objects, total_count) {
+            var res = {
                 objects: _.map(objects, function(obj) {
                     return {
                         key: obj.key,
@@ -323,6 +348,10 @@ function list_objects(req) {
                     };
                 })
             };
+            if (req.rpc_params.pagination) {
+                res.total_count = total_count;
+            }
+            return res;
         });
 }
 

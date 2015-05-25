@@ -104,9 +104,12 @@ nb_api.factory('nbFiles', [
                     return nbClient.client.object.list_objects(params);
                 })
                 .then(function(res) {
-                    var objects = _.map(res.objects, make_file_info);
+                    var files = _.map(res.objects, make_file_info);
                     console.log('FILES', res);
-                    return objects;
+                    return {
+                        total_count: res.total_count,
+                        files: files,
+                    };
                 });
         }
 

@@ -232,6 +232,39 @@ function list_nodes(req) {
             if (query.geolocation) {
                 info.geolocation = new RegExp(query.geolocation);
             }
+            if (query.state) {
+                var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
+                switch (query.state) {
+                    case 'online':
+                        info.srvmode = null;
+                        info.heartbeat = {
+                            $gt: minimum_online_heartbeat
+                        };
+                        break;
+                    case 'offline':
+                        var offline_or_conditions = [{
+                            srvmode: {
+                                $exists: true
+                            }
+                        }, {
+                            heartbeat: {
+                                $lte: minimum_online_heartbeat
+                            }
+                        }];
+                        // merge with previous $or condition
+                        if (info.$or) {
+                            info.$and = [{
+                                $or: info.$or
+                            }, {
+                                $or: offline_or_conditions
+                            }];
+                            delete info.$or;
+                        } else {
+                            info.$or = offline_or_conditions;
+                        }
+                        break;
+                }
+            }
             if (query.tier) {
                 return db.TierCache.get({
                         system: req.system.id,
@@ -255,12 +288,19 @@ function list_nodes(req) {
             if (limit) {
                 find.limit(limit);
             }
-            return find.exec();
+            return Q.all([
+                find.exec(),
+                req.rpc_params.pagination && db.Node.count(info)
+            ]);
         })
-        .then(function(nodes) {
-            return {
+        .spread(function(nodes, total_count) {
+            var res = {
                 nodes: _.map(nodes, get_node_full_info)
             };
+            if (req.rpc_params.pagination) {
+                res.total_count = total_count;
+            }
+            return res;
         });
 }
 

@@ -418,12 +418,18 @@ module.exports = {
                     limit: {
                         type: 'integer'
                     },
+                    pagination: {
+                        type: 'boolean'
+                    },
                 }
             },
             reply: {
                 type: 'object',
                 required: ['objects'],
                 properties: {
+                    total_count: {
+                        type: 'integer'
+                    },
                     objects: {
                         type: 'array',
                         items: {

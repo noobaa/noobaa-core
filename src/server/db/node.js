@@ -213,15 +213,19 @@ node_schema.statics.aggregate_nodes = function(query) {
         },
         map: function() {
             /* global emit */
-            emit(['', 'alloc'], this.storage.alloc);
+            emit(['', 'total'], this.storage.total);
+            emit(['', 'free'], this.storage.free);
             emit(['', 'used'], this.storage.used);
+            emit(['', 'alloc'], this.storage.alloc);
             emit(['', 'count'], 1);
             var online = (!this.srvmode && this.heartbeat >= minimum_online_heartbeat);
             if (online) {
                 emit(['', 'online'], 1);
             }
-            emit([this.tier, 'alloc'], this.storage.alloc);
+            emit([this.tier, 'total'], this.storage.total);
+            emit([this.tier, 'free'], this.storage.free);
             emit([this.tier, 'used'], this.storage.used);
+            emit([this.tier, 'alloc'], this.storage.alloc);
             emit([this.tier, 'count'], 1);
             if (online) {
                 emit([this.tier, 'online'], 1);

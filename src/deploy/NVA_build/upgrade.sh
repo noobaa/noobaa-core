@@ -2,7 +2,7 @@
 
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
-TMP_PACKAGE_FILE="new_version.tgz"
+TMP_PACKAGE_FILE="new_version.tar.gz"
 TMP_WRAPPER="upgrade_wrapper.sh"
 TMP_PATH="/tmp/"
 VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"

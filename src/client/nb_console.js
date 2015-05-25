@@ -541,41 +541,14 @@ nb_console.controller('BucketViewCtrl', [
             .when('link', {
                 templateUrl: 'console/bucket_link.html',
             })
+            .when('overview', {
+                templateUrl: 'console/bucket_overview.html',
+            })
             .otherwise({
-                redirectTo: 'files'
+                redirectTo: 'overview'
             });
 
         reload_view(true);
-
-        function rest_server_information() {
-            var scope = $scope.$new();
-            scope.access_keys = nbSystem.system.access_keys;
-            scope.rest_endpoint = $window.location.protocol + '//' + $window.location.host + '/s3';
-            scope.rest_package = download_rest_server_package;
-            console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
-            console.log('rest_server_information', $window.location, $location);
-            scope.modal = nbModal({
-                template: 'console/rest_server_information.html',
-                scope: scope,
-            });
-        }
-
-        function download_rest_server_package() {
-            console.log('rest_package2');
-            var link;
-            return nbSystem.get_s3_rest_installer()
-                .then(function(url) {
-                    console.log('GOT URL2:', url);
-                    link = $window.document.createElement("a");
-                    link.download = '';
-                    link.href = url;
-                    $window.document.body.appendChild(link);
-                    link.click();
-                    return Q.delay(2000);
-                }).then(function() {
-                    $window.document.body.removeChild(link);
-                });
-        }
 
         function reload_view(init_only) {
             return $q.when()
@@ -591,6 +564,7 @@ nb_console.controller('BucketViewCtrl', [
                         $location.path('/bucket/');
                         return;
                     }
+                    $scope.pie_chart = storage_pie_chart($scope, $scope.bucket.storage);
                     bucket_router.done();
                 });
         }
@@ -627,6 +601,37 @@ nb_console.controller('BucketViewCtrl', [
                     return reload_view();
                 });
         }
+
+        function rest_server_information() {
+            var scope = $scope.$new();
+            scope.access_keys = nbSystem.system.access_keys;
+            scope.rest_endpoint = $window.location.protocol + '//' + $window.location.host + '/s3';
+            scope.rest_package = download_rest_server_package;
+            console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
+            console.log('rest_server_information', $window.location, $location);
+            scope.modal = nbModal({
+                template: 'console/rest_server_information.html',
+                scope: scope,
+            });
+        }
+
+        function download_rest_server_package() {
+            console.log('rest_package2');
+            var link;
+            return nbSystem.get_s3_rest_installer()
+                .then(function(url) {
+                    console.log('GOT URL2:', url);
+                    link = $window.document.createElement("a");
+                    link.download = '';
+                    link.href = url;
+                    $window.document.body.appendChild(link);
+                    link.click();
+                    return Q.delay(2000);
+                }).then(function() {
+                    $window.document.body.removeChild(link);
+                });
+        }
+
     }
 ]);
 

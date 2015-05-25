@@ -392,7 +392,7 @@ gulp.task('NVA_build', ['jshint', 'build_agent_distro'], function() {
         }));
 
     var basejs_stream = gulp
-        .src(['bower.json', 'config.js', 'gulpfile.js', ], {});
+        .src(['bower.json', 'config.js', 'gulpfile.js', '.jshintrc'], {});
 
     var vendor_stream = gulp
         .src(['vendor/**/*', ], {})

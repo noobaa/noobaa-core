@@ -110,7 +110,6 @@ function create_system(req) {
             return bucket_server.create_bucket(bucket_req);
         })
         .then(function() {
-            process.env.ON_PREMISE = true;
             if (process.env.ON_PREMISE) {
 
                 var build_params = [

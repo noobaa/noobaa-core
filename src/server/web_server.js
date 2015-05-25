@@ -22,6 +22,7 @@ var _ = require('lodash');
 var Q = require('q');
 var path = require('path');
 var http = require('http');
+var https = require('https');
 var mongoose = require('mongoose');
 var dotenv = require('dotenv');
 var express = require('express');
@@ -36,6 +37,7 @@ var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
 var s3app = require('../s3/app');
+var pem = require('../util/pem');
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -70,7 +72,6 @@ mongoose.connect(
 // create express app
 var app = express();
 var web_port = process.env.PORT || 5001;
-var server = http.createServer(app);
 app.set('port', web_port);
 
 // setup view template engine with doT
@@ -144,9 +145,48 @@ function use_exclude(path, middleware) {
 
 // register RPC services and transports
 var server_rpc = require('./server_rpc');
-server_rpc.register_http_transport(app);
-server_rpc.register_ws_transport(server);
-// server_rpc.register_n2n_transport();
+
+var server;
+
+Q.fcall(function() {
+        return Q.nfcall(pem.createCertificate, {
+            days: 365 * 100,
+            selfSigned: true
+        });
+    })
+    .then(function(cert) {
+        var promises = [];
+        server_rpc.register_http_transport(app);
+
+        if (web_port === "443") {
+            dbg.log('Setting SSL on ', web_port);
+            server = https.createServer({
+                    key: cert.serviceKey,
+                    cert: cert.certificate
+                }, app).on('error', function(err) {
+                    dbg.error('HTTPS SERVER ERROR', err.stack || err);
+                })
+                .on('close', function() {
+                    dbg.warn('HTTPS SERVER CLOSED');
+
+                });
+        }else
+        {
+            server = http.createServer(app);
+        }
+
+        promises.push(Q.ninvoke(server, 'listen', web_port));
+
+        return Q.all(promises);
+    }).then(function() {
+        dbg.log('Web Server listens on ', web_port);
+        server_rpc.register_ws_transport(server);
+        // server_rpc.register_n2n_transport();
+    }).then(null, function(err) {
+        dbg.log0('error:', err, err.stack);
+    });
+
+
 
 
 ////////////
@@ -364,10 +404,3 @@ function is_latest_version(query_version) {
 
     return true;
 }
-
-
-
-// start http server
-server.listen(web_port, function() {
-    console.log('Web server on port ' + web_port);
-});

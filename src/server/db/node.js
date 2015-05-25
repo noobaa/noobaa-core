@@ -8,6 +8,41 @@ var Schema = mongoose.Schema;
 var types = mongoose.Schema.Types;
 var size_utils = require('../../util/size_utils');
 
+// schema of storage info for node/srive
+var storage_stat_schema = {
+
+    // total amount of storage space on the node/drive
+    total: {
+        type: Number,
+        required: true,
+    },
+
+    // amount of available storage on the node/drive
+    free: {
+        type: Number,
+        required: true,
+    },
+
+    // amount of storage used by the system
+    // computed from the data blocks owned by this node
+    used: {
+        type: Number,
+        required: true,
+    },
+
+    // preallocated storage space
+    alloc: {
+        type: Number,
+    },
+
+    // top limit for used storage
+    limit: {
+        type: Number,
+    }
+
+};
+
+
 /**
  *
  * NODE SCHEMA
@@ -45,20 +80,6 @@ var node_schema = new Schema({
         type: String,
     },
 
-    storage: {
-        // the allocated storage space
-        alloc: {
-            type: Number,
-            required: true,
-        },
-
-        // the used storage computed from the data blocks owned by this node
-        used: {
-            type: Number,
-            required: true,
-        },
-    },
-
     srvmode: {
         type: String,
         enum: ['disabled', 'decommissioning', 'decommisioned']
@@ -85,9 +106,46 @@ var node_schema = new Schema({
         required: true,
     },
 
-    // device information sent by the agent.
-    // TODO define schema for device_info
-    device_info: {},
+    // the last agent version acknoledged
+    version: {
+        type: String,
+    },
+
+    // node storage stats - sum of drives
+    storage: storage_stat_schema,
+
+    drives: [{
+
+        // mount point - linux, drive letter - windows
+        mount: {
+            type: String,
+            required: true
+        },
+
+        // a fixed identifier (uuid / device-id / or something like that)
+        drive_id: {
+            type: String,
+            required: true
+        },
+
+        // drive storage stats
+        storage: storage_stat_schema
+    }],
+
+    // OS information sent by the agent
+    os_info: {
+        hostname: String,
+        ostype: String,
+        platform: String,
+        arch: String,
+        release: String,
+        uptime: Date,
+        loadavg: [Number],
+        totalmem: Number,
+        freemem: Number,
+        cpus: [{}],
+        networkInterfaces: {}
+    },
 
     // on delete set deletion time
     deleted: {

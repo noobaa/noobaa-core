@@ -34,7 +34,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
                     },
                 })
                 // we are very selective to reduce overhead
-                .select('ip port peer_id storage geolocation device_info.last_update')
+                .select('ip port peer_id storage geolocation')
                 .exec())
             .then(function(res) {
                 var nodes_by_id = _.indexBy(res, '_id');
@@ -124,8 +124,10 @@ function heartbeat(req) {
         'geolocation',
         'ip',
         'port',
+        'version',
         'storage',
-        'device_info');
+        'drives',
+        'os_info');
     params.ip = params.ip ||
         (req.headers && req.headers['x-forwarded-for']) ||
         (req.connection && req.connection.remoteAddress);
@@ -135,6 +137,7 @@ function heartbeat(req) {
     var node;
 
     dbg.log1('HEARTBEAT enter', node_id);
+    dbg.log0('HEARTBEAT enter', node_id, params);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -169,38 +172,15 @@ function heartbeat(req) {
             if (!node) {
                 // we don't fail here because failures would keep retrying
                 // to find this node, and the node is not in the db.
-                console.error('IGNORE MISSING NODE FOR HEARTBEAT', node_id);
+                console.error('IGNORE MISSING NODE FOR HEARTBEAT', node_id, params.ip);
                 return;
             }
+
+            var updates = {};
 
             var node_listen_addr = 'n2n://' + node.peer_id;
             dbg.log0('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
             server_rpc.map_address_to_connection(node_listen_addr, req.connection);
-
-            var agent_storage = params.storage;
-
-            // the heartbeat api returns the expected alloc to the agent
-            // in order for it to perform the necessary pre-allocation,
-            // so this check is here just for logging
-            if (agent_storage.alloc !== node.storage.alloc) {
-                console.log('NODE change allocated storage from ',
-                    agent_storage.alloc, ' to ', node.storage.alloc);
-            }
-
-            // verify the agent's reported usage
-            if (agent_storage.used !== storage_used) {
-                console.log('NODE agent used storage not in sync ',
-                    agent_storage.used, ' counted used ', storage_used);
-                // TODO trigger a detailed usage check / reclaiming
-            }
-
-
-            var updates = {};
-
-            // check if need to update the node used storage count
-            if (node.storage.used !== storage_used) {
-                updates['storage.used'] = storage_used;
-            }
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
@@ -213,13 +193,45 @@ function heartbeat(req) {
             if (params.port && params.port !== node.port) {
                 updates.port = params.port;
             }
+            if (params.version && params.version !== node.version) {
+                updates.version = params.version;
+            }
 
-            // to avoid frequest updates of the node check if the last update of
-            // device_info was less than 1 hour ago and if so drop the update.
-            // this will allow more batching by heartbeat_update_node_timestamp_barrier.
-            if (params.device_info &&
-                should_update_device_info(node.device_info, params.device_info)) {
-                updates.device_info = params.device_info;
+            // verify the agent's reported usage
+            var agent_storage = params.storage;
+            if (agent_storage.used !== storage_used) {
+                console.log('NODE agent used storage not in sync ',
+                    agent_storage.used, ' counted used ', storage_used);
+                // TODO trigger a detailed usage check / reclaiming
+            }
+
+            // check if need to update the node used storage count
+            if (node.storage.used !== storage_used) {
+                updates['storage.used'] = storage_used;
+            }
+
+            // to avoid frequest updates of the node it will only send
+            // extended info on longer period. this will allow more batching by
+            // heartbeat_update_node_timestamp_barrier.
+            if (params.drives) {
+                updates.drives = params.drives;
+                var drives_total = 0;
+                var drives_free = 0;
+                var first = true;
+                _.each(params.drives, function(drive) {
+                    if (first) {
+                        drive.storage.used = drive.storage.used || storage_used;
+                        first = false;
+                    }
+                    drives_total += drive.storage.total;
+                    drives_free += drive.storage.free;
+                });
+                updates['storage.total'] = drives_total;
+                updates['storage.free'] = drives_free;
+            }
+            if (params.os_info) {
+                updates.os_info = params.os_info;
+                updates.os_info.last_update = new Date();
             }
 
             dbg.log2('NODE heartbeat', node_id, params.ip + ':' + params.port);
@@ -324,31 +336,3 @@ var node_monitor_worker = promise_utils.run_background_worker({
 
 });
 */
-
-
-
-
-
-// UTILS //////////////////////////////////////////////////////////
-
-
-
-
-
-// check if device_info should update only if the last update was more than an hour ago
-function should_update_device_info(node_device_info, new_device_info) {
-    var last = new Date(node_device_info && node_device_info.last_update || 0);
-    var last_time = last.getTime() || 0;
-    var now = new Date();
-    var now_time = now.getTime();
-    var skip_time = 600000;
-
-    if (last_time > now_time - skip_time &&
-        last_time < now_time + skip_time) {
-        return false;
-    }
-
-    // add the current time to the info which will be saved
-    new_device_info.last_update = now;
-    return true;
-}

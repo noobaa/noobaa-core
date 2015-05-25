@@ -305,6 +305,10 @@ gulp.task('agent', ['jshint'], function() {
         .src(PATHS.agent_sources, {
             base: 'src'
         });
+
+    var basejs_stream = gulp
+        .src(['config.js', ], {});
+
     // TODO bring back uglify .pipe(gulp_uglify());
 
     event_stream.pipe(gulp_rename(function(p) {
@@ -313,7 +317,7 @@ gulp.task('agent', ['jshint'], function() {
         .pipe(gulp.dest(BUILD_DEST));
 
     return event_stream
-        .merge(pkg_stream, src_stream)
+        .merge(pkg_stream, src_stream,basejs_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('package', p.dirname);
         }))
@@ -515,7 +519,7 @@ function serve() {
     gulp_notify('noobaa serving...').end('stam');
 }
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client']);
+gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent']);
 gulp.task('serve', [], serve);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);

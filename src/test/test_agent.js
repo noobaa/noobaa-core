@@ -7,7 +7,6 @@
 var Q = require('q');
 // var assert = require('assert');
 var coretest = require('./coretest');
-var size_utils = require('../util/size_utils');
 
 describe('agent', function() {
 
@@ -31,7 +30,7 @@ describe('agent', function() {
                 kind: 'edge',
             });
         }).then(function() {
-            return coretest.init_test_nodes(10, SYS, 'edge', size_utils.GIGABYTE);
+            return coretest.init_test_nodes(10, SYS, 'edge');
         }).nodeify(done);
     });
 

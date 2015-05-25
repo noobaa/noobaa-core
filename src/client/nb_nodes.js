@@ -92,30 +92,46 @@ nb_api.factory('nbNodes', [
 
         function extend_node_info(node) {
             node.hearbeat_moment = moment(new Date(node.heartbeat));
-            var used = node.storage.used;
-            var unused = node.storage.alloc - used;
-            var operating_sys = 0;
-            var free_disk = 0;
-            var total_disk = 0;
-            if (node.device_info) {
-                if (node.device_info.freestorage) {
-                    free_disk = Math.max(0, node.device_info.freestorage - unused);
-                }
-                if (node.device_info.totalstorage) {
-                    total_disk = node.device_info.totalstorage;
-                    operating_sys = Math.max(0,
-                        total_disk -
-                        free_disk -
-                        used -
-                        unused);
-                }
+            if (node.os_info) {
+                node.os_info.uptime_moment = moment(new Date(node.os_info.uptime));
+                var cpus = _.countBy(node.os_info.cpus, 'model');
+                node.os_info.cpus_str = _.map(cpus,
+                    function(count, model) {
+                        return count + 'x  ' + model;
+                    }).join(', ');
+                node.os_info.addresses = [];
+                node.os_info.addresses6 = [];
+                _.each(node.os_info.networkInterfaces,
+                    function(ifc, name) {
+                        _.each(ifc, function(addr) {
+                            addr = _.extend({
+                                name: name
+                            }, addr);
+                            if (addr.family === 'IPv4') {
+                                node.os_info.addresses.push(addr);
+                            } else {
+                                node.os_info.addresses6.push(addr);
+                            }
+                        });
+                    });
+                node.os_info.loadavg_str = _.map(node.os_info.loadavg,
+                    function(x) {
+                        return x.toFixed(1);
+                    }).join(' ');
             }
-            node.storage.unused = unused;
-            node.storage.operating_sys = operating_sys;
-            node.storage.free_disk = free_disk;
-            node.storage.total_disk = total_disk;
-            node.storage.usage_percent =
-                $rootScope.human_percent(node.storage.used / node.storage.alloc);
+            extend_storage_info(node.storage);
+            _.each(node.drives, function(drive) {
+                extend_storage_info(drive.storage);
+            });
+        }
+
+        function extend_storage_info(storage) {
+            // allowing used to be undefined
+            var used = storage.used || 0;
+            storage.used_os = storage.total - used - storage.free;
+            storage.used_percent = 100 * used / storage.total;
+            storage.used_os_percent = 100 * storage.used_os / storage.total;
+            storage.free_percent = 100 * storage.free / storage.total;
         }
 
         function update_srvmode(node, srvmode) {

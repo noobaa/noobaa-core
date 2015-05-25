@@ -4,7 +4,7 @@ mkdir /noobaa
 cd /noobaa
 sudo apt-get update
 sudo apt-get install -y docker.io unzip
-curl http://elasticbeanstalk-us-west-2-628038730422.s3.amazonaws.com/DockerClient.zip >DockerClient.zip
+curl http://noobaa-download.s3.amazonaws.com/DockerClient.zip >DockerClient.zip
 unzip DockerClient.zip
 #read metadata variable with env name. Defined in the gcloud.js (unique per instance)
 #replace ENV_PLACEHOLDER in Dockerfile and run-agent with current env

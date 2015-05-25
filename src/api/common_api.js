@@ -32,17 +32,94 @@ module.exports = {
 
         storage_info: {
             type: 'object',
-            required: ['alloc', 'used'],
+            required: [],
             properties: {
-                alloc: {
+                total: {
+                    $ref: '/common_api/definitions/bigint'
+                },
+                free: {
                     $ref: '/common_api/definitions/bigint'
                 },
                 used: {
                     $ref: '/common_api/definitions/bigint'
                 },
+                alloc: {
+                    $ref: '/common_api/definitions/bigint'
+                },
+                limit: {
+                    $ref: '/common_api/definitions/bigint'
+                },
+                // real - after calculating dedup reduction or redundancy overheads
                 real: {
                     $ref: '/common_api/definitions/bigint'
                 },
+            }
+        },
+
+        drive_info: {
+            type: 'object',
+            required: [],
+            properties: {
+                mount: {
+                    type: 'string'
+                },
+                drive_id: {
+                    type: 'string'
+                },
+                storage: {
+                    $ref: '/common_api/definitions/storage_info'
+                },
+            }
+        },
+
+        os_info: {
+            type: 'object',
+            required: [],
+            properties: {
+                hostname: {
+                    type: 'string'
+                },
+                ostype: {
+                    type: 'string'
+                },
+                platform: {
+                    type: 'string'
+                },
+                arch: {
+                    type: 'string'
+                },
+                release: {
+                    type: 'string'
+                },
+                uptime: {
+                    type: 'integer',
+                    format: 'idate',
+                },
+                loadavg: {
+                    type: 'array',
+                    items: {
+                        type: 'number'
+                    }
+                },
+                totalmem: {
+                    type: 'integer'
+                },
+                freemem: {
+                    type: 'integer'
+                },
+                cpus: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        additionalProperties: true,
+                        properties: {}
+                    }
+                },
+                networkInterfaces: {
+                    type: 'object',
+                    additionalProperties: true,
+                    properties: {}
+                }
             }
         },
 

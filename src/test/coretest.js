@@ -64,7 +64,7 @@ after(function() {
 
 
 // create some test nodes named 0, 1, 2, ..., count
-function init_test_nodes(count, system, tier, storage_alloc) {
+function init_test_nodes(count, system, tier) {
     return clear_test_nodes()
         .then(function() {
             return client.auth.create_auth({

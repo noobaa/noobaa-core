@@ -7,7 +7,6 @@ var _ = require('lodash');
 var Q = require('q');
 var assert = require('assert');
 var argv = require('minimist')(process.argv);
-var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var coretest = require('./coretest');
 var SliceReader = require('../util/slice_reader');
@@ -47,7 +46,7 @@ describe('object', function() {
                 tiering: [TIER],
             });
         }).then(function() {
-            return coretest.init_test_nodes(10, SYS, TIER, size_utils.GIGABYTE);
+            return coretest.init_test_nodes(10, SYS, TIER);
         }).nodeify(done);
     });
 

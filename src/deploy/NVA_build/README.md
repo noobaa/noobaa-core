@@ -19,7 +19,9 @@ noobaa-core/deploy/NVA_build
 - create_vm - Create the NVA machine using the VirtualBox CLI
 - build_release.js - Node script which runs on our EC2 building server.
                      DEPRECATED & NOT COMPLETE.
-- build_package.sh - shell script runs on our EC2 building server.
+- build_package.sh - Shell script runs on our EC2 building server.
+- upgrade_wapper.sh - Comes with the upgrade package, contain pre and post execution
+                      functions.
 
 
 * ###NVA_Build (NooBaa Virtual Appliance):
@@ -65,3 +67,6 @@ noobaa-core/deploy/NVA_build
   The Building Server receives the request, clones the repo at the requested hashtag and builds the package. It also build the
   agent distribution package (which is a part of the upgrade package). After the package is build, it is uploaded to
   s3://noobaa-download/on_premise/v_<VERSION_NUMBER> and an appropriate VERSION_NUMBER release is created in GitHub.
+
+  Accomodating the package itself is a wrapper script, containing pre (before new code extraction)
+  and post (after new code extraction) commands to run during the upgrade flow.

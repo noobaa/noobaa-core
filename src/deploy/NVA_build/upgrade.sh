@@ -37,6 +37,7 @@ function check_latest_version {
 }
 
 function do_upgrade {
+
   #Verify package integrity
   cd /tmp
   cp ${TMP_PACKAGE} .
@@ -47,6 +48,8 @@ function do_upgrade {
     enable_supervisord
     exit 1
   fi
+
+  disable_supervisord
 
   deploy_log "Tar extracted successfully, backup of current version"
   #Backup and extract
@@ -59,15 +62,27 @@ function do_upgrade {
 
   # Re-setup Repos
   setup_repos
-}
 
-#exit on error, enable supervisor
-check_latest_version
-should_upgrade=$?
-echo $should_upgrade
-if [ should_upgrade -eq 1 ]; then
-  disable_supervisord
-  do_upgrade
   enable_supervisord
   deploy_log "Upgrade finished successfully!"
+}
+
+if [ "$1" == "from_file" ]; then
+  if [ "$2" != "" ]; then
+    cp -f $2 TMP_PACKAGE
+    do_upgrade
+  else
+    echo "Must supply path to upgrade package"
+    exit 1
+  fi
+else
+  #exit on error, enable supervisor
+  check_latest_version
+  should_upgrade=$?
+  echo $should_upgrade
+  if [ should_upgrade -eq 1 ]; then
+    do_upgrade
+  fi
 fi
+
+exit 0

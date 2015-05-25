@@ -72,9 +72,6 @@ function setup_repos {
 	cd ${CORE_DIR}
 	$(npm install -dd >> ${LOG_FILE})
 
-	# Setup config.js with on_premise configuration
-	cat ${CONFIG_JS} | sed "s:config.on_premise.enabled = false:config.on_premise.enabled = true:" > ${CONFIG_JS}
-
 	deploy_log "setting up crontab"
 	# Setup crontab job for upgrade checks
 	# once a day at HH = midnight + RAND[0,2], MM = RAND[0,59]

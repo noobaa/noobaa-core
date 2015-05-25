@@ -5,7 +5,6 @@ config.test_mode = false;
 
 // On Premise NVA params
 config.on_premise = {
-    enabled: false,
     base_url: "https://s3-eu-west-1.amazonaws.com/noobaa-download/on_premise/v_",
     nva_part: "NVA_Upgrade.tgz"
 };

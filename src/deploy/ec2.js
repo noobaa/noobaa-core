@@ -158,7 +158,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
         var first_region_extra_count = 0;
 
         if (filter_region !== '') {
-            console.log('Filter and use only region:',filter_region);
+            console.log('Filter and use only region:', filter_region);
             region_names = [filter_region];
         }
 
@@ -321,6 +321,20 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                 UserData: new Buffer(run_script).toString('base64'),
             });
         });
+        /*.then(function(res) {
+            console.log('TaggingInstance');
+            //For all
+            //res.Instances:
+            // [ { InstanceId: 'i-99931358',
+            //return Q.all with
+            return ec2_region_call(region_name, 'CreateTags', {
+                Resources: ['i-d38d0d12'],
+                Tags: [{
+                    Key: 'TestKey',
+                    Value: 'TestValue'
+                }]
+            });
+        });*/
 }
 
 

@@ -61,19 +61,25 @@ function create_system(req) {
             }
             info.owner = req.account.id;
 
-            return db.System.create(info);
+            // set default package names
+            info.resources = {
+                agent_installer: 'noobaa-setup.exe',
+                s3rest_installer: 'noobaa-s3rest.exe'
+            };
+
+            return Q.when(db.System.create(info))
+                .then(null, db.check_already_exists(req, 'system'));
         })
-        .then(null, db.check_already_exists(req, 'system'))
         .then(function(system_arg) {
             system = system_arg;
             // TODO if role create fails, we should recover the role from the system owner
-            return db.Role.create({
-                account: req.account.id,
-                system: system.id,
-                role: 'admin',
-            });
+            return Q.when(db.Role.create({
+                    account: req.account.id,
+                    system: system.id,
+                    role: 'admin',
+                }))
+                .then(null, db.check_already_exists(req, 'role'));
         })
-        .then(null, db.check_already_exists(req, 'role'))
         .then(function() {
             // filling reply_token
             if (req.reply_token) {
@@ -352,17 +358,21 @@ function get_system_resource_info(req) {
         if (key === 'toObject' || !_.isString(val) || !val) {
             return;
         }
-        var params = {
-            Bucket: S3_SYSTEM_BUCKET,
-            Key: 'systems/' + req.system._id + '/' + val,
-            Expires: 24 * 3600 // 1 day
-        };
-        if (aws_s3) {
-            return aws_s3.getSignedUrl('getObject', params);
+        if (process.env.ON_PREMISE) {
+            return '/public/systems/' + req.system._id + '/' + val;
         } else {
-            // workaround if we didn't setup aws credentials,
-            // and just try a plain unsigned url
-            return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
+            var params = {
+                Bucket: S3_SYSTEM_BUCKET,
+                Key: 'systems/' + req.system._id + '/' + val,
+                Expires: 24 * 3600 // 1 day
+            };
+            if (aws_s3) {
+                return aws_s3.getSignedUrl('getObject', params);
+            } else {
+                // workaround if we didn't setup aws credentials,
+                // and just try a plain unsigned url
+                return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
+            }
         }
     });
     // remove keys with undefined values

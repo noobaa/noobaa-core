@@ -199,15 +199,25 @@ function read_system(req) {
             },
             buckets: _.map(buckets, function(bucket) {
                 var b = _.pick(bucket, 'name');
-                b.tiering = _.map(bucket.tiering, function(tier_id) {
-                    var tier = tiers_by_id[tier_id];
-                    return tier ? tier.name : '';
-                });
                 var a = objects_aggregate[bucket.id] || {};
                 b.storage = {
                     used: a.size || 0,
                 };
                 b.num_objects = a.count || 0;
+                b.tiering = _.map(bucket.tiering, function(tier_id) {
+                    var tier = tiers_by_id[tier_id];
+                    if (!tier) return '';
+                    var replicas = tier.edge_details && tier.edge_details.replicas || 3;
+                    var t = nodes_aggregate[tier.id];
+                    // TODO how to account bucket total storage with multiple tiers?
+                    b.storage.total = (t.total || 0) / replicas;
+                    b.storage.free = (t.free || 0) / replicas;
+                    return tier.name;
+                });
+                if (_.isUndefined(b.storage.total)) {
+                    b.storage.total = (nodes_sys.total || 0) / 3;
+                    b.storage.free = (nodes_sys.free || 0) / 3;
+                }
                 return b;
 
             }),

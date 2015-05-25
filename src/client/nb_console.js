@@ -564,7 +564,7 @@ nb_console.controller('BucketViewCtrl', [
                         $location.path('/bucket/');
                         return;
                     }
-                    $scope.pie_chart = storage_pie_chart($scope, $scope.bucket.storage);
+                    $scope.pie_chart = storage_pie_chart($scope, $scope.bucket.storage, 0.4);
                     bucket_router.done();
                 });
         }
@@ -767,7 +767,7 @@ nb_console.controller('FileViewCtrl', [
 ]);
 
 
-function storage_pie_chart($scope, storage) {
+function storage_pie_chart($scope, storage, hole) {
     return {
         options: {
             is3D: false,
@@ -787,6 +787,7 @@ function storage_pie_chart($scope, storage) {
                 showColorCode: true,
             },
             sliceVisibilityThreshold: 0,
+            pieHole: hole || 0,
             pieSliceText: 'value',
             pieSliceTextStyle: {
                 color: '#eeeeee'

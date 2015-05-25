@@ -100,12 +100,11 @@ function setup_mongo {
 	deploy_log "setup_mongo start"
 	mkdir -p /data
 	mkdir -p /data/db
-	#add mongod to rc.d
-	#chkconfig mongod on
 	deploy_log "setup_mongo done"
 }
 
 function setup_supervisors {
+	echo "export LC_ALL=C >> ~/.bashrc"
 	deploy_log "setup_supervisors start"
 	# Generate default supervisord config
 	echo_supervisord_conf > /etc/supervisord.conf

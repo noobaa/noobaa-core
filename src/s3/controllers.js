@@ -69,7 +69,7 @@ module.exports = function(params) {
                     upload_part_number: parseInt(req.query.partNumber, 10)
                 };
                 dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ',
-                req.query.uploadId,' VS ',req.query.uploadId, 'content length:', req.headers['content-length']);
+                    req.query.uploadId, ' VS ', req.query.uploadId, 'content length:', req.headers['content-length']);
                 dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                     'content_type', 'upload_part_number'));
 
@@ -169,18 +169,18 @@ module.exports = function(params) {
                         //check if folder
                         if (source_object_md.size === 0) {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
-                            list_objects_with_prefix(from_object, '/', src_bucket, access_key)
+                            return list_objects_with_prefix(from_object, '/', src_bucket, access_key)
                                 .then(function(objects_and_folders) {
                                     return Q.all(_.times(objects_and_folders.objects.length, function(i) {
                                         dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
-                                        copy_object(objects_and_folders.objects[i].key,
+                                        return copy_object(objects_and_folders.objects[i].key,
                                             objects_and_folders.objects[i].key.replace(from_object, to_object),
                                             src_bucket, target_bucket, access_key);
                                     })).then(function() {
                                         //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
                                         return Q.all(_.each(_.keys(objects_and_folders.folders), function(folder) {
                                             dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
-                                            copy_object(folder, folder.replace(from_object, to_object),
+                                            return copy_object(folder, folder.replace(from_object, to_object),
                                                 src_bucket, target_bucket, access_key);
                                         }));
                                     });
@@ -188,6 +188,7 @@ module.exports = function(params) {
                         }
                         create_params.content_type = md.content_type;
                         create_params.size = md.size;
+                        var new_obj_parts;
                         return clients[access_key].object.read_object_mappings({
                                 bucket: src_bucket,
                                 key: from_object,
@@ -200,7 +201,7 @@ module.exports = function(params) {
                                     i += 1;
                                 });
                                 //copy
-                                var new_obj_parts = {
+                                new_obj_parts = {
                                     bucket: target_bucket,
                                     key: to_object,
                                     parts: _.map(mappings.parts, function(part) {
@@ -215,20 +216,20 @@ module.exports = function(params) {
                                 create_params.bucket = target_bucket;
                                 create_params.key = to_object;
 
-                                return clients[access_key].object.create_multipart_upload(create_params)
-                                    .then(function(info) {
-                                        return clients[access_key].object.allocate_object_parts(new_obj_parts)
-                                            .then(function(res) {
-                                                dbg.log0('complete multipart copy ', create_params);
-                                                var bucket_key_params = _.pick(create_params, 'bucket', 'key');
-                                                return clients[access_key].object.complete_multipart_upload(bucket_key_params);
-                                            })
-                                            .then(function(res) {
-                                                dbg.log0('COMPLETED: copy');
+                                return clients[access_key].object.create_multipart_upload(create_params);
+                            })
+                            .then(function(info) {
+                                return clients[access_key].object.allocate_object_parts(new_obj_parts);
+                            })
+                            .then(function(res) {
+                                dbg.log0('complete multipart copy ', create_params);
+                                var bucket_key_params = _.pick(create_params, 'bucket', 'key');
+                                return clients[access_key].object.complete_multipart_upload(bucket_key_params);
+                            })
+                            .then(function(res) {
+                                dbg.log0('COMPLETED: copy');
 
-                                                return true;
-                                            });
-                                    });
+                                return true;
                             });
                     });
 
@@ -241,7 +242,7 @@ module.exports = function(params) {
     var list_objects_with_prefix = function(prefix, delimiter, bucket_name, access_key) {
         var list_params = {
             bucket: bucket_name,
-            key_s3_prefix : ''
+            key_s3_prefix: ''
         };
         if (prefix) {
             //prefix = prefix.replace(/%2F/g, '/');
@@ -543,7 +544,6 @@ module.exports = function(params) {
                         } else {
                             template = templateBuilder.buildBucketQuery(options, objects_and_folders.objects);
                         }
-                        dbg.log0('get object template ',template);
                         return buildXmlResponse(res, 200, template);
                     })
                     .then(function() {
@@ -769,7 +769,7 @@ module.exports = function(params) {
                             template = templateBuilder.buildCopyObject(req.params.key);
                             return buildXmlResponse(res, 200, template);
                         } else {
-                            copy_object(srcObject, req.params.key, srcBucket,
+                            return copy_object(srcObject, req.params.key, srcBucket,
                                     req.bucket, access_key)
                                 .then(function(is_copied) {
                                     if (is_copied) {
@@ -793,14 +793,13 @@ module.exports = function(params) {
                         bucket: req.bucket,
                         key: file_key_name
                     });
-                }).then(null,function(err){
-                    dbg.log0('Got Error:',err.name,err);
-                    if (err.name==='NOT_FOUND'){
+                }).then(null, function(err) {
+                    dbg.log0('Got Error:', err.name, err);
+                    if (err.name === 'NOT_FOUND') {
                         //ignore.
                         dbg.log0('ignore not found');
                         return null;
-                    }
-                    else{
+                    } else {
                         dbg.error('Failure while trying to find previous versions "%s"', file_key_name, err);
                         var template = templateBuilder.buildKeyNotFound(file_key_name);
                         return buildXmlResponse(res, 500, template);

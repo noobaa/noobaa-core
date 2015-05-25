@@ -36,6 +36,7 @@ function install_aux {
 	deploy_log "install_aux start"
 	# Install Debug packages
 	yum install -y tcpdump
+	yum install -y lsof
 
 	# Install Supervisord
 	yum install -y python-setuptools
@@ -103,8 +104,13 @@ function setup_mongo {
 	deploy_log "setup_mongo done"
 }
 
-function setup_supervisors {
+function general_settings {
+	iptables -A INPUT -i any -p tcp --dport 443 -j ACCEPT
+	service iptables save
 	echo "export LC_ALL=C >> ~/.bashrc"
+}
+
+function setup_supervisors {
 	deploy_log "setup_supervisors start"
 	# Generate default supervisord config
 	echo_supervisord_conf > /etc/supervisord.conf
@@ -135,6 +141,7 @@ if [ "$1" == "runinstall" ]; then
 	setup_repos
 	install_mongo
 	setup_mongo
+	general_settings
 	setup_supervisors
 	reboot -fn
 fi

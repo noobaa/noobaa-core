@@ -61,19 +61,25 @@ function create_system(req) {
             }
             info.owner = req.account.id;
 
-            return db.System.create(info);
+            // set default package names
+            info.resources = {
+                agent_installer: 'noobaa-setup.exe',
+                s3rest_installer: 'noobaa-s3rest.exe'
+            };
+
+            return Q.when(db.System.create(info))
+                .then(null, db.check_already_exists(req, 'system'));
         })
-        .then(null, db.check_already_exists(req, 'system'))
         .then(function(system_arg) {
             system = system_arg;
             // TODO if role create fails, we should recover the role from the system owner
-            return db.Role.create({
-                account: req.account.id,
-                system: system.id,
-                role: 'admin',
-            });
+            return Q.when(db.Role.create({
+                    account: req.account.id,
+                    system: system.id,
+                    role: 'admin',
+                }))
+                .then(null, db.check_already_exists(req, 'role'));
         })
-        .then(null, db.check_already_exists(req, 'role'))
         .then(function() {
             // filling reply_token
             if (req.reply_token) {
@@ -176,7 +182,7 @@ function read_system(req) {
             tiers: _.map(tiers, function(tier) {
                 var t = _.pick(tier, 'name', 'kind');
                 var a = nodes_aggregate[tier.id];
-                t.storage = _.defaults(_.pick(a, 'alloc', 'used'), {
+                t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
                     alloc: 0,
                     used: 0
                 });
@@ -187,6 +193,8 @@ function read_system(req) {
                 return t;
             }),
             storage: {
+                total: nodes_sys.total || 0,
+                free: nodes_sys.free || 0,
                 alloc: nodes_sys.alloc || 0,
                 used: objects_sys.size || 0,
                 real: blocks.size || 0,
@@ -197,15 +205,25 @@ function read_system(req) {
             },
             buckets: _.map(buckets, function(bucket) {
                 var b = _.pick(bucket, 'name');
-                b.tiering = _.map(bucket.tiering, function(tier_id) {
-                    var tier = tiers_by_id[tier_id];
-                    return tier ? tier.name : '';
-                });
                 var a = objects_aggregate[bucket.id] || {};
                 b.storage = {
                     used: a.size || 0,
                 };
                 b.num_objects = a.count || 0;
+                b.tiering = _.map(bucket.tiering, function(tier_id) {
+                    var tier = tiers_by_id[tier_id];
+                    if (!tier) return '';
+                    var replicas = tier.edge_details && tier.edge_details.replicas || 3;
+                    var t = nodes_aggregate[tier.id];
+                    // TODO how to account bucket total storage with multiple tiers?
+                    b.storage.total = (t.total || 0) / replicas;
+                    b.storage.free = (t.free || 0) / replicas;
+                    return tier.name;
+                });
+                if (_.isUndefined(b.storage.total)) {
+                    b.storage.total = (nodes_sys.total || 0) / 3;
+                    b.storage.free = (nodes_sys.free || 0) / 3;
+                }
                 return b;
 
             }),
@@ -340,17 +358,21 @@ function get_system_resource_info(req) {
         if (key === 'toObject' || !_.isString(val) || !val) {
             return;
         }
-        var params = {
-            Bucket: S3_SYSTEM_BUCKET,
-            Key: 'systems/' + req.system._id + '/' + val,
-            Expires: 24 * 3600 // 1 day
-        };
-        if (aws_s3) {
-            return aws_s3.getSignedUrl('getObject', params);
+        if (process.env.ON_PREMISE) {
+            return '/public/systems/' + req.system._id + '/' + val;
         } else {
-            // workaround if we didn't setup aws credentials,
-            // and just try a plain unsigned url
-            return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
+            var params = {
+                Bucket: S3_SYSTEM_BUCKET,
+                Key: 'systems/' + req.system._id + '/' + val,
+                Expires: 24 * 3600 // 1 day
+            };
+            if (aws_s3) {
+                return aws_s3.getSignedUrl('getObject', params);
+            } else {
+                // workaround if we didn't setup aws credentials,
+                // and just try a plain unsigned url
+                return 'https://' + params.Bucket + '.s3.amazonaws.com/' + params.Key;
+            }
         }
     });
     // remove keys with undefined values

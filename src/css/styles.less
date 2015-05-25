@@ -3,7 +3,7 @@
  ******************************************************************************/
 @import (less)"../../node_modules/bootstrap/less/bootstrap.less";
 // @import (less)"../../bower_components/bootstrap-material-design/less/_colors.less";
-@import (less)"../../bower_components/bootstrap-material-design/less/material-fullpalette.less";
+@import (less)"../../bower_components/bootstrap-material-design/less/material.less";
 @import (less)"../../bower_components/bootstrap-material-design/less/ripples.less";
 @import (less)"../../bower_components/bootstrap-sidebar/dist/css/sidebar.css";
 @import (less)"../../bower_components/datetimepicker/jquery.datetimepicker.css";
@@ -29,6 +29,7 @@
 @base-bg: darken(@blue-grey-50, 73%);
 @body-bg: @base-bg;
 @navbar-default-bg: darken(@base-bg, 8%);
+@sidebar-color: lighten(desaturate(@navbar-default-bg, 5%), 57%);
 @well-bg: darken(@base-bg, 8%);
 @gray-light: hsl(0, 0%, 67%);
 @border-color: hsla(0,0%,100%,0.1);
@@ -87,23 +88,10 @@ table {
     overflow: hidden;
 }
 .sidebar.sidebar-left {
-    width: 120px;
-}
-.sidebar.sidebar-right {
-    width: 700px;
-    overflow-y: scroll !important;
-    padding: 0 20px;
-}
-.sidebar.sidebar-left,
-.sidebar.sidebar-right {
-    background-image: url('/public/images/bgtile.png') !important;
     top: 0;
     overflow: initial;
-    background-color: @navbar-default-bg;
-    @sidebar-color: lighten(desaturate(@navbar-default-bg, 5%), 57%);
-    /* @sidebar-color: hsla(0, 0%, 100%, 0.75); */
-    /* @sidebar-color: @navbar-color; */
-    /* @sidebar-color: hsl(0, 0%, 75%); */
+    width: 120px;
+    background-image: url('/public/images/bgtile.png') !important;
     color: @sidebar-color;
     .btn.btn-block {
         color: @sidebar-color;
@@ -166,6 +154,17 @@ table {
             }
         }
     }
+}
+.sidebar.sidebar-right {
+    top: 0;
+    overflow: initial;
+    width: 700px;
+    overflow-y: scroll !important;
+    padding: 0 20px;
+    background-color: darken(saturate(@body-bg, 3%), 4%);
+    border-left: 1px solid hsl(0,0%,90%);
+    // color: @lightbg-text;
+    // color: @sidebar-color;
 }
 .nav-pills:not(.nav-stacked) {
     >li {

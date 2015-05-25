@@ -241,6 +241,7 @@ nb_api.factory('nbSystem', [
                     return nbClient.client.system.get_system_resource_info({});
                 })
                 .then(function(res) {
+                    console.log('SYSTEM RESOURCES', res);
                     return res.agent_installer || '';
                 });
         }
@@ -251,6 +252,7 @@ nb_api.factory('nbSystem', [
                     return nbClient.client.system.get_system_resource_info({});
                 })
                 .then(function(res) {
+                    console.log('SYSTEM RESOURCES', res);
                     return res.s3rest_installer || '';
                 });
         }

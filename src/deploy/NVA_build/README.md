@@ -19,7 +19,9 @@ noobaa-core/deploy/NVA_build
 - create_vm - Create the NVA machine using the VirtualBox CLI
 - build_release.js - Node script which runs on our EC2 building server.
                      DEPRECATED & NOT COMPLETE.
-- build_package.sh - shell script runs on our EC2 building server.
+- build_package.sh - Shell script runs on our EC2 building server.
+- upgrade_wapper.sh - Comes with the upgrade package, contain pre and post execution
+                      functions.
 
 
 * ###NVA_Build (NooBaa Virtual Appliance):
@@ -29,6 +31,8 @@ noobaa-core/deploy/NVA_build
   2) Running the following:
       2.1) yum -y update
       2.2) passwd -> current pass reverse change to roonoobaa
+      2.3) download scones from  http://downloads.sourceforge.net/project/scons/scons/2.3.4/scons-2.3.4.tar.gz?r=http%3A%2F%2Fwww.scons.org%2Fdownload.php&ts=1431437307&use_mirror=garr
+           open it and python setup.py install
   3) In the core repo dir, run gulp NVA_build.
   4) SCP src/deploy/NVA_build/* and build/public/noobaa-NVA.tar.gz to the machine at /tmp
   5) run /tmp/deploy_base runinstall
@@ -63,3 +67,6 @@ noobaa-core/deploy/NVA_build
   The Building Server receives the request, clones the repo at the requested hashtag and builds the package. It also build the
   agent distribution package (which is a part of the upgrade package). After the package is build, it is uploaded to
   s3://noobaa-download/on_premise/v_<VERSION_NUMBER> and an appropriate VERSION_NUMBER release is created in GitHub.
+
+  Accomodating the package itself is a wrapper script, containing pre (before new code extraction)
+  and post (after new code extraction) commands to run during the upgrade flow.

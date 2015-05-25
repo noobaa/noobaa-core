@@ -25,6 +25,9 @@ expect "*\r"
 expect "\r"
 EOD
 
+#Install scones
+#TODO!!!
+
 /usr/bin/expect << EOD
 #Run deployment
 spawn ssh root@${IP}

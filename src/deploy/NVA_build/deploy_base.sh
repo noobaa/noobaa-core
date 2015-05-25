@@ -105,9 +105,16 @@ function setup_mongo {
 }
 
 function general_settings {
-	iptables -A INPUT -i any -p tcp --dport 443 -j ACCEPT
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
+	/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+	/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 	service iptables save
-	echo "export LC_ALL=C >> ~/.bashrc"
+	echo "export LC_ALL=C" >> ~/.bashrc
+	echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
+	echo "alias ll='ls -lha'" >> ~/.bashrc
+	echo "alias less='less -R'" >> ~/.bashrc
+	echo "alias zless='zless -R'" >> ~/.bashrc
+	echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 }
 
 function setup_supervisors {

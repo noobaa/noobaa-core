@@ -71,8 +71,6 @@ mongoose.connect(
 
 // create express app
 var app = express();
-var web_port = process.env.PORT || 5001;
-app.set('port', web_port);
 
 // setup view template engine with doT
 var views_path = path.join(rootdir, 'src', 'views');
@@ -145,46 +143,38 @@ function use_exclude(path, middleware) {
 
 // register RPC services and transports
 var server_rpc = require('./server_rpc');
-
-var server;
+server_rpc.register_http_transport(app);
+// server_rpc.register_n2n_transport();
+var http_port = process.env.PORT || 5001;
+var https_port = process.env.SSL_PORT || 5443;
+var http_server = http.createServer(app);
+var https_server;
 
 Q.fcall(function() {
+        return Q.ninvoke(http_server, 'listen', http_port);
+    })
+    .then(function() {
         return Q.nfcall(pem.createCertificate, {
             days: 365 * 100,
             selfSigned: true
         });
     })
     .then(function(cert) {
-        var promises = [];
-        server_rpc.register_http_transport(app);
-
-        if (web_port === "443") {
-            dbg.log('Setting SSL on ', web_port);
-            server = https.createServer({
-                    key: cert.serviceKey,
-                    cert: cert.certificate
-                }, app).on('error', function(err) {
-                    dbg.error('HTTPS SERVER ERROR', err.stack || err);
-                })
-                .on('close', function() {
-                    dbg.warn('HTTPS SERVER CLOSED');
-
-                });
-        } else {
-            server = http.createServer(app);
-        }
-
-        promises.push(Q.ninvoke(server, 'listen', web_port));
-
-        return Q.all(promises);
-    }).then(function() {
-        dbg.log('Web Server listens on ', web_port);
-        server_rpc.register_ws_transport(server);
-        // server_rpc.register_n2n_transport();
-    }).then(null, function(err) {
-        dbg.log0('error:', err, err.stack);
+        https_server = https.createServer({
+            key: cert.serviceKey,
+            cert: cert.certificate
+        }, app);
+        return Q.ninvoke(https_server, 'listen', https_port);
+    })
+    .then(function() {
+        dbg.log('Web Server ports: http', http_port, 'https', https_port);
+        server_rpc.register_ws_transport(http_server);
+        server_rpc.register_ws_transport(https_server);
+    })
+    .done(null, function(err) {
+        dbg.error('Web Server FAILED TO START', err.stack || err);
+        throw err;
     });
-
 
 
 

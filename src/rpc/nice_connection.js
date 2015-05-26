@@ -47,7 +47,7 @@ function NiceConnection(options) {
  * connect
  *
  */
-NiceConnection.prototype.connect = function(options) {
+NiceConnection.prototype.connect = function() {
     var self = this;
     if (self.ready) {
         return;

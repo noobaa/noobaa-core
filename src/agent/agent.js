@@ -42,6 +42,7 @@ function Agent(params) {
         self.rpc.base_address = params.address;
     }
     self.client = self.rpc.client;
+    self.rpc.on('reconnect', self._on_rpc_reconnect.bind(self));
 
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
@@ -444,6 +445,27 @@ Agent.prototype._start_stop_heartbeats = function() {
         self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
     }
 };
+
+
+/**
+ *
+ * _on_rpc_reconnect
+ *
+ * rpc will notify on reconnect so we can send new heartbeat
+ * this will make sure that the server will recognize the connection with us,
+ * which is needed for signaling to work.
+ *
+ */
+Agent.prototype._on_rpc_reconnect = function(conn) {
+
+    // NOTE: reconnect even is only triggered for the base address by rpc,
+    // so we don't need to check that again here.
+
+    // 1 ms just to be small but non zero to run immediately
+    this.heartbeat_delay_ms = 1;
+    this._start_stop_heartbeats();
+};
+
 
 
 // AGENT API //////////////////////////////////////////////////////////////////

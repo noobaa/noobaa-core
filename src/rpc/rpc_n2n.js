@@ -99,8 +99,8 @@ function RpcN2NConnection(addr_url, n2n_agent) {
 
 util.inherits(RpcN2NConnection, EventEmitter);
 
-RpcN2NConnection.prototype.connect = function(options) {
-    return this.connector.connect(options);
+RpcN2NConnection.prototype.connect = function() {
+    return this.connector.connect();
 };
 
 RpcN2NConnection.prototype.close = function(err) {

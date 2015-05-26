@@ -184,7 +184,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             self.emit_stats('stats.client_request.start', req);
 
             // connect the connection
-            return Q.invoke(req.connection, 'connect', options);
+            return Q.invoke(req.connection, 'connect');
 
         })
         .then(function() {
@@ -408,32 +408,7 @@ RPC.prototype.map_address_to_connection = function(address, conn) {
 RPC.prototype._assign_connection = function(req, options) {
     var address = options.address || this.base_address;
     var addr_url = url.parse(address, true);
-    var conn = this._connection_by_address[addr_url.href];
-
-    if (conn) {
-        if (conn.closed) {
-            dbg.log0('RPC _assign_connection: remove stale connection',
-                'address', addr_url.href,
-                'srv', req.srv,
-                'connid', conn.connid);
-            delete this._connection_by_address[addr_url.href];
-            conn = null;
-        } else {
-            dbg.log2('RPC _assign_connection: existing',
-                'address', addr_url.href,
-                'srv', req.srv,
-                'connid', conn.connid);
-        }
-    }
-
-    if (!conn) {
-        conn = this._new_connection(addr_url);
-        dbg.log1('RPC _assign_connection: new',
-            'address', addr_url.href,
-            'srv', req.srv,
-            'connid', conn.connid);
-    }
-
+    var conn = this._get_connection(addr_url, req.srv);
     var rseq = conn._rpc_req_seq;
     req.connection = conn;
     req.reqid = rseq + '@' + conn.connid;
@@ -452,6 +427,43 @@ RPC.prototype._release_connection = function(req) {
         delete req.connection._sent_requests[req.reqid];
     }
 };
+
+
+/**
+ *
+ * _get_connection
+ *
+ */
+RPC.prototype._get_connection = function(addr_url, srv) {
+    var conn = this._connection_by_address[addr_url.href];
+
+    if (conn) {
+        if (conn.closed) {
+            dbg.log0('RPC _assign_connection: remove stale connection',
+                'address', addr_url.href,
+                'srv', srv,
+                'connid', conn.connid);
+            delete this._connection_by_address[addr_url.href];
+            conn = null;
+        } else {
+            dbg.log2('RPC _assign_connection: existing',
+                'address', addr_url.href,
+                'srv', srv,
+                'connid', conn.connid);
+        }
+    }
+
+    if (!conn) {
+        conn = this._new_connection(addr_url);
+        dbg.log1('RPC _assign_connection: new',
+            'address', addr_url.href,
+            'srv', srv,
+            'connid', conn.connid);
+    }
+
+    return conn;
+};
+
 
 /**
  *
@@ -494,31 +506,88 @@ RPC.prototype._accept_new_connection = function(conn) {
     conn._rpc_req_seq = 1;
     conn._sent_requests = {};
     conn._received_requests = {};
-    conn.on('message', this.connection_receive.bind(this, conn));
-    conn.on('close', this.connection_closed.bind(this, conn));
+    conn.on('message', this._connection_receive.bind(this, conn));
+    conn.on('close', this._connection_closed.bind(this, conn));
 
     // we prefer to let the connection handle it's own errors and decide if to close or not
-    // conn.on('error', this.connection_error.bind(this, conn));
+    // conn.on('error', this._connection_error.bind(this, conn));
+};
+
+
+var RECONN_BACKOFF_BASE = 1000;
+var RECONN_BACKOFF_MAX = 15000;
+var RECONN_BACKOFF_FACTOR = 1.1;
+
+
+/**
+ *
+ */
+RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
+    var self = this;
+    var conn;
+
+    // use the previous backoff for delay
+    reconn_backoff = reconn_backoff || RECONN_BACKOFF_BASE;
+
+    Q.delay(reconn_backoff)
+        .then(function() {
+
+            // create new connection (if not present)
+            return self._get_connection(addr_url, 'reconnect');
+
+        })
+        .then(function(conn_arg) {
+            conn = conn_arg;
+
+            // increase the backoff for the new connection,
+            // so that if it closes the backoff will keep increasing up to max.
+            conn._reconn_backoff = Math.min(
+                reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
+
+            return Q.invoke(conn, 'connect');
+
+        })
+        .then(function() {
+
+            // remove the backoff once connected
+            delete conn._reconn_backoff;
+
+            dbg.log0('RPC RECONNECTED', addr_url.href,
+                'reconn_backoff', reconn_backoff);
+
+            self.emit('reconnect', conn);
+
+        }, function(err) {
+
+            // since the new connection should already listen for close events,
+            // then this path will be called again from there,
+            // so no need to loop and retry from here.
+            dbg.warn('RPC RECONNECT FAILED', addr_url.href,
+                'reconn_backoff', reconn_backoff,
+                err.stack || err);
+
+        });
 };
 
 
 /**
  *
  */
-RPC.prototype.connection_error = function(conn, err) {
+RPC.prototype._connection_error = function(conn, err) {
     dbg.error('RPC CONNECTION ERROR:', conn.connid, conn.url.href, err.stack || err);
     conn.close();
 };
 
+
 /**
  *
  */
-RPC.prototype.connection_closed = function(conn) {
+RPC.prototype._connection_closed = function(conn) {
     var self = this;
 
     conn.closed = true;
 
-    dbg.log0('RPC connection_closed:', conn.connid);
+    dbg.log0('RPC _connection_closed:', conn.connid);
 
     // remove from connection pool
     if (!conn.transient && self._connection_by_address[conn.url.href] === conn) {
@@ -527,16 +596,24 @@ RPC.prototype.connection_closed = function(conn) {
 
     // reject pending requests
     _.each(conn._sent_requests, function(req) {
-        dbg.warn('RPC connection_closed: reject reqid', req.reqid,
+        dbg.warn('RPC _connection_closed: reject reqid', req.reqid,
             'connid', conn.connid);
         req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid);
     });
+
+    // for base_address try to reconnect after small delay.
+    // using _.startsWith() since in some cases url.parse will add a trailing /
+    // specifically in http urls for some strange reason...
+    if (_.startsWith(conn.url.href, self.base_address)) {
+        self._reconnect(conn.url, conn._reconn_backoff);
+    }
 };
+
 
 /**
  *
  */
-RPC.prototype.connection_receive = function(conn, msg_buffer) {
+RPC.prototype._connection_receive = function(conn, msg_buffer) {
     var self = this;
 
     // we allow to receive also objects that are already in "decoded" message form
@@ -547,7 +624,7 @@ RPC.prototype.connection_receive = function(conn, msg_buffer) {
         msg_buffer;
 
     if (!msg || !msg.header) {
-        conn.emit('error', new Error('RPC connection_receive: BAD MESSAGE' +
+        conn.emit('error', new Error('RPC _connection_receive: BAD MESSAGE' +
             ' typeof(msg) ' + typeof(msg) +
             ' typeof(msg.header) ' + typeof(msg && msg.header) +
             ' conn ' + conn.connid));
@@ -560,7 +637,7 @@ RPC.prototype.connection_receive = function(conn, msg_buffer) {
         case 'res':
             return self.handle_response(conn, msg);
         default:
-            conn.emit('error', new Error('RPC connection_receive:' +
+            conn.emit('error', new Error('RPC _connection_receive:' +
                 ' BAD MESSAGE OP ' + msg.header.op +
                 ' reqid ' + msg.header.reqid +
                 ' connid ' + conn.connid));

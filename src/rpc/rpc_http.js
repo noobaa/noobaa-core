@@ -56,7 +56,7 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
  * connect
  *
  */
-RpcHttpConnection.prototype.connect = function(options) {
+RpcHttpConnection.prototype.connect = function() {
     if (this.url.protocol === 'http:' && is_browser_secure) {
         throw new Error('HTTP INSECURE - cannot use http: from secure browser page');
     }

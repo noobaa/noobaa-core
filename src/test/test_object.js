@@ -25,7 +25,7 @@ describe('object', function() {
     var KEY = 'test_object_key';
 
     before(function(done) {
-        this.timeout(20000);
+        this.timeout(30000);
         Q.fcall(function() {
             return client.system.create_system({
                 name: SYS
@@ -51,7 +51,7 @@ describe('object', function() {
     });
 
     after(function(done) {
-        this.timeout(20000);
+        this.timeout(30000);
         Q.fcall(function() {
             return coretest.clear_test_nodes();
         }).nodeify(done);
@@ -59,6 +59,7 @@ describe('object', function() {
 
 
     it('works', function(done) {
+        this.timeout(30000);
         var key = KEY + Date.now();
         Q.fcall(function() {
             return client.object.create_multipart_upload({
@@ -85,7 +86,7 @@ describe('object', function() {
         }).then(function() {
             return client.object.list_objects({
                 bucket: BKT,
-                key: '',
+                key_s3_prefix: key,
             });
         }).then(function() {
             return client.object.delete_object({
@@ -116,7 +117,7 @@ describe('object', function() {
 
 
         it('should write and read object data', function(done) {
-            this.timeout(10000);
+            this.timeout(30000);
             var key = KEY + Date.now();
             var size, data;
             return Q.fcall(function() {
@@ -185,6 +186,7 @@ describe('object', function() {
     describe('multipart upload', function() {
 
         it('should list_multipart_parts', function(done) {
+            this.timeout(30000);
             var key = KEY + Date.now();
             var part_size = 1024;
             var num_parts = 10;

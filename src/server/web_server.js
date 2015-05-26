@@ -170,8 +170,7 @@ Q.fcall(function() {
                     dbg.warn('HTTPS SERVER CLOSED');
 
                 });
-        }else
-        {
+        } else {
             server = http.createServer(app);
         }
 

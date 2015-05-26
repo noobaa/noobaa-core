@@ -108,9 +108,8 @@ describe('RPC', function() {
             fucking: 'aWeSoMe'
         }]
     };
-    var ERROR_DATA = 'testing error';
-    var ERROR_NAME = 'FORBIDDEN';
-    var ERROR_CODE = 403;
+    var ERROR_MESSAGE = 'testing error';
+    var ERROR_CODE = 'FORBIDDEN';
     var schema = new RpcSchema();
     schema.register_api(test_api);
 
@@ -182,7 +181,9 @@ describe('RPC', function() {
         // create a test for every api function
         _.each(test_api.methods, function(method_api, method_name) {
 
-            var rpc = new RPC();
+            var rpc = new RPC({
+                base_address: 'fcall://fcall'
+            });
 
             describe(method_name, function() {
 
@@ -200,7 +201,7 @@ describe('RPC', function() {
                             assert.deepEqual(param, req.rpc_params[name]);
                         });
                         if (reply_error) {
-                            throw req.rpc_error(ERROR_NAME, ERROR_DATA);
+                            throw req.rpc_error(ERROR_CODE, ERROR_MESSAGE);
                         } else {
                             return Q.resolve(REPLY);
                         }
@@ -227,9 +228,8 @@ describe('RPC', function() {
                         console.log('UNEXPECTED REPLY', res);
                         throw 'UNEXPECTED REPLY';
                     }, function(err) {
-                        assert.deepEqual(err.code, ERROR_CODE);
-                        assert.deepEqual(err.name, ERROR_NAME);
-                        assert.deepEqual(err.data, ERROR_DATA);
+                        assert.deepEqual(err.rpc_code, ERROR_CODE);
+                        assert.deepEqual(err.message, ERROR_MESSAGE);
                     }).nodeify(done);
                 });
 

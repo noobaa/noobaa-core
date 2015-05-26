@@ -275,7 +275,7 @@ RPC.prototype.handle_request = function(conn, msg) {
         dbg.warn('RPC handle_request: NOT FOUND', srv,
             'reqid', msg.header.reqid,
             'connid', conn.connid);
-        req.rpc_error('NOT_FOUND', srv);
+        req.rpc_error('NOT_FOUND', srv + ' not found');
         return conn.send(req.export_response_buffer(), 'res', req);
     }
 
@@ -349,9 +349,10 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             self.emit_stats('stats.handle_request.error', req);
 
+            // propagate rpc errors from inner rpc client calls (using err.rpc_code)
             // set default internal error if no other error was specified
             if (!req.error) {
-                req.rpc_error('INTERNAL', err);
+                req.rpc_error(err.rpc_code, err.message);
             }
 
             return conn.send(req.export_response_buffer(), 'res', req);
@@ -528,13 +529,7 @@ RPC.prototype.connection_closed = function(conn) {
     _.each(conn._sent_requests, function(req) {
         dbg.warn('RPC connection_closed: reject reqid', req.reqid,
             'connid', conn.connid);
-        req.import_response_message({
-            header: {
-                op: 'res',
-                reqid: req.reqid,
-                error: 'disconnected'
-            }
-        });
+        req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid);
     });
 };
 

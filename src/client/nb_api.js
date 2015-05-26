@@ -401,7 +401,7 @@ nb_api.controller('LoginCtrl', [
                     $scope.alert_class = '';
                     $window.location.href = '/';
                 }, function(err) {
-                    $scope.alert_text = err.data || 'failed. hard to say why';
+                    $scope.alert_text = err.message || 'failed. hard to say why';
                     $scope.alert_class = alert_class_rotate.shift();
                     alert_class_rotate.push($scope.alert_class);
                     $scope.form_disabled = false;
@@ -430,7 +430,7 @@ nb_api.controller('LoginCtrl', [
                         })
                         .then(null, function(err) {
                             // server errors in this case are descriptive enough to show in ui
-                            throw err.data;
+                            throw err.message;
                         });
                 })
                 .then(function(res) {

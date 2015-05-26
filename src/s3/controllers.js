@@ -135,7 +135,7 @@ module.exports = function(params) {
         }).then(function() {
             dbg.log0('Deleted old version of object "%s" in bucket "%s"', target_object.key, target_object.bucket);
         }, function(err) {
-            if (err.name === 'NOT_FOUND') {
+            if (err.rpc_code === 'NOT_FOUND') {
                 //ignore
             } else {
                 dbg.error('Failure while trying to delete old version of object "%s"', target_object.key, err);
@@ -794,8 +794,8 @@ module.exports = function(params) {
                         key: file_key_name
                     });
                 }).then(null, function(err) {
-                    dbg.log0('Got Error:', err.name, err);
-                    if (err.name === 'NOT_FOUND') {
+                    dbg.log0('Got Error:', err.rpc_code, err);
+                    if (err.rpc_code === 'NOT_FOUND') {
                         //ignore.
                         dbg.log0('ignore not found');
                         return null;
@@ -914,7 +914,7 @@ module.exports = function(params) {
             then(null, function(err) {
                 template = templateBuilder.buildKeyNotFound(key);
 
-                if (err.name === 'NOT_FOUND') {
+                if (err.rpc_code === 'NOT_FOUND') {
                     dbg.log2('Could not delete object "%s"', key);
                     return buildXmlResponse(res, 404, template);
 

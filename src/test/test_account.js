@@ -38,9 +38,7 @@ describe('account', function() {
                 }).then(function() {
                     throw new Error('expected error: unauthorized');
                 }, function(err) {
-                    assert.strictEqual(err.name, 'UNAUTHORIZED');
-                    assert.strictEqual(err.code, 401);
-                    assert.strictEqual(err.data, null);
+                    assert.strictEqual(err.rpc_code, 'UNAUTHORIZED');
                 });
             }).then(function() {
                 return client.create_auth_token({
@@ -64,7 +62,7 @@ describe('account', function() {
                 }).then(function() {
                     throw new Error('expected error: account already exists');
                 }, function(err) {
-                    assert.strictEqual(err.data, 'account already exists');
+                    assert.strictEqual(err.message, 'account already exists');
                 });
             }).then(function() {
                 return client.account.update_account({

@@ -73,7 +73,7 @@ describe('tier', function() {
                 throw new Error('expected not found error');
             }, function(err) {
                 console.log(err);
-                assert.strictEqual(err.data, 'tier not found');
+                assert.strictEqual(err.message, 'tier not found');
             });
         }).then(function() {
             return client.tier.delete_tier({

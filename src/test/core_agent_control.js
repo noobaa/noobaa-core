@@ -79,7 +79,7 @@ function create_agent(howmany) {
     return Q.all(_.times(count, function(i) {
         return Q.fcall(function() {
                 var agent = new Agent({
-                    // address: 'ws://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
+                    address: 'ws://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
                     node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
                     // passing token instead of storage_path to use memory storage
                     token: agntCtlConfig.local_conf.auth,

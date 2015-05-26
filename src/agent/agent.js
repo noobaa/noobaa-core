@@ -181,6 +181,11 @@ Agent.prototype._init_node = function() {
     var self = this;
 
     return Q.fcall(function() {
+            return os_util.get_mount_of_path(self.storage_path);
+        })
+        .then(function(storage_path_mount) {
+            self.storage_path_mount = storage_path_mount;
+            dbg.log0('storage_path_mount', storage_path_mount);
 
             // if not using storage_path, a token should be provided
             if (!self.storage_path) return self.token;
@@ -376,6 +381,14 @@ Agent.prototype.send_heartbeat = function() {
                 params.os_info = os_util.os_info();
                 if (self.drives) {
                     params.drives = self.drives;
+
+                    // for now we only use a single drive,
+                    // so mark the usage on the drive of our storage folder.
+                    _.each(self.drives, function(drive) {
+                        if (self.storage_path_mount === drive.mount) {
+                            drive.storage.used = store_stats.used;
+                        }
+                    });
                 }
             }
 

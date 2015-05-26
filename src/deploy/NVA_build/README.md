@@ -70,3 +70,15 @@ noobaa-core/deploy/NVA_build
 
   Accomodating the package itself is a wrapper script, containing pre (before new code extraction)
   and post (after new code extraction) commands to run during the upgrade flow.
+
+
+  UPGRADE
+
+  1. gulp NVA_build --on_premise
+  2. scp src/deploy/NVA_build/ and build/public/noobaa-NVA.tar.gz to root@machine:/tmp
+  3. run on the target machine:
+  
+     ./src/deploy/NVA_BUILD/upgrade from_file /tmp/noobaa-NVA.tar.gz
+  
+  
+  

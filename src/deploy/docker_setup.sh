@@ -4,8 +4,8 @@ mkdir /noobaa
 cd /noobaa
 sudo apt-get update
 sudo apt-get install -y docker.io unzip
-curl http://noobaa-download.s3.amazonaws.com/DockerClient.zip >DockerClient.zip
-unzip DockerClient.zip
+curl http://noobaa-download.s3.amazonaws.com/DockerClientAmazon.zip >DockerClientAmazon.zip
+unzip DockerClientAmazon.zip
 #read metadata variable with env name. Defined in the gcloud.js (unique per instance)
 #replace ENV_PLACEHOLDER in Dockerfile and run-agent with current env
 ENV_NAME=$(curl http://metadata/computeMetadata/v1/instance/attributes/env -H "Metadata-Flavor: Google")

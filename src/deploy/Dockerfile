@@ -20,8 +20,9 @@ RUN echo "nvm use 0.10.33" >> /noobaa/install-agent.sh
 
 # <ENV_PLACEHOLDER> replaced by docker_setup.sh with metadata variable (set by the gcloud.js)
 
-RUN echo 'time curl -H "Accept: application/json" https://noobaa-<ENV_PLACEHOLDER>.herokuapp.com/agent/package.json > package.json' >> /noobaa/install-agent.sh
+RUN echo 'time curl -k -H "Accept: application/json" https://<ENV_PLACEHOLDER>/agent/package.json > package.json' >> /noobaa/install-agent.sh
 RUN echo "time rm -rf node_modules/" >> /noobaa/install-agent.sh
+RUN echo "time npm config set strict-ssl false" >> /noobaa/install-agent.sh
 RUN echo "time npm install" >> /noobaa/install-agent.sh
 RUN chmod +x /noobaa/install-agent.sh
 ADD run-agent.sh /noobaa/run-agent.sh

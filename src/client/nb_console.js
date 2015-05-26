@@ -154,6 +154,7 @@ nb_console.controller('SupportViewCtrl', [
                         } else {
                             nbAlertify.error('Failed: ' + JSON.stringify(err));
                         }
+                        return reload_accounts();
                     });
             };
             scope.modal = nbModal({

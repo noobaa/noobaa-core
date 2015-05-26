@@ -9,40 +9,64 @@
 
             <div class="modal-body">
 
-                <div style="padding: 80px">
-                    <div style="border-top: 1px solid #999999; width: 33.33%" class="pull-left text-left">
-                        <div style="margin: -30px 0 0 -30px">
+                <div style="margin: 80px 60px 60px 60px" class="clearfix">
+                    <div style="border-top: 1px solid #999999; width: 16.6666%" class="pull-left text-left">
+                        <div style="margin-top: -30px; margin-left: -30px">
                             <i class="fa fa-circle fa-4x {{stage!=1 && 'text-muted' || ''}}" ng-click="stage=1"></i>
+                            <br/> DNS
+                        </div>
+                    </div>
+                    <div style="border-top: 1px solid #999999; width: 33.3333%" class="pull-left text-center">
+                        <div style="margin-top: -30px">
+                            <i class="fa fa-circle fa-4x {{stage!=2 && 'text-muted' || ''}}" ng-click="stage=2"></i>
                             <br/> Download
                         </div>
                     </div>
-                    <div style="border-top: 1px solid #999999; width: 33.33%" class="pull-left text-center">
-                        <div style="margin: -30px 0 0 0">
-                            <i class="fa fa-circle fa-4x {{stage!=2 && 'text-muted' || ''}}" ng-click="stage=2"></i>
+                    <div style="border-top: 1px solid #999999; width: 33.3333%" class="pull-left text-center">
+                        <div style="margin-top: -30px">
+                            <i class="fa fa-circle fa-4x {{stage!=3 && 'text-muted' || ''}}" ng-click="stage=3"></i>
                             <br/> Run
                         </div>
                     </div>
-                    <div style="border-top: 1px solid #999999; width: 33.33%" class="pull-left text-right">
-                        <div style="margin: -30px -30px 0 0">
-                            <i class="fa fa-circle fa-4x {{stage!=3 && 'text-muted' || ''}}" ng-click="stage=3"></i>
+                    <div style="border-top: 1px solid #999999; width: 16.6666%" class="pull-left text-right">
+                        <div style="margin-top: -30px; margin-right: -30px">
+                            <i class="fa fa-circle fa-4x {{stage!=4 && 'text-muted' || ''}}" ng-click="stage=4"></i>
                             <br/> Review
                         </div>
                     </div>
                 </div>
 
-                <div style="min-height: 200px">
-                    <div style="padding: 30px" class="text-center" ng-if="stage==1">
+                <div style="min-height: 200px; padding: 20px" class="text-center">
+                    <div ng-if="stage==1">
+                        Map <b>noobaa.local</b> on your <b>DNS</b> to the noobaa server IP.
+                        <br/> This is used to connect from node agents to the server.
+                        <br/>
+                        <br/>
+                        <i class="fa fa-sitemap text-muted" style="font-size: 80px"></i>
+                    </div>
+                    <div ng-if="stage==2">
                         <b>Download</b> the agent installer
+                        <br/>
                         <br/>
                         <button class="btn btn-primary btn-lg" style="padding: 20px" nb-click-ladda="download_agent();">
                             Download
                         </button>
                     </div>
-                    <div style="padding: 30px" class="text-center" ng-if="stage==2">
-                        <b>Distribute and run</b> the agent on the nodes you wish to participate in the network
+                    <div ng-if="stage==3">
+                        <b>Distribute and run</b> the agent on the nodes
+                        <br/>you wish to participate in the network
+                        <br/>
+                        <br/>
+                        <i class="fa fa-spinner text-muted" style="font-size: 80px"></i>
                     </div>
-                    <div style="padding: 30px" class="text-center" ng-if="stage==3">
-                        Nodes successfully added to the system will be displayed in the <a ng-click="goto_nodes_list()">Nodes List</a>
+                    <div ng-if="stage==4">
+                        <b>Review</b> the new nodes once they connect to the system.
+                        <br/> Use this link to jump to the nodes list now:
+                        <br/>
+                        <br/>
+                        <a ng-click="goto_nodes_list()">
+                            <h4>Nodes List</h4>
+                        </a>
                     </div>
                 </div>
 
@@ -50,8 +74,8 @@
                     <button class="btn btn-default" ng-click="prev_stage()" ng-show="stage>1">
                         Previous
                     </button>
-                    <button class="btn {{stage>=3 && 'btn-success' || 'btn-primary'}}" ng-click="next_stage()">
-                        {{stage>=3 && 'Done' || 'Next'}}
+                    <button class="btn {{stage>=4 && 'btn-success' || 'btn-primary'}}" ng-click="next_stage()">
+                        {{stage>=4 && 'Done' || 'Next'}}
                     </button>
                 </div>
             </div>

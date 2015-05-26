@@ -147,32 +147,37 @@ echo '    "secret_key":"'"$SECRET_KEY"'"' >> agent_conf.json
 echo '}' >> agent_conf.json
 
 
-echo "make installer"
-pwd
 
-cp ../../src/deploy/atom_agent_win.nsi ../../src/deploy/atom_agent_win.bak
 
-if [ ${ON_PREMISE_ENV} -eq 1 ]; then
-   sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
-   # update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
-   sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
-else
-   sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
-   # update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
-   sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
-fi
-
-#if NOT on-premise, run makensis and create the agent distro
+#if NOT building on-premise package, run makensis and create the agent distro
 if [ ${ON_PREMISE} -eq 0 ]; then
-  makensis -NOCD ../../src/deploy/atom_agent_win.nsi
-  mv ../../src/deploy/atom_agent_win.bak ../../src/deploy/atom_agent_win.nsi
-  echo "uploading to S3"
-  if [ ${ON_PREMISE_ENV} -eq 1 ]; then
-      mkdir ../public/systems/
-      mkdir ../public/systems/$SYSTEM_ID/
-      cp noobaa-setup.exe ../public/systems/$SYSTEM_ID/
-      exit 1
-  else
-      s3cmd -P put noobaa-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-setup.exe
-  fi
- fi
+    echo "make installer"
+    pwd
+    cp ../../src/deploy/atom_agent_win.nsi ../../src/deploy/atom_agent_win.bak
+    cp ../../src/deploy/init_agent.bat ../../src/deploy/init_agent.bak
+
+    if [ ${ON_PREMISE_ENV} -eq 1 ]; then
+       sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
+       # update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
+       sed -i  "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
+    else
+       sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_agent_win.nsi
+       # update our own distribution file to use the provided system. Don't commit init_agent with this parameters.
+       sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/init_agent.bat
+    fi
+    makensis -NOCD ../../src/deploy/atom_agent_win.nsi
+    mv ../../src/deploy/atom_agent_win.bak ../../src/deploy/atom_agent_win.nsi
+    mv ../../src/deploy/init_agent.bak ../../src/deploy/init_agent.bat
+
+    if [ ${ON_PREMISE_ENV} -eq 1 ]; then
+       mkdir ../public/systems/
+       mkdir ../public/systems/$SYSTEM_ID/
+       cp noobaa-setup.exe ../public/systems/$SYSTEM_ID/
+       exit 1
+    else
+       mv ../../src/deploy/atom_agent_win.bak ../../src/deploy/atom_agent_win.nsi
+       mv ../../src/deploy/init_agent.bak ../../src/deploy/init_agent.bat
+       echo "uploading to S3"
+       s3cmd -P put noobaa-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-setup.exe
+    fi
+fi

@@ -34,14 +34,14 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/overview.html',
                 reloadOnSearch: false,
             })
-            .when('/resource', {
-                templateUrl: 'console/resource_view.html',
-                reloadOnSearch: false,
-            })
-            .when('/data', {
-                templateUrl: 'console/data_view.html',
-                reloadOnSearch: false,
-            })
+            // .when('/resource', {
+            //     templateUrl: 'console/resource_view.html',
+            //     reloadOnSearch: false,
+            // })
+            // .when('/data', {
+            //     templateUrl: 'console/data_view.html',
+            //     reloadOnSearch: false,
+            // })
             .when('/tier/:tier_name', {
                 templateUrl: 'console/tier_view.html',
                 reloadOnSearch: false,

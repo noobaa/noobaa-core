@@ -177,10 +177,10 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
             // the first region will get the redundant instances
             target_region_count = Math.floor(count / region_names.length);
             first_region_extra_count = (count % region_names.length);
-            if (target_region_count > 50) {
-                target_region_count = 50;
+            if (target_region_count > 100) {
+                target_region_count = 100;
                 first_region_extra_count = 0;
-                console.log('Cannot scale to over 50 instances per region. will scale to 50');
+                console.log('Cannot scale to over 100 instances per region. will scale to 100');
             }
         }
 

@@ -3,7 +3,6 @@
 module.exports = RpcRequest;
 
 var _ = require('lodash');
-// var crypto = require('crypto');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
@@ -62,7 +61,7 @@ RpcRequest.encode_message = function(header, buffers) {
 };
 
 /**
-* @static
+ * @static
  */
 RpcRequest.decode_message = function(msg_buffer) {
     var len = msg_buffer.readUInt32BE(0);
@@ -111,7 +110,7 @@ RpcRequest.prototype.import_request_message = function(msg, api, method_api) {
             throw this.rpc_error('BAD_REQUEST', err);
         }
     }
-    this.srv = (api ? api.name : '?') + 
+    this.srv = (api ? api.name : '?') +
         '.' + (method_api ? method_api.name : '?');
 };
 
@@ -133,7 +132,9 @@ RpcRequest.prototype.export_response_buffer = function() {
         }
     }
     if (this.error) {
-        header.error = this.error;
+        // copy the error to a plain object because otherwise
+        // the message is not encoded by
+        header.error = _.pick(this.error, 'rpc_code', 'message');
     } else {
         header.reply = this.reply;
         buffers = this.method_api.reply.export_buffers(this.reply);
@@ -149,9 +150,9 @@ RpcRequest.prototype.import_response_message = function(msg) {
     if (!is_pending) {
         return is_pending;
     }
-    if (msg.header.error) {
-        this.error = msg.header.error;
-        this.response_defer.reject(this.error);
+    var err = msg.header.error;
+    if (err) {
+        this.rpc_error(err.rpc_code, err.message);
     } else {
         this.reply = msg.header.reply;
         this.method_api.reply.import_buffers(this.reply, msg.buffer);
@@ -168,78 +169,20 @@ RpcRequest.prototype.import_response_message = function(msg) {
 
 /**
  * mark this response with error.
- * @return error object to be thrown by the caller as in: throw res.error(...)
+ * @return error object to be thrown by the caller as in: throw req.rpc_error(...)
  */
-RpcRequest.prototype.rpc_error = function(name, err_data, reason) {
-    var code = RpcRequest.ERRORS[name];
-    if (!code) {
-        dbg.error('*** UNDEFINED RPC ERROR', name, 'RETURNING INTERNAL ERROR INSTEAD');
-        code = 500;
-    }
-    var err = _.isError(err_data) ? err_data : new Error(err_data);
-    dbg.error('RPC ERROR', this.srv, code, name, reason, err.stack);
+RpcRequest.prototype.rpc_error = function(rpc_code, message, reason) {
+    var err = new Error('RPC ERROR');
+    err.rpc_code = rpc_code || 'INTERNAL';
+    err.message = message || '';
+    dbg.error('RPC ERROR', this.srv, reason || '', err.rpc_code, err.message, err.stack);
     if (this.error) {
         dbg.error('RPC MULTIPLE ERRORS, existing error', this.error);
-        return err;
+    } else {
+        this.error = err;
     }
-    this.error = {
-        code: code,
-        name: name,
-        data: err_data,
-    };
     if (this.response_defer) {
         this.response_defer.reject(err);
     }
     return err;
-};
-
-/**
- * these error codes are following the http codes as much as possible,
- * but might define other semantics if required.
- * each error name is mapped to a code number which will be sent along with the name.
- */
-RpcRequest.ERRORS = {
-
-    /**
-     * internal errors is used whenever no other specific error was identified.
-     * one should prefer to use a more specific error if possible.
-     */
-    INTERNAL: 500,
-
-    /**
-     * unavailable mean that a required service is currently not available.
-     * a classic case for delay and retry.
-     */
-    UNAVAILABLE: 503,
-
-    /**
-     * bad request means invalid params schema.
-     */
-    BAD_REQUEST: 400,
-
-    /**
-     * bad reply means invalid reply schema.
-     */
-    BAD_REPLY: 500,
-
-    /**
-     * not found means that the requested api or method was not found.
-     */
-    NOT_FOUND: 404,
-
-    /**
-     * unauthorized mean that the session/request does not contain authorization info
-     */
-    UNAUTHORIZED: 401,
-
-    /**
-     * forbidden means that the authorization is not sufficient for the operations
-     */
-    FORBIDDEN: 403,
-
-    /**
-     * exists means that the request conflicts with current state.
-     * like when asked to create an entity which already exists.
-     */
-    CONFLICT: 409,
 };

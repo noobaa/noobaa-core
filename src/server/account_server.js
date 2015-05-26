@@ -4,7 +4,8 @@
 var _ = require('lodash');
 var Q = require('q');
 var db = require('./db');
-var system_server = require('./system_server');
+var server_rpc = require('./server_rpc');
+// var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**
@@ -31,32 +32,24 @@ module.exports = account_server;
  */
 function create_account(req) {
     var info = _.pick(req.rpc_params, 'name', 'email', 'password');
-
-    // reply_token will be filled with token info for reply
-    // this is to be used by internal calls to create_system etc.
-    req.reply_token = {};
+    var account;
 
     return Q.when(db.Account.create(info))
         .then(null, db.check_already_exists(req, 'account'))
-        .then(function(account) {
-
-            // filling reply_token
-            req.reply_token.account_id = account.id;
-
-            // create a new request that inherits from current req
-            var system_req = Object.create(req);
-            system_req.account = account;
-            system_req.rpc_params = {
-                name: account.name
-            };
-            return system_server.create_system(system_req);
+        .then(function(account_arg) {
+            account = account_arg;
+            return server_rpc.client.system.create_system({
+                name: info.name
+            }, {
+                // the request needs a token with the newly created account
+                auth_token: req.make_auth_token({
+                    account_id: account.id,
+                })
+            });
         })
-        .then(function() {
-            // a token for the new account
-            console.log('req.reply_token', req.reply_token);
-            var token = req.make_auth_token(req.reply_token);
+        .then(function(res) {
             return {
-                token: token
+                token: res.token
             };
         });
 }

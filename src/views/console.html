@@ -77,16 +77,6 @@
                     </a>
                 </li>
 
-                <!--
-                <li>
-                    <p>
-                        <a href="/console/data" class="btn-block">
-                            <small>DATA</small>
-                        </a>
-                    </p>
-                </li>
-                -->
-
                 <li ng-if="nbSystem.system" class="text-center" ng-repeat="bucket in nbSystem.system.buckets" ng-class="{active: nav.active=='bucket'}">
                     <a ng-href="/console/bucket/{{bucket.name}}">
                         <i class="fa fa-folder-o fa-fw fa-3x"></i>

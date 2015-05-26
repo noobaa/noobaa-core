@@ -34,14 +34,14 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/overview.html',
                 reloadOnSearch: false,
             })
-            .when('/resource', {
-                templateUrl: 'console/resource_view.html',
-                reloadOnSearch: false,
-            })
-            .when('/data', {
-                templateUrl: 'console/data_view.html',
-                reloadOnSearch: false,
-            })
+            // .when('/resource', {
+            //     templateUrl: 'console/resource_view.html',
+            //     reloadOnSearch: false,
+            // })
+            // .when('/data', {
+            //     templateUrl: 'console/data_view.html',
+            //     reloadOnSearch: false,
+            // })
             .when('/tier/:tier_name', {
                 templateUrl: 'console/tier_view.html',
                 reloadOnSearch: false,
@@ -140,10 +140,22 @@ nb_console.controller('SupportViewCtrl', [
             var scope = $scope.$new();
             scope.create = function() {
                 return $q.when(nbClient.client.account.create_account({
-                    name: scope.name,
-                    email: scope.email,
-                    password: scope.password
-                })).then(reload_accounts);
+                        name: scope.name,
+                        email: scope.email,
+                        password: scope.password
+                    }))
+                    .then(function() {
+                        scope.modal.modal('hide');
+                        return reload_accounts();
+                    }, function(err) {
+                        console.error('CREATE ACCOUNT ERROR:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                        return reload_accounts();
+                    });
             };
             scope.modal = nbModal({
                 template: 'console/account_create_dialog.html',
@@ -161,7 +173,6 @@ nb_console.controller('OverviewCtrl', [
         $scope.nav.active = 'overview';
         $scope.nav.reload_view = reload_view;
         $scope.upload = upload;
-        $scope.add_node = add_node;
         $scope.rest_server_information = rest_server_information;
         $scope.download_rest_server_package = download_rest_server_package;
 
@@ -189,12 +200,6 @@ nb_console.controller('OverviewCtrl', [
             $timeout(function() {
                 return $scope.nbFiles.upload_file(bucket_name);
             }, 1);
-        }
-
-        function add_node() {
-            var tier_name = $scope.nbSystem.system.tiers[0].name;
-            $location.path('tier/' + tier_name);
-            $location.hash('overview&add_node=1');
         }
 
         function rest_server_information() {
@@ -273,7 +278,6 @@ nb_console.controller('TierViewCtrl', [
         nbSystem, nbNodes, nbHashRouter, nbModal) {
         $scope.nav.active = 'tier';
         $scope.nav.reload_view = reload_view;
-        $scope.add_node = add_node;
         $scope.nodes_num_pages = 0;
         $scope.nodes_page_size = 10;
         $scope.nodes_query = {};
@@ -282,7 +286,6 @@ nb_console.controller('TierViewCtrl', [
             nbHashRouter($scope)
             .when('overview', {
                 templateUrl: 'console/tier_overview.html',
-                reload: reload_overview
             })
             .when('nodes', {
                 templateUrl: 'console/tier_nodes.html',
@@ -351,62 +354,6 @@ nb_console.controller('TierViewCtrl', [
             $scope.nodes_pages = _.times(Math.min(15, $scope.nodes_num_pages), _.identity);
             tier_router.set_num_pages('nodes', $scope.nodes_num_pages);
         }
-
-        function reload_overview(hash_query) {
-            console.log('RELOAD OVERVIEW', hash_query);
-            if (hash_query.add_node) {
-                $location.hash('');
-                add_node();
-            }
-        }
-
-        function add_node() {
-            var scope = $scope.$new();
-            scope.stage = 1;
-            scope.next_stage = function() {
-                scope.stage += 1;
-                if (scope.stage > 3) {
-                    scope.modal.modal('hide');
-                }
-            };
-            scope.prev_stage = function() {
-                scope.stage -= 1;
-                if (scope.stage < 1) {
-                    scope.stage = 1;
-                }
-            };
-            scope.goto_nodes_list = function() {
-                scope.modal.modal('hide');
-                scope.modal.on('hidden.bs.modal', function() {
-                    $timeout(function() {
-                        $location.path('/tier/' + nbSystem.system.tiers[0].name);
-                        $location.hash('nodes');
-                        console.log('$location', $location.absUrl());
-                    }, 1);
-                });
-            };
-            scope.download_agent = function() {
-                var link;
-                return nbSystem.get_agent_installer()
-                    .then(function(url) {
-                        link = $window.document.createElement("a");
-                        link.download = '';
-                        link.href = url;
-                        $window.document.body.appendChild(link);
-                        link.click();
-                        return Q.delay(2000);
-                    }).then(function() {
-                        $window.document.body.removeChild(link);
-                    }).then(function() {
-                        scope.next_stage();
-                    });
-            };
-            scope.modal = nbModal({
-                template: 'console/add_node_dialog.html',
-                scope: scope,
-            });
-        }
-
 
     }
 ]);

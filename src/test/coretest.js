@@ -28,7 +28,7 @@ var account_credentials = {
 var client = new api.Client();
 
 // register api servers
-require('../server/server_rpc');
+var server_rpc = require('../server/server_rpc');
 
 _.each(mongoose.modelNames(), function(model_name) {
     mongoose.model(model_name).schema.set('autoIndex', false);
@@ -47,6 +47,8 @@ before(function(done) {
             return Q.npost(mongoose.model(model_name), 'ensureIndexes');
         }));
     }).then(function() {
+        server_rpc.register_http_transport(utilitest.app);
+        server_rpc.register_ws_transport(utilitest.http_server);
 
         config.test_mode = true;
 

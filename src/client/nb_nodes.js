@@ -25,6 +25,7 @@ nb_api.factory('nbNodes', [
         $scope.disable_node = disable_node;
         $scope.decommission_node = decommission_node;
         $scope.remove_node = remove_node;
+        $scope.add_node = add_node;
         $scope.self_test = self_test;
 
 
@@ -174,6 +175,53 @@ nb_api.factory('nbNodes', [
                     })).then(refresh_node_groups);
                 }
             );
+        }
+
+        function add_node() {
+            var scope = $rootScope.$new();
+            scope.stage = 1;
+            scope.next_stage = function() {
+                scope.stage += 1;
+                if (scope.stage > 4) {
+                    scope.modal.modal('hide');
+                }
+            };
+            scope.prev_stage = function() {
+                scope.stage -= 1;
+                if (scope.stage < 1) {
+                    scope.stage = 1;
+                }
+            };
+            scope.goto_nodes_list = function() {
+                scope.modal.modal('hide');
+                scope.modal.on('hidden.bs.modal', function() {
+                    $timeout(function() {
+                        $location.path('/tier/' + nbSystem.system.tiers[0].name);
+                        $location.hash('nodes');
+                        console.log('$location', $location.absUrl());
+                    }, 1);
+                });
+            };
+            scope.download_agent = function() {
+                var link;
+                return nbSystem.get_agent_installer()
+                    .then(function(url) {
+                        link = $window.document.createElement("a");
+                        link.download = '';
+                        link.href = url;
+                        $window.document.body.appendChild(link);
+                        link.click();
+                        return Q.delay(2000);
+                    }).then(function() {
+                        $window.document.body.removeChild(link);
+                    }).then(function() {
+                        scope.next_stage();
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/add_node_dialog.html',
+                scope: scope,
+            });
         }
 
         function self_test(node, kind) {

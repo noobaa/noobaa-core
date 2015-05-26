@@ -37,7 +37,7 @@ var KEEPALIVE_COMMAND = JSON.stringify({
  * connect
  *
  */
-RpcWsConnection.prototype.connect = function(options) {
+RpcWsConnection.prototype.connect = function() {
     var self = this;
     var ws = self.ws;
     if (ws) {

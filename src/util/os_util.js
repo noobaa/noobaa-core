@@ -4,11 +4,13 @@ module.exports = {
     os_info: os_info,
     read_drives: read_drives,
     get_main_drive_name: get_main_drive_name,
+    get_mount_of_path: get_mount_of_path,
 };
 
 var _ = require('lodash');
 var Q = require('q');
 var os = require('os');
+var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
 
@@ -55,6 +57,23 @@ function get_main_drive_name() {
     } else {
         return '/';
     }
+}
+
+function get_mount_of_path(path) {
+    if (os.type() === 'Windows_NT') {
+        return Q.nfcall(fs.realpath, path)
+            .then(function(fullpath) {
+                return fullpath[0] + fullpath[1];
+            });
+    } else {
+        return Q.nfcall(node_df, {
+                file: path
+            })
+            .then(function(drives) {
+                return drives && drives[0] && drives[0].mount;
+            });
+    }
+
 }
 
 function read_mac_linux_drives() {

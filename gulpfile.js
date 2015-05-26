@@ -194,6 +194,80 @@ function candidate(candidate_src) {
     return stream;
 }
 
+function pack(dest, name) {
+    var pkg_stream = gulp
+        .src('package.json')
+        .pipe(gulp_json_editor(function(json) {
+            var deps = _.omit(json.dependencies, function(val, key) {
+                return /^gulp/.test(key) ||
+                    /^vinyl/.test(key) ||
+                    /^jshint/.test(key) ||
+                    /^browserify/.test(key) ||
+                    _.contains([
+                        'bower',
+                        'mocha',
+                    ], key);
+            });
+            return {
+                name: 'noobaa-NVA',
+                version: '0.0.0',
+                private: true,
+                main: 'index.js',
+                dependencies: deps,
+            };
+        })).on('error', gutil.log);
+
+    var src_stream = gulp
+        .src(PATHS.NVA_Package_sources, {
+            base: 'src'
+        })
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('src', p.dirname);
+        }));
+    // TODO bring back uglify .pipe(gulp_uglify());
+
+    var images_stream = gulp
+        .src(['images/**/*', ], {
+            base: 'images'
+        })
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('images', p.dirname);
+        }));
+
+    var basejs_stream = gulp
+        .src(['bower.json', 'config.js', 'gulpfile.js', '.jshintrc'], {});
+
+    var vendor_stream = gulp
+        .src(['vendor/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('vendor', p.dirname);
+        }));
+
+    var agent_distro = gulp
+        .src(['src/build/windows/noobaa_setup.exe'], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('deployment', p.dirname);
+        }));
+
+    var build_stream = gulp
+        .src(['build/public/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('build/public', p.dirname);
+        }));
+
+
+    return event_stream
+        .merge(pkg_stream, src_stream, images_stream, basejs_stream,
+            vendor_stream, agent_distro, build_stream)
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('noobaa-core', p.dirname);
+        }))
+        .pipe(gulp_tar(name))
+        .pipe(gulp_gzip())
+        // .pipe(gulp_size_log(NAME))
+        .pipe(gulp.dest(dest));
+}
+
 var PLUMB_CONF = {
     errorHandler: gulp_notify.onError("Error: <%= error.message %>")
 };
@@ -371,81 +445,14 @@ gulp.task('NVA_build', ['jshint', 'install', 'build_agent_distro'], function() {
     var NAME = 'noobaa-NVA.tar';
 
     //Remove previously build package
-    child_process.spawnSync('rm -f ' + DEST + '/' + NAME + '.gz', '', {
-        cwd: process.cwd()
-    });
-
-    var pkg_stream = gulp
-        .src('package.json')
-        .pipe(gulp_json_editor(function(json) {
-            var deps = _.omit(json.dependencies, function(val, key) {
-                return /^gulp/.test(key) ||
-                    /^vinyl/.test(key) ||
-                    /^jshint/.test(key) ||
-                    /^browserify/.test(key) ||
-                    _.contains([
-                        'bower',
-                        'mocha',
-                    ], key);
-            });
-            return {
-                name: 'noobaa-NVA',
-                version: '0.0.0',
-                private: true,
-                main: 'index.js',
-                dependencies: deps,
-            };
-        })).on('error', gutil.log);
-
-    var src_stream = gulp
-        .src(PATHS.NVA_Package_sources, {
-            base: 'src'
-        })
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('src', p.dirname);
-        }));
-    // TODO bring back uglify .pipe(gulp_uglify());
-
-    var images_stream = gulp
-        .src(['images/**/*', ], {
-            base: 'images'
-        })
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('images', p.dirname);
-        }));
-
-    var basejs_stream = gulp
-        .src(['bower.json', 'config.js', 'gulpfile.js', '.jshintrc'], {});
-
-    var vendor_stream = gulp
-        .src(['vendor/**/*', ], {})
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('vendor', p.dirname);
-        }));
-
-    var agent_distro = gulp
-        .src(['src/build/windows/noobaa_setup.exe'], {})
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('deployment', p.dirname);
-        }));
-
-    var build_stream = gulp
-        .src(['build/public/**/*', ], {})
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('build/public', p.dirname);
-        }));
-
-    return event_stream
-        .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream)
-        .pipe(gulp_rename(function(p) {
-            p.dirname = path.join('noobaa-core', p.dirname);
-        }))
-        .pipe(gulp_tar(NAME))
-        .pipe(gulp_gzip())
-        // .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(DEST));
-
+    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
+        .then(function(res) {
+            return Q.nfcall(child_process.exec, 'cp -f src/deploy/NVA_build/upgrade_wrapper.sh ' + DEST)
+                .then(function(res) {
+                    //call for packing
+                    return pack(DEST, NAME);
+                });
+        });
 });
 
 gulp.task('client', ['bower', 'ng'], function() {

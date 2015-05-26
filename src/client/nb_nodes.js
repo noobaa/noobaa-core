@@ -179,6 +179,7 @@ nb_api.factory('nbNodes', [
 
         function add_node() {
             var scope = $rootScope.$new();
+            scope.$location = $location;
             scope.stage = 1;
             scope.next_stage = function() {
                 scope.stage += 1;
@@ -214,7 +215,6 @@ nb_api.factory('nbNodes', [
                         return Q.delay(2000);
                     }).then(function() {
                         $window.document.body.removeChild(link);
-                    }).then(function() {
                         scope.next_stage();
                     });
             };

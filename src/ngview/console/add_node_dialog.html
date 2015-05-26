@@ -9,11 +9,11 @@
 
             <div class="modal-body">
 
-                <div style="margin: 80px 60px 60px 60px" class="clearfix">
+                <div style="margin: 80px 60px 40px 60px" class="clearfix">
                     <div style="border-top: 1px solid #999999; width: 16.6666%" class="pull-left text-left">
                         <div style="margin-top: -30px; margin-left: -30px">
                             <i class="fa fa-circle fa-4x {{stage!=1 && 'text-muted' || ''}}" ng-click="stage=1"></i>
-                            <br/> DNS
+                            <br/>&nbsp; DNS
                         </div>
                     </div>
                     <div style="border-top: 1px solid #999999; width: 33.3333%" class="pull-left text-center">
@@ -31,42 +31,54 @@
                     <div style="border-top: 1px solid #999999; width: 16.6666%" class="pull-left text-right">
                         <div style="margin-top: -30px; margin-right: -30px">
                             <i class="fa fa-circle fa-4x {{stage!=4 && 'text-muted' || ''}}" ng-click="stage=4"></i>
-                            <br/> Review
+                            <br/> Review &nbsp;
                         </div>
                     </div>
                 </div>
 
-                <div style="min-height: 200px; padding: 20px" class="text-center">
+                <div style="min-height: 200px; padding: 20px">
                     <div ng-if="stage==1">
-                        Map <b>noobaa.local</b> on your <b>DNS</b> to the noobaa server IP.
-                        <br/> This is used to connect from node agents to the server.
-                        <br/>
-                        <br/>
-                        <i class="fa fa-sitemap text-muted" style="font-size: 80px"></i>
+                        <p class="text-center">
+                            In order for the nodes to connect to the NooBaa server,
+                            <br/> configure the following entry in your <b>DNS</b>:
+                        </p>
+                        <pre style="margin-top: 20px; max-width: 350px" class="center-block">{{$location.host()}} <b>noobaa.local</b></pre>
+                        <div class="text-center" style="padding-top: 20px">
+                            (this server IP should be available on the network)
+                            <!-- <br/> -->
+                            <!-- <br/> -->
+                            <!-- <i class="fa fa-sitemap text-muted" style="font-size: 80px"></i> -->
+                        </div>
                     </div>
                     <div ng-if="stage==2">
-                        <b>Download</b> the agent installer
-                        <br/>
-                        <br/>
-                        <button class="btn btn-primary btn-lg" style="padding: 20px" nb-click-ladda="download_agent();">
-                            Download
-                        </button>
+                        <p class="text-center">
+                            <b>Download</b> the agent installer
+                        </p>
+                        <div class="text-center" style="padding-top: 20px">
+                            <button class="btn btn-primary btn-lg" style="padding: 20px" nb-click-ladda="download_agent();">
+                                Download
+                            </button>
+                        </div>
                     </div>
                     <div ng-if="stage==3">
-                        <b>Distribute and run</b> the agent on the nodes
-                        <br/>you wish to participate in the network
-                        <br/>
-                        <br/>
-                        <i class="fa fa-spinner text-muted" style="font-size: 80px"></i>
+                        <p class="text-center">
+                            <b>Distribute and run</b> the agent on the nodes
+                            <br/>you wish to participate in the network
+                        </p>
+                        <div class="text-center" style="padding-top: 20px">
+                            <i class="fa fa-spinner text-muted" style="font-size: 80px"></i>
+                        </div>
                     </div>
                     <div ng-if="stage==4">
-                        <b>Review</b> the new nodes once they connect to the system.
-                        <br/> Use this link to jump to the nodes list now:
-                        <br/>
-                        <br/>
-                        <a ng-click="goto_nodes_list()">
-                            <h4>Nodes List</h4>
-                        </a>
+                        <p class="text-center">
+                            <b>Review</b> the new nodes on this link.
+                            <br/> New nodes will show up once they are connected:
+                        </p>
+                        <div class="text-center" style="padding-top: 20px">
+                            <a ng-click="goto_nodes_list()">
+                                <h4>Nodes List</h4>
+                            </a>
+                        </div>
                     </div>
                 </div>
 

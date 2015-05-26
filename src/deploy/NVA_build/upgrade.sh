@@ -26,7 +26,7 @@ function enable_supervisord {
 function check_latest_version {
   local current=$(grep CURRENT_VERSION $ENV_FILE | sed 's:.*=\(.*\):\1:')
   local path=$(node $VER_CHECK $current)
-
+  deploy_log "Current version $current while path is $path"
   if [ "$path" != "" ]; then
     deploy_log "Upgrade needed, path ${path}"
     curl -sL ${path} > ${TMP_PATH}${TMP_PACKAGE_FILE} || true
@@ -41,6 +41,7 @@ function do_upgrade {
 
   #Verify package integrity
   mkdir -p /tmp/test
+  chmod 777 ${TMP_PATH}${TMP_WRAPPER}
   cd /tmp/test
   cp ${TMP_PATH}${TMP_PACKAGE_FILE} .
   tar -xzvf ./${TMP_PACKAGE_FILE}
@@ -57,13 +58,18 @@ function do_upgrade {
   ${TMP_PATH}${TMP_WRAPPER} pre
 
   deploy_log "Backup of current version and extract of new"
+  #Delete old backup
+  rm -rf /backup
   #Backup and extract
   mv ${CORE_DIR} /backup
   mkdir ${CORE_DIR}
   mv ${TMP_PATH}${TMP_PACKAGE_FILE} /root/node_modules
   cd /root/node_modules
   deploy_log "Extracting new version"
-	tar -xzvf ./${TMP_PACKAGE_FILE}
+  tar -xzvf ./${TMP_PACKAGE_FILE}
+  #replace with locally built packages
+  mv /backup/node_modules/heapdump  /root/node_modules/heapdump
+  mv /backup/node_modules/bcrypt  /root/node_modules/bcrypt
 
   # Re-setup Repos
   setup_repos

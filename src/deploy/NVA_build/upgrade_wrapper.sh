@@ -4,7 +4,7 @@
 
 function pre_upgrade {
   #yum install -y lsof
-  
+
   #fix iptables
   #TODO: CHECK if rules already exist, is so skip this part
   iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
@@ -21,7 +21,20 @@ function pre_upgrade {
   echo "alias less='less -R'" >> ~/.bashrc
   echo "alias zless='zless -R'" >> ~/.bashrc
   echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
-
+  if grep -Fxq "* hard nofile" /etc/security/limits.conf
+  then
+      echo "hard limit already exists"
+  else
+      echo "* hard nofile 102400" >> /etc/security/limits.conf
+  fi
+  if grep -Fxq "* soft nofile" /etc/security/limits.conf
+  then
+      echo "soft limit already exists"
+  else
+      echo "* soft nofile 102400" >> /etc/security/limits.conf
+  fi
+  sysctl -w fs.file-max=102400
+  sysctl -p
 }
 
 function post_upgrade {

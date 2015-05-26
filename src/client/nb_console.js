@@ -34,14 +34,14 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/overview.html',
                 reloadOnSearch: false,
             })
-            .when('/resource', {
-                templateUrl: 'console/resource_view.html',
-                reloadOnSearch: false,
-            })
-            .when('/data', {
-                templateUrl: 'console/data_view.html',
-                reloadOnSearch: false,
-            })
+            // .when('/resource', {
+            //     templateUrl: 'console/resource_view.html',
+            //     reloadOnSearch: false,
+            // })
+            // .when('/data', {
+            //     templateUrl: 'console/data_view.html',
+            //     reloadOnSearch: false,
+            // })
             .when('/tier/:tier_name', {
                 templateUrl: 'console/tier_view.html',
                 reloadOnSearch: false,
@@ -140,10 +140,22 @@ nb_console.controller('SupportViewCtrl', [
             var scope = $scope.$new();
             scope.create = function() {
                 return $q.when(nbClient.client.account.create_account({
-                    name: scope.name,
-                    email: scope.email,
-                    password: scope.password
-                })).then(reload_accounts);
+                        name: scope.name,
+                        email: scope.email,
+                        password: scope.password
+                    }))
+                    .then(function() {
+                        scope.modal.modal('hide');
+                        return reload_accounts();
+                    }, function(err) {
+                        console.error('CREATE ACCOUNT ERROR:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                        return reload_accounts();
+                    });
             };
             scope.modal = nbModal({
                 template: 'console/account_create_dialog.html',

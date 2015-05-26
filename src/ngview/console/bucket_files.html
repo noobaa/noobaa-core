@@ -13,8 +13,7 @@
         </h4>
         <p class="text-muted">
             Click on a file name to get more information.
-        <br>
-
+            <br/>
         </p>
     </div>
 
@@ -65,6 +64,9 @@
                     <!-- <td>{{file.access_time}}</td> -->
                 </tr>
             </table>
+            <h4 class="text-muted" ng-if="!files.length" style="padding: 40px 20px">
+                - No Results -
+            </h4>
         </div>
 
         <nav class="noselect">

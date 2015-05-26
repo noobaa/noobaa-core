@@ -8,6 +8,7 @@ var Q = require('q');
 // var assert = require('assert');
 var size_utils = require('../util/size_utils');
 var coretest = require('./coretest');
+var os_util = require('../util/os_util');
 
 describe('node', function() {
 
@@ -45,9 +46,7 @@ describe('node', function() {
                     alloc: 10 * size_utils.GIGABYTE,
                     used: size_utils.GIGABYTE,
                 },
-                os_info: {
-                    os: 'os'
-                },
+                os_info: os_util.os_info(),
             });
         }).then(function() {
             return client.node.read_node({

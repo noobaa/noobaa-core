@@ -171,6 +171,7 @@ if [ ${ON_PREMISE} -eq 0 ]; then
       mkdir ../public/systems/
       mkdir ../public/systems/$SYSTEM_ID/
       cp noobaa-setup.exe ../public/systems/$SYSTEM_ID/
+      exit 1
   else
       s3cmd -P put noobaa-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-setup.exe
   fi

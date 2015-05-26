@@ -234,6 +234,21 @@ function pack(dest, name) {
             p.dirname = path.join('images', p.dirname);
         }));
 
+    var node_modules_stream = gulp
+        .src(['node_modules/**/*',
+             '!node_modules/gulp*/**/*',
+             '!node_modules/heapdump/**/*',
+             '!node_modules/bower/**/*',
+             '!node_modules/bcrypt/**/*',
+             '!node_modules/node-inspector/**/*' ], {
+            base: 'node_modules'
+        })
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('node_modules', p.dirname);
+        }));
+
+
+
     var basejs_stream = gulp
         .src(['bower.json', 'config.js', 'gulpfile.js', '.jshintrc'], {});
 
@@ -258,7 +273,7 @@ function pack(dest, name) {
 
     return event_stream
         .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream)
+            vendor_stream, agent_distro, build_stream,node_modules_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
@@ -412,11 +427,11 @@ gulp.task('build_agent_distro', ['agent'], function() {
     if (build_on_premise === true) {
         build_params = ['--on_premise'];
     } else {
-        build_params = ['--access_key=2ad3ecd3f066d6f881c9e3c2b7044412',
-            '--secret_key=e168c0557f5d973d50ccd437209d6ad6a4271a21aed8e4a18109bd5b4b04eecb',
-            '--system_id=5558c06d3aa4700e008f68ba',
-            '--system=nesstest',
-            '--address=wss://noobaa-alpha.herokuapp.com:443'
+        build_params = ['--access_key=2a6ea085b0a0977a7caa7a59b77a698d',
+            '--secret_key=c8d1d9f1b1f4b50c762aefb0d4f8cc81c235a67c046f16f835e2e01475041ec3',
+            '--system_id=5562f0a1a715e5b107c2744d',
+            '--system=bankhapoalim',
+            '--address=wss://52.28.110.142'
         ];
     }
 

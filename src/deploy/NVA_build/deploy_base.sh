@@ -70,7 +70,10 @@ function setup_repos {
 	# Setup Repos
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 	cd ${CORE_DIR}
-	$(npm install -dd >> ${LOG_FILE})
+	deploy_log "setup_repos before deleted npm install"
+
+	#$(npm install -dd >> ${LOG_FILE})
+	deploy_log "setup_repos after deleted npm install"
 
 	deploy_log "setting up crontab"
 	# Setup crontab job for upgrade checks

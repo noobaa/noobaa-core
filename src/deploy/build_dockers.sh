@@ -61,7 +61,7 @@ echo '}' >> agent_conf.json
 cat agent_conf.json
 
 rm DockerClientAmazon.zip
-zip DockerClientAmazon.zip Dockerfile docker_setup.sh init.sh run-agent.sh start_noobaa_docker.sh supervisord.conf agent_conf.json
+zip DockerClientAmazon.zip Dockerfile docker_setup.sh init.sh run-agent.sh dockers_restart.sh start_noobaa_docker.sh supervisord.conf agent_conf.json
 /Users/eran/Downloads/s3cmd-1.5.0-rc1/s3cmd ls s3://noobaa-download
 /Users/eran/Downloads/s3cmd-1.5.0-rc1/s3cmd -P put DockerClientAmazon.zip s3://noobaa-download
 /Users/eran/Downloads/s3cmd-1.5.0-rc1/s3cmd -P put docker_setup.sh s3://noobaa-download

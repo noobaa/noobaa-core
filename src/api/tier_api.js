@@ -24,7 +24,7 @@ module.exports = {
                         type: 'string',
                     },
                     kind: {
-                        type: 'string',
+                        $ref: '/tier_api/definitions/tier_kind'
                     },
                     edge_details: {
                         $ref: '/tier_api/definitions/edge_details'

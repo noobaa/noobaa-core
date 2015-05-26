@@ -26,7 +26,16 @@ module.exports = {
                 },
             },
             reply: {
-                $ref: '/system_api/definitions/system_info'
+                type: 'object',
+                required: ['token', 'info'],
+                properties: {
+                    token: {
+                        type: 'string',
+                    },
+                    info: {
+                        $ref: '/system_api/definitions/system_info'
+                    },
+                }
             },
             auth: {
                 system: false,

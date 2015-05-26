@@ -140,10 +140,21 @@ nb_console.controller('SupportViewCtrl', [
             var scope = $scope.$new();
             scope.create = function() {
                 return $q.when(nbClient.client.account.create_account({
-                    name: scope.name,
-                    email: scope.email,
-                    password: scope.password
-                })).then(reload_accounts);
+                        name: scope.name,
+                        email: scope.email,
+                        password: scope.password
+                    }))
+                    .then(function() {
+                        scope.modal.modal('hide');
+                        return reload_accounts();
+                    }, function(err) {
+                        console.error('CREATE ACCOUNT ERROR:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                    });
             };
             scope.modal = nbModal({
                 template: 'console/account_create_dialog.html',

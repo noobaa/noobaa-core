@@ -6,8 +6,7 @@ var Q = require('q');
 var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
 var db = require('./db');
-var tier_server = require('./tier_server');
-var bucket_server = require('./bucket_server');
+var server_rpc = require('./server_rpc');
 // var dbg = require('noobaa-util/debug_module')(__filename);
 var AWS = require('aws-sdk');
 
@@ -45,6 +44,7 @@ module.exports = system_server;
  */
 function create_system(req) {
     var system;
+    var system_token;
 
     return Q.fcall(function() {
             var info = _.pick(req.rpc_params, 'name');
@@ -72,6 +72,14 @@ function create_system(req) {
         })
         .then(function(system_arg) {
             system = system_arg;
+
+            // a token for the new system
+            system_token = req.make_auth_token({
+                account_id: req.account.id,
+                system_id: system.id,
+                role: 'admin',
+            });
+
             // TODO if role create fails, we should recover the role from the system owner
             return Q.when(db.Role.create({
                     account: req.account.id,
@@ -81,45 +89,31 @@ function create_system(req) {
                 .then(null, db.check_already_exists(req, 'role'));
         })
         .then(function() {
-            // filling reply_token
-            if (req.reply_token) {
-                req.reply_token.system_id = system.id;
-                req.reply_token.role = 'admin';
-            }
-
-            // create a new request that inherits from current req
-            var tier_req = Object.create(req);
-            tier_req.system = system;
-            tier_req.role = 'admin';
-            tier_req.rpc_params = {
+            return server_rpc.client.tier.create_tier({
                 name: 'nodes',
                 kind: 'edge',
-            };
-            return tier_server.create_tier(tier_req);
+                edge_details: {
+                    replicas: 3,
+                    data_fragments: 1,
+                    parity_fragments: 0
+                }
+            }, {
+                auth_token: system_token
+            });
         })
         .then(function() {
-            // create a new request that inherits from current req
-            var bucket_req = Object.create(req);
-            bucket_req.system = system;
-            bucket_req.role = 'admin';
-            bucket_req.rpc_params = {
+            return server_rpc.client.bucket.create_bucket({
                 name: 'files',
                 tiering: ['nodes']
-            };
-            return bucket_server.create_bucket(bucket_req);
+            }, {
+                auth_token: system_token
+            });
         })
         .then(function() {
-
-            // a token for the new system
-            /* TODO add the token to the response
-            var token = req.make_auth_token({
-                account_id: req.account.id,
-                system_id: system.id,
-                role: 'admin',
-            });
-            */
-
-            return get_system_info(system);
+            return {
+                token: system_token,
+                info: get_system_info(system)
+            };
         });
 }
 

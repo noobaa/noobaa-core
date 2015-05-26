@@ -112,7 +112,7 @@ function read_windows_drives() {
                 if (!vol.DriveLetter) return;
                 return {
                     mount: vol.DriveLetter,
-                    drive_id: vol.DriveId,
+                    drive_id: vol.DeviceID,
                     storage: {
                         total: parseInt(vol.Capacity, 10),
                         free: parseInt(vol.FreeSpace, 10),

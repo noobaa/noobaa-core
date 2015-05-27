@@ -190,6 +190,7 @@ app.use('/s3', s3app({}));
 
 // agent package json
 app.get('/agent/package.json', function(req, res) {
+    dbg.log0('reqqqqqq:',req);
     res.status(200).send({
         name: 'agent',
         engines: {
@@ -197,10 +198,10 @@ app.get('/agent/package.json', function(req, res) {
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
-                ' --prod --address ' + process.env.ADDRESS
+                ' --prod --address ' +'wss://' + req.get('host') 
         },
         dependencies: {
-            'noobaa-agent': process.env.ADDRESS + '/public/noobaa-agent.tar.gz'
+            'noobaa-agent': req.protocol + '://' + req.get('host') +'/public/noobaa-agent.tar.gz'
         }
     });
 });

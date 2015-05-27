@@ -65,15 +65,20 @@ function install_repos {
 }
 
 function setup_repos {
+	local runnpm=0
+	if [ "$1" == "runnpm" ]; then
+		runnpm=1
+	fi
 	deploy_log "setup_repos start"
 	cd ~
 	# Setup Repos
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 	cd ${CORE_DIR}
-	deploy_log "setup_repos before deleted npm install"
 
-	#$(npm install -dd >> ${LOG_FILE})
-	deploy_log "setup_repos after deleted npm install"
+	if [ ${runnpm} -eq 1 ]; then
+		deploy_log "setup_repos calling npm install"
+		$(npm install -dd >> ${LOG_FILE})
+	fi
 
 	deploy_log "setting up crontab"
 	# Setup crontab job for upgrade checks
@@ -130,17 +135,26 @@ function setup_mongo {
 }
 
 function general_settings {
+	#Fix iptables
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
 	/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 	/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 	service iptables save
+
+	#Add to aliases bashrc
 	echo "export LC_ALL=C" >> ~/.bashrc
 	echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
 	echo "alias ll='ls -lha'" >> ~/.bashrc
 	echo "alias less='less -R'" >> ~/.bashrc
 	echo "alias zless='zless -R'" >> ~/.bashrc
 	echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
+
+	#Fix file descriptor limits
+	echo "* hard nofile 102400" >> /etc/security/limits.conf
+	echo "* soft nofile 102400" >> /etc/security/limits.conf
+  sysctl -w fs.file-max=102400
+  sysctl -p
 }
 
 function setup_supervisors {
@@ -171,7 +185,7 @@ if [ "$1" == "runinstall" ]; then
 	build_node
 	install_aux
 	install_repos
-	setup_repos
+	setup_repos runnpm
 	setup_makensis
 	install_mongo
 	setup_mongo

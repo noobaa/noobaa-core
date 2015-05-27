@@ -2,11 +2,13 @@
 
 . /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
-TMP_PACKAGE_FILE="new_version.tar.gz"
-TMP_WRAPPER="upgrade_wrapper.sh"
+PACKAGE_FILE_NAME="new_version.tar.gz"
+WRAPPER_FILE_NAME="upgrade_wrapper.sh"
+WRAPPER_FILE_PATH="/tmp/test/noobaa-core/src/deploy/NVA_build/"
 TMP_PATH="/tmp/"
+EXTRACTION_PATH="/tmp/test/"
 VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
-
+NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.sh"
 
 function disable_supervisord {
   #services under supervisord
@@ -29,7 +31,7 @@ function check_latest_version {
   deploy_log "Current version $current while path is $path"
   if [ "$path" != "" ]; then
     deploy_log "Upgrade needed, path ${path}"
-    curl -sL ${path} > ${TMP_PATH}${TMP_PACKAGE_FILE} || true
+    curl -sL ${path} > ${TMP_PATH}${PACKAGE_FILE_NAME} || true
     exit 1
   else
     deploy_log "Version is up to date"
@@ -37,25 +39,24 @@ function check_latest_version {
   fi
 }
 
-function do_upgrade {
+function extract_package {
+  mkdir -p ${EXTRACTION_PATH}
+  cd ${EXTRACTION_PATH}
+  cp ${TMP_PATH}${PACKAGE_FILE_NAME} .
+  tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
 
-  #Verify package integrity
-  mkdir -p /tmp/test
-  chmod 777 ${TMP_PATH}${TMP_WRAPPER}
-  cd /tmp/test
-  cp ${TMP_PATH}${TMP_PACKAGE_FILE} .
-  tar -xzvf ./${TMP_PACKAGE_FILE}
-
-  if [ $?-ne 0 ]; then
+  if [ $? -ne 0 ]; then
     deploy_log "Corrupted package file, could not open"
-    enable_supervisord
+    rm -rf ${EXTRACTION_PATH}*
     exit 1
   fi
+}
 
+function do_upgrade {
   disable_supervisord
 
   deploy_log "Tar extracted successfully, Running pre upgrade"
-  ${TMP_PATH}${TMP_WRAPPER} pre
+  ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} pre
 
   deploy_log "Backup of current version and extract of new"
   #Delete old backup
@@ -63,10 +64,10 @@ function do_upgrade {
   #Backup and extract
   mv ${CORE_DIR} /backup
   mkdir ${CORE_DIR}
-  mv ${TMP_PATH}${TMP_PACKAGE_FILE} /root/node_modules
+  mv ${TMP_PATH}${PACKAGE_FILE_NAME} /root/node_modules
   cd /root/node_modules
   deploy_log "Extracting new version"
-  tar -xzvf ./${TMP_PACKAGE_FILE}
+  tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
   #replace with locally built packages
   mv /backup/node_modules/heapdump  /root/node_modules/heapdump
   mv /backup/node_modules/bcrypt  /root/node_modules/bcrypt
@@ -75,7 +76,7 @@ function do_upgrade {
   setup_repos
 
   deploy_log "Running post upgrade"
-  ${TMP_PATH}${TMP_WRAPPER} post
+  ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post
 
   enable_supervisord
   deploy_log "Upgrade finished successfully!"
@@ -83,19 +84,25 @@ function do_upgrade {
 
 if [ "$1" == "from_file" ]; then
   if [ "$2" != "" ]; then
-    cp -f $2 ${TMP_PATH}${TMP_PACKAGE_FILE}
-    do_upgrade
+    cp -f $2 ${TMP_PATH}${PACKAGE_FILE_NAME}
+    extract_package
+    ${NEW_UPGRADE_SCRIPT} do_upgrade
   else
     echo "Must supply path to upgrade package"
     exit 1
   fi
 else
-  #exit on error, enable supervisor
-  check_latest_version
-  should_upgrade=$?
-  echo $should_upgrade
-  if [ should_upgrade -eq 1 ]; then
+  if [ "$1" == "do_upgrade" ]; then
     do_upgrade
+    exit 0
+  else
+    check_latest_version
+    should_upgrade=$?
+    echo "should upgrade $should_upgrade"
+    if [ ${should_upgrade} -eq 1 ]; then
+      extract_package
+      $(${NEW_UPGRADE_SCRIPT} do_upgrade)
+    fi
   fi
 fi
 

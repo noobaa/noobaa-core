@@ -43,9 +43,13 @@ if (!process.env.PORT) {
 
 var active_server;
 var build_on_premise = false;
+var skip_install = false;
 for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--on_premise') {
         build_on_premise = true;
+    }
+    if (process.argv[arg_idx] === '--skip_install') {
+        skip_install = true;
     }
 }
 
@@ -236,11 +240,12 @@ function pack(dest, name) {
 
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
-             '!node_modules/gulp*/**/*',
-             '!node_modules/heapdump/**/*',
-             '!node_modules/bower/**/*',
-             '!node_modules/bcrypt/**/*',
-             '!node_modules/node-inspector/**/*' ], {
+            '!node_modules/gulp*/**/*',
+            '!node_modules/heapdump/**/*',
+            '!node_modules/bower/**/*',
+            '!node_modules/bcrypt/**/*',
+            '!node_modules/node-inspector/**/*'
+        ], {
             base: 'node_modules'
         })
         .pipe(gulp_rename(function(p) {
@@ -273,7 +278,7 @@ function pack(dest, name) {
 
     return event_stream
         .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream,node_modules_stream)
+            vendor_stream, agent_distro, build_stream, node_modules_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
@@ -455,7 +460,7 @@ gulp.task('build_agent_distro', ['agent'], function() {
     });
 });
 
-gulp.task('package_build', ['jshint', 'install', 'build_agent_distro'], function() {
+function package_build_task() {
     var DEST = 'build/public';
     var NAME = 'noobaa-NVA.tar';
 
@@ -468,7 +473,17 @@ gulp.task('package_build', ['jshint', 'install', 'build_agent_distro'], function
                     return pack(DEST, NAME);
                 });
         });
-});
+}
+
+if (skip_install === true) {
+  gulp.task('package_build', ['jshint', 'build_agent_distro'], function() {
+    package_build_task();
+  });
+} else {
+  gulp.task('package_build', ['jshint', 'install', 'build_agent_distro'], function() {
+    package_build_task();
+  });
+}
 
 gulp.task('client', ['bower', 'ng'], function() {
     var DEST = 'build/public/js';

@@ -153,8 +153,8 @@ function general_settings {
 	#Fix file descriptor limits
 	echo "* hard nofile 102400" >> /etc/security/limits.conf
 	echo "* soft nofile 102400" >> /etc/security/limits.conf
-  sysctl -w fs.file-max=102400
-  sysctl -p
+	sysctl -w fs.file-max=102400
+	sysctl -p
 }
 
 function setup_supervisors {

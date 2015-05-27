@@ -455,7 +455,7 @@ gulp.task('build_agent_distro', ['agent'], function() {
     });
 });
 
-gulp.task('NVA_build', ['jshint', 'install', 'build_agent_distro'], function() {
+gulp.task('package_build', ['jshint', 'install', 'build_agent_distro'], function() {
     var DEST = 'build/public';
     var NAME = 'noobaa-NVA.tar';
 

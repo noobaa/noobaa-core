@@ -33,7 +33,7 @@ noobaa-core/deploy/NVA_build
       2.2) passwd -> current pass reverse change to roonoobaa
       2.3) download scones from  http://downloads.sourceforge.net/project/scons/scons/2.3.4/scons-2.3.4.tar.gz?r=http%3A%2F%2Fwww.scons.org%2Fdownload.php&ts=1431437307&use_mirror=garr
            open it and python setup.py install
-  3) In the core repo dir, run gulp NVA_build.
+  3) In the core repo dir, run gulp package_build.
   4) SCP src/deploy/NVA_build/* and build/public/noobaa-NVA.tar.gz to the machine at /tmp
   5) run /tmp/deploy_base runinstall
   6) Once done, export the machine to a .OVA file
@@ -44,7 +44,7 @@ noobaa-core/deploy/NVA_build
 
 - NVA description:
   Our NVA is a CentOS based machine running the following components: Web Server, STUN/TURN, REST, MongoDB.
-  It does not contain the entire repo, just the extracted package created by the gulp target NVA_build
+  It does not contain the entire repo, just the extracted package created by the gulp target package_build
   (for example, the agent code is not there). It does contain all the files needed to run these services, the agent
   distribution pack and the package.json for dependency installation.
 
@@ -74,11 +74,8 @@ noobaa-core/deploy/NVA_build
 
   UPGRADE
 
-  1. gulp NVA_build --on_premise
+  1. gulp package_build --on_premise
   2. scp src/deploy/NVA_build/ and build/public/noobaa-NVA.tar.gz to root@machine:/tmp
   3. run on the target machine:
-  
+
      ./src/deploy/NVA_BUILD/upgrade from_file /tmp/noobaa-NVA.tar.gz
-  
-  
-  

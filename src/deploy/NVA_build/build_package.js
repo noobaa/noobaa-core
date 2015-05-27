@@ -82,7 +82,7 @@ function build_package() {
 	out = child_proc.execSync('copy ' + orig + ' ' + dest);
 	process.stdout.write(out);
 
-	out = child_proc.execSync(cd_command + ' && gulp NVA_build');
+	out = child_proc.execSync(cd_command + ' && gulp package_build');
 	process.stdout.write(out);
 }
 

@@ -9,6 +9,10 @@ ON_PREMISE=0
 #In this case, we have to assume that we don't have internet connectivity
 #1 means building on ON-PREMISE VM
 ON_PREMISE_ENV=0
+#Upload to S3
+#1 means upload to S3
+UPLOAD_TO_S3=0
+
 
 #extract parms
 while [[ $# > 0 ]]; do
@@ -22,6 +26,9 @@ while [[ $# > 0 ]]; do
       ;;
     --on_premise_env)
       ON_PREMISE_ENV=1
+      ;;
+    --upload_to_s3)
+      UPLOAD_TO_S3=1
       ;;
     *)
       usage
@@ -113,10 +120,14 @@ else
       cd build/windows
     fi
 
-    echo "make installer"
+    echo "building installer"
 
     makensis -NOCD ../../src/deploy/atom_agent_win.nsi
 
-    echo "uploading to S3"
-    s3cmd -P put noobaa-setup.exe s3://noobaa-core/noobaa-setup.exe
+    echo "noobaa-setup.exe installer available under build/public/windows/"
+
+    if [ ${UPLOAD_TO_S3} -eq 1 ]; then
+        echo "uploading to S3"
+        s3cmd -P put noobaa-setup.exe s3://noobaa-core/noobaa-setup.exe
+    fi
 fi

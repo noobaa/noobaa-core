@@ -1,3 +1,4 @@
+!include "MUI2.nsh"
 !define NB "NooBaaS3REST"
 !define ICON "noobaa_icon24.ico"
 !define Version "0.1.0.0"
@@ -7,11 +8,7 @@
 !include "StrFunc.nsh"
 ${StrRep}
 !include "Base64.nsh"
-!include "MUI2.nsh"
 
-!define MUI_COMPONENTSPAGE_SMALLDESC
-!insertmacro MUI_PAGE_COMPONENTS
-!insertmacro MUI_LANGUAGE English
 
 ; Usage example:
 ; noobaa-s3rest.exe /address "wss://noobaa-alpha.herokuapp.com" /S /system_name demo /access_key 123 /secret_key abc
@@ -22,25 +19,9 @@ ${StrRep}
 ;
 OutFile "noobaa-s3rest.exe"
 BrandingText "${NB}"
-Name "${NB}"
-Icon "${ICON}"
-VIProductVersion ${Version}
-VIAddVersionKey ProductName "${NB} Local Service"
-VIAddVersionKey Comments ""
-VIAddVersionKey CompanyName "${NB}"
-VIAddVersionKey LegalCopyright "Y.G ${NB} Ltd."
-VIAddVersionKey FileDescription "${NB} Local Service for Storage"
-VIAddVersionKey FileVersion ${Version}
-VIAddVersionKey ProductVersion ${Version}
-VIAddVersionKey InternalName "${NB} Local Service"
-VIAddVersionKey LegalTrademarks "${NB} is a Trademark of Y.G ${NB} Ltd."
 
 InstallDir "$PROGRAMFILES\${NB}"
 RequestExecutionLevel admin
-Page directory
-Page instfiles
-UninstPage uninstConfirm
-UninstPage instfiles
 
 !define writeFile "!insertmacro writeFile"
 
@@ -69,9 +50,9 @@ Pop $1                      ; Stack: $0
 Pop $0                      ; Stack: -empty-
 FunctionEnd
 
-# default section
+;Check if we have config parameter. if not, abort
+Function .onInit
 
-Section "NooBaa S3 REST Service"
 	Var /global address
 	Var /global access_key
 	Var /global secret_key
@@ -79,34 +60,6 @@ Section "NooBaa S3 REST Service"
 	Var /global config
 
 
-	Var /global UPGRADE
-	;Install or upgrade?
-	StrCpy $UPGRADE "false" ; default - clean installation
-	IfFileExists $INSTDIR\*.* 0 +2
-	StrCpy $UPGRADE "true"
-
-
-	${If} $UPGRADE == 'true' ;delete all files that we want to update
-		nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
-		Delete "$INSTDIR\config.js"
-		Delete "$INSTDIR\package.json"
-		Delete "$INSTDIR\${ICON}"
-		Delete "$INSTDIR\uninstall-noobaa-S3REST.exe"
-		RMDir /r "$INSTDIR\node_modules"
-		RMDir /r "$INSTDIR\src"
-		Delete "$INSTDIR\service.bat"
-		Delete "$INSTDIR\service_uninstaller.bat"
-		Delete "$INSTDIR\service_installer.bat"
-
-	${Else}
-		File "7za.exe"
-		File "NooBaa_Agent_wd.exe"
-		File "wget.exe"
-		File "openssl.exe"
-
-	${EndIf}
-
-	SetOutPath $INSTDIR
 	ClearErrors
 
 	${GetOptions} $CMDLINE "/config" $config
@@ -146,7 +99,64 @@ Section "NooBaa S3 REST Service"
 			${WriteFile} "$INSTDIR\agent_conf.json" "}"
 		${Else}
 			MessageBox MB_OK "missing /config parameter!"
+			Abort
 		${EndIf}
+
+	${EndIf}
+
+FunctionEnd
+
+# default section
+
+!define MUI_COMPONENTSPAGE_SMALLDESC
+!insertmacro MUI_PAGE_COMPONENTS
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+!insertmacro MUI_LANGUAGE English
+VIProductVersion ${Version}
+VIAddVersionKey ProductName "${NB} Local Service"
+VIAddVersionKey Comments ""
+VIAddVersionKey CompanyName "${NB}"
+VIAddVersionKey LegalCopyright "Y.G ${NB} Ltd."
+VIAddVersionKey FileDescription "${NB} Local Service for Storage"
+VIAddVersionKey FileVersion ${Version}
+VIAddVersionKey ProductVersion ${Version}
+VIAddVersionKey InternalName "${NB} Local Service"
+VIAddVersionKey LegalTrademarks "${NB} is a Trademark of Y.G ${NB} Ltd."
+
+UninstPage uninstConfirm
+UninstPage instfiles
+Name "${NB}"
+Icon "${ICON}"
+UninstallIcon "${ICON}"
+Section "NooBaa S3 REST Service"
+
+	SetOutPath $INSTDIR
+	Var /global UPGRADE
+	;Install or upgrade?
+	StrCpy $UPGRADE "false" ; default - clean installation
+	IfFileExists $INSTDIR\*.* 0 +2
+	StrCpy $UPGRADE "true"
+
+
+	${If} $UPGRADE == 'true' ;delete all files that we want to update
+		nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+		Delete "$INSTDIR\config.js"
+		Delete "$INSTDIR\package.json"
+		Delete "$INSTDIR\${ICON}"
+		Delete "$INSTDIR\uninstall-noobaa-S3REST.exe"
+		RMDir /r "$INSTDIR\node_modules"
+		RMDir /r "$INSTDIR\src"
+		Delete "$INSTDIR\service.bat"
+		Delete "$INSTDIR\service_uninstaller.bat"
+		Delete "$INSTDIR\service_installer.bat"
+
+	${Else}
+		File "7za.exe"
+		File "NooBaa_Agent_wd.exe"
+		File "wget.exe"
+		File "openssl.exe"
 
 	${EndIf}
 

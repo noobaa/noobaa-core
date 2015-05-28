@@ -1,3 +1,4 @@
+!include "MUI2.nsh"
 !define NB "NooBaa"
 !define Version "0.1.0.0"
 !define ICON "noobaa_icon24.ico"
@@ -8,11 +9,7 @@
 ${StrRep}
 !include "LogicLib.nsh"
 !include "Base64.nsh"
-!include "MUI2.nsh"
 
-!define MUI_COMPONENTSPAGE_SMALLDESC
-!insertmacro MUI_PAGE_COMPONENTS
-!insertmacro MUI_LANGUAGE English
 
 ; Usage example:
 ; noobaa-s3rest.exe /address "wss://noobaa-alpha.herokuapp.com" /S /system_name demo /access_key 123 /secret_key abc
@@ -24,25 +21,9 @@ ${StrRep}
 
 BrandingText "${NB}"
 OutFile "noobaa-setup.exe"
-Name "${NB}"
-Icon "${ICON}"
-VIProductVersion ${Version}
-VIAddVersionKey ProductName "${NB} Local Service"
-VIAddVersionKey Comments ""
-VIAddVersionKey CompanyName "${NB}"
-VIAddVersionKey LegalCopyright "Y.G ${NB} Ltd."
-VIAddVersionKey FileDescription "${NB} Local Service for Storage"
-VIAddVersionKey FileVersion ${Version}
-VIAddVersionKey ProductVersion ${Version}
-VIAddVersionKey InternalName "${NB} Local Service"
-VIAddVersionKey LegalTrademarks "${NB} is a Trademark of Y.G ${NB} Ltd."
 
 InstallDir "$PROGRAMFILES\${NB}"
 RequestExecutionLevel admin
-Page directory
-Page instfiles
-UninstPage uninstConfirm
-UninstPage instfiles
 
 !define writeFile "!insertmacro writeFile"
 
@@ -71,16 +52,94 @@ Pop $1                      ; Stack: $0
 Pop $0                      ; Stack: -empty-
 FunctionEnd
 
-# default section
+;Check if we have config parameter. if not, abort
 
-Section "Noobaa Local Service"
-
+Function .onInit
 	Var /global address
 	Var /global system_id
 	Var /global access_key
 	Var /global secret_key
 	Var /global system
-    Var /global config
+	Var /global config
+
+
+	ClearErrors
+	${GetOptions} $CMDLINE "/config" $config
+	${If} ${Errors}
+		${GetOptions} $CMDLINE "/address" $address
+		${GetOptions} $CMDLINE "/system_name" $system
+		${GetOptions} $CMDLINE "/system_id" $system_id
+		${GetOptions} $CMDLINE "/access_key" $access_key
+		ClearErrors
+		${GetOptions} $CMDLINE "/secret_key" $secret_key
+		${If} ${Errors}
+			MessageBox MB_OK "missing /config parameter!"
+			Abort
+		${EndIf}
+
+	${EndIf}
+
+FunctionEnd
+
+# default section
+
+!define MUI_COMPONENTSPAGE_SMALLDESC
+!insertmacro MUI_PAGE_COMPONENTS
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
+!insertmacro MUI_LANGUAGE English
+VIProductVersion ${Version}
+VIAddVersionKey ProductName "${NB} Local Service"
+VIAddVersionKey Comments ""
+VIAddVersionKey CompanyName "${NB}"
+VIAddVersionKey LegalCopyright "Y.G ${NB} Ltd."
+VIAddVersionKey FileDescription "${NB} Local Service for Storage"
+VIAddVersionKey FileVersion ${Version}
+VIAddVersionKey ProductVersion ${Version}
+VIAddVersionKey InternalName "${NB} Local Service"
+VIAddVersionKey LegalTrademarks "${NB} is a Trademark of Y.G ${NB} Ltd."
+
+UninstPage uninstConfirm
+UninstPage instfiles
+
+Name "${NB}"
+Icon "${ICON}"
+UninstallIcon "${ICON}"
+
+
+Section "Noobaa Local Service"
+	SetOutPath $INSTDIR
+	Delete "$INSTDIR\agent_conf.json"
+	${If} $config == ""
+		${WriteFile} "$INSTDIR\agent_conf.json" "{"
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"dbg_log_level$\": 2,"
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"address$\": $\"$address$\","
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"system$\": $\"$system$\","
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"tier$\": $\"nodes$\","
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"prod$\": $\"true$\","
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"bucket$\": $\"files$\","
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"root_path$\": $\"./agent_storage/$\","
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"access_key$\": $\"$access_key$\","
+		${WriteFile} "$INSTDIR\agent_conf.json" "$\"secret_key$\": $\"$secret_key$\""
+		${WriteFile} "$INSTDIR\agent_conf.json" "}"
+
+	${Else}
+		${Base64_Decode} $config
+		Pop $0
+		${WriteFile} "$INSTDIR\agent_conf.json" $0
+		;MessageBox MB_OK "config: $config $0 $INSTDIR	"
+		nsJSON::Set /file $INSTDIR\agent_conf.json
+		; Read address from agent_conf.json
+		ClearErrors
+		nsJSON::Get `address`
+		${IfNot} ${Errors}
+			Pop $R0
+			StrCpy $address $R0
+			${StrRep} $address $address "wss://" "https://"
+			${StrRep} $address $address "ws://" "http://"
+		${EndIf}
+	${EndIf}
 
 
 
@@ -101,51 +160,7 @@ Section "Noobaa Local Service"
 			StrCpy $AUTO_UPGRADE "true"
 		Auto_Standard:
 
-	SetOutPath $INSTDIR
 
-	ClearErrors
-	${GetOptions} $CMDLINE "/config" $config
-	${IfNot} ${Errors}
-		Delete "$INSTDIR\agent_conf.json"
-		${Base64_Decode} $config
-		Pop $0
-		${WriteFile} "$INSTDIR\agent_conf.json" $0
-		nsJSON::Set /file $INSTDIR\agent_conf.json
-		; Read address from agent_conf.json
-		ClearErrors
-		nsJSON::Get `address`
-		${IfNot} ${Errors}
-			Pop $R0
-			StrCpy $address $R0
-			${StrRep} $address $address "wss://" "https://"
-			${StrRep} $address $address "ws://" "http://"
-		${EndIf}
-
-	${Else}
-		${GetOptions} $CMDLINE "/address" $address
-		${GetOptions} $CMDLINE "/system_name" $system
-		${GetOptions} $CMDLINE "/system_id" $system_id
-		${GetOptions} $CMDLINE "/access_key" $access_key
-		ClearErrors
-		${GetOptions} $CMDLINE "/secret_key" $secret_key
-		${IfNot} ${Errors}
-			Delete "$INSTDIR\agent_conf.json"
-			${WriteFile} "$INSTDIR\agent_conf.json" "{"
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"dbg_log_level$\": 2,"
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"address$\": $\"$address$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"system$\": $\"$system$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"tier$\": $\"nodes$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"prod$\": $\"true$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"bucket$\": $\"files$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"root_path$\": $\"./agent_storage/$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"access_key$\": $\"$access_key$\","
-			${WriteFile} "$INSTDIR\agent_conf.json" "$\"secret_key$\": $\"$secret_key$\""
-			${WriteFile} "$INSTDIR\agent_conf.json" "}"
-		${Else}
-			MessageBox MB_OK "missing /config parameter!"
-		${EndIf}
-
-	${EndIf}
 	;MessageBox MB_OK "Value of parameters is $address $system_id $access_key $secret_key $system"
 
 	${If} $UPGRADE == "true" ;delete all files that we want to update
@@ -178,12 +193,17 @@ Section "Noobaa Local Service"
 
 	WriteUninstaller "$INSTDIR\uninstall-noobaa.exe"
 	File "${ICON}"
+	File "NooBaa_Agent_wd.exe"
+	File "7za.exe"
+	File "openssl.exe"
 	File "package.json"
+	File "wget.exe"
 	file "config.js"
 	file "node.exe"
-	File /r "src"
 	File /r "ssl"
+	File /r "src"
 	File /r "node_modules"
+
 
 	Delete "$INSTDIR\ver.txt"
 	${WriteFile} "$INSTDIR\ver.txt" "Version 0.2"
@@ -198,7 +218,6 @@ Section "Noobaa Local Service"
 		${WriteFile} "$INSTDIR\service.bat" "set level=$\"%errorlevel%$\""
 		${WriteFile} "$INSTDIR\service.bat" "echo %level% "
 		${WriteFile} "$INSTDIR\service.bat" "if %level% == $\"0$\" ("
-;http://s3.eu-central-1.amazonaws.com/noobaa-core/
 		${WriteFile} "$INSTDIR\service.bat" " wget -t 2 $address/public/noobaa-setup.exe"
 		${WriteFile} "$INSTDIR\service.bat" " 	echo Upgrading..."
 		${WriteFile} "$INSTDIR\service.bat" "  	if exist noobaa-setup.exe ("

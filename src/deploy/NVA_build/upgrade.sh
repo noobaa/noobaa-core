@@ -69,8 +69,8 @@ function do_upgrade {
   deploy_log "Extracting new version"
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
   #replace with locally built packages
-  mv /backup/node_modules/heapdump  /root/node_modules/noobaa-core/node_modules/
-  mv /backup/node_modules/bcrypt  /root/node_modules/noobaa-core/node_modules/
+  cp -rf /backup/node_modules/heapdump  /root/node_modules/noobaa-core/node_modules/
+  cp -rf /backup/node_modules/bcrypt  /root/node_modules/noobaa-core/node_modules/
 
   # Re-setup Repos
   setup_repos

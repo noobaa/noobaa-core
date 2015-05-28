@@ -65,6 +65,11 @@ function install_repos {
 }
 
 function setup_repos {
+	local runnpm=0
+	if [ "$1" == "runnpm" ]; then
+		runnpm=1
+	fi
+
 	deploy_log "setup_repos start"
 	cd ~
 	# Setup Repos
@@ -72,8 +77,10 @@ function setup_repos {
 	cd ${CORE_DIR}
 	deploy_log "setup_repos before deleted npm install"
 
-	#$(npm install -dd >> ${LOG_FILE})
-	deploy_log "setup_repos after deleted npm install"
+	if [ ${runnpm} -eq 1 ]; then
+		deploy_log "setup_repos calling npm install"		+	deploy_log "setup_repos after deleted npm install"
+		$(npm install -dd >> ${LOG_FILE})
+	fi
 
 	deploy_log "setting up crontab"
 	# Setup crontab job for upgrade checks
@@ -141,6 +148,12 @@ function general_settings {
 	echo "alias less='less -R'" >> ~/.bashrc
 	echo "alias zless='zless -R'" >> ~/.bashrc
 	echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
+
+	#Fix file descriptor limits
+	echo "* hard nofile 102400" >> /etc/security/limits.conf
+	echo "* soft nofile 102400" >> /etc/security/limits.conf
+	sysctl -w fs.file-max=102400
+	sysctl -p
 }
 
 function setup_supervisors {
@@ -171,7 +184,7 @@ if [ "$1" == "runinstall" ]; then
 	build_node
 	install_aux
 	install_repos
-	setup_repos
+	setup_repos runnpm
 	setup_makensis
 	install_mongo
 	setup_mongo

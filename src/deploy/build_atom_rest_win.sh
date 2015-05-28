@@ -89,3 +89,5 @@ else
     s3cmd -P put noobaa-s3rest.exe s3://noobaa-core/noobaa-s3rest.exe
 
 fi
+
+exit 0

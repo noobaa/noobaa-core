@@ -121,3 +121,5 @@ else
     sudo cp noobaa-setup.exe /Users/eran/Downloads
     s3cmd -P put noobaa-setup.exe s3://noobaa-core/noobaa-setup.exe
 fi
+
+exit 0

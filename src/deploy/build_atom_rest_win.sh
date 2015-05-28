@@ -79,13 +79,10 @@ else
 
     echo "make installer"
 
-
     makensis -NOCD ../../src/deploy/atom_rest_win.nsi
-
 
     echo "uploading to S3"
 
-    sudo cp noobaa-s3rest.exe /Users/eran/Downloads
     s3cmd -P put noobaa-s3rest.exe s3://noobaa-core/noobaa-s3rest.exe
 
 fi

@@ -118,7 +118,6 @@ else
     makensis -NOCD ../../src/deploy/atom_agent_win.nsi
 
     echo "uploading to S3"
-    sudo cp noobaa-setup.exe /Users/eran/Downloads
     s3cmd -P put noobaa-setup.exe s3://noobaa-core/noobaa-setup.exe
 fi
 

@@ -1,4 +1,5 @@
 !define NB "NooBaa"
+!define Version "0.1.0.0"
 !define ICON "noobaa_icon24.ico"
 !define SMDIR "$SMPROGRAMS\${NB}"
 !define UNINST "Uninstall-${NB}"
@@ -25,6 +26,17 @@ BrandingText "${NB}"
 OutFile "noobaa-setup.exe"
 Name "${NB}"
 Icon "${ICON}"
+VIProductVersion ${Version}
+VIAddVersionKey ProductName "${NB} Local Service"
+VIAddVersionKey Comments ""
+VIAddVersionKey CompanyName "${NB}"
+VIAddVersionKey LegalCopyright "Y.G ${NB} Ltd."
+VIAddVersionKey FileDescription "${NB} Local Service for Storage"
+VIAddVersionKey FileVersion ${Version}
+VIAddVersionKey ProductVersion ${Version}
+VIAddVersionKey InternalName "${NB} Local Service"
+VIAddVersionKey LegalTrademarks "${NB} is a Trademark of Y.G ${NB} Ltd."
+
 InstallDir "$PROGRAMFILES\${NB}"
 RequestExecutionLevel admin
 Page directory

@@ -1,6 +1,6 @@
 'use strict';
 var dbg = require('noobaa-util/debug_module')(__filename);
-
+var string_utils = require('../util/string_utils');
 var xml = function() {
     var jstoxml = require('jstoxml');
     var _ = require('lodash');
@@ -9,7 +9,7 @@ var xml = function() {
         var content = _.map(items, function(item) {
             return {
                 Contents: {
-                    Key: item.key,
+                    Key: string_utils.encodeXML(item.key),
                     LastModified: item.modifiedDate,
                     ETag: item.md5,
                     Size: item.size,

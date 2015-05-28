@@ -3,7 +3,9 @@
 
 // var _ = require('lodash');
 var Q = require('q');
+var child_process = require('child_process');
 require('setimmediate');
+
 
 module.exports = {
     join: join,
@@ -14,6 +16,7 @@ module.exports = {
     run_background_worker: run_background_worker,
     next_tick: next_tick,
     set_immediate: set_immediate,
+    promised_spawn: promised_spawn,
 };
 
 
@@ -168,4 +171,37 @@ function set_immediate() {
     var defer = Q.defer();
     setImmediate(defer.resolve);
     return defer.promise;
+}
+
+/* Run child process spawn wrapped by a promise
+   TODO: Should be removed once we push to node 12 which has the spawnSync and execSync
+*/
+function promised_spawn(command, args, cwd) {
+    console.log('promise spawn');
+    if (!command || !cwd) {
+        return Q.reject(new Error("Both command and working directory must be given, not " + command + " and " + cwd));
+    }
+
+    var deferred = Q.defer();
+
+    var proc = child_process.spawn(command, args, {
+        cwd: cwd
+    });
+
+    proc.on("error", function(error) {
+      console.log('promise spawn error',error);
+      deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " recieved error " + error.message));
+    });
+
+    proc.on("exit", function(code) {
+        console.log('promise spawn exit',code);
+        if (code !== 0) {
+            deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " exited with rc " + code));
+        } else {
+            deferred.resolve();
+        }
+    });
+
+    return deferred.promise;
+
 }

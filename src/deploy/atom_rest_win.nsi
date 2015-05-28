@@ -1,5 +1,6 @@
 !define NB "NooBaaS3REST"
 !define ICON "noobaa_icon24.ico"
+!define Version "0.1.0.0"
 !define SMDIR "$SMPROGRAMS\${NB}"
 !define UNINST "Uninstall-${NB}"
 !include "FileFunc.nsh"
@@ -23,6 +24,17 @@ OutFile "noobaa-s3rest.exe"
 BrandingText "${NB}"
 Name "${NB}"
 Icon "${ICON}"
+VIProductVersion ${Version}
+VIAddVersionKey ProductName "${NB} Local Service"
+VIAddVersionKey Comments ""
+VIAddVersionKey CompanyName "${NB}"
+VIAddVersionKey LegalCopyright "Y.G ${NB} Ltd."
+VIAddVersionKey FileDescription "${NB} Local Service for Storage"
+VIAddVersionKey FileVersion ${Version}
+VIAddVersionKey ProductVersion ${Version}
+VIAddVersionKey InternalName "${NB} Local Service"
+VIAddVersionKey LegalTrademarks "${NB} is a Trademark of Y.G ${NB} Ltd."
+
 InstallDir "$PROGRAMFILES\${NB}"
 RequestExecutionLevel admin
 Page directory

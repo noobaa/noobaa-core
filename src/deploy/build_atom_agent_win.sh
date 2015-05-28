@@ -37,7 +37,7 @@ echo "ON_PREMISE_ENV:$ON_PREMISE_ENV"
 
 if [ ${ON_PREMISE} -eq 1 ]; then
     cd build/public/
-    s3cmd get --region eu-central-1 -f s3://noobaa-core/noobaa-setup.exe .\noobaa-setup.exe
+    s3cmd get --region eu-central-1 -f s3://noobaa-core/noobaa-setup.exe ./noobaa-setup.exe
     echo "Done downloading noobaa-setup.exe"
 else
     if [ "$CLEAN" = true ] ; then

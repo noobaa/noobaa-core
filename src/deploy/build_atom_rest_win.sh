@@ -34,7 +34,7 @@ done
 
 if [ ${ON_PREMISE} -eq 1 ]; then
     cd build/public/
-    s3cmd get --region eu-central-1 -f s3://noobaa-core/noobaa-s3rest.exe .\noobaa-s3rest.exe
+    s3cmd get --region eu-central-1 -f s3://noobaa-core/noobaa-s3rest.exe ./noobaa-s3rest.exe
     echo "Done downloading noobaa-rest.exe"
 
 else

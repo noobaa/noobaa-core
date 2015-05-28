@@ -35,6 +35,7 @@ var through2 = require('through2');
 var bower = require('bower');
 var Q = require('q');
 var _ = require('lodash');
+var promise_utils = require('./src/util/promise_utils');
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -427,56 +428,46 @@ gulp.task('agent', ['jshint'], function() {
         .pipe(gulp.dest(DEST));
 });
 
-gulp.task('build_agent_distro', ['agent'], function() {
+
+function build_agent_distro() {
     var build_params = [];
     if (build_on_premise === true) {
         build_params = ['--on_premise',
-                        '--clean=false'];
+            '--clean=false'
+        ];
     }
-    var build_script = child_process.spawn('src/deploy/build_atom_agent_win.sh', build_params, {
-        cwd: process.cwd()
-    });
-    var stdout = '',
-        stderr = '';
 
-    build_script.stdout.setEncoding('utf8');
+    return Q.fcall(function() {
+            return promise_utils.promised_spawn('src/deploy/build_atom_agent_win.sh',
+                build_params, process.cwd());
+        })
+        .then(function() {
+            gutil.log('done src/deploy/build_atom_agent_win.sh');
+        })
+        .then(null, function(error) {
+            gutil.log('WARN: command src/deploy/build_atom_agent_win.sh failed ', error, error.stack);
+        });
+}
 
-    build_script.stdout.on('data', function(data) {
-        stdout += data;
-        gutil.log(data);
-    });
-
-    build_script.stderr.setEncoding('utf8');
-    build_script.stderr.on('data', function(data) {
-        stderr += data;
-        gutil.log(data);
-    });
-});
-gulp.task('build_rest_distro', function() {
+function build_rest_distro() {
     var build_params = [];
     if (build_on_premise === true) {
         build_params = ['--on_premise',
-                        '--clean=false'];
+            '--clean=false'
+        ];
     }
-    var build_script = child_process.spawn('src/deploy/build_atom_rest_win.sh', build_params, {
-        cwd: process.cwd()
-    });
-    var stdout = '',
-        stderr = '';
 
-    build_script.stdout.setEncoding('utf8');
-
-    build_script.stdout.on('data', function(data) {
-        stdout += data;
-        gutil.log(data);
-    });
-
-    build_script.stderr.setEncoding('utf8');
-    build_script.stderr.on('data', function(data) {
-        stderr += data;
-        gutil.log(data);
-    });
-});
+    return Q.fcall(function() {
+            return promise_utils.promised_spawn('src/deploy/build_atom_rest_win.sh',
+                build_params, process.cwd());
+        })
+        .then(function() {
+            gutil.log('done src/deploy/build_atom_rest_win.sh');
+        })
+        .then(null, function(error) {
+            gutil.log('WARN: command src/deploy/build_atom_rest_win.sh failed ', error);
+        });
+}
 
 function package_build_task() {
     var DEST = 'build/public';
@@ -484,23 +475,29 @@ function package_build_task() {
 
     //Remove previously build package
     return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
-        .then(function(res) {
-            return Q.nfcall(child_process.exec, 'cp -f src/deploy/NVA_build/upgrade_wrapper.sh ' + DEST)
-                .then(function(res) {
-                    //call for packing
-                    return pack(DEST, NAME);
-                });
+        .then(function(res) { //build agent distribution setup
+            return build_agent_distro();
+        })
+        .then(function() { //build rest distribution setup
+            return build_rest_distro();
+        })
+        .then(function() {
+            //call for packing
+            return pack(DEST, NAME);
+        })
+        .then (null, function(error) {
+            gutil.log("error ", error, error.stack);
         });
 }
 
 if (skip_install === true) {
-  gulp.task('package_build', ['jshint', 'build_agent_distro','build_rest_distro'], function() {
-    package_build_task();
-  });
+    gulp.task('package_build', ['jshint', 'agent'], function() {
+        package_build_task();
+    });
 } else {
-  gulp.task('package_build', ['jshint', 'install', 'build_agent_distro','build_rest_distro'], function() {
-    package_build_task();
-  });
+    gulp.task('package_build', ['jshint', 'install', 'agent'], function() {
+        package_build_task();
+    });
 }
 
 gulp.task('client', ['bower', 'ng'], function() {

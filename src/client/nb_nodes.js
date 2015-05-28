@@ -181,6 +181,20 @@ nb_api.factory('nbNodes', [
             var scope = $rootScope.$new();
             scope.$location = $location;
             scope.stage = 1;
+            var config_json = {
+                dbg_log_level: 2,
+                tier: 'nodes',
+                prod: true,
+                bucket: 'files',
+                root_path: './agent_storage/'
+            };
+            config_json.address = 'wss://'+$window.location.host;
+            config_json.system = nbSystem.system.name;
+            config_json.access_key = nbSystem.system.access_keys[0].access_key;
+            config_json.secret_key = nbSystem.system.access_keys[0].secret_key;
+            var encodedData = $window.btoa(JSON.stringify(config_json));
+            scope.encodedData = encodedData;
+            console.log(JSON.stringify(config_json),String.toString(config_json),'encoded',encodedData);
             scope.next_stage = function() {
                 scope.stage += 1;
                 if (scope.stage > 4) {

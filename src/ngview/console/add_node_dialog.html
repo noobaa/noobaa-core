@@ -53,6 +53,13 @@
                     <div ng-if="stage==2">
                         <p class="text-center">
                             <b>Download</b> the agent installer
+                        <br>
+                    </p>
+                    <p class="text-left">
+                            For Silent Installation, use /S flag
+                        </br>
+                        Specify agent configuration by using /config flag with the text below
+                        <pre style="margin-top: 20px; max-width: 550px" class="block">{{encodedData}}</pre>
                         </p>
                         <div class="text-center" style="padding-top: 20px">
                             <button class="btn btn-primary btn-lg" style="padding: 20px" nb-click-ladda="download_agent();">

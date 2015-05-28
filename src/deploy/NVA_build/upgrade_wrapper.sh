@@ -1,6 +1,7 @@
 #!/bin/bash
 
-. /root/node_modules/noobaa-core/src/deploy/NVA_build/deploy_base.sh
+EXTRACTION_PATH="/tmp/test/"
+. ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
 function pre_upgrade {
   #yum install -y lsof
@@ -9,8 +10,8 @@ function pre_upgrade {
   #TODO: CHECK if rules already exist, is so skip this part
   iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
   iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
-  /sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-  /sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+  #/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+  #/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
   service iptables save
 
   #set locale

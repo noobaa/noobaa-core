@@ -1,33 +1,29 @@
 #!/bin/sh
 # default - clean build
-
 CLEAN=true;
-SYSTEM="demo"
-ADDRESS="http://127.0.0.1:5001"
-ACCESS_KEY="123"
-SECRET_KEY="abc"
+#ON_PREMISE means that we are currently building the ON_PREMISE package
+#In this case, there is no point to create executable.
+#1 means building on-premise package
+ON_PREMISE=0
+#ON_PREMISE_ENV means that we are currently running on ON-PREMISE VM.
+#In this case, we have to assume that we don't have internet connectivity
+#1 means building on ON-PREMISE VM
+ON_PREMISE_ENV=0
+
+
 #extract parms
 while [[ $# > 0 ]]; do
   key=$(echo $1 | sed "s:\(.*\)=.*:\1:")
   case $key in
-      --system_id)
-      SYSTEM_ID=$(echo $1 | sed "s:.*=\(.*\):\1:")
-      ;;
       --clean)
       CLEAN=$(echo $1 | sed "s:.*=\(.*\):\1:")
       ;;
-      --system)
-      SYSTEM=$(echo $1 | sed "s:.*=\(.*\):\1:")
-      ;;
-      --address)
-      ADDRESS=$(echo $1 | sed "s:.*=\(.*\):\1:")
-      ;;
-    --access_key)
-      ACCESS_KEY=$(echo $1 | sed "s:.*=\(.*\):\1:")
-      ;;
-    --secret_key)
-      SECRET_KEY=$(echo $1 | sed "s:.*=\(.*\):\1:")
-      ;;
+    --on_premise)
+    ON_PREMISE=1
+    ;;
+    --on_premise_env)
+    ON_PREMISE_ENV=1
+    ;;
     *)
       usage
       # unknown option
@@ -36,13 +32,13 @@ while [[ $# > 0 ]]; do
   shift
 done
 
-echo "SYSTEM:$SYSTEM"
-echo "CLEAN BUILD:$CLEAN"
-echo "ADDRESS:$ADDRESS"
-echo "ACCESS_KEY:$ACCESS_KEY"
-echo "SECRET_KEY:$SECRET_KEY"
+if [ ${ON_PREMISE} -eq 1 ]; then
+    cd build/public/
+    s3cmd get --region eu-central-1 -f s3://noobaa-core/noobaa-s3rest.exe .\noobaa-s3rest.exe
+    echo "Done downloading noobaa-rest.exe"
 
-if [ "$CLEAN" = true ] ; then
+else
+    if [ "$CLEAN" = true ] ; then
         echo "delete old files"
         rm -rf build/windows_s3
         mkdir build/windows_s3
@@ -77,34 +73,19 @@ if [ "$CLEAN" = true ] ; then
         #unzip atom-shell.zip -d atom-shell
         #echo "create update.tar"
         #tar -cvf update_agent.tar ./atom-shell ./node_modules ./src ./config.js ./package.json ./agent_conf.json
-else
-    cd build/windows_s3
+    else
+        cd build/windows_s3
+    fi
+
+    echo "make installer"
+
+
+    makensis -NOCD ../../src/deploy/atom_rest_win.nsi
+
+
+    echo "uploading to S3"
+
+    sudo cp noobaa-s3rest.exe /Users/eran/Downloads
+    s3cmd -P put noobaa-s3rest.exe s3://noobaa-core/noobaa-s3rest.exe
+
 fi
-echo "create agent conf"
-echo '{' > agent_conf.json
-echo '    "dbg_log_level": 2,' >> agent_conf.json
-echo '    "address": "'"$ADDRESS"'",' >> agent_conf.json
-echo '    "system": "'"$SYSTEM"'",' >> agent_conf.json
-echo '    "tier": "nodes",' >> agent_conf.json
-echo '    "prod": "true",' >> agent_conf.json
-echo '    "bucket": "files",' >> agent_conf.json
-echo '    "root_path": "./agent_storage/",' >> agent_conf.json
-echo '    "access_key":"'"$ACCESS_KEY"'",' >> agent_conf.json
-echo '    "secret_key":"'"$SECRET_KEY"'"' >> agent_conf.json
-echo '}' >> agent_conf.json
-
-cat agent_conf.json
-
-echo "make installer"
-pwd
-
-cp ../../src/deploy/atom_rest_win.nsi ../../src/deploy/atom_rest_win.bak
-sed -i '' "s/<SYSTEM_ID>/$SYSTEM_ID/g" ../../src/deploy/atom_rest_win.nsi
-
-makensis -NOCD ../../src/deploy/atom_rest_win.nsi
-
-mv ../../src/deploy/atom_rest_win.bak ../../src/deploy/atom_rest_win.nsi
-
-echo "uploading to S3"
-
-s3cmd -P put noobaa-s3rest-setup.exe s3://noobaa-core/systems/$SYSTEM_ID/noobaa-s3rest.exe

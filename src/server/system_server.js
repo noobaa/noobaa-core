@@ -7,9 +7,7 @@ var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
-var dbg = require('noobaa-util/debug_module')(__filename);
 var AWS = require('aws-sdk');
-var child_process = require('child_process');
 
 
 /**
@@ -110,50 +108,53 @@ function create_system(req) {
                 auth_token: system_token
             });
         })
-        .then(function() {
-            if (process.env.ON_PREMISE) {
-                return Q.Promise(function(resolve, reject) {
-
-                    var build_params = [
-                        '--access_key=' + info.access_keys[0].access_key,
-                        '--secret_key=' + info.access_keys[0].secret_key,
-                        '--system_id=' + system.id,
-                        '--system=' + system.name,
-                        '--on_premise_env=1',
-                        '--address=wss://noobaa.local:443'
-                    ];
-
-                    var build_script = child_process.spawn(
-                        'src/deploy/build_atom_agent_win.sh', build_params, {
-                            cwd: process.cwd()
-                        });
-
-                    build_script.on('close', function(code) {
-                        if (code !== 0) {
-                            resolve();
-                        } else {
-                            reject(new Error('build_script returned error code ' + code));
-                        }
-                    });
-
-                    var stdout = '',
-                        stderr = '';
-
-                    build_script.stdout.setEncoding('utf8');
-
-                    build_script.stdout.on('data', function(data) {
-                        stdout += data;
-                        dbg.log0(data);
-                    });
-
-                    build_script.stderr.setEncoding('utf8');
-                    build_script.stderr.on('data', function(data) {
-                        stderr += data;
-                        dbg.log0(data);
-                    });
-                });
-            }
-        })
+        //Auto generate agent executable.
+        // Removed for now, as we need signed exe
+        //
+        // .then(function() {
+        //     if (process.env.ON_PREMISE) {
+        //         return Q.Promise(function(resolve, reject) {
+        //
+        //             var build_params = [
+        //                 '--access_key=' + info.access_keys[0].access_key,
+        //                 '--secret_key=' + info.access_keys[0].secret_key,
+        //                 '--system_id=' + system.id,
+        //                 '--system=' + system.name,
+        //                 '--on_premise_env=1',
+        //                 '--address=wss://noobaa.local:443'
+        //             ];
+        //
+        //             var build_script = child_process.spawn(
+        //                 'src/deploy/build_atom_agent_win.sh', build_params, {
+        //                     cwd: process.cwd()
+        //                 });
+        //
+        //             build_script.on('close', function(code) {
+        //                 if (code !== 0) {
+        //                     resolve();
+        //                 } else {
+        //                     reject(new Error('build_script returned error code ' + code));
+        //                 }
+        //             });
+        //
+        //             var stdout = '',
+        //                 stderr = '';
+        //
+        //             build_script.stdout.setEncoding('utf8');
+        //
+        //             build_script.stdout.on('data', function(data) {
+        //                 stdout += data;
+        //                 dbg.log0(data);
+        //             });
+        //
+        //             build_script.stderr.setEncoding('utf8');
+        //             build_script.stderr.on('data', function(data) {
+        //                 stderr += data;
+        //                 dbg.log0(data);
+        //             });
+        //         });
+        //     }
+        // })
         .then(function() {
             return {
                 token: system_token,
@@ -398,11 +399,11 @@ function get_system_resource_info(req) {
             return;
         }
         if (process.env.ON_PREMISE) {
-            return '/public/systems/' + req.system._id + '/' + val;
+            return '/public/' + val;
         } else {
             var params = {
                 Bucket: S3_SYSTEM_BUCKET,
-                Key: 'systems/' + req.system._id + '/' + val,
+                Key: '/' + val,
                 Expires: 24 * 3600 // 1 day
             };
             if (aws_s3) {

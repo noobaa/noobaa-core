@@ -1,6 +1,6 @@
 <script>
 mkdir  c:\noobaa
 cd c:\noobaa
-powershell wget https://s3.eu-central-1.amazonaws.com/noobaa-core/systems/<SYSTEM_ID>/noobaa-setup.exe -OutFile noobaa-setup.exe
-noobaa-setup.exe
+powershell wget https://s3.eu-central-1.amazonaws.com/noobaa-core/noobaa-setup.exe -OutFile noobaa-setup.exe
+noobaa-setup.exe /config ew0KICAgICJkYmdfbG9nX2xldmVsIjogMiwNCiAgICAiYWRkcmVzcyI6ICJ3c3M6Ly81Mi4yOC4xMTAuMTQyIiwNCiAgICAic3lzdGVtIjogImJhbmtwb2FsaW0iLA0KICAgICJ0aWVyIjogIm5vZGVzIiwNCiAgICJidWNrZXQiOiAiZmlsZXMiLA0KICAgICJyb290X3BhdGgiOiAiLi9hZ2VudF9zdG9yYWdlLyIsDQogICAgImFjY2Vzc19rZXkiOiIyYTZlYTA4NWIwYTA5NzdhN2NhYTdhNTliNzdhNjk4ZCIsDQogICAgInNlY3JldF9rZXkiOiJjOGQxZDlmMWIxZjRiNTBjNzYyYWVmYjBkNGY4Y2M4MWMyMzVhNjdjMDQ2ZjE2ZjgzNWUyZTAxNDc1MDQxZWMzIg0KfQ==
 </script>

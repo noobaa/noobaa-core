@@ -4,11 +4,24 @@
 !define UNINST "Uninstall-${NB}"
 !include "FileFunc.nsh"
 !include "StrFunc.nsh"
+${StrRep}
 !include "LogicLib.nsh"
-; Usage example:
-; noobaa-setup.exe /address=noobaa-alpha.herokuapp.com /serverport=443 /agentport=4003 /updateserver=noobaa-alpha.herokuapp.com
+!include "Base64.nsh"
+!include "MUI2.nsh"
 
-SilentInstall silent
+!define MUI_COMPONENTSPAGE_SMALLDESC
+!insertmacro MUI_PAGE_COMPONENTS
+!insertmacro MUI_LANGUAGE English
+
+; Usage example:
+; noobaa-s3rest.exe /address "wss://noobaa-alpha.herokuapp.com" /S /system_name demo /access_key 123 /secret_key abc
+;
+; or
+;
+; noobaa-s3rest.exe /S /config <agent_conf.json with base 64 encoding>
+;
+
+BrandingText "${NB}"
 OutFile "noobaa-setup.exe"
 Name "${NB}"
 Icon "${ICON}"
@@ -46,193 +59,19 @@ Pop $1                      ; Stack: $0
 Pop $0                      ; Stack: -empty-
 FunctionEnd
 
-; GetParameters
-; input, none
-; output, top of stack (replaces, with e.g. whatever)
-; modifies no other variables.
-
-Function GetParameters
-
-Push $R0
-Push $R1
-Push $R2
-Push $R3
-
-StrCpy $R2 1
-StrLen $R3 $CMDLINE
-
-;Check for quote or space
-StrCpy $R0 $CMDLINE $R2
-StrCmp $R0 '"' 0 +3
-	StrCpy $R1 '"'
-	Goto loop
-StrCpy $R1 " "
-
-loop:
-	IntOp $R2 $R2 + 1
-	StrCpy $R0 $CMDLINE 1 $R2
-	StrCmp $R0 $R1 get
-	StrCmp $R2 $R3 get
-	Goto loop
-
-get:
-	IntOp $R2 $R2 + 1
-	StrCpy $R0 $CMDLINE 1 $R2
-	StrCmp $R0 " " get
-	StrCpy $R0 $CMDLINE "" $R2
-
-Pop $R3
-Pop $R2
-Pop $R1
-Exch $R0
-
-FunctionEnd
-Function StrStr
-Exch $R1 ; st=haystack,old$R1, $R1=needle
-Exch    ; st=old$R1,haystack
-Exch $R2 ; st=old$R1,old$R2, $R2=haystack
-Push $R3
-Push $R4
-Push $R5
-StrLen $R3 $R1
-StrCpy $R4 0
-; $R1=needle
-; $R2=haystack
-; $R3=len(needle)
-; $R4=cnt
-; $R5=tmp
-loop:
-	StrCpy $R5 $R2 $R3 $R4
-	StrCmp $R5 $R1 done
-	StrCmp $R5 "" done
-	IntOp $R4 $R4 + 1
-	Goto loop
-done:
-StrCpy $R1 $R2 "" $R4
-Pop $R5
-Pop $R4
-Pop $R3
-Pop $R2
-Exch $R1
-FunctionEnd
-
-; GetParameterValue
-; Chris Morgan<cmorgan@alum.wpi.edu> 5/10/2004
-; -Updated 4/7/2005 to add support for retrieving a command line switch
-;  and additional documentation
-;
-; Searches the command line input, retrieved using GetParameters, for the
-; value of an option given the option name.  If no option is found the
-; default value is placed on the top of the stack upon function return.
-;
-; This function can also be used to detect the existence of just a
-; command line switch like /OUTPUT  Pass the default and "OUTPUT"
-; on the stack like normal.  An empty return string "" will indicate
-; that the switch was found, the default value indicates that
-; neither a parameter or switch was found.
-;
-; Inputs - Top of stack is default if parameter isn't found,
-;  second in stack is parameter to search for, ex. "OUTPUT"
-; Outputs - Top of the stack contains the value of this parameter
-;  So if the command line contained /OUTPUT=somedirectory, "somedirectory"
-;  will be on the top of the stack when this function returns
-;
-; Register usage
-;$R0 - default return value if the parameter isn't found
-;$R1 - input parameter, for example OUTPUT from the above example
-;$R2 - the length of the search, this is the search parameter+2
-;      as we have '/OUTPUT='
-;$R3 - the command line string
-;$R4 - result from StrStr calls
-;$R5 - search for ' ' or '"'
-
-Function GetParameterValue
-Exch $R0  ; get the top of the stack(default parameter) into R0
-Exch      ; exchange the top of the stack(default) with
-			; the second in the stack(parameter to search for)
-Exch $R1  ; get the top of the stack(search parameter) into $R1
-
-;Preserve on the stack the registers used in this function
-Push $R2
-Push $R3
-Push $R4
-Push $R5
-
-Strlen $R2 $R1+2    ; store the length of the search string into R2
-
-Call GetParameters  ; get the command line parameters
-Pop $R3             ; store the command line string in R3
-
-# search for quoted search string
-StrCpy $R5 '"'      ; later on we want to search for a open quote
-Push $R3            ; push the 'search in' string onto the stack
-Push '"/$R1='       ; push the 'search for'
-Call StrStr         ; search for the quoted parameter value
-Pop $R4
-StrCpy $R4 $R4 "" 1   ; skip over open quote character, "" means no maxlen
-StrCmp $R4 "" "" next ; if we didn't find an empty string go to next
-
-# search for non-quoted search string
-StrCpy $R5 ' '      ; later on we want to search for a space since we
-					; didn't start with an open quote '"' we shouldn't
-					; look for a close quote '"'
-Push $R3            ; push the command line back on the stack for searching
-Push '/$R1='        ; search for the non-quoted search string
-Call StrStr
-Pop $R4
-
-; $R4 now contains the parameter string starting at the search string,
-; if it was found
-next:
-StrCmp $R4 "" check_for_switch ; if we didn't find anything then look for
-								; usage as a command line switch
-# copy the value after /$R1= by using StrCpy with an offset of $R2,
-# the length of '/OUTPUT='
-StrCpy $R0 $R4 "" $R2  ; copy commandline text beyond parameter into $R0
-# search for the next parameter so we can trim this extra text off
-Push $R0
-Push $R5            ; search for either the first space ' ', or the first
-					; quote '"'
-					; if we found '"/output' then we want to find the
-					; ending ", as in '"/output=somevalue"'
-					; if we found '/output' then we want to find the first
-					; space after '/output=somevalue'
-Call StrStr         ; search for the next parameter
-Pop $R4
-StrCmp $R4 "" done  ; if 'somevalue' is missing, we are done
-StrLen $R4 $R4      ; get the length of 'somevalue' so we can copy this
-					; text into our output buffer
-StrCpy $R0 $R0 -$R4 ; using the length of the string beyond the value,
-					; copy only the value into $R0
-goto done           ; if we are in the parameter retrieval path skip over
-					; the check for a command line switch
-
-; See if the parameter was specified as a command line switch, like '/output'
-check_for_switch:
-Push $R3            ; push the command line back on the stack for searching
-Push '/$R1'         ; search for the non-quoted search string
-Call StrStr
-Pop $R4
-StrCmp $R4 "" done  ; if we didn't find anything then use the default
-StrCpy $R0 ""       ; otherwise copy in an empty string since we found the
-					; parameter, just didn't find a value
-
-done:
-Pop $R5
-Pop $R4
-Pop $R3
-Pop $R2
-Pop $R1
-Exch $R0 ; put the value in $R0 at the top of the stack
-FunctionEnd
-
-
 # default section
 
-Section "install"
+Section "Noobaa Local Service"
 
-	;Debug:
-	;MessageBox MB_OK "Value of address parameter is $2 $3 $4 $5"
+	Var /global address
+	Var /global system_id
+	Var /global access_key
+	Var /global secret_key
+	Var /global system
+    Var /global config
+
+
+
 	Var /global UPGRADE
 	Var /global AUTO_UPGRADE
 
@@ -252,6 +91,51 @@ Section "install"
 
 	SetOutPath $INSTDIR
 
+	ClearErrors
+	${GetOptions} $CMDLINE "/config" $config
+	${IfNot} ${Errors}
+		Delete "$INSTDIR\agent_conf.json"
+		${Base64_Decode} $config
+		Pop $0
+		${WriteFile} "$INSTDIR\agent_conf.json" $0
+		nsJSON::Set /file $INSTDIR\agent_conf.json
+		; Read address from agent_conf.json
+		ClearErrors
+		nsJSON::Get `address`
+		${IfNot} ${Errors}
+			Pop $R0
+			StrCpy $address $R0
+			${StrRep} $address $address "wss://" "https://"
+			${StrRep} $address $address "ws://" "http://"
+		${EndIf}
+
+	${Else}
+		${GetOptions} $CMDLINE "/address" $address
+		${GetOptions} $CMDLINE "/system_name" $system
+		${GetOptions} $CMDLINE "/system_id" $system_id
+		${GetOptions} $CMDLINE "/access_key" $access_key
+		ClearErrors
+		${GetOptions} $CMDLINE "/secret_key" $secret_key
+		${IfNot} ${Errors}
+			Delete "$INSTDIR\agent_conf.json"
+			${WriteFile} "$INSTDIR\agent_conf.json" "{"
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"dbg_log_level$\": 2,"
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"address$\": $\"$address$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"system$\": $\"$system$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"tier$\": $\"nodes$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"prod$\": $\"true$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"bucket$\": $\"files$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"root_path$\": $\"./agent_storage/$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"access_key$\": $\"$access_key$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"secret_key$\": $\"$secret_key$\""
+			${WriteFile} "$INSTDIR\agent_conf.json" "}"
+		${Else}
+			MessageBox MB_OK "missing /config parameter!"
+		${EndIf}
+
+	${EndIf}
+	;MessageBox MB_OK "Value of parameters is $address $system_id $access_key $secret_key $system"
+
 	${If} $UPGRADE == "true" ;delete all files that we want to update
 
 		${If} $AUTO_UPGRADE == "false" ;delete all files that we want to update
@@ -259,7 +143,6 @@ Section "install"
 		${EndIf}
 		Delete "$INSTDIR\config.js"
 		Delete "$INSTDIR\package.json"
-		Delete "$INSTDIR\agent_conf.conf"
 		Delete "$INSTDIR\${ICON}"
 		Delete "$INSTDIR\uninstall-noobaa.exe"
 		#No need for atom any more. Keep for future use?!
@@ -284,7 +167,6 @@ Section "install"
 	WriteUninstaller "$INSTDIR\uninstall-noobaa.exe"
 	File "${ICON}"
 	File "package.json"
-	file "agent_conf.json"
 	file "config.js"
 	file "node.exe"
 	File /r "src"
@@ -304,9 +186,8 @@ Section "install"
 		${WriteFile} "$INSTDIR\service.bat" "set level=$\"%errorlevel%$\""
 		${WriteFile} "$INSTDIR\service.bat" "echo %level% "
 		${WriteFile} "$INSTDIR\service.bat" "if %level% == $\"0$\" ("
-
-		;<SYSTEM_ID> replaced by build script with system_id parameter.
-		${WriteFile} "$INSTDIR\service.bat" " wget -t 2 http://s3.eu-central-1.amazonaws.com/noobaa-core/systems/<SYSTEM_ID>/noobaa-setup.exe"
+;http://s3.eu-central-1.amazonaws.com/noobaa-core/
+		${WriteFile} "$INSTDIR\service.bat" " wget -t 2 $address/public/noobaa-setup.exe"
 		${WriteFile} "$INSTDIR\service.bat" " 	echo Upgrading..."
 		${WriteFile} "$INSTDIR\service.bat" "  	if exist noobaa-setup.exe ("
 		${WriteFile} "$INSTDIR\service.bat" "      $\"$INSTDIR\noobaa-setup.exe$\""

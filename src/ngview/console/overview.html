@@ -32,7 +32,7 @@
                         all nodes are online
                         <i class="fa fa-check fa-fw text-success"></i>
                     </span>
-                    <a ng-if="nbSystem.system.tiers[0].nodes.count > nbSystem.system.tiers[0].nodes.online" ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}#nodes" style="font-size: 12px">
+                    <a ng-if="nbSystem.system.tiers[0].nodes.count > nbSystem.system.tiers[0].nodes.online" ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}#nodes&state=offline" style="font-size: 12px">
                         <span class="text-warning">
                             {{nbSystem.system.tiers[0].nodes.count - nbSystem.system.tiers[0].nodes.online}} offline nodes
                         </span>

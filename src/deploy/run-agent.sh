@@ -22,6 +22,7 @@ fi
 time curl -k -H "Accept: application/json" https://$1/agent/package.json > package.json
 echo '++++++++++  updated code. reload ++++++++++'
 time rm -rf node_modules/
+time npm config set strict-ssl false
 time npm install
 if [ $# -eq 1 ]
   then

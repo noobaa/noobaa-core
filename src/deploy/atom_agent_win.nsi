@@ -61,6 +61,10 @@ Function .onInit
 	Var /global secret_key
 	Var /global system
 	Var /global config
+	Var /global UPGRADE
+	Var /global AUTO_UPGRADE
+	;Install or upgrade?
+	StrCpy $UPGRADE "false"
 
 
 	ClearErrors
@@ -73,8 +77,12 @@ Function .onInit
 		ClearErrors
 		${GetOptions} $CMDLINE "/secret_key" $secret_key
 		${If} ${Errors}
-			MessageBox MB_OK "missing /config parameter!"
-			Abort
+			IfFileExists $INSTDIR\agent_conf.json SkipError AbortInstall
+				AbortInstall:
+					MessageBox MB_OK "missing /config parameter!"
+					Abort
+				SkipError:
+					StrCpy $UPGRADE "true"
 		${EndIf}
 
 	${EndIf}
@@ -110,44 +118,38 @@ UninstallIcon "${ICON}"
 
 Section "Noobaa Local Service"
 	SetOutPath $INSTDIR
-	Delete "$INSTDIR\agent_conf.json"
-	${If} $config == ""
-		${WriteFile} "$INSTDIR\agent_conf.json" "{"
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"dbg_log_level$\": 2,"
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"address$\": $\"$address$\","
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"system$\": $\"$system$\","
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"tier$\": $\"nodes$\","
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"prod$\": $\"true$\","
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"bucket$\": $\"files$\","
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"root_path$\": $\"./agent_storage/$\","
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"access_key$\": $\"$access_key$\","
-		${WriteFile} "$INSTDIR\agent_conf.json" "$\"secret_key$\": $\"$secret_key$\""
-		${WriteFile} "$INSTDIR\agent_conf.json" "}"
 
-	${Else}
-		${Base64_Decode} $config
-		Pop $0
-		${WriteFile} "$INSTDIR\agent_conf.json" $0
-		;MessageBox MB_OK "config: $config $0 $INSTDIR	"
-		nsJSON::Set /file $INSTDIR\agent_conf.json
-		; Read address from agent_conf.json
-		ClearErrors
-		nsJSON::Get `address`
-		${IfNot} ${Errors}
-			Pop $R0
-			StrCpy $address $R0
-			${StrRep} $address $address "wss://" "https://"
-			${StrRep} $address $address "ws://" "http://"
+	${If} $UPGRADE == "false"
+		${If} $config == ""
+			${WriteFile} "$INSTDIR\agent_conf.json" "{"
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"dbg_log_level$\": 2,"
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"address$\": $\"$address$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"system$\": $\"$system$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"tier$\": $\"nodes$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"prod$\": $\"true$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"bucket$\": $\"files$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"root_path$\": $\"./agent_storage/$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"access_key$\": $\"$access_key$\","
+			${WriteFile} "$INSTDIR\agent_conf.json" "$\"secret_key$\": $\"$secret_key$\""
+			${WriteFile} "$INSTDIR\agent_conf.json" "}"
+
+		${Else}
+			${Base64_Decode} $config
+			Pop $0
+			${WriteFile} "$INSTDIR\agent_conf.json" $0
+			;MessageBox MB_OK "config: $config $0 $INSTDIR	"
+			nsJSON::Set /file $INSTDIR\agent_conf.json
+			; Read address from agent_conf.json
+			ClearErrors
+			nsJSON::Get `address`
+			${IfNot} ${Errors}
+				Pop $R0
+				StrCpy $address $R0
+				${StrRep} $address $address "wss://" "https://"
+				${StrRep} $address $address "ws://" "http://"
+			${EndIf}
 		${EndIf}
 	${EndIf}
-
-
-
-	Var /global UPGRADE
-	Var /global AUTO_UPGRADE
-
-	;Install or upgrade?
-	StrCpy $UPGRADE "false"
 
 	IfFileExists $INSTDIR\*.* Upgrades Standard
 		Upgrades:
@@ -218,10 +220,10 @@ Section "Noobaa Local Service"
 		${WriteFile} "$INSTDIR\service.bat" "set level=$\"%errorlevel%$\""
 		${WriteFile} "$INSTDIR\service.bat" "echo %level% "
 		${WriteFile} "$INSTDIR\service.bat" "if %level% == $\"0$\" ("
-		${WriteFile} "$INSTDIR\service.bat" " wget -t 2 $address/public/noobaa-setup.exe"
+		${WriteFile} "$INSTDIR\service.bat" " wget -t 2 --no-check-certificate	$address/public/noobaa-setup.exe"
 		${WriteFile} "$INSTDIR\service.bat" " 	echo Upgrading..."
 		${WriteFile} "$INSTDIR\service.bat" "  	if exist noobaa-setup.exe ("
-		${WriteFile} "$INSTDIR\service.bat" "      $\"$INSTDIR\noobaa-setup.exe$\""
+		${WriteFile} "$INSTDIR\service.bat" "      $\"$INSTDIR\noobaa-setup.exe$\" /S"
 		${WriteFile} "$INSTDIR\service.bat" "	)"
 		${WriteFile} "$INSTDIR\service.bat" ")"
 		${WriteFile} "$INSTDIR\service_installer.bat" "cd $\"$INSTDIR$\""

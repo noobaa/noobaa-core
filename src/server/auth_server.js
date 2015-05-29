@@ -465,9 +465,9 @@ function _prepare_auth_request(req) {
      *
      * req.unauthorized()
      *
-     * the auth server uses only 401-unauthorized error to all auth failures
+     * the auth server uses only unauthorized error to all auth failures
+     * without sending an explicit message, only server is logging the reason,
      * to prevent phishing attacks.
-     * TODO should auth server use 403-forbidden errors as well as 401-unauthorized?
      *
      */
     req.unauthorized = function(reason) {

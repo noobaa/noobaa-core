@@ -70,7 +70,10 @@ nb_api.factory('nbClient', [
                 }, function(err) {
                     console.error(err);
                     // handle unauthorized response
-                    if (err.statusCode === 401) return $timeout(login, 10);
+                    if (err.rpc_code === 'UNAUTHORIZED' ||
+                        err.rpc_code === 'FORBIDDEN') {
+                        return $timeout(login, 10);
+                    }
                     var q = 'Oy, there\'s a problem. Would you like to reload?';
                     return nbAlertify.confirm(q).then(logout);
                 });

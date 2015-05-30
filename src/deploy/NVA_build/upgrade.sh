@@ -23,7 +23,16 @@ function disable_supervisord {
 
 function enable_supervisord {
   ${SUPERD}
+
+
 }
+
+function restart_webserver {
+    ${SUPERCTL} restart webserver
+
+
+}
+
 
 function check_latest_version {
   local current=$(grep CURRENT_VERSION $ENV_FILE | sed 's:.*=\(.*\):\1:')
@@ -79,6 +88,10 @@ function do_upgrade {
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post
 
   enable_supervisord
+  #workaround - from some reason, without sleep + restart, the server starts with odd behavior
+  #TODO: understand why and fix.
+  sleep 5;
+  restart_webserver
   deploy_log "Upgrade finished successfully!"
 }
 

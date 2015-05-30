@@ -520,7 +520,7 @@ nb_util.factory('nbAlertify', [
                 if (callback_index >= 0) {
                     args.splice(callback_index, 0, function(e) {
                         if (!e) {
-                            defer.reject();
+                            defer.reject(new Error('canceled'));
                             return;
                         }
                         if (arguments.length <= 1) {

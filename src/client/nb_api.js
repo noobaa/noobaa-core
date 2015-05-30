@@ -62,7 +62,7 @@ nb_api.factory('nbClient', [
                 .then(function(res) {
                     console.log('nbClient.refresh', res);
                     res = res || {};
-                    if (!res.account) return $timeout(login, 10);
+                    if (!res.account) return $timeout(login_or_register, 10);
                     $scope.account = res.account;
                     $scope.system = res.system;
                     $scope.role = res.role;
@@ -72,7 +72,7 @@ nb_api.factory('nbClient', [
                     // handle unauthorized response
                     if (err.rpc_code === 'UNAUTHORIZED' ||
                         err.rpc_code === 'FORBIDDEN') {
-                        return $timeout(login, 10);
+                        return $timeout(login_or_register, 10);
                     }
                     var q = 'Oy, there\'s a problem. Would you like to reload?';
                     return nbAlertify.confirm(q).then(logout);
@@ -87,7 +87,7 @@ nb_api.factory('nbClient', [
         function init_token() {
             var token = win_storage.nb_token;
             $scope.client.options.auth_token = token;
-            if (!token) return $timeout(login, 10);
+            if (!token) return $timeout(login_or_register, 10);
             return refresh();
         }
 
@@ -113,6 +113,67 @@ nb_api.factory('nbClient', [
         function logout() {
             save_token('');
             $window.location.href = '/';
+        }
+
+        function register() {
+            var scope = $rootScope.$new();
+            scope.create = function() {
+                if (!scope.name ||
+                    !scope.email ||
+                    !scope.password) {
+                    return;
+                }
+
+                // use some delay otherwise the previous enter event
+                // somehow immediately affects the new password dialog
+                // and closes it with empty string. the delay worksaround.
+                return $timeout(function() {}, 200)
+                    .then(function() {
+                        return nbAlertify.prompt_password('Re-enter the password');
+                    })
+                    .then(function(str) {
+                        if (str !== scope.password) {
+                            nbAlertify.error('the passwords don\'t match  :O');
+                            return;
+                        }
+                        return $q.when($scope.client.account.create_account({
+                                name: scope.name,
+                                email: scope.email,
+                                password: scope.password
+                            }))
+                            .then(function(res) {
+                                scope.modal.modal('hide');
+                                save_token(res.token);
+                                $window.location.href = '/';
+                                // logout();
+                                // return init_token();
+                            }, function(err) {
+                                console.error('CREATE ACCOUNT ERROR:', err.stack, err);
+                                nbAlertify.error(err.message);
+                            });
+                    }, function() {
+                        // dont give errors if the user cancel
+                        // the re-enter password request
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/account_create_dialog.html',
+                scope: scope,
+            });
+        }
+
+        function login_or_register() {
+            return $q.when()
+                .then(function() {
+                    return $scope.client.account.accounts_status();
+                })
+                .then(function(res) {
+                    if (res.has_accounts) {
+                        return login();
+                    } else {
+                        return register();
+                    }
+                });
         }
 
         return $scope;

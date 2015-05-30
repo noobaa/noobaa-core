@@ -108,6 +108,23 @@ module.exports = {
             }
         },
 
+        accounts_status: {
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['has_accounts'],
+                properties: {
+                    has_accounts: {
+                        type: 'boolean'
+                    }
+                }
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
+
     },
 
 

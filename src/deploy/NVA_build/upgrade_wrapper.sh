@@ -56,7 +56,8 @@ function post_upgrade {
   echo "$AGENT_VERSION_VAR" >>${CORE_DIR}/.env
   #NooBaa supervisor services configuration changes
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
-	chmod 777 /etc/rc.d/init.d/supervisord
+  chmod 777 /etc/rc.d/init.d/supervisord
+  rm -f /tmp/*.tar.gz
 }
 
 

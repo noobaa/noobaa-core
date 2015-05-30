@@ -482,7 +482,7 @@ function package_build_task() {
     //Remove previously build package
     return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
         .then(function(res) { //build agent distribution setup
-            if (use_local_executable === false){
+            if (!use_local_executable){
                 return build_agent_distro();
             }
             else
@@ -491,7 +491,7 @@ function package_build_task() {
             }
         })
         .then(function() { //build rest distribution setup
-            if (use_local_executable === false){
+            if (!use_local_executable){
                 return build_rest_distro();
             }
             else

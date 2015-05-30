@@ -116,9 +116,10 @@ nb_api.factory('nbClient', [
         }
 
         function upgrade(){
-            $scope.modal = nbModal({
+            var scope = $rootScope.$new();
+            scope.modal = nbModal({
                 template: 'console/upgrade_system.html',
-                scope: $scope,
+                scope: scope,
             });
         }
         function register() {

@@ -40,7 +40,7 @@ var s3app = require('../s3/app');
 var pem = require('../util/pem');
 var multer  = require('multer');
 var fs = require('fs');
-var done=false;
+var done_upgrade_file_upload=false;
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -219,7 +219,7 @@ function page_context(req) {
     };
 }
 
-app.use(multer({ dest: '/tmp',
+app.use('/upgrade',multer({ dest: '/tmp',
  rename: function (fieldname, filename) {
     return Date.now()+filename;
   },
@@ -228,13 +228,13 @@ onFileUploadStart: function (file) {
 },
 onFileUploadComplete: function (file) {
   dbg.log0(file.fieldname + ' uploaded to  ' + file.path);
-  done=true;
+  done_upgrade_file_upload=true;
 }
 }));
 
 
-app.post('/upload',function(req,res){
-  if(done===true){
+app.post('/upgrade',function(req,res){
+  if(done_upgrade_file_upload===true){
     dbg.log0('Uploaded to ',req.files.upgrade_file.path, 'upgrade.sh path:',process.cwd()+'/src/deploy/NVA_build');
     var stdout = fs.openSync('/tmp/upgrade.log', 'a');
     var stderr = fs.openSync('/tmp/upgrade.log', 'a');

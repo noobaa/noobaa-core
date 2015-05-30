@@ -5,6 +5,7 @@ var _ = require('lodash');
 var moment = require('moment');
 var querystring = require('querystring');
 var size_utils = require('../util/size_utils');
+var ZeroClipboard = require('zeroclipboard');
 
 // include the generated templates from ngview
 // require('../../build/templates');
@@ -183,6 +184,36 @@ nb_util.directive('nbPieChart', [
                     var chart = new google.visualization.PieChart(element[0]);
                     chart.draw(table, pie_chart.options);
                 }
+            }
+        };
+    }
+]);
+
+
+
+nb_util.directive('nbClipboard', [
+    'nbAlertify',
+    function(nbAlertify) {
+        ZeroClipboard.config({
+            swfPath: '/public/ZeroClipboard.swf',
+            moviePath: '/public/ZeroClipboard.swf'
+        });
+        return {
+            restrict: 'A',
+            link: function(scope, element, attrs) {
+                var clip = new ZeroClipboard(element);
+                clip.on('ready', function() {
+                    console.log('ZEROCLIP ready');
+
+                    clip.on('copy', function(event) {
+                        var text = scope.$eval(attrs.nbClipboard);
+                        event.clipboardData.setData("text/plain", text);
+                    });
+
+                    clip.on('aftercopy', function(client, args) {
+                        nbAlertify.success('Copied to clipbaord');
+                    });
+                });
             }
         };
     }

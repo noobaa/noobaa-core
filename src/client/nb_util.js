@@ -211,7 +211,7 @@ nb_util.directive('nbClipboard', [
                     });
 
                     clip.on('aftercopy', function(client, args) {
-                        nbAlertify.success('Copied to clipbaord');
+                        nbAlertify.success('Copied to clipboard');
                     });
                 });
             }

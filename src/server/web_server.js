@@ -38,6 +38,9 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
 var s3app = require('../s3/app');
 var pem = require('../util/pem');
+var multer  = require('multer');
+var fs = require('fs');
+var done=false;
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -198,7 +201,7 @@ app.get('/agent/package.json', function(req, res) {
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
-                ' --prod --address ' +'wss://' + req.get('host') 
+                ' --prod --address ' +'wss://' + req.get('host')
         },
         dependencies: {
             'noobaa-agent': req.protocol + '://' + req.get('host') +'/public/noobaa-agent.tar.gz'
@@ -215,6 +218,32 @@ function page_context(req) {
         data: data
     };
 }
+
+app.use(multer({ dest: '/tmp',
+ rename: function (fieldname, filename) {
+    return Date.now()+filename;
+  },
+onFileUploadStart: function (file) {
+  dbg.log0(file.originalname + ' is starting ...');
+},
+onFileUploadComplete: function (file) {
+  dbg.log0(file.fieldname + ' uploaded to  ' + file.path);
+  done=true;
+}
+}));
+
+
+app.post('/upload',function(req,res){
+  if(done===true){
+    dbg.log0('Uploaded to ',req.files.upgrade_file.path, 'upgrade.sh path:',process.cwd()+'/src/deploy/NVA_build');
+    var stdout = fs.openSync('/tmp/upgrade.log', 'a');
+    var stderr = fs.openSync('/tmp/upgrade.log', 'a');
+    var spawn = require('child_process').spawn;
+    dbg.log0('command:',process.cwd()+'/src/deploy/NVA_build/upgrade.sh from_file '+req.files.upgrade_file.path+' &');
+    spawn('nohup',[process.cwd()+'/src/deploy/NVA_build/upgrade.sh','from_file',req.files.upgrade_file.path] ,{detached: true, stdio: [ 'ignore', stdout, stderr ],cwd: '/tmp'});
+    res.end('<html><head><meta http-equiv="refresh" content="15;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 15 seconds.');
+  }
+});
 
 app.get('/console/*', function(req, res) {
     return res.render('console.html', page_context(req));

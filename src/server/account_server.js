@@ -19,6 +19,7 @@ var account_server = {
     update_account: update_account,
     delete_account: delete_account,
     list_accounts: list_accounts,
+    accounts_status: accounts_status,
 };
 
 module.exports = account_server;
@@ -153,6 +154,37 @@ function list_accounts(req) {
 }
 
 
+// once any account is found then we can save this state
+// in memory since it will not change.
+var any_account_exists = false;
+
+
+/**
+ *
+ * ACCOUNTS_STATUS
+ *
+ */
+function accounts_status(req) {
+    return Q.fcall(function() {
+            // use the cached value only if positive,
+            // otherwise we have to check the DB to know for sure
+            if (any_account_exists) {
+                return true;
+            } else {
+                return check_db_if_any_account_exists();
+            }
+        })
+        .then(function(has_accounts) {
+            if (has_accounts) {
+                any_account_exists = true;
+            }
+            return {
+                has_accounts: has_accounts
+            };
+        });
+}
+
+
 
 
 
@@ -211,3 +243,18 @@ function create_support_account() {
 }
 
 Q.delay(1000).then(create_support_account);
+
+
+function check_db_if_any_account_exists() {
+    return Q.when(
+            db.Account.findOne({
+                is_support: null,
+                deleted: null
+            }, {
+                _id: 1
+            })
+            .exec())
+        .then(function(any_account) {
+            return !!any_account;
+        });
+}

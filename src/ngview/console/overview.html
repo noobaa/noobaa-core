@@ -12,66 +12,76 @@
     </div>
 
 
-    <div class="row" style="Xpadding-top: 15px; padding-bottom: 15px">
+    <div class="row" style="margin-bottom: 20px">
 
         <div class="col-sm-6">
-            <div class="well clearfix text-center" style="padding: 40px 20px 20px 20px; font-size: 35px">
-                <div style="display: inline-block; white-space: nowrap; vertical-align: top; margin-right: 20px; margin-bottom: 20px">
-                    <a ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}">
-                        <b class="uppercase text-muted">{{nbSystem.system.tiers[0].name}}</b>
-                    </a>
-                </div>
-                <div class="hidden-md hidden-lg clearfix"></div>
-                <div style="display: inline-block; white-space: nowrap; vertical-align: top; margin-right: 20px; margin-bottom: 20px" class="text-center">
-                    <span style="font-size: 0">
-                        <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.tiers[0].nodes.online,6)}}</span>
-                        <span style="font-size: 35px" class="text-muted">{{nbSystem.system.tiers[0].nodes.online}}</span>
-                    </span>
-                    <br/>
-                    <span ng-if="nbSystem.system.tiers[0].nodes.count <= nbSystem.system.tiers[0].nodes.online" style="font-size: 12px; color: hsla(0,0%,100%,0.2)">
-                        all nodes are online
-                        <i class="fa fa-check fa-fw text-success"></i>
-                    </span>
-                    <a ng-if="nbSystem.system.tiers[0].nodes.count > nbSystem.system.tiers[0].nodes.online" ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}#nodes&state=offline" style="font-size: 12px">
-                        <span class="text-warning">
-                            {{nbSystem.system.tiers[0].nodes.count - nbSystem.system.tiers[0].nodes.online}} offline nodes
-                        </span>
-                    </a>
-                </div>
-                <div class="hidden-md hidden-lg clearfix"></div>
-                <div style="display: inline-block; white-space: nowrap; vertical-align: top; margin-top: -5px; margin-bottom: 20px">
-                    <button class="btn btn-primary btn-raised" ng-click="nbNodes.add_node()">Add Node</button>
+            <div class="well" style="padding: 30px">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div style="white-space: nowrap; font-size: 32px; margin-top: 5px">
+                            <a ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}">
+                                <b class="uppercase text-muted">
+                                    {{nbSystem.system.tiers[0].name}}
+                                    &nbsp;
+                                </b>
+                                <span style="font-size: 0">
+                                    <span style="font-size: 32px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.tiers[0].nodes.online,6)}}</span>
+                                    <span style="font-size: 32px" class="text-muted">{{nbSystem.system.tiers[0].nodes.online}}</span>
+                                </span>
+                            </a>
+                        </div>
+                        <div>
+                            <span ng-if="nbSystem.system.tiers[0].nodes.count <= nbSystem.system.tiers[0].nodes.online" style="font-size: 14px; color: hsla(0,0%,100%,0.2)">
+                                <i class="fa fa-check fa-fw text-success"></i> all nodes are online
+                            </span>
+                            <a ng-if="nbSystem.system.tiers[0].nodes.count > nbSystem.system.tiers[0].nodes.online" ng-href="/console/tier/{{nbSystem.system.tiers[0].name}}#nodes&state=offline" style="font-size: 14px">
+                                <span class="text-warning">
+                                    <i class="fa fa-warning fa-fw"></i> {{nbSystem.system.tiers[0].nodes.count - nbSystem.system.tiers[0].nodes.online}} offline nodes
+                                </span>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div style="margin-top: 10px">
+                            <button class="btn btn-primary btn-raised btn-lg btn-block" style="padding: 15px; max-width: 300px" ng-click="nbNodes.add_node()">Add Node</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
 
         <div class="col-sm-6">
-            <div class="well clearfix text-center" style="padding: 40px 20px 20px 20px; font-size: 35px">
-                <div style="display: inline-block; white-space: nowrap; vertical-align: top; margin-right: 20px; margin-bottom: 20px">
-                    <a ng-href="/console/bucket/{{nbSystem.system.buckets[0].name}}">
-                        <b class="uppercase text-muted">{{nbSystem.system.buckets[0].name}}</b>
-                    </a>
-                </div>
-                <div class="hidden-md hidden-lg clearfix"></div>
-                <div style="display: inline-block; white-space: nowrap; vertical-align: top; margin-right: 20px; margin-bottom: 20px" class="text-center">
-                    <span style="font-size: 0">
-                        <span style="font-size: 35px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.buckets[0].num_objects,6)}}</span>
-                        <span style="font-size: 35px" class="text-muted">{{nbSystem.system.buckets[0].num_objects}}</span>
-                    </span>
-                    <br/>
-                    <span ng-if="nbSystem.system.tiers[0].nodes.online >= 3" style="font-size: 12px; color: hsla(0,0%,100%,0.2)">
-                        ready to upload
-                        <i class="fa fa-check fa-fw text-success"></i>
-                    </span>
-                    <span ng-if="nbSystem.system.tiers[0].nodes.online < 3" style="font-size: 12px">
-                        <span class="text-warning">
-                            not enough nodes
-                        </span>
-                    </span>
-                </div>
-                <div class="hidden-md hidden-lg clearfix"></div>
-                <div style="display: inline-block; white-space: nowrap; vertical-align: top; margin-top: -5px; margin-bottom: 20px">
-                    <button class="btn btn-primary btn-raised" ng-click="rest_server_information()">S3 REST Details</button>
+            <div class="well clearfix" style="padding: 30px">
+                <div class="row">
+                    <div class="col-lg-6">
+                        <div style="white-space: nowrap; font-size: 32px; margin-top: 5px">
+                            <a ng-href="/console/bucket/{{nbSystem.system.buckets[0].name}}">
+                                <b class="uppercase text-muted" style="display: inline; min-width: 140px">
+                                    {{nbSystem.system.buckets[0].name}}
+                                    &nbsp;&nbsp;
+                                </b>
+                                <span style="font-size: 0">
+                                    <span style="font-size: 32px; color: hsla(0,0%,100%,0.2)">{{leading_zeros(nbSystem.system.buckets[0].num_objects,6)}}</span>
+                                    <span style="font-size: 32px" class="text-muted">{{nbSystem.system.buckets[0].num_objects}}</span>
+                                </span>
+                            </a>
+                        </div>
+                        <div>
+                            <span ng-if="nbSystem.system.tiers[0].nodes.online >= 3" style="font-size: 14px; color: hsla(0,0%,100%,0.2)">
+                                <i class="fa fa-check fa-fw text-success"></i> ready to upload
+                            </span>
+                            <span ng-if="nbSystem.system.tiers[0].nodes.online < 3" style="font-size: 14px">
+                                <span class="text-warning">
+                                    <i class="fa fa-warning fa-fw"></i> not enough nodes
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+                    <div class="col-lg-6">
+                        <div style="margin-top: 10px">
+                            <button class="btn btn-primary btn-raised btn-lg btn-block" style="padding: 15px; max-width: 300px" ng-click="rest_server_information()">S3 REST Details</button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -79,13 +89,13 @@
 
     <div class="relpos map-area">
 
-        <div id="nodes_map" style="margin-top: -100px; margin-right: 50px; height: 500px"></div>
+        <div id="nodes_map" style="margin-top: -100px; margin-right: 50px; height: 480px"></div>
 
         <div class="abspos text-right" style="top: 15px; right: 15px">
-            <h2>{{human_size(nbSystem.system.storage.free+nbSystem.system.storage.used)}}</h2>
             <h2>
                 <small>CAPACITY</small>
             </h2>
+            <h2>{{human_size(nbSystem.system.storage.free+nbSystem.system.storage.used)}}</h2>
         </div>
 
     </div>

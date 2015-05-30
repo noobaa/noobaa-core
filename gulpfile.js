@@ -80,6 +80,7 @@ var PATHS = {
     assets: {
         'build/public': [
             'node_modules/video.js/dist/video-js/video-js.swf',
+            'node_modules/zeroclipboard/dist/ZeroClipboard.swf',
         ],
         'build/public/css': [],
         'build/public/fonts': [

@@ -5,6 +5,7 @@ module.exports = NudpFlow;
 // var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
+var js_utils = require('../util/js_utils');
 var EventEmitter = require('events').EventEmitter;
 var LinkedList = require('noobaa-util/linked_list');
 var chance = require('chance').Chance();
@@ -105,10 +106,12 @@ function NudpFlow() {
     // override prototype functions with their self bind versions
     // to avoid repeated binds during the flow
     // for example to make such calls - setTimeout(this._send_packets, 1000)
-    this._send_packets = this._send_packets.bind(this);
-    this._send_syn_ack = this._send_syn_ack.bind(this);
-    this._send_fin = this._send_fin.bind(this);
-    this._send_delayed_acks = this._send_delayed_acks.bind(this);
+    js_utils.self_bind(this, [
+        '_send_packets',
+        '_send_syn_ack',
+        '_send_fin',
+        '_send_delayed_acks',
+    ]);
 }
 
 /**

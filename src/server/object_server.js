@@ -69,7 +69,7 @@ function create_multipart_upload(req) {
 function list_multipart_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
-            fail_obj_not_in_upload_mode(obj);
+            fail_obj_not_in_upload_mode(req, obj);
             var params = _.pick(req.rpc_params,
                 'part_number_marker',
                 'max_parts');
@@ -91,7 +91,7 @@ function complete_multipart_upload(req) {
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
-            fail_obj_not_in_upload_mode(obj);
+            fail_obj_not_in_upload_mode(req, obj);
 
             if (req.rpc_params.fix_parts_size) {
                 return object_mapper.fix_multipart_parts(obj);
@@ -140,7 +140,7 @@ function abort_multipart_upload(req) {
 function allocate_object_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
-            fail_obj_not_in_upload_mode(obj);
+            fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.allocate_object_parts(
                 req.bucket,
                 obj,
@@ -157,7 +157,7 @@ function allocate_object_parts(req) {
 function finalize_object_parts(req) {
     return find_object_md(req)
         .then(function(obj) {
-            fail_obj_not_in_upload_mode(obj);
+            fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.finalize_object_parts(
                 req.bucket,
                 obj,
@@ -401,10 +401,8 @@ function find_object_md(req) {
         .then(db.check_not_deleted(req, 'object'));
 }
 
-function fail_obj_not_in_upload_mode(obj) {
+function fail_obj_not_in_upload_mode(req, obj) {
     if (!_.isNumber(obj.upload_size)) {
-        var err = new Error('object not in upload mode ' + obj.key);
-        err.statusCode = 405; // HTTP Method Not Allowed
-        throw err;
+        throw req.rpc_error('BAD_STATE', 'object not in upload mode ' + obj.key);
     }
 }

@@ -39,53 +39,49 @@
                 <div style="min-height: 200px; padding: 20px">
                     <div ng-if="stage==1">
                         <p class="text-center">
-                            In order for the nodes to connect to the NooBaa server,
-                            <br/> configure the following entry in your <b>DNS</b>:
+                            <b>Configure the following entry in your DNS</b>
+                            <br/> in order for the nodes to connect to the NooBaa server:
                         </p>
-                        <pre style="margin-top: 20px; max-width: 350px" class="center-block">{{$location.host()}} <b>noobaa.local</b></pre>
-                        <div class="text-center" style="padding-top: 20px">
-                            (this server IP should be available on the network)
-                            <!-- <br/> -->
-                            <!-- <br/> -->
-                            <!-- <i class="fa fa-sitemap text-muted" style="font-size: 80px"></i> -->
+                        <pre style="margin-top: 20px; max-width: 380px" class="center-block">{{$location.host()}} <b>noobaa.local</b></pre>
+                        <div class="text-center" style="margin-top: 20px">
+                            ** this server IP should be available on the network
                         </div>
                     </div>
                     <div ng-if="stage==2">
                         <p class="text-center">
-                            <b>Download</b> the agent installer
-                        <br>
-                    </p>
-                    <p class="text-left">
-                            For Silent Installation, use /S flag
-                        </br>
-                        Specify agent configuration by using /config flag with the text below
-                        <pre style="margin-top: 20px; max-width: 550px" class="block" nb-clipboard="encodedData" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom">{{encodedData}}</pre>
+                            <b>Download the agent installer</b>
                         </p>
-                        <div class="text-center" style="padding-top: 20px">
+                        <div class="text-center" style="margin-top: 10px">
                             <button class="btn btn-primary btn-lg" style="padding: 20px" nb-click-ladda="download_agent();">
                                 Download
                             </button>
                         </div>
+                        <div class="text-center" style="margin-top: 10px">
+                            ** See next step for running instructions
+                        </div>
                     </div>
                     <div ng-if="stage==3">
                         <p class="text-center">
-                            <b>Distribute and run</b> the agent on the nodes
-                            <br/>you wish to participate in the network
+                            <b>Distribute and run the agent installer on the nodes
+                            <br/> you wish to participate in the network</b>
                         </p>
-                        <div class="text-center" style="padding-top: 20px">
-                            <i class="fa fa-spinner text-muted" style="font-size: 80px"></i>
-                        </div>
+                        <p class="text-left" style="margin-top: 20px">
+                            ** Use the following arguments for silent install to this system:
+                        </p>
+                        <pre style="font-size: 11px; color: hsl(0,0%,50%)" class="block" nb-clipboard="'/S /config ' + encodedData" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom">/S /config {{encodedData}}</pre>
                     </div>
                     <div ng-if="stage==4">
                         <p class="text-center">
-                            <b>Review</b> the new nodes on this link.
-                            <br/> New nodes will show up once they are connected:
+                            <b>Review the new nodes</b>
                         </p>
-                        <div class="text-center" style="padding-top: 20px">
+                        <div class="text-center" style="margin-top: 20px">
                             <a ng-click="goto_nodes_list()">
-                                <h4>Nodes List</h4>
+                                <h4>Go to Nodes List</h4>
                             </a>
                         </div>
+                        <p class="text-center" style="margin-top: 20px">
+                            ** New nodes will show up in the list once they are connected
+                        </p>
                     </div>
                 </div>
 

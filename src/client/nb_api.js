@@ -30,7 +30,7 @@ nb_api.factory('nbClient', [
         $scope.login = login;
         $scope.logout = logout;
         $scope.init_promise = $q.when().then(init_token);
-
+        $scope.upgrade = upgrade;
 
         // TODO this manual hack allows https websites to call regular http to agents
         // we need to support https in the agents.
@@ -115,6 +115,13 @@ nb_api.factory('nbClient', [
             $window.location.href = '/';
         }
 
+        function upgrade(){
+            var scope = $rootScope.$new();
+            scope.modal = nbModal({
+                template: 'console/upgrade_system.html',
+                scope: scope,
+            });
+        }
         function register() {
             var scope = $rootScope.$new();
             scope.create = function() {

@@ -46,6 +46,7 @@ if (!process.env.PORT) {
 var active_server;
 var build_on_premise = false;
 var skip_install = false;
+var use_local_executable = false;
 for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--on_premise') {
         build_on_premise = true;
@@ -53,6 +54,10 @@ for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--skip_install') {
         skip_install = true;
     }
+    if (process.argv[arg_idx] === '--local') {
+        use_local_executable = true;
+    }
+
 }
 
 function leave_no_wounded(err) {
@@ -496,10 +501,22 @@ function package_build_task() {
     //Remove previously build package
     return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
         .then(function(res) { //build agent distribution setup
-            return build_agent_distro();
+            if (!use_local_executable){
+                return build_agent_distro();
+            }
+            else
+            {
+                return;
+            }
         })
         .then(function() { //build rest distribution setup
-            return build_rest_distro();
+            if (!use_local_executable){
+                return build_rest_distro();
+            }
+            else
+            {
+                return;
+            }
         })
         .then(function() {
             //call for packing

@@ -14,6 +14,7 @@ var gulp_notify = require('gulp-notify');
 var gulp_less = require('gulp-less');
 var gulp_uglify = require('gulp-uglify');
 var gulp_minify_css = require('gulp-minify-css');
+var gulp_sourcemaps = require('gulp-sourcemaps');
 var gulp_rename = require('gulp-rename');
 var gulp_tar = require('gulp-tar');
 var gulp_gzip = require('gulp-gzip');
@@ -75,7 +76,7 @@ process.on("SIGTERM", leave_no_wounded);
 
 var PATHS = {
     css: 'src/css/**/*',
-    css_candidates: ['src/css/styles.less'],
+    less_css: ['src/css/styles.less'],
 
     assets: {
         'build/public': [
@@ -181,6 +182,13 @@ function simple_bower() {
     return stream;
 }
 
+/**
+ * manipulates the stream so that if any file exists in the stream
+ * it will push the given candidates instead of any of the files in the original stream.
+ * this is useful for doing checks like gulp_newer from a group of
+ * source files vs target file and if any of the sources are newer
+ * then replace the stream with a specific candidate to be compiled.
+ */
 function candidate(candidate_src) {
     var done;
     var stream = through2.obj(function(file, enc, callback) {
@@ -316,19 +324,30 @@ gulp.task('assets', ['bower'], function() {
     ));
 });
 
-gulp.task('css', ['bower'], function() {
+gulp.task('less_css', ['bower'], function() {
     var DEST = 'build/public/css';
     var NAME = 'styles.css';
-    var NAME_MIN = 'styles.min.css';
     return gulp
         .src(PATHS.css, SRC_DONT_READ)
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_newer(path.join(DEST, NAME)))
-        .pipe(candidate(PATHS.css_candidates))
+        .pipe(candidate(PATHS.less_css))
+        .pipe(gulp_sourcemaps.init())
         .pipe(gulp_less())
+        .pipe(gulp_sourcemaps.write())
         .pipe(gulp_rename(NAME))
         .pipe(gulp_size_log(NAME))
-        .pipe(gulp.dest(DEST))
+        .pipe(gulp.dest(DEST));
+});
+
+gulp.task('css', ['less_css'], function() {
+    var DEST = 'build/public/css';
+    var NAME = 'styles.css';
+    var NAME_MIN = 'styles.min.css';
+    return gulp
+        .src(path.join(DEST, NAME))
+        .pipe(gulp_plumber(PLUMB_CONF))
+        .pipe(gulp_newer(path.join(DEST, NAME_MIN)))
         .pipe(gulp_minify_css())
         .pipe(gulp_rename(NAME_MIN))
         .pipe(gulp_size_log(NAME_MIN))

@@ -8,7 +8,7 @@ try {
     var libnice = require('node-libnice');
     test_nice();
 } catch (err) {
-    dbg.warn('libnice is unavailble');
+    console.warn('libnice is unavailble');
 }
 
 function test_nice() {

@@ -236,8 +236,8 @@ onFileUploadComplete: function (file) {
 app.post('/upgrade',function(req,res){
   if(done_upgrade_file_upload===true){
     dbg.log0('Uploaded to ',req.files.upgrade_file.path, 'upgrade.sh path:',process.cwd()+'/src/deploy/NVA_build');
-    var stdout = fs.openSync('/tmp/upgrade.log', 'a');
-    var stderr = fs.openSync('/tmp/upgrade.log', 'a');
+    var stdout = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
+    var stderr = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
     var spawn = require('child_process').spawn;
     dbg.log0('command:',process.cwd()+'/src/deploy/NVA_build/upgrade.sh from_file '+req.files.upgrade_file.path+' &');
     spawn('nohup',[process.cwd()+'/src/deploy/NVA_build/upgrade.sh','from_file',req.files.upgrade_file.path] ,{detached: true, stdio: [ 'ignore', stdout, stderr ],cwd: '/tmp'});

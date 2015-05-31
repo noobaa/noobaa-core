@@ -181,7 +181,9 @@ Agent.prototype._init_node = function() {
     var self = this;
 
     return Q.fcall(function() {
-            return os_util.get_mount_of_path(self.storage_path);
+            if (self.storage_path) {
+                return os_util.get_mount_of_path(self.storage_path);
+            }
         })
         .then(function(storage_path_mount) {
             self.storage_path_mount = storage_path_mount;

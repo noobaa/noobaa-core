@@ -98,6 +98,7 @@
     "moment": "~2.10.2",
     "mongoose": "~4.0.1",
     "morgan": "~1.5.2",
+    "multer": "^0.1.8",
     "newrelic": "~1.18.3",
     "node-df": "^0.1.1",
     "node-gyp": "^1.0.3",

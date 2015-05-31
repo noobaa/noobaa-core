@@ -29,8 +29,6 @@ function enable_supervisord {
 
 function restart_webserver {
     ${SUPERCTL} restart webserver
-
-
 }
 
 
@@ -56,6 +54,15 @@ function extract_package {
 
   if [ $? -ne 0 ]; then
     deploy_log "Corrupted package file, could not open"
+    rm -rf ${EXTRACTION_PATH}*
+    exit 1
+  fi
+
+  #test if package contains expected locations/files, for example src/deploy/NVA_build/env.orig
+  if [ -f "${EXTRACTION_PATH}/src/deploy/NVA_build/env.orig" ]; then
+    deploy_log "env.orig exists in temp extraction point, continue with upgrade"
+  else
+    deploy_log "env.orig does not exists, abort upgrade"
     rm -rf ${EXTRACTION_PATH}*
     exit 1
   fi

@@ -59,7 +59,7 @@ function extract_package {
   fi
 
   #test if package contains expected locations/files, for example src/deploy/NVA_build/env.orig
-  if [ -f "${EXTRACTION_PATH}/src/deploy/NVA_build/env.orig" ]; then
+  if [ -f "${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/env.orig" ]; then
     deploy_log "env.orig exists in temp extraction point, continue with upgrade"
   else
     deploy_log "env.orig does not exists, abort upgrade"

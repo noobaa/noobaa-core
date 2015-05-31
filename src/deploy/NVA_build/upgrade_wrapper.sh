@@ -44,16 +44,16 @@ function post_upgrade {
   #bump agent version.
   #TODO: do it only if md5 of the executable is different
 
-  AGENT_VERSION_VAR=$( grep   AGENT_VERSION ${CORE_DIR}/.env)
-  if [ -n "$AGENT_VERSION_VAR" ]; then
+  local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)
+  if [ "${AGENT_VERSION_VAR}" != "" ]; then
       AGENT_VERSION_NUMBER=${AGENT_VERSION_VAR:14}
       AGENT_VERSION_NUMBER=$((AGENT_VERSION_NUMBER+1))
-      AGENT_VERSION_VAR='AGENT_VERSION='$((AGENT_VERSION_NUMBER))
+      AGENT_VERSION_VAR="AGENT_VERSION=${AGENT_VERSION_NUMBER}"
   else
       AGENT_VERSION_VAR='AGENT_VERSION=1'
   fi
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
-  echo "$AGENT_VERSION_VAR" >>${CORE_DIR}/.env
+  echo "${AGENT_VERSION_VAR}" >>${CORE_DIR}/.env
   #NooBaa supervisor services configuration changes
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord

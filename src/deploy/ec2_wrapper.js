@@ -17,17 +17,37 @@ Q.longStackSupport = true;
  * noobaa's ec2 wrapper
  *
  */
+
 module.exports = {
-    scale_instances: scale_instances,
+    //General API
     describe_instances: describe_instances,
     describe_instance: describe_instance,
     terminate_instances: terminate_instances,
     import_key_pair_to_region: import_key_pair_to_region,
+    print_instances: print_instances,
+    create_instance_from_ami: create_instance_from_ami,
+    add_instance_name: add_instance_name,
+    get_ip_address: get_ip_address,
+
+    //Agents Specific API
+    scale_agent_instances: scale_agent_instances,
+    add_agent_region_instances: add_agent_region_instances,
+    get_agent_ami_image_id: get_agent_ami_image_id,
+
+    //Utility API
+    ec2_call: ec2_call,
+    ec2_region_call: ec2_region_call,
+    ec2_wait_for: ec2_wait_for,
+    set_app_name: set_app_name,
 };
 
+/*************************************
+ *
+ * Globals
+ *
+ *************************************/
 
 /* load aws config from env */
-
 if (!process.env.AWS_ACCESS_KEY_ID) {
     console.log('loading .env file...');
     dotenv.load();
@@ -47,36 +67,18 @@ var KEY_PAIR_PARAMS = {
 
 
 // the heroku app name
-
 var app_name = '';
 
+var _ec2 = new AWS.EC2();
+var _ec2_per_region = {};
 
-/**
- *
- * get_regions
- *
- */
-function get_regions(func) {
-    return ec2_call('describeRegions');
-}
+var _cached_ami_image_id;
 
-
-/**
+/*************************************
  *
- * foreach_region
+ * General API
  *
- * @param func is function(region) that can return a promise.
- * @return promise for array of results per region func.
- *
- */
-function foreach_region(func) {
-    return get_regions()
-        .then(function(res) {
-            return Q.all(_.map(res.Regions, func));
-        });
-}
-
-
+ *************************************/
 /**
  *
  * describe_instances
@@ -85,8 +87,14 @@ function foreach_region(func) {
  *      each entry is array of instance info.
  *
  */
-function describe_instances(params) {
+function describe_instances(params, filter_tags, verbose) {
     var regions = [];
+    var exec_params = {
+        verbose: (typeof verbose === 'undefined') ? verbose : false,
+        filter_tags: (typeof filter_tags === 'undefined') ? filter_tags : false,
+    };
+
+
     return foreach_region(function(region) {
             regions.push(region);
             return ec2_region_call(region.RegionName, 'describeInstances', params)
@@ -98,27 +106,31 @@ function describe_instances(params) {
                         instance.region = region;
                         instance.region_name = region.RegionName;
                         instance.tags_map = _.mapValues(_.indexBy(instance.Tags, 'Key'), 'Value');
-                        if (instance.tags_map.Name !== argv.tag) {
-                            console.log('FILTERED', instance.InstanceId, instance.tags_map.Name);
-                            return false;
+                        if (exec_params.filter_tags) {
+                            if (instance.tags_map.Name !== argv.tag) {
+                                console.log('FILTERED', instance.InstanceId, instance.tags_map.Name);
+                                return false;
+                            }
                         }
                         return true;
                     });
                 }).then(null, function(err) {
-                    console.log("Error:", err);
+                    if (exec_params.verbose) {
+                        console.log("Error:", err);
+                    }
                     return false;
                 });
         })
         .then(function(res) {
-            // flatten again for all regions
-            var instances = _.flatten(res);
+            // flatten again for all regions, remove regions without results
+            var instances = _.flatten(_.filter(res, function(r) {
+                return r !== false;
+            }));
             // also put the regions list as a "secret" property of the array
             instances.regions = regions;
             return instances;
         });
 }
-
-
 
 /**
  *
@@ -127,23 +139,186 @@ function describe_instances(params) {
  * @return info of single instance
  *
  */
-function describe_instance(instance_id) {
+function describe_instance(instance_id, filter_tags, verbose) {
+    var exec_params = {
+        verbose: (typeof verbose === 'undefined') ? verbose : false,
+        filter_tags: (typeof filter_tags === 'undefined') ? filter_tags : false,
+    };
+
     return describe_instances({
-            InstanceIds: [instance_id]
-        })
+                InstanceIds: [instance_id],
+            },
+            exec_params.verbose,
+            exec_params.filter_tags)
         .then(function(res) {
             return res[0];
         });
 }
 
+/**
+ *
+ * terminate_instance
+ *
+ * @param instance_ids array of ids.
+ */
+function terminate_instances(region_name, instance_ids) {
+    console.log('Terminate:', region_name, 'terminating',
+        instance_ids.length, 'instances -', instance_ids);
+    return ec2_region_call(region_name, 'terminateInstances', {
+        InstanceIds: instance_ids,
+    }).then(null, function(err) {
+        if (err.code === 'InvalidInstanceID.NotFound') {
+            console.error(err);
+            return;
+        }
+        throw err;
+    });
+}
 
+/**
+ *
+ * import_key_pair_to_region
+ *
+ */
+function import_key_pair_to_region(region_name) {
+    return ec2_region_call(region_name, 'importKeyPair', KEY_PAIR_PARAMS)
+        .then(function(res) {
+            console.log('KeyPair: imported', res.KeyName);
+        }, function(err) {
+            if (err.code === 'InvalidKeyPair.Duplicate') return;
+            throw err;
+        });
+}
+
+function print_instances(instances) {
+    if (argv.long) {
+        console_inspect('Instances:', instances);
+    } else {
+        _.each(instances, function(instance) {
+            console.log('Instance:',
+                instance.InstanceId,
+                instance.State && instance.State.Name || '[no-state]',
+                instance.PublicIpAddress,
+                instance.region_name,
+                instance.tags_map.Name || '[no-name]',
+                '[private ip ' + instance.PrivateIpAddress + ']'
+            );
+        });
+    }
+
+}
+
+/**
+ *
+ * create_instance_from_ami
+ *
+ * @return new instance id
+ * @return new instance public IP
+ */
+function create_instance_from_ami(ami_name, region, instance_type, name) {
+    return Q.fcall(function() {
+            return ec2_region_call(region, 'describeImages', {
+                    Filters: [{
+                        Name: 'name',
+                        Values: [
+                            ami_name,
+                        ]
+                    }]
+                })
+                .then(function(res) {
+                    return res.Images[0].ImageId;
+                });
+        }).then(function(ami_image) {
+            console.log('runInstances of:', ami_name, 'at', region, 'of type', instance_type);
+            return ec2_region_call(region, 'runInstances', {
+                ImageId: ami_image,
+                MaxCount: 1,
+                MinCount: 1,
+                InstanceType: instance_type,
+                BlockDeviceMappings: [{
+                    DeviceName: '/dev/sda1',
+                    Ebs: {
+                        VolumeSize: 40,
+                    },
+                }],
+                KeyName: KEY_PAIR_PARAMS.KeyName,
+                SecurityGroups: ['noobaa'],
+            });
+        })
+        .then(function(res) {
+            var id = res.Instances[0].InstanceId;
+            console.log("Got instanceID", id);
+            if (name) {
+                add_instance_name(id, name, region);
+            }
+            return {
+                instanceid: id,
+                ip: res.Instances[0],
+            };
+        });
+}
+
+function add_instance_name(instid, name, region) {
+    console.log('TaggingInstance', instid, 'at', region, ' with\'', name, '\'');
+    return Q.fcall(function() {
+            return ec2_region_call(region, 'createTags', {
+                Resources: [instid],
+                Tags: [{
+                    Key: 'Name',
+                    Value: name
+                }]
+            });
+        })
+        .then(null, function(err) {
+            console.log('Failed TaggingInstance', err);
+        });
+}
+
+function get_ip_address(instid) {
+    return Q.fcall(function() {
+            return describe_instance(instid, false, false);
+        })
+        .then(function(res) {
+            //On pending instance state, still no public IP. Wait.
+            if (res.State.Name === 'pending') {
+                var params = {
+                    InstanceIds: [instid],
+                };
+
+                return ec2_wait_for(res.region_name, 'instanceRunning', params)
+                    .then(function(data) {
+                        if (data) {
+                            console.log("After wait with data", util.inspect(data, true, 7));
+                            return;
+                        } else {
+                            console.log('No data returned from ex2_wait_for');
+                            throw new Error('InstanceID' + instid + ' No data returned');
+                        }
+                    })
+                    .then(null, function(error) {
+                        console.log("Error in get_ip_address on ec2_wait_for", error);
+                    });
+            } else if (res.State.Name !== 'running') {
+                console.log('In get_ip_address InstanceID' + instid + ' Not in pending/running state');
+                throw new Error('InstanceID' + instid + ' Not in pending/running state');
+            }
+            //return res.NetworkInterfaces.
+            console.log("NO wait with res", util.inspect(res, true, 7));
+        });
+}
+
+/*************************************
+ *
+ * Agents Specific API
+ *
+ *************************************/
 
 /**
  *
  * scale_instances
  *
  */
-function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
+function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
 
     return describe_instances({
         Filters: [{
@@ -205,63 +380,12 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
     });
 }
 
-
 /**
  *
- * scale_region
- *
- * @param count - the desired new count of instances
- * @param instances - array of existing instances
+ * add_agent_region_instances
  *
  */
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win) {
-
-    // always make sure the region has the security group and key pair
-    return Q
-        .fcall(function() {
-            return create_security_group(region_name);
-        })
-        .then(function() {
-            return import_key_pair_to_region(region_name);
-        })
-        .then(function() {
-
-            // need to create
-            if (count > instances.length) {
-                console.log('ScaleRegion:', region_name, 'has', instances.length,
-                    ' +++ adding', count - instances.length);
-                return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win);
-            }
-
-            // need to terminate
-            if (count < instances.length) {
-                if (!allow_terminate) {
-                    console.log('ScaleRegion:', region_name, 'has', instances.length,
-                        ' ??? should remove', instances.length - count);
-                    throw new Error('allow_terminate');
-                }
-                console.log('ScaleRegion:', region_name, 'has', instances.length,
-                    ' --- removing', instances.length - count);
-                var death_row = _.slice(instances, 0, instances.length - count);
-                console.log('death:', death_row.length);
-                var ids = _.pluck(death_row, 'InstanceId');
-                return terminate_instances(region_name, ids);
-            }
-
-            console.log('ScaleRegion:', region_name, 'has', instances.length, ' ... unchanged');
-        })
-        .then(null, function(err) {
-            console.log('Error while trying to scale region:', region_name, ', has', instances.length, ' error:', err, err.stack);
-        });
-}
-
-
-/**
- *
- * add_region_instances
- *
- */
-function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win) {
+function add_agent_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win) {
     var instance_type = 't2.micro';
     // the run script to send to started instances
     var run_script = fs.readFileSync(__dirname + '/init_agent.sh', 'UTF8');
@@ -300,7 +424,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
 
 
     return Q
-        .fcall(get_ami_image_id, region_name, is_win)
+        .fcall(get_agent_ami_image_id, region_name, is_win)
         .then(function(ami_image_id) {
 
             console.log('AddInstance:', region_name, count, ami_image_id);
@@ -321,33 +445,16 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                 UserData: new Buffer(run_script).toString('base64'),
             });
         });
-        /*.then(function(res) {
-            console.log('TaggingInstance');
-            //For all
-            //res.Instances:
-            // [ { InstanceId: 'i-99931358',
-            //return Q.all with
-            return ec2_region_call(region_name, 'CreateTags', {
-                Resources: ['i-d38d0d12'],
-                Tags: [{
-                    Key: 'TestKey',
-                    Value: 'TestValue'
-                }]
-            });
-        });*/
 }
-
-
-var _cached_ami_image_id;
 
 /**
  *
- * get_ami_image_id
+ * get_agent_ami_image_id
  *
  * @return the image id and save in memory for next calls
  *
  */
-function get_ami_image_id(region_name, is_win) {
+function get_agent_ami_image_id(region_name, is_win) {
     // if (_cached_ami_image_id) return _cached_ami_image_id;
     if (is_win) {
 
@@ -382,46 +489,97 @@ function get_ami_image_id(region_name, is_win) {
     }
 }
 
-
-
-/**
+/*************************************
  *
- * terminate_instance
+ * Utility API
  *
- * @param instance_ids array of ids.
- */
-function terminate_instances(region_name, instance_ids) {
-    console.log('Terminate:', region_name, 'terminating',
-        instance_ids.length, 'instances -', instance_ids);
-    return ec2_region_call(region_name, 'terminateInstances', {
-        InstanceIds: instance_ids,
-    }).then(null, function(err) {
-        if (err.code === 'InvalidInstanceID.NotFound') {
-            console.error(err);
-            return;
-        }
-        throw err;
-    });
+ *************************************/
+function ec2_call(func_name, params) {
+    return Q.nfcall(_ec2[func_name].bind(_ec2), params);
 }
 
 
+function ec2_region_call(region_name, func_name, params) {
+    var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
+        region: region_name
+    });
+    return Q.nfcall(ec2[func_name].bind(ec2), params);
+}
 
-/**
- *
- * import_key_pair_to_region
- *
- */
-function import_key_pair_to_region(region_name) {
-    return ec2_region_call(region_name, 'importKeyPair', KEY_PAIR_PARAMS)
-        .then(function(res) {
-            console.log('KeyPair: imported', res.KeyName);
-        }, function(err) {
-            if (err.code === 'InvalidKeyPair.Duplicate') return;
-            throw err;
+//Set the app_name to use
+function set_app_name(appname) {
+    app_name = appname;
+}
+
+function ec2_wait_for(region_name, state_name, params, outdata) {
+        var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
+            region: region_name
+        });
+
+        return Q.nfcall(function() {
+            ec2.waitFor(state_name, params, function(err, data) {
+                if (err) {
+                    console.error("Error while waiting for state", state_name, "at", region_name, "with", params);
+                    return '';
+                }
+                console.log("NB:: got data after wait ", data.Reservations[0].Instances[0]);
+                return data.Reservations[0].Instances[0];
+            });
+        });
+    }
+    /*************************************
+     *
+     * Internal
+     *
+     *************************************/
+    /**
+     *
+     * scale_region
+     *
+     * @param count - the desired new count of instances
+     * @param instances - array of existing instances
+     *
+     */
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win) {
+
+    // always make sure the region has the security group and key pair
+    return Q
+        .fcall(function() {
+            return create_security_group(region_name);
+        })
+        .then(function() {
+            return import_key_pair_to_region(region_name);
+        })
+        .then(function() {
+
+            // need to create
+            if (count > instances.length) {
+                console.log('ScaleRegion:', region_name, 'has', instances.length,
+                    ' +++ adding', count - instances.length);
+                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win);
+            }
+
+            // need to terminate
+            if (count < instances.length) {
+                if (!allow_terminate) {
+                    console.log('ScaleRegion:', region_name, 'has', instances.length,
+                        ' ??? should remove', instances.length - count);
+                    throw new Error('allow_terminate');
+                }
+                console.log('ScaleRegion:', region_name, 'has', instances.length,
+                    ' --- removing', instances.length - count);
+                var death_row = _.slice(instances, 0, instances.length - count);
+                console.log('death:', death_row.length);
+                var ids = _.pluck(death_row, 'InstanceId');
+                return terminate_instances(region_name, ids);
+            }
+
+            console.log('ScaleRegion:', region_name, 'has', instances.length, ' ... unchanged');
+        })
+        .then(null, function(err) {
+            console.log('Error while trying to scale region:', region_name, ', has', instances.length, ' error:', err, err.stack);
         });
 }
-
-
 
 /**
  *
@@ -501,22 +659,29 @@ function create_security_group(region_name) {
         });
 }
 
-
-var _ec2 = new AWS.EC2();
-var _ec2_per_region = {};
-
-function ec2_call(func_name, params) {
-    return Q.nfcall(_ec2[func_name].bind(_ec2), params);
+/**
+ *
+ * get_regions
+ *
+ */
+function get_regions(func) {
+    return ec2_call('describeRegions');
 }
 
-
-function ec2_region_call(region_name, func_name, params) {
-    var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
-        region: region_name
-    });
-    return Q.nfcall(ec2[func_name].bind(ec2), params);
+/**
+ *
+ * foreach_region
+ *
+ * @param func is function(region) that can return a promise.
+ * @return promise for array of results per region func.
+ *
+ */
+function foreach_region(func) {
+    return get_regions()
+        .then(function(res) {
+            return Q.all(_.map(res.Regions, func));
+        });
 }
-
 
 // print object with deep levels
 function console_inspect(desc, obj) {
@@ -524,97 +689,4 @@ function console_inspect(desc, obj) {
     console.log(util.inspect(obj, {
         depth: null
     }));
-}
-
-function print_instances(instances) {
-    if (argv.long) {
-        console_inspect('Instances:', instances);
-    } else {
-        _.each(instances, function(instance) {
-            console.log('Instance:',
-                instance.InstanceId,
-                instance.State && instance.State.Name || '[no-state]',
-                instance.PublicIpAddress,
-                instance.region_name,
-                instance.tags_map.Name || '[no-name]',
-                '[private ip ' + instance.PrivateIpAddress + ']'
-            );
-        });
-    }
-
-}
-
-/**
- *
- *
- *
- */
-function main() {
-
-    if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
-        console.error('\n\n****************************************************');
-        console.error('You must provide amazon cloud env details in .env:');
-        console.error('AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION');
-        console.error('****************************************************\n\n');
-        return;
-    }
-
-    if (!_.isUndefined(argv.scale)) {
-        var is_docker_host = false;
-        var is_win = false;
-        var filter_region = '';
-        if (!_.isUndefined(argv.dockers)) {
-            is_docker_host = true;
-            console.log('starting ' + argv.dockers + ' dockers on each host');
-
-        }
-        if (_.isUndefined(argv.app)) {
-            console.error('\n\n******************************************');
-            console.error('Please provide --app (heroku app name)');
-            console.error('******************************************\n\n');
-            return;
-        } else {
-            app_name = argv.app;
-        }
-
-        if (!_.isUndefined(argv.win)) {
-            is_win = true;
-        }
-        if (!_.isUndefined(argv.region)) {
-            filter_region = argv.region;
-        }
-
-        // add a --term flag to allow removing nodes
-        scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers, is_win, filter_region)
-            .then(function(res) {
-                console_inspect('Scale: completed to ' + argv.scale, res);
-                return describe_instances().then(print_instances);
-            }, function(err) {
-                if (err.message === 'allow_terminate') {
-                    console.error('\n\n******************************************');
-                    console.error('SCALE DOWN REJECTED');
-                    console.error('Use --term flag to allow terminating nodes');
-                    console.error('******************************************\n\n');
-                    return;
-                }
-                throw err;
-            })
-            .done();
-
-    } else if (!_.isUndefined(argv.instance)) {
-
-        describe_instance(argv.instance)
-            .then(function(instance) {
-                console_inspect('Instance ' + argv.instance + ':', instance);
-            })
-            .done();
-
-    } else {
-
-        describe_instances().then(print_instances).done();
-    }
-}
-
-if (require.main === module) {
-    main();
 }

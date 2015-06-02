@@ -23,6 +23,10 @@ function show_usage() {
     console.error('\n');
 }
 
+function upload_and_upgrade(ip) {
+
+}
+
 function main() {
     var missing_params = false;
     var target_region;
@@ -53,12 +57,24 @@ function main() {
                 return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
             })
             .then(function(res) {
-              Q.fcall(function() {
-                return ec2_wrap.get_ip_address(res.instanceid, false, false);
-              })
-              .then(function(res) {
-                //console.log("Got IP", res);
-              });
+                Q.fcall(function() {
+                        return ec2_wrap.get_ip_address(res.instanceid);
+                    })
+                    .then(function(res) {
+                        return upload_and_upgrade(res);
+                    })
+                    .then(function() {
+                        //List buckets
+                    })
+                    .then(function() {
+                        //get Agent setup file
+                    })
+                    .then(function() {
+                        //ul file S3
+                    })
+                    .then(function() {
+                        //dl file S3
+                    });
             })
             .then(null, function(error) {
                 console.error("ERROR: while creating instance", error);

@@ -570,9 +570,9 @@ module.exports = function(params) {
         putBucket: function(req, res) {
             var bucketName = req.params.bucket;
             var template;
-            var s3_info = extract_access_key(req);
+            var s3_info = extract_s3_info(req);
             var access_key = s3_info.access_key;
-
+            dbg.log0('put bucket');
             /**
              * Derived from http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
              */
@@ -590,6 +590,7 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 400, template);
             }
             Q.fcall(function() {
+                dbg.log0('check if bucket exists');
                 return isBucketExists(bucketName, s3_info)
                     .then(function(exists) {
                         if (exists) {
@@ -598,6 +599,7 @@ module.exports = function(params) {
                                 'The requested bucket already exists');
                             return buildXmlResponse(res, 409, template);
                         } else {
+                            dbg.log0('Creating new bucket',bucketName);
                             clients[access_key].bucket.create_bucket({
                                     name: bucketName,
                                     tiering: ['nodes']

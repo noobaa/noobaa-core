@@ -288,22 +288,22 @@ function get_ip_address(instid) {
                 return ec2_wait_for(res.region_name, 'instanceRunning', params)
                     .then(function(data) {
                         if (data) {
-                            console.log("After wait with data", util.inspect(data, true, 7));
+                            console.log('After wait with IP', util.inspect(data.NetworkInterfaces[0].Association, true, 7));
                             return;
                         } else {
                             console.log('No data returned from ex2_wait_for');
-                            throw new Error('InstanceID' + instid + ' No data returned');
+                            throw new Error('InstanceID ' + instid + ' No data returned');
                         }
                     })
                     .then(null, function(error) {
-                        console.log("Error in get_ip_address on ec2_wait_for", error);
+                        console.log('Error in get_ip_address', instid, 'on ec2_wait_for', error);
                     });
             } else if (res.State.Name !== 'running') {
-                console.log('In get_ip_address InstanceID' + instid + ' Not in pending/running state');
-                throw new Error('InstanceID' + instid + ' Not in pending/running state');
+                console.log('In get_ip_address InstanceID', instid, 'Not in pending/running state');
+                throw new Error('InstanceID ' + instid + ' Not in pending/running state');
             }
             //return res.NetworkInterfaces.
-            console.log("NO wait with res", util.inspect(res, true, 7));
+            console.log('NO wait with res', util.inspect(res, true, 7));
         });
 }
 
@@ -511,35 +511,35 @@ function set_app_name(appname) {
     app_name = appname;
 }
 
-function ec2_wait_for(region_name, state_name, params, outdata) {
-        var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
-            region: region_name
-        });
+function ec2_wait_for(region_name, state_name, params) {
+    var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
+        region: region_name
+    });
 
-        return Q.nfcall(function() {
-            ec2.waitFor(state_name, params, function(err, data) {
-                if (err) {
-                    console.error("Error while waiting for state", state_name, "at", region_name, "with", params);
-                    return '';
-                }
-                console.log("NB:: got data after wait ", data.Reservations[0].Instances[0]);
-                return data.Reservations[0].Instances[0];
-            });
+    return Q.nfcall(ec2.waitFor, state_name, params)
+        .then(function(data) {
+            return data.Reservations[0].Instances[0];
+        }, function(err) {
+            console.error("Error while waiting for state", state_name, "at", region_name, "with", params);
+            return '';
         });
-    }
-    /*************************************
-     *
-     * Internal
-     *
-     *************************************/
-    /**
-     *
-     * scale_region
-     *
-     * @param count - the desired new count of instances
-     * @param instances - array of existing instances
-     *
-     */
+}
+
+
+
+/*************************************
+ *
+ * Internal
+ *
+ *************************************/
+/**
+ *
+ * scale_region
+ *
+ * @param count - the desired new count of instances
+ * @param instances - array of existing instances
+ *
+ */
 function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win) {
 
     // always make sure the region has the security group and key pair

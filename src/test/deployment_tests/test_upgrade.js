@@ -1,10 +1,12 @@
 "use strict";
 
-var ec2_wrap = require('../../deploy/ec2_wrapper');
 var _ = require('lodash');
 var Q = require('q');
-var util = require('util');
 var argv = require('minimist')(process.argv);
+var request = require('request');
+var fs = require('fs');
+var ec2_wrap = require('../../deploy/ec2_wrapper');
+var formData = require('form-data');
 
 var default_instance_type = 'm3.large';
 
@@ -23,7 +25,69 @@ function show_usage() {
     console.error('\n');
 }
 
-function upload_and_upgrade(ip) {
+function upload_and_upgrade(ip, upgrade_pack) {
+    var filename;
+    if (upgrade_pack.indexOf('/') !== -1) {
+        filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
+    } else {
+        filename = upgrade_pack;
+    }
+
+    var formData = {
+        upgrade_file: {
+            value: fs.createReadStream(upgrade_pack),
+            options: {
+                filename: filename,
+                contentType: 'application/x-gzip'
+            }
+        }
+    };
+
+    var deferred = Q.defer();
+
+    request.post({
+        url: 'https://' + ip + '/upgrade',
+        formData: formData,
+        rejectUnauthorized: false,
+    }, function optionalCallback(err, httpResponse, body) {
+        if (err) {
+            console.error('upload failed', err);
+            deferred.reject(new Error('upload failed ' + err));
+        }
+        deferred.resolve();
+        console.log('Upload successful');
+    });
+
+    return deferred.promise;
+}
+
+function get_agent_setup(ip) {
+    console.log("Getting agent");
+    var deferred = Q.defer();
+    request.get({
+            url: 'https://' + ip + '/public/noobaa-setup.exe',
+            rejectUnauthorized: false,
+        })
+        .on('response', function(response) {
+            console.log('Download of noobaa-setup was successful');
+            deferred.resolve();
+        })
+        .on('error', function(err) {
+            console.error('Download of noobaa-setup failed', err);
+            deferred.reject(new Error('Download of noobaa-setup failed ' + err));
+        });
+    return deferred.promise;
+}
+
+function list_buckets(ip) {
+
+}
+
+function upload_file(ip) {
+
+}
+
+function download_file(ip) {
 
 }
 
@@ -31,7 +95,9 @@ function main() {
     var missing_params = false;
     var target_region;
     var name = '';
+    var target_ip;
 
+    //Verify Input Parameters
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
         missing_params = true;
     }
@@ -52,6 +118,7 @@ function main() {
         name = argv.name;
     }
 
+    //Actual Test Logic
     if (!missing_params) {
         Q.fcall(function() {
                 return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
@@ -60,28 +127,36 @@ function main() {
                 Q.fcall(function() {
                         return ec2_wrap.get_ip_address(res.instanceid);
                     })
-                    .then(function(res) {
-                        return upload_and_upgrade(res);
+                    .then(function(ip) {
+                        target_ip = ip;
+                        console.log('Uploading to', ip, 'and upgrading...');
+                        return upload_and_upgrade(target_ip, argv.upgrade_pack);
                     })
                     .then(function() {
-                        //List buckets
+                        return get_agent_setup(target_ip);
                     })
                     .then(function() {
-                        //get Agent setup file
+                        return list_buckets(target_ip);
                     })
                     .then(function() {
-                        //ul file S3
+                        return upload_file(target_ip);
                     })
                     .then(function() {
-                        //dl file S3
+                        return download_file(target_ip);
+                    })
+                    .then(null, function(error) {
+                        console.error('ERROR: test_upgrade FAILED', error);
+                        process.exit(2);
                     });
             })
             .then(null, function(error) {
-                console.error("ERROR: while creating instance", error);
+                console.error('ERROR: while creating instance', error);
+                process.exit(1);
             });
 
     } else {
         show_usage();
+        process.exit(3);
         return;
     }
 }

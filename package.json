@@ -56,6 +56,7 @@
     "express": "~4.12.3",
     "fast-stats": "~0.0.2",
     "font-awesome": "~4.3.0",
+    "form-data": "^0.2.0",
     "generate-function": "~2.0.0",
     "glob-to-regexp": "~0.0.2",
     "googleapis": "~2.0.2",

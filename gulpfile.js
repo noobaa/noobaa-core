@@ -225,6 +225,7 @@ function pack(dest, name) {
                     _.contains([
                         'bower',
                         'mocha',
+                        'form-data'
                     ], key);
             });
             return {
@@ -414,7 +415,8 @@ gulp.task('agent', ['jshint'], function() {
                         'rebuild',
                         'nodetime',
                         'newrelic',
-                        'memwatch'
+                        'memwatch',
+                        'form-data'
                     ], key);
             });
             return {

@@ -102,6 +102,8 @@ function do_upgrade {
   deploy_log "Upgrade finished successfully!"
 }
 
+deploy_log "upgrade.sh called with $@"
+
 if [ "$1" == "from_file" ]; then
   if [ "$2" != "" ]; then
     cp -f $2 ${TMP_PATH}${PACKAGE_FILE_NAME}

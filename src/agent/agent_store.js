@@ -246,7 +246,7 @@ AgentStore.prototype._delete_block = function(block_id) {
     var hash_path = self._get_hash_path(block_id);
     var file_stats;
 
-    dbg.log(" NB:: delete block", block_id);
+    dbg.log("delete block", block_id);
     return self._stat_block_path(block_path, true)
         .then(function(stats) {
             file_stats = stats;

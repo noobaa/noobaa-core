@@ -9,6 +9,12 @@ config.on_premise = {
     nva_part: "NVA_Upgrade.tgz"
 };
 
+// Central Stats Collection
+config.central_stats = {
+  send_stats: true,
+  central_listener: '',
+};
+
 // SIGNALING AND ICE
 config.ws_address = 'wss://noobaa-signaling.herokuapp.com';
 //config.ws_address = 'ws://localhost:5002';

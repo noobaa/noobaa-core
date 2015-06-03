@@ -288,22 +288,20 @@ function get_ip_address(instid) {
                 return ec2_wait_for(res.region_name, 'instanceRunning', params)
                     .then(function(data) {
                         if (data) {
-                            console.log('After wait with IP', util.inspect(data.NetworkInterfaces[0].Association, true, 7));
-                            return;
+                            console.log('Recieved IP', data.NetworkInterfaces[0].Association.PublicIp);
+                            return data.NetworkInterfaces[0].Association.PublicIp;
                         } else {
-                            console.log('No data returned from ex2_wait_for');
-                            throw new Error('InstanceID ' + instid + ' No data returned');
+                            throw new Error('ec2_Wait_for InstanceID ' + instid + ' No data returned');
                         }
                     })
                     .then(null, function(error) {
-                        console.log('Error in get_ip_address', instid, 'on ec2_wait_for', error);
+                        throw new Error('Error in get_ip_address ' + instid + ' on ec2_wait_for ' + error);
                     });
             } else if (res.State.Name !== 'running') {
-                console.log('In get_ip_address InstanceID', instid, 'Not in pending/running state');
+                console.log('Error in get_ip_address InstanceID', instid, 'Not in pending/running state, unexpected');
                 throw new Error('InstanceID ' + instid + ' Not in pending/running state');
             }
-            //return res.NetworkInterfaces.
-            console.log('NO wait with res', util.inspect(res, true, 7));
+            return res.NetworkInterfaces[0].Association.PublicIp;
         });
 }
 
@@ -516,13 +514,14 @@ function ec2_wait_for(region_name, state_name, params) {
         region: region_name
     });
 
-    return Q.nfcall(ec2.waitFor, state_name, params)
-        .then(function(data) {
+    return Q.ninvoke(ec2, 'waitFor', state_name, params).then(function(data) {
+        if (data) {
             return data.Reservations[0].Instances[0];
-        }, function(err) {
+        } else {
             console.error("Error while waiting for state", state_name, "at", region_name, "with", params);
             return '';
-        });
+        }
+    });
 }
 
 

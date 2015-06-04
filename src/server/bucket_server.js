@@ -29,7 +29,7 @@ module.exports = bucket_server;
  *
  */
 function create_bucket(req) {
-    return resolve_tiering(req.rpc_params.tiering)
+    return resolve_tiering(req.system.id,req.rpc_params.tiering)
         .then(function(tiering) {
             var info = _.pick(req.rpc_params, 'name');
             info.system = req.system.id;
@@ -75,7 +75,7 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
-    return resolve_tiering(req.rpc_params.tiering)
+    return resolve_tiering(req.system.id,req.rpc_params.tiering)
         .then(function(tiering) {
             var updates = {};
             if (req.rpc_params.new_name) {
@@ -157,13 +157,14 @@ function get_bucket_info(bucket) {
     return reply;
 }
 
-function resolve_tiering(tiering) {
+function resolve_tiering(system_id,tiering) {
     if (!tiering) return Q.resolve();
     return Q.when(db.Tier
             .find({
                 name: {
                     $in: tiering
                 },
+                system: system_id,
                 deleted: null,
             })
             .exec())

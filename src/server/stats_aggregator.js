@@ -32,6 +32,24 @@ var SYS_STATS = {
     }]
 };
 
+var NODES_STATS = {
+    count: 0,
+    avg_allocation: 0,
+    avg_usage: 0,
+    os: [{
+        win: 0,
+        osx: 0
+    }],
+    avg_uptime: 0,
+};
+
+var OPS_STATS = {
+  deletes: 0,
+  writes: 0,
+  reads: 0,
+  list_objects: 0,
+};
+
 /*
  * Stats Collction
  */

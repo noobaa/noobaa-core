@@ -44,7 +44,6 @@ function upload_and_upgrade(ip, upgrade_pack) {
     };
 
     var deferred = Q.defer();
-
     request.post({
         url: 'https://' + ip + '/upgrade',
         formData: formData,
@@ -79,16 +78,46 @@ function get_agent_setup(ip) {
     return deferred.promise;
 }
 
-function list_buckets(ip) {
-
-}
-
 function upload_file(ip) {
+    console.log("Trying to upload file");
+    var deferred = Q.defer();
 
+    Q.fcall(function() {
+            return ec2_wrap.verify_demo_system(ip);
+        })
+        .then(function() {
+            return ec2_wrap.put_object(ip);
+        })
+        .then(function() {
+            console.log("Upload file completed");
+            deferred.resolve();
+        })
+        .then(null, function(err) {
+            console.error('Error in upload_file', err);
+            deferred.reject(new Error('Error in upload_file ' + err));
+        });
+
+    return deferred.promise;
 }
 
 function download_file(ip) {
+    console.log("Trying to download file");
+    var deferred = Q.defer();
 
+    Q.when(ec2_wrap.verify_demo_system(ip))
+        .then(function() {
+            return ec2_wrap.get_object(ip);
+        })
+        .then(function() {
+            console.log("Download file completed");
+            deferred.resolve();
+        })
+        .then(null, function(err) {
+            console.error('Error in download_file', err);
+            deferred.reject(new Error('Error in download_file ' + err));
+        });
+
+    return deferred.promise;
 }
 
 function main() {
@@ -121,11 +150,12 @@ function main() {
     //Actual Test Logic
     if (!missing_params) {
         Q.fcall(function() {
-                return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
+                return;
+                //return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
             })
             .then(function(res) {
                 Q.fcall(function() {
-                        return ec2_wrap.get_ip_address(res.instanceid);
+                        return ec2_wrap.get_ip_address('i-1bed63da');
                     })
                     .then(function(ip) {
                         target_ip = ip;
@@ -136,13 +166,13 @@ function main() {
                         return get_agent_setup(target_ip);
                     })
                     .then(function() {
-                        return list_buckets(target_ip);
-                    })
-                    .then(function() {
                         return upload_file(target_ip);
                     })
                     .then(function() {
                         return download_file(target_ip);
+                    })
+                    .then(function() {
+                        console.log("Finished test_upgrade");
                     })
                     .then(null, function(error) {
                         console.error('ERROR: test_upgrade FAILED', error);

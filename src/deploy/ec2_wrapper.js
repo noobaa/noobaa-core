@@ -29,6 +29,11 @@ module.exports = {
     add_instance_name: add_instance_name,
     get_ip_address: get_ip_address,
 
+    //S3 API, these all work and assume Demo system exists
+    verify_demo_system: verify_demo_system,
+    put_object: put_object,
+    get_object: get_object,
+
     //Agents Specific API
     scale_agent_instances: scale_agent_instances,
     add_agent_region_instances: add_agent_region_instances,
@@ -39,6 +44,7 @@ module.exports = {
     ec2_region_call: ec2_region_call,
     ec2_wait_for: ec2_wait_for,
     set_app_name: set_app_name,
+    console_inspect: console_inspect,
 };
 
 /*************************************
@@ -53,13 +59,6 @@ if (!process.env.AWS_ACCESS_KEY_ID) {
     dotenv.load();
 }
 
-// AWS.config.loadFromPath('./env.js');
-AWS.config.update({
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    region: process.env.AWS_REGION,
-});
-
 var KEY_PAIR_PARAMS = {
     KeyName: 'noobaa-demo',
     PublicKeyMaterial: fs.readFileSync(__dirname + '/noobaa-demo.pub')
@@ -73,6 +72,10 @@ var _ec2 = new AWS.EC2();
 var _ec2_per_region = {};
 
 var _cached_ami_image_id;
+
+var current_s3_target = '';
+load_aws_config_env();
+
 
 /*************************************
  *
@@ -89,11 +92,6 @@ var _cached_ami_image_id;
  */
 function describe_instances(params, filter_tags, verbose) {
     var regions = [];
-    var exec_params = {
-        verbose: (typeof verbose === 'undefined') ? verbose : false,
-        filter_tags: (typeof filter_tags === 'undefined') ? filter_tags : false,
-    };
-
 
     return foreach_region(function(region) {
             regions.push(region);
@@ -106,7 +104,7 @@ function describe_instances(params, filter_tags, verbose) {
                         instance.region = region;
                         instance.region_name = region.RegionName;
                         instance.tags_map = _.mapValues(_.indexBy(instance.Tags, 'Key'), 'Value');
-                        if (exec_params.filter_tags) {
+                        if (filter_tags) {
                             if (instance.tags_map.Name !== argv.tag) {
                                 console.log('FILTERED', instance.InstanceId, instance.tags_map.Name);
                                 return false;
@@ -115,7 +113,7 @@ function describe_instances(params, filter_tags, verbose) {
                         return true;
                     });
                 }).then(null, function(err) {
-                    if (exec_params.verbose) {
+                    if (verbose) {
                         console.log("Error:", err);
                     }
                     return false;
@@ -140,16 +138,11 @@ function describe_instances(params, filter_tags, verbose) {
  *
  */
 function describe_instance(instance_id, filter_tags, verbose) {
-    var exec_params = {
-        verbose: (typeof verbose === 'undefined') ? verbose : false,
-        filter_tags: (typeof filter_tags === 'undefined') ? filter_tags : false,
-    };
-
     return describe_instances({
                 InstanceIds: [instance_id],
             },
-            exec_params.verbose,
-            exec_params.filter_tags)
+            verbose,
+            filter_tags)
         .then(function(res) {
             return res[0];
         });
@@ -307,13 +300,114 @@ function get_ip_address(instid) {
 
 /*************************************
  *
+ * S3 API
+ * Assumes Demo system exists and work on it
+ *
+ *************************************/
+
+function verify_demo_system(ip) {
+    load_demo_config_env(); //switch to Demo system
+
+    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    var deferred = Q.defer();
+
+    Q.ninvoke(s3bucket, 'listObjects', {
+            Bucket: 'files'
+        })
+        .then(function(data) {
+            console.log("Demo system exists");
+            load_aws_config_env(); //back to EC2/S3
+            deferred.resolve();
+        })
+        .then(null, function(error) {
+            load_aws_config_env(); //back to EC2/S3
+            deferred.reject("No Demo System, please create one " + error);
+        });
+
+    return deferred.promise;
+}
+
+function put_object(ip) {
+    load_demo_config_env(); //switch to Demo system
+
+    var deferred = Q.defer();
+
+    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    var params = {
+        Bucket: 'files',
+        Key: 'ec2_wrapper_test_upgrade.dat',
+        Body: fs.createReadStream('/var/log/authd.log'),
+    };
+
+    Q.fcall(function() {
+        return s3bucket.upload(params).
+        on('httpUploadProgress', function(evt) {
+            console.log(evt);
+        }).send(function(err, data) {
+            if (err) {
+                deferred.reject("Error in upload " + err);
+            } else {
+                deferred.resolve();
+            }
+        });
+    });
+
+    load_aws_config_env(); //back to EC2/S3
+    return deferred.promise;
+}
+
+function get_object(ip) {
+    load_demo_config_env(); //switch to Demo system
+
+    var deferred = Q.defer();
+
+    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var s3bucket = new AWS.S3({
+        endpoint: rest_endpoint,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    var params = {
+        Bucket: 'files',
+        Key: 'ec2_wrapper_test_upgrade.dat',
+    };
+
+    Q.fcall(function() {
+            return s3bucket.getObject(params).createReadStream();
+        })
+        .then(function() {
+            deferred.resolve();
+        })
+        .then(null, function(err) {
+            deferred.reject("Error in download " + err);
+        });
+
+    load_aws_config_env(); //back to EC2/S3
+    return deferred.promise;
+}
+
+/*************************************
+ *
  * Agents Specific API
  *
  *************************************/
 
 /**
  *
- * scale_instances
+ * scale_agent_instances
  *
  */
 function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
@@ -322,8 +416,8 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
         Filters: [{
             Name: 'instance-state-name',
             Values: ['running', 'pending']
-        }]
-    }).then(function(instances) {
+        }],
+    }, true).then(function(instances) {
 
         var instances_per_region = _.groupBy(instances, 'region_name');
         var region_names = _.pluck(instances.regions, 'RegionName');
@@ -335,7 +429,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
             region_names = [filter_region];
         }
 
-        console.log('region_names:', region_names);
+        console.log('region_names:', region_names, 'count:', count);
 
         if (count < region_names.length) {
             // if number of instances is smaller than the number of regions,
@@ -688,4 +782,27 @@ function console_inspect(desc, obj) {
     console.log(util.inspect(obj, {
         depth: null
     }));
+}
+
+function load_aws_config_env() {
+    // AWS.config.loadFromPath('./env.js');
+    AWS.config.update({
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+        region: process.env.AWS_REGION,
+    });
+    current_s3_target = 'amazon';
+}
+
+function load_demo_config_env() {
+    AWS.config.update({
+        accessKeyId: "123",
+        secretAccessKey: "abc",
+        Bucket: 'files'
+    });
+    current_s3_target = 'demo';
+}
+
+function get_current_s3_target() {
+    return current_s3_target;
 }

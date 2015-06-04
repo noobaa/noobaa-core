@@ -40,7 +40,7 @@ function main() {
         }
 
         // add a --term flag to allow removing nodes
-        ec2_wrap.scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers, is_win, filter_region)
+        ec2_wrap.scale_agent_instances(argv.scale, argv.term, is_docker_host, argv.dockers, is_win, filter_region)
             .then(function(res) {
                 ec2_wrap.console_inspect('Scale: completed to ' + argv.scale, res);
                 return ec2_wrap.describe_instances().then(ec2_wrap.print_instances);

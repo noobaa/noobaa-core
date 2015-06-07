@@ -554,7 +554,7 @@ nb_console.controller('BucketViewCtrl', [
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
             scope.rest_endpoint = $window.location.host + '/s3';
-            scope.bucket_name = $scope.nbSystem.system.buckets[0].name;
+            scope.bucket_name =  $routeParams.bucket_name;
             scope.rest_package = download_rest_server_package;
             console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
             console.log('rest_server_information', $window.location, $location);

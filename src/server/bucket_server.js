@@ -161,10 +161,10 @@ function resolve_tiering(system_id,tiering) {
     if (!tiering) return Q.resolve();
     return Q.when(db.Tier
             .find({
+                system: system_id,
                 name: {
                     $in: tiering
                 },
-                system: system_id,
                 deleted: null,
             })
             .exec())

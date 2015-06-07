@@ -2,9 +2,48 @@
 
 var ec2_wrap = require('./ec2_wrapper');
 var _ = require('lodash');
+var Q = require('q');
 var argv = require('minimist')(process.argv);
 
+module.exports = {
+    deploy_agents: deploy_agents,
+};
+
+function deploy_agents(params) {
+    ec2_wrap.set_app_name(params.app);
+    // add a --term flag to allow removing nodes
+    return Q.fcall(function() {
+            return ec2_wrap.scale_agent_instances(params.scale, params.term, params.is_docker_host, params.dockers, params.is_win, params.filter_region);
+        })
+        .then(function(res) {
+            ec2_wrap.console_inspect('Scale: completed to ' + params.scale, res);
+            return;
+            //return ec2_wrap.describe_instances().then(ec2_wrap.print_instances);
+        })
+        .then(null, function(err) {
+            if (err.message.indexOf('allow_terminate') !== -1) {
+                console.error('\n\n******************************************');
+                console.error('SCALE DOWN REJECTED');
+                console.error('Use --term flag to allow terminating nodes');
+                console.error('******************************************\n\n');
+            }
+            throw err;
+        });
+
+}
+
+
 function main() {
+    var params = {
+        access_key: '',
+        scale: 0,
+        is_docker_host: false,
+        is_win: false,
+        filter_region: '',
+        app: '',
+        dockers: 0,
+        term: false,
+    };
 
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
         console.error('\n\n****************************************************');
@@ -12,49 +51,46 @@ function main() {
         console.error('AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_REGION');
         console.error('****************************************************\n\n');
         return;
+    } else {
+        params.access_key = process.env.AWS_ACCESS_KEY_ID;
     }
 
     if (!_.isUndefined(argv.scale)) {
-        var is_docker_host = false;
-        var is_win = false;
-        var filter_region = '';
+        params.scale = argv.scale;
+        params.is_docker_host = false;
+        params.is_win = false;
+        params.filter_region = '';
         if (!_.isUndefined(argv.dockers)) {
-            is_docker_host = true;
+            params.is_docker_host = true;
             console.log('starting ' + argv.dockers + ' dockers on each host');
-
         }
+
+        params.dockers = argv.dockers;
+
         if (_.isUndefined(argv.app)) {
             console.error('\n\n******************************************');
             console.error('Please provide --app (heroku app name)');
             console.error('******************************************\n\n');
             return;
         } else {
-            ec2_wrap.set_app_name(argv.app);
+            params.app = argv.app;
         }
 
         if (!_.isUndefined(argv.win)) {
-            is_win = true;
+            params.is_win = true;
         }
         if (!_.isUndefined(argv.region)) {
-            filter_region = argv.region;
+            params.filter_region = argv.region;
         }
 
-        // add a --term flag to allow removing nodes
-        ec2_wrap.scale_agent_instances(argv.scale, argv.term, is_docker_host, argv.dockers, is_win, filter_region)
-            .then(function(res) {
-                ec2_wrap.console_inspect('Scale: completed to ' + argv.scale, res);
-                return ec2_wrap.describe_instances().then(ec2_wrap.print_instances);
-            }, function(err) {
-                if (err.message === 'allow_terminate') {
-                    console.error('\n\n******************************************');
-                    console.error('SCALE DOWN REJECTED');
-                    console.error('Use --term flag to allow terminating nodes');
-                    console.error('******************************************\n\n');
-                    return;
-                }
-                throw err;
+        params.term = argv.term;
+        return Q.fcall(function() {
+                return deploy_agents(params);
             })
-            .done();
+            .then(null, function(err) {
+                console.error('Error on deploy_agents', err);
+                throw new Error('Error on deploy_agents ' + err);
+            });
 
     } else if (!_.isUndefined(argv.instance)) {
 
@@ -65,7 +101,6 @@ function main() {
             .done();
 
     } else {
-
         ec2_wrap.describe_instances().then(ec2_wrap.print_instances).done();
     }
 }

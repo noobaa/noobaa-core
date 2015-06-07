@@ -6,26 +6,36 @@ var argv = require('minimist')(process.argv);
 var request = require('request');
 var fs = require('fs');
 var ec2_wrap = require('../../deploy/ec2_wrapper');
+var ec2_deploy_agents = require('../../deploy/ec2_deploy_agents');
+var promise_utils = require('../../util/promise_utils');
 var formData = require('form-data');
 
 var default_instance_type = 'm3.large';
 
+//TODO: add the --use_instace option
+//TODO: on upload file, wait for systemOk ? (see next todo, maybe sleep too)
+//TODO: sleep after agents creation until ready
+
 function show_usage() {
-    console.error('\nusage: node test_upgrade.js <--base_ami AMI_Image_name> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
-    console.error('example: node test_upgrade.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
+    console.error('\nusage: node test_upgrade.js <--base_ami AMI_Image_name  | --use_instance instanceid> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
+    console.error('   example: node test_upgrade.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
+    console.error('   example: node test_upgrade.js --user_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
 
     console.error('\n base_ami -\t\tThe AMI image name to use');
+    console.error(' use_instance -\t\tThe already existing instance id to use');
     console.error(' upgrade_pack -\t\tPath to upgrade pack to use in the upgrade process');
     console.error(' region -\t\tRegion to look for the AMI and create the new instance. If not supplied taken from the .env');
-    console.error(' name -\t\t\tName for the new instance. If not provided will be blank');
+    console.error(' name -\t\t\tName for the new instance. If not provided will be \'test_upgrade.js generated instance (AMI name)\'. Applicable only for new instances');
 
     console.error('\nMake sure .env contains the following values:');
     console.error('   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY');
     console.error('   if AWS_REGION does not exist in .env, please provide the region using the --region option');
+
+    console.error('\nIf creating a new instace, will also create a dockers instance with 10 agents in the same region');
     console.error('\n');
 }
 
-function upload_and_upgrade(ip, upgrade_pack) {
+function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
     var filename;
     if (upgrade_pack.indexOf('/') !== -1) {
         filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
@@ -43,88 +53,117 @@ function upload_and_upgrade(ip, upgrade_pack) {
         }
     };
 
-    var deferred = Q.defer();
-    request.post({
-        url: 'https://' + ip + '/upgrade',
-        formData: formData,
-        rejectUnauthorized: false,
-    }, function optionalCallback(err, httpResponse, body) {
-        if (err) {
-            console.error('upload failed', err);
-            deferred.reject(new Error('upload failed ' + err));
-        }
-        deferred.resolve();
-        console.log('Upload successful');
-    });
-
-    return deferred.promise;
+    return Q.ninvoke(request, 'post', {
+            url: 'https://' + ip + '/upgrade',
+            formData: formData,
+            rejectUnauthorized: false,
+        })
+        .then(function(httpResponse, body) {
+            console.log('Upload package successful');
+            return;
+        })
+        .then(null, function(err) {
+            console.error('Upload package failed', err, err.stack());
+            throw new Error('Upload package failed ' + err);
+        });
 }
 
 function get_agent_setup(ip) {
-    console.log("Getting agent");
-    var deferred = Q.defer();
-    request.get({
+    return Q.ninvoke(request, 'get', {
             url: 'https://' + ip + '/public/noobaa-setup.exe',
             rejectUnauthorized: false,
         })
-        .on('response', function(response) {
+        .then(function(response) {
             console.log('Download of noobaa-setup was successful');
-            deferred.resolve();
+            return;
         })
-        .on('error', function(err) {
+        .then(null, function(err) {
             console.error('Download of noobaa-setup failed', err);
-            deferred.reject(new Error('Download of noobaa-setup failed ' + err));
+            throw new Error('Download of noobaa-setup failed ' + err);
         });
-    return deferred.promise;
+
+}
+
+function create_new_agents(target_ip, target_region) {
+    var params = {
+        access_key: process.env.AWS_ACCESS_KEY_ID,
+        scale: 1,
+        is_docker_host: true,
+        is_win: false,
+        filter_region: target_region,
+        app: target_ip,
+        dockers: 10,
+        term: false,
+    };
+
+    return Q.fcall(function() {
+            return ec2_deploy_agents.deploy_agents(params);
+        })
+        .then(function() {
+            console.log('successfully created a new intance with 10 docker agents');
+            return;
+        })
+        .then(null, function(err) {
+            console.error('Error in creating new instance for agents ', err);
+            throw new Error('Error in creating new instance for agents ' + err);
+        });
+
 }
 
 function upload_file(ip) {
-    console.log("Trying to upload file");
-    var deferred = Q.defer();
-
-    Q.fcall(function() {
+    return Q.fcall(function() {
+            //verify the 'demo' system exists on the instance
             return ec2_wrap.verify_demo_system(ip);
         })
         .then(function() {
-            return ec2_wrap.put_object(ip);
-        })
-        .then(function() {
-            console.log("Upload file completed");
-            deferred.resolve();
+            //upload the file
+            return Q.fcall(function() {
+                    return ec2_wrap.put_object(ip);
+                })
+                .then(function() {
+                    console.log('Upload file successfully');
+                })
+                .then(null, function(err) {
+                    console.error('Error in upload_file', err);
+                    throw new Error('Error in upload_file ' + err);
+                });
         })
         .then(null, function(err) {
-            console.error('Error in upload_file', err);
-            deferred.reject(new Error('Error in upload_file ' + err));
+            console.error('Error in verify_demo_system', err);
+            throw new Error('Error in verify_demo_system ' + err);
         });
-
-    return deferred.promise;
 }
 
 function download_file(ip) {
-    console.log("Trying to download file");
-    var deferred = Q.defer();
-
-    Q.when(ec2_wrap.verify_demo_system(ip))
-        .then(function() {
-            return ec2_wrap.get_object(ip);
+    return Q.fcall(function() {
+            //verify the 'demo' system exists on the instance
+            return ec2_wrap.verify_demo_system(ip);
         })
         .then(function() {
-            console.log("Download file completed");
-            deferred.resolve();
+            //upload the file
+            return Q.fcall(function() {
+                    return ec2_wrap.get_object(ip);
+                })
+                .then(function() {
+                    console.log('Download file successfully');
+                })
+                .then(null, function(err) {
+                    console.error('Error in download_file', err);
+                    throw new Error('Error in download_file ' + err);
+                });
         })
         .then(null, function(err) {
-            console.error('Error in download_file', err);
-            deferred.reject(new Error('Error in download_file ' + err));
+            console.error('Error in verify_demo_system', err);
+            throw new Error('Error in verify_demo_system ' + err);
         });
-
-    return deferred.promise;
 }
 
 function main() {
     var missing_params = false;
     var target_region;
-    var name = '';
+    var name;
     var target_ip;
+    var instance_id;
 
     //Verify Input Parameters
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
@@ -145,34 +184,42 @@ function main() {
     }
     if (!_.isUndefined(argv.name)) {
         name = argv.name;
+    } else {
+        name = 'test_upgrade.js generated instance (' + argv.base_ami + ')';
     }
 
     //Actual Test Logic
     if (!missing_params) {
-        Q.fcall(function() {
-                return;
+        console.log("Starting test_upgrade.js, this can take some time...");
+        return Q.fcall(function() {
                 //return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
             })
             .then(function(res) {
                 Q.fcall(function() {
-                        return ec2_wrap.get_ip_address('i-1bed63da');
+                        //instance_id = res.instanceid;
+                        return ec2_wrap.get_ip_address('i-9530b954');
                     })
                     .then(function(ip) {
                         target_ip = ip;
-                        console.log('Uploading to', ip, 'and upgrading...');
-                        return upload_and_upgrade(target_ip, argv.upgrade_pack);
+                        return upload_and_upgrade(target_ip, argv.upgrade_pack, instance_id, target_region);
+                    })
+                    .then(function() {
+                        var params = ['--address=wss://' + target_ip];
+                        return Q.fcall(function() {
+                            return promise_utils.promised_spawn('src/deploy/build_dockers.sh', params, process.cwd());
+                        });
                     })
                     .then(function() {
                         return get_agent_setup(target_ip);
+                    })
+                    .then(function() {
+                        return create_new_agents(target_ip, target_region);
                     })
                     .then(function() {
                         return upload_file(target_ip);
                     })
                     .then(function() {
                         return download_file(target_ip);
-                    })
-                    .then(function() {
-                        console.log("Finished test_upgrade");
                     })
                     .then(null, function(error) {
                         console.error('ERROR: test_upgrade FAILED', error);
@@ -183,7 +230,6 @@ function main() {
                 console.error('ERROR: while creating instance', error);
                 process.exit(1);
             });
-
     } else {
         show_usage();
         process.exit(3);

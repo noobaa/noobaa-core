@@ -90,9 +90,8 @@ load_aws_config_env();
  *      each entry is array of instance info.
  *
  */
-function describe_instances(params, filter_tags, verbose) {
+function describe_instances(params, filter, verbose) {
     var regions = [];
-
     return foreach_region(function(region) {
             regions.push(region);
             return ec2_region_call(region.RegionName, 'describeInstances', params)
@@ -104,9 +103,25 @@ function describe_instances(params, filter_tags, verbose) {
                         instance.region = region;
                         instance.region_name = region.RegionName;
                         instance.tags_map = _.mapValues(_.indexBy(instance.Tags, 'Key'), 'Value');
-                        if (filter_tags) {
-                            if (instance.tags_map.Name !== argv.tag) {
-                                console.log('FILTERED', instance.InstanceId, instance.tags_map.Name);
+                        if (typeof filter !== 'undefined') {
+                            if (filter.filter_tags &&
+                                (typeof instance.tags_map.Name !== 'undefined')) {
+                                if ((instance.tags_map.Name.indexOf(filter.filter_tags) !== -1) ||
+                                    instance.tags_map.Name !== argv.tag) {
+                                    if (verbose)
+                                        console.log('FILTERED exclude', instance.InstanceId, instance.tags_map.Name);
+                                    return false;
+                                }
+                            } else if (filter.match &&
+                                (typeof instance.tags_map.Name !== 'undefined')) {
+                                if (instance.tags_map.Name.indexOf(filter.match) === -1) {
+                                    if (verbose)
+                                        console.log('FILTERED match', instance.InstanceId, instance.tags_map.Name);
+                                    return false;
+                                }
+                            }
+                            if (typeof instance.tags_map.Name === 'undefined') {
+                                //assume empty tagged instances are manual and always ignore them
                                 return false;
                             }
                         }
@@ -114,7 +129,7 @@ function describe_instances(params, filter_tags, verbose) {
                     });
                 }).then(null, function(err) {
                     if (verbose) {
-                        console.log("Error:", err);
+                        console.log('Error:', err);
                     }
                     return false;
                 });
@@ -141,8 +156,8 @@ function describe_instance(instance_id, filter_tags, verbose) {
     return describe_instances({
                 InstanceIds: [instance_id],
             },
-            verbose,
-            filter_tags)
+            filter_tags,
+            verbose)
         .then(function(res) {
             return res[0];
         });
@@ -240,7 +255,7 @@ function create_instance_from_ami(ami_name, region, instance_type, name) {
         })
         .then(function(res) {
             var id = res.Instances[0].InstanceId;
-            console.log("Got instanceID", id);
+            console.log('Got instanceID', id);
             if (name) {
                 add_instance_name(id, name, region);
             }
@@ -269,7 +284,7 @@ function add_instance_name(instid, name, region) {
 
 function get_ip_address(instid) {
     return Q.fcall(function() {
-            return describe_instance(instid, false, false);
+            return describe_instance(instid);
         })
         .then(function(res) {
             //On pending instance state, still no public IP. Wait.
@@ -315,28 +330,22 @@ function verify_demo_system(ip) {
         sslEnabled: false,
     });
 
-    var deferred = Q.defer();
-
-    Q.ninvoke(s3bucket, 'listObjects', {
+    return Q.ninvoke(s3bucket, 'listObjects', {
             Bucket: 'files'
         })
         .then(function(data) {
-            console.log("Demo system exists");
+            console.log('Demo system exists');
             load_aws_config_env(); //back to EC2/S3
-            deferred.resolve();
+            return;
         })
         .then(null, function(error) {
             load_aws_config_env(); //back to EC2/S3
-            deferred.reject("No Demo System, please create one " + error);
+            throw new Error('No Demo System, please create one ' + error);
         });
-
-    return deferred.promise;
 }
 
 function put_object(ip) {
     load_demo_config_env(); //switch to Demo system
-
-    var deferred = Q.defer();
 
     var rest_endpoint = 'http://' + ip + ':80/s3';
     var s3bucket = new AWS.S3({
@@ -351,27 +360,36 @@ function put_object(ip) {
         Body: fs.createReadStream('/var/log/authd.log'),
     };
 
-    Q.fcall(function() {
+    return Q.ninvoke(s3bucket, 'upload', params)
+        .then(function(res) {
+            console.log('put_object', res);
+            load_aws_config_env(); //back to EC2/S3
+            return;
+        })
+        .then(null, function(err) {
+            console.error('put_object', err);
+            load_aws_config_env(); //back to EC2/S3
+            throw new Error('put_object' + err);
+        });
+
+    /*return Q.fcall(function() {
         return s3bucket.upload(params).
         on('httpUploadProgress', function(evt) {
             console.log(evt);
         }).send(function(err, data) {
             if (err) {
-                deferred.reject("Error in upload " + err);
+                load_aws_config_env(); //back to EC2/S3
+                throw new Error('Error in upload err:' + err + 'data: ' + data);
             } else {
-                deferred.resolve();
+                load_aws_config_env(); //back to EC2/S3
+                return;
             }
         });
-    });
-
-    load_aws_config_env(); //back to EC2/S3
-    return deferred.promise;
+    });*/
 }
 
 function get_object(ip) {
     load_demo_config_env(); //switch to Demo system
-
-    var deferred = Q.defer();
 
     var rest_endpoint = 'http://' + ip + ':80/s3';
     var s3bucket = new AWS.S3({
@@ -385,18 +403,17 @@ function get_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
-    Q.fcall(function() {
+    return Q.fcall(function() {
             return s3bucket.getObject(params).createReadStream();
         })
         .then(function() {
-            deferred.resolve();
+            load_aws_config_env(); //back to EC2/S3
+            return;
         })
         .then(null, function(err) {
-            deferred.reject("Error in download " + err);
+            load_aws_config_env(); //back to EC2/S3
+            throw new Error('Error in download ' + err);
         });
-
-    load_aws_config_env(); //back to EC2/S3
-    return deferred.promise;
 }
 
 /*************************************
@@ -411,14 +428,14 @@ function get_object(ip) {
  *
  */
 function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
-
     return describe_instances({
         Filters: [{
             Name: 'instance-state-name',
             Values: ['running', 'pending']
         }],
-    }, true).then(function(instances) {
-
+    }, {
+        match: app_name,
+    }).then(function(instances) {
         var instances_per_region = _.groupBy(instances, 'region_name');
         var region_names = _.pluck(instances.regions, 'RegionName');
         var target_region_count = 0;
@@ -466,7 +483,6 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
                 }
                 new_count += region_count;
             }
-
             return scale_region(region_name, region_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win);
         }));
     });
@@ -494,8 +510,8 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
         if (test_instances_counter !== 1 || dockers_instances_counter !== 1) {
             throw new Error('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
         }
-        run_script = run_script.replace("test", app_name);
-        run_script = run_script.replace("200", number_of_dockers);
+        run_script = run_script.replace('test', app_name);
+        run_script = run_script.replace('200', number_of_dockers);
     } else {
         if (is_win) {
             run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
@@ -508,11 +524,10 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
             if (test_instances_counter !== 1) {
                 throw new Error('init_agent.sh expected to contain default env "test"', test_instances_counter);
             }
-            run_script = run_script.replace("test", app_name);
+            run_script = run_script.replace('test', app_name);
         }
 
     }
-    //console.log('run ',run_script);
 
 
     return Q
@@ -521,21 +536,31 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
 
             console.log('AddInstance:', region_name, count, ami_image_id);
             return ec2_region_call(region_name, 'runInstances', {
-                ImageId: ami_image_id,
-                MaxCount: count,
-                MinCount: count,
-                InstanceType: instance_type,
-                // InstanceType: 'm3.medium',
-                BlockDeviceMappings: [{
-                    DeviceName: '/dev/sda1',
-                    Ebs: {
-                        VolumeSize: 120,
-                    },
-                }],
-                KeyName: KEY_PAIR_PARAMS.KeyName,
-                SecurityGroups: ['ssh_and_http_v2'],
-                UserData: new Buffer(run_script).toString('base64'),
-            });
+                    ImageId: ami_image_id,
+                    MaxCount: count,
+                    MinCount: count,
+                    InstanceType: instance_type,
+                    // InstanceType: 'm3.medium',
+                    BlockDeviceMappings: [{
+                        DeviceName: '/dev/sda1',
+                        Ebs: {
+                            VolumeSize: 120,
+                        },
+                    }],
+                    KeyName: KEY_PAIR_PARAMS.KeyName,
+                    SecurityGroups: ['ssh_and_http_v2'],
+                    UserData: new Buffer(run_script).toString('base64'),
+                })
+                .then(function(res) { //Tag Instances
+                    return Q.all(_.map(res.Instances, function(instance) {
+                        return Q.fcall(function() {
+                            return add_instance_name(instance.InstanceId, 'AgentInstance_For_' + app_name, region_name);
+                        });
+                    }));
+                })
+                .then(null, function(err) {
+                    throw new Error('Error on AddInstance at ' + region_name + ' #' + count + ' of ' + ami_image_id + ' ' + err);
+                });
         });
 }
 
@@ -612,7 +637,7 @@ function ec2_wait_for(region_name, state_name, params) {
         if (data) {
             return data.Reservations[0].Instances[0];
         } else {
-            console.error("Error while waiting for state", state_name, "at", region_name, "with", params);
+            console.error('Error while waiting for state', state_name, 'at', region_name, 'with', params);
             return '';
         }
     });
@@ -634,7 +659,6 @@ function ec2_wait_for(region_name, state_name, params) {
  *
  */
 function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win) {
-
     // always make sure the region has the security group and key pair
     return Q
         .fcall(function() {
@@ -796,8 +820,8 @@ function load_aws_config_env() {
 
 function load_demo_config_env() {
     AWS.config.update({
-        accessKeyId: "123",
-        secretAccessKey: "abc",
+        accessKeyId: '123',
+        secretAccessKey: 'abc',
         Bucket: 'files'
     });
     current_s3_target = 'demo';

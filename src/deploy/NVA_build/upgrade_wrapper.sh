@@ -11,6 +11,8 @@ function pre_upgrade {
   #TODO: CHECK if rules already exist, is so skip this part
   iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
   iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
+  iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
+  iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
   #/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
   #/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
   service iptables save
@@ -47,6 +49,15 @@ function pre_upgrade {
 
   sysctl -w fs.file-max=102400
   sysctl -p
+  agent_conf=${CORE_DIR}/agent_conf.json
+  if [ -f "$agent_conf" ]
+    then
+        deploy_log "$agent_conf found. Save to /tmp and restore"
+        rm -f /tmp/agent_conf.json
+        cp ${agent_conf} /tmp/agent_conf.json
+    else
+        deploy_log "$agent_conf not found."
+    fi
 }
 
 function post_upgrade {
@@ -55,6 +66,11 @@ function post_upgrade {
   #TODO: do it only if md5 of the executable is different
   local curmd=$(md5sum /tmp/noobaa-NVA.tar.gz  | cut -f 1 -d' ')
   local prevmd=$(grep "#packmd" /backup/.env | cut -f 2 -d' ')
+
+  cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
+  cat /etc/noobaa_supervisor.conf
+  cp  /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
+
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 

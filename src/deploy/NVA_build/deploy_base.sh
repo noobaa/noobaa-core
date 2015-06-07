@@ -139,6 +139,9 @@ function setup_mongo {
 function general_settings {
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
+
 	/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 	/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 	service iptables save

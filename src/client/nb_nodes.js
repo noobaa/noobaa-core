@@ -188,19 +188,21 @@ nb_api.factory('nbNodes', [
                 bucket: 'files',
                 root_path: './agent_storage/'
             };
-            config_json.address = 'wss://noobaa.local';
+
+            config_json.address = 'wss://noobaa.local:'+nbSystem.system.ssl_port;
             config_json.system = nbSystem.system.name;
             config_json.access_key = nbSystem.system.access_keys[0].access_key;
             config_json.secret_key = nbSystem.system.access_keys[0].secret_key;
             var encodedData = $window.btoa(JSON.stringify(config_json));
             scope.encodedData = encodedData;
-            config_json.address = 'wss://'+$window.location.host;
+            var secured_host = ($window.location.host).replace(':'+nbSystem.system.web_port,':'+nbSystem.system.ssl_port);
+            config_json.address = 'wss://'+secured_host;
             encodedData = $window.btoa(JSON.stringify(config_json));
             scope.encodedDataIP = encodedData;
             scope.current_host = $window.location.host;
             scope.typeOptions = [
                     { name: 'Use noobaa.local', value: scope.encodedData },
-                    { name: 'Use '+$window.location.host, value: scope.encodedDataIP },
+                    { name: 'Use '+secured_host, value: scope.encodedDataIP },
                 ];
             console.log('type options',scope.typeOptions);
             scope.encoding = {type : scope.typeOptions[0].value};

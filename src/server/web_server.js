@@ -36,7 +36,7 @@ var express_compress = require('compression');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
-var s3app = require('../s3/app');
+//var s3app = require('../s3/app');
 var pem = require('../util/pem');
 var multer  = require('multer');
 var fs = require('fs');
@@ -185,7 +185,7 @@ Q.fcall(function() {
 // S3 APP //
 ////////////
 
-app.use('/s3', s3app({}));
+//app.use('/s3', s3app({}));
 
 ////////////
 // ROUTES //

@@ -8,6 +8,9 @@ var size_utils = require('../util/size_utils');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
+var fs = require('fs');
+var child_process = require('child_process');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**
@@ -107,6 +110,38 @@ function create_system(req) {
             }, {
                 auth_token: system_token
             });
+        })
+        .then(function(){
+            var config = {
+                "dbg_log_level": 2,
+                "address": "wss://127.0.0.1:"+process.env.SSL_PORT,
+                "port": "80",
+                "ssl_port":"443",
+                "access_key": info.access_keys[0].access_key,
+                "secret_key":info.access_keys[0].secret_key
+            };
+            if (process.env.ON_PREMISE) {
+                return Q.nfcall(fs.writeFile, process.cwd()+'/agent_conf.json',JSON.stringify(config));
+            }
+        })
+        .then(function(){
+            if (process.env.ON_PREMISE) {
+                return Q.Promise(function(resolve, reject){
+                    var supervisorctl = child_process.spawn(
+                        'supervisorctl', ['restart','s3rver'], {
+                            cwd: process.cwd()
+                        });
+
+                        supervisorctl.on('close', function(code) {
+                        if (code !== 0) {
+                            resolve();
+                        } else {
+                            dbg.log0('error code while restarting s3rver',code);
+                            resolve();
+                        }
+                    });
+                });
+            }
         })
         //Auto generate agent executable.
         // Removed for now, as we need signed exe
@@ -269,6 +304,8 @@ function read_system(req) {
             }),
             objects: objects_sys.count || 0,
             access_keys: req.system.access_keys,
+            ssl_port: process.env.SSL_PORT,
+            web_port: process.env.PORT,
         };
     });
 }

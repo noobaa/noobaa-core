@@ -31,6 +31,10 @@ function restart_webserver {
     ${SUPERCTL} restart webserver
 }
 
+function restart_s3rver {
+    ${SUPERCTL} restart s3rver
+}
+
 
 function check_latest_version {
   local current=$(grep CURRENT_VERSION $ENV_FILE | sed 's:.*=\(.*\):\1:')
@@ -98,6 +102,7 @@ function do_upgrade {
   #workaround - from some reason, without sleep + restart, the server starts with odd behavior
   #TODO: understand why and fix.
   sleep 5;
+  restart_s3rver
   restart_webserver
   deploy_log "Upgrade finished successfully!"
 }

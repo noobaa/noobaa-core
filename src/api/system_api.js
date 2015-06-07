@@ -320,7 +320,13 @@ module.exports = {
                     item: {
                         $ref: '/system_api/definitions/access_keys'
                     }
-                }
+                },
+                ssl_port: {
+                    type: 'string'
+                },
+                web_port: {
+                    type: 'string'
+                },
             }
         },
 
@@ -378,7 +384,5 @@ module.exports = {
                 }
             }
         }
-
-
     }
 };

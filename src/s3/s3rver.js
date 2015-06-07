@@ -54,10 +54,12 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
     .then(function(certificate_arg) {
         certificate = certificate_arg;
 
-        app.use('/s3', s3app(params));
-        app.use('/', function(req, res) {
-            res.redirect('/s3');
-        });
+        app.use('/', s3app(params));
+
+        // app.use('/s3', s3app(params));
+        // app.use('/', function(req, res) {
+        //     res.redirect('/s3');
+        // });
 
         return Q.Promise(function(resolve, reject) {
             dbg.log0('Starting HTTP', params.port);

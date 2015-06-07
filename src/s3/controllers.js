@@ -844,7 +844,7 @@ module.exports = function(params) {
                     dbg.log0('Init Multipart', req.originalUrl);
                     var key = (req.originalUrl).replace('/' + req.bucket + '/', '');
                     //TODO:Replace with s3 rest param, initiated from the constructor
-                    key = key.replace('/s3', '');
+                    //key = key.replace('/s3', '');
                     key = key.substring(0, key.indexOf('?uploads'));
                     key = decodeURIComponent(key);
 

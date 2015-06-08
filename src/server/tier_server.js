@@ -114,7 +114,7 @@ function delete_tier(req) {
  */
 function list_tiers(req) {
     var query = {
-        system: req.system,
+        system: req.system.id,
         delete: null,
     };
 

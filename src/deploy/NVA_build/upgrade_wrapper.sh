@@ -64,13 +64,15 @@ function post_upgrade {
   #.env changes
   #bump agent version.
   #TODO: do it only if md5 of the executable is different
-  local curmd=$(md5sum /tmp/noobaa-NVA.tar.gz  | cut -f 1 -d' ')
-  local prevmd=$(grep "#packmd" /backup/.env | cut -f 2 -d' ')
+  local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup.exe | cut -f 1 -d' ')
+  local prevmd=$(md5sum /backup/build/public/noobaa-setup.exe | cut -f 1 -d' ')
+
+  deploy_log "Installed MD5 was ${prevmd}, new is ${curmd}"
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
-  cat /etc/noobaa_supervisor.conf
-  cp  /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
-
+  if [ -f /tmp/agent_conf.json ]; then
+    cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
+  fi
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 
@@ -84,6 +86,8 @@ function post_upgrade {
     else
       AGENT_VERSION_VAR='AGENT_VERSION=1'
     fi
+  else
+      deploy_log "MDs are the same, not updating agent version"
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
@@ -91,8 +95,6 @@ function post_upgrade {
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
 
-  #save MD5 of current package
-  echo "#packmd ${curmd}" >> ${CORE_DIR}/.env
   rm -f /tmp/*.tar.gz
 }
 

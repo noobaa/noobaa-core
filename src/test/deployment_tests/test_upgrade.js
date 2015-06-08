@@ -192,12 +192,12 @@ function main() {
     if (!missing_params) {
         console.log("Starting test_upgrade.js, this can take some time...");
         return Q.fcall(function() {
-                //return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
+                return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
             })
             .then(function(res) {
                 Q.fcall(function() {
-                        //instance_id = res.instanceid;
-                        return ec2_wrap.get_ip_address('i-9530b954');
+                        instance_id = res.instanceid;
+                        return ec2_wrap.get_ip_address(instance_id);
                     })
                     .then(function(ip) {
                         target_ip = ip;

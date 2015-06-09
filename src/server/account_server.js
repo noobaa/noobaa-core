@@ -188,7 +188,7 @@ function accounts_status(req) {
 function get_system_accounts(req) {
     return Q.when(
             db.Role.find({
-              system: req.system
+              system: req.system.id
             })
             .exec())
         .then(function(roles) {

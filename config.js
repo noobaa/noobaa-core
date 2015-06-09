@@ -12,7 +12,7 @@ config.on_premise = {
 // Central Stats Collection
 config.central_stats = {
   send_stats: true,
-  central_listener: '',
+  central_listener: '127.0.0.1',
 };
 
 // SIGNALING AND ICE

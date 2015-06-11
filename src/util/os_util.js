@@ -5,6 +5,8 @@ module.exports = {
     read_drives: read_drives,
     get_main_drive_name: get_main_drive_name,
     get_mount_of_path: get_mount_of_path,
+    top_single: top_single,
+    netstat_single: netstat_single,
 };
 
 var _ = require('lodash');
@@ -13,6 +15,7 @@ var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
 var node_df = require('node-df');
+var promise_utils = require('./promise_utils');
 
 function os_info() {
 
@@ -152,6 +155,28 @@ function wmic_parse_list(text) {
         list[i] = item_obj;
     }
     return list;
+}
+
+function top_single(dst) {
+    var file_redirect = dst ? ' >& ' + dst : '';
+    if (os.type() === 'Darwin') {
+        return promise_utils.promised_exec('top -l 1' + file_redirect);
+    } else if (os.type() === 'Linux') {
+        return promise_utils.promised_exec('top -b -n 1' + file_redirect);
+    } else {
+        throw new Error('top_single ' + os.type + ' not supported');
+    }
+}
+
+function netstat_single(dst) {
+    var file_redirect = dst ? ' >& ' + dst : '';
+    if (os.type() === 'Darwin') {
+        return promise_utils.promised_exec('netstat -na' + file_redirect);
+    } else if (os.type() === 'Linux') {
+        return promise_utils.promised_exec('netstat -nap' + file_redirect);
+    } else {
+        throw new Error('netstat_single ' + os.type + ' not supported');
+    }
 }
 
 

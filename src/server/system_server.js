@@ -5,6 +5,8 @@ var _ = require('lodash');
 var Q = require('q');
 var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
+var os_utils = require('../util/os_util');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
@@ -32,7 +34,9 @@ var system_server = {
 
     get_system_resource_info: get_system_resource_info,
 
-    read_activity_log: read_activity_log
+    read_activity_log: read_activity_log,
+
+    diagnose: diagnose,
 };
 
 module.exports = system_server;
@@ -111,32 +115,32 @@ function create_system(req) {
                 auth_token: system_token
             });
         })
-        .then(function(){
+        .then(function() {
             var config = {
                 "dbg_log_level": 2,
-                "address": "wss://127.0.0.1:"+process.env.SSL_PORT,
+                "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
                 "port": "80",
-                "ssl_port":"443",
+                "ssl_port": "443",
                 "access_key": info.access_keys[0].access_key,
-                "secret_key":info.access_keys[0].secret_key
+                "secret_key": info.access_keys[0].secret_key
             };
             if (process.env.ON_PREMISE) {
-                return Q.nfcall(fs.writeFile, process.cwd()+'/agent_conf.json',JSON.stringify(config));
+                return Q.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
             }
         })
-        .then(function(){
+        .then(function() {
             if (process.env.ON_PREMISE) {
-                return Q.Promise(function(resolve, reject){
+                return Q.Promise(function(resolve, reject) {
                     var supervisorctl = child_process.spawn(
-                        'supervisorctl', ['restart','s3rver'], {
+                        'supervisorctl', ['restart', 's3rver'], {
                             cwd: process.cwd()
                         });
 
-                        supervisorctl.on('close', function(code) {
+                    supervisorctl.on('close', function(code) {
                         if (code !== 0) {
                             resolve();
                         } else {
-                            dbg.log0('error code while restarting s3rver',code);
+                            dbg.log0('error code while restarting s3rver', code);
                             resolve();
                         }
                     });
@@ -526,7 +530,18 @@ function read_activity_log(req) {
         });
 }
 
-
+function diagnose(req) {
+    console.log('Recieved diag req');
+    return Q.fcall(function() {
+        return collect_diagnostics();
+    })
+    .then(function() {
+      return '/public/diagnostics.tgz';
+    })
+    .then(null, function() {
+      return;
+    });
+}
 
 
 // UTILS //////////////////////////////////////////////////////////
@@ -534,4 +549,47 @@ function read_activity_log(req) {
 
 function get_system_info(system) {
     return _.pick(system, 'name');
+}
+
+function collect_diagnostics() {
+    return Q.fcall(function() {
+            return promise_utils.promised_spawn('rm', ['-rf', '/tmp/diag*'], process.cwd(), true);
+        })
+        .then(function() {
+            return promise_utils.promised_spawn('rm', ['-rf', process.cwd() + '/build/public/diagnose.tgz'], process.cwd(), true);
+        })
+        .then(function() {
+            return promise_utils.promised_spawn('mkdir', ['-p', '/tmp/diag'], process.cwd());
+        })
+        .then(function() {
+            return promise_utils.full_dir_copy(process.cwd() + '/logs', '/tmp/diag');
+        })
+        .then(function() {
+            return promise_utils.promised_spawn('cp', ['-f', '/var/log/noobaa_deploy.log', '/tmp/diag'], process.cwd());
+        })
+        .then(function() {
+            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', '/tmp/diag/env'], process.cwd());
+        })
+        .then(function() {
+            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/package.json', '/tmp/diag'], process.cwd());
+        })
+        .then(function() {
+            return os_utils.top_single('/tmp/diag/top.out');
+        })
+        .then(function() {
+            return os_utils.netstat_single('/tmp/diag/top.out');
+        })
+        .then(function() {
+            return promise_utils.promised_exec('lsof >& /tmp/diag/lsof.out');
+        })
+        .then(function() {
+            return promise_utils.promised_exec('tar -zcvf ' + process.cwd() + '/build/public/diagnostics.tgz /tmp/diag/*');
+        })
+        .then(function() {
+            return 'ok';
+        })
+        .then(null, function(err) {
+            console.error('Error in creating diagnostics pack', err);
+            throw new Error('Error in creating diagnostics pack ' + err);
+        });
 }

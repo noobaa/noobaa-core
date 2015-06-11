@@ -255,7 +255,19 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        }
+        },
+
+        diagnose: {
+            method: 'GET',
+            reply: {
+                name: {
+                    type: 'string',
+                },
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
     },
 
 
@@ -373,13 +385,13 @@ module.exports = {
         },
         access_keys: {
             type: 'object',
-            required: ['access_key','secret_key'],
+            required: ['access_key', 'secret_key'],
             peroperties: {
-                access_key : {
+                access_key: {
                     type: String,
 
                 },
-                secret_key : {
+                secret_key: {
                     type: String,
                 }
             }

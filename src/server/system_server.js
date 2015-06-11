@@ -5,8 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
-var promise_utils = require('../util/promise_utils');
-var os_utils = require('../util/os_util');
+var diag = require('../util/diagnostics');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
@@ -531,16 +530,21 @@ function read_activity_log(req) {
 }
 
 function diagnose(req) {
-    console.log('Recieved diag req');
+    dbg.log1('Recieved diag req');
+    var out_path = '/public/diagnostics.tgz';
+    var inner_path = '/build' + out_path;
     return Q.fcall(function() {
-        return collect_diagnostics();
-    })
-    .then(function() {
-      return '/public/diagnostics.tgz';
-    })
-    .then(null, function() {
-      return;
-    });
+            return diag.collect_server_diagnostics();
+        })
+        .then(function() {
+            return diag.pack_diagnostics(inner_path);
+        })
+        .then(function() {
+            return out_path;
+        })
+        .then(null, function() {
+            return;
+        });
 }
 
 
@@ -549,47 +553,4 @@ function diagnose(req) {
 
 function get_system_info(system) {
     return _.pick(system, 'name');
-}
-
-function collect_diagnostics() {
-    return Q.fcall(function() {
-            return promise_utils.promised_spawn('rm', ['-rf', '/tmp/diag*'], process.cwd(), true);
-        })
-        .then(function() {
-            return promise_utils.promised_spawn('rm', ['-rf', process.cwd() + '/build/public/diagnose.tgz'], process.cwd(), true);
-        })
-        .then(function() {
-            return promise_utils.promised_spawn('mkdir', ['-p', '/tmp/diag'], process.cwd());
-        })
-        .then(function() {
-            return promise_utils.full_dir_copy(process.cwd() + '/logs', '/tmp/diag');
-        })
-        .then(function() {
-            return promise_utils.promised_spawn('cp', ['-f', '/var/log/noobaa_deploy.log', '/tmp/diag'], process.cwd());
-        })
-        .then(function() {
-            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/.env', '/tmp/diag/env'], process.cwd());
-        })
-        .then(function() {
-            return promise_utils.promised_spawn('cp', ['-f', process.cwd() + '/package.json', '/tmp/diag'], process.cwd());
-        })
-        .then(function() {
-            return os_utils.top_single('/tmp/diag/top.out');
-        })
-        .then(function() {
-            return os_utils.netstat_single('/tmp/diag/top.out');
-        })
-        .then(function() {
-            return promise_utils.promised_exec('lsof >& /tmp/diag/lsof.out');
-        })
-        .then(function() {
-            return promise_utils.promised_exec('tar -zcvf ' + process.cwd() + '/build/public/diagnostics.tgz /tmp/diag/*');
-        })
-        .then(function() {
-            return 'ok';
-        })
-        .then(null, function(err) {
-            console.error('Error in creating diagnostics pack', err);
-            throw new Error('Error in creating diagnostics pack ' + err);
-        });
 }

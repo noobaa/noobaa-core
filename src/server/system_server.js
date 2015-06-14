@@ -36,6 +36,7 @@ var system_server = {
     read_activity_log: read_activity_log,
 
     diagnose: diagnose,
+    diagnose_with_agent: diagnose_with_agent,
 };
 
 module.exports = system_server;
@@ -532,7 +533,7 @@ function read_activity_log(req) {
 function diagnose(req) {
     dbg.log1('Recieved diag req');
     var out_path = '/public/diagnostics.tgz';
-    var inner_path = '/build' + out_path;
+    var inner_path = process.cwd() + '/build' + out_path;
     return Q.fcall(function() {
             return diag.collect_server_diagnostics();
         })
@@ -542,7 +543,30 @@ function diagnose(req) {
         .then(function() {
             return out_path;
         })
-        .then(null, function() {
+        .then(null, function(err) {
+            dbg.log0('Error while collecting diagnostics', err, err.stack());
+            return;
+        });
+}
+
+function diagnose_with_agent(data) {
+    dbg.log1('Recieved diag with agent req');
+    var out_path = '/public/diagnostics.tgz';
+    var inner_path = process.cwd() + '/build' + out_path;
+    return Q.fcall(function() {
+            return diag.collect_server_diagnostics();
+        })
+        .then(function() {
+            return diag.write_agent_diag_file(data);
+        })
+        .then(function() {
+            return diag.pack_diagnostics(inner_path);
+        })
+        .then(function() {
+            return out_path;
+        })
+        .then(null, function(err) {
+            dbg.log0('Error while collecting diagnostics with agent', err, err.stack());
             return;
         });
 }

@@ -7,12 +7,14 @@ var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
 var server_rpc = require('../server/server_rpc');
+var system_server = require('./system_server');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
-    self_test_to_node_via_web: self_test_to_node_via_web
+    self_test_to_node_via_web: self_test_to_node_via_web,
+    collect_agent_diagnostics: collect_agent_diagnostics,
 };
 
 
@@ -288,6 +290,26 @@ function self_test_to_node_via_web(req) {
     }, {
         address: source,
     });
+}
+
+/**
+ * COLLECT_AGENT_DIAGNOSTICS
+ */
+function collect_agent_diagnostics(req) {
+    var target = req.rpc_params.target;
+
+    return Q.fcall(function() {
+          return server_rpc.client.agent.collect_diagnostics({}, {
+              address: target,
+          });
+        })
+        .then(function(data) {
+            return system_server.diagnose_with_agent(data);
+        })
+        .then(null, function(err) {
+            dbg.log0('Error on collect_agent_diagnostics', err);
+            return '';
+        });
 }
 
 

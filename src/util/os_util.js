@@ -186,9 +186,9 @@ function netstat_single(dst) {
 function dir_agent_storage(dst) {
     var file_redirect = dst ? ' >& ' + dst : '';
     if (os.type() === 'Darwin' || os.type() === 'Linux') {
-        return promise_utils.promised_exec('ls -laR' + process.cwd() + '/agent_storage/' + file_redirect);
+        return promise_utils.promised_exec('ls -laR ' + process.cwd() + '/agent_storage/' + file_redirect);
     } else if (os.type() === 'Windows_NT') {
-        return promise_utils.promised_exec('dir /A /S' + process.cwd() + '/agent_storage/' + file_redirect);
+        return promise_utils.promised_exec('dir /A /S ' + process.cwd() + '/agent_storage/' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
     }

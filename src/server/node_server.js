@@ -28,7 +28,8 @@ var node_server = {
 
     heartbeat: node_monitor.heartbeat,
     n2n_signal: node_monitor.n2n_signal,
-    self_test_to_node_via_web: node_monitor.self_test_to_node_via_web
+    self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
+    collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
 };
 
 module.exports = node_server;
@@ -394,8 +395,6 @@ function group_nodes(req) {
             };
         });
 }
-
-
 
 
 // UTILS //////////////////////////////////////////////////////////

@@ -260,9 +260,7 @@ module.exports = {
         diagnose: {
             method: 'GET',
             reply: {
-                name: {
-                    type: 'string',
-                },
+                type: 'string',
             },
             auth: {
                 system: 'admin',

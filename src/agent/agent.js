@@ -20,9 +20,10 @@ var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
+var os_util = require('../util/os_util');
+var diag = require('../util/diagnostics');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
-var os_util = require('../util/os_util');
 
 module.exports = Agent;
 
@@ -83,6 +84,7 @@ function Agent(params) {
         n2n_signal: self.n2n_signal.bind(self),
         self_test_io: self.self_test_io.bind(self),
         self_test_peer: self.self_test_peer.bind(self),
+        collect_diagnostics: self.collect_diagnostics.bind(self),
     };
 
     var app = express();
@@ -605,6 +607,31 @@ Agent.prototype.self_test_peer = function(req) {
                 (data && data.length && data.length !== res_len)) {
                 throw new Error('SELF TEST PEER response_length mismatch');
             }
+        });
+};
+
+Agent.prototype.collect_diagnostics = function(req) {
+    dbg.log1('Recieved diag req', req);
+    var inner_path = '/tmp/agent_diag.tgz';
+    return Q.fcall(function() {
+            return diag.collect_agent_diagnostics();
+        })
+        .then(function() {
+            return diag.pack_diagnostics(inner_path);
+        })
+        .then(function() {
+            return Q.nfcall(fs.readFile, inner_path)
+                .then(function(data) {
+                    return {
+                        data: data,
+                    };
+                })
+                .then(null, function(err) {
+                    throw new Error('Agent Collect Diag Error on reading packges diag file');
+                });
+        })
+        .then(null, function() {
+            return '';
         });
 };
 

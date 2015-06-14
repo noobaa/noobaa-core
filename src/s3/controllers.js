@@ -456,6 +456,8 @@ module.exports = function(params) {
                     return next();
                 }).then(null, function(err) {
                     dbg.error('error while trying to check if bucket exists', err);
+                    var template = templateBuilder.buildSignatureDoesNotMatch(req.string_to_sign);
+                    return buildXmlResponse(res, 401, template);
                 });
         },
 

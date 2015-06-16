@@ -37,6 +37,7 @@ function install_aux {
 	# Install Debug packages
 	yum install -y tcpdump
 	yum install -y lsof
+	yum install -y dialog
 
 	# Install Supervisord
 	yum install -y python-setuptools

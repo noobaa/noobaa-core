@@ -58,6 +58,9 @@ var objmd_schema = new Schema({
         default: Date.now,
         required: true,
     },
+    etag: {
+        type: String,
+    },
 
     // on delete set deletion time
     deleted: {

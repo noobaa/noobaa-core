@@ -143,8 +143,6 @@ function general_settings {
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
 
-	#/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-	#/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
 	service iptables save
 	echo "export LC_ALL=C" >> ~/.bashrc
 	echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
@@ -158,6 +156,11 @@ function general_settings {
 	echo "* soft nofile 102400" >> /etc/security/limits.conf
 	sysctl -w fs.file-max=102400
 	sysctl -p
+
+	#noobaa user
+	useradd noobaa
+	echo Passw0rd | passwd noobaa --stdin
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
 }
 
 function setup_supervisors {

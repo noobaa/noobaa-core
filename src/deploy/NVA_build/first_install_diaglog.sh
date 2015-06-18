@@ -51,8 +51,8 @@ DNS." 12 75 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25
 
     dialog --colors --backtitle "NooBaa First Install" --infobox "Configuring \Z5\ZbNooBaa\Zn IP..." 4 28 ; sleep 2
 
-    #TODO: NBNB ifconfig eth0 down
-    #TODO: NBNB ifconfig eth0 ${ip} netmask ${mask} up
+    ifconfig eth0 down
+    ifconfig eth0 ${ip} netmask ${mask} up
   fi
 
   dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary
@@ -76,7 +76,7 @@ DNS servers." 12 65 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2
 
 function end_wizard {
   dialog --colors --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox '\n\Z5\ZbNooBaa\Zn was configured and is ready to use' 7 45
-  #TODO: NBNB date > ${FIRST_INSTALL_MARK}
+  date > ${FIRST_INSTALL_MARK}
   clear
 
   exit 0
@@ -94,4 +94,4 @@ else
   deploy_log "Server was booted, first install mark exists"
 fi
 
-logout
+#logout

@@ -76,7 +76,7 @@ DNS servers." 12 65 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2
 
 function end_wizard {
   dialog --colors --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox '\n\Z5\ZbNooBaa\Zn was configured and is ready to use' 7 45
-  date > ${FIRST_INSTALL_MARK}
+  #date > ${FIRST_INSTALL_MARK}
   clear
 
   exit 0

@@ -3,30 +3,34 @@
 
 #include "common.h"
 
-class Rabin : public node::ObjectWrap
+#define RABIN_TDEF \
+    typename HashType, \
+    uint8_t POLY_DEGREE, \
+    HashType POLY_REM, \
+    uint8_t WINDOW_LEN
+
+#define RABIN_TARGS \
+    HashType, \
+    POLY_DEGREE, \
+    POLY_REM, \
+    WINDOW_LEN
+
+template<RABIN_TDEF>
+class Rabin
 {
 public:
-    // init the module
-    static void initialize(HOBJ exports);
-
-private:
-    static v8::Persistent<v8::Function> _ctor;
-
-    static HVAL new_instance(const v8::Arguments& args);
-
-    // convinient function to get current this object from context
-    static Rabin& self(const v8::Arguments& args) {
-        return *ObjectWrap::Unwrap<Rabin>(args.This());
-    }
-
     explicit Rabin();
     ~Rabin();
-
-    // push a buffer
-    HVAL push(const v8::Arguments& args);
-    static HVAL _push(const v8::Arguments& args) {
-        return self(args).push(args);
-    }
+    HashType value() { return _fingerprint; }
+    void update(uint8_t byte);
+protected:
+    static const HashType CARRY_BIT = HashType(1) << (POLY_DEGREE - 1);
+    static const HashType CARRY_BYTE = HashType(0xFF) << (POLY_DEGREE - 9);
+    HashType _fingerprint;
+    uint8_t _window_pos;
+    uint8_t _window[WINDOW_LEN];
 };
+
+#include "rabin.hpp"
 
 #endif // RABIN_H_

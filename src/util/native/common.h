@@ -4,6 +4,8 @@
 #include <iostream>
 #include <exception>
 #include <stdexcept>
+#include <stdint.h>
+#include <vector>
 
 #include <v8.h>
 #include <uv.h>

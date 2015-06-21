@@ -496,7 +496,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
 
             };
             console.log('New instance name: in region:' +region_name);
-            return;
+
             return Q.nfcall(compute.instances.insert, instanceResource)
                 .then(function(instanceInformation) {
                     var pieces_array = instanceInformation[0].targetLink.split('/');

@@ -161,6 +161,10 @@ function general_settings {
 	useradd noobaa
 	echo Passw0rd | passwd noobaa --stdin
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
+
+	#Fix login message
+	echo "Welcome to your NooBaa, host \n" > /etc/issue
+	echo "You can use noobaa/Passw0rd login to configure IP & DNS" >>/etc/issue
 }
 
 function setup_supervisors {

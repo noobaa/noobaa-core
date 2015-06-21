@@ -118,6 +118,9 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
+  echo "Welcome to your NooBaa, host \n" > /etc/issue
+  echo "You can use noobaa/Passw0rd login to configure IP & DNS" >>/etc/issue
+
   #NooBaa supervisor services configuration changes
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord

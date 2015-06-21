@@ -79,7 +79,9 @@ function setup_repos {
 
 	if [ ${runnpm} -eq 1 ]; then
 		deploy_log "setup_repos calling npm install"		+	deploy_log "setup_repos after deleted npm install"
+		$(npm install sse4_crc32 >> ${LOG_FILE})
 		$(npm install -dd >> ${LOG_FILE})
+
 	fi
 
 	deploy_log "setting up crontab"
@@ -156,7 +158,7 @@ function general_settings {
 	echo "* hard nofile 102400" >> /etc/security/limits.conf
 	echo "* soft nofile 102400" >> /etc/security/limits.conf
 	sysctl -w fs.file-max=102400
-	sysctl -p
+	sysctl -e -p
 }
 
 function setup_supervisors {

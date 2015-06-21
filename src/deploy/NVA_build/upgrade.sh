@@ -28,7 +28,20 @@ function enable_supervisord {
 }
 
 function restart_webserver {
-    ${SUPERCTL} restart webserver
+    ${SUPERCTL} stop webserver
+    mongodown=true
+    while ${mongodown}; do
+    if netstat -na|grep LISTEN|grep :27017; then
+            echo here${mongodown}
+            mongodown=false
+            echo ${mongodown}
+    else
+            echo sleep
+            sleep 1
+    fi
+    done
+    ${SUPERCTL} start webserver
+
 }
 
 function restart_s3rver {

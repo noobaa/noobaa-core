@@ -15,5 +15,11 @@
 
 typedef v8::Handle<v8::Object> HOBJ;
 typedef v8::Handle<v8::Value> HVAL;
+typedef v8::Local<v8::Value> LVAL;
+
+#define NAN_METHOD_TO_SELF(clazz, method) \
+    static NAN_METHOD(method) { \
+        return Unwrap<clazz>(args.This())->_##method(args); \
+    }
 
 #endif // COMMON_H_

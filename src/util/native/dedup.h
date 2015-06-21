@@ -35,29 +35,21 @@
 template<DEDUP_TDEF>
 class Dedup : public node::ObjectWrap
 {
-public:
-    static void initialize(const char* name, HOBJ exports);
-
-private:
-    static v8::Persistent<v8::Function> _ctor;
-    static HVAL new_instance(const v8::Arguments& args);
-    // convinient function to get current this object from context
-    static Dedup& self(const v8::Arguments& args) {
-        return *ObjectWrap::Unwrap<Dedup>(args.This());
-    }
-    static HVAL _push(const v8::Arguments& args) {
-        return self(args).push(args);
-    }
-
 private:
     explicit Dedup();
     ~Dedup();
-    // push a buffer
-    HVAL push(const v8::Arguments& args);
 
 private:
     typedef Rabin<HashType, POLY_DEGREE, POLY_REM, WINDOW_LEN> RabinHasher;
     RabinHasher _hasher;
+
+public:
+    static void setup(const char* name, HOBJ exports);
+
+private:
+    static v8::Persistent<v8::Function> _ctor;
+    static NAN_METHOD(new_instance);
+    static NAN_METHOD(push);
 };
 
 #define DEDUP_V1_ARGS \

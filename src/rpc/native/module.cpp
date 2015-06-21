@@ -1,9 +1,9 @@
 #include "nudp.h"
 
 static void
-initialize(HOBJ exports)
+setup(HOBJ exports)
 {
-    Nudp::initialize(exports);
+    Nudp::setup(exports);
 }
 
-NODE_MODULE(native_rpc, initialize)
+NODE_MODULE(native_rpc, setup)

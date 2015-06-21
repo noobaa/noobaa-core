@@ -1,70 +1,62 @@
 // template hpp
 
-// define static members
 template<DEDUP_TDEF>
-v8::Persistent<v8::Function>
-Dedup<DEDUP_TARGS>
-::_ctor;
-
-template<DEDUP_TDEF>
-void
-Dedup<DEDUP_TARGS>
-::initialize(const char* name, HOBJ exports)
-{
-    auto symbol(v8::String::NewSymbol(name));
-    auto t(v8::FunctionTemplate::New(Dedup::new_instance));
-    t->SetClassName(symbol);
-    t->InstanceTemplate()->SetInternalFieldCount(1);
-    NODE_SET_PROTOTYPE_METHOD(t, "push", Dedup::_push);
-    // save ctor persistent handle to be used by new_instance
-    _ctor = v8::Persistent<v8::Function>::New(t->GetFunction());
-    exports->Set(symbol, _ctor);
-}
-
-template<DEDUP_TDEF>
-HVAL
-Dedup<DEDUP_TARGS>
-::new_instance(const v8::Arguments& args)
-{
-    v8::HandleScope scope;
-    if (args.IsConstructCall()) {
-        // Invoked as constructor: `new Dedup(...)`
-        // double value = args[0]->IsUndefined() ? 0 : args[0]->NumberValue();
-        Dedup* obj = new Dedup();
-        obj->Wrap(args.This());
-        return args.This();
-    } else {
-        // Invoked as plain function `Dedup(...)`, turn into construct call.
-        const int argc = 1;
-        v8::Local<v8::Value> argv[argc] = { args[0] };
-        return scope.Close(_ctor->NewInstance(argc, argv));
-    }
-}
-
-template<DEDUP_TDEF>
-Dedup<DEDUP_TARGS>
-::Dedup()
+Dedup<DEDUP_TARGS>::Dedup()
     : _hasher()
 {
 
 }
 
 template<DEDUP_TDEF>
-Dedup<DEDUP_TARGS>
-::~Dedup()
+Dedup<DEDUP_TARGS>::~Dedup()
 {
 
 }
 
+// statics
+
 template<DEDUP_TDEF>
-HVAL
-Dedup<DEDUP_TARGS>
-::push(const v8::Arguments& args)
+v8::Persistent<v8::Function>
+Dedup<DEDUP_TARGS>::_ctor;
+
+template<DEDUP_TDEF>
+void
+Dedup<DEDUP_TARGS>::setup(const char* name, HOBJ exports)
 {
-    v8::HandleScope scope;
+    auto tpl(NanNew<v8::FunctionTemplate>(Dedup::new_instance));
+    tpl->SetClassName(NanNew(name));
+    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "push", Dedup::push);
+    NanAssignPersistent(_ctor, tpl->GetFunction());
+    exports->Set(NanNew(name), _ctor);
+}
+
+template<DEDUP_TDEF>
+NAN_METHOD(Dedup<DEDUP_TARGS>::new_instance)
+{
+    NanScope();
+    if (args.IsConstructCall()) {
+        Dedup* obj = new Dedup();
+        obj->Wrap(args.This());
+        NanReturnValue(args.This());
+    } else {
+        // Invoked as plain function `Dedup(...)`, turn into construct call.
+        const int argc = 1;
+        v8::Local<v8::Value> argv[argc] = { args[0] };
+        NanReturnValue(_ctor->NewInstance(argc, argv));
+    }
+}
+
+template<DEDUP_TDEF>
+NAN_METHOD(Dedup<DEDUP_TARGS>::push)
+{
+    NanScope();
+
+    auto self = Unwrap<Dedup<DEDUP_TARGS> >(args.This());
+    auto& hasher = self->_hasher;
 
     if (args.Length() < 1) {
-        return scope.Close(v8::Undefined());
+        NanReturnUndefined();
     }
 
     auto buffer_object = args[0]->ToObject();
@@ -77,14 +69,14 @@ Dedup<DEDUP_TARGS>
             std::cout << std::endl << "&&&";
         }
         std::cout << " " << int(data[i]);
-        _hasher.update(data[i]);
+        hasher.update(data[i]);
     }
 
     std::cout
         << std::endl
-        << "HASH VALUE: " << _hasher.value()
+        << "HASH VALUE: " << hasher.value()
         << std::endl
         << std::dec;
 
-    return scope.Close(v8::Undefined());
+    NanReturnUndefined();
 }

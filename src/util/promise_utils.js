@@ -195,7 +195,7 @@ function promised_spawn(command, args, cwd, ignore_rc) {
     var out;
     proc.stdout.on('data', function(data) {
       out = data;
-      console.log('on stdout', data);
+      dbg.log2('on stdout', data);
     });
 
     proc.on('error', function(error) {

@@ -3,20 +3,37 @@
 EXTRACTION_PATH="/tmp/test/"
 . ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
-function pre_upgrade {
-  #yum install -y lsof
-
+function fix_iptables {
   deploy_log "fixing IPtables"
   #fix iptables
-  #TODO: CHECK if rules already exist, is so skip this part
-  iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
-  iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
-  iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
-  iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
-  #/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-  #/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-  service iptables save
+  local exist=$(iptables -L -n | grep 80 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
+  fi
 
+  local exist=$(iptables -L -n | grep 443 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n | grep 8080 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
+  fi
+
+  local exist=$(iptables -L -n | grep 8443 | wc -l)
+  if [ "${exist}" == "0" ]; then
+    iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
+  fi
+
+  #If logging rules exist, remove them
+  /sbin/iptables -D INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+  /sbin/iptables -D OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+
+  service iptables save
+}
+
+function fix_bashrc {
   fixbashrc=$(grep services_status ~/.bashrc | wc -l)
   if [ ${fixbashrc} -eq 0 ]; then
     deploy_log "Fixing .bashrc"
@@ -30,6 +47,16 @@ function pre_upgrade {
     echo "alias zless='zless -R'" >> ~/.bashrc
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
   fi
+}
+
+function pre_upgrade {
+  yum install -y dialog
+  useradd noobaa
+  echo Passw0rd | passwd noobaa --stdin
+
+  fix_iptables
+
+  fix_bashrc
 
   if grep -Fxq "* hard nofile" /etc/security/limits.conf
   then
@@ -64,13 +91,15 @@ function post_upgrade {
   #.env changes
   #bump agent version.
   #TODO: do it only if md5 of the executable is different
-  local curmd=$(md5sum /tmp/noobaa-NVA.tar.gz  | cut -f 1 -d' ')
-  local prevmd=$(grep "#packmd" /backup/.env | cut -f 2 -d' ')
+  local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup.exe | cut -f 1 -d' ')
+  local prevmd=$(md5sum /backup/build/public/noobaa-setup.exe | cut -f 1 -d' ')
+
+  deploy_log "Installed MD5 was ${prevmd}, new is ${curmd}"
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
-  cat /etc/noobaa_supervisor.conf
-  cp  /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
-
+  if [ -f /tmp/agent_conf.json ]; then
+    cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
+  fi
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 
@@ -84,15 +113,20 @@ function post_upgrade {
     else
       AGENT_VERSION_VAR='AGENT_VERSION=1'
     fi
+  else
+      deploy_log "MDs are the same, not updating agent version"
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
+
+  echo "Welcome to your NooBaa, host \n" > /etc/issue
+  echo "You can use noobaa/Passw0rd login to configure IP & DNS" >>/etc/issue
 
   #NooBaa supervisor services configuration changes
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
 
-  #save MD5 of current package
-  echo "#packmd ${curmd}" >> ${CORE_DIR}/.env
+  cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
+
   rm -f /tmp/*.tar.gz
 }
 

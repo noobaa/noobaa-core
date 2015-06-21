@@ -27,6 +27,7 @@ nb_api.factory('nbNodes', [
         $scope.remove_node = remove_node;
         $scope.add_node = add_node;
         $scope.self_test = self_test;
+        $scope.diagnose_node = diagnose_node;
 
 
         function refresh_node_groups(selected_geo) {
@@ -189,25 +190,30 @@ nb_api.factory('nbNodes', [
                 root_path: './agent_storage/'
             };
 
-            config_json.address = 'wss://noobaa.local:'+nbSystem.system.ssl_port;
+            config_json.address = 'wss://noobaa.local:' + nbSystem.system.ssl_port;
             config_json.system = nbSystem.system.name;
             config_json.access_key = nbSystem.system.access_keys[0].access_key;
             config_json.secret_key = nbSystem.system.access_keys[0].secret_key;
             var encodedData = $window.btoa(JSON.stringify(config_json));
             scope.encodedData = encodedData;
-            var secured_host = ($window.location.host).replace(':'+nbSystem.system.web_port,':'+nbSystem.system.ssl_port);
-            config_json.address = 'wss://'+secured_host;
+            var secured_host = ($window.location.host).replace(':' + nbSystem.system.web_port, ':' + nbSystem.system.ssl_port);
+            config_json.address = 'wss://' + secured_host;
             encodedData = $window.btoa(JSON.stringify(config_json));
             scope.encodedDataIP = encodedData;
             scope.current_host = $window.location.host;
-            scope.typeOptions = [
-                    { name: 'Use noobaa.local', value: scope.encodedData },
-                    { name: 'Use '+secured_host, value: scope.encodedDataIP },
-                ];
-            console.log('type options',scope.typeOptions);
-            scope.encoding = {type : scope.typeOptions[0].value};
+            scope.typeOptions = [{
+                name: 'Use noobaa.local',
+                value: scope.encodedData
+            }, {
+                name: 'Use ' + secured_host,
+                value: scope.encodedDataIP
+            }, ];
+            console.log('type options', scope.typeOptions);
+            scope.encoding = {
+                type: scope.typeOptions[0].value
+            };
 
-            console.log(JSON.stringify(config_json),String.toString(config_json),'encoded',encodedData);
+            console.log(JSON.stringify(config_json), String.toString(config_json), 'encoded', encodedData);
             scope.next_stage = function() {
                 scope.stage += 1;
                 if (scope.stage > 4) {
@@ -458,6 +464,30 @@ nb_api.factory('nbNodes', [
                 })
                 .then(null, function(err) {
                     nbAlertify.error('Self test had errors :(');
+                });
+        }
+
+        function diagnose_node(node) {
+            var link;
+
+            return $q.when(nbClient.client.node.collect_agent_diagnostics({
+                    target: 'n2n://' + node.peer_id,
+                }))
+                .then(function(url) {
+                    if (url !== '') {
+                        link = $window.document.createElement("a");
+                        link.download = '';
+                        link.href = url;
+                        $window.document.body.appendChild(link);
+                        link.click();
+                        return Q.delay(2000);
+                    }
+                })
+                .then(function() {
+                    $window.document.body.removeChild(link);
+                })
+                .then(null, function(err) {
+                    nbAlertify.error('Diagnose node encountered errors' + err.toString());
                 });
         }
 

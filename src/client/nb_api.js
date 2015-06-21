@@ -3,6 +3,7 @@
 
 var _ = require('lodash');
 var moment = require('moment');
+var Q = require('q');
 var api = require('../api');
 
 var nb_api = angular.module('nb_api', [
@@ -31,6 +32,7 @@ nb_api.factory('nbClient', [
         $scope.logout = logout;
         $scope.init_promise = $q.when().then(init_token);
         $scope.upgrade = upgrade;
+        $scope.diagnose = diagnose;
 
         // TODO this manual hack allows https websites to call regular http to agents
         // we need to support https in the agents.
@@ -115,13 +117,32 @@ nb_api.factory('nbClient', [
             $window.location.href = '/';
         }
 
-        function upgrade(){
+        function upgrade() {
             var scope = $rootScope.$new();
             scope.modal = nbModal({
                 template: 'console/upgrade_system.html',
                 scope: scope,
             });
         }
+
+        function diagnose() {
+            var link;
+            return $q.when($scope.client.system.diagnose({}))
+                .then(function(url) {
+                    if (url !== '') {
+                        link = $window.document.createElement("a");
+                        link.download = '';
+                        link.href = url;
+                        $window.document.body.appendChild(link);
+                        link.click();
+                        return Q.delay(2000);
+                    }
+                })
+                .then(function() {
+                    $window.document.body.removeChild(link);
+                });
+        }
+
         function register() {
             var scope = $rootScope.$new();
             scope.create = function() {
@@ -318,16 +339,16 @@ nb_api.factory('nbSystem', [
         }
 
         function get_s3_rest_installer() {
-            return $q.when()
-                .then(function() {
-                    return nbClient.client.system.get_system_resource_info({});
-                })
-                .then(function(res) {
-                    console.log('SYSTEM RESOURCES', res);
-                    return res.s3rest_installer || '';
-                });
-        }
-        // ACTIVITY LOG
+                return $q.when()
+                    .then(function() {
+                        return nbClient.client.system.get_system_resource_info({});
+                    })
+                    .then(function(res) {
+                        console.log('SYSTEM RESOURCES', res);
+                        return res.s3rest_installer || '';
+                    });
+            }
+            // ACTIVITY LOG
 
         function read_activity_log() {
             return nbClient.init_promise

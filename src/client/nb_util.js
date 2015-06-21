@@ -31,6 +31,7 @@ nb_util.run(['$rootScope', function($rootScope) {
     $('body').popover({
         selector: '[rel=popover]'
     });
+    $.material.options.autofill = true;
     $.material.init();
     $('.datetimepicker').datetimepicker();
     $('select').selectize();

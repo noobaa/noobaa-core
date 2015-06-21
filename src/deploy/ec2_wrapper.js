@@ -826,7 +826,3 @@ function load_demo_config_env() {
     });
     current_s3_target = 'demo';
 }
-
-function get_current_s3_target() {
-    return current_s3_target;
-}

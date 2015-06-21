@@ -66,6 +66,7 @@ s3cmd ls s3://noobaa-download
 s3cmd -P put DockerClientAmazon.zip s3://noobaa-download
 s3cmd -P put docker_setup.sh s3://noobaa-download
 s3cmd -P put init_agent.sh s3://noobaa-download
+s3cmd -P put init_agent.bat s3://noobaa-download
 s3cmd -P put init_agent_client.sh s3://noobaa-download
 s3cmd -P put init_agent_test.sh s3://noobaa-download
 rm agent_conf.json

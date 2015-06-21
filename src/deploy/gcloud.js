@@ -88,7 +88,7 @@ function import_key_pair_to_region() {
 
 }
 
-function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers) {
+function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
 
     return describe_instances({
         filter: 'status ne STOPPING'
@@ -96,6 +96,10 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
         //console.log('full instances',instances);
         var instances_per_zone = _.groupBy(instances, 'zone');
         var zones_names = instances.zones;
+        if (!_.isUndefined(filter_region)) {
+            console.log('Filter and use only region:', filter_region);
+            zones_names = [filter_region];
+        }
         //console.log('instances_per_zone',instances_per_zone);
         var target_zone_count = 0;
         var first_zone_extra_count = 0;
@@ -139,7 +143,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
                 new_count += zone_count;
             }
 
-            return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers);
+            return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win);
         }));
     }).fail(function(err) {
         console.log('####');
@@ -193,13 +197,13 @@ function foreach_zone(func) {
 }
 
 
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win) {
     //console.log('scale region from ' + instances.length + ' to count ' + count);
     // need to create
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers)
+        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
                 instance_creation_error_handler,
@@ -401,7 +405,7 @@ function getInstanceDataPerInstanceId(instanceId) {
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count, is_docker_host, number_of_dockers) {
+function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win) {
     var deferred = Q.defer();
     console.log('adding to region ' + region_name + ' ' + count + ' instances');
     var index = 0;
@@ -412,11 +416,18 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
 
             var machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro';
             var startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.sh';
+            var source_image = 'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141031a';
 
             if (is_docker_host) {
                 startup_script = 'http://noobaa-download.s3.amazonaws.com/docker_setup.sh';
                 machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
 
+            } else {
+                if (is_win) {
+                    startup_script = 'http://noobaa-download.s3.amazonaws.com/init_agent.bat';
+                    machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/g1-small';
+                    source_image = 'https://www.googleapis.com/compute/v1/projects/windows-cloud/global/images/windows-server-2012-r2-dc-v20150511';
+                }
             }
             if (_.isUndefined(number_of_dockers)) {
                 number_of_dockers = 0;
@@ -443,7 +454,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         initializeParams: {
                             //diskSizeGb: 8000,
                             //sourceImage:'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-trusty-14.04-amd64-server-20140927'
-                            sourceImage: 'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-1404-trusty-v20141031a'
+                            sourceImage: source_image
                         },
                         boot: true
                     }],
@@ -458,6 +469,9 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                             //production
                             value: startup_script
                                 //value: 'https://s3.amazonaws.com/elasticbeanstalk-us-east-1-628038730422/setupgc.sh'
+                        }, {
+                            key: 'windows-startup-script-url',
+                            value: startup_script
                         }, {
                             key: 'sshKeys',
                             value: 'ubuntu:ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCGk9U7fEXopJnBL1V4rXRzU580GRmUQVyivycKtUPplfjY3iIEU/DodqCCvn8Gb3rckVr7qd+haSE43IhNsB/zH9gGowUydTs3VwCHQT2pkziisr50EjQ0c6eBkcN5nWGZEPUGe4tGSQUR4agstJPyc3YDLJ96mC0ZOZVPtY+9tBUW0JsKqe45oLgCphSTuRP4cR4kiCv7HIzGLZd/ib6NgzlnLJqGBE74zJo0tgVv33Ixqdx8b0TyktNkGhYyjzweujEmkDX4/wVdX/qyWENDWWTb0D3jCAVgCyJBiuDHvtk0ehmcdYNucp0GuNTlO0Ld0NNsOjjAY9Au52lppYM1 ubuntu\n'
@@ -481,7 +495,8 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                 },
 
             };
-
+            console.log('New instance name: in region:' +region_name);
+            return;
             return Q.nfcall(compute.instances.insert, instanceResource)
                 .then(function(instanceInformation) {
                     var pieces_array = instanceInformation[0].targetLink.split('/');
@@ -632,7 +647,8 @@ function main() {
 
         if (!_.isUndefined(argv.scale)) {
             // add a --term flag to allow removing nodes
-            scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers)
+            //gcloud.js --app noobaa-test-1 --scale 20 --is_win
+            scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers, argv.is_win, argv.filter_region)
                 .then(function(res) {
                     console_inspect('Scale: completed to ' + argv.scale);
                     return describe_instances().then(print_instances);

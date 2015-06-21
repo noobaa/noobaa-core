@@ -13,13 +13,21 @@
  */
 
 #define DEDUP_TDEF \
+    /* hash type - needs to be able to hold the polynom and do bitwize operations */ \
     typename HashType, \
+    /* polynom degree - the index of the top bit of the polynom */ \
     uint8_t POLY_DEGREE, \
+    /* irreducible/primitive polynom reminder (top bit unneeded) */ \
     HashType POLY_REM, \
+    /* window length for rolling hash */ \
     uint8_t WINDOW_LEN, \
+    /* minimum chunk length to avoid too small chunks, also used to fast skip for performance */ \
     uint32_t DEDUP_MIN_CHUNK, \
+    /* maximum chunk length to avoid too large chunks */ \
     uint32_t DEDUP_MAX_CHUNK, \
+    /* number of lower bits of the fingerprint used to match the hash value */ \
     uint32_t DEDUP_AVG_CHUNK_BITS, \
+    /* hash value to match lower bits, can be any  value, but constant */ \
     HashType DEDUP_AVG_CHUNK_VAL
 
 #define DEDUP_TARGS \
@@ -31,6 +39,17 @@
     DEDUP_MAX_CHUNK, \
     DEDUP_AVG_CHUNK_BITS, \
     DEDUP_AVG_CHUNK_VAL
+
+#define DEDUP_V1_ARGS \
+    uint32_t,       /* HashType */ \
+    31u,            /* POLY_DEGREE */ \
+    0x9u,           /* POLY_REM */ \
+    128u,           /* WINDOW_LEN */ \
+    3u*128*1024,    /* DEDUP_MIN_CHUNK */ \
+    6u*128*1024,    /* DEDUP_MAX_CHUNK */ \
+    18u,            /* DEDUP_AVG_CHUNK_BITS */ \
+    0x07071070u     /* DEDUP_AVG_CHUNK_VAL */
+
 
 template<DEDUP_TDEF>
 class Dedup : public node::ObjectWrap
@@ -52,23 +71,6 @@ private:
     static NAN_METHOD(push);
 };
 
-#define DEDUP_V1_ARGS \
-    /* hash type - needs to be able to hold the polynom and do bitwize operations */ \
-    uint32_t, \
-    /* polynom degree */ \
-    31u, \
-    /* irreducible/primitive polynom reminder (top bit unneeded) */ \
-    0x9u, \
-    /* window length for rolling hash */ \
-    128u, \
-    /* minimum chunk length */ \
-    3u*128*1024, \
-    /* maximum chunk length */ \
-    6u*128*1024, \
-    /* number of lower bits used to match the hash value */ \
-    18u, \
-    /* hash value to match lower bits, can be any other value, but constant. */ \
-    0x07071070u
 
 typedef Dedup<DEDUP_V1_ARGS> Dedup_v1;
 

@@ -11,6 +11,7 @@
 #include <uv.h>
 #include <node.h>
 #include <node_buffer.h>
+#include <nan.h>
 
 typedef v8::Handle<v8::Object> HOBJ;
 typedef v8::Handle<v8::Value> HVAL;

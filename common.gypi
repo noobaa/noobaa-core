@@ -4,6 +4,9 @@
         'configurations': {
 
             'Debug': {
+                'include_dirs' : [
+                    '<!(node -e \"require(\'nan\')\")'
+                ],
                 # cancel node common using negatives (cflags!)
                 'cflags!': ['-fno-exceptions'],
                 'cflags_cc!': ['-fno-exceptions'],
@@ -24,6 +27,9 @@
             },
 
             'Release': {
+                'include_dirs' : [
+                    '<!(node -e \"require(\'nan\')\")'
+                ],
                 # cancel node common using negatives (cflags!)
                 'cflags!': ['-fno-exceptions'],
                 'cflags_cc!': ['-fno-exceptions'],

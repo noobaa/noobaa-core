@@ -75,7 +75,7 @@ function pre_upgrade {
   fi
 
   sysctl -w fs.file-max=102400
-  sysctl -p
+  sysctl -e -p
   agent_conf=${CORE_DIR}/agent_conf.json
   if [ -f "$agent_conf" ]
     then

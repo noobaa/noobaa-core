@@ -515,7 +515,8 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     } else {
         if (is_win) {
             run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
-            instance_type = 'm3.large';
+            run_script = "<script>"+run_script+"</script>";
+            instance_type = 't2.micro';
         } else {
 
             test_instances_counter = (run_script.match(/test/g) || []).length;

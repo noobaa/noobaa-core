@@ -91,15 +91,19 @@ function import_key_pair_to_region() {
 function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
 
     return describe_instances({
-        filter: 'status ne STOPPING'
+        filter: 'status ne STOPPING '
+    }, {
+        match: app_name
     }).then(function(instances) {
         //console.log('full instances',instances);
         var instances_per_zone = _.groupBy(instances, 'zone');
+
         var zones_names = instances.zones;
         if (!_.isUndefined(filter_region)) {
             console.log('Filter and use only region:', filter_region);
             zones_names = [filter_region];
         }
+
         //console.log('instances_per_zone',instances_per_zone);
         var target_zone_count = 0;
         var first_zone_extra_count = 0;
@@ -219,8 +223,9 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
         }
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' --- removing', instances.length - count);
-        var death_row = _.first(instances, instances.length - count);
+        var death_row = _.slice(instances, 0,instances.length - count);
         var ids = _.pluck(death_row, 'name');
+        console.log('death row (ids):',ids);
         //in this case, the id is the instance name.
         return terminate_instances(region_name, ids);
     }
@@ -263,12 +268,15 @@ function print_instances(instances) {
             //console.log('current_instance:'+current_instance);
             var pieces_array = current_instance.zone.split('/');
             var zone_name = pieces_array[pieces_array.length - 1];
+            current_instance.tags_map = _.mapValues(_.indexBy(current_instance.metadata.items, 'key'), 'value');
+
             console.log('Instance:',
                 current_instance.id,
                 current_instance.status || '[no-state]',
+                'tag_name:',current_instance.tags_map.Name || '<NA>',
                 current_instance.networkInterfaces[0].accessConfigs[0].natIP,
                 zone_name,
-                current_instance.Name || '[no-name]',
+                current_instance.Name || '',
                 '[private ip ' + current_instance.networkInterfaces[0].networkIP + ']'
             );
 
@@ -318,7 +326,7 @@ function instanceCreationProgressHandler(operationResourceInput, callback) {
  *      each entry is array of instance info.
  *
  */
-function describe_instances(params) {
+function describe_instances(params, filter) {
     var zones = [];
     var created_instance_data = [];
 
@@ -347,7 +355,33 @@ function describe_instances(params) {
         var instances = _.flatten(created_instance_data);
         // also put the regions list as a "secret" property of the array
         instances.zones = zones;
-        return instances;
+        return _.filter(instances, function(instance) {
+            instance.tags_map = _.mapValues(_.indexBy(instance.metadata.items, 'key'), 'value');
+
+            //console.log('filter instance:',instance.name,instance.tags_map.Name);
+            if (typeof filter !== 'undefined') {
+                if (filter.filter_tags &&
+                    (typeof instance.tags_map.Name !== 'undefined')) {
+                    if ((instance.tags_map.Name.indexOf(filter.filter_tags) !== -1) ||
+                        instance.tags_map.Name !== argv.tag) {
+                        console.log('FILTERED exclude', instance.name, instance.tags_map.Name);
+                        return false;
+                    }
+                } else if (filter.match &&
+                    (typeof instance.tags_map.Name !== 'undefined')) {
+                    if (instance.tags_map.Name.indexOf(filter.match) === -1) {
+                        console.log('FILTERED match', instance.name, instance.tags_map.Name);
+                        return false;
+                    }
+                }
+                if (typeof instance.tags_map.Name === 'undefined') {
+                    //assume empty tagged instances are manual and always ignore them
+                    return false;
+                }
+            }
+            return true;
+        });
+
     }).fail(
         function(error) {
             if (error && error.errors && error.errors[0].reason === 'notFound') {
@@ -481,6 +515,9 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         }, {
                             key: 'env',
                             value: noobaa_env_name
+                        }, {
+                            key: 'Name',
+                            value: 'AgentInstance_For_' + app_name
                         }]
                     },
                     networkInterfaces: [{
@@ -495,8 +532,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                 },
 
             };
-            console.log('New instance name: in region:' +region_name);
-
+            console.log('New instance name: in region:' + region_name);
             return Q.nfcall(compute.instances.insert, instanceResource)
                 .then(function(instanceInformation) {
                     var pieces_array = instanceInformation[0].targetLink.split('/');
@@ -611,14 +647,15 @@ function main() {
     if (_.isUndefined(argv.app)) {
 
         console.error('\n\n******************************************');
-        console.error('Please provide --app (heroku app name)');
+        console.error('Please provide --app (used to be heroku app name.');
+        console.error('currently just tag for reference - use the metadata server address)');
         console.error('******************************************\n\n');
         throw new Error('MISSING --app');
     } else {
         app_name = argv.app;
-        SERVICE_ACCOUNT_EMAIL = process.env[app_name.toUpperCase() + '_SERVICE_ACCOUNT_EMAIL'];
-        SERVICE_ACCOUNT_KEY_FILE = process.env[app_name.toUpperCase() + '_SERVICE_ACCOUNT_KEY_FILE'];
-        NooBaaProject = process.env[app_name.toUpperCase() + '_NOOBAA_PROJECT_NAME'];
+        SERVICE_ACCOUNT_EMAIL = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
+        SERVICE_ACCOUNT_KEY_FILE = process.env.GOOGLE_SERVICE_ACCOUNT_KEY_FILE;
+        NooBaaProject = process.env.GOOGLE_PROJECT_NAME;
         authClient = new google.auth.JWT(
             SERVICE_ACCOUNT_EMAIL,
             SERVICE_ACCOUNT_KEY_FILE,
@@ -628,7 +665,7 @@ function main() {
 
 
     }
-    if (_.isUndefined(app_name + '_' + SERVICE_ACCOUNT_EMAIL)) {
+    if (_.isUndefined(SERVICE_ACCOUNT_EMAIL)) {
         console.error('\n\n****************************************************');
         console.error('You must provide google cloud env details in .env:');
         console.error('SERVICE_ACCOUNT_EMAIL SERVICE_ACCOUNT_KEY_FILE NOOBAA_PROJECT_NAME');

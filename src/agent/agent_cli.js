@@ -283,7 +283,7 @@ AgentCLI.prototype.start = function(node_name) {
             prefered_secure_port: self.params.secure_port,
             storage_path: path.join(self.params.root_path, node_name),
         });
-        dbg.log0('agent inited', node_name);
+        dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port);
     }
 
     return Q.fcall(function() {

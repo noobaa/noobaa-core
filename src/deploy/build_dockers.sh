@@ -12,8 +12,8 @@ SYSTEM_ID="0"
 function usage {
   #Usage:
   #./src/deploy/build.sh --system_id=5562f0a --access_key=123 --secret_key=abc --system=demo --address=wss://52.28.110.142
-  echo "usage: <--system_id> <--system> <--address> <--access_key> <--secret_key>"
-  echo "example: build_docker.sh --system_id=5562f0a --access_key=123 --secret_key=abc --system=demo --address=wss://52.28.110.142"
+  echo "usage: <--system_id> <--system> <--address[:port]> <--access_key> <--secret_key>"
+  echo "example: build_docker.sh --system_id=5562f0a --access_key=123 --secret_key=abc --system=demo --address=wss://52.28.110.142:8443"
   exit 1
 }
 

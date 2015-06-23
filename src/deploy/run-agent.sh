@@ -19,7 +19,7 @@ if [ $# -eq 1 ]
     echo 'got port '$1 $2
     node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  wss://$1  --port $2
 fi
-time curl -k -H "Accept: application/json" https://$1/agent/package.json > package.json
+time curl -k -H "Accept: application/json" https://${1}:8443/agent/package.json > package.json
 echo '++++++++++  updated code. reload ++++++++++'
 time rm -rf node_modules/
 time npm config set strict-ssl false

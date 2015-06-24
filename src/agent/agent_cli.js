@@ -288,7 +288,7 @@ AgentCLI.prototype.start = function(node_name) {
     }
 
     return Q.fcall(function() {
-        return promise_utils.retry(100, 1000, 1000, agent.start());
+        return promise_utils.retry(100, 1000, 1000, agent.start.bind(agent));
     }).then(function(res) {
         dbg.log0('agent started', node_name);
         return res;

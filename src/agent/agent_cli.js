@@ -15,6 +15,7 @@ var Semaphore = require('noobaa-util/semaphore');
 var api = require('../api');
 var Agent = require('./agent');
 var fs_utils = require('../util/fs_utils');
+var promise_utils = require('../util/promise_utils');
 // var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var child_process = require('child_process');
@@ -287,7 +288,7 @@ AgentCLI.prototype.start = function(node_name) {
     }
 
     return Q.fcall(function() {
-        return agent.start();
+        return promise_utils.retry(100, 1000, 1000, agent.start());
     }).then(function(res) {
         dbg.log0('agent started', node_name);
         return res;

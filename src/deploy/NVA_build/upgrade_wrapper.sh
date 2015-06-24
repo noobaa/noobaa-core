@@ -58,20 +58,20 @@ function pre_upgrade {
 
   fix_bashrc
 
-  if grep -Fxq "* hard nofile" /etc/security/limits.conf
+  if grep -Fxq "root hard nofile" /etc/security/limits.conf
   then
     deploy_log "hard limit already exists"
   else
     deploy_log "fixing hard limit"
-    echo "* hard nofile 102400" >> /etc/security/limits.conf
+    echo "root hard nofile 102400" >> /etc/security/limits.conf
   fi
 
-  if grep -Fxq "* soft nofile" /etc/security/limits.conf
+  if grep -Fxq "root soft nofile" /etc/security/limits.conf
   then
     deploy_log "fixing soft limit"
     deploy_log "soft limit already exists"
   else
-    echo "* soft nofile 102400" >> /etc/security/limits.conf
+    echo "root soft nofile 102400" >> /etc/security/limits.conf
   fi
 
   sysctl -w fs.file-max=102400

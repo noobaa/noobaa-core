@@ -487,7 +487,8 @@ nb_api.factory('nbNodes', [
                     $window.document.body.removeChild(link);
                 })
                 .then(null, function(err) {
-                    nbAlertify.error('Diagnose node encountered errors' + err.toString());
+                    dbg.log0('Diagnose node encountered errors',err , err.stack);
+                    nbAlertify.error('Diagnose node encountered errors');
                 });
         }
 

@@ -3,32 +3,67 @@
 
 #include "common.h"
 
-#define RABIN_TDEF \
-    typename HashType, \
-    uint8_t POLY_DEGREE, \
-    HashType POLY_REM, \
-    uint8_t WINDOW_LEN
-
-#define RABIN_TARGS \
-    HashType, \
-    POLY_DEGREE, \
-    POLY_REM, \
-    WINDOW_LEN
-
-template<RABIN_TDEF>
+template<typename HashType_>
 class Rabin
 {
+
 public:
-    explicit Rabin();
-    ~Rabin();
-    HashType value() { return _fingerprint; }
-    void update(uint8_t byte);
+
+    typedef HashType_ HashType;
+
+    class Config
+    {
+    public:
+        explicit Config(
+            HashType poly_,
+            int degree_,
+            int window_len_)
+            : poly(poly_)
+            , degree(degree_)
+            , window_len(window_len_)
+            , carry_bit(HashType(1) << (degree_ - 1))
+            {}
+        /* irreducible/primitive polynom reminder (top bit unneeded) */
+        const HashType poly;
+        /* polynom degree - the index of the top bit of the polynom */
+        const int degree;
+        /* window length in bytes for rolling hash */
+        const int window_len;
+        // the last bit before the degree
+        const HashType carry_bit;
+    };
+
+public:
+
+    explicit Rabin(const Config& conf)
+        : _conf(conf)
+        , _fingerprint(0)
+        , _window_pos(0)
+        , _window(new uint8_t[conf.window_len])
+        {}
+
+    ~Rabin() {
+        delete[] _window;
+    }
+
+    HashType value()
+    {
+        return _fingerprint;
+    }
+
+    void reset()
+    {
+        _fingerprint = 0;
+        memset(_window, 0, _conf.window_len);
+    }
+
+    HashType update(uint8_t byte);
+
 protected:
-    static const HashType CARRY_BIT = HashType(1) << (POLY_DEGREE - 1);
-    static const HashType CARRY_BYTE = HashType(0xFF) << (POLY_DEGREE - 9);
+    const Config& _conf;
     HashType _fingerprint;
-    uint8_t _window_pos;
-    uint8_t _window[WINDOW_LEN];
+    int _window_pos;
+    uint8_t* _window;
 };
 
 #include "rabin.hpp"

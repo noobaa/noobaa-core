@@ -1,9 +1,9 @@
-#include "dedup.h"
+#include "ingest.h"
 
 static void
 setup(HOBJ exports)
 {
-    Dedup_v1::setup("Dedup_v1", exports);
+    Ingest_v1::setup(exports);
 }
 
 NODE_MODULE(native_util, setup)

@@ -5,6 +5,7 @@
         #'type': '<(library)',
         'sources': [
             'src/util/native/module.cpp',
+            'src/util/native/ingest.cpp',
             'src/util/native/tpool.cpp',
         ],
     }, {

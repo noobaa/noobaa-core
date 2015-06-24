@@ -2,7 +2,6 @@
 #define DEDUP_H_
 
 #include "common.h"
-#include "rabin.h"
 
 /**
  *
@@ -12,67 +11,57 @@
  *
  */
 
-#define DEDUP_TDEF \
-    /* hash type - needs to be able to hold the polynom and do bitwize operations */ \
-    typename HashType, \
-    /* polynom degree - the index of the top bit of the polynom */ \
-    uint8_t POLY_DEGREE, \
-    /* irreducible/primitive polynom reminder (top bit unneeded) */ \
-    HashType POLY_REM, \
-    /* window length for rolling hash */ \
-    uint8_t WINDOW_LEN, \
-    /* minimum chunk length to avoid too small chunks, also used to fast skip for performance */ \
-    uint32_t DEDUP_MIN_CHUNK, \
-    /* maximum chunk length to avoid too large chunks */ \
-    uint32_t DEDUP_MAX_CHUNK, \
-    /* number of lower bits of the fingerprint used to match the hash value */ \
-    uint32_t DEDUP_AVG_CHUNK_BITS, \
-    /* hash value to match lower bits, can be any  value, but constant */ \
-    HashType DEDUP_AVG_CHUNK_VAL
-
-#define DEDUP_TARGS \
-    HashType, \
-    POLY_DEGREE, \
-    POLY_REM, \
-    WINDOW_LEN, \
-    DEDUP_MIN_CHUNK, \
-    DEDUP_MAX_CHUNK, \
-    DEDUP_AVG_CHUNK_BITS, \
-    DEDUP_AVG_CHUNK_VAL
-
-#define DEDUP_V1_ARGS \
-    uint32_t,       /* HashType */ \
-    31u,            /* POLY_DEGREE */ \
-    0x9u,           /* POLY_REM */ \
-    128u,           /* WINDOW_LEN */ \
-    3u*128*1024,    /* DEDUP_MIN_CHUNK */ \
-    6u*128*1024,    /* DEDUP_MAX_CHUNK */ \
-    18u,            /* DEDUP_AVG_CHUNK_BITS */ \
-    0x07071070u     /* DEDUP_AVG_CHUNK_VAL */
-
-
-template<DEDUP_TDEF>
-class Dedup : public node::ObjectWrap
+template<typename Hasher_>
+class Dedup
 {
-private:
-    explicit Dedup();
-    ~Dedup();
+public:
+    typedef Hasher_ Hasher;
+    typedef typename Hasher::HashType HashType;
+    typedef typename Hasher::Config HasherConf;
 
-private:
-    typedef Rabin<HashType, POLY_DEGREE, POLY_REM, WINDOW_LEN> RabinHasher;
-    RabinHasher _hasher;
+    class Config
+    {
+    public:
+        explicit Config(
+            int min_chunk_,
+            int max_chunk_,
+            int avg_chunk_bits_,
+            HashType avg_chunk_val_)
+            : min_chunk(min_chunk_)
+            , max_chunk(max_chunk_)
+            , avg_chunk_bits(avg_chunk_bits_)
+            , avg_chunk_val(avg_chunk_val_)
+            , avg_chunk_mask( ~((~HashType(0)) >> avg_chunk_bits_ << avg_chunk_bits_) )
+            {}
+        /* minimum chunk length to avoid too small chunks, also used to fast skip for performance */
+        const int min_chunk;
+        /* maximum chunk length to avoid too large chunks */
+        const int max_chunk;
+        /* number of lower bits of the fingerprint used to match the hash value */
+        const int avg_chunk_bits;
+        /* hash value to match lower bits, can be any  value, but constant */
+        const HashType avg_chunk_val;
+        /* computed mask to pick just avg_chunk_bits lower bits */
+        const HashType avg_chunk_mask;
+    };
 
 public:
-    static void setup(const char* name, HOBJ exports);
+
+    explicit Dedup(const Config& conf, const HasherConf& hasher_conf)
+        : _conf(conf)
+        , _hasher(hasher_conf)
+        , _current_len(0)
+        {}
+
+    ~Dedup() {}
+
+    void push(const uint8_t* data, int len);
 
 private:
-    static v8::Persistent<v8::Function> _ctor;
-    static NAN_METHOD(new_instance);
-    static NAN_METHOD(push);
+    const Config& _conf;
+    Hasher _hasher;
+    int _current_len;
 };
-
-
-typedef Dedup<DEDUP_V1_ARGS> Dedup_v1;
 
 #include "dedup.hpp"
 

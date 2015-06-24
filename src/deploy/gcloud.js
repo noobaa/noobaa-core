@@ -454,7 +454,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
 
             if (is_docker_host) {
                 startup_script = 'http://noobaa-download.s3.amazonaws.com/docker_setup.sh';
-                machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-8';
+                machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/n1-highmem-4';
 
             } else {
                 if (is_win) {

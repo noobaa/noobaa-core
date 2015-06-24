@@ -154,8 +154,8 @@ function general_settings {
 	echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 
 	#Fix file descriptor limits
-	echo "* hard nofile 102400" >> /etc/security/limits.conf
-	echo "* soft nofile 102400" >> /etc/security/limits.conf
+	echo "root hard nofile 102400" >> /etc/security/limits.conf
+	echo "root soft nofile 102400" >> /etc/security/limits.conf
 	sysctl -w fs.file-max=102400
 	sysctl -e -p
 

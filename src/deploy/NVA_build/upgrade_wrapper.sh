@@ -63,7 +63,7 @@ function pre_upgrade {
     deploy_log "hard limit already exists"
   else
     deploy_log "fixing hard limit"
-    echo "* hard nofile 102400" >> /etc/security/limits.conf
+    echo "root hard nofile 102400" >> /etc/security/limits.conf
   fi
 
   if grep -Fxq "* soft nofile" /etc/security/limits.conf
@@ -71,7 +71,7 @@ function pre_upgrade {
     deploy_log "fixing soft limit"
     deploy_log "soft limit already exists"
   else
-    echo "* soft nofile 102400" >> /etc/security/limits.conf
+    echo "root soft nofile 102400" >> /etc/security/limits.conf
   fi
 
   sysctl -w fs.file-max=102400

@@ -55,7 +55,13 @@ NAN_METHOD(Ingest_v1::push)
     }
 
     Buf buf(args[0]);
+    std::cout << "Dedup " << buf.length() << std::endl;
     self->_deduper.push(buf);
+    std::cout << "Pushed " << buf.length() << std::endl;
+    while(self->_deduper.has_chunks()) {
+        Buf chunk(self->_deduper.pop_chunk());
+        std::cout << "Chunk " << chunk.length() << std::endl;
+    }
 
     NanReturnUndefined();
 }

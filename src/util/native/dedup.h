@@ -57,11 +57,24 @@ public:
 
     void push(Buf buf);
 
+    bool has_chunks()
+    {
+        return !_chunks.empty();
+    }
+
+    Buf pop_chunk()
+    {
+        Buf buf(_chunks.front());
+        _chunks.pop_front();
+        return buf;
+    }
+
 private:
     const Config& _conf;
     Hasher _hasher;
     int _current_len;
-    std::list<Buf> _bufs;
+    std::list<Buf> _slices;
+    std::list<Buf> _chunks;
 };
 
 #include "dedup.hpp"

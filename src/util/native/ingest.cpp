@@ -47,7 +47,6 @@ NAN_METHOD(Ingest_v1::new_instance)
 NAN_METHOD(Ingest_v1::push)
 {
     NanScope();
-
     auto self = Unwrap<Ingest_v1>(args.This());
 
     if (args.Length() < 1 || !node::Buffer::HasInstance(args[0])) {
@@ -55,13 +54,27 @@ NAN_METHOD(Ingest_v1::push)
     }
 
     Buf buf(args[0]);
-    std::cout << "Dedup " << buf.length() << std::endl;
+    std::cout << "Ingest_v1::push start " << buf.length() << std::endl;
     self->_deduper.push(buf);
-    std::cout << "Pushed " << buf.length() << std::endl;
+    std::cout << "Ingest_v1::push pushed " << buf.length() << std::endl;
     while(self->_deduper.has_chunks()) {
         Buf chunk(self->_deduper.pop_chunk());
-        std::cout << "Chunk " << chunk.length() << std::endl;
+        std::cout << "Ingest_v1::push chunk " << chunk.length() << std::endl;
     }
 
+    NanReturnUndefined();
+}
+
+NAN_METHOD(Ingest_v1::flush)
+{
+    NanScope();
+    auto self = Unwrap<Ingest_v1>(args.This());
+    std::cout << "Ingest_v1::flush start" << std::endl;
+    self->_deduper.flush();
+    std::cout << "Ingest_v1::flush flushed" << std::endl;
+    while(self->_deduper.has_chunks()) {
+        Buf chunk(self->_deduper.pop_chunk());
+        std::cout << "Ingest_v1::push chunk " << chunk.length() << std::endl;
+    }
     NanReturnUndefined();
 }

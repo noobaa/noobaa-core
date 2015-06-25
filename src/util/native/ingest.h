@@ -34,6 +34,7 @@ private:
     static v8::Persistent<v8::Function> _ctor;
     static NAN_METHOD(new_instance);
     static NAN_METHOD(push);
+    static NAN_METHOD(flush);
 };
 
 #endif // INGEST_H_

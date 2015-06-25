@@ -57,6 +57,8 @@ public:
 
     void push(Buf buf);
 
+    void flush();
+
     bool has_chunks()
     {
         return !_chunks.empty();

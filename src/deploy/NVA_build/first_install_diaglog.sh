@@ -84,7 +84,7 @@ function end_wizard {
 
 who=$(whoami)
 if [ "$who" != "noobaa" ]; then
-  exit 0
+  return
 fi
 
 if [ ! -f ${FIRST_INSTALL_MARK} ]; then

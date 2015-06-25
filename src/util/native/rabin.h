@@ -57,7 +57,7 @@ public:
         memset(_window, 0, _conf.window_len);
     }
 
-    HashType update(uint8_t byte);
+    inline HashType update(uint8_t byte);
 
 protected:
     const Config& _conf;

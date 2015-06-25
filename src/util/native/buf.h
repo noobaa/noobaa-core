@@ -46,7 +46,9 @@ public:
 
     ~Buf()
     {
-        NanDisposePersistent(_ref);
+        if (_ref.IsNearDeath()) {
+            NanDisposePersistent(_ref);
+        }
     }
 
     inline uint8_t* data()

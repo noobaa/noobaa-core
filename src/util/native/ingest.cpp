@@ -25,6 +25,7 @@ Ingest_v1::setup(v8::Handle<v8::Object> exports)
     tpl->SetClassName(NanNew(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(tpl, "push", Ingest_v1::push);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", Ingest_v1::flush);
     NanAssignPersistent(_ctor, tpl->GetFunction());
     exports->Set(NanNew(name), _ctor);
 }

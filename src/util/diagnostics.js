@@ -52,6 +52,9 @@ function collect_server_diagnostics() {
             return collect_basic_diagnostics();
         })
         .then(function() {
+            return collect_supervisor_logs();
+        })
+        .then(function() {
             return promise_utils.promised_spawn('cp', ['-f', '/var/log/noobaa_deploy.log', TMP_WORK_DIR], process.cwd());
         })
         .then(function() {
@@ -94,5 +97,19 @@ function pack_diagnostics(dst) {
         .then(null, function(err) {
             console.error('Error in packing diagnostics', err);
             throw new Error('Error in packing diagnostics ' + err);
+        });
+}
+
+/*
+ * Internal Utils
+ */
+
+function collect_supervisor_logs() {
+    return Q.fcall(function() {
+            return promise_utils.full_dir_copy('/tmp/supervisor', TMP_WORK_DIR);
+        })
+        .then(null, function(err) {
+            console.error('Error in collecting supervisor logs', err);
+            throw new Error('Error in collecting supervisor logs ' + err);
         });
 }

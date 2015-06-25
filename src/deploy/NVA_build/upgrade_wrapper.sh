@@ -122,6 +122,8 @@ function post_upgrade {
   echo "You can use noobaa/Passw0rd login to configure IP & DNS" >>/etc/issue
 
   #NooBaa supervisor services configuration changes
+  sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
+  sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
 

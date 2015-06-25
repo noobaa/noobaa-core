@@ -173,6 +173,8 @@ function setup_supervisors {
 	deploy_log "setup_supervisors start"
 	# Generate default supervisord config
 	echo_supervisord_conf > /etc/supervisord.conf
+	sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
+	sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
 
 	# Autostart supervisor
 	deploy_log "setup_supervisors autostart"

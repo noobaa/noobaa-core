@@ -13,7 +13,7 @@ public:
 
     class Config
     {
-    public:
+public:
         explicit Config(
             HashType poly_,
             int degree_,
@@ -22,7 +22,11 @@ public:
             , degree(degree_)
             , window_len(window_len_)
             , carry_bit(HashType(1) << (degree_ - 1))
-            {}
+        {
+            for (int i=0; i<256; i++) {
+                byte_out_table[i] = i; // TODO
+            }
+        }
         /* irreducible/primitive polynom reminder (top bit unneeded) */
         const HashType poly;
         /* polynom degree - the index of the top bit of the polynom */
@@ -31,6 +35,8 @@ public:
         const int window_len;
         // the last bit before the degree
         const HashType carry_bit;
+        //
+        HashType byte_out_table[256];
     };
 
 public:
@@ -40,7 +46,8 @@ public:
         , _fingerprint(0)
         , _window_pos(0)
         , _window(new uint8_t[conf.window_len])
-        {}
+    {
+    }
 
     ~Rabin() {
         delete[] _window;
@@ -57,7 +64,7 @@ public:
         memset(_window, 0, _conf.window_len);
     }
 
-    inline HashType update(uint8_t byte);
+    HashType update(uint8_t byte);
 
 protected:
     const Config& _conf;

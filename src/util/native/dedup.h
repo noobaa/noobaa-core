@@ -55,12 +55,13 @@ public:
 
     ~Dedup() {}
 
-    void push(const uint8_t* data, int len);
+    void push(Buf buf);
 
 private:
     const Config& _conf;
     Hasher _hasher;
     int _current_len;
+    std::list<Buf> _bufs;
 };
 
 #include "dedup.hpp"

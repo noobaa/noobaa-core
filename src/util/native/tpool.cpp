@@ -35,7 +35,7 @@ void ThreadPool::submit(ThreadPool::WorkItem* item)
 
 void ThreadPool::thread_cb(void* arg)
 {
-    ThreadSpec* spec = reinterpret_cast<ThreadSpec*>(arg);
+    ThreadSpec* spec = static_cast<ThreadSpec*>(arg);
     spec->tpool->thread_main(*spec);
     delete spec;
 }

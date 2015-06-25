@@ -18,7 +18,7 @@ Ingest_v1::Deduper::Config Ingest_v1::_deduper_conf(
     );
 
 void
-Ingest_v1::setup(HOBJ exports)
+Ingest_v1::setup(v8::Handle<v8::Object> exports)
 {
     auto name = "Ingest_v1";
     auto tpl(NanNew<v8::FunctionTemplate>(Ingest_v1::new_instance));
@@ -50,15 +50,12 @@ NAN_METHOD(Ingest_v1::push)
 
     auto self = Unwrap<Ingest_v1>(args.This());
 
-    if (args.Length() < 1) {
-        NanReturnUndefined();
+    if (args.Length() < 1 || !node::Buffer::HasInstance(args[0])) {
+        return NanThrowError("buffer argument expected");
     }
 
-    auto buffer_object = args[0]->ToObject();
-    const uint8_t* data = reinterpret_cast<const uint8_t*>(node::Buffer::Data(buffer_object));
-    int len = node::Buffer::Length(buffer_object);
-
-    self->_deduper.push(data, len);
+    Buf buf(args[0]);
+    self->_deduper.push(buf);
 
     NanReturnUndefined();
 }

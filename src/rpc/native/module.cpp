@@ -1,7 +1,7 @@
 #include "nudp.h"
 
 static void
-setup(HOBJ exports)
+setup(v8::Handle<v8::Object> exports)
 {
     Nudp::setup(exports);
 }

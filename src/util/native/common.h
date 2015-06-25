@@ -1,11 +1,17 @@
 #ifndef COMMON_H_
 #define COMMON_H_
 
-#include <iostream>
-#include <exception>
-#include <stdexcept>
 #include <stdint.h>
+#include <stddef.h>
+#include <stdexcept>
+#include <assert.h>
+#include <memory>
 #include <vector>
+#include <deque>
+#include <list>
+#include <map>
+#include <exception>
+#include <iostream>
 
 #include <v8.h>
 #include <uv.h>
@@ -13,13 +19,12 @@
 #include <node_buffer.h>
 #include <nan.h>
 
-typedef v8::Handle<v8::Object> HOBJ;
-typedef v8::Handle<v8::Value> HVAL;
-typedef v8::Local<v8::Value> LVAL;
+#include "buf.h"
 
 #define NAN_METHOD_TO_SELF(clazz, method) \
-    static NAN_METHOD(method) { \
-        return Unwrap<clazz>(args.This())->_##method(args); \
+    static NAN_METHOD(method) \
+    { \
+        return Unwrap<clazz>(args.This())->_ ## method(args); \
     }
 
 #endif // COMMON_H_

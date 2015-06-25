@@ -19,7 +19,7 @@
 class Ingest_v1 : public node::ObjectWrap
 {
 public:
-    static void setup(HOBJ exports);
+    static void setup(v8::Handle<v8::Object> exports);
 
 private:
     explicit Ingest_v1() : _deduper(_deduper_conf, _hasher_conf) {}

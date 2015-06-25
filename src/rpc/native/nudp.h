@@ -7,7 +7,7 @@ private:
     ~Nudp();
 
 public:
-    static void setup(HOBJ exports);
+    static void setup(v8::Handle<v8::Object> exports);
 
 private:
     static v8::Persistent<v8::Function> _ctor;

@@ -13,7 +13,7 @@ Nudp::~Nudp()
 v8::Persistent<v8::Function> Nudp::_ctor;
 
 void
-Nudp::setup(HOBJ exports)
+Nudp::setup(v8::Handle<v8::Object> exports)
 {
     auto tpl(NanNew<v8::FunctionTemplate>(Nudp::new_instance));
     tpl->SetClassName(NanNew("Nudp"));

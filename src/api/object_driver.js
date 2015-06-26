@@ -9,8 +9,6 @@ var Semaphore = require('noobaa-util/semaphore');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
 var CoalesceStream = require('../util/coalesce_stream');
-var rabin = require('../util/rabin');
-var Poly = require('../util/poly');
 var chunk_crypto = require('../util/chunk_crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
@@ -18,6 +16,8 @@ var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var bindings = require('bindings');
+var native_util = typeof(bindings) === 'function' && bindings('native_util.node');
 
 module.exports = ObjectDriver;
 
@@ -124,15 +124,21 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         // PIPELINE: split to chunks by rabin //
         ////////////////////////////////////////
 
-        pipeline.pipe(new rabin.RabinChunkStream({
-            window_length: 128,
-            min_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 3,
-            max_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 6,
-            hash_spaces: [{
-                poly: new Poly(Poly.PRIMITIVES[31]),
-                hash_bits: self.OBJECT_RANGE_ALIGN_NBITS - 1, // 256 KB average chunk
-                hash_val: 0x07071070 // hebrew calculator pimp
-            }],
+        pipeline.pipe(transformer({
+            init: function() {
+                var stream = this;
+                this._ingest = new native_util.Ingest_v1(function(data) {
+                    console.log('CHUNK', data.length);
+                    stream.push(data);
+                });
+            },
+            transform: function(data) {
+                console.log('INGEST', data.length);
+                this._ingest.push(data);
+            },
+            flush: function() {
+                this._ingest.flush();
+            }
         }));
 
         ////////////////////////////

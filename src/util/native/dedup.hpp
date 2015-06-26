@@ -41,7 +41,7 @@ template<typename Hasher_>
 void
 Dedup<Hasher_>::flush()
 {
-    std::cout << "Boundary hash " << std::hex << _hasher.value() << std::endl;
+    // std::cout << "Boundary hash " << std::hex << _hasher.value() << std::endl;
     _chunks.push_back(Buf::concat(_slices.begin(), _slices.end(), _current_len));
     _slices.clear();
     _hasher.reset();

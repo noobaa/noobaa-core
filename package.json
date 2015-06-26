@@ -29,7 +29,8 @@
     "method-override": false,
     "compression": false,
     "node-libnice": false,
-    "libnice": false
+    "libnice": false,
+    "bindings": false
   },
   "dependencies": {
     "MD5": "~1.2.1",

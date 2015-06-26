@@ -58,6 +58,11 @@ public:
         return other;
     }
 
+    inline v8::Persistent<v8::Value> handle()
+    {
+        return _ref;
+    }
+
     inline uint8_t* data()
     {
         return reinterpret_cast<uint8_t*>(_data);
@@ -108,7 +113,6 @@ public:
         }
         return ret;
     }
-
 
 private:
     v8::Persistent<v8::Value> _ref;

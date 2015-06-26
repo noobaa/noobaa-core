@@ -4,13 +4,15 @@
 
 v8::Persistent<v8::Function> Ingest_v1::_ctor;
 
-Ingest_v1::Hasher::Config Ingest_v1::_hasher_conf(
+Ingest_v1::Hasher::Config
+Ingest_v1::_hasher_conf(
     0x9u,   /* poly */
     31u,    /* degree */
     128u    /* window_len */
     );
 
-Ingest_v1::Deduper::Config Ingest_v1::_deduper_conf(
+Ingest_v1::Deduper::Config
+Ingest_v1::_deduper_conf(
     3u*128*1024,    /* min_chunk */
     6u*128*1024,    /* max_chunk */
     18u,            /* avg_chunk_bits */
@@ -34,7 +36,11 @@ NAN_METHOD(Ingest_v1::new_instance)
 {
     NanScope();
     if (args.IsConstructCall()) {
-        Ingest_v1* obj = new Ingest_v1();
+        if (!args[0]->IsFunction()) {
+            return NanThrowError("expected function as first argument");
+        }
+        NanCallbackRef callback(new NanCallback(args[0].As<v8::Function>()));
+        Ingest_v1* obj = new Ingest_v1(callback);
         obj->Wrap(args.This());
         NanReturnValue(args.This());
     } else {
@@ -51,16 +57,18 @@ NAN_METHOD(Ingest_v1::push)
     auto self = Unwrap<Ingest_v1>(args.This());
 
     if (args.Length() < 1 || !node::Buffer::HasInstance(args[0])) {
-        return NanThrowError("buffer argument expected");
+        return NanThrowError("expected buffer as first argument");
     }
 
     Buf buf(args[0]);
-    std::cout << "Ingest_v1::push start " << std::dec << buf.length() << std::endl;
+    // std::cout << "Ingest_v1::push start " << std::dec << buf.length() << std::endl;
     self->_deduper.push(buf);
-    std::cout << "Ingest_v1::push pushed " << std::dec << buf.length() << std::endl;
+    // std::cout << "Ingest_v1::push pushed " << std::dec << buf.length() << std::endl;
     while (self->_deduper.has_chunks()) {
         Buf chunk(self->_deduper.pop_chunk());
-        std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
+        v8::Handle<v8::Value> argv[] = { chunk.handle() };
+        self->_callback->Call(1, argv);
+        // std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
     }
 
     NanReturnUndefined();
@@ -70,12 +78,14 @@ NAN_METHOD(Ingest_v1::flush)
 {
     NanScope();
     auto self = Unwrap<Ingest_v1>(args.This());
-    std::cout << "Ingest_v1::flush start" << std::endl;
+    // std::cout << "Ingest_v1::flush start" << std::endl;
     self->_deduper.flush();
-    std::cout << "Ingest_v1::flush flushed" << std::endl;
+    // std::cout << "Ingest_v1::flush flushed" << std::endl;
     while (self->_deduper.has_chunks()) {
         Buf chunk(self->_deduper.pop_chunk());
-        std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
+        v8::Handle<v8::Value> argv[] = { chunk.handle() };
+        self->_callback->Call(1, argv);
+        // std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
     }
     NanReturnUndefined();
 }

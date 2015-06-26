@@ -15,13 +15,13 @@
                     'OTHER_CFLAGS': [],
                     'OTHER_CPLUSPLUSFLAGS': [
                         '-std=c++11',
-                        # '-stdlib=libc++'
+                        '-stdlib=libc++'
                     ],
                     'OTHER_LDFLAGS': [
-                        # '-stdlib=libc++'
+                        '-stdlib=libc++'
                     ],
-                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
-                    # 'MACOSX_DEPLOYMENT_TARGET': '10.7',
+                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                    'MACOSX_DEPLOYMENT_TARGET': '10.7',
                 },
                 'msvs_settings': {},
             },
@@ -38,13 +38,13 @@
                     'OTHER_CFLAGS': [],
                     'OTHER_CPLUSPLUSFLAGS': [
                         '-std=c++11',
-                        # '-stdlib=libc++'
+                        '-stdlib=libc++'
                     ],
                     'OTHER_LDFLAGS': [
-                        # '-stdlib=libc++'
+                        '-stdlib=libc++'
                     ],
-                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES'
-                    # 'MACOSX_DEPLOYMENT_TARGET': '10.7',
+                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                    'MACOSX_DEPLOYMENT_TARGET': '10.7',
                 },
                 'msvs_settings': {},
             }

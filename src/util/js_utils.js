@@ -18,7 +18,7 @@ module.exports = {
  *
  * see http://stackoverflow.com/questions/17638305/why-is-bind-slower-than-a-closure
  *
- * see src/test/test_bind_perf.js
+ * see src/test/measure_bind_perf.js
  *
  * @param method_desc optional string or array of strings of method names
  *      to bind, if not supplied all enumerable functions will be used.

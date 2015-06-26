@@ -102,6 +102,9 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
         if (!_.isUndefined(filter_region)) {
             console.log('Filter and use only region:', filter_region);
             zones_names = [filter_region];
+        }else
+        {
+            console.log('No Filters. Zones:', zones_names);
         }
 
         //console.log('instances_per_zone',instances_per_zone);
@@ -151,7 +154,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
         }));
     }).fail(function(err) {
         console.log('####');
-        console.log('#### Cannot scale. Reason:', err.message);
+        console.log('#### Cannot scale. Reason:', err.message,err.stack);
         console.log('####');
 
     });
@@ -354,11 +357,10 @@ function describe_instances(params, filter) {
     }).then(function(err, data) {
         var instances = _.flatten(created_instance_data);
         // also put the regions list as a "secret" property of the array
-        instances.zones = zones;
         return _.filter(instances, function(instance) {
             instance.tags_map = _.mapValues(_.indexBy(instance.metadata.items, 'key'), 'value');
 
-            //console.log('filter instance:',instance.name,instance.tags_map.Name);
+            //console.log('filter instance:',instance.name,instance.tags_map.Name,instances.zones);
             if (typeof filter !== 'undefined') {
                 if (filter.filter_tags &&
                     (typeof instance.tags_map.Name !== 'undefined')) {
@@ -382,6 +384,9 @@ function describe_instances(params, filter) {
             return true;
         });
 
+    }).then(function(instances){
+        instances.zones = zones;
+        return instances;
     }).fail(
         function(error) {
             if (error && error.errors && error.errors[0].reason === 'notFound') {

@@ -85,12 +85,12 @@ function setup_repos {
 
 	fi
 
-	deploy_log "setting up crontab"
+	#deploy_log "setting up crontab"
 	# Setup crontab job for upgrade checks
 	# once a day at HH = midnight + RAND[0,2], MM = RAND[0,59]
-	local hour_skew=$(((RANDOM)%3))
-	local minutes=$(((RANDOM)%60))
-	crontab -l 2>/dev/null; echo "${minutes} ${hour_skew} * * * ${CORE_DIR}/src/deploy/NVA_build/upgrade.sh" | crontab -
+	#local hour_skew=$(((RANDOM)%3))
+	#local minutes=$(((RANDOM)%60))
+	#crontab -l 2>/dev/null; echo "${minutes} ${hour_skew} * * * ${CORE_DIR}/src/deploy/NVA_build/upgrade.sh" | crontab -
 	deploy_log "setup_repos done"
 }
 
@@ -200,7 +200,7 @@ if [ "$1" == "runinstall" ]; then
 	install_aux
 	install_repos
 	setup_repos runnpm
-	setup_makensis
+#	setup_makensis
 	install_mongo
 	setup_mongo
 	general_settings

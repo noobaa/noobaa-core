@@ -55,12 +55,12 @@ NAN_METHOD(Ingest_v1::push)
     }
 
     Buf buf(args[0]);
-    std::cout << "Ingest_v1::push start " << buf.length() << std::endl;
+    std::cout << "Ingest_v1::push start " << std::dec << buf.length() << std::endl;
     self->_deduper.push(buf);
-    std::cout << "Ingest_v1::push pushed " << buf.length() << std::endl;
-    while(self->_deduper.has_chunks()) {
+    std::cout << "Ingest_v1::push pushed " << std::dec << buf.length() << std::endl;
+    while (self->_deduper.has_chunks()) {
         Buf chunk(self->_deduper.pop_chunk());
-        std::cout << "Ingest_v1::push chunk " << chunk.length() << std::endl;
+        std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
     }
 
     NanReturnUndefined();
@@ -73,9 +73,9 @@ NAN_METHOD(Ingest_v1::flush)
     std::cout << "Ingest_v1::flush start" << std::endl;
     self->_deduper.flush();
     std::cout << "Ingest_v1::flush flushed" << std::endl;
-    while(self->_deduper.has_chunks()) {
+    while (self->_deduper.has_chunks()) {
         Buf chunk(self->_deduper.pop_chunk());
-        std::cout << "Ingest_v1::push chunk " << chunk.length() << std::endl;
+        std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
     }
     NanReturnUndefined();
 }

@@ -25,7 +25,7 @@ public:
     }
 
     explicit Buf(v8::Handle<v8::Value> h)
-        : _ref(h)
+        : _ref(v8::Persistent<v8::Value>::New(h))
         , _data(node::Buffer::Data(_ref))
         , _len(node::Buffer::Length(_ref))
     {
@@ -47,8 +47,15 @@ public:
     ~Buf()
     {
         if (_ref.IsNearDeath()) {
-            NanDisposePersistent(_ref);
+            _ref.Dispose();
         }
+    }
+
+    const Buf& operator=(const Buf& other)
+    {
+        this->~Buf();
+        new (this) Buf(other);
+        return other;
     }
 
     inline uint8_t* data()
@@ -63,7 +70,7 @@ public:
 
     inline void slice(int offset, int len)
     {
-        // skip forward
+        // skip to offset
         if (offset > _len) {
             offset = _len;
         }
@@ -72,7 +79,7 @@ public:
         }
         _data += offset;
         _len -= offset;
-        // truncate length
+        // truncate to length
         if (_len > len) {
             _len = len;
         }

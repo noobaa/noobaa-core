@@ -3,7 +3,7 @@
 
 #include "common.h"
 #include "dedup.h"
-#include "rabin.h"
+#include "rabin_fingerprint.h"
 
 /**
  *
@@ -26,7 +26,7 @@ private:
     ~Ingest_v1() {}
 
 private:
-    typedef Rabin<uint32_t> Hasher;
+    typedef RabinFingerprint<uint32_t> Hasher;
     typedef Dedup<Hasher> Deduper;
     Deduper _deduper;
     static Hasher::Config _hasher_conf;

@@ -29,14 +29,11 @@ Dedup<Hasher_>::push(Buf buf)
             }
         }
 
+        _slices.push_back(Buf(buf, 0, pos));
         if (boundary) {
-            _slices.push_back(Buf(buf, 0, pos));
             flush();
-            buf.slice(pos, len - pos);
-        } else {
-            _slices.push_back(buf);
-            buf.slice(pos, 0);
         }
+        buf.slice(pos, len - pos);
     }
 }
 
@@ -44,6 +41,7 @@ template<typename Hasher_>
 void
 Dedup<Hasher_>::flush()
 {
+    std::cout << "Boundary hash " << std::hex << _hasher.value() << std::endl;
     _chunks.push_back(Buf::concat(_slices.begin(), _slices.end(), _current_len));
     _slices.clear();
     _hasher.reset();

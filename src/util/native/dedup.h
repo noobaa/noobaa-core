@@ -30,19 +30,22 @@ public:
             : min_chunk(min_chunk_)
             , max_chunk(max_chunk_)
             , avg_chunk_bits(avg_chunk_bits_)
-            , avg_chunk_val(avg_chunk_val_)
             , avg_chunk_mask( ~((~HashType(0)) >> avg_chunk_bits_ << avg_chunk_bits_) )
-            {}
+            , avg_chunk_val(avg_chunk_val_ & avg_chunk_mask)
+        {
+            std::cout << "avg_chunk_val " << std::hex << avg_chunk_val << std::endl;
+            std::cout << "avg_chunk_mask " << std::hex << avg_chunk_mask << std::endl;
+        }
         /* minimum chunk length to avoid too small chunks, also used to fast skip for performance */
         const int min_chunk;
         /* maximum chunk length to avoid too large chunks */
         const int max_chunk;
         /* number of lower bits of the fingerprint used to match the hash value */
         const int avg_chunk_bits;
-        /* hash value to match lower bits, can be any  value, but constant */
-        const HashType avg_chunk_val;
         /* computed mask to pick just avg_chunk_bits lower bits */
         const HashType avg_chunk_mask;
+        /* hash value to match lower bits, can be any  value, but constant */
+        const HashType avg_chunk_val;
     };
 
 public:

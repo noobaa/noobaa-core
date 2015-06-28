@@ -32,6 +32,8 @@ private:
     {
     }
 
+    void purge_chunks();
+
 private:
     typedef RabinFingerprint<uint32_t> Hasher;
     typedef Dedup<Hasher> Deduper;

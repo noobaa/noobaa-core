@@ -1,4 +1,6 @@
 #include "ingest.h"
+#include "buf.h"
+#include "ssl.h"
 
 // statics
 
@@ -64,13 +66,7 @@ NAN_METHOD(Ingest_v1::push)
     // std::cout << "Ingest_v1::push start " << std::dec << buf.length() << std::endl;
     self->_deduper.push(buf);
     // std::cout << "Ingest_v1::push pushed " << std::dec << buf.length() << std::endl;
-    while (self->_deduper.has_chunks()) {
-        Buf chunk(self->_deduper.pop_chunk());
-        v8::Handle<v8::Value> argv[] = { chunk.handle() };
-        self->_callback->Call(1, argv);
-        // std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
-    }
-
+    self->purge_chunks();
     NanReturnUndefined();
 }
 
@@ -81,11 +77,19 @@ NAN_METHOD(Ingest_v1::flush)
     // std::cout << "Ingest_v1::flush start" << std::endl;
     self->_deduper.flush();
     // std::cout << "Ingest_v1::flush flushed" << std::endl;
-    while (self->_deduper.has_chunks()) {
-        Buf chunk(self->_deduper.pop_chunk());
-        v8::Handle<v8::Value> argv[] = { chunk.handle() };
-        self->_callback->Call(1, argv);
-        // std::cout << "Ingest_v1::push chunk " << std::dec << chunk.length() << std::endl;
-    }
+    self->purge_chunks();
     NanReturnUndefined();
+}
+
+void
+Ingest_v1::purge_chunks()
+{
+    while (_deduper.has_chunks()) {
+        Buf chunk(_deduper.pop_chunk());
+        Digest digest;
+        digest.sha256(chunk);
+        std::string sha256 = digest.to_string();
+        v8::Handle<v8::Value> argv[] = { chunk.handle(), NanNew(sha256) };
+        _callback->Call(2, argv);
+    }
 }

@@ -6,8 +6,9 @@
         'sources': [
             'src/util/native/module.cpp',
             'src/util/native/ingest.cpp',
-            'src/util/native/poly.cpp',
             'src/util/native/tpool.cpp',
+            'src/util/native/poly.cpp',
+            'src/util/native/ssl.cpp',
         ],
     }, {
         'target_name': 'native_rpc',
@@ -17,5 +18,5 @@
             'src/rpc/native/module.cpp',
             'src/rpc/native/nudp.cpp'
         ]
-    }]
+    }],
 }

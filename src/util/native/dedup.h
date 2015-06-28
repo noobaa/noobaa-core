@@ -2,6 +2,7 @@
 #define DEDUP_H_
 
 #include "common.h"
+#include "buf.h"
 
 /**
  *

@@ -1,6 +1,8 @@
 #ifndef MEM_H_
 #define MEM_H_
 
+#include "common.h"
+
 /**
  * Wrap a nodejs buffer
  */
@@ -54,7 +56,7 @@ public:
     const Buf& operator=(const Buf& other)
     {
         this->~Buf();
-        new (this) Buf(other);
+        new (this)Buf(other);
         return other;
     }
 

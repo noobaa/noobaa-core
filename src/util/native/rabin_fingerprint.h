@@ -7,42 +7,9 @@
 template<typename HashType_>
 class RabinFingerprint
 {
-
 public:
-
     typedef HashType_ HashType;
-
-    class Config
-    {
-public:
-        explicit Config(
-            HashType poly_,
-            int degree_,
-            int window_len_)
-            : poly(poly_)
-            , degree(degree_)
-            , window_len(window_len_)
-            , poly_class(poly, degree)
-        {
-            // the byte_out_table keeps the value of each byte once it falls off the sliding window
-            // which is essentially: byte << window (mod p)
-            for (int i=0; i<256; ++i) {
-                byte_out_table[i] = poly_class.shifts_left(poly_class.mod(i), 8*window_len);
-            }
-        }
-        // irreducible/primitive polynom reminder (top bit unneeded)
-        const HashType poly;
-        // polynom degree - the index of the top bit of the polynom
-        const int degree;
-        // window length in bytes for rolling hash
-        const int window_len;
-        //
-        const Poly<HashType> poly_class;
-        // explain ...
-        HashType byte_out_table[256];
-    };
-
-public:
+    class Config;
 
     explicit RabinFingerprint(const Config& conf)
         : _conf(conf)
@@ -89,5 +56,37 @@ protected:
     int _window_pos;
     uint8_t* _window;
 };
+
+template<typename HashType_>
+class RabinFingerprint<HashType_>::Config
+{
+public:
+    explicit Config(
+        HashType poly_,
+        int degree_,
+        int window_len_)
+        : poly(poly_)
+        , degree(degree_)
+        , window_len(window_len_)
+        , poly_class(poly, degree)
+    {
+        // the byte_out_table keeps the value of each byte once it falls off the sliding window
+        // which is essentially: byte << window (mod p)
+        for (int i=0; i<256; ++i) {
+            byte_out_table[i] = poly_class.shifts_left(poly_class.mod(i), 8*window_len);
+        }
+    }
+    // irreducible/primitive polynom reminder (top bit unneeded)
+    const HashType poly;
+    // polynom degree - the index of the top bit of the polynom
+    const int degree;
+    // window length in bytes for rolling hash
+    const int window_len;
+    //
+    const Poly<HashType> poly_class;
+    // explain ...
+    HashType byte_out_table[256];
+};
+
 
 #endif // RABIN_H_

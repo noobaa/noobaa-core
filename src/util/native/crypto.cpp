@@ -1,12 +1,17 @@
-#include "ssl.h"
+#include "crypto.h"
 
 void
-ssl_init()
+Crypto::init()
 {
     std::cout << "OPENSSL " << SSLeay_version(SSLEAY_VERSION) << std::endl;
     OpenSSL_add_all_algorithms();
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
+}
+
+void
+Crypto::destroy()
+{
 }
 
 #define HEXED(x) \
@@ -15,7 +20,8 @@ ssl_init()
     x "8", x "9", x "a", x "b", \
     x "c", x "d", x "e", x "f"
 
-const char* BYTE_TO_HEX[] = {
+const char*
+Crypto::BYTE_TO_HEX[] = {
     HEXED("0"), HEXED("1"), HEXED("2"), HEXED("3"),
     HEXED("4"), HEXED("5"), HEXED("6"), HEXED("7"),
     HEXED("8"), HEXED("9"), HEXED("a"), HEXED("b"),

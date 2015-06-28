@@ -8,7 +8,7 @@
             'src/util/native/ingest.cpp',
             'src/util/native/tpool.cpp',
             'src/util/native/poly.cpp',
-            'src/util/native/ssl.cpp',
+            'src/util/native/crypto.cpp',
         ],
     }, {
         'target_name': 'native_rpc',

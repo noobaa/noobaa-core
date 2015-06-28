@@ -1,6 +1,6 @@
 #include "ingest.h"
 #include "buf.h"
-#include "ssl.h"
+#include "crypto.h"
 
 // statics
 
@@ -58,15 +58,22 @@ NAN_METHOD(Ingest_v1::push)
     NanScope();
     auto self = Unwrap<Ingest_v1>(args.This());
 
-    if (args.Length() < 1 || !node::Buffer::HasInstance(args[0])) {
-        return NanThrowError("expected buffer as first argument");
+    if (args.Length() != 2
+        || !node::Buffer::HasInstance(args[0])
+        || !args[1]->IsFunction()) {
+        return NanThrowError("Ingest_v1::push expected arguments function(buffer,callback)");
     }
-
     Buf buf(args[0]);
+    NanCallbackRef callback(new NanCallback(args[1].As<v8::Function>()));
+
     // std::cout << "Ingest_v1::push start " << std::dec << buf.length() << std::endl;
     self->_deduper.push(buf);
     // std::cout << "Ingest_v1::push pushed " << std::dec << buf.length() << std::endl;
     self->purge_chunks();
+
+    v8::Handle<v8::Value> argv[] = {};
+    callback->Call(0, argv);
+
     NanReturnUndefined();
 }
 
@@ -74,10 +81,21 @@ NAN_METHOD(Ingest_v1::flush)
 {
     NanScope();
     auto self = Unwrap<Ingest_v1>(args.This());
+
+    if (args.Length() != 1
+        || !args[0]->IsFunction()) {
+        return NanThrowError("Ingest_v1::flush expected arguments function(callback)");
+    }
+    NanCallbackRef callback(new NanCallback(args[0].As<v8::Function>()));
+
     // std::cout << "Ingest_v1::flush start" << std::endl;
     self->_deduper.flush();
     // std::cout << "Ingest_v1::flush flushed" << std::endl;
     self->purge_chunks();
+
+    v8::Handle<v8::Value> argv[] = {};
+    callback->Call(0, argv);
+
     NanReturnUndefined();
 }
 
@@ -86,10 +104,8 @@ Ingest_v1::purge_chunks()
 {
     while (_deduper.has_chunks()) {
         Buf chunk(_deduper.pop_chunk());
-        Digest digest;
-        digest.sha256(chunk);
-        std::string sha256 = digest.to_string();
-        v8::Handle<v8::Value> argv[] = { chunk.handle(), NanNew(sha256) };
+        std::string sha = Crypto::digest("sha512", chunk);
+        v8::Handle<v8::Value> argv[] = { chunk.handle(), NanNew(sha) };
         _callback->Call(2, argv);
     }
 }

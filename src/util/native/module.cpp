@@ -1,10 +1,10 @@
 #include "ingest.h"
-#include "ssl.h"
+#include "crypto.h"
 
 static void
 setup(v8::Handle<v8::Object> exports)
 {
-    ssl_init();
+    Crypto::init();
     Ingest_v1::setup(exports);
 }
 

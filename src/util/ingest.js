@@ -7,6 +7,7 @@ if (require.main === module) {
 
 function test_ingest() {
     var fs = require('fs');
+    var transformer = require('./transformer');
     var input = process.stdin;
     if (process.argv[2]) {
         console.log('FILE', process.argv[2]);
@@ -31,16 +32,22 @@ function test_ingest() {
             console.log('JS RABIN', data.length);
         });
     } else {
+        var Q = require('q');
         var native_util = require("bindings")("native_util.node");
-        var ingest = new native_util.Ingest_v1(function(chunk, sha256) {
-            // console.log('OUTPUT', chunk.length, 'sha256(' + sha256 + ')');
-        });
-        input.on('data', function(data) {
-            process.stdout.write(data.length + ',');
-            ingest.push(data);
-        }).on('end', function() {
-            console.log('INPUT END');
-            ingest.flush();
-        });
+        input.pipe(transformer({
+            init: function() {
+                this.ingest = new native_util.Ingest_v1(function(chunk, sha) {
+                    // console.log('OUTPUT', chunk.length, 'sha(' + sha + ')');
+                });
+            },
+            transform: function(data) {
+                process.stdout.write(data.length + ',');
+                return Q.ninvoke(this.ingest, 'push', data);
+            },
+            flush: function() {
+                console.log('INPUT END');
+                return Q.ninvoke(this.ingest, 'flush');
+            }
+        }));
     }
 }

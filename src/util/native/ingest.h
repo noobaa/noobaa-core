@@ -20,6 +20,7 @@ class Ingest_v1 : public node::ObjectWrap
 {
 public:
     static void setup(v8::Handle<v8::Object> exports);
+    class Config;
 
 private:
     explicit Ingest_v1(NanCallbackRef callback)
@@ -46,5 +47,13 @@ private:
     static NAN_METHOD(push);
     static NAN_METHOD(flush);
 };
+
+class Ingest_v1::Config {
+public:
+    explicit Config()
+    {
+    }
+};
+
 
 #endif // INGEST_H_

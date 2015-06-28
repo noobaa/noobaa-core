@@ -10,7 +10,7 @@ class Buf
 {
 public:
     explicit Buf(node::Buffer* buf)
-        : _ref(buf->handle_)
+        : _ref(v8::Persistent<v8::Value>::New(buf->handle_))
         , _data(node::Buffer::Data(buf))
         , _len(node::Buffer::Length(buf))
     {
@@ -34,7 +34,7 @@ public:
     }
 
     Buf(const Buf& other)
-        : _ref(other._ref)
+        : _ref(v8::Persistent<v8::Value>::New(other._ref))
         , _data(other._data)
         , _len(other._len)
     {

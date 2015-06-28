@@ -42,9 +42,7 @@ public:
         const HashType value = byte + 1;
         uint8_t out = _window[_window_pos];
         // std::cout << std::hex << "Fingerprint " << _fingerprint << " Value " << value << " Out " << int(out) << std::endl;
-        _fingerprint = _conf.poly_class.shift_byte_left(_fingerprint);
-        _fingerprint ^= _conf.byte_out_table[out];
-        _fingerprint ^= value;
+        _fingerprint = _conf.poly_class.shift_byte_left(_fingerprint) ^ _conf.byte_out_table[out] ^ value;
         _window[_window_pos] = value;
         _window_pos = (_window_pos + 1) % _conf.window_len;
         return _fingerprint;

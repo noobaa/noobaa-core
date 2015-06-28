@@ -15,7 +15,11 @@ public:
         , _carry_byte(0xFFull << (_degree-9))
     {
         for (int i=0; i<256; ++i) {
-            carry_byte_shift_table[i] = shifts_left(T(i) << (_degree-9), 8);
+            T a = T(i) << (_degree-9);
+            for (int i=0; i<8; ++i) {
+                a = shift_left(a);
+            }
+            carry_byte_shift_table[i] = a;
             byte_deg_table[i] = i ? int(log2(i)) : 0;
         }
     }
@@ -32,6 +36,10 @@ public:
 
     T shifts_left(T a, int shifts) const
     {
+        while (shifts >= 8) {
+            a = shift_byte_left(a);
+            shifts -= 8;
+        }
         while (shifts > 0) {
             a = shift_left(a);
             shifts -= 1;

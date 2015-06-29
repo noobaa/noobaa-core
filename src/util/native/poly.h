@@ -34,15 +34,15 @@ public:
         }
     }
 
-    T shifts_left(T a, int shifts) const
+    T shifts_left(T a, int bits) const
     {
-        while (shifts >= 8) {
+        while (bits >= 8) {
             a = shift_byte_left(a);
-            shifts -= 8;
+            bits -= 8;
         }
-        while (shifts > 0) {
+        while (bits > 0) {
             a = shift_left(a);
-            shifts -= 1;
+            bits -= 1;
         }
         return a;
     }

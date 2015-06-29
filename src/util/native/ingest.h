@@ -4,6 +4,7 @@
 #include "common.h"
 #include "dedup.h"
 #include "rabin_fingerprint.h"
+#include "buzhash.h"
 
 /**
  *
@@ -24,7 +25,7 @@ public:
 
 private:
     explicit Ingest_v1(NanCallbackRef callback)
-        : _deduper(_deduper_conf, _hasher_conf)
+        : _deduper(_deduper_conf, _rabin_hasher_conf)
         , _callback(callback)
     {
     }
@@ -36,11 +37,13 @@ private:
     void purge_chunks();
 
 private:
-    typedef RabinFingerprint<uint32_t> Hasher;
-    typedef Dedup<Hasher> Deduper;
+    typedef RabinFingerprint<uint32_t> RabinHasher;
+    typedef BuzHash<uint32_t> BuzHasher;
+    typedef Dedup<RabinHasher> Deduper;
     Deduper _deduper;
     NanCallbackRef _callback;
-    static Hasher::Config _hasher_conf;
+    static RabinHasher::Config _rabin_hasher_conf;
+    static BuzHasher::Config _buz_hasher_conf;
     static Deduper::Config _deduper_conf;
     static v8::Persistent<v8::Function> _ctor;
     static NAN_METHOD(new_instance);

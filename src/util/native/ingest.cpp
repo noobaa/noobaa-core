@@ -6,11 +6,17 @@
 
 v8::Persistent<v8::Function> Ingest_v1::_ctor;
 
-Ingest_v1::Hasher::Config
-Ingest_v1::_hasher_conf(
+Ingest_v1::RabinHasher::Config
+Ingest_v1::_rabin_hasher_conf(
     0x9u,   /* poly */
     31u,    /* degree */
-    128u    /* window_len */
+    16u     /* window_len */
+    );
+
+Ingest_v1::BuzHasher::Config
+Ingest_v1::_buz_hasher_conf(
+    31u,    /* degree */
+    16u     /* window_len */
     );
 
 Ingest_v1::Deduper::Config

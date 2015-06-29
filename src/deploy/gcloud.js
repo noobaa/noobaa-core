@@ -484,10 +484,11 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                 project: NooBaaProject,
                 auth: authClient,
                 zone: region_name,
-                name: NooBaaProject + region_name + (new Date().getTime()),
+                //name: NooBaaProject + region_name + (new Date().getTime()),
+                name: 'AgentInstance-For-' + app_name.replace(/\./g,"-"),
                 resource: {
                     zone: region_name,
-                    name: NooBaaProject + region_name + (new Date().getTime()),
+                    name: 'agent-instance-for-' + app_name.replace(/\./g,"-")+ (new Date().getTime()),
                     machineType: machine_type,
                     disks: [{
                         initializeParams: {

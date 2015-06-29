@@ -105,9 +105,10 @@ function loop(times, func) {
  *
  * @param attempts number of attempts. can be Infinity.
  * @param delay number of milliseconds between retries
+ * @param delay_increment numbner of milliseconds to add to delay after each retry
  * @param func with signature function(attempts), passing remaining attempts just fyi
  */
-function retry(attempts, delay, func) {
+function retry(attempts, delay, delay_increment, func) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
@@ -122,7 +123,7 @@ function retry(attempts, delay, func) {
 
             // delay and retry next attempt
             return Q.delay(delay).then(function() {
-                return retry(attempts, delay, func);
+                return retry(attempts, delay+delay_increment, delay_increment, func);
             });
 
         });

@@ -79,12 +79,13 @@ function end_wizard {
   #date > ${FIRST_INSTALL_MARK}
   clear
 
+  trap 2 20
   exit 0
 }
 
 who=$(whoami)
 if [ "$who" != "noobaa" ]; then
-  exit 0
+  return
 fi
 
 if [ ! -f ${FIRST_INSTALL_MARK} ]; then
@@ -93,5 +94,7 @@ if [ ! -f ${FIRST_INSTALL_MARK} ]; then
 else
   deploy_log "Server was booted, first install mark exists"
 fi
+
+trap 2 20
 
 #logout

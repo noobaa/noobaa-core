@@ -43,10 +43,12 @@ public:
 
     HashType update(uint8_t byte)
     {
-        const HashType value = _conf.byte_const_hash[byte];
-        uint8_t out = _window[_window_pos];
-        _hash = _conf.rotate_byte_left(_hash) ^ _conf.byte_rotate_window_table[out] ^ value;
-        _window[_window_pos] = value;
+        // constant hash is used to translate every input byte before feeding it
+        // for example this reduced the effect of sequences of zeros.
+        const HashType in = Poly<HashType>::byte_const_hash[byte];
+        const HashType out = _conf.byte_rotate_window_table[_window[_window_pos]];
+        _hash = _conf.rotate_byte_left(_hash) ^ out ^ in;
+        _window[_window_pos] = in;
         _window_pos = (_window_pos + 1) % _conf.window_len;
         return _hash;
     }
@@ -59,10 +61,14 @@ private:
 };
 
 
+/**
+ * Config (BuzHash)
+ */
 template <typename HashType_>
 class BuzHash<HashType_>::Config
 {
 public:
+
     explicit Config(int degree_, int window_len_)
         : degree(degree_)
         , window_len(window_len_)
@@ -71,11 +77,6 @@ public:
         // this allows to remove the last window byte.
         for (int i=0; i<256; ++i) {
             byte_rotate_window_table[i] = rotate_left(i, 8 * window_len);
-        }
-        // constant hash is used to translate every input byte before feeding it
-        // for example this reduced the effect of sequences of zeros.
-        for (int i=0; i<256; ++i) {
-            byte_const_hash[i] = i + 1;
         }
     }
 
@@ -99,9 +100,10 @@ public:
 
     const int degree;
     const int window_len;
+
     // see explaination in ctor
     HashType byte_rotate_window_table[256];
-    HashType byte_const_hash[256];
+
 };
 
 #endif // BUZHASH_H_

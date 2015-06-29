@@ -38,10 +38,10 @@ function test_ingest() {
             init: function() {
                 this.ingest = new native_util.Ingest_v1(function(chunk, sha) {
                     // console.log('OUTPUT', chunk.length, 'sha(' + sha + ')');
+                    process.stdout.write(chunk.length + ',');
                 });
             },
             transform: function(data) {
-                process.stdout.write(data.length + ',');
                 return Q.ninvoke(this.ingest, 'push', data);
             },
             flush: function() {

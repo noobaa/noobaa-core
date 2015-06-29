@@ -8,27 +8,30 @@ template <typename T>
 class Poly
 {
 public:
-    Poly(T poly, int degree)
-        : _poly(poly)
-        , _degree(degree)
-        , _carry_bit(1ull << (_degree-1))
-        , _carry_byte(0xFFull << (_degree-9))
+    Poly(T poly_, int degree_)
+        : poly(poly_)
+        , degree(degree_)
+        , carry_byte_shift(degree-9)
+        , carry_bit(T(1) << (degree-1))
+        , carry_byte(T(0xFF) << carry_byte_shift)
+        , antimask((~(T(0)) >> degree) << degree)
+        , mask(~antimask)
     {
+        assert(degree > 8);
         for (int i=0; i<256; ++i) {
-            T a = T(i) << (_degree-9);
+            T a = T(i) << carry_byte_shift;
             for (int i=0; i<8; ++i) {
                 a = shift_left(a);
             }
             carry_byte_shift_table[i] = a;
-            byte_deg_table[i] = i ? int(log2(i)) : 0;
         }
     }
 
     inline T shift_left(T a) const
     {
-        T carry = a & _carry_bit;
+        T carry = a & carry_bit;
         if (carry) {
-            return ((a & ~_carry_bit) << 1) ^ _poly;
+            return ((a & ~carry_bit) << 1) ^ poly;
         } else {
             return a << 1;
         }
@@ -49,16 +52,16 @@ public:
 
     inline T shift_byte_left(T a) const
     {
-        T carry = (a & _carry_byte) >> (_degree-9);
-        return ((a & ~_carry_byte) << 8) ^ carry_byte_shift_table[carry];
+        T carry = (a & carry_byte) >> carry_byte_shift;
+        return ((a << 8) & mask) ^ carry_byte_shift_table[carry];
     }
 
     T mod(T a) const
     {
-        int d = deg(a) - _degree;
+        int d = deg(a) - degree;
         while (d >= 0) {
-            a ^= (_poly << d);
-            d = deg(a) - _degree;
+            a ^= (poly << d);
+            d = deg(a) - degree;
         }
         return a;
     }
@@ -81,23 +84,36 @@ public:
         return result;
     }
 
-    int deg(T a) const
+    static int deg(T a)
     {
         int n = 0;
-        while (a >> 8) {
-            n += 8;
+        while (a > 0xff) {
             a >>= 8;
+            n += 8;
         }
-        return n + byte_deg_table[a];
+        while (a > 1) {
+            a >>= 1;
+            n += 1;
+        }
+        return n;
     }
 
+    const T poly;
+    const int degree;
+    const int carry_byte_shift;
+    const T carry_bit;
+    const T carry_byte;
+    const T antimask;
+    const T mask;
+
+    // a constant hash table from bytes to values with more bits
+    // this is used when hashing byte-by-byte to avoid repeating bytes of zeros or other values
+    static const T byte_const_hash[256];
+
+    // static const int byte_deg_table[256];
+
 private:
-    T _poly;
-    int _degree;
-    T _carry_bit;
-    T _carry_byte;
     T carry_byte_shift_table[256];
-    int byte_deg_table[256];
 };
 
 #endif // POLY_H_

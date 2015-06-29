@@ -15,6 +15,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <random>
 
 #include <v8.h>
 #include <uv.h>

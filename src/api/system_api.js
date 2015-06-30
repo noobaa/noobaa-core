@@ -82,9 +82,6 @@ module.exports = {
         list_systems: {
             doc: 'List the systems that the authorized account can access',
             method: 'GET',
-            params: {
-              get_id: 'boolean',
-            },
             reply: {
                 type: 'object',
                 required: ['systems'],

@@ -131,6 +131,9 @@ module.exports = {
                 avg_usage: {
                     type: 'integer'
                 },
+                avg_free: {
+                    type: 'integer'
+                },
                 avg_uptime: {
                     type: 'integer'
                 },

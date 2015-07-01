@@ -9,7 +9,13 @@ config.on_premise = {
     nva_part: "NVA_Upgrade.tgz"
 };
 
-//config.ws_address = 'ws://localhost:5002';
+// Central Stats Collection
+config.central_stats = {
+  send_stats: true,
+  central_listener: '127.0.0.1',
+};
+
+// SIGNALING AND ICE
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 50;
 config.connection_data_stale = 5 * 60 * 1000;

@@ -16,6 +16,7 @@ var tier_server = {
     read_tier: read_tier,
     update_tier: update_tier,
     delete_tier: delete_tier,
+    list_tiers: list_tiers,
 };
 
 module.exports = tier_server;
@@ -106,6 +107,23 @@ function delete_tier(req) {
 }
 
 
+/**
+ *
+ * LIST_TIERS
+ *
+ */
+function list_tiers(req) {
+    var query = {
+        system: req.system.id,
+        delete: null,
+    };
+
+    return Q.when(
+            db.Tier.find(query).exec())
+        .then(function(tiers) {
+            return tiers;
+        });
+}
 
 
 // UTILS //////////////////////////////////////////////////////////

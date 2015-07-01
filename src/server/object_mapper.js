@@ -36,6 +36,7 @@ module.exports = {
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
     build_chunks: build_chunks,
+    chunks_and_objects_count: chunks_and_objects_count
 };
 
 // default split of chunks with kfrag
@@ -1028,6 +1029,36 @@ function build_chunks(chunks) {
         });
 }
 
+/**
+ *
+ * chunks_and_objects_count
+ *
+ */
+function chunks_and_objects_count(systemid) {
+    var res = {
+        chunks_num: 0,
+        objects_num: 0,
+    };
+
+    return Q.when(
+            db.DataChunk.count({
+                system: systemid,
+                deleted: null,
+            })
+            .exec())
+        .then(function(chunks) {
+            res.chunks_num = chunks;
+            return Q.when(
+                    db.ObjectPart.count({
+                        
+                    })
+                    .exec())
+                .then(function(objects) {
+                    res.objects_num = objects;
+                    return res;
+                });
+        });
+}
 
 /**
  *

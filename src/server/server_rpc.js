@@ -23,3 +23,4 @@ server_rpc.register_service(api.schema.tier_api, require('./tier_server'), optio
 server_rpc.register_service(api.schema.node_api, require('./node_server'), options);
 server_rpc.register_service(api.schema.bucket_api, require('./bucket_server'), options);
 server_rpc.register_service(api.schema.object_api, require('./object_server'), options);
+server_rpc.register_service(api.schema.stats_api, require('./stats_aggregator'), options);

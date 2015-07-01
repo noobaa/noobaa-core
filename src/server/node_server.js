@@ -24,6 +24,7 @@ var node_server = {
     read_node_maps: read_node_maps,
 
     list_nodes: list_nodes,
+    list_nodes_int: list_nodes_int,
     group_nodes: group_nodes,
 
     heartbeat: node_monitor.heartbeat,
@@ -207,19 +208,30 @@ function read_node_maps(req) {
         });
 }
 
-
-
 /**
  *
  * LIST_NODES
  *
  */
 function list_nodes(req) {
+    return list_nodes_int(req.rpc_params.query,
+        req.system.id,
+        req.rpc_params.skip,
+        req.rpc_params.limit,
+        req.rpc_params.pagination,
+        req);
+}
+
+/**
+ *
+ * LIST_NODES_INT
+ *
+ */
+function list_nodes_int(query, system_id, skip, limit, pagination, req) {
     var info;
     return Q.fcall(function() {
-            var query = req.rpc_params.query;
             info = {
-                system: req.system.id,
+                system: system_id,
                 deleted: null,
             };
             if (!query) return;
@@ -268,7 +280,7 @@ function list_nodes(req) {
             }
             if (query.tier) {
                 return db.TierCache.get({
-                        system: req.system.id,
+                        system: system_id,
                         name: query.tier,
                     })
                     .then(db.check_not_deleted(req, 'tier'))
@@ -278,8 +290,6 @@ function list_nodes(req) {
             }
         })
         .then(function() {
-            var skip = req.rpc_params.skip;
-            var limit = req.rpc_params.limit;
             var find = db.Node.find(info)
                 .sort('-_id')
                 .populate('tier', 'name');
@@ -291,14 +301,14 @@ function list_nodes(req) {
             }
             return Q.all([
                 find.exec(),
-                req.rpc_params.pagination && db.Node.count(info)
+                pagination && db.Node.count(info)
             ]);
         })
         .spread(function(nodes, total_count) {
             var res = {
                 nodes: _.map(nodes, get_node_full_info)
             };
-            if (req.rpc_params.pagination) {
+            if (pagination) {
                 res.total_count = total_count;
             }
             return res;

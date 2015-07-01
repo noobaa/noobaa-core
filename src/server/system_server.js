@@ -27,6 +27,7 @@ var system_server = {
     delete_system: delete_system,
 
     list_systems: list_systems,
+    list_systems_int: list_systems_int,
 
     add_role: add_role,
     remove_role: remove_role,
@@ -344,11 +345,24 @@ function delete_system(req) {
  *
  */
 function list_systems(req) {
+    if (!req.account.is_support) {
+        return list_systems_int(false, false, req.account.id);
+    }
+
+    return list_systems_int(true, false);
+}
+
+/**
+ *
+ * LIST_SYSTEMS_INT
+ *
+ */
+function list_systems_int(is_support, get_ids, account) {
+    var query = {};
 
     // support gets to see all systems
-    var query = {};
-    if (!req.account.is_support) {
-        query.account = req.account.id;
+    if (!is_support) {
+        query.account = account;
     }
 
     return Q.when(
@@ -358,13 +372,14 @@ function list_systems(req) {
         .then(function(roles) {
             return {
                 systems: _.compact(_.map(roles, function(role) {
-                    if (!role.system || role.system.deleted) return null;
-                    return get_system_info(role.system);
+                    if (!role.system || role.system.deleted) {
+                        return null;
+                    }
+                    return get_system_info(role.system, get_ids);
                 }))
             };
         });
 }
-
 
 
 /**
@@ -575,6 +590,10 @@ function diagnose_with_agent(data) {
 // UTILS //////////////////////////////////////////////////////////
 
 
-function get_system_info(system) {
-    return _.pick(system, 'name');
+function get_system_info(system, get_id) {
+    if (get_id) {
+        return _.pick(system, 'id');
+    } else {
+        return _.pick(system, 'name');
+    }
 }

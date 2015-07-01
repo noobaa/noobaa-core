@@ -16,6 +16,7 @@ var tier_server = require('./tier_server');
 var account_server = require('./account_server');
 var node_server = require('./node_server');
 var object_mapper = require('./object_mapper');
+var cluster_server = require('./cluster_server');
 
 /*
  * Stats Aggregator Server
@@ -37,7 +38,7 @@ module.exports = stats_aggregator;
  * Stats Collction API
  */
 var SYSTEM_STATS_DEFAULTS = {
-    installid: '',
+    clusterid: '',
     version: '',
     agent_version: '',
     count: 0,
@@ -63,11 +64,14 @@ var SINGLE_SYS_DEFAULTS = {
 //Collect systems related stats and usage
 function get_systems_stats(req) {
     var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
-    sys_stats.installid = ''; //TODO: Actual uniq & persistent installtion ID
     sys_stats.version = process.env.CURRENT_VERSION || 'Unknown';
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
 
     return Q.fcall(function() {
+            return cluster_server.get_cluster_id();
+        })
+        .then(function(clusterid) {
+            sys_stats.clusterid = clusterid;
             //Get ALL systems
             return system_server.list_systems_int(true, true);
         })
@@ -278,7 +282,8 @@ if ((config.central_stats.send_stats !== 'true') &&
         batch_size: 1,
         time_since_last_build: 60000, // TODO increase...
         building_timeout: 300000, // TODO increase...
-        delay: (60 * 60 * 1000), //60m
+        //  delay: (60 * 60 * 1000), //60m
+        delay: (10 * 1000), //60m
 
         //Run the system statistics gatheting
         run_batch: function() {
@@ -286,7 +291,7 @@ if ((config.central_stats.send_stats !== 'true') &&
                     return get_all_stats({});
                 })
                 .then(function(payload) {
-                  //  return send_stats_payload(payload);
+                    //  return send_stats_payload(payload);
                 })
                 .then(null, function(err) {
 

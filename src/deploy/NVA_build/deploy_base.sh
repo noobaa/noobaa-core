@@ -193,6 +193,14 @@ function setup_supervisors {
 	deploy_log "setup_supervisors done"
 }
 
+function post_deploy {
+	deploy_log "post_deploy start"
+	sleep 10 #workaround for mongo starting
+	local id=$(uuidgen)
+	/usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
+	deploy_log "post_deploy done"
+}
+
 if [ "$1" == "runinstall" ]; then
 	deploy_log "Running with runinstall"
 	set -e
@@ -205,5 +213,6 @@ if [ "$1" == "runinstall" ]; then
 	setup_mongo
 	general_settings
 	setup_supervisors
+	post_deploy
 	reboot -fn
 fi

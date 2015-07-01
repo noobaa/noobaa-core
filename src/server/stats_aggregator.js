@@ -8,14 +8,13 @@ var db = require('./db');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
-var system_server = require('./system_server.js');
-var bucket_server = require('./bucket_server.js');
-var tier_server = require('./tier_server.js');
+var system_server = require('./system_server');
+var bucket_server = require('./bucket_server');
+var tier_server = require('./tier_server');
 var account_server = require('./account_server');
 var node_server = require('./node_server');
-var object_mapper = require('./object_mapper.js');
+var object_mapper = require('./object_mapper');
 
-dbg.set_level(2);
 /*
  * Stats Aggregator Server
  */

@@ -3,6 +3,8 @@
 
 var _ = require('lodash');
 var Q = require('q');
+var request = require('request');
+var formData = require('form-data');
 var util = require('util');
 var db = require('./db');
 var promise_utils = require('../util/promise_utils');
@@ -186,9 +188,7 @@ function get_nodes_stats(req) {
 /*var OPS_STATS_DEFAULTS = {
 };*/
 
-function get_ops_stats(req) {
-
-}
+function get_ops_stats(req) {}
 
 //Collect operations related stats and usage
 function get_all_stats(req) {
@@ -248,6 +248,25 @@ function get_support_account_id() {
         });
 }
 
+function send_stats_payload(payload) {
+    var form = new formData();
+    form.append('phdata', JSON.stringify(payload));
+
+    return Q.ninvoke(request, 'post', {
+            url: config.central_stats.central_listener + '/phdata',
+            formData: form,
+            rejectUnauthorized: false,
+        })
+        .then(function(httpResponse, body) {
+            dbg.log2('Phone Home data sent successfully');
+            return;
+        })
+        .then(null, function(err) {
+            dbg.log0('Phone Home data send failed', err, err.stack());
+        });
+
+}
+
 /*
  * Background Wokrer
  */
@@ -265,6 +284,9 @@ if ((config.central_stats.send_stats !== 'true') &&
         run_batch: function() {
             Q.fcall(function() {
                     return get_all_stats({});
+                })
+                .then(function(payload) {
+                  //  return send_stats_payload(payload);
                 })
                 .then(null, function(err) {
 

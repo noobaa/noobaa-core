@@ -14,7 +14,6 @@ var tier_server = require('./tier_server.js');
 var account_server = require('./account_server');
 var node_server = require('./node_server');
 var object_mapper = require('./object_mapper.js');
-var server_rpc = require('./server_rpc.js');
 
 dbg.set_level(2);
 /*
@@ -62,7 +61,7 @@ var SINGLE_SYS_DEFAULTS = {
 
 //Collect systems related stats and usage
 function get_systems_stats(req) {
-    var sys_stats = _.defaults(SYSTEM_STATS_DEFAULTS);
+    var sys_stats = _.cloneDeep(SYSTEM_STATS_DEFAULTS);
     sys_stats.installid = ''; //TODO: Actual uniq & persistent installtion ID
     sys_stats.version = process.env.CURRENT_VERSION || 'Unknown';
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
@@ -74,7 +73,7 @@ function get_systems_stats(req) {
         .then(function(res) {
             sys_stats.count = res.systems.length;
             for (var i = 0; i < sys_stats.count; ++i) {
-                sys_stats.systems.push(_.clone(SINGLE_SYS_DEFAULTS, true));
+                sys_stats.systems.push(_.cloneDeep(SINGLE_SYS_DEFAULTS));
             }
             //Per each system fill out the needed info
             return Q.all(_.map(res.systems, function(sys, i) {
@@ -113,7 +112,6 @@ function get_systems_stats(req) {
                         sys_stats.systems[i].associated_nodes = res_system.nodes.count;
                         sys_stats.systems[i].properties.on = res_system.nodes.online;
                         sys_stats.systems[i].properties.off = res_system.nodes.count - res_system.nodes.online;
-                        console.error('NB:: got stats', util.inspect(sys_stats, true, 7));
                         return sys_stats;
                     });
             }));
@@ -124,64 +122,66 @@ function get_systems_stats(req) {
         });
 }
 
-/*var NODES_STATS_DEFAULTS = {
-  count: 0,
-  avg_allocation: 0,
-  avg_usage: 0,
-  avg_uptime: 0,
-  os: {
-          win: 0,
-          osx: 0,
-      },
-};*/
+//TODO: Instead of avg. Keep histograms of the various metrics
+var NODES_STATS_DEFAULTS = {
+    count: 0,
+    avg_allocation: 0,
+    avg_usage: 0,
+    avg_free: 0,
+    avg_uptime: 0,
+    //avg_limit: 0, //TODO: Add once implemented
+    os: {
+        win: 0,
+        osx: 0,
+        linux: 0,
+        other: 0,
+    },
+};
 
 //Collect nodes related stats and usage
 function get_nodes_stats(req) {
-    //var nodes_stats = _.defaults(NODES_STATS_DEFAULTS);
-    /*  return Q.fcall(function() {
-              //Get ALL systems
-              return system_server.list_systems({
-                  //is_support: true,
-                  get_id: true,
-              });
-          })
-          .then(function(res) {
-              //Per each system fill out the needed info
-              return Q.all(_.map(res.systems, function(sys, i) {
-                  return Q.fcall(function() {
-                      console.error('NB:: collecting nodes_stats on sys', sys);
-                      return server_rpc.client.node.list_nodes({
-                        //  system: sys,
-                          query: {
-                              name: '*',
-                          },
-                      });
-                  }).
-                  then(function(nodes) {
-                          console.error('NB got nodes', util.inspect(nodes, 5));
-                          return node_server.group_nodes();
-                      })
-                      .then(function(groups) {
-                          console.error('NB got groups', util.inspect(groups, 5));
-                      });
-              }));
-          });
-      /*
-      use node_server.group_nodes
-      add the following info avg allocation
-      avg_usage
-      OS
-
-
-      return Q.fcall(function() {
-              //Get ALL systems
-              //return node_server.group_nodes({});
-          })
-          .then(function(res) {})
-          .then(null, function(err) {
-              dbg.log0('Error in collecting nodes stats, skipping current sampling point', err);
-              throw new Error('Error in collecting systems stats');
-          });*/
+    var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
+    return Q.fcall(function() {
+            //Get ALL systems
+            return system_server.list_systems_int(true, true);
+        })
+        .then(function(res) {
+            //Per each system fill out the needed info
+            return Q.all(_.map(res.systems, function(sys, i) {
+                    return Q.fcall(function() {
+                        return node_server.list_nodes_int({}, sys.id);
+                    });
+                }))
+                .then(function(results) {
+                    for (var isys = 0; isys < results.length; ++isys) {
+                        for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
+                            nodes_stats.count++;
+                            nodes_stats.avg_allocation += results[isys].nodes[inode].storage.alloc;
+                            nodes_stats.avg_usage += results[isys].nodes[inode].storage.used;
+                            nodes_stats.avg_free += results[isys].nodes[inode].storage.free;
+                            nodes_stats.avg_uptime += (results[isys].nodes[inode].os_info.uptime / 60 / 60); //In hours
+                            if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
+                                nodes_stats.os.osx++;
+                            } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
+                                nodes_stats.os.win++;
+                            } else if (results[isys].nodes[inode].os_info.ostype === 'Linux') {
+                                nodes_stats.os.linux++;
+                            } else {
+                                nodes_stats.os.other++;
+                            }
+                        }
+                    }
+                    nodes_stats.avg_allocation /= nodes_stats.count;
+                    nodes_stats.avg_usage /= nodes_stats.count;
+                    nodes_stats.avg_free /= nodes_stats.count;
+                    nodes_stats.avg_uptime /= nodes_stats.count;
+                    return nodes_stats;
+                });
+        })
+        .then(null, function(err) {
+            dbg.log0('Error in collecting nodes stats, skipping current sampling point', err);
+            throw new Error('Error in collecting nodes stats');
+        });
 }
 
 /*var OPS_STATS_DEFAULTS = {
@@ -214,13 +214,13 @@ function get_all_stats(req) {
             return get_nodes_stats(req);
         })
         .then(function(node_stats) {
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops');
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', '  Collecting Ops (STUB)'); //TODO
             stats_payload.node_stats = node_stats;
             return get_ops_stats(req);
         })
         .then(function(ops_stats) {
             stats_payload.ops_stats = ops_stats;
-            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'SENDING');
+            dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'SENDING (STUB)'); //TODO
         })
         .then(function() {
             dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'END');
@@ -249,7 +249,6 @@ function get_support_account_id() {
         });
 }
 
-
 /*
  * Background Wokrer
  */
@@ -261,8 +260,7 @@ if ((config.central_stats.send_stats !== 'true') &&
         batch_size: 1,
         time_since_last_build: 60000, // TODO increase...
         building_timeout: 300000, // TODO increase...
-        delay: 20 * 1000, //TODO: temp, move back to 60m
-        //delay: (60 * 60 * 1000), //60m
+        delay: (60 * 60 * 1000), //60m
 
         //Run the system statistics gatheting
         run_batch: function() {

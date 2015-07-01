@@ -89,18 +89,18 @@ var STUN = {
         'stun://stun2.l.google.com:19302',
         'stun://stun3.l.google.com:19302',
         'stun://stun4.l.google.com:19302',
-        'stun://stun.ekiga.net',
-        'stun://stun.ideasip.com',
-        'stun://stun.iptel.org',
-        'stun://stun.rixtelecom.se',
-        'stun://stun.schlund.de',
-        'stun://stunserver.org',
-        'stun://stun.softjoys.com',
-        'stun://stun.voiparound.com',
-        'stun://stun.voipbuster.com',
-        'stun://stun.voipstunt.com',
-        'stun://stun.voxgratia.org',
-        'stun://stun.xten.com',
+        // 'stun://stun.ekiga.net',
+        // 'stun://stun.ideasip.com',
+        // 'stun://stun.iptel.org',
+        // 'stun://stun.rixtelecom.se',
+        // 'stun://stun.schlund.de',
+        // 'stun://stunserver.org',
+        // 'stun://stun.softjoys.com',
+        // 'stun://stun.voiparound.com',
+        // 'stun://stun.voipbuster.com',
+        // 'stun://stun.voipstunt.com',
+        // 'stun://stun.voxgratia.org',
+        // 'stun://stun.xten.com',
     ], url.parse)
 };
 STUN.METHOD_NAMES = _.invert(STUN.METHODS);
@@ -129,7 +129,7 @@ function read_on_premise_stun_server() {
                     var agent_conf = JSON.parse(data);
                     var port_index = agent_conf.address.indexOf(':');
                     var local_stun = agent_conf.address.substring(0, port_index !== -1 ? (port_index - 1) : agent_conf.address.length);
-                    STUN.ON_PREMISE_SERVERS.push('stun://' + local_stun + ':3479');
+                    STUN.ON_PREMISE_SERVERS.push(url.parse('stun://' + local_stun + ':3479'));
                     STUN.DEFAULT_SERVER = STUN.ON_PREMISE_SERVERS[0];
                     dbg.log0('agent conf exists, using', STUN.ON_PREMISE_SERVERS[0], 'as stun server');
                 });

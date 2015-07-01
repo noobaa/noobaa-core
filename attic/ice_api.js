@@ -8,7 +8,6 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var Semaphore = require('noobaa-util/semaphore');
 var util = require('util');
-var promise_utils = require('../util/promise_utils');
 
 dbg.set_level(config.dbg_log_level);
 

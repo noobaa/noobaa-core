@@ -11,7 +11,7 @@ unzip DockerClientAmazon.zip
 ENV_NAME=$(curl http://metadata/computeMetadata/v1/instance/attributes/env -H "Metadata-Flavor: Google")
 echo '+++++ENV::::' $ENV_NAME
 if [ ${#ENV_NAME} -eq 0 ]; then
-	#for amazon we will set it (for now), by replacing the env_name string from ec2.js
+	#for amazon we will set it (for now), by replacing the env_name string from ec2_deploy_agents.js
 	ENV_NAME='test'
 else
 	echo 'EE' $ENV_NAME

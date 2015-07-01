@@ -205,7 +205,10 @@ nb_console.controller('OverviewCtrl', [
         function rest_server_information() {
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
-            scope.rest_endpoint = $window.location.host + '/s3';
+
+            var rest_host = ($window.location.host).replace(':'+nbSystem.system.web_port,'').replace(':'+nbSystem.system.ssl_port,':443');
+            console.log('SYS3:'+nbSystem.system.web_port+' host:'+rest_host);
+            scope.rest_endpoint = rest_host ;
             scope.bucket_name = $scope.nbSystem.system.buckets[0].name;
             scope.rest_package = download_rest_server_package;
             console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
@@ -504,7 +507,7 @@ nb_console.controller('BucketViewCtrl', [
                     return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
-                    nbFiles.set_access_keys(nbSystem.system.access_keys);
+                    nbFiles.set_access_keys(nbSystem.system.access_keys,nbSystem.system.web_port,nbSystem.system.ssl_port);
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;
                     });
@@ -553,8 +556,11 @@ nb_console.controller('BucketViewCtrl', [
         function rest_server_information() {
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
-            scope.rest_endpoint = $window.location.host + '/s3';
-            scope.bucket_name = $scope.nbSystem.system.buckets[0].name;
+            var rest_host = ($window.location.host).replace(':'+nbSystem.system.web_port,'').replace(':'+nbSystem.system.ssl_port,':443');
+            console.log('SYS2:'+nbSystem.system.web_port+' host:'+rest_host);
+
+            scope.rest_endpoint = rest_host;
+            scope.bucket_name =  $routeParams.bucket_name;
             scope.rest_package = download_rest_server_package;
             console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
             console.log('rest_server_information', $window.location, $location);
@@ -634,7 +640,7 @@ nb_console.controller('FileViewCtrl', [
                     //Setting access keys.
                     //TODO: consider separation to other object with only the keys
                     //      also, check better solution in terms of security.
-                    nbFiles.set_access_keys(nbSystem.system.access_keys);
+                    nbFiles.set_access_keys(nbSystem.system.access_keys,nbSystem.system.web_port,nbSystem.system.ssl_port);
 
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;

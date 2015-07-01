@@ -24,7 +24,7 @@ export HOME='/root'
 cd /noobaa
 source /usr/local/nvm/nvm.sh
 nvm use 0.10.33
-time curl -k -H "Accept: application/json" https://$ENV_NAME/agent/package.json > package.json
+time curl -k -H "Accept: application/json" https://${ENV_NAME}:8443/agent/package.json > package.json
 time rm -rf node_modules/
 time npm config set strict-ssl false
 time npm install

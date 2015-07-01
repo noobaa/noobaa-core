@@ -117,6 +117,9 @@ module.exports = {
                     fix_parts_size: {
                         type: 'boolean',
                     },
+                    etag: {
+                        type: 'string',
+                    }
                 }
             },
             auth: {
@@ -487,6 +490,9 @@ module.exports = {
                 },
                 upload_size: {
                     type: 'integer',
+                },
+                etag: {
+                    type: 'string',
                 }
             }
         },

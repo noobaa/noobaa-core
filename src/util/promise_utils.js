@@ -5,6 +5,8 @@
 var Q = require('q');
 var child_process = require('child_process');
 require('setimmediate');
+var ncp = require('ncp').ncp;
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 module.exports = {
@@ -17,6 +19,8 @@ module.exports = {
     next_tick: next_tick,
     set_immediate: set_immediate,
     promised_spawn: promised_spawn,
+    promised_exec: promised_exec,
+    full_dir_copy: full_dir_copy,
 };
 
 
@@ -101,9 +105,10 @@ function loop(times, func) {
  *
  * @param attempts number of attempts. can be Infinity.
  * @param delay number of milliseconds between retries
+ * @param delay_increment numbner of milliseconds to add to delay after each retry
  * @param func with signature function(attempts), passing remaining attempts just fyi
  */
-function retry(attempts, delay, func) {
+function retry(attempts, delay, delay_increment, func) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
@@ -118,7 +123,7 @@ function retry(attempts, delay, func) {
 
             // delay and retry next attempt
             return Q.delay(delay).then(function() {
-                return retry(attempts, delay, func);
+                return retry(attempts, delay+delay_increment, delay_increment, func);
             });
 
         });
@@ -151,12 +156,12 @@ function run_background_worker(worker) {
             .then(function(delay) {
                 return delay_unblocking(delay || worker.delay || DEFUALT_DELAY);
             }, function(err) {
-                console.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
+                dbg.log('run_background_worker', worker.name, 'UNCAUGHT ERROR', err, err.stack);
                 return delay_unblocking(worker.delay || DEFUALT_DELAY);
             })
             .then(run);
     }
-    console.log('run_background_worker:', 'INIT', worker.name);
+    dbg.log('run_background_worker:', 'INIT', worker.name);
     delay_unblocking(worker.boot_delay || worker.delay || DEFUALT_DELAY).then(run);
     return worker;
 }
@@ -174,12 +179,12 @@ function set_immediate() {
 }
 
 /* Run child process spawn wrapped by a promise
-   TODO: Should be removed once we push to node 12 which has the spawnSync and execSync
+   TODO: The two following should be removed once we push to node 12 which has the spawnSync and execSync
 */
-function promised_spawn(command, args, cwd) {
-    console.log('promise spawn');
+function promised_spawn(command, args, cwd, ignore_rc) {
+    dbg.log2('promise spawn', command, args, cwd, ignore_rc);
     if (!command || !cwd) {
-        return Q.reject(new Error("Both command and working directory must be given, not " + command + " and " + cwd));
+        return Q.reject(new Error('Both command and working directory must be given'));
     }
 
     var deferred = Q.defer();
@@ -188,20 +193,64 @@ function promised_spawn(command, args, cwd) {
         cwd: cwd
     });
 
-    proc.on("error", function(error) {
-      console.log('promise spawn error',error);
-      deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " recieved error " + error.message));
+    var out;
+    proc.stdout.on('data', function(data) {
+      out = data;
+      dbg.log2('on stdout', data);
     });
 
-    proc.on("exit", function(code) {
-        console.log('promise spawn exit',code);
-        if (code !== 0) {
-            deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " exited with rc " + code));
+    proc.on('error', function(error) {
+        if ((typeof ignore_rc !== 'undefined') && ignore_rc) {
+            deferred.resolve(out);
         } else {
-            deferred.resolve();
+            deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " recieved error " + error.message));
+        }
+    });
+
+    proc.on('exit', function(code) {
+        if (((typeof ignore_rc !== 'undefined') && ignore_rc) || code === 0) {
+            deferred.resolve(out);
+        } else {
+            deferred.reject(new Error(command + " " + args.join(" ") + " in " + cwd + " exited with rc " + code));
         }
     });
 
     return deferred.promise;
 
+}
+
+function promised_exec(command, ignore_rc) {
+    dbg.log2('promise exec', command, ignore_rc);
+    if (!command) {
+        return Q.reject(new Error('Command must be given'));
+    }
+
+    var deferred = Q.defer();
+
+    child_process.exec(command,
+        function(error, stdout, stderr) {
+            if (error === null || ignore_rc) {
+                deferred.resolve();
+            } else {
+                deferred.reject(new Error(command + " exited with error " + error));
+            }
+        });
+
+    return deferred.promise;
+}
+
+function full_dir_copy(src, dst) {
+    ncp.limit = 10;
+
+    if (!src || !dst) {
+        return Q.reject(new Error('Both src and dst must be given'));
+    }
+
+    return Q.nfcall(ncp, src, dst).done(function(err) {
+        if (err) {
+            return Q.reject(new Error('full_dir_copy failed with ' + err));
+        } else {
+            return Q.resolve();
+        }
+    });
 }

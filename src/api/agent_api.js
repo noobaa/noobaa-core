@@ -50,7 +50,6 @@ module.exports = {
                     },
                 },
             },
-            reply_raw: true,
         },
 
 
@@ -174,7 +173,6 @@ module.exports = {
                     },
                 },
             },
-            reply_raw: true,
         },
 
         self_test_peer: {
@@ -198,6 +196,19 @@ module.exports = {
 
         kill_agent: {
             method: 'POST',
+        },
+
+        collect_diagnostics: {
+          method: 'GET',
+          reply: {
+              type: 'object',
+              required: ['data'],
+              properties: {
+                  data: {
+                      type: 'buffer'
+                  },
+              },
+          },
         },
 
     }

@@ -28,7 +28,24 @@ function enable_supervisord {
 }
 
 function restart_webserver {
-    ${SUPERCTL} restart webserver
+    ${SUPERCTL} stop webserver
+    mongodown=true
+    while ${mongodown}; do
+    if netstat -na|grep LISTEN|grep :27017; then
+            echo here${mongodown}
+            mongodown=false
+            echo ${mongodown}
+    else
+            echo sleep
+            sleep 1
+    fi
+    done
+    ${SUPERCTL} start webserver
+
+}
+
+function restart_s3rver {
+    ${SUPERCTL} restart s3rver
 }
 
 
@@ -98,9 +115,12 @@ function do_upgrade {
   #workaround - from some reason, without sleep + restart, the server starts with odd behavior
   #TODO: understand why and fix.
   sleep 5;
+  restart_s3rver
   restart_webserver
   deploy_log "Upgrade finished successfully!"
 }
+
+deploy_log "upgrade.sh called with $@"
 
 if [ "$1" == "from_file" ]; then
   if [ "$2" != "" ]; then

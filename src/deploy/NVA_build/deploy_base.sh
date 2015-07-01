@@ -37,6 +37,7 @@ function install_aux {
 	# Install Debug packages
 	yum install -y tcpdump
 	yum install -y lsof
+	yum install -y dialog
 
 	# Install Supervisord
 	yum install -y python-setuptools
@@ -79,15 +80,17 @@ function setup_repos {
 
 	if [ ${runnpm} -eq 1 ]; then
 		deploy_log "setup_repos calling npm install"		+	deploy_log "setup_repos after deleted npm install"
+		$(npm install sse4_crc32 >> ${LOG_FILE})
 		$(npm install -dd >> ${LOG_FILE})
+
 	fi
 
-	deploy_log "setting up crontab"
+	#deploy_log "setting up crontab"
 	# Setup crontab job for upgrade checks
 	# once a day at HH = midnight + RAND[0,2], MM = RAND[0,59]
-	local hour_skew=$(((RANDOM)%3))
-	local minutes=$(((RANDOM)%60))
-	crontab -l 2>/dev/null; echo "${minutes} ${hour_skew} * * * ${CORE_DIR}/src/deploy/NVA_build/upgrade.sh" | crontab -
+	#local hour_skew=$(((RANDOM)%3))
+	#local minutes=$(((RANDOM)%60))
+	#crontab -l 2>/dev/null; echo "${minutes} ${hour_skew} * * * ${CORE_DIR}/src/deploy/NVA_build/upgrade.sh" | crontab -
 	deploy_log "setup_repos done"
 }
 
@@ -139,8 +142,9 @@ function setup_mongo {
 function general_settings {
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 443 -j ACCEPT
 	iptables -I INPUT 1 -i eth0 -p tcp --dport 80 -j ACCEPT
-	/sbin/iptables -A INPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
-	/sbin/iptables -A OUTPUT -m limit --limit 15/minute -j LOG --log-level 2 --log-prefix "Dropped by firewall: "
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 8080 -j ACCEPT
+	iptables -I INPUT 1 -i eth0 -p tcp --dport 8443 -j ACCEPT
+
 	service iptables save
 	echo "export LC_ALL=C" >> ~/.bashrc
 	echo "alias services_status='/usr/bin/supervisorctl status'" >> ~/.bashrc
@@ -150,16 +154,27 @@ function general_settings {
 	echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
 
 	#Fix file descriptor limits
-	echo "* hard nofile 102400" >> /etc/security/limits.conf
-	echo "* soft nofile 102400" >> /etc/security/limits.conf
+	echo "root hard nofile 102400" >> /etc/security/limits.conf
+	echo "root soft nofile 102400" >> /etc/security/limits.conf
 	sysctl -w fs.file-max=102400
-	sysctl -p
+	sysctl -e -p
+
+	#noobaa user
+	useradd noobaa
+	echo Passw0rd | passwd noobaa --stdin
+	cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
+
+	#Fix login message
+	echo "Welcome to your NooBaa, host \n" > /etc/issue
+	echo "You can use noobaa/Passw0rd login to configure IP & DNS" >>/etc/issue
 }
 
 function setup_supervisors {
 	deploy_log "setup_supervisors start"
 	# Generate default supervisord config
 	echo_supervisord_conf > /etc/supervisord.conf
+	sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
+	sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
 
 	# Autostart supervisor
 	deploy_log "setup_supervisors autostart"
@@ -185,7 +200,7 @@ if [ "$1" == "runinstall" ]; then
 	install_aux
 	install_repos
 	setup_repos runnpm
-	setup_makensis
+#	setup_makensis
 	install_mongo
 	setup_mongo
 	general_settings

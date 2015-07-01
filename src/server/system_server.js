@@ -5,9 +5,13 @@ var _ = require('lodash');
 var Q = require('q');
 var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
+var diag = require('../util/diagnostics');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
+var fs = require('fs');
+var child_process = require('child_process');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**
@@ -30,7 +34,10 @@ var system_server = {
 
     get_system_resource_info: get_system_resource_info,
 
-    read_activity_log: read_activity_log
+    read_activity_log: read_activity_log,
+
+    diagnose: diagnose,
+    diagnose_with_agent: diagnose_with_agent,
 };
 
 module.exports = system_server;
@@ -108,6 +115,38 @@ function create_system(req) {
             }, {
                 auth_token: system_token
             });
+        })
+        .then(function() {
+            var config = {
+                "dbg_log_level": 2,
+                "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
+                "port": "80",
+                "ssl_port": "443",
+                "access_key": info.access_keys[0].access_key,
+                "secret_key": info.access_keys[0].secret_key
+            };
+            if (process.env.ON_PREMISE) {
+                return Q.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
+            }
+        })
+        .then(function() {
+            if (process.env.ON_PREMISE) {
+                return Q.Promise(function(resolve, reject) {
+                    var supervisorctl = child_process.spawn(
+                        'supervisorctl', ['restart', 's3rver'], {
+                            cwd: process.cwd()
+                        });
+
+                    supervisorctl.on('close', function(code) {
+                        if (code !== 0) {
+                            resolve();
+                        } else {
+                            dbg.log0('error code while restarting s3rver', code);
+                            resolve();
+                        }
+                    });
+                });
+            }
         })
         //Auto generate agent executable.
         // Removed for now, as we need signed exe
@@ -270,6 +309,8 @@ function read_system(req) {
             }),
             objects: objects_sys.count || 0,
             access_keys: req.system.access_keys,
+            ssl_port: process.env.SSL_PORT,
+            web_port: process.env.PORT,
         };
     });
 }
@@ -504,7 +545,46 @@ function read_activity_log(req) {
         });
 }
 
+function diagnose(req) {
+    dbg.log1('Recieved diag req');
+    var out_path = '/public/diagnostics.tgz';
+    var inner_path = process.cwd() + '/build' + out_path;
+    return Q.fcall(function() {
+            return diag.collect_server_diagnostics();
+        })
+        .then(function() {
+            return diag.pack_diagnostics(inner_path);
+        })
+        .then(function() {
+            return out_path;
+        })
+        .then(null, function(err) {
+            dbg.log0('Error while collecting diagnostics', err, err.stack());
+            return;
+        });
+}
 
+function diagnose_with_agent(data) {
+    dbg.log1('Recieved diag with agent req');
+    var out_path = '/public/diagnostics.tgz';
+    var inner_path = process.cwd() + '/build' + out_path;
+    return Q.fcall(function() {
+            return diag.collect_server_diagnostics();
+        })
+        .then(function() {
+            return diag.write_agent_diag_file(data);
+        })
+        .then(function() {
+            return diag.pack_diagnostics(inner_path);
+        })
+        .then(function() {
+            return out_path;
+        })
+        .then(null, function(err) {
+            dbg.log0('Error while collecting diagnostics with agent', err, err.stack());
+            return;
+        });
+}
 
 
 // UTILS //////////////////////////////////////////////////////////

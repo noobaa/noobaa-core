@@ -309,7 +309,8 @@ function print_instances(instances) {
                 current_instance.networkInterfaces[0].accessConfigs[0].natIP,
                 zone_name,
                 current_instance.Name || '',
-                '[private ip ' + current_instance.networkInterfaces[0].networkIP + ']'
+                '[private ip ' + current_instance.networkInterfaces[0].networkIP + ']',
+                '[public ip ' + current_instance.networkInterfaces[0].accessConfigs[0].natIP+']'
             );
 
         });

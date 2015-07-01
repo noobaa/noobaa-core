@@ -3,8 +3,10 @@
 // var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
+var os = require('os');
 var promise_utils = require('../util/promise_utils');
 var os_utils = require('../util/os_util');
+var stats = require('../server/stats_aggregator');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = {
@@ -66,6 +68,13 @@ function collect_server_diagnostics() {
         .then(function() {
             return promise_utils.promised_exec('lsof >& ' + TMP_WORK_DIR + '/lsof.out');
         })
+        .then(function() {
+            return stats.get_all_stats();
+        })
+        .then(function(restats) {
+            var stats_data = JSON.stringify(restats);
+            return Q.nfcall(fs.writeFile, TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
+        })
         .then(null, function(err) {
             console.error('Error in collecting server diagnostics', err);
             throw new Error('Error in collecting server diagnostics ' + err);
@@ -104,12 +113,18 @@ function pack_diagnostics(dst) {
  * Internal Utils
  */
 
+//Collect supervisor logs, only do so on linux platforms and not on OSX (WA for local server run)
 function collect_supervisor_logs() {
-    return Q.fcall(function() {
-            return promise_utils.full_dir_copy('/tmp/supervisor', TMP_WORK_DIR);
-        })
-        .then(null, function(err) {
-            console.error('Error in collecting supervisor logs', err);
-            throw new Error('Error in collecting supervisor logs ' + err);
-        });
+    if (os.type() === 'Linux') {
+        return Q.fcall(function() {
+                return promise_utils.full_dir_copy('/tmp/supervisor', TMP_WORK_DIR);
+            })
+            .then(null, function(err) {
+                console.error('Error in collecting supervisor logs', err);
+                throw new Error('Error in collecting supervisor logs ' + err);
+            });
+    } else if (os.type() === 'Darwin') {
+        console.log('Skipping supervisor logs on local OSX server');
+    }
+
 }

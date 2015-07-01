@@ -1,19 +1,7 @@
 // this module is written for nodejs.
 'use strict';
 
-var _ = require('lodash');
-var Q = require('q');
-var crypto = require('crypto');
-var size_utils = require('../util/size_utils');
-var diag = require('../util/diagnostics');
-var db = require('./db');
-var server_rpc = require('./server_rpc');
-var AWS = require('aws-sdk');
-var fs = require('fs');
-var child_process = require('child_process');
-var dbg = require('noobaa-util/debug_module')(__filename);
-
-
+//Set exports prior to requires to prevent circular dependency issues
 /**
  *
  * SYSTEM_SERVER
@@ -42,6 +30,17 @@ var system_server = {
 
 module.exports = system_server;
 
+var _ = require('lodash');
+var Q = require('q');
+var crypto = require('crypto');
+var size_utils = require('../util/size_utils');
+var diag = require('../util/diagnostics');
+var db = require('./db');
+var server_rpc = require('./server_rpc');
+var AWS = require('aws-sdk');
+var fs = require('fs');
+var child_process = require('child_process');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**

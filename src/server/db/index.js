@@ -11,6 +11,7 @@ var System = require('./system');
 var Tier = require('./tier');
 var Node = require('./node');
 var Bucket = require('./bucket');
+var Cluster = require('./cluster');
 var ObjectMD = require('./object_md');
 var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
@@ -44,6 +45,7 @@ module.exports = {
     DataChunk: DataChunk,
     DataBlock: DataBlock,
     ActivityLog: ActivityLog,
+    Cluster: Cluster,
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,

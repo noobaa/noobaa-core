@@ -1,23 +1,24 @@
-#ifndef POLY_H_
-#define POLY_H_
+#ifndef GF2_H_
+#define GF2_H_
 
 #include "common.h"
 #include <math.h>
 
 template <typename T>
-class Poly
+class GF2
 {
 public:
-    Poly(T poly_, int degree_)
-        : poly(poly_)
-        , degree(degree_)
-        , carry_byte_shift(degree-9)
-        , carry_bit(T(1) << (degree-1))
-        , carry_byte(T(0xFF) << carry_byte_shift)
+
+    explicit GF2(int degree_, T poly_)
+        : degree(degree_)
+        , poly(poly_)
         , antimask((~(T(0)) >> degree) << degree)
         , mask(~antimask)
+        , carry_bit_shift(degree - 1)
+        , carry_byte_shift(degree - 8)
     {
         assert(degree > 8);
+        assert(necessary_check_for_irreducible());
         for (int i=0; i<256; ++i) {
             T a = T(i) << carry_byte_shift;
             for (int i=0; i<8; ++i) {
@@ -27,11 +28,20 @@ public:
         }
     }
 
+    bool necessary_check_for_irreducible() const
+    {
+        const T two = 2;
+        T a = two;
+        for (int i=0; i<degree; ++i) {
+            a = mult(a, a);
+        }
+        return a == two;
+    }
+
     inline T shift_left(T a) const
     {
-        T carry = a & carry_bit;
-        if (carry) {
-            return ((a & ~carry_bit) << 1) ^ poly;
+        if (a >> carry_bit_shift) {
+            return ((a << 1) & mask) ^ poly;
         } else {
             return a << 1;
         }
@@ -52,8 +62,7 @@ public:
 
     inline T shift_byte_left(T a) const
     {
-        T carry = (a & carry_byte) >> carry_byte_shift;
-        return ((a << 8) & mask) ^ carry_byte_shift_table[carry];
+        return ((a << 8) & mask) ^ carry_byte_shift_table[a >> carry_byte_shift];
     }
 
     T mod(T a) const
@@ -98,17 +107,12 @@ public:
         return n;
     }
 
-    const T poly;
     const int degree;
-    const int carry_byte_shift;
-    const T carry_bit;
-    const T carry_byte;
+    const T poly;
     const T antimask;
     const T mask;
-
-    // a constant hash table from bytes to values with more bits
-    // this is used when hashing byte-by-byte to avoid repeating bytes of zeros or other values
-    static const T byte_const_hash[256];
+    const int carry_bit_shift;
+    const int carry_byte_shift;
 
     // static const int byte_deg_table[256];
 
@@ -116,4 +120,4 @@ private:
     T carry_byte_shift_table[256];
 };
 
-#endif // POLY_H_
+#endif // GF2_H_

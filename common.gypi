@@ -41,7 +41,7 @@
                 # cancel node common using negatives (cflags!)
                 'cflags!': ['-fno-exceptions'],
                 'cflags_cc!': ['-fno-exceptions'],
-                'cflags': ['-std=c++11'],
+                'cflags': ['-std=c++11', '-O0', '-g'],
                 'xcode_settings': {
                     'OTHER_CFLAGS': [],
                     'OTHER_CPLUSPLUSFLAGS': [

@@ -127,7 +127,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         pipeline.pipe(transformer({
             init: function() {
                 var stream = this;
-                this._ingest = new native_util.Ingest_v1(function(data) {
+                this._ingest = new native_util.Ingest(function(data) {
                     console.log('CHUNK', data.length);
                     stream.push(data);
                 });

@@ -1,19 +1,7 @@
-#include "poly.h"
-
-/*
-template <typename T>
-const int Poly<T>::byte_deg_table[256] = {
-#define DEG(i) Poly<T>::deg(i),
-#define DEG4(i) DEG(i) DEG(i+1) DEG(i+2) DEG(i+3)
-#define DEG16(i) DEG4(i) DEG4(i+4) DEG4(i+8) DEG4(i+12)
-#define DEG64(i) DEG16(i) DEG16(i+16) DEG16(i+32) DEG16(i+48)
-#define DEG256(i) DEG64(i) DEG64(i+64) DEG64(i+128) DEG64(i+192)
-    DEG256(0)
-};
-*/
+#include "buzhash.h"
 
 template <>
-const uint32_t Poly<uint32_t>::byte_const_hash[256] = {
+const uint32_t BuzHash<uint32_t>::byte_const_hash[256] = {
     0xd45020ecu, 0x10307c23u, 0xb66dae89u, 0x26eb482du, 0xba418067u, 0xa326b628u, 0xf95439b6u, 0x8f04e668u,
     0x7f058f75u, 0x69abb6e7u, 0xc46cf6bdu, 0xd7bd593bu, 0x8e6eea3cu, 0x263bbf62u, 0x95baabdfu, 0x204ef5b8u,
     0x656ee1a8u, 0x74aac250u, 0x22436470u, 0xf616b001u, 0xc0f36f50u, 0xb2feab24u, 0x59633ee9u, 0x4121cf08u,
@@ -49,7 +37,7 @@ const uint32_t Poly<uint32_t>::byte_const_hash[256] = {
 };
 
 template <>
-const uint64_t Poly<uint64_t>::byte_const_hash[256] = {
+const uint64_t BuzHash<uint64_t>::byte_const_hash[256] = {
     0x0a1e8b0447de752aull, 0x7d06a3d6eb75b912ull, 0x4f4defd734cded4aull, 0x7677e4a0867c19cfull,
     0x00ff4327a1d60ac2ull, 0xebdf10868744e890ull, 0x5c169926407ef984ull, 0xe4bc299b1ee12ae6ull,
     0xdc5979edb128e0a6ull, 0x5cdec767a4adca02ull, 0x287d319a6f165129ull, 0x682d5b9617f50da0ull,

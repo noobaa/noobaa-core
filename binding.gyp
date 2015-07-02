@@ -7,7 +7,8 @@
             'src/util/native/module.cpp',
             'src/util/native/ingest.cpp',
             'src/util/native/tpool.cpp',
-            'src/util/native/poly.cpp',
+            'src/util/native/gf2.cpp',
+            'src/util/native/buzhash.cpp',
             'src/util/native/crypto.cpp',
         ],
     }, {

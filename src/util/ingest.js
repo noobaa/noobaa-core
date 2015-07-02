@@ -36,7 +36,7 @@ function test_ingest() {
         var native_util = require("bindings")("native_util.node");
         input.pipe(transformer({
             init: function() {
-                this.ingest = new native_util.Ingest_v1(function(chunk, sha) {
+                this.ingest = new native_util.Ingest(function(chunk, sha) {
                     // console.log('OUTPUT', chunk.length, 'sha(' + sha + ')');
                     process.stdout.write(chunk.length + ',');
                 });

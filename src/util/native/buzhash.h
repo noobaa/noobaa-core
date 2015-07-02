@@ -1,6 +1,8 @@
 #ifndef BUZHASH_H_
 #define BUZHASH_H_
 
+#include "common.h"
+
 /**
  *
  * Cyclic polynomials hashing
@@ -10,100 +12,53 @@
  * http://arxiv.org/pdf/0705.4676v7.pdf
  *
  */
-template <typename HashType_>
+template <typename _Hash>
 class BuzHash
 {
 public:
-    typedef HashType_ HashType;
-    class Config;
+    typedef _Hash Hash;
 
-    explicit BuzHash(const Config& conf)
-        : _conf(conf)
-        , _window(new uint8_t[conf.window_len])
+    explicit BuzHash(int width, int window_len) : _width(width)
     {
-        reset();
+
+        // to make BuzHash pairwise independant (less sensitive to collision attacks)
+        // we should only use (width-window_len) bits from the resulting hash
+        assert(width > window_len);
+
+        // window_rotate_table is the value of the byte rotated 'window_len'-times
+        // this allows to remove the last window byte.
+        for (int i=0; i<256; ++i) {
+            Hash a(i);
+            for (int j=0; j<window_len; ++j) {
+                a = rotate_byte_left(a);
+            }
+            window_rotate_table[i] = a;
+        }
     }
 
-    ~BuzHash()
+    Hash rotate_byte_left(Hash a) const
     {
-        delete[] _window;
+        return (a >> (_width - 8)) | (a << 8);
     }
 
-    HashType value()
+    // TODO need to cut off to width-window_len bits for pairwise independent
+    Hash update(Hash hash, uint8_t byte_in, uint8_t byte_out) const
     {
-        return _hash;
-    }
-
-    void reset()
-    {
-        memset(_window, 0, _conf.window_len);
-        _window_pos = 0;
-        _hash = 0;
-    }
-
-    HashType update(uint8_t byte)
-    {
-        // constant hash is used to translate every input byte before feeding it
-        // for example this reduced the effect of sequences of zeros.
-        const HashType in = Poly<HashType>::byte_const_hash[byte];
-        const HashType out = _conf.byte_rotate_window_table[_window[_window_pos]];
-        _hash = _conf.rotate_byte_left(_hash) ^ out ^ in;
-        _window[_window_pos] = in;
-        _window_pos = (_window_pos + 1) % _conf.window_len;
-        return _hash;
+        return rotate_byte_left(hash)
+               // for byte_in constant hash is used to translate every input byte before feeding it
+               // to reduce the effect of sequences of zeros.
+               ^ byte_const_hash[byte_in]
+               ^ window_rotate_table[byte_out];
     }
 
 private:
-    const Config& _conf;
-    uint8_t* _window;
-    int _window_pos;
-    HashType _hash;
-};
-
-
-/**
- * Config (BuzHash)
- */
-template <typename HashType_>
-class BuzHash<HashType_>::Config
-{
-public:
-
-    explicit Config(int degree_, int window_len_)
-        : degree(degree_)
-        , window_len(window_len_)
-    {
-        // byte_rotate_window_table is the value of the byte rotated 'window_len'-times
-        // this allows to remove the last window byte.
-        for (int i=0; i<256; ++i) {
-            byte_rotate_window_table[i] = rotate_left(i, 8 * window_len);
-        }
-    }
-
-    HashType rotate_byte_left(HashType a) const
-    {
-        return (a >> (degree - 8)) | (a << 8);
-    }
-
-    HashType rotate_left(HashType a, int bits) const
-    {
-        while (bits > 8) {
-            a = rotate_byte_left(a);
-            bits -= 8;
-        }
-        if (bits > 0) {
-            return (a >> (degree-bits)) | (a << bits);
-        } else {
-            return a;
-        }
-    }
-
-    const int degree;
-    const int window_len;
-
+    // the number of bits in the hash
+    const int _width;
     // see explaination in ctor
-    HashType byte_rotate_window_table[256];
-
+    Hash window_rotate_table[256];
+    // a constant hash table from bytes to values with more bits
+    // this is used when hashing byte-by-byte to avoid repeating bytes of zeros or other values
+    static const Hash byte_const_hash[256];
 };
 
 #endif // BUZHASH_H_

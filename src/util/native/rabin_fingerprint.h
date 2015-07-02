@@ -1,92 +1,38 @@
 #ifndef RABIN_H_
 #define RABIN_H_
 
-#include "common.h"
-#include "poly.h"
+#include "gf2.h"
 
-template<typename HashType_>
+template <typename _Hash>
 class RabinFingerprint
 {
 public:
-    typedef HashType_ HashType;
-    class Config;
+    typedef _Hash Hash;
 
-    explicit RabinFingerprint(const Config& conf)
-        : _conf(conf)
-        , _window(new uint8_t[conf.window_len])
+    explicit RabinFingerprint(int degree, Hash poly, int window_len) : _gf2(degree, poly)
     {
-        reset();
+        // the window_shift_table keeps the value of each byte once it falls off the sliding window
+        // which is essentially: byte << window (mod p)
+        for (int i=0; i<256; ++i) {
+            window_shift_table[i] = _gf2.shifts_left(_gf2.mod(i), 8 * window_len);
+        }
     }
 
-    ~RabinFingerprint() {
-        delete[] _window;
-    }
-
-    HashType value()
+    Hash update(Hash hash, uint8_t byte_in, uint8_t byte_out) const
     {
-        return _fingerprint;
-    }
-
-    void reset()
-    {
-        memset(_window, 0, _conf.window_len);
-        _window_pos = 0;
-        _fingerprint = 0;
-    }
-
-    HashType update(uint8_t byte)
-    {
-        // constant hash is used to translate every input byte before feeding it
-        // for example this reduced the effect of sequences of zeros or other characters
-        const HashType in = Poly<HashType>::byte_const_hash[byte];
-        const HashType out = _conf.byte_shift_window_table[_window[_window_pos]];
-        _fingerprint = _conf.poly_class.shift_byte_left(_fingerprint) ^ out ^ in;
-        _window[_window_pos] = in;
-        _window_pos = (_window_pos + 1) % _conf.window_len;
-        return _fingerprint;
+        // the current hash is shifted one byte left to make room for the new input byte.
+        // for byte_out the window was shifted window*8 times so in order to cancel it
+        // we use the window shift table.
+        return _gf2.shift_byte_left(hash)
+               ^ byte_in
+               ^ window_shift_table[byte_out];
     }
 
 private:
-    const Config& _conf;
-    uint8_t* _window;
-    int _window_pos;
-    HashType _fingerprint;
+    // polynom instance with needed shift/mod functions
+    const GF2<Hash> _gf2;
+    // see explanation in ctor
+    Hash window_shift_table[256];
 };
-
-
-/**
- * Config (Rabin)
- */
-template<typename HashType_>
-class RabinFingerprint<HashType_>::Config
-{
-public:
-    explicit Config(
-        HashType poly_,
-        int degree_,
-        int window_len_)
-        : poly(poly_)
-        , degree(degree_)
-        , window_len(window_len_)
-        , poly_class(poly, degree)
-    {
-        // the byte_shift_window_table keeps the value of each byte once it falls off the sliding window
-        // which is essentially: byte << window (mod p)
-        for (int i=0; i<256; ++i) {
-            byte_shift_window_table[i] = poly_class.shifts_left(poly_class.mod(i), 8 * window_len);
-        }
-    }
-    // irreducible/primitive polynom reminder (top bit unneeded)
-    const HashType poly;
-    // polynom degree - the index of the top bit of the polynom
-    const int degree;
-    // window length in bytes for rolling hash
-    const int window_len;
-    // polynom instance with needed Galois Field functions
-    const Poly<HashType> poly_class;
-    // see explaination in ctor
-    HashType byte_shift_window_table[256];
-};
-
 
 #endif // RABIN_H_

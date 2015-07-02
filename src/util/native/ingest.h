@@ -17,46 +17,37 @@
  *
  */
 
-class Ingest_v1 : public node::ObjectWrap
+class Ingest : public node::ObjectWrap
 {
 public:
     static void setup(v8::Handle<v8::Object> exports);
-    class Config;
 
 private:
-    explicit Ingest_v1(NanCallbackRef callback)
-        : _deduper(_deduper_conf, _rabin_hasher_conf)
+    explicit Ingest(NanCallbackRef callback)
+        : _chunker(_deduper)
         , _callback(callback)
     {
     }
 
-    ~Ingest_v1()
+    ~Ingest()
     {
     }
 
     void purge_chunks();
 
 private:
+    // typedef BuzHash<uint32_t> BuzHasher;
+    // static BuzHasher _buz_hasher;
     typedef RabinFingerprint<uint32_t> RabinHasher;
-    typedef BuzHash<uint32_t> BuzHasher;
+    static RabinHasher _rabin_hasher;
     typedef Dedup<RabinHasher> Deduper;
-    Deduper _deduper;
+    static Deduper _deduper;
+    Deduper::Chunker _chunker;
     NanCallbackRef _callback;
-    static RabinHasher::Config _rabin_hasher_conf;
-    static BuzHasher::Config _buz_hasher_conf;
-    static Deduper::Config _deduper_conf;
     static v8::Persistent<v8::Function> _ctor;
     static NAN_METHOD(new_instance);
     static NAN_METHOD(push);
     static NAN_METHOD(flush);
 };
-
-class Ingest_v1::Config {
-public:
-    explicit Config()
-    {
-    }
-};
-
 
 #endif // INGEST_H_

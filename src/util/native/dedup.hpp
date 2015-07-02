@@ -1,8 +1,8 @@
 // template hpp
 
-template<typename Hasher_>
+template <typename _Hasher>
 void
-Dedup<Hasher_>::push(Buf buf)
+Dedup<_Hasher>::Chunker::push(Buf buf)
 {
     while (buf.length() > 0) {
         uint8_t* data = buf.data();
@@ -11,23 +11,32 @@ Dedup<Hasher_>::push(Buf buf)
         bool boundary = false;
 
         // skip hashing as long as below min chunk length
-        int remain_to_min = _conf.min_chunk - _current_len;
+        int remain_to_min = _dedup._min_chunk - _chunk_len;
         if (remain_to_min > 0) {
             int jump = std::min(remain_to_min, buf.length());
             pos += jump;
-            _current_len += jump;
+            _chunk_len += jump;
         }
 
         while (pos < len) {
-            HashType hash = _hasher.update(data[pos]);
+            // small manipulation to avoid long sequences of zeros or ones
+            // we add more than 1 in order to avoid both 0 and 0xff resulting in 0 .
+            uint8_t byte = data[pos]; // TODO do we need to add 2 to the byte?
+            _hash = _dedup._hasher.update(_hash, byte, _window[_window_pos]);
+            // std::cout << "hash " << std::hex << uint64_t(_hash) << std::endl;
+            // std::cout.flush();
+            _window[_window_pos] = byte;
+            _window_pos = (_window_pos + 1) % _dedup._window_len;
             pos++;
-            _current_len++;
-            if ((hash & _conf.avg_chunk_mask) == _conf.avg_chunk_val
-                || _current_len >= _conf.max_chunk) {
+            _chunk_len++;
+            if ((_hash & _dedup._avg_chunk_mask) == _dedup._avg_chunk_val
+                || _chunk_len >= _dedup._max_chunk) {
                 boundary = true;
                 break;
             }
         }
+
+        // std::cout << "_slices " << _slices.size() << std::endl;
 
         _slices.push_back(Buf(buf, 0, pos));
         if (boundary) {
@@ -35,15 +44,4 @@ Dedup<Hasher_>::push(Buf buf)
         }
         buf.slice(pos, len - pos);
     }
-}
-
-template<typename Hasher_>
-void
-Dedup<Hasher_>::flush()
-{
-    // std::cout << "Boundary hash " << std::hex << _hasher.value() << std::endl;
-    _chunks.push_back(Buf::concat(_slices.begin(), _slices.end(), _current_len));
-    _slices.clear();
-    _hasher.reset();
-    _current_len = 0;
 }

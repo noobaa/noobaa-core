@@ -17,7 +17,7 @@ public:
 
     static EVP_MD_CTX ctx_md;
 
-    static inline std::string digest(const char* digest_name, Buf buf)
+    static inline std::string digest(Buf buf, const char* digest_name)
     {
         const EVP_MD *md = EVP_get_digestbyname(digest_name);
         uint8_t digest[EVP_MAX_MD_SIZE];
@@ -35,16 +35,24 @@ public:
         return str;
     }
 
-    static inline Buf encrypt(const char* cipher_name, Buf buf)
+    static Buf encrypt(Buf buf, Buf key, Buf iv, const char* cipher_name)
     {
         const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
         EVP_CIPHER_CTX ctx_cipher;
         EVP_CIPHER_CTX_init(&ctx_cipher);
         EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, NULL, NULL);
-        // EVP_EncryptUpdate(&ctx_cipher, out, &out_len, buf.data(), buf.length());
-        // EVP_EncryptFinal_ex(&ctx_cipher, out, &out_len);
+        assert(key.length() == EVP_CIPHER_CTX_key_length(&ctx_cipher));
+        // iv is required if the key is reused, but can be empty if the key is unique
+        assert(iv.length() == EVP_CIPHER_CTX_iv_length(&ctx_cipher) || iv.length() == 0);
+        EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
+        int out_len = 0;
+        int final_len = 0;
+        Buf out(buf.length() + EVP_CIPHER_CTX_block_size(&ctx_cipher));
+        EVP_EncryptUpdate(&ctx_cipher, out.data(), &out_len, buf.data(), buf.length());
+        EVP_EncryptFinal_ex(&ctx_cipher, out.data() + out_len, &final_len);
         EVP_CIPHER_CTX_cleanup(&ctx_cipher);
-        return buf;
+        out.slice(0, out_len + final_len);
+        return out;
     }
 
 private:

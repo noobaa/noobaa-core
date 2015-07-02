@@ -37,10 +37,11 @@ private:
 
 private:
     // typedef BuzHash<uint32_t> BuzHasher;
+    // typedef Dedup<BuzHasher> Deduper;
     // static BuzHasher _buz_hasher;
     typedef RabinFingerprint<uint32_t> RabinHasher;
-    static RabinHasher _rabin_hasher;
     typedef Dedup<RabinHasher> Deduper;
+    static RabinHasher _rabin_hasher;
     static Deduper _deduper;
     Deduper::Chunker _chunker;
     NanCallbackRef _callback;

@@ -18,7 +18,7 @@ public:
         }
     }
 
-    Hash update(Hash hash, uint8_t byte_in, uint8_t byte_out) const
+    inline Hash update(Hash hash, uint8_t byte_in, uint8_t byte_out) const
     {
         // the current hash is shifted one byte left to make room for the new input byte.
         // for byte_out the window was shifted window*8 times so in order to cancel it

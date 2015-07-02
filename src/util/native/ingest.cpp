@@ -7,10 +7,11 @@
 v8::Persistent<v8::Function> Ingest::_ctor;
 
 /*
-Ingest::BuzHasher::Config
+Ingest::BuzHasher
 Ingest::_buz_hasher(
     31u,    // degree
-    16u     // window_len
+    64u,    // window_len
+    18u     // avg_chunk_bits
     );
 */
 

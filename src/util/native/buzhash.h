@@ -18,12 +18,13 @@ class BuzHash
 public:
     typedef _Hash Hash;
 
-    explicit BuzHash(int width, int window_len) : _width(width)
+    explicit BuzHash(int width, int window_len, int num_hash_bits) : _width(width)
     {
 
         // to make BuzHash pairwise independant (less sensitive to collision attacks)
-        // we should only use (width-window_len) bits from the resulting hash
-        assert(width > window_len);
+        // we should remove (window_len-1) consecutive bits from the hash
+        // so we can only use (width-window_len+1) bits from the resulting hash
+        // assert(width - window_len + 1 >= num_hash_bits);
 
         // window_rotate_table is the value of the byte rotated 'window_len'-times
         // this allows to remove the last window byte.
@@ -36,13 +37,12 @@ public:
         }
     }
 
-    Hash rotate_byte_left(Hash a) const
+    inline Hash rotate_byte_left(Hash a) const
     {
         return (a >> (_width - 8)) | (a << 8);
     }
 
-    // TODO need to cut off to width-window_len bits for pairwise independent
-    Hash update(Hash hash, uint8_t byte_in, uint8_t byte_out) const
+    inline Hash update(Hash hash, uint8_t byte_in, uint8_t byte_out) const
     {
         return rotate_byte_left(hash)
                // for byte_in constant hash is used to translate every input byte before feeding it

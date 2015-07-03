@@ -31,17 +31,4 @@
 
 typedef std::shared_ptr<NanCallback> NanCallbackRef;
 
-/*
-template <typename T>
-static inline T min(const T& a, const T& b)
-{
-    return b < a ? b : a;
-}
-template <typename T>
-static inline T max(const T& a, const T& b)
-{
-    return b > a ? b : a;
-}
-*/
-
 #endif // COMMON_H_

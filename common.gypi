@@ -56,11 +56,12 @@
                 },
                 'msvs_settings': {
                     'VCCLCompilerTool': {
-                        'RuntimeLibrary': 3, # shared debug
-                        'ExceptionHandling': 1, # /EHsc  doesn't work.
-                        # '/EHsc' # Enable unwind semantics for Exception Handling.
+                        # Enable unwind semantics for Exception Handling.
                         # This one actually does the trick.
                         # This is also where you can put /GR or /MDd, or other defines.
+                        'AdditionalOptions': [ '/EHsc' ],
+                        'ExceptionHandling': 1, # /EHsc  doesn't work.
+                        'RuntimeLibrary': 3, # shared debug
                     }
                 },
             },
@@ -89,11 +90,12 @@
                 },
                 'msvs_settings': {
                     'VCCLCompilerTool': {
-                        'RuntimeLibrary': 2, # shared release
-                        'ExceptionHandling': 1, # /EHsc  doesn't work.
-                        # '/EHsc' # Enable unwind semantics for Exception Handling.
+                        # Enable unwind semantics for Exception Handling.
                         # This one actually does the trick.
                         # This is also where you can put /GR or /MD, or other defines.
+                        'AdditionalOptions': [ '/EHsc' ],
+                        'ExceptionHandling': 1, # /EHsc  doesn't work.
+                        'RuntimeLibrary': 2, # shared release
                     }
                 },
             }

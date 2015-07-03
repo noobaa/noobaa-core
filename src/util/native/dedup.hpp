@@ -22,8 +22,8 @@ Dedup<_Hasher>::Chunker::push(Buf buf)
     while (buf.length() > 0) {
         const int len = buf.length();
         const uint8_t* data = buf.data();
-        const int skip = min(min_chunk - chunk_len, len);
-        const int end = min(max_chunk, chunk_len + len);
+        const int skip = std::min<int>(min_chunk - chunk_len, len);
+        const int end = std::min<int>(max_chunk, chunk_len + len);
         bool boundary = false;
 
 #if 0

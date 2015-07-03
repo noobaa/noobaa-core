@@ -3,6 +3,11 @@
     'targets': [{
         'target_name': 'native_util',
         #'type': '<(library)',
+        'link_settings': {
+            'libraries': [
+                '<(openssl_lib)',
+            ],
+        },
         'sources': [
             'src/util/native/module.cpp',
             'src/util/native/ingest.cpp',

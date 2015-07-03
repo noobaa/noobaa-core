@@ -11,20 +11,38 @@
         # header files that were used when building node.
         #
         'node_shared_openssl%': 'true',
-        'openssl_include_path': '<(node_root_dir)/deps/openssl/openssl/include',
         'conditions' : [
-            ['target_arch=="ia32"', {
-                'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/piii' ]
-            }],
-            ['target_arch=="x64"', {
-                'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/k8' ]
-            }],
-            ['target_arch=="arm"', {
-                'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/arm' ]
-            }],
-            ['target_arch=="ppc64"', {
-                'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/powerpc64' ]
-            }],
+            [ 'OS=="win"', {
+                'conditions': [
+                    # "openssl_root" is the directory on Windows of the OpenSSL files.
+                    # Check the "target_arch" variable to set good default values for
+                    # both 64-bit and 32-bit builds of the module.
+                    ['target_arch=="x64"', {
+                        'openssl_root%': 'C:/OpenSSL-Win64'
+                    }, {
+                        'openssl_root%': 'C:/OpenSSL-Win32'
+                    }],
+                ],
+                'openssl_include_path': '<(openssl_root)/include',
+                'openssl_lib': '-l<(openssl_root)/lib/libeay32.lib',
+            }, {
+                'openssl_include_path': '<(node_root_dir)/deps/openssl/openssl/include',
+                'openssl_lib': '',
+                'conditions': [
+                    ['target_arch=="ia32"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/piii' ]
+                    }],
+                    ['target_arch=="x64"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/k8' ]
+                    }],
+                    ['target_arch=="arm"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/arm' ]
+                    }],
+                    ['target_arch=="ppc64"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/powerpc64' ]
+                    }],
+                ],
+            }]
         ],
     },
 

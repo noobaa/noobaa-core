@@ -10,44 +10,33 @@ class Buf
 {
 public:
     explicit Buf(node::Buffer* buf)
-        // : _ref(v8::Persistent<v8::Value>::New(buf->handle_))
-        : _data(node::Buffer::Data(buf))
-        , _len(node::Buffer::Length(buf))
     {
-        NanAssignPersistent(_ref, static_cast<v8::Handle<v8::Value> >(NanNew(buf->handle_)));
+        init(buf);
     }
 
     explicit Buf(int len)
-        : Buf(node::Buffer::New(len))
     {
+        init(node::Buffer::New(len));
     }
 
     explicit Buf(const char* data, int len)
-        : Buf(node::Buffer::New(data, len))
     {
+        init(node::Buffer::New(data, len));
     }
 
     explicit Buf(v8::Handle<v8::Value> h)
-        // : _ref(v8::Persistent<v8::Value>::New(h))
-        // , _data(node::Buffer::Data(_ref))
-        // , _len(node::Buffer::Length(_ref))
     {
-        NanAssignPersistent(_ref, h);
-        _data = node::Buffer::Data(_ref);
-        _len = node::Buffer::Length(_ref);
+        init(h);
     }
 
     Buf(const Buf& other)
-        // : _ref(v8::Persistent<v8::Value>::New(other._ref))
-        : _data(other._data)
-        , _len(other._len)
     {
-        NanAssignPersistent(_ref, other._ref);
+        init(other);
     }
 
     Buf(const Buf& other, int offset, int len)
-        : Buf(other)
     {
+        init(other);
         slice(offset, len);
     }
 
@@ -122,6 +111,28 @@ public:
     }
 
 private:
+
+    void init(node::Buffer* buf)
+    {
+        NanAssignPersistent(_ref, static_cast<v8::Handle<v8::Value> >(NanNew(buf->handle_)));
+        _data = node::Buffer::Data(buf);
+        _len = node::Buffer::Length(buf);
+    }
+
+    void init(const Buf& other)
+    {
+        NanAssignPersistent(_ref, other._ref);
+        _data = other._data;
+        _len = other._len;
+    }
+
+    void init(v8::Handle<v8::Value> h)
+    {
+        NanAssignPersistent(_ref, h);
+        _data = node::Buffer::Data(_ref);
+        _len = node::Buffer::Length(_ref);
+    }
+
     v8::Persistent<v8::Value> _ref;
     char* _data;
     int _len;

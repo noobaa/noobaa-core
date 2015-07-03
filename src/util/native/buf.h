@@ -101,7 +101,7 @@ public:
         uint8_t* data = ret.data();
         while (len > 0) {
             assert(begin != end);
-            int now = std::min(len, begin->length());
+            int now = min(len, begin->length());
             memcpy(data, begin->data(), now);
             data += now;
             len -= now;

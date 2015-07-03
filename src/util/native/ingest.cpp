@@ -82,7 +82,7 @@ NAN_METHOD(Ingest::push)
     // std::cout << "Ingest::push pushed " << std::dec << buf.length() << std::endl;
     self->purge_chunks();
 
-    v8::Handle<v8::Value> argv[] = {};
+    v8::Handle<v8::Value>* argv = NULL;
     callback->Call(0, argv);
 
     NanReturnUndefined();
@@ -104,7 +104,7 @@ NAN_METHOD(Ingest::flush)
     // std::cout << "Ingest::flush flushed" << std::endl;
     self->purge_chunks();
 
-    v8::Handle<v8::Value> argv[] = {};
+    v8::Handle<v8::Value>* argv = NULL;
     callback->Call(0, argv);
 
     NanReturnUndefined();

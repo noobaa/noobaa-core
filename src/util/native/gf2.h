@@ -21,7 +21,7 @@ public:
         assert(necessary_check_for_irreducible());
         for (int i=0; i<256; ++i) {
             T a = T(i) << carry_byte_shift;
-            for (int i=0; i<8; ++i) {
+            for (int j=0; j<8; ++j) {
                 a = shift_left(a);
             }
             carry_byte_shift_table[i] = a;

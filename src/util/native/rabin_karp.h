@@ -1,7 +1,7 @@
 #ifndef RABIN_H_
 #define RABIN_H_
 
-template <class _Hash>
+template <typename _Hash>
 class RabinKarp
 {
 public:

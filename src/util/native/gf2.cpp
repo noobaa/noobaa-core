@@ -1,7 +1,7 @@
 #include "gf2.h"
 
 /*
-   template <class T>
+   template <typename T>
    const int Poly<T>::byte_deg_table[256] = {
    #define DEG(i) Poly<T>::deg(i),
    #define DEG4(i) DEG(i) DEG(i+1) DEG(i+2) DEG(i+3)

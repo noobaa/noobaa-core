@@ -11,7 +11,7 @@
  * takes nodejs buffers and chunking them with variable length dedup
  *
  */
-template <typename _Hasher>
+template <class _Hasher>
 class Dedup
 {
 public:

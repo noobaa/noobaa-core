@@ -3,7 +3,7 @@
 
 #include "gf2.h"
 
-template <typename _Hash>
+template <class _Hash>
 class RabinFingerprint
 {
 public:

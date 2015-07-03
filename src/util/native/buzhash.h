@@ -12,7 +12,7 @@
  * http://arxiv.org/pdf/0705.4676v7.pdf
  *
  */
-template <typename _Hash>
+template <class _Hash>
 class BuzHash
 {
 public:

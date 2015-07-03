@@ -95,7 +95,7 @@ public:
         _len = node::Buffer::Length(_ref);
     }
 
-    template <typename Iter>
+    template <class Iter>
     static Buf concat(Iter begin, Iter end, int len) {
         Buf ret(len);
         uint8_t* data = ret.data();

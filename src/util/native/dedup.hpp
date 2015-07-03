@@ -1,6 +1,6 @@
 // template hpp
 
-template <typename _Hasher>
+template <class _Hasher>
 void
 Dedup<_Hasher>::Chunker::push(Buf buf)
 {

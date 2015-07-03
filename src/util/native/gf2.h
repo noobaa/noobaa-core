@@ -4,7 +4,7 @@
 #include "common.h"
 #include <math.h>
 
-template <typename T>
+template <class T>
 class GF2
 {
 public:

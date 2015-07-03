@@ -54,7 +54,15 @@
                     'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
                     'MACOSX_DEPLOYMENT_TARGET': '10.7',
                 },
-                'msvs_settings': {},
+                'msvs_settings': {
+                    'VCCLCompilerTool': {
+                        'RuntimeLibrary': 3, # shared debug
+                        'ExceptionHandling': 1, # /EHsc  doesn't work.
+                        # '/EHsc' # Enable unwind semantics for Exception Handling.
+                        # This one actually does the trick.
+                        # This is also where you can put /GR or /MDd, or other defines.
+                    }
+                },
             },
 
             'Release': {
@@ -79,7 +87,15 @@
                     'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
                     'MACOSX_DEPLOYMENT_TARGET': '10.7',
                 },
-                'msvs_settings': {},
+                'msvs_settings': {
+                    'VCCLCompilerTool': {
+                        'RuntimeLibrary': 2, # shared release
+                        'ExceptionHandling': 1, # /EHsc  doesn't work.
+                        # '/EHsc' # Enable unwind semantics for Exception Handling.
+                        # This one actually does the trick.
+                        # This is also where you can put /GR or /MD, or other defines.
+                    }
+                },
             }
         }
     }

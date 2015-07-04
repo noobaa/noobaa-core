@@ -8,33 +8,44 @@
         # so default the variable to "true", v0.8.x node and up will overwrite it.
         'node_shared_openssl%': 'true',
 
+        # variables inside variables hack to allow using conditional and then reload the variables
+        # see https://code.google.com/p/gyp/issues/detail?id=165
+        'variables': {
+            'conditions' : [
+                [ 'OS=="win"', {
+                    'conditions': [
+                        ['target_arch=="x64"', {
+                            'openssl_root%': 'C:/OpenSSL-Win64'
+                        }, {
+                            'openssl_root%': 'C:/OpenSSL-Win32'
+                        }],
+                    ],
+                }, {
+                    'openssl_root%': '<(node_root_dir)/deps/openssl',
+                }]
+            ]
+        },
+
         'conditions' : [
             [ 'OS=="win"', {
-                'conditions': [
-                    ['target_arch=="x64"', {
-                        'openssl_root%': 'C:/OpenSSL-Win64'
-                    }, {
-                        'openssl_root%': 'C:/OpenSSL-Win32'
-                    }],
-                ],
                 'openssl_config_path': ' ', # node-gyp fails if the string is empty...
-                'openssl_include_path': '>(openssl_root)/include',
-                'openssl_lib': '-l>(openssl_root)/lib/libeay32.lib',
+                'openssl_include_path': '<(openssl_root)/include',
+                'openssl_lib': '-l<(openssl_root)/lib/libeay32.lib',
             }, { # not windows
-                'openssl_include_path': '<(node_root_dir)/deps/openssl/openssl/include',
+                'openssl_include_path': '<(openssl_root)/openssl/include',
                 'openssl_lib': ' ',
                 'conditions': [
                     ['target_arch=="ia32"', {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/piii' ]
+                        'openssl_config_path': [ '<(openssl_root)/config/piii' ]
                     }],
                     ['target_arch=="x64"', {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/k8' ]
+                        'openssl_config_path': [ '<(openssl_root)/config/k8' ]
                     }],
                     ['target_arch=="arm"', {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/arm' ]
+                        'openssl_config_path': [ '<(openssl_root)/config/arm' ]
                     }],
                     ['target_arch=="ppc64"', {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/powerpc64' ]
+                        'openssl_config_path': [ '<(openssl_root)/config/powerpc64' ]
                     }],
                 ],
             }]

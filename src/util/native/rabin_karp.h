@@ -1,21 +1,22 @@
 #ifndef RABIN_H_
 #define RABIN_H_
 
-template <typename _Hash>
+template <typename _T>
 class RabinKarp
 {
 public:
-    typedef _Hash Hash;
+    typedef _T T;
 
-    explicit RabinKarp(Hash multiplier, Hash modulo, int window_len)
+    explicit RabinKarp(T multiplier, T modulo, int window_len)
         : _multiplier(multiplier)
         , _modulo(modulo)
     {
-        assert()
+        // check that the type T can hold a multiplication witout wrapping
+        assert(T(_multiplier * _multiplier) / _multiplier == _multiplier);
         // the window_mult_table keeps the value of each byte once it falls off the sliding window
         // which is essentially: byte << window (mod p)
         for (int i=0; i<256; ++i) {
-            Hash a(i % _modulo);
+            T a(i % _modulo);
             for (int j=0; j<window_len; ++j) {
                 a = (a * _multiplier) % _modulo;
             }
@@ -23,7 +24,7 @@ public:
         }
     }
 
-    Hash update(Hash hash, uint8_t byte_in, uint8_t byte_out) const
+    T update(T hash, uint8_t byte_in, uint8_t byte_out) const
     {
         hash = (hash * _multiplier)
                + byte_in
@@ -33,10 +34,10 @@ public:
 
 private:
     // the prime modulos
-    const Hash _multiplier;
-    const Hash _modulo;
+    const T _multiplier;
+    const T _modulo;
     // see explanation in ctor
-    Hash window_mult_table[256];
+    T window_mult_table[256];
 };
 
 #endif // RABIN_H_

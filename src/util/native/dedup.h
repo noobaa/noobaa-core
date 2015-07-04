@@ -16,7 +16,7 @@ class Dedup
 {
 public:
     typedef _Hasher Hasher;
-    typedef typename Hasher::Hash Hash;
+    typedef typename Hasher::T T;
 
     /**
      * The Dedup class idefines a dedup policy.
@@ -27,13 +27,13 @@ public:
         int min_chunk,
         int max_chunk,
         int avg_chunk_bits,
-        Hash avg_chunk_val)
+        T avg_chunk_val)
         : _hasher(hasher)
         , _window_len(window_len)
         , _min_chunk(min_chunk)
         , _max_chunk(max_chunk)
         , _avg_chunk_bits(avg_chunk_bits)
-        , _avg_chunk_mask( ~((~Hash(0)) >> avg_chunk_bits << avg_chunk_bits) )
+        , _avg_chunk_mask( ~((~T(0)) >> avg_chunk_bits << avg_chunk_bits) )
         , _avg_chunk_val(avg_chunk_val & _avg_chunk_mask)
     {
     }
@@ -49,9 +49,9 @@ private:
     // number of lower bits of the fingerprint used to match the hash value
     const int _avg_chunk_bits;
     // computed mask to pick just avg_chunk_bits lower bits
-    const Hash _avg_chunk_mask;
+    const T _avg_chunk_mask;
     // hash value to match lower bits, can be any  value, but constant
-    const Hash _avg_chunk_val;
+    const T _avg_chunk_val;
 
 public:
 
@@ -107,7 +107,7 @@ public:
 
 private:
         const Dedup& _dedup;
-        Hash _hash;
+        T _hash;
         uint8_t* _window;
         int _window_pos;
         int _chunk_len;

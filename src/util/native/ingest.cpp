@@ -6,31 +6,29 @@
 
 v8::Persistent<v8::Function> Ingest::_ctor;
 
-/*
-Ingest::BuzHasher
-Ingest::_buz_hasher(
-    31u,    // degree
-    64u,    // window_len
-    18u     // avg_chunk_bits
+Ingest::GF
+Ingest::_gf(
+    // 20u /* degree */, 0x9u /* poly */
+    // 25u /* degree */, 0x9u /* poly */
+    // 28u /* degree */, 0x9u /* poly */
+    // 31u /* degree */, 0x9u /* poly */
+    // 32u /* degree */, 0xafu /* poly */
+    63u /* degree */, 0x3u /* poly */
     );
-*/
 
 Ingest::RabinHasher
 Ingest::_rabin_hasher(
-    31u,    // degree
-    0x9u,   // poly
-    64u     // window_len
-    );
+    Ingest::_gf,
+    Ingest::WINDOW_LEN);
 
 Ingest::Deduper
 Ingest::_deduper(
     Ingest::_rabin_hasher,
-    64u,            // window_len
-    3u*128*1024,    // min_chunk
-    6u*128*1024,    // max_chunk
-    18u,            // avg_chunk_bits
-    0x07071070u     // avg_chunk_val
-    );
+    Ingest::WINDOW_LEN,
+    Ingest::MIN_CHUNK,
+    Ingest::MAX_CHUNK,
+    Ingest::AVG_CHUNK_BITS,
+    Ingest::AVG_CHUNK_VAL);
 
 void
 Ingest::setup(v8::Handle<v8::Object> exports)

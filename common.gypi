@@ -60,10 +60,10 @@
             '<(openssl_config_path)',
         ],
 
-        'cflags': ['-std=c++11'],
         # enable exceptions using negative (cflags!) to remove cflags set by node.js common.gypi
         'cflags!': ['-fno-exceptions'],
         'cflags_cc!': ['-fno-exceptions'],
+        'cflags': ['-std=c++11'],
 
         'libraries': [
             '<(openssl_lib)',
@@ -75,13 +75,13 @@
             ],
             'OTHER_CPLUSPLUSFLAGS': [
                 '-std=c++11',
-                '-stdlib=libc++',
-                # '-stdlib=libstdc++',
+                '-stdlib=libc++', # clang
+                # '-stdlib=libstdc++', # gcc
             ],
             'OTHER_LDFLAGS': [
                 '-std=c++11',
-                '-stdlib=libc++',
-                # '-stdlib=libstdc++',
+                '-stdlib=libc++', # clang
+                # '-stdlib=libstdc++', # gcc
             ],
         },
 

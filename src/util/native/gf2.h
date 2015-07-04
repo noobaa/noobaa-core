@@ -4,10 +4,11 @@
 #include "common.h"
 #include <math.h>
 
-template <typename T>
+template <typename _T>
 class GF2
 {
 public:
+    typedef _T T;
 
     explicit GF2(int degree_, T poly_)
         : degree(degree_)

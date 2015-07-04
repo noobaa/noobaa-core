@@ -36,15 +36,22 @@ private:
     void purge_chunks();
 
 private:
-    // typedef BuzHash<uint32_t> BuzHasher;
-    // typedef Dedup<BuzHasher> Deduper;
-    // static BuzHasher _buz_hasher;
-    typedef RabinFingerprint<uint32_t> RabinHasher;
+    typedef uint64_t T;
+    typedef GF2<T> GF;
+    typedef RabinFingerprint<GF> RabinHasher;
     typedef Dedup<RabinHasher> Deduper;
+    static const int WINDOW_LEN = 64;
+    static const int MIN_CHUNK = 3u*128*1024;
+    static const int MAX_CHUNK = 3u*128*1024;
+    static const int AVG_CHUNK_BITS = 18;
+    static const T AVG_CHUNK_VAL = 0x07071070;
+    static GF _gf;
     static RabinHasher _rabin_hasher;
     static Deduper _deduper;
     Deduper::Chunker _chunker;
     NanCallbackRef _callback;
+
+private:
     static v8::Persistent<v8::Function> _ctor;
     static NAN_METHOD(new_instance);
     static NAN_METHOD(push);

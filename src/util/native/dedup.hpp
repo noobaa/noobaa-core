@@ -12,10 +12,10 @@ Dedup<_Hasher>::Chunker::push(Buf buf)
     const int window_len = _dedup._window_len;
     const int min_chunk = _dedup._min_chunk;
     const int max_chunk = _dedup._max_chunk;
-    const Hash avg_chunk_mask = _dedup._avg_chunk_mask;
-    const Hash avg_chunk_val = _dedup._avg_chunk_val;
+    const T avg_chunk_mask = _dedup._avg_chunk_mask;
+    const T avg_chunk_val = _dedup._avg_chunk_val;
 
-    Hash hash = _hash;
+    T hash = _hash;
     int chunk_len = _chunk_len;
     int window_pos = _window_pos;
 

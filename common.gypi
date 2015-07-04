@@ -1,137 +1,125 @@
 {
-    'conditions' : [
-        [ 'OS=="win"', {
-            'conditions': [
-                # "openssl_root" is the directory on Windows of the OpenSSL files.
-                # Check the "target_arch" variable to set good default values for
-                # both 64-bit and 32-bit builds of the module.
-                ['target_arch=="x64"', {
-                    'variables': {
-                        'openssl_root%': 'C:/OpenSSL-Win64'
-                    }
-                }, {
-                    'variables': {
-                        'openssl_root%': 'C:/OpenSSL-Win32'
-                    }
-                }],
-            ],
-            'variables': {
-                'openssl_config_path': ' ', # node-gyp fails if the string is empty...
-                'openssl_include_path': '<(openssl_root)/include',
-                'openssl_lib': '-l<(openssl_root)/lib/libeay32.lib',
-            }
-        }, {
-            'variables': {
-                'openssl_include_path': '<(node_root_dir)/deps/openssl/openssl/include',
-                'openssl_lib': ' ',
-            },
-            'conditions': [
-                ['target_arch=="ia32"', {
-                    'variables': {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/piii' ]
-                    }
-                }],
-                ['target_arch=="x64"', {
-                    'variables': {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/k8' ]
-                    }
-                }],
-                ['target_arch=="arm"', {
-                    'variables': {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/arm' ]
-                    }
-                }],
-                ['target_arch=="ppc64"', {
-                    'variables': {
-                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/powerpc64' ]
-                    }
-                }],
-            ],
-        }]
-    ],
     'variables': {
+
         'nan_path': '<!(node -e \"require(\'nan\')\")',
 
         # node v0.6.x doesn't give us its build variables,
         # but on Unix it was only possible to use the system OpenSSL library,
         # so default the variable to "true", v0.8.x node and up will overwrite it.
-        #
-        # when "node_shared_openssl" is "false", then OpenSSL has been
-        # bundled into the node executable. So we need to include the same
-        # header files that were used when building node.
-        #
         'node_shared_openssl%': 'true',
+
+        'conditions' : [
+            [ 'OS=="win"', {
+                'conditions': [
+                    ['target_arch=="x64"', {
+                        'openssl_root%': 'C:/OpenSSL-Win64'
+                    }, {
+                        'openssl_root%': 'C:/OpenSSL-Win32'
+                    }],
+                ],
+                'openssl_config_path': ' ', # node-gyp fails if the string is empty...
+                'openssl_include_path': '>(openssl_root)/include',
+                'openssl_lib': '-l>(openssl_root)/lib/libeay32.lib',
+            }, { # not windows
+                'openssl_include_path': '<(node_root_dir)/deps/openssl/openssl/include',
+                'openssl_lib': ' ',
+                'conditions': [
+                    ['target_arch=="ia32"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/piii' ]
+                    }],
+                    ['target_arch=="x64"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/k8' ]
+                    }],
+                    ['target_arch=="arm"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/arm' ]
+                    }],
+                    ['target_arch=="ppc64"', {
+                        'openssl_config_path': [ '<(node_root_dir)/deps/openssl/config/powerpc64' ]
+                    }],
+                ],
+            }]
+        ],
     },
 
     'target_defaults': {
+
+        'include_dirs' : [
+            '<(nan_path)',
+            '<(openssl_include_path)',
+            '<(openssl_config_path)',
+        ],
+
+        'cflags': ['-std=c++11'],
+        # enable exceptions using negative (cflags!) to remove cflags set by node.js common.gypi
+        'cflags!': ['-fno-exceptions'],
+        'cflags_cc!': ['-fno-exceptions'],
+
+        'libraries': [
+            '<(openssl_lib)',
+        ],
+
+        'xcode_settings': {
+            'OTHER_CFLAGS': [
+                '-std=c++11',
+            ],
+            'OTHER_CPLUSPLUSFLAGS': [
+                '-std=c++11',
+                '-stdlib=libc++',
+                # '-stdlib=libstdc++',
+            ],
+            'OTHER_LDFLAGS': [
+                '-std=c++11',
+                '-stdlib=libc++',
+                # '-stdlib=libstdc++',
+            ],
+        },
+
+        'msvs_settings': {
+            'VCCLCompilerTool': {
+                # Enable unwind semantics for Exception Handling.
+                # This one actually does the trick.
+                # This is also where you can put /GR or /MDd, or other defines.
+                'AdditionalOptions': [ '/EHsc' ],
+                'ExceptionHandling': 1, # /EHsc (doesn't work?)
+                'RuntimeLibrary': 3, # shared debug
+                'RuntimeTypeInfo': 'true', # /GR
+                'RuntimeLibrary': '2' # /MD
+            }
+        },
+
         'default_configuration': 'Debug',
+
         'configurations': {
 
             'Debug': {
-                'include_dirs' : [
-                    '<(nan_path)',
-                    '<(openssl_include_path)',
-                    '<(openssl_config_path)',
-                ],
-                # cancel node common using negatives (cflags!)
-                'cflags!': ['-fno-exceptions'],
-                'cflags_cc!': ['-fno-exceptions'],
-                'cflags': ['-std=c++11', '-O0', '-g'],
+                'cflags!': ['-Os', '-O1', '-O2', '-O3'],
+                'cflags_cc!': ['-Os', '-O1', '-O2', '-O3'],
+                'cflags': ['-O0', '-g'],
                 'xcode_settings': {
-                    'OTHER_CFLAGS': [],
-                    'OTHER_CPLUSPLUSFLAGS': [
-                        '-std=c++11',
-                        '-stdlib=libc++'
-                    ],
-                    'OTHER_LDFLAGS': [
-                        '-stdlib=libc++'
-                    ],
-                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
                     'MACOSX_DEPLOYMENT_TARGET': '10.7',
-                },
-                'msvs_settings': {
-                    'VCCLCompilerTool': {
-                        # Enable unwind semantics for Exception Handling.
-                        # This one actually does the trick.
-                        # This is also where you can put /GR or /MDd, or other defines.
-                        'AdditionalOptions': [ '/EHsc' ],
-                        'ExceptionHandling': 1, # /EHsc  doesn't work.
-                        'RuntimeLibrary': 3, # shared debug
-                    }
+                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                    'GCC_GENERATE_DEBUGGING_SYMBOLS': 'YES',
+                    'GCC_OPTIMIZATION_LEVEL': '0',
+                    'OTHER_CFLAGS!': ['-Os', '-O1', '-O2', '-O3'],
+                    'OTHER_CPLUSPLUSFLAGS!': ['-Os', '-O1', '-O2', '-O3'],
+                    'OTHER_CFLAGS': ['-O0', '-g'],
                 },
             },
 
             'Release': {
-                'include_dirs' : [
-                    '<(nan_path)',
-                    '<(openssl_include_path)',
-                    '<(openssl_config_path)',
-                ],
-                # cancel node common using negatives (cflags!)
-                'cflags!': ['-fno-exceptions'],
-                'cflags_cc!': ['-fno-exceptions'],
-                'cflags': ['-std=c++11', '-O3'],
+                'cflags!': ['-Os', '-O0', '-O1', '-O2'],
+                'cflags_cc!': ['-Os', '-O0', '-O1', '-O2'],
+                'cflags': ['-O3'],
                 'xcode_settings': {
-                    'OTHER_CFLAGS': [],
-                    'OTHER_CPLUSPLUSFLAGS': [
-                        '-std=c++11',
-                        '-stdlib=libc++'
-                    ],
-                    'OTHER_LDFLAGS': [
-                        '-stdlib=libc++'
-                    ],
-                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
                     'MACOSX_DEPLOYMENT_TARGET': '10.7',
-                },
-                'msvs_settings': {
-                    'VCCLCompilerTool': {
-                        # Enable unwind semantics for Exception Handling.
-                        # This one actually does the trick.
-                        # This is also where you can put /GR or /MD, or other defines.
-                        'AdditionalOptions': [ '/EHsc' ],
-                        'ExceptionHandling': 1, # /EHsc  doesn't work.
-                        'RuntimeLibrary': 2, # shared release
-                    }
+                    'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                    'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
+                    'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
+                    'GCC_OPTIMIZATION_LEVEL': '3',
+                    'DEAD_CODE_STRIPPING': 'YES',
+                    'OTHER_CFLAGS!': ['-Os', '-O0', '-O1', '-O2'],
+                    'OTHER_CPLUSPLUSFLAGS!': ['-Os', '-O0', '-O1', '-O2'],
+                    'OTHER_CFLAGS': ['-O3'],
                 },
             }
         }

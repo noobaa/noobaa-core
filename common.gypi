@@ -20,7 +20,7 @@
                             'openssl_root%': 'C:/OpenSSL-Win32'
                         }],
                     ],
-                }, {
+                }, { # not windows
                     'openssl_root%': '<(node_root_dir)/deps/openssl',
                 }]
             ]
@@ -94,7 +94,7 @@
                 'ExceptionHandling': 1, # /EHsc (doesn't work?)
                 'RuntimeLibrary': 3, # shared debug
                 'RuntimeTypeInfo': 'true', # /GR
-                'RuntimeLibrary': '2' # /MD
+                # 'RuntimeLibrary': '2' # /MD
             }
         },
 

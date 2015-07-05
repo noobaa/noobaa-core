@@ -6,7 +6,7 @@
 
 v8::Persistent<v8::Function> Ingest::_ctor;
 
-ThreadPool Ingest::_tpool(1);
+ThreadPool* Ingest::_tpool(new ThreadPool(1));
 
 Ingest::GF
 Ingest::_gf(
@@ -141,6 +141,7 @@ public:
 
     virtual void done() override
     {
+        NanScope();
         int len = _chunks.size();
         v8::Handle<v8::Array> arr(NanNew<v8::Array>(len));
         for (int i=0; i<len; ++i) {
@@ -172,7 +173,7 @@ NAN_METHOD(Ingest::push)
     }
 
     Job* job = new Job(*self, args.This(), args[0], args[1]);
-    _tpool.submit(job);
+    _tpool->submit(job);
     // job->run();
     // job->done();
 
@@ -190,7 +191,7 @@ NAN_METHOD(Ingest::flush)
     }
 
     Job* job = new Job(*self, args.This(), args[0]);
-    _tpool.submit(job);
+    _tpool->submit(job);
     // job->run();
     // job->done();
 

@@ -39,10 +39,9 @@ public:
     class Lock
     {
 public:
-        explicit Lock(Mutex& m) : _m(m), _locked(false)
+        explicit Lock(Mutex& m) : _m(m), _locked(true)
         {
             _m.lock();
-            _locked = true;
         }
         void unlock()
         {

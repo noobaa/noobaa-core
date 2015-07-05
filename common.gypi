@@ -61,8 +61,8 @@
         ],
 
         # enable exceptions using negative (cflags!) to remove cflags set by node.js common.gypi
-        'cflags!': ['-fno-exceptions'],
-        'cflags_cc!': ['-fno-exceptions'],
+        'cflags!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
+        'cflags_cc!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
         'cflags': ['-std=c++11'],
 
         'libraries': [
@@ -109,6 +109,8 @@
                 'xcode_settings': {
                     'MACOSX_DEPLOYMENT_TARGET': '10.7',
                     'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                    'GCC_ENABLE_CPP_RTTI': 'YES',
+                    'GCC_THREADSAFE_STATICS': 'YES',
                     'GCC_GENERATE_DEBUGGING_SYMBOLS': 'YES',
                     'GCC_OPTIMIZATION_LEVEL': '0',
                     'OTHER_CFLAGS!': ['-Os', '-O1', '-O2', '-O3'],
@@ -124,6 +126,8 @@
                 'xcode_settings': {
                     'MACOSX_DEPLOYMENT_TARGET': '10.7',
                     'GCC_ENABLE_CPP_EXCEPTIONS': 'YES',
+                    'GCC_ENABLE_CPP_RTTI': 'YES',
+                    'GCC_THREADSAFE_STATICS': 'YES',
                     'GCC_GENERATE_DEBUGGING_SYMBOLS': 'NO',
                     'GCC_INLINES_ARE_PRIVATE_EXTERN': 'YES',
                     'GCC_OPTIMIZATION_LEVEL': '3',

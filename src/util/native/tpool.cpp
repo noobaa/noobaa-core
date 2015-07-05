@@ -1,4 +1,5 @@
 #include "tpool.h"
+#include "backtrace.h"
 
 void
 tpool_thread_uv_cb(void* arg)
@@ -15,14 +16,24 @@ tpool_done_uv_cb(uv_async_t* async, int)
     tpool->done_cb();
 }
 
+void atexit_cb()
+{
+    Backtrace bt;
+    bt.print();
+}
+
 ThreadPool::ThreadPool(int nthreads)
     : _mutex()
     , _nthreads(0)
 {
     set_num_threads(nthreads);
     uv_async_init(uv_default_loop(), &_async_notify_done, &tpool_done_uv_cb);
+    // set the async handle to unreferenced (note that ref/unref is boolean, not counter)
+    // so that it won't stop the event loop from finishing if it's the only handle left,
+    // and submit() and done_cb() will ref/unref accordingly
     uv_unref(reinterpret_cast<uv_handle_t*>(&_async_notify_done));
     _async_notify_done.data = this;
+    // atexit(atexit_cb);
 }
 
 ThreadPool::~ThreadPool()
@@ -60,6 +71,8 @@ ThreadPool::submit(ThreadPool::Job* job)
     MutexCond::Lock lock(_mutex);
     _run_queue.push_back(job);
     _mutex.signal();
+    // see ctor comment on async handle
+    uv_ref(reinterpret_cast<uv_handle_t*>(&_async_notify_done));
 }
 
 void
@@ -114,6 +127,10 @@ ThreadPool::done_cb()
         MutexCond::Lock lock(_mutex);
         local_done_queue = _done_queue;
         _done_queue = std::list<Job*>();
+        if (_run_queue.empty()) {
+            // see ctor comment on async handle
+            uv_unref(reinterpret_cast<uv_handle_t*>(&_async_notify_done));
+        }
     }
     // call done() of each job not under mutex
     while (!local_done_queue.empty()) {

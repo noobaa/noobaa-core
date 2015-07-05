@@ -7,6 +7,8 @@ if (require.main === module) {
 }
 
 function test_ingest() {
+
+    require('./panic');
     var fs = require('fs');
     var transformer = require('./transformer');
     var input = process.stdin;
@@ -49,7 +51,6 @@ function test_ingest() {
                 return Q.ninvoke(this.ingest, 'push', data);
             },
             flush: function() {
-                console.log('INPUT END');
                 return Q.ninvoke(this.ingest, 'flush');
             }
         }));
@@ -58,13 +59,30 @@ function test_ingest() {
             options: {
                 objectMode: true,
             },
+            init: function() {
+                var self = this;
+                self.count = 0;
+                self.bytes = 0;
+                self.start = Date.now();
+                self.print_speed = function() {
+                    var mb_per_sec = self.bytes * 1000 / (Date.now() - self.start) / 1024 / 1024;
+                    console.log('', mb_per_sec.toFixed(1), 'MB/s');
+                };
+            },
             transform: function(data) {
-                // console.log('OUTPUT', data.chunk.length, 'sha(' + data.sha + ')');
-                process.stdout.write(data.chunk.length + ',');
+                this.count += 1;
+                this.bytes += data.chunk.length;
+                process.stdout.write('.');
+                if (this.count % 60 === 0) {
+                    this.print_speed();
+                }
             },
             flush: function() {
-                console.log('OUTPUT END');
+                this.print_speed();
+                console.log('DONE', this.count, 'chunks');
             }
         }));
+
+        pipeline.run().then(function() {});
     }
 }

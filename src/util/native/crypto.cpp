@@ -7,7 +7,6 @@ Crypto::init()
     OpenSSL_add_all_algorithms();
     OpenSSL_add_all_ciphers();
     OpenSSL_add_all_digests();
-    EVP_MD_CTX_init(&ctx_md);
 }
 
 void
@@ -28,5 +27,3 @@ Crypto::BYTE_TO_HEX[] = {
     HEXED("8"), HEXED("9"), HEXED("a"), HEXED("b"),
     HEXED("c"), HEXED("d"), HEXED("e"), HEXED("f")
 };
-
-EVP_MD_CTX Crypto::ctx_md;

@@ -15,19 +15,17 @@ public:
     static void init();
     static void destroy();
 
-    static EVP_MD_CTX ctx_md;
-
     static inline std::string digest(Buf buf, const char* digest_name)
     {
         const EVP_MD *md = EVP_get_digestbyname(digest_name);
         uint8_t digest[EVP_MAX_MD_SIZE];
         uint32_t digest_len;
-        // EVP_MD_CTX ctx_md;
-        // EVP_MD_CTX_init(&ctx_md);
+        EVP_MD_CTX ctx_md;
+        EVP_MD_CTX_init(&ctx_md);
         EVP_DigestInit_ex(&ctx_md, md, NULL);
         EVP_DigestUpdate(&ctx_md, buf.data(), buf.length());
         EVP_DigestFinal_ex(&ctx_md, digest, &digest_len);
-        // EVP_MD_CTX_cleanup(&ctx_md);
+        EVP_MD_CTX_cleanup(&ctx_md);
         std::string str;
         for (uint32_t i=0; i<digest_len; ++i) {
             str += BYTE_TO_HEX[digest[i]];

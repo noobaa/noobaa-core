@@ -170,6 +170,7 @@ function general_settings {
 }
 
 function setup_supervisors {
+	mkdir -p /tmp/supervisor
 	deploy_log "setup_supervisors start"
 	# Generate default supervisord config
 	echo_supervisord_conf > /etc/supervisord.conf

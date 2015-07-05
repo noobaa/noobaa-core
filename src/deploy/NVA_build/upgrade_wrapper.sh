@@ -58,6 +58,8 @@ function pre_upgrade {
 
   fix_bashrc
 
+  mkdir -p /tmp/supervisor
+
   if grep -Fxq "root hard nofile" /etc/security/limits.conf
   then
     deploy_log "hard limit already exists"

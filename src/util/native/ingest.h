@@ -47,7 +47,7 @@ private:
     static GF _gf;
     static RabinHasher _rabin_hasher;
     static Deduper _deduper;
-    // static ThreadPool _tpool;
+    static ThreadPool _tpool;
     Deduper::Chunker _chunker;
 
 private:

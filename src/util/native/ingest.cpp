@@ -6,7 +6,7 @@
 
 v8::Persistent<v8::Function> Ingest::_ctor;
 
-// ThreadPool Ingest::_tpool(2);
+ThreadPool Ingest::_tpool(2);
 
 Ingest::GF
 Ingest::_gf(

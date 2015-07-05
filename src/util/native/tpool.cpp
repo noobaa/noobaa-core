@@ -20,12 +20,13 @@ ThreadPool::ThreadPool(int nthreads)
 {
     set_num_threads(nthreads);
     uv_async_init(uv_default_loop(), &_async_notify_done, &tpool_done_uv_cb);
+    uv_unref(reinterpret_cast<uv_handle_t*>(&_async_notify_done));
     _async_notify_done.data = this;
 }
 
 ThreadPool::~ThreadPool()
 {
-    // uv_close(&_async_notify_done, NULL);
+    uv_close(reinterpret_cast<uv_handle_t*>(&_async_notify_done), NULL);
 }
 
 void

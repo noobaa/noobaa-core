@@ -6,7 +6,7 @@
 
 v8::Persistent<v8::Function> Ingest::_ctor;
 
-ThreadPool Ingest::_tpool(2);
+// ThreadPool Ingest::_tpool(2);
 
 Ingest::GF
 Ingest::_gf(
@@ -172,9 +172,9 @@ NAN_METHOD(Ingest::push)
     }
 
     Job* job = new Job(*self, args.This(), args[0], args[1]);
-    _tpool.submit(job);
-    // job->run();
-    // job->done();
+    // _tpool.submit(job);
+    job->run();
+    job->done();
 
     NanReturnUndefined();
 }
@@ -189,11 +189,10 @@ NAN_METHOD(Ingest::flush)
         return NanThrowError("Ingest::flush expected arguments function(callback)");
     }
 
-    v8::Handle<v8::Value> empty;
-    Job* job = new Job(*self, args.This(), empty, args[0]);
-    _tpool.submit(job);
-    // job->run();
-    // job->done();
+    Job* job = new Job(*self, args.This(), args[0]);
+    // _tpool.submit(job);
+    job->run();
+    job->done();
 
     NanReturnUndefined();
 }

@@ -23,17 +23,17 @@ public:
 
     void lock()
     {
-        return uv_mutex_lock(&_mutex);
+        uv_mutex_lock(&_mutex);
+    }
+
+    void unlock()
+    {
+        uv_mutex_unlock(&_mutex);
     }
 
     int trylock()
     {
         return uv_mutex_trylock(&_mutex);
-    }
-
-    void unlock()
-    {
-        return uv_mutex_unlock(&_mutex);
     }
 
     class Lock
@@ -85,12 +85,12 @@ public:
 
     void wait()
     {
-        return uv_cond_wait(&_cond, &_mutex);
+        uv_cond_wait(&_cond, &_mutex);
     }
 
     void signal()
     {
-        return uv_cond_signal(&_cond);
+        uv_cond_signal(&_cond);
     }
 
 protected:

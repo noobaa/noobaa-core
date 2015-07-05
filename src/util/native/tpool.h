@@ -35,6 +35,7 @@ private:
     MutexCond _mutex;
     int _nthreads;
     uv_async_t _async_notify_done;
+    std::list<uv_thread_t> _thread_ids;
     std::list<Job*> _run_queue;
     std::list<Job*> _done_queue;
 };

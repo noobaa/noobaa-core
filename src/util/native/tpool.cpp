@@ -16,7 +16,8 @@ tpool_done_uv_cb(uv_async_t* async, int)
 }
 
 ThreadPool::ThreadPool(int nthreads)
-    : _nthreads(0)
+    : _mutex()
+    , _nthreads(0)
 {
     set_num_threads(nthreads);
     uv_async_init(uv_default_loop(), &_async_notify_done, &tpool_done_uv_cb);
@@ -26,6 +27,12 @@ ThreadPool::ThreadPool(int nthreads)
 
 ThreadPool::~ThreadPool()
 {
+    _nthreads = 0;
+    while (!_thread_ids.empty()) {
+        uv_thread_t tid = _thread_ids.front();
+        _thread_ids.pop_front();
+        uv_thread_join(&tid);
+    }
     uv_close(reinterpret_cast<uv_handle_t*>(&_async_notify_done), NULL);
 }
 
@@ -40,6 +47,7 @@ ThreadPool::set_num_threads(int nthreads)
                 &tid,
                 &tpool_thread_uv_cb,
                 new ThreadSpec(this, i));
+            _thread_ids.push_back(tid);
         }
     }
     _nthreads = nthreads;
@@ -99,10 +107,18 @@ ThreadPool::thread_main(ThreadPool::ThreadSpec& spec)
 void
 ThreadPool::done_cb()
 {
-    MutexCond::Lock lock(_mutex);
-    while (!_done_queue.empty()) {
-        Job* job = _done_queue.front();
-        _done_queue.pop_front();
+    // under mutex we make copy of the list
+    // to avoid recursive mutex locking which uv doesnt support cross platform
+    std::list<Job*> local_done_queue;
+    {
+        MutexCond::Lock lock(_mutex);
+        local_done_queue = _done_queue;
+        _done_queue = std::list<Job*>();
+    }
+    // call done() of each job not under mutex
+    while (!local_done_queue.empty()) {
+        Job* job = local_done_queue.front();
+        local_done_queue.pop_front();
         job->done();
     }
 }

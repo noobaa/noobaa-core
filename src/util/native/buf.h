@@ -3,30 +3,82 @@
 
 #include "common.h"
 
+class Iovec
+{
+private:
+    char* _data;
+    int _len;
+
+public:
+    typedef std::shared_ptr<Iovec> SharedPtr;
+
+    explicit Iovec(int len)
+        : _data(new char[len])
+        , _len(len)
+    {
+    }
+
+    explicit Iovec(char* data, int len)
+        : _data(data)
+        , _len(len)
+    {
+    }
+
+    explicit Iovec(const char* data, int len)
+        : _data(const_cast<char*>(data))
+        , _len(len)
+    {
+    }
+
+    Iovec(const Iovec& other)
+        : _data(new char[other._len])
+        , _len(other._len)
+    {
+        memcpy(_data, other._data, _len);
+    }
+
+    ~Iovec()
+    {
+        delete[] _data;
+    }
+
+    inline uint8_t* data()
+    {
+        return reinterpret_cast<uint8_t*>(_data);
+    }
+
+    inline int length()
+    {
+        return _len;
+    }
+};
+
 /**
  * Wrap a nodejs buffer
  */
 class Buf
 {
 public:
-    explicit Buf(node::Buffer* buf)
-    {
-        init(buf);
-    }
 
     explicit Buf(int len)
+        : _iovec(new Iovec(len))
+        , _data(_iovec->data())
+        , _len(_iovec->length())
     {
-        init(node::Buffer::New(len));
+    }
+
+    explicit Buf(char* data, int len)
+        : _iovec(new Iovec(data, len))
+        , _data(_iovec->data())
+        , _len(_iovec->length())
+    {
     }
 
     explicit Buf(const char* data, int len)
+        : _iovec(new Iovec(data, len))
+        , _data(_iovec->data())
+        , _len(_iovec->length())
     {
-        init(node::Buffer::New(data, len));
-    }
-
-    explicit Buf(v8::Handle<v8::Value> h)
-    {
-        init(h);
     }
 
     Buf(const Buf& other)
@@ -42,9 +94,6 @@ public:
 
     ~Buf()
     {
-        if (_ref.IsNearDeath()) {
-            _ref.Dispose();
-        }
     }
 
     const Buf& operator=(const Buf& other)
@@ -52,11 +101,6 @@ public:
         this->~Buf();
         new (this)Buf(other);
         return other;
-    }
-
-    inline v8::Persistent<v8::Value> handle()
-    {
-        return _ref;
     }
 
     inline uint8_t* data()
@@ -91,8 +135,8 @@ public:
 
     inline void reset()
     {
-        _data = node::Buffer::Data(_ref);
-        _len = node::Buffer::Length(_ref);
+        _data = _iovec->data();
+        _len = _iovec->length();
     }
 
     template <typename Iter>
@@ -112,29 +156,15 @@ public:
 
 private:
 
-    void init(node::Buffer* buf)
-    {
-        NanAssignPersistent(_ref, static_cast<v8::Handle<v8::Value> >(NanNew(buf->handle_)));
-        _data = node::Buffer::Data(buf);
-        _len = node::Buffer::Length(buf);
-    }
-
     void init(const Buf& other)
     {
-        NanAssignPersistent(_ref, other._ref);
+        _iovec = other._iovec;
         _data = other._data;
         _len = other._len;
     }
 
-    void init(v8::Handle<v8::Value> h)
-    {
-        NanAssignPersistent(_ref, h);
-        _data = node::Buffer::Data(_ref);
-        _len = node::Buffer::Length(_ref);
-    }
-
-    v8::Persistent<v8::Value> _ref;
-    char* _data;
+    Iovec::SharedPtr _iovec;
+    uint8_t* _data;
     int _len;
 };
 

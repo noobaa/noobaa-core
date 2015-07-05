@@ -1,7 +1,7 @@
 #ifndef TPOOL_H_
 #define TPOOL_H_
 
-#include <list>
+#include "common.h"
 #include "mutex.h"
 
 class ThreadPool
@@ -9,13 +9,14 @@ class ThreadPool
 public:
     explicit ThreadPool(int nthreads);
     virtual ~ThreadPool();
-    struct WorkItem
+    struct Job
     {
-        virtual void run() = 0;
-        virtual ~WorkItem() {}
+        virtual ~Job() {}
+        virtual void run() = 0; // called from pooled thread
+        virtual void done() = 0; // called on event loop
     };
     void set_num_threads(int nthreads);
-    void submit(WorkItem* item);
+    void submit(Job* job);
 private:
     struct ThreadSpec
     {
@@ -26,12 +27,16 @@ private:
             , index(i)
             {}
     };
-    static void thread_cb(void* arg);
     void thread_main(ThreadSpec& spec);
+    void done_cb();
+    friend void tpool_thread_uv_cb(void* arg);
+    friend void tpool_done_uv_cb(uv_async_t* async, int);
 private:
     MutexCond _mutex;
     int _nthreads;
-    std::list<WorkItem*> _queue;
+    uv_async_t _async_notify_done;
+    std::list<Job*> _run_queue;
+    std::list<Job*> _done_queue;
 };
 
 #endif // TPOOL_H_

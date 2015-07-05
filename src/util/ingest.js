@@ -1,5 +1,6 @@
 'use strict';
 
+module.exports = null;
 
 if (require.main === module) {
     test_ingest();
@@ -34,12 +35,15 @@ function test_ingest() {
     } else {
         var Q = require('q');
         var native_util = require("bindings")("native_util.node");
-        input.pipe(transformer({
+        var Pipeline = require('./pipeline');
+        var pipeline = new Pipeline(input);
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+            },
             init: function() {
-                this.ingest = new native_util.Ingest(function(chunk, sha) {
-                    // console.log('OUTPUT', chunk.length, 'sha(' + sha + ')');
-                    process.stdout.write(chunk.length + ',');
-                });
+                this.ingest = new native_util.Ingest();
             },
             transform: function(data) {
                 return Q.ninvoke(this.ingest, 'push', data);
@@ -47,6 +51,19 @@ function test_ingest() {
             flush: function() {
                 console.log('INPUT END');
                 return Q.ninvoke(this.ingest, 'flush');
+            }
+        }));
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+            },
+            transform: function(data) {
+                // console.log('OUTPUT', data.chunk.length, 'sha(' + data.sha + ')');
+                process.stdout.write(data.chunk.length + ',');
+            },
+            flush: function() {
+                console.log('OUTPUT END');
             }
         }));
     }

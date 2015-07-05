@@ -29,6 +29,6 @@
         return Unwrap<clazz>(args.This())->_ ## method(args); \
     }
 
-typedef std::shared_ptr<NanCallback> NanCallbackRef;
+typedef std::shared_ptr<NanCallback> NanCallbackSharedPtr;
 
 #endif // COMMON_H_

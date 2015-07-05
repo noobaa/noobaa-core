@@ -2,8 +2,10 @@
 'use strict';
 
 var Q = require('q');
+var _ = require('lodash');
 var util = require('util');
 var stream = require('stream');
+var js_utils = require('./js_utils');
 
 
 module.exports = transformer;
@@ -54,6 +56,7 @@ function define_transformer(params) {
         stream.Transform.call(self, options);
         self._init(options);
         self.transformer = true;
+        self._self_push = js_utils.self_bind(self, 'push');
 
         // set error handler to forward errors to pipes
         // otherwise pipelines are harder to write without missing error events
@@ -64,6 +67,14 @@ function define_transformer(params) {
     }
 
     util.inherits(Transformer, stream.Transform);
+
+    Transformer.prototype._push_data = function(data) {
+        if (_.isArray(data)) {
+            _.each(data, this._self_push);
+        } else {
+            this.push(data);
+        }
+    };
 
     if (params.init) {
         Transformer.prototype._init = params.init;
@@ -78,7 +89,8 @@ function define_transformer(params) {
                     return params.transform.call(self, data, encoding);
                 })
                 .done(function(data) {
-                    callback(null, data);
+                    self._push_data(data);
+                    callback();
                 }, function(err) {
                     console.log('transformer error', err);
                     self.transformer_error(err);
@@ -92,7 +104,8 @@ function define_transformer(params) {
             Q.fcall(function() {
                     return params.flush.call(self);
                 })
-                .done(function() {
+                .done(function(data) {
+                    self._push_data(data);
                     callback();
                 }, function(err) {
                     console.log('transformer flush error', err);

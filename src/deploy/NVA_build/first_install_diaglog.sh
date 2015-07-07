@@ -18,11 +18,12 @@ is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit y
   local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
 
   dialog --colors --backtitle "NooBaa First Install" --menu "Current IP: \Z4\Zb${current_ip}\Zn .\nChoose IP
-Assignment:" 12 55 2 1 "Static IP" 2 "Dynamic IP (Currently will be ${current_ip})" 2> choice
+Assignment:" 12 55 2 1 "Static IP" 2 "Dynamic IP" 2> choice
 
   local dynamic=$(cat choice)
+  local rc
 
-  #Choice of Dynamic IP, nothing to do
+  #Choice of Static IP
   if [ "${dynamic}" -eq "1" ]; then
     deploy_log "First Install Chose Static IP"
     dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\nPlease enter the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis
@@ -34,7 +35,6 @@ IP address should be associated with noobaa.local in the DNS." 12 75 4 "IP Addre
     local ok_ip=$?
     validate_mask ${mask}
     local ok_mask=$?
-    local rc
 
     while [ "${ok_ip}" -ne "0" ] || [ "${ok_mask}" -ne "0" ]; do
       dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\Z1The Provided IP or Netmask are not valid\Zn\n\nPlease enter
@@ -56,6 +56,10 @@ DNS." 12 75 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25
     ifconfig eth0 down
     rc=$(ifconfig eth0 ${ip} netmask ${mask} up)
     deploy_log "First Install ifconfig returned ${rc}"
+  elif [ "${dynamic}" -eq "2" ]; then #Dynamic IP
+    deploy_log "First Install Chose Dyamic IP"
+    rc=$(dhclient eth0)
+    deploy_log "First Install dhclient returned ${rc}"
   fi
 
   dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary

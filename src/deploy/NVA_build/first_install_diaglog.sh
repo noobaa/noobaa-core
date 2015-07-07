@@ -7,6 +7,26 @@ trap "" 2 20
 
 FIRST_INSTALL_MARK="/etc/first_install.mrk"
 
+function clean_ifcfg() {
+  sudo sed -i 's:.*IPADDR=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
+  sudo sed -i 's:.*NETMASK=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
+  sudo sed -i 's:.*GATEWAY=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
+  sudo sed -i 's:.*BOOTPROTO=.*::' /etc/sysconfig/network-scripts/ifcfg-eth0
+}
+
+function fix_network() {
+  local test=$(grep eth /etc/udev/rules.d/70-persistent-net.rules|wc -l)
+  local curmac=$(ifconfig -a | grep eth | awk '{print $5}')
+  if [ "${test}" == "2" ]; then
+    sudo sed -i 's:.*NAME="eth0".*::' /etc/udev/rules.d/70-persistent-net.rules
+    sudo sed -i 's:\(.*\)NAME="eth1"\(.*\):\1NAME="eth0"\2:' /etc/udev/rules.d/70-persistent-net.rules
+    sudo sed -i "s/HWADDR=.*/HWADDR=$curmac/" /etc/sysconfig/network-scripts/ifcfg-eth0
+    sudo /sbin/udevadm control --reload-rules
+    sudo /sbin/udevadm trigger --attr-match=subsystem=net
+    sudo service network restart
+  fi
+}
+
 function validate_mask() {
   grep -E -q '^(254|252|248|240|224|192|128)\.0\.0\.0|255\.(254|252|248|240|224|192|128|0)\.0\.0|255\.255\.(254|252|248|240|224|192|128|0)\.0|255\.255\.255\.(254|252|248|240|224|192|128|0)' <<< "$1" && return 0 || return 1
 }
@@ -25,7 +45,7 @@ Assignment:" 12 55 2 1 "Static IP" 2 "Dynamic IP" 2> choice
 
   #Choice of Static IP
   if [ "${dynamic}" -eq "1" ]; then
-    deploy_log "First Install Chose Static IP"
+    #sudo echo "First Install Chose Static IP" >> /var/log/noobaa_deploy.log
     dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\nPlease enter the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis
 IP address should be associated with noobaa.local in the DNS." 12 75 4 "IP Address:" 1 1 "" 1 25 25 30 "Netmask:" 2 1 "" 2 25 25 30 2> answer_ip
 
@@ -49,35 +69,41 @@ DNS." 12 75 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25
     ok_mask=$?
 
     done
-    deploy_log "First Install Configured IP ${ip} and Netmask ${mask}"
+
+    dialog --colors --backtitle "NooBaa First Install" --title "Gateway Configuration" --form "\nPlease supply a default gateway" 12 65 4 "Gateway:" 1 1 "" 1 25 25 30 2> answer_gw
+
+    local gw=$(cat answer_gw)
 
     dialog --colors --backtitle "NooBaa First Install" --infobox "Configuring \Z5\ZbNooBaa\Zn IP..." 4 28 ; sleep 2
+    #sudo echo "First Install Configured IP ${ip}, Netmask ${mask} and GW ${gw}">> /var/log/noobaa_deploy.log
 
-    ifconfig eth0 down
-    rc=$(ifconfig eth0 ${ip} netmask ${mask} up)
-    deploy_log "First Install ifconfig returned ${rc}"
+    clean_ifcfg
+    sudo bash -c "echo 'IPADDR=${ip}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
+    sudo bash -c "echo 'NETMASK=${mask}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
+    sudo bash -c "echo 'GATEWAY=${gw}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
+    cat /etc/sysconfig/network-scripts/ifcfg-eth0 >>/tmp/a.log
+    dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary
+  DNS servers." 12 65 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2 25 25 30 2> answer_dns
+
+    local dns=$(head -1 answer_dns)
+    sudo bash -c "echo 'nameserver ${dns}' > /etc/resolv.conf"
+    #sudo echo "First Install adding dns ${dns}" >> /var/log/noobaa_deploy.log
+    dns=$(tail -1 answer_dns)
+    sudo bash -c "echo 'nameserver ${dns}' >> /etc/resolv.conf"
+    #sudo echo "First Install adding dns ${dns}">> /var/log/noobaa_deploy.log
+
   elif [ "${dynamic}" -eq "2" ]; then #Dynamic IP
-    deploy_log "First Install Chose Dyamic IP"
-    rc=$(dhclient eth0)
-    deploy_log "First Install dhclient returned ${rc}"
+    #sudo echo "First Install Choose Dynamic IP">> /var/log/noobaa_deploy.log
+    clean_ifcfg
+    sudo bash -c "echo 'BOOTPROTO=dhcp' >> /etc/sysconfig/network-scripts/ifcfg-eth0"
   fi
-
-  dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary
-DNS servers." 12 65 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2 25 25 30 2> answer_dns
-
-  local dns=$(head -1 answer_dns)
-  echo "nameserver ${dns}" >> /etc/resolv.conf
-  deploy_log "First Install adding dns ${dns}"
-  dns=$(tail -1 answer_dns)
-  echo "nameserver ${dns}" >> /etc/resolv.conf
-  deploy_log "First Install adding dns ${dns}"
-
-  dialog --colors --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostnamr for this
+  sudo service network restart
+  dialog --colors --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this
 \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
 
   local host=$(cat answer_host)
-  rc=$(sysctl kernel.hostname=${host})
-  deploy_log "First Install configure hostname ${host}, sysctl rc ${rc}"
+  rc=$(sudo sysctl kernel.hostname=${host})
+  #sudo echo "First Install configure hostname ${host}, sysctl rc ${rc}" >> /var/log/noobaa_deploy.log
 
   dialog --colors --backtitle "NooBaa First Install" --infobox "Finalizing \Z5\ZbNooBaa\Zn first install..." 4 40 ; sleep 2
 
@@ -93,16 +119,18 @@ function end_wizard {
   exit 0
 }
 
+fix_network
+
 who=$(whoami)
 if [ "$who" != "noobaa" ]; then
   return
 fi
 
 if [ ! -f ${FIRST_INSTALL_MARK} ]; then
-  deploy_log "Server was booted, first install mark down not exist. Running first install wizard"
+  #sudo echo "Server was booted, first install mark down not exist. Running first install wizard" >> /var/log/noobaa_deploy.log
   run_wizard
-else
-  deploy_log "Server was booted, first install mark exists"
+#else
+#   sudo echo "Server was booted, first install mark exists" >> /var/log/noobaa_deploy.log
 fi
 
 trap 2 20

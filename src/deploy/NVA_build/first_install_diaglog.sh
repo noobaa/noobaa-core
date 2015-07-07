@@ -24,7 +24,7 @@ Assignment:" 12 55 2 1 "Static IP" 2 "Dynamic IP (Currently will be ${current_ip
 
   #Choice of Dynamic IP, nothing to do
   if [ "${dynamic}" -eq "1" ]; then
-
+    deploy_log "First Install Chose Static IP"
     dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\nPlease enter the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis
 IP address should be associated with noobaa.local in the DNS." 12 75 4 "IP Address:" 1 1 "" 1 25 25 30 "Netmask:" 2 1 "" 2 25 25 30 2> answer_ip
 
@@ -34,6 +34,7 @@ IP address should be associated with noobaa.local in the DNS." 12 75 4 "IP Addre
     local ok_ip=$?
     validate_mask ${mask}
     local ok_mask=$?
+    local rc
 
     while [ "${ok_ip}" -ne "0" ] || [ "${ok_mask}" -ne "0" ]; do
       dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\Z1The Provided IP or Netmask are not valid\Zn\n\nPlease enter
@@ -48,11 +49,13 @@ DNS." 12 75 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25
     ok_mask=$?
 
     done
+    deploy_log "First Install Configured IP ${ip} and Netmask ${mask}"
 
     dialog --colors --backtitle "NooBaa First Install" --infobox "Configuring \Z5\ZbNooBaa\Zn IP..." 4 28 ; sleep 2
 
     ifconfig eth0 down
-    ifconfig eth0 ${ip} netmask ${mask} up
+    rc=$(ifconfig eth0 ${ip} netmask ${mask} up)
+    deploy_log "First Install ifconfig returned ${rc}"
   fi
 
   dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary
@@ -60,14 +63,17 @@ DNS servers." 12 65 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2
 
   local dns=$(head -1 answer_dns)
   echo "nameserver ${dns}" >> /etc/resolv.conf
+  deploy_log "First Install adding dns ${dns}"
   dns=$(tail -1 answer_dns)
   echo "nameserver ${dns}" >> /etc/resolv.conf
+  deploy_log "First Install adding dns ${dns}"
 
   dialog --colors --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostnamr for this
 \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
 
   local host=$(cat answer_host)
-  sysctl kernel.hostname=${host}
+  rc=$(sysctl kernel.hostname=${host})
+  deploy_log "First Install configure hostname ${host}, sysctl rc ${rc}"
 
   dialog --colors --backtitle "NooBaa First Install" --infobox "Finalizing \Z5\ZbNooBaa\Zn first install..." 4 40 ; sleep 2
 

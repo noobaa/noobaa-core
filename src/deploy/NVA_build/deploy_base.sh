@@ -159,10 +159,12 @@ function general_settings {
 	sysctl -w fs.file-max=102400
 	sysctl -e -p
 
-	#noobaa user
+	#noobaa user & first install wizard
 	useradd noobaa
 	echo Passw0rd | passwd noobaa --stdin
 	cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
+	chown root:root /etc/profile.d/first_install_diaglog.sh
+	chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
 	#Fix login message
 	echo "Welcome to your NooBaa, host \n" > /etc/issue

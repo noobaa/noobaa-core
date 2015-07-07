@@ -129,7 +129,10 @@ function post_upgrade {
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
 
+  #First Install Wizard
   cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
+  chown root:root /etc/profile.d/first_install_diaglog.sh
+  chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
   rm -f /tmp/*.tar.gz
 }

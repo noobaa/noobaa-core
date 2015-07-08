@@ -33,12 +33,12 @@ function validate_mask() {
 
 function run_wizard {
   dialog --colors --backtitle "NooBaa First Install" --title 'Welcome to \Z5\ZbNooBaa\Zn' --msgbox 'Welcome to your \Z5\ZbNooBaa\Zn experience.\n\nThis
-is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 50
+ is a short first install wizard to help configure \Z5\ZbNooBaa\Zn to best suit your needs' 8 50
 
   local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
 
   dialog --colors --backtitle "NooBaa First Install" --menu "Current IP: \Z4\Zb${current_ip}\Zn .\nChoose IP
-Assignment:" 12 55 2 1 "Static IP" 2 "Dynamic IP" 2> choice
+ Assignment:" 12 55 2 1 "Static IP" 2 "Dynamic IP" 2> choice
 
   local dynamic=$(cat choice)
   local rc
@@ -47,50 +47,61 @@ Assignment:" 12 55 2 1 "Static IP" 2 "Dynamic IP" 2> choice
   if [ "${dynamic}" -eq "1" ]; then
     #sudo echo "First Install Chose Static IP" >> /var/log/noobaa_deploy.log
     dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\nPlease enter the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis
-IP address should be associated with noobaa.local in the DNS." 12 75 4 "IP Address:" 1 1 "" 1 25 25 30 "Netmask:" 2 1 "" 2 25 25 30 2> answer_ip
+ IP address should be associated with noobaa.local in the DNS." 12 75 4 "IP Address:" 1 1 "" 1 25 25 30 "Netmask:" 2 1 "" 2 25 25 30 "Default Gateway:" 3 1 "" 3 25 25 30 2> answer_ip
 
     local ip=$(head -1 answer_ip)
-    local mask=$(tail -1 answer_ip)
+    local mask=$(head -2 answer_ip | tail -1)
+    local gw=$(tail -1 answer_ip)
     ipcalc -cs ${ip}
     local ok_ip=$?
     validate_mask ${mask}
     local ok_mask=$?
+    ipcalc -cs ${gw}
+    local ok_gw=$?
 
-    while [ "${ok_ip}" -ne "0" ] || [ "${ok_mask}" -ne "0" ]; do
-      dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\Z1The Provided IP or Netmask are not valid\Zn\n\nPlease enter
-the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis IP address should be associated with noobaa.local in the
-DNS." 12 75 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25 25 30 2> answer_ip
+    while [ "${ok_ip}" -ne "0" ] || [ "${ok_mask}" -ne "0" ] || [ "${ok_gw}" -ne "0" ]; do
+      dialog --colors --backtitle "NooBaa First Install" --title "IP Configuration" --form "\Z1The Provided IP, Netmask or GW are not valid\Zn\n\nPlease enter
+ the IP address to be used by \Z5\ZbNooBaa\Zn.\nThis IP address should be associated with noobaa.local in the
+ DNS." 12 75 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25 25 30 "Default Gateway:" 3 1 "${gw}" 3 25 25 30 2> answer_ip
 
     ip=$(head -1 answer_ip)
-    mask=$(tail -1 answer_ip)
+    mask=$(head -2 answer_ip | tail -1)
+    gw=$(tail -1 answer_ip)
     ipcalc -cs ${ip}
     ok_ip=$?
     validate_mask ${mask}
     ok_mask=$?
+    ipcalc -cs ${gw}
+    ok_gw=$?
 
     done
 
-    dialog --colors --backtitle "NooBaa First Install" --title "Gateway Configuration" --form "\nPlease supply a default gateway" 12 65 4 "Gateway:" 1 1 "" 1 25 25 30 2> answer_gw
-
-    local gw=$(cat answer_gw)
-
     dialog --colors --backtitle "NooBaa First Install" --infobox "Configuring \Z5\ZbNooBaa\Zn IP..." 4 28 ; sleep 2
-    #sudo echo "First Install Configured IP ${ip}, Netmask ${mask} and GW ${gw}">> /var/log/noobaa_deploy.log
 
     clean_ifcfg
     sudo bash -c "echo 'IPADDR=${ip}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
     sudo bash -c "echo 'NETMASK=${mask}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
     sudo bash -c "echo 'GATEWAY=${gw}'>> /etc/sysconfig/network-scripts/ifcfg-eth0"
-    cat /etc/sysconfig/network-scripts/ifcfg-eth0 >>/tmp/a.log
-    dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary
-  DNS servers." 12 65 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2 25 25 30 2> answer_dns
 
-    local dns=$(head -1 answer_dns)
-    sudo bash -c "echo 'nameserver ${dns}' > /etc/resolv.conf"
-    #sudo echo "First Install adding dns ${dns}" >> /var/log/noobaa_deploy.log
-    dns=$(tail -1 answer_dns)
-    sudo bash -c "echo 'nameserver ${dns}' >> /etc/resolv.conf"
-    #sudo echo "First Install adding dns ${dns}">> /var/log/noobaa_deploy.log
+    dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary
+ DNS servers." 12 65 4 "Primary DNS:" 1 1 "" 1 25 25 30 "Secondary DNS:" 2 1 "" 2 25 25 30 2> answer_dns
+
+    local dns1=$(head -1 answer_dns)
+    local dns2=$(tail -1 answer_dns)
+
+    while [ "${dns1}" == "" ]; do
+      dialog --colors --backtitle "NooBaa First Install" --title "DNS Configuration" --form "\nPlease supply a primary and secodnary
+   DNS servers." 12 65 4 "Primary DNS:" 1 1 "${dns1}" 1 25 25 30 "Secondary DNS:" 2 1 "{dns2}" 2 25 25 30 2> answer_dns
+      dns1=$(head -1 answer_dns)
+      #sudo echo "First Install adding dns ${dns}" >> /var/log/noobaa_deploy.log
+      dns2=$(tail -1 answer_dns)
+    done
+
+    sudo bash -c "echo 'nameserver ${dns1}' > /etc/resolv.conf"
+    if [ "${dns2}" -ne "" ]; then
+      sudo bash -c "echo 'nameserver ${dns2}' >> /etc/resolv.conf"
+      #sudo echo "First Install adding dns ${dns}">> /var/log/noobaa_deploy.log
+    fi
 
   elif [ "${dynamic}" -eq "2" ]; then #Dynamic IP
     #sudo echo "First Install Choose Dynamic IP">> /var/log/noobaa_deploy.log
@@ -99,7 +110,7 @@ DNS." 12 75 4 "IP Address:" 1 1 "${ip}" 1 25 25 30 "Netmask:" 2 1 "${mask}" 2 25
   fi
   sudo service network restart
   dialog --colors --backtitle "NooBaa First Install" --title "Hostname Configuration" --form "\nPlease supply a hostname for this
-\Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
+ \Z5\ZbNooBaa\Zn installation." 12 65 4 "Hostname:" 1 1 "" 1 25 25 30 2> answer_host
 
   local host=$(cat answer_host)
   rc=$(sudo sysctl kernel.hostname=${host})

@@ -282,9 +282,8 @@ if ((config.central_stats.send_stats !== 'true') &&
         batch_size: 1,
         time_since_last_build: 60000, // TODO increase...
         building_timeout: 300000, // TODO increase...
-        //  delay: (60 * 60 * 1000), //60m
-        delay: (10 * 1000), //60m
-
+        delay: (60 * 60 * 1000), //60m
+        
         //Run the system statistics gatheting
         run_batch: function() {
             Q.fcall(function() {

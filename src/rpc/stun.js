@@ -114,21 +114,25 @@ _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
 });
 
 function read_on_premise_stun_server() {
-    var exists = fs.existsSync('agent_conf.json');
-    if (!exists) {
-        STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
-        dbg.log0('agent conf does not exist, using public server a stun');
-        return;
+    if (global && global.fs && _.isFunction(global.fs.existsSync)) {
+      var exists = fs.existsSync('agent_conf.json');
+      if (!exists) {
+          STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
+          dbg.log0('agent conf does not exist, using public server a stun');
+          return;
+      } else {
+          return Q.nfcall(fs.readFile, 'agent_conf.json')
+              .then(function(data) {
+                  var agent_conf = JSON.parse(data);
+                  var host = url.parse(agent_conf.address);
+                  var local_stun = host.hostname;
+                  STUN.ON_PREMISE_SERVERS.push(url.parse('stun://' + local_stun + ':3479'));
+                  STUN.DEFAULT_SERVER = STUN.ON_PREMISE_SERVERS[0];
+                  dbg.log0('agent conf exists, using', STUN.ON_PREMISE_SERVERS[0], 'as stun server');
+              });
+      }
     } else {
-        return Q.nfcall(fs.readFile, 'agent_conf.json')
-            .then(function(data) {
-                var agent_conf = JSON.parse(data);
-                var host = url.parse(agent_conf.address);
-                var local_stun = host.hostname;
-                STUN.ON_PREMISE_SERVERS.push(url.parse('stun://' + local_stun + ':3479'));
-                STUN.DEFAULT_SERVER = STUN.ON_PREMISE_SERVERS[0];
-                dbg.log0('agent conf exists, using', STUN.ON_PREMISE_SERVERS[0], 'as stun server');
-            });
+      STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
     }
 }
 

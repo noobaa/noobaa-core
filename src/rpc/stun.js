@@ -78,9 +78,7 @@ var STUN = {
         500: 'Server Error'
     },
 
-    ON_PREMISE_SERVERS: _.map([
-        '',
-    ], url.parse),
+    ON_PREMISE_SERVERS: [],
 
     PUBLIC_SERVERS: _.map([
         //        'stun://52.28.108.6:3478', //NooBaa STUN on EC2 (Frankfurt)
@@ -116,24 +114,22 @@ _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
 });
 
 function read_on_premise_stun_server() {
-    return Q.nfcall(fs.exists, 'agent_conf.json')
-        .then(function(exists) {
-            if (!exists) {
-                STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
-                dbg.log0('agent conf does not exist, using public server a stun');
-                return;
-            }
-
-            return Q.nfcall(fs.readFile, 'agent_conf.json')
-                .then(function(data) {
-                    var agent_conf = JSON.parse(data);
-                    var port_index = agent_conf.address.indexOf(':');
-                    var local_stun = agent_conf.address.substring(0, port_index !== -1 ? (port_index - 1) : agent_conf.address.length);
-                    STUN.ON_PREMISE_SERVERS.push(url.parse('stun://' + local_stun + ':3479'));
-                    STUN.DEFAULT_SERVER = STUN.ON_PREMISE_SERVERS[0];
-                    dbg.log0('agent conf exists, using', STUN.ON_PREMISE_SERVERS[0], 'as stun server');
-                });
-        });
+    var exists = fs.existsSync('agent_conf.json');
+    if (!exists) {
+        STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
+        dbg.log0('agent conf does not exist, using public server a stun');
+        return;
+    } else {
+        return Q.nfcall(fs.readFile, 'agent_conf.json')
+            .then(function(data) {
+                var agent_conf = JSON.parse(data);
+                var host = url.parse(agent_conf.address);
+                var local_stun = host.hostname;
+                STUN.ON_PREMISE_SERVERS.push(url.parse('stun://' + local_stun + ':3479'));
+                STUN.DEFAULT_SERVER = STUN.ON_PREMISE_SERVERS[0];
+                dbg.log0('agent conf exists, using', STUN.ON_PREMISE_SERVERS[0], 'as stun server');
+            });
+    }
 }
 
 read_on_premise_stun_server();

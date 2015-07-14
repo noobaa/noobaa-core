@@ -1,6 +1,19 @@
 /* jshint node:true */
 'use strict';
 
+/*
+ * Stats Aggregator Server
+ */
+
+var stats_aggregator = {
+    get_systems_stats: get_systems_stats,
+    get_nodes_stats: get_nodes_stats,
+    get_ops_stats: get_ops_stats,
+    get_all_stats: get_all_stats,
+};
+
+module.exports = stats_aggregator;
+
 var _ = require('lodash');
 var Q = require('q');
 var request = require('request');
@@ -18,21 +31,8 @@ var node_server = require('./node_server');
 var object_mapper = require('./object_mapper');
 var cluster_server = require('./cluster_server');
 
-/*
- * Stats Aggregator Server
- */
-
-var stats_aggregator = {
-    get_systems_stats: get_systems_stats,
-    get_nodes_stats: get_nodes_stats,
-    get_ops_stats: get_ops_stats,
-    get_all_stats: get_all_stats,
-};
 
 var support_account;
-
-module.exports = stats_aggregator;
-
 
 /*
  * Stats Collction API
@@ -283,7 +283,7 @@ if ((config.central_stats.send_stats !== 'true') &&
         time_since_last_build: 60000, // TODO increase...
         building_timeout: 300000, // TODO increase...
         delay: (60 * 60 * 1000), //60m
-        
+
         //Run the system statistics gatheting
         run_batch: function() {
             Q.fcall(function() {

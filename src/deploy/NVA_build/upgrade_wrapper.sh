@@ -91,7 +91,7 @@ function pre_upgrade {
 
 function post_upgrade {
   #.env changes
-  #bump agent version.
+  #Bump agent version.
   #TODO: do it only if md5 of the executable is different
   local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup.exe | cut -f 1 -d' ')
   local prevmd=$(md5sum /backup/build/public/noobaa-setup.exe | cut -f 1 -d' ')
@@ -133,6 +133,13 @@ function post_upgrade {
   cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
   chown root:root /etc/profile.d/first_install_diaglog.sh
   chmod 4755 /etc/profile.d/first_install_diaglog.sh
+
+  #Installation ID generation if needed
+  local id=$(/mongodb/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
+  if [ ${id} -eq 0 ]; then 
+    id=$(uuidgen)
+	  /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
+  fi
 
   rm -f /tmp/*.tar.gz
 }

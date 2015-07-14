@@ -95,7 +95,7 @@ RPC.prototype.register_service = function(api, server, options) {
         }
         assert.strictEqual(typeof(func), 'function',
             'RPC register_service: server method should be a function - ' +
-            method_api.fullname);
+            method_api.fullname + '. Is of type ' + typeof(func));
 
         self._services[srv] = {
             api: api,

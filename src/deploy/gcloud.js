@@ -533,7 +533,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                             machineType: machine_type,
                             disks: [{
                                 initializeParams: {
-                                    diskSizeGb: 20,
+                                    diskSizeGb: 50,
                                     //sourceImage:'https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/ubuntu-trusty-14.04-amd64-server-20140927'
                                     sourceImage: source_image
                                 },

@@ -10,6 +10,7 @@
             'src/util/native/gf2.cpp',
             'src/util/native/buzhash.cpp',
             'src/util/native/crypto.cpp',
+            'src/util/native/buf.cpp',
         ],
     }, {
         'target_name': 'native_rpc',

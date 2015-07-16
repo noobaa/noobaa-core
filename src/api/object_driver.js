@@ -120,53 +120,23 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     return Q.fcall(function() {
         var pipeline = new Pipeline(params.source_stream);
 
-        ////////////////////////////////////////
-        // PIPELINE: split to chunks by rabin //
-        ////////////////////////////////////////
-
-        pipeline.pipe(transformer({
-            init: function() {
-                var stream = this;
-                this._ingest = new native_util.Ingest(function(data) {
-                    console.log('CHUNK', data.length);
-                    stream.push(data);
-                });
-            },
-            transform: function(data) {
-                console.log('INGEST', data.length);
-                this._ingest.push(data);
-            },
-            flush: function() {
-                this._ingest.flush();
-            }
-        }));
-
-        ////////////////////////////
-        // PIPELINE: encrypt part //
-        ////////////////////////////
+        //////////////////////
+        // PIPELINE: ingest //
+        //////////////////////
 
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
+                highWaterMark: 30
             },
             init: function() {
-                this._pos = 0;
+                this.ingest = new native_util.Ingest();
             },
-            transform: function(chunk) {
-                dbg.log1('upload_stream_parts: encrypt_chunk pos', this._pos);
-                var stream = this;
-                var crypt = _.clone(self.CRYPT_TYPE);
-                return chunk_crypto.encrypt_chunk(chunk, crypt)
-                    .then(function(encrypted_chunk) {
-                        var part = {
-                            start: start + stream._pos,
-                            end: start + stream._pos + chunk.length,
-                            crypt: crypt,
-                            encrypted_chunk: encrypted_chunk
-                        };
-                        stream._pos += chunk.length;
-                        return part;
-                    });
+            transform: function(data) {
+                return Q.ninvoke(this.ingest, 'push', data);
+            },
+            flush: function() {
+                return Q.ninvoke(this.ingest, 'flush');
             }
         }));
 

@@ -6,7 +6,7 @@
 
 v8::Persistent<v8::Function> Ingest::_ctor;
 
-ThreadPool* Ingest::_tpool(new ThreadPool(1));
+ThreadPool* Ingest::_tpool(new ThreadPool(4));
 
 Ingest::GF
 Ingest::_gf(
@@ -106,15 +106,20 @@ public:
 
     virtual ~Job()
     {
-        if (!_persistent_ingest.IsEmpty() && _persistent_ingest.IsNearDeath()) {
+        if (_persistent_ingest.IsNearDeath()) {
             NanDisposePersistent(_persistent_ingest);
-            _persistent_ingest.Clear();
         }
-        if (!_persistent_buf.IsEmpty() && _persistent_buf.IsNearDeath()) {
+        if (_persistent_buf.IsNearDeath()) {
             NanDisposePersistent(_persistent_buf);
-            _persistent_buf.Clear();
         }
     }
+
+    struct SubJob : public ThreadPool::Job {
+        virtual void run() override
+        {
+
+        }
+    };
 
     virtual void run() override
     {
@@ -127,14 +132,16 @@ public:
         }
 
         while (_ingest._chunker.has_chunks()) {
-            // std::cout << "Ingest::Job chunk " << std::dec << _len << std::endl;
             Buf chunk(_ingest._chunker.pop_chunk());
-            Buf key(32);
-            memset(key.data(), 0, key.length());
-            Buf iv(0);
-            Buf encrypted = Crypto::encrypt(chunk, key, iv, "aes-256-cbc");
-            std::string sha = Crypto::digest(encrypted, "sha256");
-            Chunk c(encrypted, sha);
+            // std::cout << "Ingest::Job chunk " << std::dec << chunk.length() << std::endl;
+            Buf sha = Crypto::digest(chunk, "sha256");
+            // convergent encryption - key is the content hash
+            Buf key = sha;
+            // IV is just zeros since the key is unique then IV is not needed
+            Buf iv(12);
+            RAND_bytes(iv.data(), iv.length());
+            Buf encrypted = Crypto::encrypt(chunk, key, iv, "aes-256-gcm");
+            Chunk c(encrypted, sha.hex());
             _chunks.push_back(c);
         }
     }
@@ -143,21 +150,22 @@ public:
     {
         NanScope();
         int len = _chunks.size();
-        v8::Handle<v8::Array> arr(NanNew<v8::Array>(len));
+        // std::cout << "Ingest::Job done " << len << std::endl;
+        v8::Local<v8::Array> arr(NanNew<v8::Array>(len));
         for (int i=0; i<len; ++i) {
             Chunk chunk = _chunks.front();
             _chunks.pop_front();
-            v8::Handle<v8::Object> obj(NanNew<v8::Object>());
-            v8::Handle<v8::Object> buffer(NanNewBufferHandle(
+            v8::Local<v8::Object> obj(NanNew<v8::Object>());
+            obj->Set(NanNew("chunk"), NanNewBufferHandle(
                 reinterpret_cast<char*>(chunk.buf.data()), chunk.buf.length()));
-            obj->Set(NanNew("chunk"), buffer);
             obj->Set(NanNew("sha"), NanNew(chunk.sha));
             arr->Set(i, obj);
-            // std::cout << "Ingest::Job done " << chunk.sha << std::endl;
+            // std::cout << "Ingest::Job done " << chunk.buf.length() << " SHA " << chunk.sha << std::endl;
         }
-        v8::Handle<v8::Value> argv[] = { NanUndefined(), arr };
+        v8::Local<v8::Value> argv[] = { NanUndefined(), arr };
         _callback->Call(2, argv);
         delete this;
+        scope.Close(NanNew(""));
     }
 };
 
@@ -174,8 +182,6 @@ NAN_METHOD(Ingest::push)
 
     Job* job = new Job(*self, args.This(), args[0], args[1]);
     _tpool->submit(job);
-    // job->run();
-    // job->done();
 
     NanReturnUndefined();
 }
@@ -192,8 +198,6 @@ NAN_METHOD(Ingest::flush)
 
     Job* job = new Job(*self, args.This(), args[0]);
     _tpool->submit(job);
-    // job->run();
-    // job->done();
 
     NanReturnUndefined();
 }

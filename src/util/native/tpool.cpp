@@ -25,14 +25,17 @@ void atexit_cb()
 ThreadPool::ThreadPool(int nthreads)
     : _mutex()
     , _nthreads(0)
+    , _refs(0)
 {
     set_num_threads(nthreads);
-    uv_async_init(uv_default_loop(), &_async_notify_done, &tpool_done_uv_cb);
+
     // set the async handle to unreferenced (note that ref/unref is boolean, not counter)
     // so that it won't stop the event loop from finishing if it's the only handle left,
     // and submit() and done_cb() will ref/unref accordingly
-    uv_unref(reinterpret_cast<uv_handle_t*>(&_async_notify_done));
-    _async_notify_done.data = this;
+    uv_async_init(uv_default_loop(), &_async_done, &tpool_done_uv_cb);
+    uv_unref(reinterpret_cast<uv_handle_t*>(&_async_done));
+    _async_done.data = this;
+
     // atexit(atexit_cb);
 }
 
@@ -44,7 +47,7 @@ ThreadPool::~ThreadPool()
         _thread_ids.pop_front();
         uv_thread_join(&tid);
     }
-    uv_close(reinterpret_cast<uv_handle_t*>(&_async_notify_done), NULL);
+    uv_close(reinterpret_cast<uv_handle_t*>(&_async_done), NULL);
 }
 
 void
@@ -68,52 +71,58 @@ ThreadPool::set_num_threads(int nthreads)
 void
 ThreadPool::submit(ThreadPool::Job* job)
 {
-    MutexCond::Lock lock(_mutex);
-    _run_queue.push_back(job);
-    _mutex.signal();
-    // see ctor comment on async handle
-    uv_ref(reinterpret_cast<uv_handle_t*>(&_async_notify_done));
+    if (_nthreads <= 0) {
+        // fallback to direct call when 0 threads
+        job->run();
+        job->done();
+    } else {
+        MutexCond::Lock lock(_mutex);
+        if (_refs == 0) {
+            // see ctor comment on async handle
+            uv_ref(reinterpret_cast<uv_handle_t*>(&_async_done));
+        }
+        _refs++;
+        _run_queue.push_back(job);
+        _mutex.signal();
+    }
 }
 
 void
 ThreadPool::thread_main(ThreadPool::ThreadSpec& spec)
 {
     int index = spec.index;
+    Job* job = 0;
 
     while (true) {
-        Job* job = 0;
 
-        // scope to unlock the mutex before running the job
-        {
-            MutexCond::Lock lock(_mutex);
-            if (index >= _nthreads) {
-                break;
+        if (job) {
+            // running lockless
+            try {
+                job->run();
+            } catch (const std::exception& ex) {
+                std::cerr << "ThreadPool Job exception " << ex.what() << std::endl;
             }
-            // wait for signal if no items
-            while (_run_queue.empty()) {
-                _mutex.wait();
-            }
+        }
+
+        // scope to unlock the mutex before accessing shared structures
+        MutexCond::Lock lock(_mutex);
+
+        if (job) {
+            // push last job to done queue and notify the uv event loop to process the done queue
+            _done_queue.push_back(job);
+            job = 0;
+            uv_async_send(&_async_done);
+        }
+
+        // wait for signal if no items
+        // while waiting the mutex is released, but reacquired once wait returns
+        while (index < _nthreads && _run_queue.empty()) {
+            _mutex.wait();
+        }
+        if (index < _nthreads) {
             job = _run_queue.front();
             _run_queue.pop_front();
         }
-
-        // now running lockless
-
-        if (!job) {
-            continue;
-        }
-
-        try {
-            job->run();
-        } catch (const std::exception& ex) {
-            std::cerr << "ThreadPool Job exception " << ex.what() << std::endl;
-        }
-
-        {
-            MutexCond::Lock lock(_mutex);
-            _done_queue.push_back(job);
-        }
-        uv_async_send(&_async_notify_done);
     }
 }
 
@@ -127,9 +136,10 @@ ThreadPool::done_cb()
         MutexCond::Lock lock(_mutex);
         local_done_queue = _done_queue;
         _done_queue = std::list<Job*>();
-        if (_run_queue.empty()) {
+        _refs -= local_done_queue.size();
+        if (_refs == 0) {
             // see ctor comment on async handle
-            uv_unref(reinterpret_cast<uv_handle_t*>(&_async_notify_done));
+            uv_unref(reinterpret_cast<uv_handle_t*>(&_async_done));
         }
     }
     // call done() of each job not under mutex

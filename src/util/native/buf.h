@@ -154,6 +154,15 @@ public:
         return ret;
     }
 
+    inline std::string hex()
+    {
+        std::string str;
+        for (int i=0; i<_len; ++i) {
+            str += BYTE_TO_HEX[_data[i]];
+        }
+        return str;
+    }
+
 private:
 
     void init(const Buf& other)
@@ -166,6 +175,9 @@ private:
     Iovec::SharedPtr _iovec;
     uint8_t* _data;
     int _len;
+
+private:
+    static const char* BYTE_TO_HEX[256];
 };
 
 #endif // MEM_H_

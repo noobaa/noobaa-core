@@ -43,6 +43,7 @@ function test_ingest() {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
+                highWaterMark: 10
             },
             init: function() {
                 this.ingest = new native_util.Ingest();
@@ -58,28 +59,30 @@ function test_ingest() {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
+                highWaterMark: 20
             },
             init: function() {
-                var self = this;
-                self.count = 0;
-                self.bytes = 0;
-                self.start = Date.now();
-                self.print_speed = function() {
-                    var mb_per_sec = self.bytes * 1000 / (Date.now() - self.start) / 1024 / 1024;
-                    console.log('', mb_per_sec.toFixed(1), 'MB/s');
-                };
+                this.count = 0;
+                this.bytes = this.last_bytes = 0;
+                this.start = this.last_start = Date.now();
             },
             transform: function(data) {
                 this.count += 1;
                 this.bytes += data.chunk.length;
                 process.stdout.write('.');
                 if (this.count % 60 === 0) {
-                    this.print_speed();
+                    var now = Date.now();
+                    var mb_per_sec = (this.bytes - this.last_bytes) *
+                        1000 / (now - this.last_start) / 1024 / 1024;
+                    console.log('', mb_per_sec.toFixed(1), 'MB/s');
+                    this.last_bytes = this.bytes;
+                    this.last_start = now;
                 }
             },
             flush: function() {
-                this.print_speed();
-                console.log('DONE', this.count, 'chunks');
+                var mb_per_sec = this.bytes * 1000 / (Date.now() - this.start) / 1024 / 1024;
+                console.log('\nDONE.', this.count, 'chunks.',
+                    'average speed', mb_per_sec.toFixed(1), 'MB/s');
             }
         }));
 

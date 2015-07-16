@@ -45,6 +45,7 @@ Dedup<_Hasher>::Chunker::push(Buf buf)
             const uint8_t input = *data;
             data++;
             chunk_len++;
+            // if (true) { boundary = true; break; }
             hash = hasher.update(hash, input, _window[window_pos]);
             if ((hash & avg_chunk_mask) == avg_chunk_val) {
                 boundary = true;

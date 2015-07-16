@@ -6,8 +6,15 @@ var fs = require('fs');
 var os = require('os');
 var promise_utils = require('../util/promise_utils');
 var os_utils = require('../util/os_util');
-var stats = require('../server/stats_aggregator');
 var dbg = require('noobaa-util/debug_module')(__filename);
+
+
+try {
+    var stats = require('../server/stats_aggregator');
+} catch (err) {
+    dbg.warn('stats_aggregator is unavailble');
+}
+
 
 module.exports = {
     collect_basic_diagnostics: collect_basic_diagnostics,
@@ -69,11 +76,19 @@ function collect_server_diagnostics() {
             return promise_utils.promised_exec('lsof >& ' + TMP_WORK_DIR + '/lsof.out');
         })
         .then(function() {
-            return stats.get_all_stats();
+            if (stats) {
+                return stats.get_all_stats();
+            } else {
+                return;
+            }
         })
         .then(function(restats) {
-            var stats_data = JSON.stringify(restats);
-            return Q.nfcall(fs.writeFile, TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
+            if (stats) {
+                var stats_data = JSON.stringify(restats);
+                return Q.nfcall(fs.writeFile, TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
+            } else {
+                return;
+            }
         })
         .then(null, function(err) {
             console.error('Error in collecting server diagnostics', err);

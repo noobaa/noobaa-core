@@ -29,7 +29,7 @@ private:
     {
     }
 
-    ~Ingest()
+    virtual ~Ingest()
     {
     }
 

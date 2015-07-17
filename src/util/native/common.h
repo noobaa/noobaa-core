@@ -29,6 +29,12 @@
         return Unwrap<clazz>(args.This())->_ ## method(args); \
     }
 
+#define NAN_ACCESSOR_GETTER(method) \
+    v8::Handle<v8::Value> method(v8::Local<v8::String> property, const v8::AccessorInfo &info)
+
+#define NAN_ACCESSOR_SETTER(method) \
+    void method(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::AccessorInfo &info)
+
 typedef std::shared_ptr<NanCallback> NanCallbackSharedPtr;
 
 #endif // COMMON_H_

@@ -46,7 +46,8 @@ function test_ingest() {
                 highWaterMark: 10
             },
             init: function() {
-                this.ingest = new native_util.Ingest();
+                var tpool = new native_util.ThreadPool(1);
+                this.ingest = new native_util.Ingest(tpool);
             },
             transform: function(data) {
                 return Q.ninvoke(this.ingest, 'push', data);

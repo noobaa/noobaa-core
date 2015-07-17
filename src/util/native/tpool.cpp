@@ -1,19 +1,39 @@
 #include "tpool.h"
 #include "backtrace.h"
 
-void
-tpool_thread_uv_cb(void* arg)
-{
-    ThreadPool::ThreadSpec* spec = static_cast<ThreadPool::ThreadSpec*>(arg);
-    spec->tpool->thread_main(*spec);
-    delete spec;
-}
+v8::Persistent<v8::Function> ThreadPool::_ctor;
 
 void
-tpool_done_uv_cb(uv_async_t* async, int)
+ThreadPool::setup(v8::Handle<v8::Object> exports)
 {
-    ThreadPool* tpool = static_cast<ThreadPool*>(async->data);
-    tpool->done_cb();
+    auto name = "ThreadPool";
+    auto tpl(NanNew<v8::FunctionTemplate>(ThreadPool::new_instance));
+    tpl->SetClassName(NanNew(name));
+    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    tpl->InstanceTemplate()->SetAccessor(NanNew("nthreads"), &nthreads_getter, &nthreads_setter);
+    NanAssignPersistent(_ctor, tpl->GetFunction());
+    exports->Set(NanNew(name), _ctor);
+}
+
+NAN_METHOD(ThreadPool::new_instance)
+{
+    NanScope();
+    uint32_t nthreads = 0;
+    if (!args[0]->IsUndefined()) {
+        if (!args[0]->IsInt32()) {
+            NanThrowError("first argument should be number of threads");
+        }
+        nthreads = args[0]->Int32Value();
+    }
+    if (args.IsConstructCall()) {
+        ThreadPool* obj = new ThreadPool(nthreads);
+        obj->Wrap(args.This());
+        NanReturnValue(args.This());
+    } else {
+        // Invoked as plain function call, turn into construct 'new' call.
+        v8::Handle<v8::Value> argv[] = { args[0] };
+        NanReturnValue(_ctor->NewInstance(1, argv));
+    }
 }
 
 void atexit_cb()
@@ -27,12 +47,12 @@ ThreadPool::ThreadPool(int nthreads)
     , _nthreads(0)
     , _refs(0)
 {
-    set_num_threads(nthreads);
+    set_nthreads(nthreads);
 
     // set the async handle to unreferenced (note that ref/unref is boolean, not counter)
     // so that it won't stop the event loop from finishing if it's the only handle left,
     // and submit() and done_cb() will ref/unref accordingly
-    uv_async_init(uv_default_loop(), &_async_done, &tpool_done_uv_cb);
+    uv_async_init(uv_default_loop(), &_async_done, &job_done_uv);
     uv_unref(reinterpret_cast<uv_handle_t*>(&_async_done));
     _async_done.data = this;
 
@@ -51,7 +71,7 @@ ThreadPool::~ThreadPool()
 }
 
 void
-ThreadPool::set_num_threads(int nthreads)
+ThreadPool::set_nthreads(int nthreads)
 {
     MutexCond::Lock lock(_mutex);
     if (nthreads > _nthreads) {
@@ -59,7 +79,7 @@ ThreadPool::set_num_threads(int nthreads)
             uv_thread_t tid;
             uv_thread_create(
                 &tid,
-                &tpool_thread_uv_cb,
+                &thread_main_uv,
                 new ThreadSpec(this, i));
             _thread_ids.push_back(tid);
         }
@@ -148,4 +168,31 @@ ThreadPool::done_cb()
         local_done_queue.pop_front();
         job->done();
     }
+}
+
+NAN_ACCESSOR_GETTER(ThreadPool::nthreads_getter)
+{
+    ThreadPool& tpool = *ObjectWrap::Unwrap<ThreadPool>(info.This());
+    return NanNew<v8::Integer>(tpool.get_nthreads());
+}
+
+NAN_ACCESSOR_SETTER(ThreadPool::nthreads_setter)
+{
+    ThreadPool& tpool = *ObjectWrap::Unwrap<ThreadPool>(info.This());
+    tpool.set_nthreads(value->Int32Value());
+}
+
+void
+ThreadPool::thread_main_uv(void* arg)
+{
+    ThreadPool::ThreadSpec* spec = static_cast<ThreadPool::ThreadSpec*>(arg);
+    spec->tpool->thread_main(*spec);
+    delete spec;
+}
+
+void
+ThreadPool::job_done_uv(uv_async_t* async, int)
+{
+    ThreadPool* tpool = static_cast<ThreadPool*>(async->data);
+    tpool->done_cb();
 }

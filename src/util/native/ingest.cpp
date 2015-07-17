@@ -2,11 +2,35 @@
 #include "buf.h"
 #include "crypto.h"
 
-// statics
-
 v8::Persistent<v8::Function> Ingest::_ctor;
 
-ThreadPool* Ingest::_tpool(new ThreadPool(4));
+void
+Ingest::setup(v8::Handle<v8::Object> exports)
+{
+    auto name = "Ingest";
+    auto tpl(NanNew<v8::FunctionTemplate>(Ingest::new_instance));
+    tpl->SetClassName(NanNew(name));
+    tpl->InstanceTemplate()->SetInternalFieldCount(1);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "push", Ingest::push);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", Ingest::flush);
+    NanAssignPersistent(_ctor, tpl->GetFunction());
+    exports->Set(NanNew(name), _ctor);
+}
+
+NAN_METHOD(Ingest::new_instance)
+{
+    NanScope();
+    if (args.IsConstructCall()) {
+        Ingest* obj = new Ingest();
+        obj->Wrap(args.This());
+        args.This()->Set(NanNew("tpool"), args[0]);
+        NanReturnValue(args.This());
+    } else {
+        // Invoked as plain function call, turn into construct 'new' call.
+        v8::Handle<v8::Value> argv[] = { args[0] };
+        NanReturnValue(_ctor->NewInstance(1, argv));
+    }
+}
 
 Ingest::GF
 Ingest::_gf(
@@ -33,40 +57,17 @@ Ingest::_deduper(
     Ingest::AVG_CHUNK_VAL);
 
 
-void
-Ingest::setup(v8::Handle<v8::Object> exports)
-{
-    auto name = "Ingest";
-    auto tpl(NanNew<v8::FunctionTemplate>(Ingest::new_instance));
-    tpl->SetClassName(NanNew(name));
-    tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "push", Ingest::push);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", Ingest::flush);
-    NanAssignPersistent(_ctor, tpl->GetFunction());
-    exports->Set(NanNew(name), _ctor);
-}
-
-NAN_METHOD(Ingest::new_instance)
-{
-    NanScope();
-    if (args.IsConstructCall()) {
-        Ingest* obj = new Ingest();
-        obj->Wrap(args.This());
-        NanReturnValue(args.This());
-    } else {
-        // Invoked as plain function `Ingest(...)`, turn into construct call.
-        v8::Handle<v8::Value>* argv = NULL;
-        NanReturnValue(_ctor->NewInstance(0, argv));
-    }
-}
-
 class Ingest::Job : public ThreadPool::Job
 {
 private:
     struct Chunk {
         Buf buf;
         std::string sha;
-        Chunk(Buf buf_, std::string sha_) : buf(buf_), sha(sha_) {}
+        Chunk(Buf buf_, std::string sha_)
+            : buf(buf_)
+            , sha(sha_)
+        {
+        }
     };
     Ingest& _ingest;
     v8::Persistent<v8::Object> _persistent_ingest;
@@ -157,7 +158,7 @@ public:
             _chunks.pop_front();
             v8::Local<v8::Object> obj(NanNew<v8::Object>());
             obj->Set(NanNew("chunk"), NanNewBufferHandle(
-                reinterpret_cast<char*>(chunk.buf.data()), chunk.buf.length()));
+                         reinterpret_cast<char*>(chunk.buf.data()), chunk.buf.length()));
             obj->Set(NanNew("sha"), NanNew(chunk.sha));
             arr->Set(i, obj);
             // std::cout << "Ingest::Job done " << chunk.buf.length() << " SHA " << chunk.sha << std::endl;
@@ -173,15 +174,16 @@ NAN_METHOD(Ingest::push)
 {
     NanScope();
 
-    Ingest* self = Unwrap<Ingest>(args.This());
+    Ingest& self = *Unwrap<Ingest>(args.This());
+    ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 2
         || !node::Buffer::HasInstance(args[0])
         || !args[1]->IsFunction()) {
         return NanThrowError("Ingest::push expected arguments function(buffer,callback)");
     }
 
-    Job* job = new Job(*self, args.This(), args[0], args[1]);
-    _tpool->submit(job);
+    Job* job = new Job(self, args.This(), args[0], args[1]);
+    tpool.submit(job);
 
     NanReturnUndefined();
 }
@@ -190,14 +192,15 @@ NAN_METHOD(Ingest::flush)
 {
     NanScope();
 
-    Ingest* self = Unwrap<Ingest>(args.This());
+    Ingest& self = *Unwrap<Ingest>(args.This());
+    ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 1
         || !args[0]->IsFunction()) {
         return NanThrowError("Ingest::flush expected arguments function(callback)");
     }
 
-    Job* job = new Job(*self, args.This(), args[0]);
-    _tpool->submit(job);
+    Job* job = new Job(self, args.This(), args[0]);
+    tpool.submit(job);
 
     NanReturnUndefined();
 }

@@ -60,6 +60,12 @@ class Buf
 {
 public:
 
+    Buf()
+        : _data(0)
+        , _len(0)
+    {
+    }
+
     explicit Buf(int len)
         : _iovec(new Iovec(len))
         , _data(_iovec->data())

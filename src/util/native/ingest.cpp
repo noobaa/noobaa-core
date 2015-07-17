@@ -57,7 +57,9 @@ Ingest::_deduper(
     Ingest::AVG_CHUNK_VAL);
 
 
-class Ingest::Job : public ThreadPool::Job
+class Ingest::Job
+    : public ThreadPool::Job
+    , public Ingest::Deduper::ChunkHandler
 {
 private:
     struct Chunk {
@@ -70,6 +72,7 @@ private:
         }
     };
     Ingest& _ingest;
+    ThreadPool& _tpool;
     v8::Persistent<v8::Object> _persistent_ingest;
     v8::Persistent<v8::Value> _persistent_buf;
     NanCallbackSharedPtr _callback;
@@ -77,14 +80,56 @@ private:
     const int _len;
     std::list<Chunk> _chunks;
 
+    /*
+    class SubJob : public ThreadPool::Job
+    {
+private:
+        Buf _chunk;
+        NanCallbackSharedPtr _callback;
+        Buf _encrypted;
+        std::string _sha;
+public:
+        explicit SubJob(Buf chunk, NanCallbackSharedPtr callback)
+            : _chunk(chunk)
+            , _callback(callback)
+        {
+        }
+        virtual void run() override
+        {
+            // std::cout << "Ingest::Job chunk " << std::dec << _chunk.length() << std::endl;
+            Buf sha = Crypto::digest(_chunk, "sha256");
+            // convergent encryption - key is the content hash
+            Buf key = sha;
+            // IV is just zeros since the key is unique then IV is not needed
+            Buf iv(12);
+            RAND_bytes(iv.data(), iv.length());
+            _encrypted = Crypto::encrypt(_chunk, key, iv, "aes-256-gcm");
+            _sha = sha.hex();
+        }
+        virtual void done() override
+        {
+            NanScope();
+            v8::Local<v8::Object> obj(NanNew<v8::Object>());
+            obj->Set(NanNew("chunk"), NanNewBufferHandle(
+                         reinterpret_cast<char*>(_encrypted.data()), _encrypted.length()));
+            obj->Set(NanNew("sha"), NanNew(_sha));
+            v8::Local<v8::Value> argv[] = { NanUndefined(), obj };
+            _callback->Call(2, argv);
+            delete this;
+        }
+    };
+    */
+
 public:
 
     explicit Job(
         Ingest& ingest,
+        ThreadPool& tpool,
         v8::Handle<v8::Object> ingest_handle,
         v8::Handle<v8::Value> buf_handle,
         v8::Handle<v8::Value> cb_handle)
         : _ingest(ingest)
+        , _tpool(tpool)
         , _callback(new NanCallback(cb_handle.As<v8::Function>()))
         , _data(node::Buffer::Data(buf_handle))
         , _len(node::Buffer::Length(buf_handle))
@@ -95,9 +140,11 @@ public:
 
     explicit Job(
         Ingest& ingest,
+        ThreadPool& tpool,
         v8::Handle<v8::Object> ingest_handle,
         v8::Handle<v8::Value> cb_handle)
         : _ingest(ingest)
+        , _tpool(tpool)
         , _callback(new NanCallback(cb_handle.As<v8::Function>()))
         , _data(0)
         , _len(0)
@@ -115,36 +162,32 @@ public:
         }
     }
 
-    struct SubJob : public ThreadPool::Job {
-        virtual void run() override
-        {
-
-        }
-    };
-
     virtual void run() override
     {
         // std::cout << "Ingest::Job run " << std::dec << _len << std::endl;
         if (_data) {
             Buf buf(_data, _len);
-            _ingest._chunker.push(buf);
+            _ingest._chunker.push(buf, *this);
         } else {
-            _ingest._chunker.flush();
+            _ingest._chunker.flush(*this);
         }
+    }
 
-        while (_ingest._chunker.has_chunks()) {
-            Buf chunk(_ingest._chunker.pop_chunk());
-            // std::cout << "Ingest::Job chunk " << std::dec << chunk.length() << std::endl;
-            Buf sha = Crypto::digest(chunk, "sha256");
-            // convergent encryption - key is the content hash
-            Buf key = sha;
-            // IV is just zeros since the key is unique then IV is not needed
-            Buf iv(12);
-            RAND_bytes(iv.data(), iv.length());
-            Buf encrypted = Crypto::encrypt(chunk, key, iv, "aes-256-gcm");
-            Chunk c(encrypted, sha.hex());
-            _chunks.push_back(c);
-        }
+    virtual void handle_chunk(Buf chunk) override
+    {
+        // SubJob* subjob = new SubJob(chunk, _callback);
+        //  _tpool.submit(subjob);
+
+        // std::cout << "Ingest::Job chunk " << std::dec << chunk.length() << std::endl;
+        Buf sha = Crypto::digest(chunk, "sha256");
+        // convergent encryption - key is the content hash
+        Buf key = sha;
+        // IV is just zeros since the key is unique then IV is not needed
+        Buf iv(12);
+        RAND_bytes(iv.data(), iv.length());
+        Buf encrypted = Crypto::encrypt(chunk, key, iv, "aes-256-gcm");
+        Chunk c(encrypted, sha.hex());
+        _chunks.push_back(c);
     }
 
     virtual void done() override
@@ -166,7 +209,7 @@ public:
         v8::Local<v8::Value> argv[] = { NanUndefined(), arr };
         _callback->Call(2, argv);
         delete this;
-        scope.Close(NanNew(""));
+        // scope.Close(NanNew("")); // TODO needed??
     }
 };
 
@@ -182,7 +225,7 @@ NAN_METHOD(Ingest::push)
         return NanThrowError("Ingest::push expected arguments function(buffer,callback)");
     }
 
-    Job* job = new Job(self, args.This(), args[0], args[1]);
+    Job* job = new Job(self, tpool, args.This(), args[0], args[1]);
     tpool.submit(job);
 
     NanReturnUndefined();
@@ -199,7 +242,7 @@ NAN_METHOD(Ingest::flush)
         return NanThrowError("Ingest::flush expected arguments function(callback)");
     }
 
-    Job* job = new Job(self, args.This(), args[0]);
+    Job* job = new Job(self, tpool, args.This(), args[0]);
     tpool.submit(job);
 
     NanReturnUndefined();

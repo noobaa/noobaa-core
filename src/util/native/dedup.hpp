@@ -2,7 +2,7 @@
 
 template <typename _Hasher>
 void
-Dedup<_Hasher>::Chunker::push(Buf buf)
+Dedup<_Hasher>::Chunker::push(Buf buf, ChunkHandler& handler)
 {
     // this code is very tight on cpu,
     // se we keep all the stuff that gets accessed on stack,
@@ -69,7 +69,7 @@ Dedup<_Hasher>::Chunker::push(Buf buf)
             _hash = hash;
             _chunk_len = chunk_len;
             _window_pos = window_pos;
-            flush();
+            flush(handler);
             hash = _hash;
             chunk_len = _chunk_len;
             window_pos = _window_pos;

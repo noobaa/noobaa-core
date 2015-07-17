@@ -55,6 +55,11 @@ private:
 
 public:
 
+    struct ChunkHandler
+    {
+        virtual void handle_chunk(Buf chunk) = 0;
+    };
+
     /**
      * The Chunker class is used to perform chunking with sliding window.
      */
@@ -82,27 +87,15 @@ public:
             memset(_window, 0, _dedup._window_len);
         }
 
-        void push(Buf buf);
+        void push(Buf buf, ChunkHandler& handler);
 
-        void flush()
+        void flush(ChunkHandler& handler)
         {
             if (!_slices.empty()) {
-                _chunks.push_back(Buf::concat(_slices.begin(), _slices.end(), _chunk_len));
+                handler.handle_chunk(Buf::concat(_slices.begin(), _slices.end(), _chunk_len));
                 _slices.clear();
             }
             reset();
-        }
-
-        inline bool has_chunks()
-        {
-            return !_chunks.empty();
-        }
-
-        inline Buf pop_chunk()
-        {
-            Buf buf(_chunks.front());
-            _chunks.pop_front();
-            return buf;
         }
 
 private:
@@ -112,7 +105,6 @@ private:
         int _window_pos;
         int _chunk_len;
         std::list<Buf> _slices;
-        std::list<Buf> _chunks;
     };
 
 };

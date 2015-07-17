@@ -112,6 +112,7 @@ ThreadPool::thread_main(ThreadPool::ThreadSpec& spec)
 {
     int index = spec.index;
     Job* job = 0;
+    // std::cout << "Started Thread " << index << std::endl;
 
     while (true) {
 

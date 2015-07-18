@@ -73,17 +73,17 @@ public:
     {
     }
 
-    explicit Buf(char* data, int len)
-        : _iovec(new Iovec(data, len))
-        , _data(_iovec->data())
-        , _len(_iovec->length())
+    explicit Buf(char* data, int len, bool own)
+        : _iovec(own ? new Iovec(data, len) : 0)
+        , _data(reinterpret_cast<uint8_t*>(data))
+        , _len(len)
     {
     }
 
-    explicit Buf(const char* data, int len)
-        : _iovec(new Iovec(data, len))
-        , _data(_iovec->data())
-        , _len(_iovec->length())
+    explicit Buf(const char* data, int len, bool own)
+        : _iovec(own ? new Iovec(data, len) : 0)
+        , _data(reinterpret_cast<uint8_t*>(const_cast<char*>(data)))
+        , _len(len)
     {
     }
 
@@ -104,8 +104,7 @@ public:
 
     const Buf& operator=(const Buf& other)
     {
-        this->~Buf();
-        new (this)Buf(other);
+        init(other);
         return other;
     }
 

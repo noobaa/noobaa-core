@@ -1,15 +1,14 @@
-#ifndef INGEST_H_
-#define INGEST_H_
+#ifndef WRITE_PROCESSOR_H_
+#define WRITE_PROCESSOR_H_
 
 #include "common.h"
 #include "dedup.h"
 #include "rabin_fingerprint.h"
-#include "buzhash.h"
 #include "tpool.h"
 
 /**
  *
- * Ingest data stream addon for nodejs
+ * WriteProcessor
  *
  * Performs variable length dedup,
  * then calculate cryptographic hash for dedup lookup,
@@ -18,18 +17,18 @@
  *
  */
 
-class Ingest : public node::ObjectWrap
+class WriteProcessor : public node::ObjectWrap
 {
 public:
     static void setup(v8::Handle<v8::Object> exports);
 
 private:
-    explicit Ingest()
+    explicit WriteProcessor()
         : _chunker(_deduper)
     {
     }
 
-    virtual ~Ingest()
+    virtual ~WriteProcessor()
     {
     }
 
@@ -56,4 +55,4 @@ private:
     static NAN_METHOD(flush);
 };
 
-#endif // INGEST_H_
+#endif // WRITE_PROCESSOR_H_

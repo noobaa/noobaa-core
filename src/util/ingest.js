@@ -47,20 +47,37 @@ function test_ingest() {
             },
             init: function() {
                 var tpool = new native_util.ThreadPool(1);
-                this.ingest = new native_util.Ingest(tpool);
+                this.write_proc = new native_util.WriteProcessor(tpool);
             },
             transform: function(data) {
-                return Q.ninvoke(this.ingest, 'push', data);
+                return Q.ninvoke(this.write_proc, 'push', data);
             },
             flush: function() {
-                return Q.ninvoke(this.ingest, 'flush');
+                return Q.ninvoke(this.write_proc, 'flush');
             }
         }));
 
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 20
+                highWaterMark: 10
+            },
+            init: function() {
+                var tpool = new native_util.ThreadPool(1);
+                this.read_proc = new native_util.ReadProcessor(tpool);
+            },
+            transform: function(data) {
+                return Q.ninvoke(this.read_proc, 'push', data.buf);
+            },
+            flush: function() {
+                return Q.ninvoke(this.read_proc, 'flush');
+            }
+        }));
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+                highWaterMark: 1
             },
             init: function() {
                 this.count = 0;
@@ -69,7 +86,7 @@ function test_ingest() {
             },
             transform: function(data) {
                 this.count += 1;
-                this.bytes += data.chunk.length;
+                this.bytes += data.buf.length;
                 process.stdout.write('.');
                 if (this.count % 60 === 0) {
                     var now = Date.now();

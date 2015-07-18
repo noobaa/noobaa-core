@@ -1,27 +1,27 @@
-#include "ingest.h"
+#include "write_processor.h"
 #include "buf.h"
 #include "crypto.h"
 
-v8::Persistent<v8::Function> Ingest::_ctor;
+v8::Persistent<v8::Function> WriteProcessor::_ctor;
 
 void
-Ingest::setup(v8::Handle<v8::Object> exports)
+WriteProcessor::setup(v8::Handle<v8::Object> exports)
 {
-    auto name = "Ingest";
-    auto tpl(NanNew<v8::FunctionTemplate>(Ingest::new_instance));
+    auto name = "WriteProcessor";
+    auto tpl(NanNew<v8::FunctionTemplate>(WriteProcessor::new_instance));
     tpl->SetClassName(NanNew(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "push", Ingest::push);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", Ingest::flush);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "push", WriteProcessor::push);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", WriteProcessor::flush);
     NanAssignPersistent(_ctor, tpl->GetFunction());
     exports->Set(NanNew(name), _ctor);
 }
 
-NAN_METHOD(Ingest::new_instance)
+NAN_METHOD(WriteProcessor::new_instance)
 {
     NanScope();
     if (args.IsConstructCall()) {
-        Ingest* obj = new Ingest();
+        WriteProcessor* obj = new WriteProcessor();
         obj->Wrap(args.This());
         args.This()->Set(NanNew("tpool"), args[0]);
         NanReturnValue(args.This());
@@ -32,8 +32,8 @@ NAN_METHOD(Ingest::new_instance)
     }
 }
 
-Ingest::GF
-Ingest::_gf(
+WriteProcessor::GF
+WriteProcessor::_gf(
     // 20u /* degree */, 0x9u /* poly */
     // 25u /* degree */, 0x9u /* poly */
     // 28u /* degree */, 0x9u /* poly */
@@ -42,24 +42,24 @@ Ingest::_gf(
     63u /* degree */, 0x3u /* poly */
     );
 
-Ingest::RabinHasher
-Ingest::_rabin_hasher(
-    Ingest::_gf,
-    Ingest::WINDOW_LEN);
+WriteProcessor::RabinHasher
+WriteProcessor::_rabin_hasher(
+    WriteProcessor::_gf,
+    WriteProcessor::WINDOW_LEN);
 
-Ingest::Deduper
-Ingest::_deduper(
-    Ingest::_rabin_hasher,
-    Ingest::WINDOW_LEN,
-    Ingest::MIN_CHUNK,
-    Ingest::MAX_CHUNK,
-    Ingest::AVG_CHUNK_BITS,
-    Ingest::AVG_CHUNK_VAL);
+WriteProcessor::Deduper
+WriteProcessor::_deduper(
+    WriteProcessor::_rabin_hasher,
+    WriteProcessor::WINDOW_LEN,
+    WriteProcessor::MIN_CHUNK,
+    WriteProcessor::MAX_CHUNK,
+    WriteProcessor::AVG_CHUNK_BITS,
+    WriteProcessor::AVG_CHUNK_VAL);
 
 
-class Ingest::Job
+class WriteProcessor::Job
     : public ThreadPool::Job
-    , public Ingest::Deduper::ChunkHandler
+    , public WriteProcessor::Deduper::ChunkHandler
 {
 private:
     struct Chunk {
@@ -71,10 +71,9 @@ private:
         {
         }
     };
-    Ingest& _ingest;
+    WriteProcessor& _write_processor;
     ThreadPool& _tpool;
-    v8::Persistent<v8::Object> _persistent_ingest;
-    v8::Persistent<v8::Value> _persistent_buf;
+    v8::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
     const char* const _data;
     const int _len;
@@ -96,7 +95,7 @@ public:
         }
         virtual void run() override
         {
-            // std::cout << "Ingest::Job chunk " << std::dec << _chunk.length() << std::endl;
+            // std::cout << "WriteProcessor::Job chunk " << std::dec << _chunk.length() << std::endl;
             Buf sha = Crypto::digest(_chunk, "sha256");
             // convergent encryption - key is the content hash
             Buf key = sha;
@@ -123,62 +122,58 @@ public:
 public:
 
     explicit Job(
-        Ingest& ingest,
+        WriteProcessor& write_processor,
         ThreadPool& tpool,
-        v8::Handle<v8::Object> ingest_handle,
+        v8::Handle<v8::Object> write_processor_handle,
         v8::Handle<v8::Value> buf_handle,
         v8::Handle<v8::Value> cb_handle)
-        : _ingest(ingest)
+        : _write_processor(write_processor)
         , _tpool(tpool)
         , _callback(new NanCallback(cb_handle.As<v8::Function>()))
         , _data(node::Buffer::Data(buf_handle))
         , _len(node::Buffer::Length(buf_handle))
     {
-        NanAssignPersistent(_persistent_ingest, ingest_handle);
-        NanAssignPersistent(_persistent_buf, buf_handle);
+        NanAssignPersistent(_persistent, NanNew<v8::Object>());
+        _persistent->Set(0, write_processor_handle);
+        _persistent->Set(1, buf_handle);
     }
 
     explicit Job(
-        Ingest& ingest,
+        WriteProcessor& write_processor,
         ThreadPool& tpool,
-        v8::Handle<v8::Object> ingest_handle,
+        v8::Handle<v8::Object> write_processor_handle,
         v8::Handle<v8::Value> cb_handle)
-        : _ingest(ingest)
+        : _write_processor(write_processor)
         , _tpool(tpool)
         , _callback(new NanCallback(cb_handle.As<v8::Function>()))
         , _data(0)
         , _len(0)
     {
-        NanAssignPersistent(_persistent_ingest, ingest_handle);
+        NanAssignPersistent(_persistent, NanNew<v8::Object>());
+        _persistent->Set(0, write_processor_handle);
     }
 
     virtual ~Job()
     {
-        if (_persistent_ingest.IsNearDeath()) {
-            NanDisposePersistent(_persistent_ingest);
-        }
-        if (_persistent_buf.IsNearDeath()) {
-            NanDisposePersistent(_persistent_buf);
-        }
+        NanDisposePersistent(_persistent);
     }
 
     virtual void run() override
     {
-        // std::cout << "Ingest::Job run " << std::dec << _len << std::endl;
         if (_data) {
-            Buf buf(_data, _len);
-            _ingest._chunker.push(buf, *this);
+            // must copy the data here because the dedup chunker might keep buffers for next job
+            // and the nodejs buffer handle is only attached to the current job.
+            // Buf buf(_data, _len, false);
+            Buf buf(_len);
+            memcpy(buf.data(), _data, _len);
+            _write_processor._chunker.push(buf, *this);
         } else {
-            _ingest._chunker.flush(*this);
+            _write_processor._chunker.flush(*this);
         }
     }
 
     virtual void handle_chunk(Buf chunk) override
     {
-        // SubJob* subjob = new SubJob(chunk, _callback);
-        //  _tpool.submit(subjob);
-
-        // std::cout << "Ingest::Job chunk " << std::dec << chunk.length() << std::endl;
         Buf sha = Crypto::digest(chunk, "sha256");
         // convergent encryption - key is the content hash
         Buf key = sha;
@@ -194,35 +189,32 @@ public:
     {
         NanScope();
         int len = _chunks.size();
-        // std::cout << "Ingest::Job done " << len << std::endl;
         v8::Local<v8::Array> arr(NanNew<v8::Array>(len));
         for (int i=0; i<len; ++i) {
             Chunk chunk = _chunks.front();
             _chunks.pop_front();
             v8::Local<v8::Object> obj(NanNew<v8::Object>());
-            obj->Set(NanNew("chunk"), NanNewBufferHandle(
+            obj->Set(NanNew("buf"), NanNewBufferHandle(
                          reinterpret_cast<char*>(chunk.buf.data()), chunk.buf.length()));
             obj->Set(NanNew("sha"), NanNew(chunk.sha));
             arr->Set(i, obj);
-            // std::cout << "Ingest::Job done " << chunk.buf.length() << " SHA " << chunk.sha << std::endl;
         }
         v8::Local<v8::Value> argv[] = { NanUndefined(), arr };
         _callback->Call(2, argv);
         delete this;
-        // scope.Close(NanNew("")); // TODO needed??
     }
 };
 
-NAN_METHOD(Ingest::push)
+NAN_METHOD(WriteProcessor::push)
 {
     NanScope();
 
-    Ingest& self = *Unwrap<Ingest>(args.This());
+    WriteProcessor& self = *Unwrap<WriteProcessor>(args.This());
     ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 2
         || !node::Buffer::HasInstance(args[0])
         || !args[1]->IsFunction()) {
-        return NanThrowError("Ingest::push expected arguments function(buffer,callback)");
+        return NanThrowError("WriteProcessor::push expected arguments function(buffer,callback)");
     }
 
     Job* job = new Job(self, tpool, args.This(), args[0], args[1]);
@@ -231,15 +223,15 @@ NAN_METHOD(Ingest::push)
     NanReturnUndefined();
 }
 
-NAN_METHOD(Ingest::flush)
+NAN_METHOD(WriteProcessor::flush)
 {
     NanScope();
 
-    Ingest& self = *Unwrap<Ingest>(args.This());
+    WriteProcessor& self = *Unwrap<WriteProcessor>(args.This());
     ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 1
         || !args[0]->IsFunction()) {
-        return NanThrowError("Ingest::flush expected arguments function(callback)");
+        return NanThrowError("WriteProcessor::flush expected arguments function(callback)");
     }
 
     Job* job = new Job(self, tpool, args.This(), args[0]);

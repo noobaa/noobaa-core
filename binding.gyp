@@ -5,7 +5,8 @@
         #'type': '<(library)',
         'sources': [
             'src/util/native/module.cpp',
-            'src/util/native/ingest.cpp',
+            'src/util/native/write_processor.cpp',
+            'src/util/native/read_processor.cpp',
             'src/util/native/tpool.cpp',
             'src/util/native/gf2.cpp',
             'src/util/native/buzhash.cpp',

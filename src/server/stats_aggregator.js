@@ -40,6 +40,8 @@ var cluster_server = require('./cluster_server');
 
 var support_account;
 var ops_aggregation = {};
+var SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
+var SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 
 /*
  * Stats Collction API
@@ -134,14 +136,8 @@ function get_systems_stats(req) {
         });
 }
 
-//TODO: Instead of avg. Keep histograms of the various metrics
 var NODES_STATS_DEFAULTS = {
     count: 0,
-    avg_allocation: 0,
-    avg_usage: 0,
-    avg_free: 0,
-    avg_uptime: 0,
-    //avg_limit: 0, //TODO: Add once implemented
     os: {
         win: 0,
         osx: 0,
@@ -150,9 +146,11 @@ var NODES_STATS_DEFAULTS = {
     },
 };
 
+
 //Collect nodes related stats and usage
 function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
+    var nodes_histo = get_empty_nodes_histo();
     return Q.fcall(function() {
             //Get ALL systems
             return system_server.list_systems_int(true, true);
@@ -168,10 +166,12 @@ function get_nodes_stats(req) {
                     for (var isys = 0; isys < results.length; ++isys) {
                         for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
                             nodes_stats.count++;
-                            nodes_stats.avg_allocation += results[isys].nodes[inode].storage.alloc;
-                            nodes_stats.avg_usage += results[isys].nodes[inode].storage.used;
-                            nodes_stats.avg_free += results[isys].nodes[inode].storage.free;
-                            nodes_stats.avg_uptime += (results[isys].nodes[inode].os_info.uptime / 60 / 60); //In hours
+
+                            nodes_histo.histo_allocation.add_value(results[isys].nodes[inode].storage.alloc / SCALE_BYTES_TO_GB);
+                            nodes_histo.histo_usage.add_value(results[isys].nodes[inode].storage.used / SCALE_BYTES_TO_GB);
+                            nodes_histo.histo_free.add_value(results[isys].nodes[inode].storage.free / SCALE_BYTES_TO_GB);
+                            nodes_histo.histo_uptime.add_value((results[isys].nodes[inode].os_info.uptime / SCALE_SEC_TO_DAYS));
+
                             if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
                                 nodes_stats.os.osx++;
                             } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
@@ -183,10 +183,11 @@ function get_nodes_stats(req) {
                             }
                         }
                     }
-                    nodes_stats.avg_allocation /= nodes_stats.count;
-                    nodes_stats.avg_usage /= nodes_stats.count;
-                    nodes_stats.avg_free /= nodes_stats.count;
-                    nodes_stats.avg_uptime /= nodes_stats.count;
+                    for (var h in nodes_histo) {
+                        if (nodes_histo.hasOwnProperty(h)) {
+                            nodes_stats[nodes_histo[h].get_master_label()] = nodes_histo[h].get_object_data(false);
+                        }
+                    }
                     return nodes_stats;
                 });
         })
@@ -203,7 +204,6 @@ function get_ops_stats(req) {
             ops_stats[op] = ops_aggregation[op].get_string_data();
         }
     }
-    console.warn('NB:: ops_stats is', ops_stats);
     return ops_stats;
 }
 
@@ -312,6 +312,56 @@ function send_stats_payload(payload) {
             dbg.log0('Phone Home data send failed', err, err.stack());
         });
 
+}
+
+function get_empty_nodes_histo() {
+    //TODO: Add histogram for limit, once implemented
+    var empty_nodes_histo = {};
+    empty_nodes_histo.histo_allocation = new histogram('AllocationSizes(GB)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 100
+    }, {
+        label: 'high',
+        start_val: 500
+    }]);
+
+    empty_nodes_histo.histo_usage = new histogram('UsedSpace(GB)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 100
+    }, {
+        label: 'high',
+        start_val: 500
+    }]);
+
+    empty_nodes_histo.histo_free = new histogram('FreeSpace(GB)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 100
+    }, {
+        label: 'high',
+        start_val: 500
+    }]);
+
+    empty_nodes_histo.histo_uptime = new histogram('Uptime(Days)', [{
+        label: 'short',
+        start_val: 0
+    }, {
+        label: 'mid',
+        start_val: 14
+    }, {
+        label: 'long',
+        start_val: 30
+    }]);
+
+    return empty_nodes_histo;
 }
 
 /*

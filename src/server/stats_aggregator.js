@@ -39,7 +39,7 @@ var cluster_server = require('./cluster_server');
 
 
 var support_account;
-var ops_aggregation;
+var ops_aggregation = {};
 
 /*
  * Stats Collction API
@@ -203,6 +203,7 @@ function get_ops_stats(req) {
             ops_stats[op] = ops_aggregation[op].get_string_data();
         }
     }
+    console.warn('NB:: ops_stats is', ops_stats);
     return ops_stats;
 }
 
@@ -249,17 +250,17 @@ function get_all_stats(req) {
 /*
  * OPs stats collection
  */
-function register_histogram(opname, structure) {
+function register_histogram(opname, master_label, structure) {
     if (typeof(opname) === 'undefined' || typeof(structure) === 'undefined') {
         dbg.log0('register_histogram called with opname', opname, 'structure', structure, 'skipping registration');
         return;
     }
 
     if (!ops_aggregation.hasOwnProperty(opname)) {
-        ops_aggregation[opname] = new histogram(structure);
+        ops_aggregation[opname] = new histogram(master_label, structure);
     }
 
-    dbg.log2('register_histogram registered', opname, 'with', structure);
+    dbg.log2('register_histogram registered', opname, '-', master_label, 'with', structure);
 }
 
 function add_sample_point(opname, duration) {
@@ -324,7 +325,8 @@ if ((config.central_stats.send_stats !== 'true') &&
         batch_size: 1,
         time_since_last_build: 60000, // TODO increase...
         building_timeout: 300000, // TODO increase...
-        delay: (60 * 60 * 1000), //60m
+        //delay: (60 * 60 * 1000), //60m
+        delay: (10 * 1000), //60m
 
         //Run the system statistics gatheting
         run_batch: function() {

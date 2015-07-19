@@ -14,14 +14,18 @@ var SINGLE_BIN_DEFAULTS = {
 /*
  * Structure: Array of bins each bin contains {label, start_val}
  */
-function Histogram(structure) {
+function Histogram(master_label, structure) {
     if (typeof structure === 'undefined') {
         throw new Error('Creating a histogram requires structure supplied');
     }
 
     // allow calling this ctor without new keyword
     if (!(this instanceof Histogram)) {
-        return new Histogram(structure);
+        return new Histogram(master_label, structure);
+    }
+
+    if (typeof(master_label) !== 'undefined') {
+        this._master_label = master_label;
     }
 
     this._bins = [];
@@ -46,23 +50,33 @@ Histogram.prototype.add_value = function(value) {
 };
 
 Histogram.prototype.get_object_data = function() {
-    var ret = [];
+    var ret = {
+        master_label: this._master_label,
+        bins: [],
+    };
     for (var i = 0; i < this._bins.length; ++i) {
-        ret.push({});
-        ret[i].label = this._bins[i].label;
-        ret[i].range = this._bins[i].start_val + (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val);
-        ret[i].count = this._bins[i].count;
-        ret[i].avg = Math.round(this._bins[i].aggregated_sum / this._bins[i].count);
+        ret.bins.push({});
+        ret.bins[i].label = this._bins[i].label;
+        ret.bins[i].range = this._bins[i].start_val + (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val);
+        ret.bins[i].count = this._bins[i].count;
+        ret.bins[i].avg = Math.round(this._bins[i].aggregated_sum / this._bins[i].count);
     }
 
     return ret;
 };
 
 Histogram.prototype.get_string_data = function() {
-    var str = '';
+    var str = (typeof(this._master_label) !== 'undefined' ? this._master_label + '  ' : '');
     for (var i = 0; i < this._bins.length; ++i) {
-        str += this._bins[i].label + ' (' + this._bins[i].start_val + (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val) +
-            '): ' + this._bins[i].count + ' avg: ' + Math.round(this._bins[i].aggregated_sum / this._bins[i].count) + '.  ';
+        str += this._bins[i].label +
+            ' (' + this._bins[i].start_val +
+            (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val) +
+            '): count: ' +
+            this._bins[i].count +
+            ' avg: ' +
+            (this._bins[i].count ? Math.round(this._bins[i].aggregated_sum / this._bins[i].count) : '-') +
+            '  ';
     }
+    str += '.';
     return str;
 };

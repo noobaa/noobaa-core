@@ -6,10 +6,15 @@
  */
 
 var stats_aggregator = {
+    //stats getters
     get_systems_stats: get_systems_stats,
     get_nodes_stats: get_nodes_stats,
     get_ops_stats: get_ops_stats,
     get_all_stats: get_all_stats,
+
+    //OP stats collection
+    register_histogram: register_histogram,
+    add_sample_point: add_sample_point,
 };
 
 module.exports = stats_aggregator;
@@ -21,6 +26,7 @@ var formData = require('form-data');
 var util = require('util');
 var db = require('./db');
 var promise_utils = require('../util/promise_utils');
+var histogram = require('../util/histogram');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var system_server = require('./system_server');
@@ -33,6 +39,7 @@ var cluster_server = require('./cluster_server');
 
 
 var support_account;
+var ops_aggregation;
 
 /*
  * Stats Collction API
@@ -189,10 +196,15 @@ function get_nodes_stats(req) {
         });
 }
 
-/*var OPS_STATS_DEFAULTS = {
-};*/
-
-function get_ops_stats(req) {}
+function get_ops_stats(req) {
+    var ops_stats = {};
+    for (var op in ops_aggregation) {
+        if (ops_aggregation.hasOwnProperty(op)) {
+            ops_stats[op] = ops_aggregation[op].get_string_data();
+        }
+    }
+    return ops_stats;
+}
 
 //Collect operations related stats and usage
 function get_all_stats(req) {
@@ -232,6 +244,36 @@ function get_all_stats(req) {
         .then(null, function(err) {
             return {};
         });
+}
+
+/*
+ * OPs stats collection
+ */
+function register_histogram(opname, structure) {
+    if (typeof(opname) === 'undefined' || typeof(structure) === 'undefined') {
+        dbg.log0('register_histogram called with opname', opname, 'structure', structure, 'skipping registration');
+        return;
+    }
+
+    if (!ops_aggregation.hasOwnProperty(opname)) {
+        ops_aggregation[opname] = new histogram(structure);
+    }
+
+    dbg.log2('register_histogram registered', opname, 'with', structure);
+}
+
+function add_sample_point(opname, duration) {
+    if (typeof(opname) === 'undefined' || typeof(duration) === 'undefined') {
+        dbg.log0('add_sample_point called with opname', opname, 'duration', duration, 'skipping sampling point');
+        return;
+    }
+
+    if (!ops_aggregation.hasOwnProperty(opname)) {
+        dbg.log0('add_sample_point called without histogram registered (', opname, '), skipping');
+        return;
+    }
+
+    ops_aggregation[opname].add_value(duration);
 }
 
 /*

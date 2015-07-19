@@ -64,4 +64,5 @@ Histogram.prototype.get_string_data = function() {
         str += this._bins[i].label + ' (' + this._bins[i].start_val + (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val) +
             '): ' + this._bins[i].count + ' avg: ' + Math.round(this._bins[i].aggregated_sum / this._bins[i].count) + '.  ';
     }
+    return str;
 };

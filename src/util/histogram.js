@@ -49,9 +49,9 @@ Histogram.prototype.add_value = function(value) {
     }
 };
 
-Histogram.prototype.get_object_data = function() {
+Histogram.prototype.get_object_data = function(skip_master_label) {
     var ret = {
-        master_label: this._master_label,
+        master_label: skip_master_label ? this._master_label : '',
         bins: [],
     };
     for (var i = 0; i < this._bins.length; ++i) {
@@ -59,7 +59,9 @@ Histogram.prototype.get_object_data = function() {
         ret.bins[i].label = this._bins[i].label;
         ret.bins[i].range = this._bins[i].start_val + (i === this._bins.length - 1 ? '+' : '-' + this._bins[i + 1].start_val);
         ret.bins[i].count = this._bins[i].count;
-        ret.bins[i].avg = Math.round(this._bins[i].aggregated_sum / this._bins[i].count);
+        ret.bins[i].avg = this._bins[i].count ?
+            Math.round(this._bins[i].aggregated_sum / this._bins[i].count) :
+            0;
     }
 
     return ret;
@@ -74,9 +76,13 @@ Histogram.prototype.get_string_data = function() {
             '): count: ' +
             this._bins[i].count +
             ' avg: ' +
-            (this._bins[i].count ? Math.round(this._bins[i].aggregated_sum / this._bins[i].count) : '-') +
+            (this._bins[i].count ? Math.round(this._bins[i].aggregated_sum / this._bins[i].count) : '0') +
             '  ';
     }
     str += '.';
     return str;
+};
+
+Histogram.prototype.get_master_label = function() {
+    return (typeof(this._master_label) !== 'undefined' ? this._master_label : '');
 };

@@ -42,10 +42,10 @@ var multer = require('multer');
 var fs = require('fs');
 var done_upgrade_file_upload = false;
 
-if (!process.env.PORT) {
+//if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
     dotenv.load();
-}
+//}
 
 // address means the address of the server as reachable from the internet
 process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';

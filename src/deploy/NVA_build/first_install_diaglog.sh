@@ -122,7 +122,8 @@ function run_wizard {
 }
 
 function end_wizard {
-  dialog --colors --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox '\n\Z5\ZbNooBaa\Zn was configured and is ready to use' 7 45
+  local current_ip=$(ifconfig eth0  |grep 'inet addr' | cut -f 2 -d':' | cut -f 1 -d' ')
+  dialog --colors --backtitle "NooBaa First Install" --title '\Z5\ZbNooBaa\Zn is Ready' --msgbox "\n\Z5\ZbNooBaa\Zn was configured and is ready to use. You can access https://${current_ip}:8443 to start using your system." 7 65
   #date > ${FIRST_INSTALL_MARK}
   clear
 

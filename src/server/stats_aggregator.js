@@ -6,10 +6,15 @@
  */
 
 var stats_aggregator = {
+    //stats getters
     get_systems_stats: get_systems_stats,
     get_nodes_stats: get_nodes_stats,
     get_ops_stats: get_ops_stats,
     get_all_stats: get_all_stats,
+
+    //OP stats collection
+    register_histogram: register_histogram,
+    add_sample_point: add_sample_point,
 };
 
 module.exports = stats_aggregator;
@@ -21,6 +26,7 @@ var formData = require('form-data');
 var util = require('util');
 var db = require('./db');
 var promise_utils = require('../util/promise_utils');
+var histogram = require('../util/histogram');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var config = require('../../config.js');
 var system_server = require('./system_server');
@@ -33,6 +39,9 @@ var cluster_server = require('./cluster_server');
 
 
 var support_account;
+var ops_aggregation = {};
+var SCALE_BYTES_TO_GB = 1024 * 1024 * 1024;
+var SCALE_SEC_TO_DAYS = 60 * 60 * 24;
 
 /*
  * Stats Collction API
@@ -127,14 +136,8 @@ function get_systems_stats(req) {
         });
 }
 
-//TODO: Instead of avg. Keep histograms of the various metrics
 var NODES_STATS_DEFAULTS = {
     count: 0,
-    avg_allocation: 0,
-    avg_usage: 0,
-    avg_free: 0,
-    avg_uptime: 0,
-    //avg_limit: 0, //TODO: Add once implemented
     os: {
         win: 0,
         osx: 0,
@@ -143,9 +146,11 @@ var NODES_STATS_DEFAULTS = {
     },
 };
 
+
 //Collect nodes related stats and usage
 function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
+    var nodes_histo = get_empty_nodes_histo();
     return Q.fcall(function() {
             //Get ALL systems
             return system_server.list_systems_int(true, true);
@@ -161,10 +166,12 @@ function get_nodes_stats(req) {
                     for (var isys = 0; isys < results.length; ++isys) {
                         for (var inode = 0; inode < results[isys].nodes.length; ++inode) {
                             nodes_stats.count++;
-                            nodes_stats.avg_allocation += results[isys].nodes[inode].storage.alloc;
-                            nodes_stats.avg_usage += results[isys].nodes[inode].storage.used;
-                            nodes_stats.avg_free += results[isys].nodes[inode].storage.free;
-                            nodes_stats.avg_uptime += (results[isys].nodes[inode].os_info.uptime / 60 / 60); //In hours
+
+                            nodes_histo.histo_allocation.add_value(results[isys].nodes[inode].storage.alloc / SCALE_BYTES_TO_GB);
+                            nodes_histo.histo_usage.add_value(results[isys].nodes[inode].storage.used / SCALE_BYTES_TO_GB);
+                            nodes_histo.histo_free.add_value(results[isys].nodes[inode].storage.free / SCALE_BYTES_TO_GB);
+                            nodes_histo.histo_uptime.add_value((results[isys].nodes[inode].os_info.uptime / SCALE_SEC_TO_DAYS));
+
                             if (results[isys].nodes[inode].os_info.ostype === 'Darwin') {
                                 nodes_stats.os.osx++;
                             } else if (results[isys].nodes[inode].os_info.ostype === 'Windows_NT') {
@@ -176,10 +183,11 @@ function get_nodes_stats(req) {
                             }
                         }
                     }
-                    nodes_stats.avg_allocation /= nodes_stats.count;
-                    nodes_stats.avg_usage /= nodes_stats.count;
-                    nodes_stats.avg_free /= nodes_stats.count;
-                    nodes_stats.avg_uptime /= nodes_stats.count;
+                    for (var h in nodes_histo) {
+                        if (nodes_histo.hasOwnProperty(h)) {
+                            nodes_stats[nodes_histo[h].get_master_label()] = nodes_histo[h].get_object_data(false);
+                        }
+                    }
                     return nodes_stats;
                 });
         })
@@ -189,10 +197,15 @@ function get_nodes_stats(req) {
         });
 }
 
-/*var OPS_STATS_DEFAULTS = {
-};*/
-
-function get_ops_stats(req) {}
+function get_ops_stats(req) {
+    var ops_stats = {};
+    for (var op in ops_aggregation) {
+        if (ops_aggregation.hasOwnProperty(op)) {
+            ops_stats[op] = ops_aggregation[op].get_string_data();
+        }
+    }
+    return ops_stats;
+}
 
 //Collect operations related stats and usage
 function get_all_stats(req) {
@@ -235,6 +248,36 @@ function get_all_stats(req) {
 }
 
 /*
+ * OPs stats collection
+ */
+function register_histogram(opname, master_label, structure) {
+    if (typeof(opname) === 'undefined' || typeof(structure) === 'undefined') {
+        dbg.log0('register_histogram called with opname', opname, 'structure', structure, 'skipping registration');
+        return;
+    }
+
+    if (!ops_aggregation.hasOwnProperty(opname)) {
+        ops_aggregation[opname] = new histogram(master_label, structure);
+    }
+
+    dbg.log2('register_histogram registered', opname, '-', master_label, 'with', structure);
+}
+
+function add_sample_point(opname, duration) {
+    if (typeof(opname) === 'undefined' || typeof(duration) === 'undefined') {
+        dbg.log0('add_sample_point called with opname', opname, 'duration', duration, 'skipping sampling point');
+        return;
+    }
+
+    if (!ops_aggregation.hasOwnProperty(opname)) {
+        dbg.log0('add_sample_point called without histogram registered (', opname, '), skipping');
+        return;
+    }
+
+    ops_aggregation[opname].add_value(duration);
+}
+
+/*
  * UTILS
  */
 function get_support_account_id() {
@@ -271,6 +314,56 @@ function send_stats_payload(payload) {
 
 }
 
+function get_empty_nodes_histo() {
+    //TODO: Add histogram for limit, once implemented
+    var empty_nodes_histo = {};
+    empty_nodes_histo.histo_allocation = new histogram('AllocationSizes(GB)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 100
+    }, {
+        label: 'high',
+        start_val: 500
+    }]);
+
+    empty_nodes_histo.histo_usage = new histogram('UsedSpace(GB)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 100
+    }, {
+        label: 'high',
+        start_val: 500
+    }]);
+
+    empty_nodes_histo.histo_free = new histogram('FreeSpace(GB)', [{
+        label: 'low',
+        start_val: 0
+    }, {
+        label: 'med',
+        start_val: 100
+    }, {
+        label: 'high',
+        start_val: 500
+    }]);
+
+    empty_nodes_histo.histo_uptime = new histogram('Uptime(Days)', [{
+        label: 'short',
+        start_val: 0
+    }, {
+        label: 'mid',
+        start_val: 14
+    }, {
+        label: 'long',
+        start_val: 30
+    }]);
+
+    return empty_nodes_histo;
+}
+
 /*
  * Background Wokrer
  */
@@ -282,7 +375,8 @@ if ((config.central_stats.send_stats !== 'true') &&
         batch_size: 1,
         time_since_last_build: 60000, // TODO increase...
         building_timeout: 300000, // TODO increase...
-        delay: (60 * 60 * 1000), //60m
+        //delay: (60 * 60 * 1000), //60m
+        delay: (10 * 1000), //60m
 
         //Run the system statistics gatheting
         run_batch: function() {

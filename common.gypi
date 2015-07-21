@@ -120,6 +120,9 @@
             },
 
             'Release': {
+                'defines': [
+                    # 'NDEBUG' TODO uncomment
+                ],
                 'cflags!': ['-Os', '-O0', '-O1', '-O2'],
                 'cflags_cc!': ['-Os', '-O0', '-O1', '-O2'],
                 'cflags': ['-O3'],

@@ -57,9 +57,7 @@ WriteProcessor::_deduper(
     WriteProcessor::AVG_CHUNK_VAL);
 
 
-class WriteProcessor::Job
-    : public ThreadPool::Job
-    , public WriteProcessor::Deduper::ChunkHandler
+class WriteProcessor::Job : public ThreadPool::Job
 {
 private:
     struct Chunk {
@@ -75,7 +73,7 @@ private:
     ThreadPool& _tpool;
     v8::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
-    const char* const _data;
+    const uint8_t* _data;
     const int _len;
     std::list<Chunk> _chunks;
 
@@ -130,7 +128,7 @@ public:
         : _write_processor(write_processor)
         , _tpool(tpool)
         , _callback(new NanCallback(cb_handle.As<v8::Function>()))
-        , _data(node::Buffer::Data(buf_handle))
+        , _data(reinterpret_cast<const uint8_t*>(node::Buffer::Data(buf_handle)))
         , _len(node::Buffer::Length(buf_handle))
     {
         NanAssignPersistent(_persistent, NanNew<v8::Object>());
@@ -160,25 +158,63 @@ public:
 
     virtual void run() override
     {
-        if (_data) {
-            // must copy the data here because the dedup chunker might keep buffers for next job
-            // and the nodejs buffer handle is only attached to the current job.
-            // Buf buf(_data, _len, false);
-            Buf buf(_len);
-            memcpy(buf.data(), _data, _len);
-            _write_processor._chunker.push(buf, *this);
-        } else {
-            _write_processor._chunker.flush(*this);
+        if (!_data) {
+            // just flush
+            process_chunk();
+            return;
+        }
+
+        const uint8_t* datap = _data;
+        int len = _len;
+
+        while (len > 0) {
+            int offset = _write_processor._chunker.push(datap, len);
+            if (offset) {
+                // offset!=0 means we got chunk boundary
+                // for the last slice we don't copy it because process_chunk will copy all slices.
+                Buf last_slice(datap, offset, false);
+                _write_processor._chunk_slices.push_back(last_slice);
+                _write_processor._chunk_len += last_slice.length();
+                process_chunk();
+                datap += offset;
+                len -= offset;
+            } else {
+                // offset==0 means no chunk boundary
+                // we must make a copy of the slice buffer here because we need to keep
+                // it till the next job and the nodejs buffer handle is only attached
+                // to the current job.
+                Buf slice(len);
+                memcpy(slice.data(), datap, len);
+                _write_processor._chunk_slices.push_back(slice);
+                _write_processor._chunk_len += slice.length();
+                datap += len;
+                len = 0;
+            }
         }
     }
 
-    virtual void handle_chunk(Buf chunk) override
+    void process_chunk()
     {
+        if (_write_processor._chunk_slices.empty()) {
+            return;
+        }
+
+        // concat the slices to single buffer - copyful
+        Buf chunk(
+            _write_processor._chunk_len,
+            _write_processor._chunk_slices.begin(),
+            _write_processor._chunk_slices.end());
+        _write_processor._chunk_slices.clear();
+        _write_processor._chunk_len = 0;
+
         Buf sha = Crypto::digest(chunk, "sha256");
         // convergent encryption - key is the content hash
         Buf key = sha;
+        // Buf key(16);
+        // RAND_bytes(key.data(), key.length());
         // IV is just zeros since the key is unique then IV is not needed
-        Buf iv(12);
+        Buf iv(16);
+        // Buf iv(64);
         RAND_bytes(iv.data(), iv.length());
         Buf encrypted = Crypto::encrypt(chunk, key, iv, "aes-256-gcm");
         Chunk c(encrypted, sha.hex());

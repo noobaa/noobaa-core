@@ -25,6 +25,7 @@ public:
 private:
     explicit WriteProcessor()
         : _chunker(_deduper)
+        , _chunk_len(0)
     {
     }
 
@@ -47,6 +48,8 @@ private:
     static RabinHasher _rabin_hasher;
     static Deduper _deduper;
     Deduper::Chunker _chunker;
+    std::list<Buf> _chunk_slices;
+    int _chunk_len;
 
 private:
     static v8::Persistent<v8::Function> _ctor;

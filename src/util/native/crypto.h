@@ -37,12 +37,11 @@ public:
         EVP_CIPHER_CTX ctx_cipher;
         EVP_CIPHER_CTX_init(&ctx_cipher);
         EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, NULL, NULL);
-        // if (key.length() != EVP_CIPHER_CTX_key_length(&ctx_cipher)) {
-            // std::cout << "EVP_CIPHER_CTX_key_length(&ctx_cipher)=" << EVP_CIPHER_CTX_key_length(&ctx_cipher) << std::endl;
-        // }
-        assert(key.length() == EVP_CIPHER_CTX_key_length(&ctx_cipher));
+        ASSERT(key.length() == EVP_CIPHER_CTX_key_length(&ctx_cipher),
+            DVAL(key.length()) << DVAL(EVP_CIPHER_CTX_key_length(&ctx_cipher)));
         // iv is required if the key is reused, but can be empty if the key is unique
-        assert(iv.length() >= EVP_CIPHER_CTX_iv_length(&ctx_cipher) || iv.length() == 0);
+        ASSERT(iv.length() >= EVP_CIPHER_CTX_iv_length(&ctx_cipher) || iv.length() == 0,
+            DVAL(iv.length()) << DVAL(EVP_CIPHER_CTX_iv_length(&ctx_cipher)));
         EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
         int out_len = 0;
         int final_len = 0;

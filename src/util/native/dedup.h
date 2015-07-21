@@ -55,11 +55,6 @@ private:
 
 public:
 
-    struct ChunkHandler
-    {
-        virtual void handle_chunk(Buf chunk) = 0;
-    };
-
     /**
      * The Chunker class is used to perform chunking with sliding window.
      */
@@ -82,29 +77,26 @@ public:
         inline void reset()
         {
             _hash = 0;
-            _window_pos = 0;
             _chunk_len = 0;
+            _window_pos = 0;
             memset(_window, 0, _dedup._window_len);
         }
 
-        void push(Buf buf, ChunkHandler& handler);
-
-        void flush(ChunkHandler& handler)
-        {
-            if (!_slices.empty()) {
-                handler.handle_chunk(Buf::concat(_slices.begin(), _slices.end(), _chunk_len));
-                _slices.clear();
-            }
-            reset();
-        }
+        /**
+         * returns 0 if no chunk boundary,
+         *      in this case more data can be pushed till boundary will be found.
+         * returns offset between 1 and len (including) to set chunk boundary,
+         *      in this case the chunker was reset and the rest of the data from offset
+         *      should be pushed to find next chunk boundary.
+         */
+        int push(const uint8_t* data, int len);
 
 private:
         const Dedup& _dedup;
         T _hash;
-        uint8_t* _window;
-        int _window_pos;
         int _chunk_len;
-        std::list<Buf> _slices;
+        int _window_pos;
+        uint8_t* _window;
     };
 
 };

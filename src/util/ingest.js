@@ -56,7 +56,7 @@ function test_ingest() {
                 return Q.ninvoke(this.write_proc, 'flush');
             }
         }));
-
+/*
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
@@ -73,7 +73,7 @@ function test_ingest() {
                 return Q.ninvoke(this.read_proc, 'flush');
             }
         }));
-
+*/
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
@@ -87,6 +87,7 @@ function test_ingest() {
             transform: function(data) {
                 this.count += 1;
                 this.bytes += data.buf.length;
+                // process.stdout.write(data.buf.length + '.');
                 process.stdout.write('.');
                 if (this.count % 60 === 0) {
                     var now = Date.now();

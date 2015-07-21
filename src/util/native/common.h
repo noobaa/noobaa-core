@@ -23,6 +23,23 @@
 #include <node_buffer.h>
 #include <nan.h>
 
+#define DVAL(x) #x "=" << x << " "
+
+#ifdef NDEBUG
+# define ASSERT(...)
+#else
+# define ASSERT(cond, info) \
+    if (!(cond)) { \
+        std::cerr << "ASSERT FAILED: " << #cond \
+                  << " function " << __func__ \
+                  << " file " << __FILE__ \
+                  << " line " << __LINE__ \
+                  << ": " << info \
+                  << std::endl; \
+        abort(); \
+    }
+#endif
+
 #define NAN_METHOD_TO_SELF(clazz, method) \
     static NAN_METHOD(method) \
     { \

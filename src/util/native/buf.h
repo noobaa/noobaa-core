@@ -6,32 +6,32 @@
 class Iovec
 {
 private:
-    char* _data;
+    uint8_t* _data;
     int _len;
 
 public:
     typedef std::shared_ptr<Iovec> SharedPtr;
 
     explicit Iovec(int len)
-        : _data(new char[len])
+        : _data(new uint8_t[len])
         , _len(len)
     {
     }
 
-    explicit Iovec(char* data, int len)
-        : _data(data)
+    explicit Iovec(void* data, int len)
+        : _data(reinterpret_cast<uint8_t*>(data))
         , _len(len)
     {
     }
 
-    explicit Iovec(const char* data, int len)
-        : _data(const_cast<char*>(data))
+    explicit Iovec(const void* data, int len)
+        : _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
         , _len(len)
     {
     }
 
     Iovec(const Iovec& other)
-        : _data(new char[other._len])
+        : _data(new uint8_t[other._len])
         , _len(other._len)
     {
         memcpy(_data, other._data, _len);
@@ -44,7 +44,13 @@ public:
 
     inline uint8_t* data()
     {
-        return reinterpret_cast<uint8_t*>(_data);
+        return _data;
+    }
+
+    template <typename T>
+    inline T* datap()
+    {
+        return reinterpret_cast<T*>(_data);
     }
 
     inline int length()
@@ -73,16 +79,16 @@ public:
     {
     }
 
-    explicit Buf(char* data, int len, bool own)
+    explicit Buf(void* data, int len, bool own)
         : _iovec(own ? new Iovec(data, len) : 0)
         , _data(reinterpret_cast<uint8_t*>(data))
         , _len(len)
     {
     }
 
-    explicit Buf(const char* data, int len, bool own)
+    explicit Buf(const void* data, int len, bool own)
         : _iovec(own ? new Iovec(data, len) : 0)
-        , _data(reinterpret_cast<uint8_t*>(const_cast<char*>(data)))
+        , _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
         , _len(len)
     {
     }
@@ -98,6 +104,24 @@ public:
         slice(offset, len);
     }
 
+    // copyful concat
+    template <typename Iter>
+    Buf(int len, Iter begin, Iter end)
+        : _iovec(new Iovec(len))
+        , _data(_iovec->data())
+        , _len(_iovec->length())
+    {
+        uint8_t* data = _data;
+        while (len > 0) {
+            assert(begin != end);
+            int now = std::min<int>(len, begin->length());
+            memcpy(data, begin->data(), now);
+            data += now;
+            len -= now;
+            begin++;
+        }
+    }
+
     ~Buf()
     {
     }
@@ -110,7 +134,13 @@ public:
 
     inline uint8_t* data()
     {
-        return reinterpret_cast<uint8_t*>(_data);
+        return _data;
+    }
+
+    template <typename T>
+    inline T* datap()
+    {
+        return reinterpret_cast<T*>(_data);
     }
 
     inline int length()
@@ -142,21 +172,6 @@ public:
     {
         _data = _iovec->data();
         _len = _iovec->length();
-    }
-
-    template <typename Iter>
-    static Buf concat(Iter begin, Iter end, int len) {
-        Buf ret(len);
-        uint8_t* data = ret.data();
-        while (len > 0) {
-            assert(begin != end);
-            int now = std::min<int>(len, begin->length());
-            memcpy(data, begin->data(), now);
-            data += now;
-            len -= now;
-            begin++;
-        }
-        return ret;
     }
 
     inline std::string hex()

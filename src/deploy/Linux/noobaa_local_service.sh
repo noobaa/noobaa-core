@@ -15,13 +15,13 @@ rm -f noobaa-setup
 ./node src/agent/agent_cli.js
 if [[ $? -eq 0 ]]; then
    #upgrade
-   wget -t 2 --no-check-certificate $metadata_server_address/public/noobaa-setup
+   sudo wget -t 2 --no-check-certificate $metadata_server_address/public/noobaa-setup
    echo "Upgrading ..."
    if [ ! -f ./noobaa-setup ]; then
        echo "Failed to download upgrade package"
    else
-       sudo +x noobaa-setup
-       ./noobaa-setup
+       sudo chmod +x noobaa-setup
+       sudo ./noobaa-setup
    fi
 else
    echo "Agent exited with error" $?

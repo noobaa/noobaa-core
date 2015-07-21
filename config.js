@@ -30,7 +30,7 @@ config.iceBufferMetaPartSize = 64;
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;
 
-config.dbg_log_level = 2;
+config.dbg_log_level = 0;
 
 config.min_node_number = 3;
 

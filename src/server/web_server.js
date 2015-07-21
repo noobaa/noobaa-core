@@ -61,13 +61,6 @@ if (debug_mode) {
     mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
 }
 
-//set debug level for all modules, if defined
-if (debug_mode && config.dbg_log_level !== 0) {
-    dbg.warn('setting log level of ALL modules to', config.dbg_log_level);
-    dbg.set_level(config.dbg_log_level, 'core');
-}
-
-
 mongoose.connection.once('open', function() {
     // call ensureIndexes explicitly for each model
     mongoose_connected = true;

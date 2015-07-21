@@ -108,7 +108,7 @@
     "node-df": "^0.1.1",
     "node-gyp": "^1.0.3",
     "nodetime": "~0.8.15",
-    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#34024a4521a3bcb12699789aac436601ed3a5eb4",
+    "noobaa-util": "git+https://1ca59ff8cb89b36ed5cc65736999cc9c39989e42:x-oauth-basic@github.com/noobaa/noobaa-util.git#c6b8042e13d49449a8b3a1039986aeae59d436a8",
     "pem": "~1.7.2",
     "q": "~1.2.0",
     "request": "~2.55.0",

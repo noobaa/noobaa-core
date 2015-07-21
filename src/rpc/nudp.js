@@ -335,7 +335,7 @@ NudpFlow.prototype._send_packets = function() {
     if (!this._packets_send_queue.length) {
         return;
     }
-    dbg.log2('NUDP _send_packets:',
+    dbg.log3('NUDP _send_packets:',
         'length', this._packets_send_queue.length,
         this.connid);
 
@@ -352,7 +352,7 @@ NudpFlow.prototype._send_packets = function() {
             break;
         }
 
-        dbg.log2('NUDP _send_packets:',
+        dbg.log3('NUDP _send_packets:',
             'seq', packet.seq,
             'len', packet.len,
             'transmits', packet.transmits,

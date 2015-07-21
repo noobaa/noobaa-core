@@ -70,9 +70,10 @@ function create_system(req) {
             // set default package names
             info.resources = {
                 agent_installer: 'noobaa-setup.exe',
-                s3rest_installer: 'noobaa-s3rest.exe'
+                s3rest_installer: 'noobaa-s3rest.exe',
+                linux_agent_installer: 'noobaa-setup'
             };
-
+            dbg.log0('Installer Resources:',info.resources);
             return Q.when(db.System.create(info))
                 .then(null, db.check_already_exists(req, 'system'));
         })

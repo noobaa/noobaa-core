@@ -251,6 +251,21 @@ nb_api.factory('nbNodes', [
                         scope.next_stage();
                     });
             };
+            scope.download_linux_agent = function() {
+                var link;
+                return nbSystem.get_linux_agent_installer()
+                    .then(function(url) {
+                        link = $window.document.createElement("a");
+                        link.download = '';
+                        link.href = url;
+                        $window.document.body.appendChild(link);
+                        link.click();
+                        return Q.delay(2000);
+                    }).then(function() {
+                        $window.document.body.removeChild(link);
+                        scope.next_stage();
+                    });
+            };
             scope.modal = nbModal({
                 template: 'console/add_node_dialog.html',
                 scope: scope,

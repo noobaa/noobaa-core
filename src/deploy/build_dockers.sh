@@ -58,7 +58,7 @@ echo "SECRET_KEY:$SECRET_KEY"
 
 echo "create agent conf"
 echo '{' > agent_conf.json
-echo '    "dbg_log_level": 2,' >> agent_conf.json
+echo '    "dbg_log_level": 0,' >> agent_conf.json
 echo '    "address": "'"$ADDRESS"'",' >> agent_conf.json
 echo '    "system": "'"$SYSTEM"'",' >> agent_conf.json
 echo '    "tier": "nodes",' >> agent_conf.json

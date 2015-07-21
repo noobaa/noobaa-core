@@ -147,6 +147,9 @@ module.exports = {
                     agent_installer: {
                         type: 'string',
                     },
+                    linux_agent_installer: {
+                        type: 'string',
+                    },
                     s3rest_installer: {
                         type: 'string',
                     },

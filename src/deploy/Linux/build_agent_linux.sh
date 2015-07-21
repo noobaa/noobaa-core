@@ -87,9 +87,10 @@ else
     fi
     echo "building installer"
     cp ../../src/deploy/Linux/noobaa_local_service.sh ./package/
+    cp ../../src/deploy/Linux/noobaa_service_installer.sh ./package/
     mkdir ./dist
     cp ../../src/deploy/Linux/setup.sh ./dist/
-    ./makeself.sh ./package noobaa-installer 0.3.2 ./noobaa_local_service.sh
+    ./makeself.sh ./package noobaa-installer 0.3.2 ./noobaa_service_installer.sh
     mv noobaa-installer ./dist/noobaa-installer
     ./makeself.sh ./dist noobaa-setup 0.3.2 ./setup.sh
     echo "noobaa-setup installer available under build/public/linux/"

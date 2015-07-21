@@ -250,7 +250,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 }
                 var part_res = parts_by_start[part.start];
                 if (!part_res) {
-                    throw new Error('part not found ' +
+                    throw new Error('part not found for obj ' +
                         obj.id + ' ' + range_utils.human_range(part));
                 }
                 return _.map(part_res, function(p) {
@@ -735,14 +735,15 @@ function report_bad_block(params) {
         ])
         .spread(function(bad_block, part) {
             if (!part || !part.chunks || !part.chunks[0] || !part.chunks[0].chunk) {
-                console.error('bad block - invalid part/chunk', bad_block, part);
-                throw new Error('invalid bad block request');
+                console.error('bad block - invalid part/chunk block:', bad_block, 'part:',
+                    part, 'params:', params);
+                throw new Error('invalid bad block request no part/chunk');
             }
             var chunk = part.chunks[0].chunk;
             if (!bad_block || bad_block.fragment !== params.fragment ||
                 String(bad_block.chunk) !== String(chunk.id)) {
-                console.error('bad block - invalid block', bad_block, part);
-                throw new Error('invalid bad block request');
+                console.error('bad block - invalid block', bad_block, part, params.fragment, chunk);
+                throw new Error('invalid bad block request mismatch ');
             }
 
             if (params.is_write) {
@@ -908,6 +909,8 @@ function build_chunks(chunks) {
                     var block_addr = get_block_address(block);
                     var source_addr = get_block_address(block_info.source);
 
+                    dbg.log0('replicating', block._id.toString(), 'from', source_addr.addr, 'to',
+                        block_addr.addr);
                     return replicate_block_sem.surround(function() {
                         return server_rpc.client.agent.replicate_block({
                             block_id: block._id.toString(),
@@ -1050,7 +1053,7 @@ function chunks_and_objects_count(systemid) {
             res.chunks_num = chunks;
             return Q.when(
                     db.ObjectPart.count({
-                        
+
                     })
                     .exec())
                 .then(function(objects) {
@@ -1153,7 +1156,7 @@ if (process.env.BUILD_WORKER_DISABLED !== 'true') {
 
 
 // TODO take config of desired replicas from tier/bucket
-var OPTIMAL_REPLICAS = 3;
+var OPTIMAL_REPLICAS = 1;
 // TODO move times to config constants/env
 var LONG_GONE_THRESHOLD = 3600000;
 var SHORT_GONE_THRESHOLD = 300000;

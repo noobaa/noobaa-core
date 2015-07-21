@@ -1,6 +1,13 @@
 #!/bin/bash
-#!/bin/sh
 # default - clean build
+
+source ~/.bashrc
+source "$NVM_DIR/nvm.sh"
+nvm install 0.10.33
+nvm alias default 0.10.33
+nvm use 0.10.33
+
+
 CLEAN=true;
 #ON_PREMISE means that we are currently building the ON_PREMISE package
 #In this case, there is no point to create executable.
@@ -42,7 +49,10 @@ else
     if [ "$CLEAN" = true ] ; then
         echo "delete old files"
         rm -rf build/linux
+        mkdir build
         mkdir build/linux
+        mkdir build/linux/package
+        mkdir build/linux/disk
         cd build/linux
         echo "copy files"
         cp ../../package.json ./package/
@@ -56,13 +66,13 @@ else
         #TODO: create new package for that matter
         cd package
         echo "npm install"
-        sed -i '' '/gulp/d' package.json
-        sed -i '' '/bower/d' package.json
-        sed -i '' '/bootstrap/d' package.json
-        sed -i '' '/browserify"/d' package.json
-        sed -i '' '/rebuild/d' package.json
-        sed -i '' '/nodetime/d' package.json
-        sed -i '' '/newrelic/d' package.json
+        sed -i '/gulp/d' package.json
+        sed -i '/bower/d' package.json
+        sed -i '/bootstrap/d' package.json
+        sed -i '/browserify"/d' package.json
+        sed -i '/rebuild/d' package.json
+        sed -i '/nodetime/d' package.json
+        sed -i '/newrelic/d' package.json
         npm install -dd
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
@@ -70,29 +80,22 @@ else
         chmod 777 makeself.sh
         #replace -- with /S in order to use exactly the same flags like windows.
         sed -i s/'\--)'/'\/S)'/ makeself-header.sh
-
         rm -rf ./node_modules/noobaa-util/node_modules/gulp*
         rm -rf ./node_modules/noobaa-util/node_modules/node-gyp*/src ./config.js ./package.json ./agent_conf.json
     else
       cd build/linux
     fi
-
     echo "building installer"
-    cp noobaa_local_service.sh ./package/
+    cp ../../src/deploy/Linux/noobaa_local_service.sh ./package/
     mkdir ./dist
-    cp setup.sh ./dist/
-
-
+    cp ../../src/deploy/Linux/setup.sh ./dist/
     ./makeself.sh ./package noobaa-installer 0.3.2 ./noobaa_local_service.sh
     mv noobaa-installer ./dist/noobaa-installer
     ./makeself.sh ./dist noobaa-setup 0.3.2 ./setup.sh
-
     echo "noobaa-setup installer available under build/public/linux/"
-
     if [ ${UPLOAD_TO_S3} -eq 1 ]; then
         echo "uploading to S3"
         s3cmd -P put noobaa-setup s3://noobaa-core/noobaa-setup
     fi
 fi
-
 exit 0

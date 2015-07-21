@@ -39,6 +39,25 @@ function test_ingest() {
         var native_util = require("bindings")("native_util.node");
         var Pipeline = require('./pipeline');
         var pipeline = new Pipeline(input);
+        var stats = {
+            count: 0,
+            bytes: 0,
+            last_bytes: 0,
+            start: Date.now(),
+            last_start: Date.now(),
+        };
+        var fin = function() {
+            var mb_per_sec = stats.bytes * 1000 / (Date.now() - stats.start) / 1024 / 1024;
+            console.log('\nDONE.', stats.count, 'chunks.',
+                'average speed', mb_per_sec.toFixed(1), 'MB/s');
+            process.exit();
+        };
+        var fin_exit = function() {
+            fin();
+            process.exit();
+        };
+        process.on('SIGTERM', fin_exit);
+        process.on('SIGINT', fin_exit);
 
         pipeline.pipe(transformer({
             options: {
@@ -79,32 +98,23 @@ function test_ingest() {
                 objectMode: true,
                 highWaterMark: 1
             },
-            init: function() {
-                this.count = 0;
-                this.bytes = this.last_bytes = 0;
-                this.start = this.last_start = Date.now();
-            },
             transform: function(data) {
-                this.count += 1;
-                this.bytes += data.buf.length;
+                stats.count += 1;
+                stats.bytes += data.buf.length;
                 // process.stdout.write(data.buf.length + '.');
                 process.stdout.write('.');
-                if (this.count % 60 === 0) {
+                if (stats.count % 60 === 0) {
                     var now = Date.now();
-                    var mb_per_sec = (this.bytes - this.last_bytes) *
-                        1000 / (now - this.last_start) / 1024 / 1024;
+                    var mb_per_sec = (stats.bytes - stats.last_bytes) *
+                        1000 / (now - stats.last_start) / 1024 / 1024;
                     console.log('', mb_per_sec.toFixed(1), 'MB/s');
-                    this.last_bytes = this.bytes;
-                    this.last_start = now;
+                    stats.last_bytes = stats.bytes;
+                    stats.last_start = now;
                 }
             },
-            flush: function() {
-                var mb_per_sec = this.bytes * 1000 / (Date.now() - this.start) / 1024 / 1024;
-                console.log('\nDONE.', this.count, 'chunks.',
-                    'average speed', mb_per_sec.toFixed(1), 'MB/s');
-            }
         }));
 
-        pipeline.run().then(function() {});
+        pipeline.run().then(fin);
+
     }
 }

@@ -420,7 +420,8 @@ Agent.prototype.send_heartbeat = function() {
                     self.store.set_alloc(res.storage.alloc);
                 }
             }
-
+            dbg.log0('res.version:',res.version,'hb version:',self.heartbeat_version);
+            
             if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
                 dbg.log0('AGENT version changed, exiting');
                 process.exit(0);

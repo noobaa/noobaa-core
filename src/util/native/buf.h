@@ -79,6 +79,14 @@ public:
     {
     }
 
+    explicit Buf(int len, uint8_t fill)
+        : _iovec(new Iovec(len))
+        , _data(_iovec->data())
+        , _len(_iovec->length())
+    {
+        memset(_data, fill, _len);
+    }
+
     explicit Buf(void* data, int len, bool own)
         : _iovec(own ? new Iovec(data, len) : 0)
         , _data(reinterpret_cast<uint8_t*>(data))
@@ -146,6 +154,16 @@ public:
     inline int length()
     {
         return _len;
+    }
+
+    inline uint8_t& operator[](int i)
+    {
+        return _data[i];
+    }
+
+    inline const uint8_t& operator[](int i) const
+    {
+        return _data[i];
     }
 
     inline void slice(int offset, int len)

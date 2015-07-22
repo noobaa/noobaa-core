@@ -67,6 +67,7 @@ function test_ingest() {
             init: function() {
                 var tpool = new native_util.ThreadPool(1);
                 this.write_proc = new native_util.WriteProcessor(tpool);
+                this.write_proc.tpool2 = new native_util.ThreadPool(1);
             },
             transform: function(data) {
                 return Q.ninvoke(this.write_proc, 'push', data);

@@ -77,8 +77,7 @@ private:
     const int _len;
     std::list<Chunk> _chunks;
 
-    /*
-    class SubJob : public ThreadPool::Job
+    class ProcessChunkJob : public ThreadPool::Job
     {
 private:
         Buf _chunk;
@@ -86,28 +85,47 @@ private:
         Buf _encrypted;
         std::string _sha;
 public:
-        explicit SubJob(Buf chunk, NanCallbackSharedPtr callback)
+        explicit ProcessChunkJob(Buf chunk, NanCallbackSharedPtr callback)
             : _chunk(chunk)
             , _callback(callback)
         {
         }
         virtual void run() override
         {
-            // std::cout << "WriteProcessor::Job chunk " << std::dec << _chunk.length() << std::endl;
-            Buf sha = Crypto::digest(_chunk, "sha256");
+            Buf content_hash = Crypto::digest(_chunk, "sha256");
+
             // convergent encryption - key is the content hash
-            Buf key = sha;
+            // Buf key = sha;
+            Buf key(32);
+            RAND_bytes(key.data(), key.length());
             // IV is just zeros since the key is unique then IV is not needed
-            Buf iv(12);
-            RAND_bytes(iv.data(), iv.length());
-            _encrypted = Crypto::encrypt(_chunk, key, iv, "aes-256-gcm");
-            _sha = sha.hex();
+            static Buf iv(64, 0);
+            // RAND_bytes(iv.data(), iv.length());
+            Buf encrypted = Crypto::encrypt(_chunk, key, iv, "aes-256-gcm");
+
+            const int data_blocks = 2;
+            const int parity_blocks = 1;
+            int encrypted_len = encrypted.length();
+            int block_len = encrypted_len / data_blocks;
+            Buf block1(encrypted, 0, block_len);
+            Buf block2(encrypted, block_len, block_len);
+            Buf parity(block_len);
+            for (int i=0; i<block_len; ++i) {
+                parity[i] = block1[i] ^ block2[i];
+            }
+
+            Buf h1 = Crypto::digest(block1, "sha256");
+            Buf h2 = Crypto::digest(block2, "sha256");
+            Buf h3 = Crypto::digest(parity, "sha256");
+
+            _encrypted = encrypted;
+            _sha = content_hash.hex();
         }
         virtual void done() override
         {
             NanScope();
             v8::Local<v8::Object> obj(NanNew<v8::Object>());
-            obj->Set(NanNew("chunk"), NanNewBufferHandle(
+            obj->Set(NanNew("buf"), NanNewBufferHandle(
                          reinterpret_cast<char*>(_encrypted.data()), _encrypted.length()));
             obj->Set(NanNew("sha"), NanNew(_sha));
             v8::Local<v8::Value> argv[] = { NanUndefined(), obj };
@@ -115,7 +133,6 @@ public:
             delete this;
         }
     };
-    */
 
 public:
 
@@ -207,23 +224,49 @@ public:
         _write_processor._chunk_slices.clear();
         _write_processor._chunk_len = 0;
 
-        Buf sha = Crypto::digest(chunk, "sha256");
+#if 0
+        ProcessChunkJob* job = new ProcessChunkJob(chunk, _callback);
+        _tpool.submit(job);
+        return;
+#endif
+
+        Buf content_hash = Crypto::digest(chunk, "sha256");
+
         // convergent encryption - key is the content hash
-        Buf key = sha;
-        // Buf key(16);
-        // RAND_bytes(key.data(), key.length());
+        // Buf key = sha;
+        Buf key(32);
+        RAND_bytes(key.data(), key.length());
         // IV is just zeros since the key is unique then IV is not needed
-        Buf iv(16);
-        // Buf iv(64);
-        RAND_bytes(iv.data(), iv.length());
+        static Buf iv(64, 0);
+        // RAND_bytes(iv.data(), iv.length());
         Buf encrypted = Crypto::encrypt(chunk, key, iv, "aes-256-gcm");
-        Chunk c(encrypted, sha.hex());
+
+        const int data_blocks = 2;
+        const int parity_blocks = 1;
+        int encrypted_len = encrypted.length();
+        int block_len = encrypted_len / data_blocks;
+        Buf block1(encrypted, 0, block_len);
+        Buf block2(encrypted, block_len, block_len);
+        Buf parity(block_len);
+        for (int i=0; i<block_len; ++i) {
+            parity[i] = block1[i] ^ block2[i];
+        }
+
+        Buf h1 = Crypto::digest(block1, "sha256");
+        Buf h2 = Crypto::digest(block2, "sha256");
+        Buf h3 = Crypto::digest(parity, "sha256");
+
+        Chunk c(encrypted, content_hash.hex());
         _chunks.push_back(c);
     }
 
     virtual void done() override
     {
         NanScope();
+#if 0
+        delete this;
+        return;
+#endif
         int len = _chunks.size();
         v8::Local<v8::Array> arr(NanNew<v8::Array>(len));
         for (int i=0; i<len; ++i) {
@@ -247,13 +290,14 @@ NAN_METHOD(WriteProcessor::push)
 
     WriteProcessor& self = *Unwrap<WriteProcessor>(args.This());
     ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
+    ThreadPool& tpool2 = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool2"))->ToObject());
     if (args.Length() != 2
         || !node::Buffer::HasInstance(args[0])
         || !args[1]->IsFunction()) {
         return NanThrowError("WriteProcessor::push expected arguments function(buffer,callback)");
     }
 
-    Job* job = new Job(self, tpool, args.This(), args[0], args[1]);
+    Job* job = new Job(self, tpool2, args.This(), args[0], args[1]);
     tpool.submit(job);
 
     NanReturnUndefined();
@@ -265,12 +309,13 @@ NAN_METHOD(WriteProcessor::flush)
 
     WriteProcessor& self = *Unwrap<WriteProcessor>(args.This());
     ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
+    ThreadPool& tpool2 = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool2"))->ToObject());
     if (args.Length() != 1
         || !args[0]->IsFunction()) {
         return NanThrowError("WriteProcessor::flush expected arguments function(callback)");
     }
 
-    Job* job = new Job(self, tpool, args.This(), args[0]);
+    Job* job = new Job(self, tpool2, args.This(), args[0]);
     tpool.submit(job);
 
     NanReturnUndefined();

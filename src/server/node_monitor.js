@@ -139,6 +139,7 @@ function heartbeat(req) {
     var node;
 
     dbg.log1('HEARTBEAT enter', node_id);
+    dbg.log0('HB VERSION:',process.env.AGENT_VERSION);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -152,7 +153,7 @@ function heartbeat(req) {
             alloc: 0,
             used: 0,
         },
-        version: process.env.AGENT_VERSION || '',
+        version: process.env.AGENT_VERSION || '0',
         delay_ms: hb_delay_ms
     };
 

@@ -57,6 +57,7 @@ else
         echo "copy files"
         cp ../../package.json ./package/
         cp ../../config.js ./package/
+        cp ~/.nvm/v0.10.33/bin/node ./package/
         mkdir ./package/src/
         cp -R ../../src/agent ./package/src/
         cp -R ../../src/util ./package/src/

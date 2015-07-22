@@ -47,10 +47,9 @@ public:
         return _data;
     }
 
-    template <typename T>
-    inline T* datap()
+    inline char* cdata()
     {
-        return reinterpret_cast<T*>(_data);
+        return reinterpret_cast<char*>(_data);
     }
 
     inline int length()
@@ -87,15 +86,15 @@ public:
         memset(_data, fill, _len);
     }
 
-    explicit Buf(void* data, int len, bool own)
-        : _iovec(own ? new Iovec(data, len) : 0)
+    explicit Buf(void* data, int len)
+        : _iovec(0)
         , _data(reinterpret_cast<uint8_t*>(data))
         , _len(len)
     {
     }
 
-    explicit Buf(const void* data, int len, bool own)
-        : _iovec(own ? new Iovec(data, len) : 0)
+    explicit Buf(const void* data, int len)
+        : _iovec(0)
         , _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
         , _len(len)
     {
@@ -145,10 +144,9 @@ public:
         return _data;
     }
 
-    template <typename T>
-    inline T* datap()
+    inline char* cdata()
     {
-        return reinterpret_cast<T*>(_data);
+        return reinterpret_cast<char*>(_data);
     }
 
     inline int length()

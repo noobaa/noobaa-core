@@ -121,7 +121,7 @@ ThreadPool::thread_main(ThreadPool::ThreadSpec& spec)
             try {
                 job->run();
             } catch (const std::exception& ex) {
-                std::cerr << "ThreadPool Job exception " << ex.what() << std::endl;
+                PANIC("ThreadPool Job run exception " << ex.what());
             }
         }
 
@@ -167,7 +167,11 @@ ThreadPool::done_cb()
     while (!local_done_queue.empty()) {
         Job* job = local_done_queue.front();
         local_done_queue.pop_front();
-        job->done();
+        try {
+            job->done();
+        } catch (const std::exception& ex) {
+            PANIC("ThreadPool Job done exception " << ex.what());
+        }
     }
 }
 

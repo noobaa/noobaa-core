@@ -53,57 +53,72 @@ function test_ingest() {
             process.exit();
         };
         var fin_exit = function() {
-            fin();
+            try {
+                fin();
+            } catch (err) {}
             process.exit();
         };
         process.on('SIGTERM', fin_exit);
         process.on('SIGINT', fin_exit);
+
+        var chunker = new native_util.ObjectChunker();
+        chunker.tpool = new native_util.ThreadPool(2);
 
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
                 highWaterMark: 10
             },
-            init: function() {
-                var tpool = new native_util.ThreadPool(1);
-                this.write_proc = new native_util.WriteProcessor(tpool);
-                this.write_proc.tpool2 = new native_util.ThreadPool(1);
-            },
             transform: function(data) {
-                return Q.ninvoke(this.write_proc, 'push', data);
+                return Q.ninvoke(chunker, 'push', data);
             },
             flush: function() {
-                return Q.ninvoke(this.write_proc, 'flush');
+                return Q.ninvoke(chunker, 'flush');
             }
         }));
-/*
+
+        var encoder = new native_util.ObjectEncoder();
+        encoder.tpool = new native_util.ThreadPool(2);
+
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
                 highWaterMark: 10
             },
-            init: function() {
-                var tpool = new native_util.ThreadPool(1);
-                this.read_proc = new native_util.ReadProcessor(tpool);
+            transform: function(data) {
+                return Q.ninvoke(encoder, 'push', data);
+            },
+        }));
+
+        /*
+        var decoder = new native_util.ObjectDecoder();
+        decoder.tpool = new native_util.ThreadPool(1);
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+                highWaterMark: 10
             },
             transform: function(data) {
-                return Q.ninvoke(this.read_proc, 'push', data.buf);
+                return Q.ninvoke(decoder, 'push', data.buf);
             },
             flush: function() {
-                return Q.ninvoke(this.read_proc, 'flush');
+                return Q.ninvoke(decoder, 'flush');
             }
         }));
-*/
+        */
+
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
                 highWaterMark: 1
             },
-            transform: function(data) {
-                stats.count += 1;
-                stats.bytes += data.buf.length;
-                // process.stdout.write(data.buf.length + '.');
+            transform: function(chunk) {
                 process.stdout.write('.');
+                // process.stdout.write(chunk.length + '.');
+                // console.log('done', chunk);
+                stats.count += 1;
+                stats.bytes += chunk.length;
                 if (stats.count % 60 === 0) {
                     var now = Date.now();
                     var mb_per_sec = (stats.bytes - stats.last_bytes) *

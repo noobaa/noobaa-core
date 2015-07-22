@@ -1,5 +1,5 @@
-#ifndef WRITE_PROCESSOR_H_
-#define WRITE_PROCESSOR_H_
+#ifndef OBJECT_CHUNKER_H_
+#define OBJECT_CHUNKER_H_
 
 #include "common.h"
 #include "dedup.h"
@@ -8,28 +8,25 @@
 
 /**
  *
- * WriteProcessor
+ * ObjectChunker
  *
- * Performs variable length dedup,
- * then calculate cryptographic hash for dedup lookup,
- * if lookup is negative it will continue to do
- * encryption and finally erasure coding.
+ * Performs variable length dedup.
  *
  */
 
-class WriteProcessor : public node::ObjectWrap
+class ObjectChunker : public node::ObjectWrap
 {
 public:
     static void setup(v8::Handle<v8::Object> exports);
 
 private:
-    explicit WriteProcessor()
+    explicit ObjectChunker()
         : _chunker(_deduper)
         , _chunk_len(0)
     {
     }
 
-    virtual ~WriteProcessor()
+    virtual ~ObjectChunker()
     {
     }
 
@@ -58,4 +55,4 @@ private:
     static NAN_METHOD(flush);
 };
 
-#endif // WRITE_PROCESSOR_H_
+#endif // OBJECT_CHUNKER_H_

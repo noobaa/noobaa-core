@@ -1,11 +1,11 @@
-#ifndef READ_PROCESSOR_H_
-#define READ_PROCESSOR_H_
+#ifndef OBJECT_DECODER_H_
+#define OBJECT_DECODER_H_
 
 #include "common.h"
 
 /**
  *
- * ReadProcessor
+ * ObjectDecoder
  *
  * Performs variable length dedup,
  * then calculate cryptographic hash for dedup lookup,
@@ -14,17 +14,17 @@
  *
  */
 
-class ReadProcessor : public node::ObjectWrap
+class ObjectDecoder : public node::ObjectWrap
 {
 public:
     static void setup(v8::Handle<v8::Object> exports);
 
 private:
-    explicit ReadProcessor()
+    explicit ObjectDecoder()
     {
     }
 
-    virtual ~ReadProcessor()
+    virtual ~ObjectDecoder()
     {
     }
 
@@ -38,4 +38,4 @@ private:
     static NAN_METHOD(flush);
 };
 
-#endif // READ_PROCESSOR_H_
+#endif // OBJECT_DECODER_H_

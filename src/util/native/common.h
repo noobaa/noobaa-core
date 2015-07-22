@@ -25,19 +25,31 @@
 
 #define DVAL(x) #x "=" << x << " "
 
+#define PANIC(info) \
+    do { \
+        std::cerr << "PANIC: " << info \
+                  << " function " << __func__ \
+                  << " file " << __FILE__ \
+                  << " line " << __LINE__ \
+                  << std::endl; \
+        abort(); \
+    } while(0)
+
 #ifdef NDEBUG
 # define ASSERT(...)
 #else
 # define ASSERT(cond, info) \
-    if (!(cond)) { \
-        std::cerr << "ASSERT FAILED: " << #cond \
-                  << " function " << __func__ \
-                  << " file " << __FILE__ \
-                  << " line " << __LINE__ \
-                  << ": " << info \
-                  << std::endl; \
-        abort(); \
-    }
+    do { \
+        if (!(cond)) { \
+            std::cerr << "ASSERT FAILED: " << #cond \
+                      << " function " << __func__ \
+                      << " file " << __FILE__ \
+                      << " line " << __LINE__ \
+                      << ": " << info \
+                      << std::endl; \
+            abort(); \
+        } \
+    } while(0)
 #endif
 
 #define NAN_METHOD_TO_SELF(clazz, method) \

@@ -3,6 +3,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var url = require('url');
+var fs = require('fs');
 // var util = require('util');
 var dgram = require('dgram');
 var crypto = require('crypto');
@@ -77,30 +78,32 @@ var STUN = {
         500: 'Server Error'
     },
 
+    ON_PREMISE_SERVERS: [],
+
     PUBLIC_SERVERS: _.map([
-//        'stun://52.28.108.6:3478', //NooBaa STUN on EC2 (Frankfurt)
+        //        'stun://52.28.108.6:3478', //NooBaa STUN on EC2 (Frankfurt)
         'stun://stun.l.google.com:19302',
         'stun://stun1.l.google.com:19302',
         'stun://stun2.l.google.com:19302',
         'stun://stun3.l.google.com:19302',
         'stun://stun4.l.google.com:19302',
-        'stun://stun.ekiga.net',
-        'stun://stun.ideasip.com',
-        'stun://stun.iptel.org',
-        'stun://stun.rixtelecom.se',
-        'stun://stun.schlund.de',
-        'stun://stunserver.org',
-        'stun://stun.softjoys.com',
-        'stun://stun.voiparound.com',
-        'stun://stun.voipbuster.com',
-        'stun://stun.voipstunt.com',
-        'stun://stun.voxgratia.org',
-        'stun://stun.xten.com',
+        // 'stun://stun.ekiga.net',
+        // 'stun://stun.ideasip.com',
+        // 'stun://stun.iptel.org',
+        // 'stun://stun.rixtelecom.se',
+        // 'stun://stun.schlund.de',
+        // 'stun://stunserver.org',
+        // 'stun://stun.softjoys.com',
+        // 'stun://stun.voiparound.com',
+        // 'stun://stun.voipbuster.com',
+        // 'stun://stun.voipstunt.com',
+        // 'stun://stun.voxgratia.org',
+        // 'stun://stun.xten.com',
     ], url.parse)
 };
 STUN.METHOD_NAMES = _.invert(STUN.METHODS);
 STUN.ATTR_NAMES = _.invert(STUN.ATTRS);
-STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
+
 _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
     if (!stun_url.port) {
         stun_url.port =
@@ -109,6 +112,31 @@ _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
             STUN.PORT;
     }
 });
+
+function read_on_premise_stun_server() {
+    if (global && global.fs && _.isFunction(global.fs.existsSync)) {
+      var exists = fs.existsSync('agent_conf.json');
+      if (!exists) {
+          STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
+          dbg.log0('agent conf does not exist, using public server a stun');
+          return;
+      } else {
+          return Q.nfcall(fs.readFile, 'agent_conf.json')
+              .then(function(data) {
+                  var agent_conf = JSON.parse(data);
+                  var host = url.parse(agent_conf.address);
+                  var local_stun = host.hostname;
+                  STUN.ON_PREMISE_SERVERS.push(url.parse('stun://' + local_stun + ':3479'));
+                  STUN.DEFAULT_SERVER = STUN.ON_PREMISE_SERVERS[0];
+                  dbg.log0('agent conf exists, using', STUN.ON_PREMISE_SERVERS[0], 'as stun server');
+              });
+      }
+    } else {
+      STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];
+    }
+}
+
+read_on_premise_stun_server();
 
 module.exports = {
     STUN: STUN,
@@ -252,7 +280,7 @@ function get_attrs_map(buffer) {
     var attrs = decode_attrs(buffer);
     var map = {};
     _.each(attrs, function(attr) {
-        switch(attr.type) {
+        switch (attr.type) {
             case STUN.ATTRS.XOR_MAPPED_ADDRESS:
             case STUN.ATTRS.MAPPED_ADDRESS:
                 map.address = attr.value;

@@ -12,7 +12,7 @@ RUN echo "#!/bin/bash" >> /noobaa/install_nvm.sh
 RUN echo 'export NVM_DIR="/usr/local/nvm"' >> /noobaa/install_nvm.sh
 RUN echo 'curl https://raw.githubusercontent.com/creationix/nvm/v0.20.0/install.sh | NVM_DIR="$NVM_DIR" PROFILE="/etc/profile" bash'>> /noobaa/install_nvm.sh
 RUN echo "source /usr/local/nvm/nvm.sh && nvm install 0.10.33 && nvm alias default 0.10.33 && nvm current" >> /noobaa/install_nvm.sh
-RUN chmod +x /noobaa/install_nvm.sh &&  /noobaa/install_nvm.sh
+RUN chmod +x /noobaa/install_nvm.sh ;sync;  /noobaa/install_nvm.sh
 RUN echo "#!/bin/bash" >> /noobaa/install-agent.sh
 RUN echo "cd /noobaa" >> /noobaa/install-agent.sh
 RUN echo "source /usr/local/nvm/nvm.sh" >> /noobaa/install-agent.sh
@@ -20,7 +20,7 @@ RUN echo "nvm use 0.10.33" >> /noobaa/install-agent.sh
 
 # <ENV_PLACEHOLDER> replaced by docker_setup.sh with metadata variable (set by the gcloud.js)
 
-RUN echo 'time curl -k -H "Accept: application/json" https://<ENV_PLACEHOLDER>/agent/package.json > package.json' >> /noobaa/install-agent.sh
+RUN echo 'time curl -k -H "Accept: application/json" https://<ENV_PLACEHOLDER>:8443/agent/package.json > package.json' >> /noobaa/install-agent.sh
 RUN echo "time rm -rf node_modules/" >> /noobaa/install-agent.sh
 RUN echo "time npm config set strict-ssl false" >> /noobaa/install-agent.sh
 RUN echo "time npm install" >> /noobaa/install-agent.sh

@@ -47,6 +47,9 @@ var system_schema = new Schema({
         agent_installer: {
             type: String
         },
+        linux_agent_installer: {
+            type: String
+        },
         s3rest_installer: {
             type: String
         },

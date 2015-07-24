@@ -1,15 +1,7 @@
 // this module is written for nodejs.
 'use strict';
 
-var _ = require('lodash');
-var Q = require('q');
-var crypto = require('crypto');
-var size_utils = require('../util/size_utils');
-var db = require('./db');
-var server_rpc = require('./server_rpc');
-var AWS = require('aws-sdk');
-
-
+//Set exports prior to requires to prevent circular dependency issues
 /**
  *
  * SYSTEM_SERVER
@@ -23,17 +15,32 @@ var system_server = {
     delete_system: delete_system,
 
     list_systems: list_systems,
+    list_systems_int: list_systems_int,
 
     add_role: add_role,
     remove_role: remove_role,
 
     get_system_resource_info: get_system_resource_info,
 
-    read_activity_log: read_activity_log
+    read_activity_log: read_activity_log,
+
+    diagnose: diagnose,
+    diagnose_with_agent: diagnose_with_agent,
 };
 
 module.exports = system_server;
 
+var _ = require('lodash');
+var Q = require('q');
+var crypto = require('crypto');
+var size_utils = require('../util/size_utils');
+var diag = require('../util/diagnostics');
+var db = require('./db');
+var server_rpc = require('./server_rpc');
+var AWS = require('aws-sdk');
+var fs = require('fs');
+var child_process = require('child_process');
+var dbg = require('noobaa-util/debug_module')(__filename);
 
 
 /**
@@ -63,9 +70,10 @@ function create_system(req) {
             // set default package names
             info.resources = {
                 agent_installer: 'noobaa-setup.exe',
-                s3rest_installer: 'noobaa-s3rest.exe'
+                s3rest_installer: 'noobaa-s3rest.exe',
+                linux_agent_installer: 'noobaa-setup'
             };
-
+            dbg.log0('Installer Resources:',info.resources);
             return Q.when(db.System.create(info))
                 .then(null, db.check_already_exists(req, 'system'));
         })
@@ -107,6 +115,38 @@ function create_system(req) {
             }, {
                 auth_token: system_token
             });
+        })
+        .then(function() {
+            var config = {
+                "dbg_log_level": 2,
+                "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
+                "port": "80",
+                "ssl_port": "443",
+                "access_key": info.access_keys[0].access_key,
+                "secret_key": info.access_keys[0].secret_key
+            };
+            if (process.env.ON_PREMISE) {
+                return Q.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
+            }
+        })
+        .then(function() {
+            if (process.env.ON_PREMISE) {
+                return Q.Promise(function(resolve, reject) {
+                    var supervisorctl = child_process.spawn(
+                        'supervisorctl', ['restart', 's3rver'], {
+                            cwd: process.cwd()
+                        });
+
+                    supervisorctl.on('close', function(code) {
+                        if (code !== 0) {
+                            resolve();
+                        } else {
+                            dbg.log0('error code while restarting s3rver', code);
+                            resolve();
+                        }
+                    });
+                });
+            }
         })
         //Auto generate agent executable.
         // Removed for now, as we need signed exe
@@ -269,6 +309,8 @@ function read_system(req) {
             }),
             objects: objects_sys.count || 0,
             access_keys: req.system.access_keys,
+            ssl_port: process.env.SSL_PORT,
+            web_port: process.env.PORT,
         };
     });
 }
@@ -303,11 +345,24 @@ function delete_system(req) {
  *
  */
 function list_systems(req) {
+    if (!req.account.is_support) {
+        return list_systems_int(false, false, req.account.id);
+    }
+
+    return list_systems_int(true, false);
+}
+
+/**
+ *
+ * LIST_SYSTEMS_INT
+ *
+ */
+function list_systems_int(is_support, get_ids, account) {
+    var query = {};
 
     // support gets to see all systems
-    var query = {};
-    if (!req.account.is_support) {
-        query.account = req.account.id;
+    if (!is_support) {
+        query.account = account;
     }
 
     return Q.when(
@@ -317,13 +372,14 @@ function list_systems(req) {
         .then(function(roles) {
             return {
                 systems: _.compact(_.map(roles, function(role) {
-                    if (!role.system || role.system.deleted) return null;
-                    return get_system_info(role.system);
+                    if (!role.system || role.system.deleted) {
+                        return null;
+                    }
+                    return get_system_info(role.system, get_ids);
                 }))
             };
         });
 }
-
 
 
 /**
@@ -489,12 +545,55 @@ function read_activity_log(req) {
         });
 }
 
+function diagnose(req) {
+    dbg.log1('Recieved diag req');
+    var out_path = '/public/diagnostics.tgz';
+    var inner_path = process.cwd() + '/build' + out_path;
+    return Q.fcall(function() {
+            return diag.collect_server_diagnostics();
+        })
+        .then(function() {
+            return diag.pack_diagnostics(inner_path);
+        })
+        .then(function() {
+            return out_path;
+        })
+        .then(null, function(err) {
+            dbg.log0('Error while collecting diagnostics', err, err.stack());
+            return;
+        });
+}
 
+function diagnose_with_agent(data) {
+    dbg.log1('Recieved diag with agent req');
+    var out_path = '/public/diagnostics.tgz';
+    var inner_path = process.cwd() + '/build' + out_path;
+    return Q.fcall(function() {
+            return diag.collect_server_diagnostics();
+        })
+        .then(function() {
+            return diag.write_agent_diag_file(data);
+        })
+        .then(function() {
+            return diag.pack_diagnostics(inner_path);
+        })
+        .then(function() {
+            return out_path;
+        })
+        .then(null, function(err) {
+            dbg.log0('Error while collecting diagnostics with agent', err, err.stack());
+            return;
+        });
+}
 
 
 // UTILS //////////////////////////////////////////////////////////
 
 
-function get_system_info(system) {
-    return _.pick(system, 'name');
+function get_system_info(system, get_id) {
+    if (get_id) {
+        return _.pick(system, 'id');
+    } else {
+        return _.pick(system, 'name');
+    }
 }

@@ -20,6 +20,7 @@ var account_server = {
     delete_account: delete_account,
     list_accounts: list_accounts,
     accounts_status: accounts_status,
+    get_system_accounts: get_system_accounts,
 };
 
 module.exports = account_server;
@@ -184,8 +185,16 @@ function accounts_status(req) {
         });
 }
 
-
-
+function get_system_accounts(req) {
+    return Q.when(
+            db.Role.find({
+              system: req.system.id
+            })
+            .exec())
+        .then(function(roles) {
+            return roles;
+        });
+}
 
 
 

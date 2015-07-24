@@ -9,9 +9,13 @@ config.on_premise = {
     nva_part: "NVA_Upgrade.tgz"
 };
 
+// Central Stats Collection
+config.central_stats = {
+  send_stats: true,
+  central_listener: '127.0.0.1',
+};
+
 // SIGNALING AND ICE
-config.ws_address = 'wss://noobaa-signaling.herokuapp.com';
-//config.ws_address = 'ws://localhost:5002';
 config.alive_delay = 10 * 1000;
 config.reconnect_delay = 50;
 config.connection_data_stale = 5 * 60 * 1000;
@@ -26,7 +30,7 @@ config.iceBufferMetaPartSize = 64;
 config.use_ws_when_possible = true;
 config.use_ice_when_possible = true;
 
-config.dbg_log_level = 2;
+config.dbg_log_level = 0;
 
 config.min_node_number = 3;
 
@@ -51,15 +55,5 @@ config.channel_buffer_stop_throttle = 0;
 config.ice_conn_timeout = 10 * 1000;
 config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
-
-config.ice_servers = {
-    'iceServers': [{
-        'url': 'stun:stun.l.google.com:19302'
-    }, {
-        'url': 'stun:stun.stunprotocol.org:3478'
-    }, {
-        'url': 'stun:54.93.86.231:3478'
-    }]
-};
 
 module.exports = config;

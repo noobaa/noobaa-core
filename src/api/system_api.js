@@ -147,6 +147,9 @@ module.exports = {
                     agent_installer: {
                         type: 'string',
                     },
+                    linux_agent_installer: {
+                        type: 'string',
+                    },
                     s3rest_installer: {
                         type: 'string',
                     },
@@ -255,7 +258,17 @@ module.exports = {
             auth: {
                 system: 'admin',
             }
-        }
+        },
+
+        diagnose: {
+            method: 'GET',
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
     },
 
 
@@ -320,7 +333,13 @@ module.exports = {
                     item: {
                         $ref: '/system_api/definitions/access_keys'
                     }
-                }
+                },
+                ssl_port: {
+                    type: 'string'
+                },
+                web_port: {
+                    type: 'string'
+                },
             }
         },
 
@@ -367,18 +386,16 @@ module.exports = {
         },
         access_keys: {
             type: 'object',
-            required: ['access_key','secret_key'],
+            required: ['access_key', 'secret_key'],
             peroperties: {
-                access_key : {
+                access_key: {
                     type: String,
 
                 },
-                secret_key : {
+                secret_key: {
                     type: String,
                 }
             }
         }
-
-
     }
 };

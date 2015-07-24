@@ -50,8 +50,8 @@ function canonicalizedResource(request) {
     //Quick patch - add prefix for REST routing on top of MD server
     //TODO: Replace with s3 rest param, initiated from the constructor
 
-    path = '/s3'+path;
-    parts[0] = '/s3' +parts[0];
+    // path = '/s3'+path;
+    // parts[0] = '/s3' +parts[0];
     var resource = '';
 
     if (r.virtualHostedBucket)
@@ -136,13 +136,22 @@ function noobaa_string_to_sign(request) {
     // string for this Date header regardless.
 
     //another noobaa addition - take into account signed urls
-    parts.push(r.headers['presigned-expires'] || '' || r.query.Expires);
+    if (r.headers['presigned-expires']  || r.query.Expires){
+        parts.push(r.headers['presigned-expires']  || r.query.Expires);
+    }else if (r.headers.date){
+        parts.push(r.headers.date);
+    }else
+    {
+        parts.push('');
+    }
+
 
     var headers = canonicalizedAmzHeaders(request);
     if (headers) parts.push(headers);
     parts.push(canonicalizedResource(request));
 
     parts = parts.join('\n');
+
     return parts;
 
 }

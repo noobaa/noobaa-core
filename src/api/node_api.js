@@ -357,6 +357,25 @@ module.exports = {
             }
         },
 
+        collect_agent_diagnostics: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['target'],
+                properties: {
+                    target: {
+                        type: 'string'
+                    }
+                },
+            },
+            reply: {
+                type: 'string',
+            },
+            auth: {
+                system: 'admin',
+            }
+        },
+
     },
 
 

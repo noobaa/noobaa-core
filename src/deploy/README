@@ -7,3 +7,5 @@ start_noobaa_docker.sh - used by docker_setup.sh. will run docker instance on th
 supervisord.conf - used by supervisord to watch and run sshd and NooBaa agent.
 build_atom_agent_win.sh - building windows installer based on atom_agent_win.nsi which is nsis script file
 						  The build creates noobaa-setup.exe and push it to s3
+ec2_wrapper - EC2 SDK wrapper for various tests and deployment flows
+ec2_deploy_agents - deploy EC2 agents

@@ -225,6 +225,7 @@ function pack(dest, name) {
                     _.contains([
                         'bower',
                         'mocha',
+                        'form-data'
                     ], key);
             });
             return {
@@ -414,7 +415,8 @@ gulp.task('agent', ['jshint'], function() {
                         'rebuild',
                         'nodetime',
                         'newrelic',
-                        'memwatch'
+                        'memwatch',
+                        'form-data'
                     ], key);
             });
             return {
@@ -468,6 +470,17 @@ function build_agent_distro() {
         })
         .then(function() {
             gutil.log('done src/deploy/build_atom_agent_win.sh');
+        })
+        .then(function(){
+            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup',
+            build_params, process.cwd());
+        })
+        .then(function(){
+            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup',
+            build_params, process.cwd());
+        })
+        .then(function() {
+            gutil.log('done downloading noobaa-setup for linux');
         })
         .then(null, function(error) {
             gutil.log('WARN: command src/deploy/build_atom_agent_win.sh failed ', error, error.stack);

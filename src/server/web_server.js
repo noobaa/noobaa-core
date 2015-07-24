@@ -36,16 +36,16 @@ var express_compress = require('compression');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
-var s3app = require('../s3/app');
+//var s3app = require('../s3/app');
 var pem = require('../util/pem');
-var multer  = require('multer');
+var multer = require('multer');
 var fs = require('fs');
-var done_upgrade_file_upload=false;
+var done_upgrade_file_upload = false;
 
-if (!process.env.PORT) {
+//if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
     dotenv.load();
-}
+//}
 
 // address means the address of the server as reachable from the internet
 process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
@@ -53,24 +53,43 @@ process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
 var debug_mode = (process.env.DEBUG_MODE === 'true');
+var mongoose_connected = false;
+var mongoose_timeout = null;
 
 // connect to the database
 if (debug_mode) {
     mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
 }
-mongoose.connection.on('error', function(err) {
-    console.error('mongoose connection error:', err);
-});
+
 mongoose.connection.once('open', function() {
     // call ensureIndexes explicitly for each model
+    mongoose_connected = true;
     return Q.all(_.map(mongoose.modelNames(), function(model_name) {
         return Q.npost(mongoose.model(model_name), 'ensureIndexes');
     }));
 });
-mongoose.connect(
-    process.env.MONGOHQ_URL ||
-    process.env.MONGOLAB_URI ||
-    'mongodb://localhost/nbcore');
+
+mongoose.connection.on('error', function(err) {
+    mongoose_connected = false;
+    console.error('mongoose connection error:', err);
+    if (!mongoose_timeout) {
+        mongoose_timeout = setTimeout(mongoose_conenct, 5000);
+    }
+
+});
+
+function mongoose_conenct() {
+    clearTimeout(mongoose_timeout);
+    mongoose_timeout = null;
+    if (!mongoose_connected) {
+        mongoose.connect(
+            process.env.MONGOHQ_URL ||
+            process.env.MONGOLAB_URI ||
+            'mongodb://localhost/nbcore');
+    }
+}
+
+mongoose_conenct();
 
 // create express app
 var app = express();
@@ -185,7 +204,7 @@ Q.fcall(function() {
 // S3 APP //
 ////////////
 
-app.use('/s3', s3app({}));
+//app.use('/s3', s3app({}));
 
 ////////////
 // ROUTES //
@@ -193,7 +212,7 @@ app.use('/s3', s3app({}));
 
 // agent package json
 app.get('/agent/package.json', function(req, res) {
-    dbg.log0('reqqqqqq:',req);
+    dbg.log0('reqqqqqq:', req);
     res.status(200).send({
         name: 'agent',
         engines: {
@@ -201,10 +220,10 @@ app.get('/agent/package.json', function(req, res) {
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
-                ' --prod --address ' +'wss://' + req.get('host')
+                ' --prod --address ' + 'wss://' + req.get('host')
         },
         dependencies: {
-            'noobaa-agent': req.protocol + '://' + req.get('host') +'/public/noobaa-agent.tar.gz'
+            'noobaa-agent': req.protocol + '://' + req.get('host') + '/public/noobaa-agent.tar.gz'
         }
     });
 });
@@ -219,30 +238,35 @@ function page_context(req) {
     };
 }
 
-app.use('/upgrade',multer({ dest: '/tmp',
- rename: function (fieldname, filename) {
-    return Date.now()+filename;
-  },
-onFileUploadStart: function (file) {
-  dbg.log0(file.originalname + ' is starting ...');
-},
-onFileUploadComplete: function (file) {
-  dbg.log0(file.fieldname + ' uploaded to  ' + file.path);
-  done_upgrade_file_upload=true;
-}
+app.use('/upgrade', multer({
+    dest: '/tmp',
+    rename: function(fieldname, filename) {
+        return Date.now() + filename;
+    },
+    onFileUploadStart: function(file) {
+        dbg.log0(file.originalname + ' is starting ...');
+    },
+    onFileUploadComplete: function(file) {
+        dbg.log0(file.fieldname + ' uploaded to  ' + file.path);
+        done_upgrade_file_upload = true;
+    }
 }));
 
 
-app.post('/upgrade',function(req,res){
-  if(done_upgrade_file_upload===true){
-    dbg.log0('Uploaded to ',req.files.upgrade_file.path, 'upgrade.sh path:',process.cwd()+'/src/deploy/NVA_build');
-    var stdout = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
-    var stderr = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
-    var spawn = require('child_process').spawn;
-    dbg.log0('command:',process.cwd()+'/src/deploy/NVA_build/upgrade.sh from_file '+req.files.upgrade_file.path+' &');
-    spawn('nohup',[process.cwd()+'/src/deploy/NVA_build/upgrade.sh','from_file',req.files.upgrade_file.path] ,{detached: true, stdio: [ 'ignore', stdout, stderr ],cwd: '/tmp'});
-    res.end('<html><head><meta http-equiv="refresh" content="15;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 15 seconds.');
-  }
+app.post('/upgrade', function(req, res) {
+    if (done_upgrade_file_upload === true) {
+        dbg.log0('Uploaded to ', req.files.upgrade_file.path, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
+        var stdout = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
+        var stderr = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
+        var spawn = require('child_process').spawn;
+        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + req.files.upgrade_file.path + ' &');
+        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh', 'from_file', req.files.upgrade_file.path], {
+            detached: true,
+            stdio: ['ignore', stdout, stderr],
+            cwd: '/tmp'
+        });
+        res.end('<html><head><meta http-equiv="refresh" content="15;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 15 seconds.');
+    }
 });
 
 app.get('/console/*', function(req, res) {

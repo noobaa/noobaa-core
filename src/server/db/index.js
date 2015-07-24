@@ -11,6 +11,7 @@ var System = require('./system');
 var Tier = require('./tier');
 var Node = require('./node');
 var Bucket = require('./bucket');
+var Cluster = require('./cluster');
 var ObjectMD = require('./object_md');
 var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
@@ -44,6 +45,7 @@ module.exports = {
     DataChunk: DataChunk,
     DataBlock: DataBlock,
     ActivityLog: ActivityLog,
+    Cluster: Cluster,
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,
@@ -109,14 +111,26 @@ module.exports = {
 
 function check_not_found(req, entity) {
     return function(doc) {
-        if (!doc) throw req.rpc_error('NOT_FOUND', entity + ' not found');
+        if (!doc) {
+            if (typeof(req) !== 'undefined') {
+                throw req.rpc_error('NOT_FOUND', entity + ' not found');
+            } else {
+                throw new Error('NOT_FOUND', entity + ' not found');
+            }
+        }
         return doc;
     };
 }
 
 function check_not_deleted(req, entity) {
     return function(doc) {
-        if (!doc || doc.deleted) throw req.rpc_error('NOT_FOUND', entity + ' not found');
+        if (!doc || doc.deleted) {
+            if (typeof(req) !== 'undefined') {
+                throw req.rpc_error('NOT_FOUND', entity + ' not found');
+            } else {
+                throw new Error('NOT_FOUND', entity + ' not found');
+            }
+        }
         return doc;
     };
 }
@@ -124,7 +138,11 @@ function check_not_deleted(req, entity) {
 function check_already_exists(req, entity) {
     return function(err) {
         if (is_err_exists(err)) {
-            throw req.rpc_error('CONFLICT', entity + ' already exists');
+            if (typeof(req) !== 'undefined') {
+                throw req.rpc_error('CONFLICT', entity + ' already exists');
+            } else {
+                throw new Error('CONFLICT', entity + ' already exists');
+            }
         }
         throw err;
     };

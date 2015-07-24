@@ -30,7 +30,7 @@ var browser_ws = global.window && global.window.WebSocket;
 // in the browser we take the address as the host of the web page
 // just like any ajax request. for development we take localhost.
 // for any other case the RPC objects can set the base_address property.
-var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:5001';
+var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:' + process.env.web_port;
 if (browser_location) {
     if (browser_ws) {
         // use ws/s address
@@ -95,7 +95,7 @@ RPC.prototype.register_service = function(api, server, options) {
         }
         assert.strictEqual(typeof(func), 'function',
             'RPC register_service: server method should be a function - ' +
-            method_api.fullname);
+            method_api.fullname + '. Is of type ' + typeof(func));
 
         self._services[srv] = {
             api: api,
@@ -105,6 +105,14 @@ RPC.prototype.register_service = function(api, server, options) {
             server_func: func.bind(server)
         };
     });
+
+    //Service was registered, call _init (if exists)
+    if (typeof(server._init) !== 'undefined') {
+        dbg.log0('RPC register_service: calling _int() for', api.name);
+        server._init();
+    } else {
+        dbg.log2('RPC register_service:', api.name, 'does not supply an _init() function');
+    }
 };
 
 
@@ -291,7 +299,7 @@ RPC.prototype.handle_request = function(conn, msg) {
                 req.auth_token = conn.auth_token;
             }
 
-            dbg.log1('RPC handle_request: ENTER',
+            dbg.log3('RPC handle_request: ENTER',
                 'srv', req.srv,
                 'reqid', req.reqid,
                 'connid', conn.connid);
@@ -329,7 +337,7 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             req.reply = reply;
 
-            dbg.log1('RPC handle_request: COMPLETED',
+            dbg.log3('RPC handle_request: COMPLETED',
                 'srv', req.srv,
                 'reqid', req.reqid,
                 'connid', conn.connid);
@@ -500,7 +508,7 @@ RPC.prototype._accept_new_connection = function(conn) {
     // always replace previous connection in the address map,
     // assuming the new connection is preferred.
     if (!conn.transient) {
-        dbg.log0('RPC NEW CONNECTION', conn.connid, conn.url.href);
+        dbg.log3('RPC NEW CONNECTION', conn.connid, conn.url.href);
         this._connection_by_address[conn.url.href] = conn;
     }
     conn._rpc_req_seq = 1;
@@ -552,7 +560,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
             // remove the backoff once connected
             delete conn._reconn_backoff;
 
-            dbg.log0('RPC RECONNECTED', addr_url.href,
+            dbg.log1('RPC RECONNECTED', addr_url.href,
                 'reconn_backoff', reconn_backoff);
 
             self.emit('reconnect', conn);
@@ -600,7 +608,7 @@ RPC.prototype._connection_closed = function(conn) {
 
     conn.closed = true;
 
-    dbg.log0('RPC _connection_closed:', conn.connid);
+    dbg.log3('RPC _connection_closed:', conn.connid);
 
     // remove from connection pool
     if (!conn.transient && self._connection_by_address[conn.url.href] === conn) {

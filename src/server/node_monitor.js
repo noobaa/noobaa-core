@@ -7,12 +7,14 @@ var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
 var server_rpc = require('../server/server_rpc');
+var system_server = require('./system_server');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
-    self_test_to_node_via_web: self_test_to_node_via_web
+    self_test_to_node_via_web: self_test_to_node_via_web,
+    collect_agent_diagnostics: collect_agent_diagnostics,
 };
 
 
@@ -137,6 +139,7 @@ function heartbeat(req) {
     var node;
 
     dbg.log1('HEARTBEAT enter', node_id);
+    dbg.log0('HB VERSION:',process.env.AGENT_VERSION);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -150,7 +153,7 @@ function heartbeat(req) {
             alloc: 0,
             used: 0,
         },
-        version: process.env.AGENT_VERSION || '',
+        version: process.env.AGENT_VERSION || '0',
         delay_ms: hb_delay_ms
     };
 
@@ -178,7 +181,7 @@ function heartbeat(req) {
             var updates = {};
 
             var node_listen_addr = 'n2n://' + node.peer_id;
-            dbg.log0('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
+            dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
             server_rpc.map_address_to_connection(node_listen_addr, req.connection);
 
             // TODO detect nodes that try to change ip, port too rapidly
@@ -288,6 +291,26 @@ function self_test_to_node_via_web(req) {
     }, {
         address: source,
     });
+}
+
+/**
+ * COLLECT_AGENT_DIAGNOSTICS
+ */
+function collect_agent_diagnostics(req) {
+    var target = req.rpc_params.target;
+
+    return Q.fcall(function() {
+          return server_rpc.client.agent.collect_diagnostics({}, {
+              address: target,
+          });
+        })
+        .then(function(data) {
+            return system_server.diagnose_with_agent(data);
+        })
+        .then(null, function(err) {
+            dbg.log0('Error on collect_agent_diagnostics', err);
+            return '';
+        });
 }
 
 

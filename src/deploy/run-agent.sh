@@ -12,23 +12,20 @@ exit
 fi
 cp -f /noobaa/node_modules/noobaa-agent/config.js /noobaa/node_modules/config.js
 #cp -f /noobaa/agent_cli.js /noobaa/node_modules/noobaa-agent/agent/agent_cli.js
-if [ $# -eq 1 ]
-  then
-    node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  wss://$1
-  else
-    echo 'got port '$1 $2
-    node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  wss://$1  --port $2
+
+node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js
+cp package.json package.json.old
+time curl -k -H "Accept: application/json" https://${1}:8443/agent/package.json > package.json
+d=$(diff package.json.old package.json)
+
+if [ "$d" != "" ]; then
+  echo '++++++++++  updated code. reload ++++++++++'
+  time rm -rf node_modules/
+  time npm config set strict-ssl false
+  time npm install
+else
+  echo '++++++++++  code was not updated ++++++++++'
 fi
-time curl -k -H "Accept: application/json" https://$1/agent/package.json > package.json
-echo '++++++++++  updated code. reload ++++++++++'
-time rm -rf node_modules/
-time npm config set strict-ssl false
-time npm install
-if [ $# -eq 1 ]
-  then
-    node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  wss://$1
-  else
-   echo 'got port (2) '$1 $2
-    node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js --prod --address  wss://$1  --port $2
-fi
+
+node  /noobaa/node_modules/noobaa-agent/agent/agent_cli.js
 exit

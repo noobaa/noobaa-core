@@ -168,6 +168,7 @@ Agent.prototype.stop = function() {
     self.is_started = false;
     self._start_stop_http_server();
     self._start_stop_heartbeats();
+    self.rpc.disconnect_all();
 };
 
 

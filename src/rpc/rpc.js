@@ -573,6 +573,19 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
 /**
  *
  */
+RPC.prototype.disconnect_all = function() {
+    var self = this;
+    _.each(self._connection_by_address, function(conn) {
+        // stop reconnect from picking up immediately
+        conn._no_reconnect = true;
+        conn.close();
+    });
+};
+
+
+/**
+ *
+ */
 RPC.prototype._connection_error = function(conn, err) {
     dbg.error('RPC CONNECTION ERROR:', conn.connid, conn.url.href, err.stack || err);
     conn.close();
@@ -604,7 +617,7 @@ RPC.prototype._connection_closed = function(conn) {
     // for base_address try to reconnect after small delay.
     // using _.startsWith() since in some cases url.parse will add a trailing /
     // specifically in http urls for some strange reason...
-    if (_.startsWith(conn.url.href, self.base_address)) {
+    if (!conn._no_reconnect && _.startsWith(conn.url.href, self.base_address)) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
 };

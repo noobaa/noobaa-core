@@ -61,13 +61,13 @@ function test_ingest() {
         process.on('SIGTERM', fin_exit);
         process.on('SIGINT', fin_exit);
 
-        var chunker = new native_util.ObjectChunker();
-        chunker.tpool = new native_util.ThreadPool(2);
+        var chunker_tpool = new native_util.ThreadPool(1);
+        var chunker = new native_util.ObjectChunker(chunker_tpool);
 
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 10
+                highWaterMark: 5
             },
             transform: function(data) {
                 return Q.ninvoke(chunker, 'push', data);
@@ -77,36 +77,31 @@ function test_ingest() {
             }
         }));
 
-        var encoder = new native_util.ObjectEncoder();
-        encoder.tpool = new native_util.ThreadPool(2);
+        var encoder_tpool = new native_util.ThreadPool(1);
+        var encoder = new native_util.ObjectEncoder(encoder_tpool);
 
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 10
+                highWaterMark: 5
             },
             transform: function(data) {
                 return Q.ninvoke(encoder, 'push', data);
             },
         }));
 
-        /*
-        var decoder = new native_util.ObjectDecoder();
-        decoder.tpool = new native_util.ThreadPool(1);
+        var decoder_tpool = new native_util.ThreadPool(1);
+        var decoder = new native_util.ObjectDecoder(decoder_tpool);
 
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 10
+                highWaterMark: 5
             },
-            transform: function(data) {
-                return Q.ninvoke(decoder, 'push', data.buf);
+            transform: function(chunk) {
+                return Q.ninvoke(decoder, 'push', chunk);
             },
-            flush: function() {
-                return Q.ninvoke(decoder, 'flush');
-            }
         }));
-        */
 
         pipeline.pipe(transformer({
             options: {

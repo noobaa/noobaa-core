@@ -105,6 +105,8 @@ ObjectDriver.prototype.upload_stream = function(params) {
         });
 };
 
+var chunker_tpool = new native_util.ThreadPool(1);
+var encoder_tpool = new native_util.ThreadPool(1);
 
 /**
  *
@@ -127,17 +129,32 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 30
+                highWaterMark: 5
             },
             init: function() {
-                this.ingest = new native_util.Ingest();
+                this.chunker = new native_util.ObjectChunker();
+                this.chunker.tpool = chunker_tpool;
             },
             transform: function(data) {
-                return Q.ninvoke(this.ingest, 'push', data);
+                return Q.ninvoke(this.chunker, 'push', data);
             },
             flush: function() {
-                return Q.ninvoke(this.ingest, 'flush');
+                return Q.ninvoke(this.chunker, 'flush');
             }
+        }));
+
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+                highWaterMark: 5
+            },
+            init: function() {
+                this.encoder = new native_util.ObjectEncoder();
+                this.encoder.tpool = encoder_tpool;
+            },
+            transform: function(data) {
+                return Q.ninvoke(this.encoder, 'push', data);
+            },
         }));
 
         //////////////////////////////////////

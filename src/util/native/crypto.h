@@ -19,7 +19,7 @@ public:
     static inline Buf digest(Buf buf, const char* digest_name)
     {
         const EVP_MD *md = EVP_get_digestbyname(digest_name);
-        Buf digest(EVP_MAX_MD_SIZE);
+        Buf digest(EVP_MD_size(md));
         uint32_t digest_len;
         EVP_MD_CTX ctx_md;
         EVP_MD_CTX_init(&ctx_md);
@@ -34,14 +34,14 @@ public:
     static Buf encrypt(Buf buf, Buf key, Buf iv, const char* cipher_name)
     {
         const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
+        ASSERT(key.length() == EVP_CIPHER_key_length(cipher),
+            DVAL(key.length()) << DVAL(EVP_CIPHER_key_length(cipher)));
+        // iv is required if the key is reused, but can be empty if the key is unique
+        ASSERT(iv.length() >= EVP_CIPHER_iv_length(cipher) || iv.length() == 0,
+            DVAL(iv.length()) << DVAL(EVP_CIPHER_iv_length(cipher)));
         EVP_CIPHER_CTX ctx_cipher;
         EVP_CIPHER_CTX_init(&ctx_cipher);
         EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, NULL, NULL);
-        ASSERT(key.length() == EVP_CIPHER_CTX_key_length(&ctx_cipher),
-            DVAL(key.length()) << DVAL(EVP_CIPHER_CTX_key_length(&ctx_cipher)));
-        // iv is required if the key is reused, but can be empty if the key is unique
-        ASSERT(iv.length() >= EVP_CIPHER_CTX_iv_length(&ctx_cipher) || iv.length() == 0,
-            DVAL(iv.length()) << DVAL(EVP_CIPHER_CTX_iv_length(&ctx_cipher)));
         EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
         int out_len = 0;
         int final_len = 0;
@@ -52,6 +52,29 @@ public:
         EVP_CIPHER_CTX_ctrl(&ctx_cipher, EVP_CTRL_GCM_GET_TAG, AUTH_TAG_LEN, out.data() + out_len + final_len);
         EVP_CIPHER_CTX_cleanup(&ctx_cipher);
         out.slice(0, out_len + final_len + AUTH_TAG_LEN);
+        return out;
+    }
+
+    static Buf decrypt(Buf buf, Buf key, Buf iv, const char* cipher_name)
+    {
+        const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
+        ASSERT(key.length() == EVP_CIPHER_key_length(cipher),
+            DVAL(key.length()) << DVAL(EVP_CIPHER_key_length(cipher)));
+        // iv is required if the key is reused, but can be empty if the key is unique
+        ASSERT(iv.length() >= EVP_CIPHER_iv_length(cipher) || iv.length() == 0,
+            DVAL(iv.length()) << DVAL(EVP_CIPHER_iv_length(cipher)));
+        EVP_CIPHER_CTX ctx_cipher;
+        EVP_CIPHER_CTX_init(&ctx_cipher);
+        EVP_DecryptInit_ex(&ctx_cipher, cipher, NULL, NULL, NULL);
+        EVP_DecryptInit_ex(&ctx_cipher, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
+        int out_len = 0;
+        int final_len = 0;
+        Buf out(buf.length());
+        EVP_DecryptUpdate(&ctx_cipher, out.data(), &out_len, buf.data(), buf.length());
+        EVP_DecryptFinal_ex(&ctx_cipher, out.data() + out_len, &final_len);
+        // EVP_CIPHER_CTX_ctrl(&ctx_cipher, EVP_CTRL_GCM_GET_TAG, AUTH_TAG_LEN, out.data() + out_len + final_len);
+        EVP_CIPHER_CTX_cleanup(&ctx_cipher);
+        // out.slice(0, out_len + final_len + AUTH_TAG_LEN);
         return out;
     }
 

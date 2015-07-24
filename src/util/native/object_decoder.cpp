@@ -13,7 +13,6 @@ ObjectDecoder::setup(v8::Handle<v8::Object> exports)
     tpl->SetClassName(NanNew(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(tpl, "push", ObjectDecoder::push);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", ObjectDecoder::flush);
     NanAssignPersistent(_ctor, tpl->GetFunction());
     exports->Set(NanNew(name), _ctor);
 }
@@ -27,42 +26,29 @@ NAN_METHOD(ObjectDecoder::new_instance)
     } else {
         ObjectDecoder* obj = new ObjectDecoder();
         obj->Wrap(args.This());
+        args.This()->Set(NanNew("tpool"), args[0]);
         NanReturnValue(args.This());
     }
 }
 
-class ObjectDecoder::Job
-    : public ThreadPool::Job
+class ObjectDecoder::Job : public ThreadPool::Job
 {
 private:
     ObjectDecoder& _decoder;
     v8::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
-    Buf _buf;
 public:
     explicit Job(
         ObjectDecoder& decoder,
         v8::Handle<v8::Object> decoder_handle,
-        v8::Handle<v8::Value> buf_handle,
-        v8::Handle<v8::Value> cb_handle)
-        : _decoder(decoder)
-        , _callback(new NanCallback(cb_handle.As<v8::Function>()))
-        , _buf(node::Buffer::Data(buf_handle), node::Buffer::Length(buf_handle))
-    {
-        NanAssignPersistent(_persistent, NanNew<v8::Object>());
-        _persistent->Set(0, decoder_handle);
-        _persistent->Set(1, buf_handle);
-    }
-
-    explicit Job(
-        ObjectDecoder& decoder,
-        v8::Handle<v8::Object> decoder_handle,
+        v8::Handle<v8::Value> chunk_handle,
         v8::Handle<v8::Value> cb_handle)
         : _decoder(decoder)
         , _callback(new NanCallback(cb_handle.As<v8::Function>()))
     {
         NanAssignPersistent(_persistent, NanNew<v8::Object>());
         _persistent->Set(0, decoder_handle);
+        _persistent->Set(1, chunk_handle);
     }
 
     virtual ~Job()
@@ -76,6 +62,9 @@ public:
 
     virtual void done() override
     {
+        NanScope();
+        v8::Local<v8::Value> argv[] = { NanUndefined(), _persistent->Get(1) };
+        _callback->Call(2, argv);
         delete this;
     }
 };
@@ -86,25 +75,11 @@ NAN_METHOD(ObjectDecoder::push)
     ObjectDecoder& self = *Unwrap<ObjectDecoder>(args.This());
     ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 2
-        || !node::Buffer::HasInstance(args[0])
+        || !args[0]->IsObject()
         || !args[1]->IsFunction()) {
-        return NanThrowError("ObjectDecoder::push expected arguments function(buffer,callback)");
+        return NanThrowError("ObjectDecoder::push expected arguments function(chunk,callback)");
     }
     Job* job = new Job(self, args.This(), args[0], args[1]);
-    tpool.submit(job);
-    NanReturnUndefined();
-}
-
-NAN_METHOD(ObjectDecoder::flush)
-{
-    NanScope();
-    ObjectDecoder& self = *Unwrap<ObjectDecoder>(args.This());
-    ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
-    if (args.Length() != 1
-        || !args[0]->IsFunction()) {
-        return NanThrowError("ObjectDecoder::flush expected arguments function(callback)");
-    }
-    Job* job = new Job(self, args.This(), args[0]);
     tpool.submit(job);
     NanReturnUndefined();
 }

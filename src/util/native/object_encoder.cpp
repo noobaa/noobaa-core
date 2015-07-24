@@ -25,6 +25,7 @@ NAN_METHOD(ObjectEncoder::new_instance)
     } else {
         ObjectEncoder* obj = new ObjectEncoder();
         obj->Wrap(args.This());
+        args.This()->Set(NanNew("tpool"), args[0]);
         NanReturnValue(args.This());
     }
 }

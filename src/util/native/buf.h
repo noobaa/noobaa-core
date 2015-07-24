@@ -199,6 +199,11 @@ public:
         return str;
     }
 
+    inline bool same(const Buf& buf)
+    {
+        return (_len == buf._len) && (0 == memcmp(_data, buf._data, _len));
+    }
+
 private:
 
     void init(const Buf& other)

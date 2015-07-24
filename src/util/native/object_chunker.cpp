@@ -26,6 +26,7 @@ NAN_METHOD(ObjectChunker::new_instance)
     } else {
         ObjectChunker* obj = new ObjectChunker();
         obj->Wrap(args.This());
+        args.This()->Set(NanNew("tpool"), args[0]);
         NanReturnValue(args.This());
     }
 }

@@ -6,9 +6,7 @@
 
 /**
  *
- * DEDUP addon for nodejs
- *
- * takes nodejs buffers and chunking them with variable length dedup
+ * DEDUP variable length chunking with sliding window hashing
  *
  */
 template <typename _Hasher>
@@ -19,7 +17,7 @@ public:
     typedef typename Hasher::T T;
 
     /**
-     * The Dedup class idefines a dedup policy.
+     * The Dedup class defines a dedup policy.
      */
     explicit Dedup(
         const Hasher& hasher,
@@ -61,7 +59,6 @@ public:
     class Window
     {
 public:
-
         explicit Window(const Dedup& dedup)
             : _dedup(dedup)
             , _window(new uint8_t[_dedup._window_len])

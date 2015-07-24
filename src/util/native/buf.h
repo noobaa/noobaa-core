@@ -3,63 +3,8 @@
 
 #include "common.h"
 
-class Iovec
-{
-private:
-    uint8_t* _data;
-    int _len;
-
-public:
-    typedef std::shared_ptr<Iovec> SharedPtr;
-
-    explicit Iovec(int len)
-        : _data(new uint8_t[len])
-        , _len(len)
-    {
-    }
-
-    explicit Iovec(void* data, int len)
-        : _data(reinterpret_cast<uint8_t*>(data))
-        , _len(len)
-    {
-    }
-
-    explicit Iovec(const void* data, int len)
-        : _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
-        , _len(len)
-    {
-    }
-
-    Iovec(const Iovec& other)
-        : _data(new uint8_t[other._len])
-        , _len(other._len)
-    {
-        memcpy(_data, other._data, _len);
-    }
-
-    ~Iovec()
-    {
-        delete[] _data;
-    }
-
-    inline uint8_t* data()
-    {
-        return _data;
-    }
-
-    inline char* cdata()
-    {
-        return reinterpret_cast<char*>(_data);
-    }
-
-    inline int length()
-    {
-        return _len;
-    }
-};
-
 /**
- * Wrap a nodejs buffer
+ * Like a nodejs buffer, but thread safe
  */
 class Buf
 {
@@ -72,29 +17,29 @@ public:
     }
 
     explicit Buf(int len)
-        : _iovec(new Iovec(len))
-        , _data(_iovec->data())
-        , _len(_iovec->length())
+        : _alloc(new Alloc(len))
+        , _data(_alloc->data())
+        , _len(_alloc->length())
     {
     }
 
     explicit Buf(int len, uint8_t fill)
-        : _iovec(new Iovec(len))
-        , _data(_iovec->data())
-        , _len(_iovec->length())
+        : _alloc(new Alloc(len))
+        , _data(_alloc->data())
+        , _len(_alloc->length())
     {
         memset(_data, fill, _len);
     }
 
     explicit Buf(void* data, int len)
-        : _iovec(0)
+        : _alloc(0)
         , _data(reinterpret_cast<uint8_t*>(data))
         , _len(len)
     {
     }
 
     explicit Buf(const void* data, int len)
-        : _iovec(0)
+        : _alloc(0)
         , _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
         , _len(len)
     {
@@ -114,9 +59,9 @@ public:
     // copyful concat
     template <typename Iter>
     Buf(int len, Iter begin, Iter end)
-        : _iovec(new Iovec(len))
-        , _data(_iovec->data())
-        , _len(_iovec->length())
+        : _alloc(new Alloc(len))
+        , _data(_alloc->data())
+        , _len(_alloc->length())
     {
         uint8_t* data = _data;
         while (len > 0) {
@@ -186,8 +131,8 @@ public:
 
     inline void reset()
     {
-        _data = _iovec->data();
-        _len = _iovec->length();
+        _data = _alloc->data();
+        _len = _alloc->length();
     }
 
     inline std::string hex()
@@ -206,19 +151,63 @@ public:
 
 private:
 
+    class Alloc
+    {
+private:
+        uint8_t* _data;
+        int _len;
+public:
+        explicit Alloc(int len)
+            : _data(new uint8_t[len])
+            , _len(len)
+        {
+        }
+        explicit Alloc(void* data, int len)
+            : _data(reinterpret_cast<uint8_t*>(data))
+            , _len(len)
+        {
+        }
+        explicit Alloc(const void* data, int len)
+            : _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
+            , _len(len)
+        {
+        }
+        Alloc(const Alloc& other)
+            : _data(new uint8_t[other._len])
+            , _len(other._len)
+        {
+            memcpy(_data, other._data, _len);
+        }
+        ~Alloc()
+        {
+            delete[] _data;
+        }
+        inline uint8_t* data()
+        {
+            return _data;
+        }
+        inline char* cdata()
+        {
+            return reinterpret_cast<char*>(_data);
+        }
+        inline int length()
+        {
+            return _len;
+        }
+    };
+
     void init(const Buf& other)
     {
-        _iovec = other._iovec;
+        _alloc = other._alloc;
         _data = other._data;
         _len = other._len;
     }
 
-    Iovec::SharedPtr _iovec;
+    static const char* BYTE_TO_HEX[256];
+
+    std::shared_ptr<Alloc> _alloc;
     uint8_t* _data;
     int _len;
-
-private:
-    static const char* BYTE_TO_HEX[256];
 };
 
 #endif // MEM_H_

@@ -107,7 +107,7 @@ public:
         int len = _buf.length();
 
         while (len > 0) {
-            int offset = _chunker._chunker.push(datap, len);
+            int offset = _chunker._dedup_window.push(datap, len);
             if (offset) {
                 // offset!=0 means we got chunk boundary
                 // for the last slice we don't copy it because process_chunk will copy all slices.

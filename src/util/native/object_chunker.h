@@ -21,7 +21,7 @@ public:
 
 private:
     explicit ObjectChunker()
-        : _chunker(_deduper)
+        : _dedup_window(_deduper)
         , _chunk_len(0)
     {
     }
@@ -44,7 +44,7 @@ private:
     static GF _gf;
     static RabinHasher _rabin_hasher;
     static Deduper _deduper;
-    Deduper::Chunker _chunker;
+    Deduper::Window _dedup_window;
     std::list<Buf> _chunk_slices;
     int _chunk_len;
 

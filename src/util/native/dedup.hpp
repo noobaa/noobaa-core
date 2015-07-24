@@ -2,7 +2,7 @@
 
 template <typename _Hasher>
 int
-Dedup<_Hasher>::Chunker::push(const uint8_t* data, int len)
+Dedup<_Hasher>::Window::push(const uint8_t* data, int len)
 {
     // this code is very tight on cpu,
     // se we keep all the stuff that gets accessed on stack,

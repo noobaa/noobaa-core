@@ -56,20 +56,20 @@ private:
 public:
 
     /**
-     * The Chunker class is used to perform chunking with sliding window.
+     * The Window class is used to perform chunking with sliding window.
      */
-    class Chunker
+    class Window
     {
 public:
 
-        explicit Chunker(const Dedup& dedup)
+        explicit Window(const Dedup& dedup)
             : _dedup(dedup)
             , _window(new uint8_t[_dedup._window_len])
         {
             reset();
         }
 
-        ~Chunker()
+        ~Window()
         {
             delete[] _window;
         }
@@ -86,7 +86,7 @@ public:
          * returns 0 if no chunk boundary,
          *      in this case more data can be pushed till boundary will be found.
          * returns offset between 1 and len (including) to set chunk boundary,
-         *      in this case the chunker was reset and the rest of the data from offset
+         *      in this case the window was reset and the rest of the data from offset
          *      should be pushed to find next chunk boundary.
          */
         int push(const uint8_t* data, int len);

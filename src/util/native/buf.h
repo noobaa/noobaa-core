@@ -145,6 +145,17 @@ public:
         _len = _alloc->length();
     }
 
+    // detach the allocated memory back to the responsibility of the caller
+    inline uint8_t* detach_alloc()
+    {
+        return _alloc->detach();
+    }
+
+    inline bool unique_alloc()
+    {
+        return _alloc.unique();
+    }
+
     inline std::string hex() const
     {
         std::string str;
@@ -203,6 +214,14 @@ public:
         inline int length()
         {
             return _len;
+        }
+        // detach the allocated memory to the responsibility of the caller
+        inline uint8_t* detach()
+        {
+            uint8_t* data = _data;
+            _data = NULL;
+            _len = 0;
+            return data;
         }
     };
 

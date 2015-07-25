@@ -153,8 +153,13 @@ public:
         for (int i=0; i<len; ++i) {
             Buf chunk = _chunks.front();
             _chunks.pop_front();
-            // TODO reduce mem copy with NanUseBuffer
-            arr->Set(i, NanNewBufferHandle(chunk.cdata(), chunk.length()));
+            // we optimize to avoid another memory copy -
+            // we detach the chunk buffer memory and pass it to the node.js buffer
+            // which is safe since we know that it was constructed in process_chunk
+            // and is uniquely pointed here.
+            arr->Set(i, NanBufferUse(chunk.cdata(), chunk.length()));
+            assert(chunk.unique_alloc());
+            chunk.detach_alloc();
         }
         v8::Local<v8::Value> argv[] = { NanUndefined(), arr };
         _callback->Call(2, argv);
@@ -165,15 +170,17 @@ public:
 NAN_METHOD(DedupChunker::push)
 {
     NanScope();
-    DedupChunker& self = *Unwrap<DedupChunker>(args.This());
-    ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 2
         || !node::Buffer::HasInstance(args[0])
         || !args[1]->IsFunction()) {
         return NanThrowError("DedupChunker::push expected arguments function(buffer,callback)");
     }
+    v8::Local<v8::Object> self = args.This();
+    DedupChunker& chunker = *Unwrap<DedupChunker>(self);
+    ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
+    v8::Local<v8::Object> buffer = args[0]->ToObject();
     NanCallbackSharedPtr callback(new NanCallback(args[1].As<v8::Function>()));
-    Job* job = new Job(self, args.This(), args[0], callback);
+    Job* job = new Job(chunker, self, buffer, callback);
     tpool.submit(job);
     NanReturnUndefined();
 }
@@ -181,13 +188,13 @@ NAN_METHOD(DedupChunker::push)
 NAN_METHOD(DedupChunker::flush)
 {
     NanScope();
-    v8::Local<v8::Object> self = args.This();
-    DedupChunker& chunker = *Unwrap<DedupChunker>(self);
-    ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 1
         || !args[0]->IsFunction()) {
         return NanThrowError("DedupChunker::flush expected arguments function(callback)");
     }
+    v8::Local<v8::Object> self = args.This();
+    DedupChunker& chunker = *Unwrap<DedupChunker>(self);
+    ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
     NanCallbackSharedPtr callback(new NanCallback(args[0].As<v8::Function>()));
     Job* job = new Job(chunker, self, callback);
     tpool.submit(job);

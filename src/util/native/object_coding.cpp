@@ -154,15 +154,22 @@ public:
     explicit DecodeJob(
         ObjectCoding& coding,
         v8::Handle<v8::Object> object_coding_handle,
-        v8::Handle<v8::Object> chunk_handle,
+        v8::Handle<v8::Object> chunk,
         NanCallbackSharedPtr callback)
         : _coding(coding)
         , _callback(callback)
-        , _fragments(3)
     {
         NanAssignPersistent(_persistent, NanNew<v8::Object>());
         _persistent->Set(0, object_coding_handle);
-        _persistent->Set(1, chunk_handle);
+        _persistent->Set(1, chunk);
+        v8::Local<v8::Array> fragments = chunk->Get(NanNew("fragments")).As<v8::Array>();
+        _fragments.resize(fragments->Length());
+        for (size_t i=0; i<_fragments.size(); ++i) {
+            v8::Local<v8::Object> frag = fragments->Get(i)->ToObject();
+            _fragments[i].hash = Buf(*NanAsciiString(frag->Get(NanNew("hash"))));
+            v8::Local<v8::Object> data = frag->Get(NanNew("data"))->ToObject();
+            _fragments[i].data = Buf(node::Buffer::Data(data), node::Buffer::Length(data));
+        }
     }
 
     virtual ~DecodeJob()

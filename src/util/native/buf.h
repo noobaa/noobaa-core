@@ -89,12 +89,22 @@ public:
         return _data;
     }
 
+    inline const uint8_t* data() const
+    {
+        return _data;
+    }
+
     inline char* cdata()
     {
         return reinterpret_cast<char*>(_data);
     }
 
-    inline int length()
+    inline const char* cdata() const
+    {
+        return reinterpret_cast<const char*>(_data);
+    }
+
+    inline int length() const
     {
         return _len;
     }
@@ -135,7 +145,7 @@ public:
         _len = _alloc->length();
     }
 
-    inline std::string hex()
+    inline std::string hex() const
     {
         std::string str;
         for (int i=0; i<_len; ++i) {
@@ -144,7 +154,7 @@ public:
         return str;
     }
 
-    inline bool same(const Buf& buf)
+    inline bool same(const Buf& buf) const
     {
         return (_len == buf._len) && (0 == memcmp(_data, buf._data, _len));
     }

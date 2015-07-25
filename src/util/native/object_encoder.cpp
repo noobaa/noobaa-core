@@ -12,6 +12,12 @@ ObjectEncoder::setup(v8::Handle<v8::Object> exports)
     tpl->SetClassName(NanNew(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     NODE_SET_PROTOTYPE_METHOD(tpl, "push", ObjectEncoder::push);
+    tpl->InstanceTemplate()->SetAccessor(NanNew("content_hash_type"),
+                                         &content_hash_type_getter, &content_hash_type_setter);
+    tpl->InstanceTemplate()->SetAccessor(NanNew("cipher_type"),
+                                         &cipher_type_getter, &cipher_type_setter);
+    tpl->InstanceTemplate()->SetAccessor(NanNew("block_hash_type"),
+                                         &block_hash_type_getter, &block_hash_type_setter);
     NanAssignPersistent(_ctor, tpl->GetFunction());
     exports->Set(NanNew(name), _ctor);
 }
@@ -25,6 +31,9 @@ NAN_METHOD(ObjectEncoder::new_instance)
     } else {
         ObjectEncoder* obj = new ObjectEncoder();
         obj->Wrap(args.This());
+        
+        args.This()->Set(NanNew("tpool"), args[0]);
+        args.This()->Set(NanNew("tpool"), args[0]);
         args.This()->Set(NanNew("tpool"), args[0]);
         NanReturnValue(args.This());
     }
@@ -68,16 +77,16 @@ public:
     virtual void run() override
     {
         // _content_hash = Buf(32, 0);
-        _content_hash = Crypto::digest(_chunk, "sha384");
+        _content_hash = Crypto::digest(_chunk, _encoder._content_hash_type.c_str());
 
-        // convergent encryption - key is the content hash
-        // Buf key = sha;
+        // convergent encryption - use _content_hash as encryption key
+        // const Buf& key = _content_hash;
         Buf key(32);
         RAND_bytes(key.data(), key.length());
         // IV is just zeros since the key is unique then IV is not needed
         static Buf iv(64, 0);
         // RAND_bytes(iv.data(), iv.length());
-        Buf encrypted = Crypto::encrypt(_chunk, key, iv, "aes-256-gcm");
+        Buf encrypted = Crypto::encrypt(_chunk, key, iv, _encoder._cipher_type.c_str());
 
         const int data_blocks = 2;
         int encrypted_len = encrypted.length();
@@ -93,8 +102,7 @@ public:
         _fragments[2].data = parity;
 
         for (size_t i=0; i<_fragments.size(); ++i) {
-            // _fragments[i].hash = Buf(32, 0);
-            _fragments[i].hash = Crypto::digest(_fragments[i].data, "sha384");
+            _fragments[i].hash = Crypto::hmac(_fragments[i].data, key, _encoder._block_hash_type.c_str());
         }
     }
 
@@ -133,4 +141,46 @@ NAN_METHOD(ObjectEncoder::push)
     Job* job = new Job(self, args.This(), args[0], args[1]);
     tpool.submit(job);
     NanReturnUndefined();
+}
+
+NAN_ACCESSOR_GETTER(ObjectEncoder::content_hash_type_getter)
+{
+    NanScope();
+    ObjectEncoder& self = *Unwrap<ObjectEncoder>(info.This());
+    NanReturnValue(NanNew(self._content_hash_type));
+}
+
+NAN_ACCESSOR_SETTER(ObjectEncoder::content_hash_type_setter)
+{
+    NanScope();
+    ObjectEncoder& self = *Unwrap<ObjectEncoder>(info.This());
+    self._content_hash_type = *NanAsciiString(value);
+}
+
+NAN_ACCESSOR_GETTER(ObjectEncoder::cipher_type_getter)
+{
+    NanScope();
+    ObjectEncoder& self = *Unwrap<ObjectEncoder>(info.This());
+    NanReturnValue(NanNew(self._cipher_type));
+}
+
+NAN_ACCESSOR_SETTER(ObjectEncoder::cipher_type_setter)
+{
+    NanScope();
+    ObjectEncoder& self = *Unwrap<ObjectEncoder>(info.This());
+    self._cipher_type = *NanAsciiString(value);
+}
+
+NAN_ACCESSOR_GETTER(ObjectEncoder::block_hash_type_getter)
+{
+    NanScope();
+    ObjectEncoder& self = *Unwrap<ObjectEncoder>(info.This());
+    NanReturnValue(NanNew(self._block_hash_type));
+}
+
+NAN_ACCESSOR_SETTER(ObjectEncoder::block_hash_type_setter)
+{
+    NanScope();
+    ObjectEncoder& self = *Unwrap<ObjectEncoder>(info.This());
+    self._block_hash_type = *NanAsciiString(value);
 }

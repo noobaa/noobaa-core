@@ -155,6 +155,7 @@ public:
         for (int i=0; i<len; ++i) {
             Buf chunk = _chunks.front();
             _chunks.pop_front();
+            // TODO reduce mem copy with NanUseBuffer
             arr->Set(i, NanNewBufferHandle(chunk.cdata(), chunk.length()));
         }
         v8::Local<v8::Value> argv[] = { NanUndefined(), arr };

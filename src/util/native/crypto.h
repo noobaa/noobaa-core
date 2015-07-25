@@ -16,7 +16,7 @@ public:
     static void init();
     static void destroy();
 
-    static inline Buf digest(Buf buf, const char* digest_name)
+    static inline Buf digest(const Buf& buf, const char* digest_name)
     {
         const EVP_MD *md = EVP_get_digestbyname(digest_name);
         Buf digest(EVP_MD_size(md));
@@ -31,7 +31,25 @@ public:
         return digest;
     }
 
-    static Buf encrypt(Buf buf, Buf key, Buf iv, const char* cipher_name)
+    static inline Buf hmac(const Buf& buf, const Buf& key, const char* digest_name)
+    {
+        const EVP_MD *md = EVP_get_digestbyname(digest_name);
+        Buf digest(EVP_MD_size(md));
+        size_t digest_len;
+        EVP_PKEY_CTX *pctx = NULL;
+        EVP_PKEY *pkey = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL, key.data(), key.length());
+        EVP_MD_CTX ctx_md;
+        EVP_MD_CTX_init(&ctx_md);
+        EVP_DigestSignInit(&ctx_md, &pctx, md, NULL, pkey);
+        EVP_DigestSignUpdate(&ctx_md, buf.data(), buf.length());
+        EVP_DigestSignFinal(&ctx_md, digest.data(), &digest_len);
+        EVP_MD_CTX_cleanup(&ctx_md);
+        EVP_PKEY_free(pkey);
+        digest.slice(0, digest_len);
+        return digest;
+    }
+
+    static Buf encrypt(const Buf& buf, const Buf& key, const Buf& iv, const char* cipher_name)
     {
         const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
         ASSERT(key.length() == EVP_CIPHER_key_length(cipher),
@@ -55,7 +73,7 @@ public:
         return out;
     }
 
-    static Buf decrypt(Buf buf, Buf key, Buf iv, const char* cipher_name)
+    static Buf decrypt(const Buf& buf, const Buf& key, const Buf& iv, const char* cipher_name)
     {
         const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
         ASSERT(key.length() == EVP_CIPHER_key_length(cipher),

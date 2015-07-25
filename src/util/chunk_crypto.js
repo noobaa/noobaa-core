@@ -38,8 +38,6 @@ function encrypt_chunk(plain_buffer, crypt_info) {
 
     }).then(function(hash_val) {
 
-
-
         // convergent encryption - use data hash as cipher key
         crypt_info.cipher_val = hash_val;
         crypt_info.hash_val = hash_val;
@@ -160,10 +158,9 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
 
 function digest_hash_base64(hash_type, buffer) {
 
-    var plnBuf = buffer_utils.toArrayBuffer(buffer);
-
     // WebCrypto optimization
     if (subtle_crypto && hash_type === 'sha256') {
+        var plnBuf = buffer_utils.toArrayBuffer(buffer);
         return subtle_crypto.digest({
                 name: 'SHA-256'
             }, plnBuf)

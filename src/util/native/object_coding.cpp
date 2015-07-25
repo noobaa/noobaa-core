@@ -144,6 +144,7 @@ private:
     v8::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
     Buf _content_hash;
+    Buf _key;
     struct Block
     {
         Buf data;
@@ -162,6 +163,13 @@ public:
         NanAssignPersistent(_persistent, NanNew<v8::Object>());
         _persistent->Set(0, object_coding_handle);
         _persistent->Set(1, chunk);
+
+        v8::Local<v8::Object> content_hash = chunk->Get(NanNew("content_hash"))->ToObject();
+        _content_hash = Buf(node::Buffer::Data(content_hash), node::Buffer::Length(content_hash));
+
+        v8::Local<v8::Object> key = chunk->Get(NanNew("key"))->ToObject();
+        _key = Buf(node::Buffer::Data(key), node::Buffer::Length(key));
+
         v8::Local<v8::Array> fragments = chunk->Get(NanNew("fragments")).As<v8::Array>();
         _fragments.resize(fragments->Length());
         for (size_t i=0; i<_fragments.size(); ++i) {
@@ -179,6 +187,14 @@ public:
 
     virtual void run() override
     {
+        for (size_t i=0; i<_fragments.size(); ++i) {
+            Buf hash = Crypto::hmac(_fragments[i].data, _key, _coding._block_hash_type.c_str());
+            assert(hash.same(_fragments[i].hash));
+        }
+
+        // TODO CONTINUE
+
+
     }
 
     virtual void done() override

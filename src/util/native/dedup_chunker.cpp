@@ -1,38 +1,36 @@
-#include "object_chunker.h"
+#include "dedup_chunker.h"
 #include "buf.h"
 #include "crypto.h"
 
-v8::Persistent<v8::Function> ObjectChunker::_ctor;
+v8::Persistent<v8::Function> DedupChunker::_ctor;
 
 void
-ObjectChunker::setup(v8::Handle<v8::Object> exports)
+DedupChunker::setup(v8::Handle<v8::Object> exports)
 {
-    auto name = "ObjectChunker";
-    auto tpl(NanNew<v8::FunctionTemplate>(ObjectChunker::new_instance));
+    auto name = "DedupChunker";
+    auto tpl(NanNew<v8::FunctionTemplate>(DedupChunker::new_instance));
     tpl->SetClassName(NanNew(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "push", ObjectChunker::push);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", ObjectChunker::flush);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "push", DedupChunker::push);
+    NODE_SET_PROTOTYPE_METHOD(tpl, "flush", DedupChunker::flush);
     NanAssignPersistent(_ctor, tpl->GetFunction());
     exports->Set(NanNew(name), _ctor);
 }
 
-NAN_METHOD(ObjectChunker::new_instance)
+NAN_METHOD(DedupChunker::new_instance)
 {
     NanScope();
-    if (!args.IsConstructCall()) {
-        // Invoked as plain function call, turn into construct 'new' call.
-        NanReturnValue(_ctor->NewInstance());
-    } else {
-        ObjectChunker* obj = new ObjectChunker();
-        obj->Wrap(args.This());
-        args.This()->Set(NanNew("tpool"), args[0]);
-        NanReturnValue(args.This());
-    }
+    NAN_MAKE_CTOR_CALL(_ctor);
+    v8::Local<v8::Object> self = args.This();
+    v8::Local<v8::Object> options = args[0]->ToObject();
+    DedupChunker* chunker = new DedupChunker();
+    chunker->Wrap(self);
+    NAN_COPY_OPTIONS_TO_WRAPPER(self, options);
+    NanReturnValue(self);
 }
 
-ObjectChunker::GF
-ObjectChunker::_gf(
+DedupChunker::GF
+DedupChunker::_gf(
     // 20u /* degree */, 0x9u /* poly */
     // 25u /* degree */, 0x9u /* poly */
     // 28u /* degree */, 0x9u /* poly */
@@ -41,37 +39,37 @@ ObjectChunker::_gf(
     63u /* degree */, 0x3u /* poly */
     );
 
-ObjectChunker::RabinHasher
-ObjectChunker::_rabin_hasher(
-    ObjectChunker::_gf,
-    ObjectChunker::WINDOW_LEN);
+DedupChunker::RabinHasher
+DedupChunker::_rabin_hasher(
+    DedupChunker::_gf,
+    DedupChunker::WINDOW_LEN);
 
-ObjectChunker::Deduper
-ObjectChunker::_deduper(
-    ObjectChunker::_rabin_hasher,
-    ObjectChunker::WINDOW_LEN,
-    ObjectChunker::MIN_CHUNK,
-    ObjectChunker::MAX_CHUNK,
-    ObjectChunker::AVG_CHUNK_BITS,
-    ObjectChunker::AVG_CHUNK_VAL);
+DedupChunker::Deduper
+DedupChunker::_deduper(
+    DedupChunker::_rabin_hasher,
+    DedupChunker::WINDOW_LEN,
+    DedupChunker::MIN_CHUNK,
+    DedupChunker::MAX_CHUNK,
+    DedupChunker::AVG_CHUNK_BITS,
+    DedupChunker::AVG_CHUNK_VAL);
 
 
-class ObjectChunker::Job : public ThreadPool::Job
+class DedupChunker::Job : public ThreadPool::Job
 {
 private:
-    ObjectChunker& _chunker;
+    DedupChunker& _chunker;
     v8::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
     Buf _buf;
     std::list<Buf> _chunks;
 public:
     explicit Job(
-        ObjectChunker& chunker,
+        DedupChunker& chunker,
         v8::Handle<v8::Object> chunker_handle,
         v8::Handle<v8::Value> buf_handle,
-        v8::Handle<v8::Value> cb_handle)
+        NanCallbackSharedPtr callback)
         : _chunker(chunker)
-        , _callback(new NanCallback(cb_handle.As<v8::Function>()))
+        , _callback(callback)
         , _buf(node::Buffer::Data(buf_handle), node::Buffer::Length(buf_handle))
     {
         NanAssignPersistent(_persistent, NanNew<v8::Object>());
@@ -80,11 +78,11 @@ public:
     }
 
     explicit Job(
-        ObjectChunker& chunker,
+        DedupChunker& chunker,
         v8::Handle<v8::Object> chunker_handle,
-        v8::Handle<v8::Value> cb_handle)
+        NanCallbackSharedPtr callback)
         : _chunker(chunker)
-        , _callback(new NanCallback(cb_handle.As<v8::Function>()))
+        , _callback(callback)
     {
         NanAssignPersistent(_persistent, NanNew<v8::Object>());
         _persistent->Set(0, chunker_handle);
@@ -164,31 +162,34 @@ public:
     }
 };
 
-NAN_METHOD(ObjectChunker::push)
+NAN_METHOD(DedupChunker::push)
 {
     NanScope();
-    ObjectChunker& self = *Unwrap<ObjectChunker>(args.This());
+    DedupChunker& self = *Unwrap<DedupChunker>(args.This());
     ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 2
         || !node::Buffer::HasInstance(args[0])
         || !args[1]->IsFunction()) {
-        return NanThrowError("ObjectChunker::push expected arguments function(buffer,callback)");
+        return NanThrowError("DedupChunker::push expected arguments function(buffer,callback)");
     }
-    Job* job = new Job(self, args.This(), args[0], args[1]);
+    NanCallbackSharedPtr callback(new NanCallback(args[1].As<v8::Function>()));
+    Job* job = new Job(self, args.This(), args[0], callback);
     tpool.submit(job);
     NanReturnUndefined();
 }
 
-NAN_METHOD(ObjectChunker::flush)
+NAN_METHOD(DedupChunker::flush)
 {
     NanScope();
-    ObjectChunker& self = *Unwrap<ObjectChunker>(args.This());
-    ThreadPool& tpool = *Unwrap<ThreadPool>(args.This()->Get(NanNew("tpool"))->ToObject());
+    v8::Local<v8::Object> self = args.This();
+    DedupChunker& chunker = *Unwrap<DedupChunker>(self);
+    ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
     if (args.Length() != 1
         || !args[0]->IsFunction()) {
-        return NanThrowError("ObjectChunker::flush expected arguments function(callback)");
+        return NanThrowError("DedupChunker::flush expected arguments function(callback)");
     }
-    Job* job = new Job(self, args.This(), args[0]);
+    NanCallbackSharedPtr callback(new NanCallback(args[0].As<v8::Function>()));
+    Job* job = new Job(chunker, self, callback);
     tpool.submit(job);
     NanReturnUndefined();
 }

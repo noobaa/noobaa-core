@@ -18,6 +18,7 @@ ThreadPool::setup(v8::Handle<v8::Object> exports)
 NAN_METHOD(ThreadPool::new_instance)
 {
     NanScope();
+    NAN_MAKE_CTOR_CALL(_ctor);
     uint32_t nthreads = 0;
     if (!args[0]->IsUndefined()) {
         if (!args[0]->IsInt32()) {
@@ -25,15 +26,9 @@ NAN_METHOD(ThreadPool::new_instance)
         }
         nthreads = args[0]->Int32Value();
     }
-    if (args.IsConstructCall()) {
-        ThreadPool* obj = new ThreadPool(nthreads);
-        obj->Wrap(args.This());
-        NanReturnValue(args.This());
-    } else {
-        // Invoked as plain function call, turn into construct 'new' call.
-        v8::Handle<v8::Value> argv[] = { args[0] };
-        NanReturnValue(_ctor->NewInstance(1, argv));
-    }
+    ThreadPool* obj = new ThreadPool(nthreads);
+    obj->Wrap(args.This());
+    NanReturnValue(args.This());
 }
 
 void atexit_cb()

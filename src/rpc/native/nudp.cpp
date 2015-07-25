@@ -26,16 +26,10 @@ Nudp::setup(v8::Handle<v8::Object> exports)
 NAN_METHOD(Nudp::new_instance)
 {
     NanScope();
-    if (args.IsConstructCall()) {
-        Nudp* obj = new Nudp();
-        obj->Wrap(args.This());
-        NanReturnValue(args.This());
-    } else {
-        // Invoked as plain function `Nudp(...)`, turn into construct call.
-        const int argc = 1;
-        v8::Local<v8::Value> argv[argc] = { args[0] };
-        NanReturnValue(_ctor->NewInstance(argc, argv));
-    }
+    NAN_MAKE_CTOR_CALL(_ctor);
+    Nudp* obj = new Nudp();
+    obj->Wrap(args.This());
+    NanReturnValue(args.This());
 }
 
 NAN_METHOD(Nudp::send)

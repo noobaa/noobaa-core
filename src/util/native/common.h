@@ -64,6 +64,29 @@
 #define NAN_ACCESSOR_SETTER(method) \
     void method(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::AccessorInfo &info)
 
+#define NAN_MAKE_CTOR_CALL(ctor) \
+    do { \
+        if (!args.IsConstructCall()) { \
+            /* Invoked as plain function call, turn into construct 'new' call. */ \
+            int argc = args.Length(); \
+            std::vector<v8::Handle<v8::Value> > argv(argc); \
+            for (int i=0; i<argc; ++i) { \
+                argv[i] = args[i]; \
+            } \
+            NanReturnValue(ctor->NewInstance(argc, argv.data())); \
+        } \
+    } while (0)
+
+#define NAN_COPY_OPTIONS_TO_WRAPPER(obj, options) \
+    do { \
+        v8::Local<v8::Array> keys = options->GetPropertyNames(); \
+        for (uint32_t i=0; i<keys->Length(); ++i) { \
+            v8::Local<v8::Value> key = keys->Get(i); \
+            v8::Local<v8::Value> val = options->Get(key); \
+            obj->Set(key, val); \
+        } \
+    } while (0)
+
 typedef std::shared_ptr<NanCallback> NanCallbackSharedPtr;
 
 #endif // COMMON_H_

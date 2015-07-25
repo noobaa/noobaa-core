@@ -62,22 +62,25 @@ function test_ingest() {
     if (!process.argv[3]) {
 
         var native_util = require("bindings")("native_util.node");
-        var chunker_tpool = new native_util.ThreadPool(1);
-        var chunker = new native_util.ObjectChunker(chunker_tpool);
-        var encoder_tpool = new native_util.ThreadPool(1);
-        var encoder = new native_util.ObjectEncoder(encoder_tpool);
-        var decoder_tpool = new native_util.ThreadPool(0);
-        var decoder = new native_util.ObjectDecoder(decoder_tpool);
+        var dedup_chunker = new native_util.DedupChunker({
+            tpool: new native_util.ThreadPool(1)
+        });
+        var object_coding = new native_util.ObjectCoding({
+            tpool: new native_util.ThreadPool(1),
+            content_hash_type: 'sha384',
+            cipher_type: 'aes-256-gcm',
+            block_hash_type: 'sha1',
+        });
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
                 highWaterMark: 5
             },
             transform: function(data) {
-                return Q.ninvoke(chunker, 'push', data);
+                return Q.ninvoke(dedup_chunker, 'push', data);
             },
             flush: function() {
-                return Q.ninvoke(chunker, 'flush');
+                return Q.ninvoke(dedup_chunker, 'flush');
             }
         }));
         pipeline.pipe(transformer({
@@ -86,7 +89,7 @@ function test_ingest() {
                 highWaterMark: 5
             },
             transform: function(data) {
-                return Q.ninvoke(encoder, 'push', data);
+                return Q.ninvoke(object_coding, 'encode', data);
             },
         }));
         pipeline.pipe(transformer({
@@ -95,7 +98,8 @@ function test_ingest() {
                 highWaterMark: 5
             },
             transform: function(chunk) {
-                return Q.ninvoke(decoder, 'push', chunk);
+                return chunk;
+                // return Q.ninvoke(object_coding, 'decode', chunk);
             },
         }));
 

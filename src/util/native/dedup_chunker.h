@@ -1,5 +1,5 @@
-#ifndef OBJECT_CHUNKER_H_
-#define OBJECT_CHUNKER_H_
+#ifndef DEDUP_CHUNKER_H_
+#define DEDUP_CHUNKER_H_
 
 #include "common.h"
 #include "dedup.h"
@@ -8,25 +8,25 @@
 
 /**
  *
- * ObjectChunker
+ * DedupChunker
  *
  * Performs variable length dedup.
  *
  */
 
-class ObjectChunker : public node::ObjectWrap
+class DedupChunker : public node::ObjectWrap
 {
 public:
     static void setup(v8::Handle<v8::Object> exports);
 
 private:
-    explicit ObjectChunker()
+    explicit DedupChunker()
         : _dedup_window(_deduper)
         , _chunk_len(0)
     {
     }
 
-    virtual ~ObjectChunker()
+    virtual ~DedupChunker()
     {
     }
 
@@ -55,4 +55,4 @@ private:
     static NAN_METHOD(flush);
 };
 
-#endif // OBJECT_CHUNKER_H_
+#endif // DEDUP_CHUNKER_H_

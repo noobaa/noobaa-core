@@ -98,8 +98,7 @@ function test_ingest() {
                 highWaterMark: 5
             },
             transform: function(chunk) {
-                return chunk;
-                // return Q.ninvoke(object_coding, 'decode', chunk);
+                return Q.ninvoke(object_coding, 'decode', chunk);
             },
         }));
 

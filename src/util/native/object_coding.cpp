@@ -26,6 +26,7 @@ NAN_METHOD(ObjectCoding::new_instance)
     ObjectCoding* coding = new ObjectCoding();
     coding->Wrap(self);
     NAN_COPY_OPTIONS_TO_WRAPPER(self, options);
+    // TODO should we allow updating these fields?
     coding->_content_hash_type = *NanAsciiString(self->Get(NanNew("content_hash_type")));
     coding->_cipher_type = *NanAsciiString(self->Get(NanNew("cipher_type")));
     coding->_block_hash_type = *NanAsciiString(self->Get(NanNew("block_hash_type")));
@@ -46,6 +47,7 @@ private:
     NanCallbackSharedPtr _callback;
     Buf _chunk;
     Buf _content_hash;
+    Buf _key;
     struct Block
     {
         Buf data;
@@ -79,13 +81,13 @@ public:
         _content_hash = Crypto::digest(_chunk, _coding._content_hash_type.c_str());
 
         // convergent encryption - use _content_hash as encryption key
-        // const Buf& key = _content_hash;
-        Buf key(32);
-        RAND_bytes(key.data(), key.length());
+        // _key = _content_hash;
+        _key = Buf(32);
+        RAND_bytes(_key.data(), _key.length());
         // IV is just zeros since the key is unique then IV is not needed
         static Buf iv(64, 0);
         // RAND_bytes(iv.data(), iv.length());
-        Buf encrypted = Crypto::encrypt(_chunk, key, iv, _coding._cipher_type.c_str());
+        Buf encrypted = Crypto::encrypt(_chunk, _key, iv, _coding._cipher_type.c_str());
 
         const int data_blocks = 2;
         int encrypted_len = encrypted.length();
@@ -101,7 +103,7 @@ public:
         _fragments[2].data = parity;
 
         for (size_t i=0; i<_fragments.size(); ++i) {
-            _fragments[i].hash = Crypto::hmac(_fragments[i].data, key, _coding._block_hash_type.c_str());
+            _fragments[i].hash = Crypto::hmac(_fragments[i].data, _key, _coding._block_hash_type.c_str());
         }
     }
 
@@ -110,6 +112,7 @@ public:
         NanScope();
         v8::Local<v8::Object> obj(NanNew<v8::Object>());
         obj->Set(NanNew("content_hash"), NanNew(_content_hash.hex()));
+        obj->Set(NanNew("key"), NanNew(_key.hex()));
         obj->Set(NanNew("length"), NanNew(_chunk.length()));
         v8::Local<v8::Array> fragments(NanNew<v8::Array>(_fragments.size()));
         for (size_t i=0; i<_fragments.size(); ++i) {
@@ -140,7 +143,6 @@ private:
     ObjectCoding& _coding;
     v8::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
-    Buf _chunk;
     Buf _content_hash;
     struct Block
     {
@@ -152,16 +154,15 @@ public:
     explicit DecodeJob(
         ObjectCoding& coding,
         v8::Handle<v8::Object> object_coding_handle,
-        v8::Handle<v8::Value> buf_handle,
+        v8::Handle<v8::Object> chunk_handle,
         NanCallbackSharedPtr callback)
         : _coding(coding)
         , _callback(callback)
-        , _chunk(node::Buffer::Data(buf_handle), node::Buffer::Length(buf_handle))
         , _fragments(3)
     {
         NanAssignPersistent(_persistent, NanNew<v8::Object>());
         _persistent->Set(0, object_coding_handle);
-        _persistent->Set(1, buf_handle);
+        _persistent->Set(1, chunk_handle);
     }
 
     virtual ~DecodeJob()
@@ -176,19 +177,10 @@ public:
     virtual void done() override
     {
         NanScope();
-        v8::Local<v8::Object> obj(NanNew<v8::Object>());
-        obj->Set(NanNew("content_hash"), NanNew(_content_hash.hex()));
-        obj->Set(NanNew("length"), NanNew(_chunk.length()));
-        v8::Local<v8::Array> fragments(NanNew<v8::Array>(_fragments.size()));
-        for (size_t i=0; i<_fragments.size(); ++i) {
-            Block& block = _fragments[i];
-            v8::Local<v8::Object> frag(NanNew<v8::Object>());
-            frag->Set(NanNew("data"), NanNewBufferHandle(block.data.cdata(),block.data.length()));
-            frag->Set(NanNew("hash"), NanNew(block.hash.hex()));
-            fragments->Set(i, frag);
-        }
-        obj->Set(NanNew("fragments"), fragments);
-        v8::Local<v8::Value> argv[] = { NanUndefined(), obj };
+        // v8::Local<v8::Object> obj(NanNew<v8::Object>());
+        // obj->Set(NanNew("content_hash"), NanNew(_content_hash.hex()));
+        // obj->Set(NanNew("length"), NanNew(_chunk.length()));
+        v8::Handle<v8::Value> argv[] = { NanUndefined(), _persistent->Get(1) };
         _callback->Call(2, argv);
         delete this;
     }
@@ -199,8 +191,7 @@ public:
 NAN_METHOD(ObjectCoding::encode)
 {
     NanScope();
-    if (!node::Buffer::HasInstance(args[0])
-        || !args[1]->IsFunction()) {
+    if (!node::Buffer::HasInstance(args[0]) || !args[1]->IsFunction()) {
         return NanThrowError("ObjectCoding::encode expected arguments function(buffer,callback)");
     }
     v8::Local<v8::Object> self = args.This();
@@ -216,16 +207,15 @@ NAN_METHOD(ObjectCoding::encode)
 NAN_METHOD(ObjectCoding::decode)
 {
     NanScope();
-    if (!node::Buffer::HasInstance(args[0])
-        || !args[1]->IsFunction()) {
-        return NanThrowError("ObjectCoding::decode expected arguments function(buffer,callback)");
+    if (!args[0]->IsObject() || !args[1]->IsFunction()) {
+        return NanThrowError("ObjectCoding::decode expected arguments function(chunk,callback)");
     }
     v8::Local<v8::Object> self = args.This();
     ObjectCoding& coding = *Unwrap<ObjectCoding>(self);
     ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
-    v8::Local<v8::Object> buffer = args[0]->ToObject();
+    v8::Local<v8::Object> chunk = args[0]->ToObject();
     NanCallbackSharedPtr callback(new NanCallback(args[1].As<v8::Function>()));
-    DecodeJob* job = new DecodeJob(coding, self, buffer, callback);
+    DecodeJob* job = new DecodeJob(coding, self, chunk, callback);
     tpool.submit(job);
     NanReturnUndefined();
 }

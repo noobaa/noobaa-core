@@ -154,9 +154,10 @@ public:
             Buf chunk = _chunks.front();
             _chunks.pop_front();
             // we optimize to avoid another memory copy -
-            // we detach the chunk buffer memory and pass it to the node.js buffer
+            // by detaching the chunk buffer memory and pass it to the node.js buffer
             // which is safe since we know that it was constructed in process_chunk
-            // and is uniquely pointed here.
+            // and is not sliced (otherwise delete would be unaligned),
+            // and uniquely pointed here.
             arr->Set(i, NanBufferUse(chunk.cdata(), chunk.length()));
             assert(chunk.unique_alloc());
             chunk.detach_alloc();
@@ -188,8 +189,7 @@ NAN_METHOD(DedupChunker::push)
 NAN_METHOD(DedupChunker::flush)
 {
     NanScope();
-    if (args.Length() != 1
-        || !args[0]->IsFunction()) {
+    if (args.Length() != 1 || !args[0]->IsFunction()) {
         return NanThrowError("DedupChunker::flush expected arguments function(callback)");
     }
     v8::Local<v8::Object> self = args.This();

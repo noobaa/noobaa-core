@@ -49,6 +49,12 @@ var object_part_schema = new Schema({
         type: Number,
     },
 
+    // the sequence number, uniquely generated in the current upload for this part
+    // combined with the objectId, forms a unique identifier
+    part_sequence_number: {
+      type: Number,
+    },
+
     // list of chunks (copies)
     chunks: [{
 
@@ -79,6 +85,8 @@ var object_part_schema = new Schema({
 
 object_part_schema.index({
     obj: 1,
+    part_sequence_number: 1,
+    upload_part_number: 1, 
     start: 1,
     end: 1,
     deleted: 1, // allow to filter deleted

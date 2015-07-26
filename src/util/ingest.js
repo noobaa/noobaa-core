@@ -66,10 +66,14 @@ function test_ingest() {
             tpool: new native_util.ThreadPool(1)
         });
         var object_coding = new native_util.ObjectCoding({
-            tpool: new native_util.ThreadPool(1),
-            content_hash_type: 'sha384',
+            tpool: new native_util.ThreadPool(3),
+            digest_type: 'sha384',
             cipher_type: 'aes-256-gcm',
-            block_hash_type: 'sha1',
+            block_digest_type: 'sha1',
+            data_fragments: 2,
+            parity_fragments: 1,
+            // lrc_group_fragments: 0,
+            // lrc_parity_fragments: 0,
         });
         pipeline.pipe(transformer({
             options: {
@@ -98,7 +102,8 @@ function test_ingest() {
                 highWaterMark: 5
             },
             transform: function(chunk) {
-                return Q.ninvoke(object_coding, 'decode', chunk);
+                return chunk;
+                // return Q.ninvoke(object_coding, 'decode', chunk);
             },
         }));
 

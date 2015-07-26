@@ -19,6 +19,7 @@ public:
     static inline Buf digest(const Buf& buf, const char* digest_name)
     {
         const EVP_MD *md = EVP_get_digestbyname(digest_name);
+        ASSERT(md, DVAL(digest_name));
         Buf digest(EVP_MD_size(md));
         uint32_t digest_len;
         EVP_MD_CTX ctx_md;
@@ -34,6 +35,7 @@ public:
     static inline Buf hmac(const Buf& buf, const Buf& key, const char* digest_name)
     {
         const EVP_MD *md = EVP_get_digestbyname(digest_name);
+        ASSERT(md, DVAL(digest_name));
         Buf digest(EVP_MD_size(md));
         size_t digest_len;
         EVP_PKEY_CTX *pctx = NULL;
@@ -49,52 +51,76 @@ public:
         return digest;
     }
 
-    static Buf encrypt(const Buf& buf, const Buf& key, const Buf& iv, const char* cipher_name)
+    static Buf encrypt(const Buf& buf, const char* cipher_name, const Buf& key, const Buf& iv)
     {
-        const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
-        ASSERT(key.length() == EVP_CIPHER_key_length(cipher),
-            DVAL(key.length()) << DVAL(EVP_CIPHER_key_length(cipher)));
-        // iv is required if the key is reused, but can be empty if the key is unique
-        ASSERT(iv.length() >= EVP_CIPHER_iv_length(cipher) || iv.length() == 0,
-            DVAL(iv.length()) << DVAL(EVP_CIPHER_iv_length(cipher)));
-        EVP_CIPHER_CTX ctx_cipher;
-        EVP_CIPHER_CTX_init(&ctx_cipher);
-        EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, NULL, NULL);
-        EVP_EncryptInit_ex(&ctx_cipher, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
-        int out_len = 0;
-        int final_len = 0;
-        const int AUTH_TAG_LEN = 16;
-        Buf out(buf.length() + EVP_CIPHER_CTX_block_size(&ctx_cipher) + AUTH_TAG_LEN);
-        EVP_EncryptUpdate(&ctx_cipher, out.data(), &out_len, buf.data(), buf.length());
-        EVP_EncryptFinal_ex(&ctx_cipher, out.data() + out_len, &final_len);
-        EVP_CIPHER_CTX_ctrl(&ctx_cipher, EVP_CTRL_GCM_GET_TAG, AUTH_TAG_LEN, out.data() + out_len + final_len);
-        EVP_CIPHER_CTX_cleanup(&ctx_cipher);
-        out.slice(0, out_len + final_len + AUTH_TAG_LEN);
-        return out;
+        Cipher c(cipher_name, key, iv);
+        return c.encrypt(buf);
     }
 
-    static Buf decrypt(const Buf& buf, const Buf& key, const Buf& iv, const char* cipher_name)
+    static Buf decrypt(const Buf& buf, const char* cipher_name, const Buf& key, const Buf& iv)
     {
-        const EVP_CIPHER *cipher = EVP_get_cipherbyname(cipher_name);
-        ASSERT(key.length() == EVP_CIPHER_key_length(cipher),
-            DVAL(key.length()) << DVAL(EVP_CIPHER_key_length(cipher)));
-        // iv is required if the key is reused, but can be empty if the key is unique
-        ASSERT(iv.length() >= EVP_CIPHER_iv_length(cipher) || iv.length() == 0,
-            DVAL(iv.length()) << DVAL(EVP_CIPHER_iv_length(cipher)));
-        EVP_CIPHER_CTX ctx_cipher;
-        EVP_CIPHER_CTX_init(&ctx_cipher);
-        EVP_DecryptInit_ex(&ctx_cipher, cipher, NULL, NULL, NULL);
-        EVP_DecryptInit_ex(&ctx_cipher, cipher, NULL, key.data(), iv.length() ? iv.data() : NULL);
-        int out_len = 0;
-        int final_len = 0;
-        Buf out(buf.length());
-        EVP_DecryptUpdate(&ctx_cipher, out.data(), &out_len, buf.data(), buf.length());
-        EVP_DecryptFinal_ex(&ctx_cipher, out.data() + out_len, &final_len);
-        // EVP_CIPHER_CTX_ctrl(&ctx_cipher, EVP_CTRL_GCM_GET_TAG, AUTH_TAG_LEN, out.data() + out_len + final_len);
-        EVP_CIPHER_CTX_cleanup(&ctx_cipher);
-        // out.slice(0, out_len + final_len + AUTH_TAG_LEN);
-        return out;
+        Cipher c(cipher_name, key, iv);
+        return c.decrypt(buf);
     }
+
+    class Cipher
+    {
+private:
+        const EVP_CIPHER *_cipher;
+        EVP_CIPHER_CTX _ctx_cipher;
+        Buf _key;
+        Buf _iv;
+public:
+        Cipher(const char* cipher_name, const Buf& key, const Buf& iv)
+            : _cipher(EVP_get_cipherbyname(cipher_name))
+            , _key(key)
+            , _iv(iv)
+        {
+            EVP_CIPHER_CTX_init(&_ctx_cipher);
+            ASSERT(_cipher, DVAL(cipher_name));
+            ASSERT(key.length() == EVP_CIPHER_key_length(_cipher),
+                   DVAL(key.length()) << DVAL(EVP_CIPHER_key_length(_cipher)));
+            // iv is required if the key is reused, but can be empty if the key is unique
+            ASSERT(iv.length() >= EVP_CIPHER_iv_length(_cipher) || iv.length() == 0,
+                   DVAL(iv.length()) << DVAL(EVP_CIPHER_iv_length(_cipher)));
+        }
+        ~Cipher()
+        {
+            EVP_CIPHER_CTX_cleanup(&_ctx_cipher);
+        }
+        Buf encrypt(const Buf& buf)
+        {
+            int out_len = 0;
+            int final_len = 0;
+            EVP_EncryptInit_ex(&_ctx_cipher, _cipher, NULL, _key.data(), _iv.length() ? _iv.data() : NULL);
+            Buf out(buf.length() + EVP_CIPHER_CTX_block_size(&_ctx_cipher));
+            EVP_EncryptUpdate(&_ctx_cipher, out.data(), &out_len, buf.data(), buf.length());
+            EVP_EncryptFinal_ex(&_ctx_cipher, out.data() + out_len, &final_len);
+            out.slice(0, out_len + final_len);
+            return out;
+        }
+        Buf decrypt(const Buf& buf)
+        {
+            int out_len = 0;
+            int final_len = 0;
+            Buf out(buf.length());
+            EVP_DecryptInit_ex(&_ctx_cipher, _cipher, NULL, _key.data(), _iv.length() ? _iv.data() : NULL);
+            EVP_DecryptUpdate(&_ctx_cipher, out.data(), &out_len, buf.data(), buf.length());
+            EVP_DecryptFinal_ex(&_ctx_cipher, out.data() + out_len, &final_len);
+            out.slice(0, out_len + final_len);
+            return out;
+        }
+        void gcm_get_auth_tag(Buf auth_tag)
+        {
+            // call gcm_get_auth_tag AFTER encrypt
+            EVP_CIPHER_CTX_ctrl(&_ctx_cipher, EVP_CTRL_GCM_GET_TAG, auth_tag.length(), auth_tag.data());
+        }
+        void gcm_set_auth_tag(Buf auth_tag)
+        {
+            // call gcm_set_auth_tag BEFORE decrypt
+            EVP_CIPHER_CTX_ctrl(&_ctx_cipher, EVP_CTRL_GCM_SET_TAG, auth_tag.length(), auth_tag.data());
+        }
+    };
 
 };
 

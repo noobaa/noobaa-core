@@ -76,8 +76,9 @@ public:
         uint8_t* data = _data;
         while (len > 0) {
             assert(begin != end);
-            int now = std::min<int>(len, begin->length());
-            memcpy(data, begin->data(), now);
+            const Buf& buf = *begin;
+            int now = std::min<int>(len, buf.length());
+            memcpy(data, buf.data(), now);
             data += now;
             len -= now;
             begin++;

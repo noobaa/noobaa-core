@@ -34,9 +34,13 @@ private:
 private:
     class EncodeJob;
     class DecodeJob;
-    std::string _content_hash_type;
+    std::string _digest_type;
     std::string _cipher_type;
-    std::string _block_hash_type;
+    std::string _block_digest_type;
+    int _data_fragments;
+    int _parity_fragments;
+    // int _lrc_group_fragments;
+    // int _lrc_parity_fragments;
 
 private:
     static v8::Persistent<v8::Function> _ctor;

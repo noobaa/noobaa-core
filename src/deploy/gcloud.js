@@ -752,11 +752,11 @@ function main() {
 
         if (!_.isUndefined(argv.dockers)) {
             is_docker_host = true;
-            if (_.isUndefined(argv.router)) {
-                console.error('\n\n****************************************************');
+            if (_.isUndefined(argv.router) ) {
+                console.error('\n\n********************************************************************************************************');
                 console.error('You must provide weave routing machine (--router)');
-                console.error('In order to create this router, use "gcloud --set_router"');
-                console.error('****************************************************\n\n');
+                console.error('In order to create this router, use (without any additional parameters)"gcloud --set_router --region <X>"');
+                console.error('********************************************************************************************************\n\n');
                 return;
             } else {
                 router_address = argv.router;

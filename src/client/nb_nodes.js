@@ -180,6 +180,7 @@ nb_api.factory('nbNodes', [
 
         function add_node() {
             var scope = $rootScope.$new();
+
             scope.$location = $location;
             scope.stage = 1;
             var config_json = {
@@ -207,13 +208,34 @@ nb_api.factory('nbNodes', [
             }, {
                 name: 'Use ' + secured_host,
                 value: scope.encodedDataIP
-            }, ];
+            }, {
+                name: 'Use custom DNS',
+                value: ''
+            },];
             console.log('type options', scope.typeOptions);
             scope.encoding = {
-                type: scope.typeOptions[0].value
+                type: scope.typeOptions[0].value,
+                new_dns: '',
+                show_other_dns: false
             };
 
             console.log(JSON.stringify(config_json), String.toString(config_json), 'encoded', encodedData);
+
+            scope.dns_select = function(selected_value){
+                if (scope.typeOptions[0].value !== selected_value &&
+                    scope.typeOptions[1].value !== selected_value ){
+                        scope.encoding.show_other_dns = true;
+                    }else
+                    {
+                        scope.encoding.show_other_dns = false;
+                    }
+            };
+            scope.new_dns = function() {
+                config_json.address = 'wss://' +scope.encoding.new_dns+':'+ nbSystem.system.ssl_port;
+                encodedData = $window.btoa(JSON.stringify(config_json));
+                scope.typeOptions[2].value = encodedData;
+                scope.encoding.type = scope.typeOptions[2].value;
+            };
             scope.next_stage = function() {
                 scope.stage += 1;
                 if (scope.stage > 4) {

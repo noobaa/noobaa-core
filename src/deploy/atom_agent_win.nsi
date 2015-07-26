@@ -12,11 +12,11 @@ ${StrRep}
 
 
 ; Usage example:
-; noobaa-s3rest.exe /address "wss://noobaa-alpha.herokuapp.com" /S /system_name demo /access_key 123 /secret_key abc
+; noobaa-setup.exe /address "wss://noobaa-alpha.herokuapp.com" /S /system_name demo /access_key 123 /secret_key abc
 ;
 ; or
 ;
-; noobaa-s3rest.exe /S /config <agent_conf.json with base 64 encoding>
+; noobaa-setup.exe /S /config <agent_conf.json with base 64 encoding>
 ;
 
 BrandingText "${NB}"
@@ -79,7 +79,7 @@ Function .onInit
 		${If} ${Errors}
 			IfFileExists $INSTDIR\agent_conf.json SkipError AbortInstall
 				AbortInstall:
-					MessageBox MB_OK "missing /config parameter!"
+					MessageBox MB_OK "We are missing the /config parameter. Please copy the config value from the 'Add Node' wizard and run the setup again"
 					Abort
 				SkipError:
 					StrCpy $UPGRADE "true"

@@ -72,10 +72,15 @@
                         <p class="text-left" style="margin-top: 20px">
                             ** Use the following arguments for silent install to this system:
                         </p>
-                        <select class="form-control" ng-model="encoding.type" required ng-options='option.value as option.name for option in typeOptions' >
+                        <select class="form-control" ng-model="encoding.type" required ng-options='option.value as option.name for option in typeOptions' ng-change="dns_select(encoding.type)">
                         </select>
                         <br>
                         <br>
+                        <span ng-show="encoding.show_other_dns" >
+                            <div class="form-group">
+                                <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="enter other DNS name" ng-model="encoding.new_dns" ng-change="new_dns()" ng-model-options="{debounce: 700}" />
+                            </div>
+                        </span>
 
                         <pre style="font-size: 11px; color: hsl(0,0%,50%)" class="block" nb-clipboard="'/S /config ' + encoding.type" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
                     </div>

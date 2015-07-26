@@ -181,7 +181,7 @@ function heartbeat(req) {
             var updates = {};
 
             var node_listen_addr = 'n2n://' + node.peer_id;
-            dbg.log0('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
+            dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
             server_rpc.map_address_to_connection(node_listen_addr, req.connection);
 
             // TODO detect nodes that try to change ip, port too rapidly

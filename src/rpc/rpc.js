@@ -111,7 +111,7 @@ RPC.prototype.register_service = function(api, server, options) {
         dbg.log0('RPC register_service: calling _int() for', api.name);
         server._init();
     } else {
-        dbg.log0('RPC register_service:', api.name, 'does not supply an _init() function');
+        dbg.log2('RPC register_service:', api.name, 'does not supply an _init() function');
     }
 };
 
@@ -299,7 +299,7 @@ RPC.prototype.handle_request = function(conn, msg) {
                 req.auth_token = conn.auth_token;
             }
 
-            dbg.log1('RPC handle_request: ENTER',
+            dbg.log3('RPC handle_request: ENTER',
                 'srv', req.srv,
                 'reqid', req.reqid,
                 'connid', conn.connid);
@@ -337,7 +337,7 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             req.reply = reply;
 
-            dbg.log1('RPC handle_request: COMPLETED',
+            dbg.log3('RPC handle_request: COMPLETED',
                 'srv', req.srv,
                 'reqid', req.reqid,
                 'connid', conn.connid);
@@ -508,7 +508,7 @@ RPC.prototype._accept_new_connection = function(conn) {
     // always replace previous connection in the address map,
     // assuming the new connection is preferred.
     if (!conn.transient) {
-        dbg.log0('RPC NEW CONNECTION', conn.connid, conn.url.href);
+        dbg.log3('RPC NEW CONNECTION', conn.connid, conn.url.href);
         this._connection_by_address[conn.url.href] = conn;
     }
     conn._rpc_req_seq = 1;
@@ -560,7 +560,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
             // remove the backoff once connected
             delete conn._reconn_backoff;
 
-            dbg.log0('RPC RECONNECTED', addr_url.href,
+            dbg.log1('RPC RECONNECTED', addr_url.href,
                 'reconn_backoff', reconn_backoff);
 
             self.emit('reconnect', conn);
@@ -595,7 +595,7 @@ RPC.prototype._connection_closed = function(conn) {
 
     conn.closed = true;
 
-    dbg.log0('RPC _connection_closed:', conn.connid);
+    dbg.log3('RPC _connection_closed:', conn.connid);
 
     // remove from connection pool
     if (!conn.transient && self._connection_by_address[conn.url.href] === conn) {

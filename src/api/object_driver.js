@@ -159,7 +159,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             end: start + stream._pos + chunk.length,
                             crypt: crypt,
                             encrypted_chunk: encrypted_chunk,
-                            part_sequence_number: part_sequence_number,
+                            part_sequence_number:  part_sequence_number,
 
                         };
                         ++part_sequence_number;
@@ -194,7 +194,6 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 return self.client.object.allocate_object_parts({
                         bucket: params.bucket,
                         key: params.key,
-                        //TODO: NB here the seq is 0
                         parts: _.map(parts, function(part) {
                             var p = {
                                 start: part.start,
@@ -204,14 +203,13 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                                 upload_part_number: upload_part_number,
                                 part_sequence_number: part.part_sequence_number
                             };
-                            dbg.log0('upload_stream: allocating specific part ul#', p.upload_part_number, 'seq#', p.part_sequence_number);
+                            dbg.log3('upload_stream: allocating specific part ul#', p.upload_part_number, 'seq#', p.part_sequence_number);
                             return p;
                         })
                     })
                     .then(function(res) {
                         // push parts down the pipe
                         var part;
-                        dbg.log0('NBNB:: upload_stream: got res from alloc', res);
                         for (var i = 0; i < res.parts.length; i++) {
                             if (res.parts[i].dedup) {
                                 part = parts[i];

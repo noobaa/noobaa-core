@@ -22,6 +22,7 @@ var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var os_util = require('../util/os_util');
 var diag = require('../util/diagnostics');
+var putil = require('../util/promise_utils');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
 
@@ -505,13 +506,25 @@ Agent.prototype.read_block = function(req) {
         });
 };
 
+var should_delay = 0;
 Agent.prototype.write_block = function(req) {
     var self = this;
     var block_id = req.rpc_params.block_id;
     var data = req.rpc_params.data;
-    dbg.log0('AGENT write_block', block_id, data.length);
-    self.store_cache.invalidate(block_id);
-    return self.store.write_block(block_id, data);
+
+    return Q.fcall(function() {
+          /*  console.warn('AGENT write_block before delay');
+            if (++should_delay % 5 === 0) {
+                return putil.delay_unblocking(42*1000);
+            } else {
+                return;
+            }*/
+        })
+        .then(function(delay) {
+            dbg.log0('AGENT write_block', block_id, data.length);
+            self.store_cache.invalidate(block_id);
+            return self.store.write_block(block_id, data);
+        });
 };
 
 Agent.prototype.replicate_block = function(req) {

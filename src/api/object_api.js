@@ -184,6 +184,9 @@ module.exports = {
                                 upload_part_number: {
                                     type: 'integer',
                                 },
+                                part_sequence_number: {
+                                    type: 'integer',
+                                },
                             }
                         }
                     }
@@ -516,6 +519,9 @@ module.exports = {
                     type: 'integer',
                 },
                 upload_part_number: {
+                    type: 'integer',
+                },
+                part_sequence_number: {
                     type: 'integer',
                 },
                 kfrag: {

@@ -115,8 +115,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     var self = this;
     var start = params.start || 0;
     var upload_part_number = params.upload_part_number || 0;
+    var part_sequence_number = params.part_sequence_number || 0;
 
-    dbg.log0('upload_stream_parts: start', params.key, 'part number', upload_part_number);
+    dbg.log0('upload_stream_parts: start', params.key, 'part number', upload_part_number,
+        'sequence number', part_sequence_number);
     return Q.fcall(function() {
         var pipeline = new Pipeline(params.source_stream);
 
@@ -156,8 +158,11 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             start: start + stream._pos,
                             end: start + stream._pos + chunk.length,
                             crypt: crypt,
-                            encrypted_chunk: encrypted_chunk
+                            encrypted_chunk: encrypted_chunk,
+                            part_sequence_number: part_sequence_number,
+
                         };
+                        ++part_sequence_number;
                         stream._pos += chunk.length;
                         return part;
                     });
@@ -180,6 +185,8 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 objectMode: true,
                 highWaterMark: 10
             },
+            //TODO:: NB
+            // if special RC for stopping recieved, stop all the pipe
             transform: function(parts) {
                 var stream = this;
                 dbg.log0('upload_stream: allocating parts', parts.length);
@@ -187,20 +194,24 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 return self.client.object.allocate_object_parts({
                         bucket: params.bucket,
                         key: params.key,
+                        //TODO: NB here the seq is 0
                         parts: _.map(parts, function(part) {
                             var p = {
                                 start: part.start,
                                 end: part.end,
                                 crypt: part.crypt,
                                 chunk_size: part.encrypted_chunk.length,
-                                upload_part_number: upload_part_number
+                                upload_part_number: upload_part_number,
+                                part_sequence_number: part.part_sequence_number
                             };
+                            dbg.log0('upload_stream: allocating specific part ul#', p.upload_part_number, 'seq#', p.part_sequence_number);
                             return p;
                         })
                     })
                     .then(function(res) {
                         // push parts down the pipe
                         var part;
+                        dbg.log0('NBNB:: upload_stream: got res from alloc', res);
                         for (var i = 0; i < res.parts.length; i++) {
                             if (res.parts[i].dedup) {
                                 part = parts[i];
@@ -229,7 +240,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
             transform: function(part) {
                 if (part.dedup) return;
                 return self._write_part_blocks(
-                        params.bucket, params.key, part)
+                        params.bucket, params.key, part, part.part_sequence_number)
                     .thenResolve(part);
             }
         }));
@@ -314,7 +325,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
  * _write_part_blocks
  *
  */
-ObjectDriver.prototype._write_part_blocks = function(bucket, key, part) {
+ObjectDriver.prototype._write_part_blocks = function(bucket, key, part, part_sequence_number) {
     var self = this;
 
     if (part.dedup) {
@@ -339,6 +350,7 @@ ObjectDriver.prototype._write_part_blocks = function(bucket, key, part) {
                 block: block,
                 buffer: buffer_per_fragment[fragment_index],
                 remaining_attempts: 20,
+                part_sequence_number: part_sequence_number,
             });
         }));
     }));
@@ -365,7 +377,8 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
             var bad_block_params =
                 _.extend(_.pick(params, 'bucket', 'key', 'start', 'end', 'fragment'), {
                     block_id: params.block.address.id,
-                    is_write: true
+                    is_write: true,
+                    part_sequence_number: params.part_sequence_number,
                 });
             dbg.log0('write block remaining attempts',
                 params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));

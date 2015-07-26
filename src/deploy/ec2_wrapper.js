@@ -427,7 +427,7 @@ function get_object(ip) {
  * scale_agent_instances
  *
  */
-function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
+function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region,agent_conf) {
     return describe_instances({
         Filters: [{
             Name: 'instance-state-name',
@@ -483,7 +483,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
                 }
                 new_count += region_count;
             }
-            return scale_region(region_name, region_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win);
+            return scale_region(region_name, region_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
     });
 }
@@ -493,7 +493,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
  * add_agent_region_instances
  *
  */
-function add_agent_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win) {
+function add_agent_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
     var instance_type = 't2.micro';
     // the run script to send to started instances
     var run_script = fs.readFileSync(__dirname + '/init_agent.sh', 'UTF8');
@@ -516,6 +516,8 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
         if (is_win) {
             run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
             run_script = "<script>"+run_script+"</script>";
+            run_script = run_script.replace('${env_name}', app_name);
+            run_script = run_script.replace('$agent_conf', agent_conf);
             instance_type = 't2.micro';
         } else {
 
@@ -525,7 +527,8 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
             if (test_instances_counter !== 1) {
                 throw new Error('init_agent.sh expected to contain default env "test"', test_instances_counter);
             }
-            run_script = run_script.replace('test', app_name);
+            run_script = run_script.replace('${env_name}', app_name);
+            run_script = run_script.replace('$agent_conf', agent_conf);
         }
 
     }
@@ -659,7 +662,7 @@ function ec2_wait_for(region_name, state_name, params) {
  * @param instances - array of existing instances
  *
  */
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf) {
     // always make sure the region has the security group and key pair
     return Q
         .fcall(function() {
@@ -674,7 +677,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
             if (count > instances.length) {
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
-                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win);
+                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win,agent_conf);
             }
 
             // need to terminate

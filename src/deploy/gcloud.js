@@ -38,6 +38,7 @@ if (!process.env.SERVICE_ACCOUNT_EMAIL) {
 
 var SERVICE_ACCOUNT_EMAIL = '';
 var SERVICE_ACCOUNT_KEY_FILE = '';
+var agent_conf_arg = '';
 var authClient = '';
 
 var router_address = '0.0.0.0';
@@ -95,7 +96,7 @@ function import_key_pair_to_region() {
 
 }
 
-function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region) {
+function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region,agent_conf) {
 
     return describe_instances({
         filter: 'status ne STOPPING '
@@ -159,7 +160,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
                 new_count += zone_count;
             }
 
-            return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win);
+            return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf);
         }));
     }).fail(function(err) {
         console.log('####');
@@ -233,13 +234,13 @@ function foreach_zone(func) {
 }
 
 
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf) {
     //console.log('scale region from ' + instances.length + ' to count ' + count);
     // need to create
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win)
+        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win,agent_conf)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
                 instance_creation_error_handler,
@@ -474,9 +475,10 @@ function getInstanceDataPerInstanceId(instanceId) {
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win) {
+function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win,agent_conf) {
     var deferred = Q.defer();
-    console.log('adding to region ' + region_name + ' ' + count + ' instances');
+
+    console.log('adding to region ' + region_name + ' ' + count + ' instances',agent_conf);
     var index = 0;
     promiseWhile(function() {
             return index < count;
@@ -507,7 +509,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         number_of_dockers = 0;
                     }
                     var instance_name = '';
-                    if (router_address==="0.0.0.0") {
+                    if (router_address==="0.0.0.0" && is_docker_host ) {
                         machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro';
                         instance_name = 'router-for-' + app_name.replace(/\./g, "-");
                     }else{
@@ -559,6 +561,9 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                 }, {
                                     key: 'dockers',
                                     value: number_of_dockers
+                                }, {
+                                    key: 'agent_conf',
+                                    value: agent_conf
                                 }, {
                                     key: 'env',
                                     value: noobaa_env_name
@@ -703,6 +708,15 @@ function init(callback) {
 
 function main() {
     console.log('before init');
+    if (_.isUndefined(argv.agent_conf)) {
+
+        console.error('\n\n******************************************');
+        console.error('Please provide --agent_conf (base64, copy from UI)');
+        console.error('******************************************\n\n');
+        throw new Error('MISSING --agent_conf');
+    } else {
+        agent_conf_arg = argv.agent_conf;
+    }
     if (_.isUndefined(argv.app)) {
 
         console.error('\n\n******************************************');
@@ -731,6 +745,7 @@ function main() {
         console.error('****************************************************\n\n');
         return;
     }
+
     init(function(data) {
         var is_docker_host = false;
 
@@ -761,12 +776,12 @@ function main() {
             } else {
                 //add router
                 cloud_context.counter = 0;
-                add_region_instances(argv.region, 1, true, 0, false);
+                add_region_instances(argv.region, 1, true, 0, false,agent_conf_arg);
             }
         } else if (!_.isUndefined(argv.scale)) {
             // add a --term flag to allow removing nodes
             //gcloud.js --app noobaa-test-1 --scale 20 --is_win
-            scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers, argv.is_win, argv.filter_region)
+            scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers, argv.is_win, argv.region,agent_conf_arg)
                 .then(function(res) {
                     console_inspect('Scale: completed to ' + argv.scale);
                     return describe_instances().then(print_instances);

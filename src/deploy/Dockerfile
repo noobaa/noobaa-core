@@ -5,11 +5,10 @@ ADD supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 RUN apt-get -y update && apt-get -y install curl git build-essential libssl-dev ssh supervisor
 RUN echo "#!/bin/bash" >> /noobaa/install-agent.sh
 RUN echo "cd /noobaa" >> /noobaa/install-agent.sh
-RUN echo "curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >/
-tmp/noobaa-setup" >> /noobaa/install-agent.sh
+#JENKINS_KEY replaced by docker_setup.sh - get it from metadata key, defined by gcloud.js
+RUN echo "curl --insecure -L https://<ENV_PLACEHOLDER>:8443/public/noobaa-setup >/tmp/noobaa-setup" >> /noobaa/install-agent.sh
 RUN echo "sudo chmod +x /tmp/noobaa-setup" >> /noobaa/install-agent.sh
-RUN echo "/tmp/noobaa-setup /S /config <config>> /noobaa
-/install-agent.sh
+RUN echo "/tmp/noobaa-setup /S /config <AGENT_CONF_PLACEHOLDER>" >> /noobaa/install-agent.sh
 RUN echo ""
 RUN chmod +x /noobaa/install-agent.sh
 RUN /noobaa/install-agent.sh

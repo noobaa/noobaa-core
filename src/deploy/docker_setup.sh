@@ -13,6 +13,7 @@ if [ ! -d "/noobaa" ]; then
 
 	network=$(curl http://metadata/computeMetadata/v1/instance/attributes/network -H "Metadata-Flavor: Google")
 	router=$(curl http://metadata/computeMetadata/v1/instance/attributes/router -H "Metadata-Flavor: Google")
+	agent_conf=$(curl http://metadata/computeMetadata/v1/instance/attributes/agent_conf -H "Metadata-Flavor: Google")
 
 	sudo curl -L git.io/weave -o /usr/local/bin/weave
 	sudo chmod a+x /usr/local/bin/weave
@@ -44,6 +45,7 @@ if [ ! -d "/noobaa" ]; then
 	fi
 	echo 'Current ENV:' $ENV_NAME
 	sudo sed -i "s/<ENV_PLACEHOLDER>/$ENV_NAME/g" /noobaa/Dockerfile
+	sudo sed -i "s/<AGENT_CONF_PLACEHOLDER>/$agent_conf/g" /noobaa/Dockerfile
 	sudo sed -i "s/<ENV_PLACEHOLDER>/$ENV_NAME/g" /noobaa/start_noobaa_docker.sh
 	sudo docker build -t noobaa .
 	COUNTER=0

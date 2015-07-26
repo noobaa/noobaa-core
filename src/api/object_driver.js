@@ -185,8 +185,6 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 objectMode: true,
                 highWaterMark: 10
             },
-            //TODO:: NB
-            // if special RC for stopping recieved, stop all the pipe
             transform: function(parts) {
                 var stream = this;
                 dbg.log0('upload_stream: allocating parts', parts.length);

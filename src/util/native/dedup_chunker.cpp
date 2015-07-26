@@ -63,13 +63,13 @@ DedupChunker::_deduper(
 /**
  *
  *
- * DedupChunker::Job
+ * DedupChunker::Worker
  *
- * job submitted from nodejs thread to threadpool threads
+ * worker submitted from nodejs thread to threadpool threads
  * for offloading and also to use multiple threads when running multiple streams.
  *
  */
-class DedupChunker::Job : public ThreadPool::Job
+class DedupChunker::Worker : public ThreadPool::Worker
 {
 private:
     DedupChunker& _chunker;
@@ -80,7 +80,7 @@ private:
 public:
 
     // ctor with data buffer
-    explicit Job(
+    explicit Worker(
         DedupChunker& chunker,
         v8::Handle<v8::Object> chunker_handle,
         v8::Handle<v8::Value> buf_handle,
@@ -95,7 +95,7 @@ public:
     }
 
     // ctor for flush (without data buffer)
-    explicit Job(
+    explicit Worker(
         DedupChunker& chunker,
         v8::Handle<v8::Object> chunker_handle,
         NanCallbackSharedPtr callback)
@@ -106,12 +106,12 @@ public:
         _persistent->Set(0, chunker_handle);
     }
 
-    virtual ~Job()
+    virtual ~Worker()
     {
         NanDisposePersistent(_persistent);
     }
 
-    virtual void run() override
+    virtual void work() override
     {
         if (!_buf.data()) {
             // just flush
@@ -136,8 +136,8 @@ public:
             } else {
                 // offset==0 means no chunk boundary
                 // we must make a copy of the slice buffer here because we need to keep
-                // it till the next job and the nodejs buffer handle is only attached
-                // to the current job.
+                // it till the next worker and the nodejs buffer handle is only attached
+                // to the current worker.
                 Buf slice(len);
                 memcpy(slice.data(), datap, len);
                 _chunker._chunk_slices.push_back(slice);
@@ -163,7 +163,7 @@ public:
         _chunks.push_back(chunk);
     }
 
-    virtual void done() override
+    virtual void after_work() override
     {
         NanScope();
         int len = _chunks.size();
@@ -199,8 +199,8 @@ NAN_METHOD(DedupChunker::push)
     ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
     v8::Local<v8::Object> buffer = args[0]->ToObject();
     NanCallbackSharedPtr callback(new NanCallback(args[1].As<v8::Function>()));
-    Job* job = new Job(chunker, self, buffer, callback);
-    tpool.submit(job);
+    Worker* worker = new Worker(chunker, self, buffer, callback);
+    tpool.submit(worker);
     NanReturnUndefined();
 }
 
@@ -214,7 +214,7 @@ NAN_METHOD(DedupChunker::flush)
     DedupChunker& chunker = *Unwrap<DedupChunker>(self);
     ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
     NanCallbackSharedPtr callback(new NanCallback(args[0].As<v8::Function>()));
-    Job* job = new Job(chunker, self, callback);
-    tpool.submit(job);
+    Worker* worker = new Worker(chunker, self, callback);
+    tpool.submit(worker);
     NanReturnUndefined();
 }

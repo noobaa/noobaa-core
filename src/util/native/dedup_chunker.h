@@ -31,7 +31,7 @@ private:
     }
 
 private:
-    class Job;
+    class Worker;
     typedef uint64_t T;
     typedef GF2<T> GF;
     typedef RabinFingerprint<GF> RabinHasher;

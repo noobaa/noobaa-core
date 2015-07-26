@@ -62,10 +62,10 @@ struct Fragment
 /**
  *
  *
- * EncodeJob
+ * EncodeWorker
  *
  */
-class ObjectCoding::EncodeJob : public ThreadPool::Job
+class ObjectCoding::EncodeWorker : public ThreadPool::Worker
 {
 private:
     ObjectCoding& _coding;
@@ -76,7 +76,7 @@ private:
     Buf _secret_key;
     std::vector<Fragment> _fragments;
 public:
-    explicit EncodeJob(
+    explicit EncodeWorker(
         ObjectCoding& coding,
         v8::Handle<v8::Object> object_coding_handle,
         v8::Handle<v8::Value> buf_handle,
@@ -92,12 +92,12 @@ public:
         _persistent->Set(1, buf_handle);
     }
 
-    virtual ~EncodeJob()
+    virtual ~EncodeWorker()
     {
         NanDisposePersistent(_persistent);
     }
 
-    virtual void run() override
+    virtual void work() override
     {
         // COMPUTE CONTENT VERIFIER
         if (!_coding._digest_type.empty()) {
@@ -134,7 +134,7 @@ public:
             Buf parity(block_len, 0);
             uint8_t* target = parity.data();
             for (int j=0; j<data_frags; ++j) {
-                uint8_t* source = _fragments[j].block.data();
+                const uint8_t* source = _fragments[j].block.data();
                 for (int k=0; k<block_len; ++k) {
                     target[k] ^= source[k];
                 }
@@ -150,7 +150,7 @@ public:
         }
     }
 
-    virtual void done() override
+    virtual void after_work() override
     {
         NanScope();
         v8::Local<v8::Object> obj(NanNew<v8::Object>());
@@ -182,10 +182,10 @@ public:
 /**
  *
  *
- * DecodeJob
+ * DecodeWorker
  *
  */
-class ObjectCoding::DecodeJob : public ThreadPool::Job
+class ObjectCoding::DecodeWorker : public ThreadPool::Worker
 {
 private:
     ObjectCoding& _coding;
@@ -202,7 +202,7 @@ private:
     int _parity_fragments;
     std::vector<Fragment> _fragments;
 public:
-    explicit DecodeJob(
+    explicit DecodeWorker(
         ObjectCoding& coding,
         v8::Handle<v8::Object> object_coding_handle,
         v8::Handle<v8::Object> chunk,
@@ -236,12 +236,12 @@ public:
         }
     }
 
-    virtual ~DecodeJob()
+    virtual ~DecodeWorker()
     {
         NanDisposePersistent(_persistent);
     }
 
-    virtual void run() override
+    virtual void work() override
     {
         // VERIFY BLOCKS HASH
         if (!_block_digest_type.empty()) {
@@ -257,7 +257,7 @@ public:
         std::vector<Buf> data_blocks(_data_fragments);
         for (size_t i=0; i<data_blocks.size(); ++i) {
             data_blocks[i] = _fragments[i].block;
-            std::cout << DVAL(data_blocks[i].length()) << std::endl;
+            // std::cout << DVAL(data_blocks[i].length()) << std::endl;
         }
         const int encrypted_len = data_blocks[0].length() * _data_fragments;
         Buf encrypted(encrypted_len, data_blocks.begin(), data_blocks.end());
@@ -280,7 +280,7 @@ public:
         }
     }
 
-    virtual void done() override
+    virtual void after_work() override
     {
         NanScope();
         v8::Local<v8::Object> chunk(_persistent->Get(1)->ToObject());
@@ -306,8 +306,8 @@ NAN_METHOD(ObjectCoding::encode)
     ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
     v8::Local<v8::Object> buffer = args[0]->ToObject();
     NanCallbackSharedPtr callback(new NanCallback(args[1].As<v8::Function>()));
-    EncodeJob* job = new EncodeJob(coding, self, buffer, callback);
-    tpool.submit(job);
+    EncodeWorker* worker = new EncodeWorker(coding, self, buffer, callback);
+    tpool.submit(worker);
     NanReturnUndefined();
 }
 
@@ -322,7 +322,7 @@ NAN_METHOD(ObjectCoding::decode)
     ThreadPool& tpool = *Unwrap<ThreadPool>(self->Get(NanNew("tpool"))->ToObject());
     v8::Local<v8::Object> chunk = args[0]->ToObject();
     NanCallbackSharedPtr callback(new NanCallback(args[1].As<v8::Function>()));
-    DecodeJob* job = new DecodeJob(coding, self, chunk, callback);
-    tpool.submit(job);
+    DecodeWorker* worker = new DecodeWorker(coding, self, chunk, callback);
+    tpool.submit(worker);
     NanReturnUndefined();
 }

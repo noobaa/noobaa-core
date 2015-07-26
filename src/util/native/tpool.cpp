@@ -46,10 +46,10 @@ ThreadPool::ThreadPool(int nthreads)
 
     // set the async handle to unreferenced (note that ref/unref is boolean, not counter)
     // so that it won't stop the event loop from finishing if it's the only handle left,
-    // and submit() and done_cb() will ref/unref accordingly
-    uv_async_init(uv_default_loop(), &_async_done, &job_done_uv);
-    uv_unref(reinterpret_cast<uv_handle_t*>(&_async_done));
-    _async_done.data = this;
+    // and submit() and completion_cb() will ref/unref accordingly
+    uv_async_init(uv_default_loop(), &_async_completion, &work_completed_uv);
+    uv_unref(reinterpret_cast<uv_handle_t*>(&_async_completion));
+    _async_completion.data = this;
 
     // atexit(atexit_cb);
 }
@@ -62,42 +62,41 @@ ThreadPool::~ThreadPool()
         _thread_ids.pop_front();
         uv_thread_join(&tid);
     }
-    uv_close(reinterpret_cast<uv_handle_t*>(&_async_done), NULL);
+    uv_close(reinterpret_cast<uv_handle_t*>(&_async_completion), NULL);
 }
 
 void
 ThreadPool::set_nthreads(int nthreads)
 {
     MutexCond::Lock lock(_mutex);
-    if (nthreads > _nthreads) {
-        for (int i=_nthreads; i<nthreads; ++i) {
-            uv_thread_t tid;
-            uv_thread_create(
-                &tid,
-                &thread_main_uv,
-                new ThreadSpec(this, i));
-            _thread_ids.push_back(tid);
-        }
-    }
+    int prev_nthreads = _nthreads;
     _nthreads = nthreads;
+    for (int i=prev_nthreads; i<nthreads; ++i) {
+        uv_thread_t tid;
+        uv_thread_create(
+            &tid,
+            &thread_main_uv,
+            new ThreadSpec(this, i));
+        _thread_ids.push_back(tid);
+    }
     _mutex.signal();
 }
 
 void
-ThreadPool::submit(ThreadPool::Job* job)
+ThreadPool::submit(ThreadPool::Worker* worker)
 {
     if (_nthreads <= 0) {
         // fallback to direct call when 0 threads
-        job->run();
-        job->done();
+        worker->work();
+        worker->after_work();
     } else {
         MutexCond::Lock lock(_mutex);
         if (_refs == 0) {
             // see ctor comment on async handle
-            uv_ref(reinterpret_cast<uv_handle_t*>(&_async_done));
+            uv_ref(reinterpret_cast<uv_handle_t*>(&_async_completion));
         }
         _refs++;
-        _run_queue.push_back(job);
+        _pending_workers.push_back(worker);
         _mutex.signal();
     }
 }
@@ -106,66 +105,66 @@ void
 ThreadPool::thread_main(ThreadPool::ThreadSpec& spec)
 {
     int index = spec.index;
-    Job* job = 0;
+    Worker* worker = 0;
     // std::cout << "Started Thread " << index << std::endl;
 
-    while (true) {
+    while (index < _nthreads) {
 
-        if (job) {
+        if (worker) {
             // running lockless
             try {
-                job->run();
+                worker->work();
             } catch (const std::exception& ex) {
-                PANIC("ThreadPool Job run exception " << ex.what());
+                PANIC("ThreadPool Worker work exception " << ex.what());
             }
         }
 
         // scope to unlock the mutex before accessing shared structures
         MutexCond::Lock lock(_mutex);
 
-        if (job) {
-            // push last job to done queue and notify the uv event loop to process the done queue
-            _done_queue.push_back(job);
-            job = 0;
-            uv_async_send(&_async_done);
+        if (worker) {
+            // push last worker to done queue and notify the uv event loop to process the done queue
+            _completed_workers.push_back(worker);
+            worker = 0;
+            uv_async_send(&_async_completion);
         }
 
         // wait for signal if no items
-        // while waiting the mutex is released, but reacquired once wait returns
-        while (index < _nthreads && _run_queue.empty()) {
+        // while waiting the mutex is released, and re-acquired before wait returns
+        while (index < _nthreads && _pending_workers.empty()) {
             _mutex.wait();
         }
         if (index < _nthreads) {
-            job = _run_queue.front();
-            _run_queue.pop_front();
+            worker = _pending_workers.front();
+            _pending_workers.pop_front();
         }
     }
 }
 
 void
-ThreadPool::done_cb()
+ThreadPool::completion_cb()
 {
     // under mutex we make copy of the list
     // to avoid recursive mutex locking which uv doesnt support cross platform
-    std::list<Job*> local_done_queue;
+    std::list<Worker*> completed;
     {
         MutexCond::Lock lock(_mutex);
-        local_done_queue = _done_queue;
-        _done_queue = std::list<Job*>();
-        _refs -= local_done_queue.size();
+        completed = _completed_workers;
+        _completed_workers = std::list<Worker*>();
+        _refs -= completed.size();
         if (_refs == 0) {
             // see ctor comment on async handle
-            uv_unref(reinterpret_cast<uv_handle_t*>(&_async_done));
+            uv_unref(reinterpret_cast<uv_handle_t*>(&_async_completion));
         }
     }
-    // call done() of each job not under mutex
-    while (!local_done_queue.empty()) {
-        Job* job = local_done_queue.front();
-        local_done_queue.pop_front();
+    // call after_work() of each worker not under mutex
+    while (!completed.empty()) {
+        Worker* worker = completed.front();
+        completed.pop_front();
         try {
-            job->done();
+            worker->after_work();
         } catch (const std::exception& ex) {
-            PANIC("ThreadPool Job done exception " << ex.what());
+            PANIC("ThreadPool Worker after_work exception " << ex.what());
         }
     }
 }
@@ -191,8 +190,8 @@ ThreadPool::thread_main_uv(void* arg)
 }
 
 void
-ThreadPool::job_done_uv(uv_async_t* async, int)
+ThreadPool::work_completed_uv(uv_async_t* async, int)
 {
     ThreadPool* tpool = static_cast<ThreadPool*>(async->data);
-    tpool->done_cb();
+    tpool->completion_cb();
 }

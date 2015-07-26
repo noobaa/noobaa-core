@@ -32,8 +32,8 @@ private:
     }
 
 private:
-    class EncodeJob;
-    class DecodeJob;
+    class EncodeWorker;
+    class DecodeWorker;
     std::string _digest_type;
     std::string _cipher_type;
     std::string _block_digest_type;

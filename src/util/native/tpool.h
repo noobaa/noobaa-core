@@ -15,13 +15,13 @@ public:
         return _nthreads;
     }
 
-    struct Job
+    struct Worker
     {
-        virtual ~Job() {}
-        virtual void run() = 0; // called from pooled thread
-        virtual void done() = 0; // called on event loop
+        virtual ~Worker() {}
+        virtual void work() = 0; // called from pooled thread
+        virtual void after_work() = 0; // called on event loop
     };
-    void submit(Job* job);
+    void submit(Worker* worker);
 
 private:
     struct ThreadSpec
@@ -35,17 +35,17 @@ private:
         }
     };
     void thread_main(ThreadSpec& spec);
-    void done_cb();
+    void completion_cb();
     static void thread_main_uv(void* arg);
-    static void job_done_uv(uv_async_t* async, int);
+    static void work_completed_uv(uv_async_t* async, int);
 
 private:
     MutexCond _mutex;
     int _nthreads;
-    uv_async_t _async_done;
+    uv_async_t _async_completion;
     std::list<uv_thread_t> _thread_ids;
-    std::list<Job*> _run_queue;
-    std::list<Job*> _done_queue;
+    std::list<Worker*> _pending_workers;
+    std::list<Worker*> _completed_workers;
     int _refs;
 
 public:

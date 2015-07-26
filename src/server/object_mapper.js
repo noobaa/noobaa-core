@@ -67,133 +67,148 @@ function allocate_object_parts(bucket, obj, parts) {
     };
 
     // dedup with existing chunks by lookup of crypt.hash_val
-    return Q.fcall(function() {
-            if (process.env.DEDUP_DISABLED === 'true') {
-                return;
-            }
-            return db.DataChunk
-                .find({
-                    system: obj.system,
-                    tier: tier_id,
-                    'crypt.hash_val': {
-                        $in: _.map(parts, function(part) {
-                            return part.crypt.hash_val;
-                        })
-                    },
-                    deleted: null,
-                })
-                .exec();
-        })
-        .then(function(dup_chunks) {
-            var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
-                return chunk.crypt.hash_val;
-            });
-
-            //No dup chunks, no need to query their blocks
-            if (!dup_chunks) {
-                return hash_val_to_dup_chunk;
-            }
-            //Query all blocks of the found dup chunks
-            var query_chunks_ids = _.flatten(_.map(hash_val_to_dup_chunk, '_id'));
-            return Q.when(
-                    db.DataBlock
+    return Q.all([
+            Q.fcall(function() {
+                if (process.env.DEDUP_DISABLED === 'true') {
+                    return;
+                }
+                return db.DataChunk
                     .find({
-                        chunk: {
-                            $in: query_chunks_ids
+                        system: obj.system,
+                        tier: tier_id,
+                        'crypt.hash_val': {
+                            $in: _.map(parts, function(part) {
+                                return part.crypt.hash_val;
+                            })
                         },
                         deleted: null,
                     })
-                    .populate('node')
-                    .exec())
-                //Associate all the blocks with their (dup_)chunks
-                .then(function(queried_blocks) {
-                    var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
-                    _.each(hash_val_to_dup_chunk, function(chunk, hash_val) {
-                        chunk.all_blocks = blocks_by_chunk_id[chunk._id];
-                    });
-                    return hash_val_to_dup_chunk;
+                    .exec();
+            })
+            .then(function(dup_chunks) {
+                var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
+                    return chunk.crypt.hash_val;
                 });
-        })
-        .then(function(hash_val_to_dup_chunk) {
-            return Q.all(_.map(parts, function(part, i) {
-                    dbg.log0('NBNB:: start of _.each');
-                    // chunk size is aligned up to be an integer multiple of kfrag*block_size
-                    var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
-                    var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
-                    var chunk;
-                    if (dup_chunk) {
-                        chunk = dup_chunk;
-                        //Verify chunk health
-                        var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
 
-                        if (dup_chunk_status.chunk_health !== 'unavailable') {
-                            //Chunk health is ok, we can mark it as dedup
-                            dbg.log3('chunk is dupped and available', dup_chunk);
-                            reply.parts[i].dedup = true;
-                        } else {
-                            //Chunk is not healthy, create a new fragment on it
-                            dbg.log2('chunk is dupped but unavailable, allocating new blocks for it', dup_chunk);
-                            unavail_dup_chunks.push(chunk);
-                        }
-                    } else {
-                        chunk = new db.DataChunk({
-                            system: obj.system,
-                            tier: tier_id,
-                            size: chunk_size,
-                            kfrag: CHUNK_KFRAG,
-                            crypt: part.crypt,
+                //No dup chunks, no need to query their blocks
+                if (!dup_chunks) {
+                    return hash_val_to_dup_chunk;
+                }
+                //Query all blocks of the found dup chunks
+                var query_chunks_ids = _.flatten(_.map(hash_val_to_dup_chunk, '_id'));
+                return Q.when(
+                        db.DataBlock
+                        .find({
+                            chunk: {
+                                $in: query_chunks_ids
+                            },
+                            deleted: null,
+                        })
+                        .populate('node')
+                        .exec())
+                    //Associate all the blocks with their (dup_)chunks
+                    .then(function(queried_blocks) {
+                        var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
+                        _.each(hash_val_to_dup_chunk, function(chunk, hash_val) {
+                            chunk.all_blocks = blocks_by_chunk_id[chunk._id];
                         });
-                        new_chunks.push(chunk);
-                    }
-                    dbg.log0('NBNB:: _.each finding ObjectPart (sys, obj, st, end, seq)',
-                        obj.system, obj.id, part.start, part.end, part.part_sequence_number);
-                    //TODO: NB search for sequence, if exists fix it (use it) and write new block to that part
-                    return Q.when(
-                            db.ObjectPart.findOne({
-                                system: obj.system,
-                                obj: obj.id,
-                                start: part.start,
-                                end: part.end,
-                                part_sequence_number: part.part_sequence_number,
-                            })
-                            .populate('chunks.chunk')
-                            .exec())
-                        .then(function(existing_part) { // No such object part from previous attempts, create it
-                            console.log('NBNB:: queried part and found', existing_part, 'for _.each part', part);
-                            if (!existing_part) {
-                                console.log('NBNB:: allocated new part');
-                                new_parts.push(new db.ObjectPart({
-                                    system: obj.system,
-                                    obj: obj.id,
-                                    start: part.start,
-                                    end: part.end,
-                                    part_sequence_number: part.part_sequence_number,
-                                    upload_part_number: part.upload_part_number || 0,
-                                    chunks: [{
-                                        chunk: chunk,
-                                        // chunk_offset: 0, // not required
-                                    }]
-                                }));
-                            } else { // Found a part from a previous attemp, use it
-                                console.warn('NBNB:: using existing part');
-                                existing_parts.push(existing_part);
-                            }
-                        });
-                }))
-                .then(function() {
-                    dbg.log2('allocate_blocks');
-                    // Allocate both for the new chunks, and the unavailable dupped chunks
-                    var chunks_for_alloc = new_chunks.concat(unavail_dup_chunks);
-                    return promise_utils.iterate(chunks_for_alloc, function(chunk) {
-                        var avoid_nodes = _.map(chunk.all_blocks, function(block) {
-                            return block.node._id.toString();
-                        });
-                        return block_allocator.allocate_block(chunk, avoid_nodes);
+                        return hash_val_to_dup_chunk;
                     });
+            }),
+            Q.fcall(function() {
+                //Check if some of the ObjectParts already exists from previous attempts
+                var query_parts_params = _.map(parts, function(part) {
+                    return {
+                        start: part.start,
+                        end: part.end,
+                        part_sequence_number: part.part_sequence_number
+                    };
                 });
+
+                return Q.when(
+                    db.ObjectPart
+                    .find({
+                        system: obj.system,
+                        obj: obj.id,
+                        $or: query_parts_params,
+                        deleted: null
+                    })
+                    .populate('chunks.chunk')
+                    .exec());
+            })
+        ])
+        .spread(function(hash_val_to_dup_chunk, existing_obj_parts) {
+            _.each(parts, function(part, i) {
+                // chunk size is aligned up to be an integer multiple of kfrag*block_size
+                var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
+                var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
+                var chunk;
+                if (dup_chunk) {
+                    chunk = dup_chunk;
+                    //Verify chunk health
+                    var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
+
+                    if (dup_chunk_status.chunk_health !== 'unavailable') {
+                        //Chunk health is ok, we can mark it as dedup
+                        dbg.log3('allocate_object_parts: chunk is dupped and available',
+                            dup_chunk);
+                        reply.parts[i].dedup = true;
+                    } else {
+                        //Chunk is not healthy, create a new fragment on it
+                        dbg.log2('allocate_object_parts: chunk is dupped but unavailable, allocating new blocks for it',
+                            dup_chunk);
+                        unavail_dup_chunks.push(chunk);
+                    }
+                } else {
+                    chunk = new db.DataChunk({
+                        system: obj.system,
+                        tier: tier_id,
+                        size: chunk_size,
+                        kfrag: CHUNK_KFRAG,
+                        crypt: part.crypt,
+                    });
+                    new_chunks.push(chunk);
+                }
+
+                if (_.find(existing_obj_parts, {
+                        start: part.start,
+                        end: part.end,
+                        part_sequence_number: part.part_sequence_number
+                    })) {
+                    dbg.log2('allocate_object_parts: found existing part, not aclcoating new',
+                        part.start, part.end, part.part_sequence_number);
+                    //part already exists, probably from a previous attempt, use it
+                    //and don't create a new part
+                    existing_parts.push();
+                } else {
+                    dbg.log3('allocate_object_parts: no existing part, aclcoating new',
+                        part.start, part.end, part.part_sequence_number);
+                    //create a new part
+                    new_parts.push(new db.ObjectPart({
+                        system: obj.system,
+                        obj: obj.id,
+                        start: part.start,
+                        end: part.end,
+                        part_sequence_number: part.part_sequence_number,
+                        upload_part_number: part.upload_part_number || 0,
+                        chunks: [{
+                            chunk: chunk,
+                            // chunk_offset: 0, // not required
+                        }]
+                    }));
+                }
+            });
+            dbg.log2('allocate_blocks');
+            // Allocate both for the new chunks, and the unavailable dupped chunks
+            var chunks_for_alloc = new_chunks.concat(unavail_dup_chunks);
+            return promise_utils.iterate(chunks_for_alloc, function(chunk) {
+                var avoid_nodes = _.map(chunk.all_blocks, function(block) {
+                    return block.node._id.toString();
+                });
+                return block_allocator.allocate_block(chunk, avoid_nodes);
+            });
         })
         .then(function(new_blocks) {
-            dbg.log0('NBNB:: then new_blocks', new_blocks, 'new_parts', new_parts, 'existing_parts', existing_parts);
             var blocks_by_chunk = _.groupBy(new_blocks, function(block) {
                 if (!block) {
                     throw new Error('allocate_object_parts: no nodes for allocation');
@@ -214,10 +229,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     blocks: new_blocks_of_chunk,
                     building: true
                 });
-                //TODO: NB make sure upload part number is returned
-                dbg.log0('NBNB:: reply_part is', reply_part, 'at idx', i);
             });
-            dbg.log0('NBNB:: reply is', reply);
             dbg.log2('create blocks', new_blocks.length);
             dbg.log2('create chunks', new_chunks);
             // we send blocks and chunks to DB in parallel,
@@ -228,16 +240,14 @@ function allocate_object_parts(bucket, obj, parts) {
             ]);
         })
         .then(function() {
-            dbg.log0('NBNB:: create parts', new_parts);
             dbg.log2('create parts', new_parts);
             return db.ObjectPart.create(new_parts);
         })
         .thenResolve(reply)
         .then(null, function(err) {
-            console.error('NBNB:: got error', err, err.stack);
+            throw new Error('allocate_object_parts: General error ' + err + err.stack);
         });
 }
-
 
 
 /**

@@ -82,14 +82,27 @@ ThreadPool::set_nthreads(int nthreads)
     _mutex.signal();
 }
 
+struct UvWorker
+{
+    uv_work_t req;
+    ThreadPool::Worker* worker;
+    static void work(uv_work_t* req)
+    {
+        UvWorker* w = static_cast<UvWorker*>(req->data);
+        w->worker->work();
+    }
+    static void after_work(uv_work_t* req, int status)
+    {
+        UvWorker* w = static_cast<UvWorker*>(req->data);
+        w->worker->after_work();
+        delete w;
+    }
+};
+
 void
 ThreadPool::submit(ThreadPool::Worker* worker)
 {
-    if (_nthreads <= 0) {
-        // fallback to direct call when 0 threads
-        worker->work();
-        worker->after_work();
-    } else {
+    if (_nthreads > 0) {
         MutexCond::Lock lock(_mutex);
         if (_refs == 0) {
             // see ctor comment on async handle
@@ -98,6 +111,15 @@ ThreadPool::submit(ThreadPool::Worker* worker)
         _refs++;
         _pending_workers.push_back(worker);
         _mutex.signal();
+    } else if (_nthreads < 0) {
+        UvWorker* w = new UvWorker;
+        w->worker = worker;
+        w->req.data = w;
+        uv_queue_work(uv_default_loop(), &w->req, &UvWorker::work, &UvWorker::after_work);
+    } else {
+        // fallback to direct call when 0 threads
+        worker->work();
+        worker->after_work();
     }
 }
 

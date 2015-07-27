@@ -7,6 +7,12 @@
 class ThreadPool : public node::ObjectWrap
 {
 public:
+
+    /**
+     * nthreads <= -1: use uv threadpool
+     * nthreads == 0: no threads, run all inline in event loop thread
+     * nthreads >= 1: create own threads
+     */
     explicit ThreadPool(int nthreads);
     virtual ~ThreadPool();
 

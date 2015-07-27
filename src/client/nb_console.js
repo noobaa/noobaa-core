@@ -38,10 +38,10 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
             //     templateUrl: 'console/resource_view.html',
             //     reloadOnSearch: false,
             // })
-            // .when('/data', {
-            //     templateUrl: 'console/data_view.html',
-            //     reloadOnSearch: false,
-            // })
+            .when('/data', {
+                templateUrl: 'console/data_view.html',
+                reloadOnSearch: false,
+            })
             .when('/tier/:tier_name', {
                 templateUrl: 'console/tier_view.html',
                 reloadOnSearch: false,
@@ -206,9 +206,9 @@ nb_console.controller('OverviewCtrl', [
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
 
-            var rest_host = ($window.location.host).replace(':'+nbSystem.system.web_port,'').replace(':'+nbSystem.system.ssl_port,':443');
-            console.log('SYS3:'+nbSystem.system.web_port+' host:'+rest_host);
-            scope.rest_endpoint = rest_host ;
+            var rest_host = ($window.location.host).replace(':' + nbSystem.system.web_port, '').replace(':' + nbSystem.system.ssl_port, ':443');
+            console.log('SYS3:' + nbSystem.system.web_port + ' host:' + rest_host);
+            scope.rest_endpoint = rest_host;
             scope.bucket_name = $scope.nbSystem.system.buckets[0].name;
             scope.rest_package = download_rest_server_package;
             console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
@@ -260,12 +260,110 @@ nb_console.controller('SystemResourceCtrl', [
 
 
 nb_console.controller('SystemDataCtrl', [
-    '$scope', '$q', 'nbSystem',
-    function($scope, $q, nbSystem) {
+    '$scope', '$q', 'nbSystem', '$rootScope', '$location', 'nbModal', 'nbClient', 'nbAlertify',
+    function($scope, $q, nbSystem, $rootScope, $location, nbModal, nbClient, nbAlertify) {
+
         $scope.nav.active = 'data';
         $scope.nav.reload_view = reload_view;
+        $scope.add_new_bucket = add_new_bucket;
+        $scope.delete_bucket = delete_bucket;
+
 
         reload_view(true);
+
+        function delete_bucket(bucket_name) {
+            console.log('attempt to delete ' + bucket_name);
+            var current_bucket = _.find(nbSystem.system.buckets, function(bucket) {
+                return bucket.name === bucket_name;
+            });
+            if (current_bucket) {
+                if (current_bucket.num_objects > 0) {
+                    nbAlertify.error('Repository contains ' + current_bucket.num_objects + ' objects. Only empty repository can be deleted.');
+                } else {
+
+                    nbAlertify.confirm('Are you sure that you want to delete ' + bucket_name + '?')
+                        .then(function(result) {
+                            console.log('in confirm');
+                            $q.when(nbClient.client.bucket.delete_bucket({
+                                    name: bucket_name,
+                                }))
+                                .then(function() {
+                                    nbAlertify.success('Repository ' + bucket_name + ' has been deleted');
+                                    reload_view();
+                                });
+
+                        })
+                        .then(null, function(err) {
+                            if (err.message !== "canceled") {
+                                nbAlertify.error('Error while trying to delete repository. ERROR:' + err.message);
+                            }
+                        });
+
+                }
+
+            } else {
+                nbAlertify.error('Repository does not exist any more.');
+                reload_view();
+            }
+        }
+
+
+        function add_new_bucket() {
+            var scope = $rootScope.$new();
+            scope.$location = $location;
+            scope.has_error = false;
+            scope.modal = nbModal({
+                template: 'console/add_new_bucket.html',
+                scope: scope,
+            });
+            scope.done = function() {
+                console.log('name:' + scope.new_bucket_name);
+                var return_value = validate_bucket_name(scope.new_bucket_name);
+                if (return_value === "ok") {
+                    $q.when(nbClient.client.bucket.create_bucket({
+                        name: scope.new_bucket_name,
+                        tiering: ['nodes']
+                    })).then(function() {
+                        console.log('created new bucket');
+                        scope.modal.modal('hide');
+                        nbAlertify.success('Congrats! '+ scope.new_bucket_name+' repository is ready');
+                        reload_view();
+                    }).then(null, function(err) {
+                        scope.error_message = 'Error:' + err.message + ',' + err.stack;
+                        scope.has_error = true;
+
+                    });
+
+                } else {
+                    scope.error_message = return_value;
+                    scope.has_error = true;
+                }
+            };
+        }
+
+        function validate_bucket_name(bucket_name) {
+            var error_message = '';
+            if ((/^[a-z0-9]+(-[a-z0-9]+)*$/.test(bucket_name) === false)) {
+                error_message =
+                    ('Bucket names can contain only lowercase letters, numbers, and hyphens. ' +
+                        'Each label must start and end with a lowercase letter or a number.');
+                return error_message;
+            }
+            if (bucket_name.length < 3 || bucket_name.length > 63) {
+                error_message = ('The bucket name must be between 3 and 63 characters.');
+                return error_message;
+            }
+            var bucket_exists = _.find(nbSystem.system.buckets, function(bucket) {
+                return bucket.name === bucket_name;
+            });
+            if (bucket_exists) {
+                error_message = ('The bucket already exists.');
+                return error_message;
+            }
+
+            return "ok";
+
+        }
 
         function reload_view(init_only) {
             return init_only ? nbSystem.init_system : nbSystem.reload_system();
@@ -507,7 +605,7 @@ nb_console.controller('BucketViewCtrl', [
                     return init_only ? nbSystem.init_system : nbSystem.reload_system();
                 })
                 .then(function() {
-                    nbFiles.set_access_keys(nbSystem.system.access_keys,nbSystem.system.web_port,nbSystem.system.ssl_port);
+                    nbFiles.set_access_keys(nbSystem.system.access_keys, nbSystem.system.web_port, nbSystem.system.ssl_port);
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;
                     });
@@ -556,11 +654,11 @@ nb_console.controller('BucketViewCtrl', [
         function rest_server_information() {
             var scope = $scope.$new();
             scope.access_keys = nbSystem.system.access_keys;
-            var rest_host = ($window.location.host).replace(':'+nbSystem.system.web_port,'').replace(':'+nbSystem.system.ssl_port,':443');
-            console.log('SYS2:'+nbSystem.system.web_port+' host:'+rest_host);
+            var rest_host = ($window.location.host).replace(':' + nbSystem.system.web_port, '').replace(':' + nbSystem.system.ssl_port, ':443');
+            console.log('SYS2:' + nbSystem.system.web_port + ' host:' + rest_host);
 
             scope.rest_endpoint = rest_host;
-            scope.bucket_name =  $routeParams.bucket_name;
+            scope.bucket_name = $routeParams.bucket_name;
             scope.rest_package = download_rest_server_package;
             console.log('rest_server_information', scope.rest_package, scope.rest_endpoint);
             console.log('rest_server_information', $window.location, $location);
@@ -640,7 +738,7 @@ nb_console.controller('FileViewCtrl', [
                     //Setting access keys.
                     //TODO: consider separation to other object with only the keys
                     //      also, check better solution in terms of security.
-                    nbFiles.set_access_keys(nbSystem.system.access_keys,nbSystem.system.web_port,nbSystem.system.ssl_port);
+                    nbFiles.set_access_keys(nbSystem.system.access_keys, nbSystem.system.web_port, nbSystem.system.ssl_port);
 
                     $scope.bucket = _.find(nbSystem.system.buckets, function(bucket) {
                         return bucket.name === $routeParams.bucket_name;

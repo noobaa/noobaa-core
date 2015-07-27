@@ -633,7 +633,7 @@ module.exports = function(params) {
              */
             if ((/^[a-z0-9]+(-[a-z0-9]+)*$/.test(bucketName) === false)) {
                 template = templateBuilder.buildError('InvalidBucketName',
-                    'Bucket names can contain lowercase letters, numbers, and hyphens. ' +
+                    'Bucket names can contain only lowercase letters, numbers, and hyphens. ' +
                     'Each label must start and end with a lowercase letter or a number.');
                 dbg.error('Error creating bucket "%s" because the name is invalid', bucketName);
                 return buildXmlResponse(res, 400, template);

@@ -35,13 +35,8 @@ NAN_METHOD(DedupChunker::new_instance)
 // the degree is should be up to the size of the type used for computation (uint64_t).
 DedupChunker::GF
 DedupChunker::_gf(
-    // 20u /* degree */, 0x9u /* poly */
-    // 25u /* degree */, 0x9u /* poly */
-    // 28u /* degree */, 0x9u /* poly */
-    // 31u /* degree */, 0x9u /* poly */
-    // 32u /* degree */, 0xafu /* poly */
-    63u /* degree */, 0x3u /* poly */
-    );
+    DedupChunker::GF_DEGREE,
+    DedupChunker::GF_POLY);
 
 // rabin hasher uses the window length when removing the bytes that drop out of the window
 DedupChunker::RabinHasher

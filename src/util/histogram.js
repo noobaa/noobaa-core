@@ -41,7 +41,6 @@ function Histogram(master_label, structure) {
 Histogram.prototype.add_value = function(value) {
     for (var i = this._bins.length - 1; i >= 0; --i) {
         if (value >= this._bins[i].start_val) {
-            console.log('increaing bin', i);
             this._bins[i].count++;
             this._bins[i].aggregated_sum += value;
             return;

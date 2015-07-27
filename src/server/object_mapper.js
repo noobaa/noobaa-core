@@ -1203,7 +1203,7 @@ if (process.env.BUILD_WORKER_DISABLED !== 'true') {
 
 
 // TODO take config of desired replicas from tier/bucket
-var OPTIMAL_REPLICAS = 1;
+var OPTIMAL_REPLICAS = 3;
 // TODO move times to config constants/env
 var LONG_GONE_THRESHOLD = 3600000;
 var SHORT_GONE_THRESHOLD = 300000;

@@ -33,6 +33,7 @@ var express_cookie_parser = require('cookie-parser');
 var express_cookie_session = require('cookie-session');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
+var util = require('util');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
@@ -43,8 +44,8 @@ var fs = require('fs');
 var done_upgrade_file_upload = false;
 
 //if (!process.env.PORT) {
-    console.log('loading .env file ( no foreman ;)');
-    dotenv.load();
+console.log('loading .env file ( no foreman ;)');
+dotenv.load();
 //}
 
 // address means the address of the server as reachable from the internet
@@ -297,6 +298,27 @@ app.get('/get_latest_version*', function(req, res) {
         } catch (err) {}
     }
     res.status(400).send({});
+});
+
+//Log level setter
+app.post('/set_log_level*', function(req, res) {
+    console.log('NB:: req.module', req.param('module'), 'req.level', req.param('level'));
+    if (typeof req.param('module') === 'undefined' || typeof req.param('level') === 'undefined') {
+        res.status(400).send({});
+    }
+
+    dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
+    dbg.set_level(req.param('level'), req.param('module'));
+    res.status(200).send({});
+});
+
+//Log level getter
+app.get('/get_log_level', function(req, res) {
+    var all_modules = util.inspect(dbg.get_module_structure(), true, 20);
+
+    res.status(200).send({
+        all_levels: all_modules,
+    });
 });
 
 

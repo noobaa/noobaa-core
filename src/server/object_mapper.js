@@ -1,6 +1,19 @@
 /* jshint node:true */
 'use strict';
 
+module.exports = {
+    allocate_object_parts: allocate_object_parts,
+    finalize_object_parts: finalize_object_parts,
+    read_object_mappings: read_object_mappings,
+    read_node_mappings: read_node_mappings,
+    list_multipart_parts: list_multipart_parts,
+    fix_multipart_parts: fix_multipart_parts,
+    delete_object_mappings: delete_object_mappings,
+    report_bad_block: report_bad_block,
+    build_chunks: build_chunks,
+    chunks_and_objects_count: chunks_and_objects_count
+};
+
 var _ = require('lodash');
 var Q = require('q');
 var db = require('./db');
@@ -11,7 +24,6 @@ var block_allocator = require('./block_allocator');
 var Semaphore = require('noobaa-util/semaphore');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
-
 
 /**
  *
@@ -26,18 +38,7 @@ var dbg = require('noobaa-util/debug_module')(__filename);
  * each fragment will be replicated to x nodes as blocks
  *
  */
-module.exports = {
-    allocate_object_parts: allocate_object_parts,
-    finalize_object_parts: finalize_object_parts,
-    read_object_mappings: read_object_mappings,
-    read_node_mappings: read_node_mappings,
-    list_multipart_parts: list_multipart_parts,
-    fix_multipart_parts: fix_multipart_parts,
-    delete_object_mappings: delete_object_mappings,
-    report_bad_block: report_bad_block,
-    build_chunks: build_chunks,
-    chunks_and_objects_count: chunks_and_objects_count
-};
+
 
 // default split of chunks with kfrag
 var CHUNK_KFRAG_BITWISE = 0; // TODO: pick kfrag?
@@ -572,16 +573,45 @@ function list_multipart_parts(params) {
  */
 function fix_multipart_parts(obj) {
     return Q.all([
-            // find part that need update of start and end offsets
-            db.ObjectPart.find({
-                obj: obj,
-                deleted: null
+            Q.fcall(function() {
+                // find part that need update of start and end offsets
+                return db.ObjectPart.find({
+                        obj: obj,
+                        deleted: null
+                    })
+                    .sort({
+                        upload_part_number: 1,
+                        start: 1
+                    })
+                    .exec();
             })
-            .sort({
-                upload_part_number: 1,
-                start: 1
-            })
-            .exec(),
+            .then(function(parts) {
+                // Verify no duplicte ObjectParts in the returned result
+                // If duplicates exist (start, end, sequence matching),
+                // Take the best object (chunk wise)
+                var uniq = {};
+                var parts2 = parts;
+                _.each(parts2, function(p, i) {
+                    if (!uniq.hasOwnProperty(p.start)) {
+                        uniq[p.start] = {
+                            data: p,
+                            ind: i
+                        };
+                    } else {
+                        //if all params are the same, take the part with the most chunks
+                        if (uniq[p.start].data.end === p.end &&
+                            uniq[p.start].data.part_sequence_number === p.part_sequence_number &&
+                            uniq[p.start].data.upload_part_number === p.upload_part_number &&
+                            uniq[p.start].data.chunks.length < p.chunks.length) {
+                            parts = parts.splice(uniq[p.start].ind, 1);
+                        } else {
+                            console.warn('found an unexpected duplicate part', uniq[p.start].data, p);
+                        }
+
+                    }
+                });
+                return parts;
+            }),
             // query to find the last part without upload_part_number
             // which has largest end offset.
             db.ObjectPart.find({
@@ -597,12 +627,12 @@ function fix_multipart_parts(obj) {
         ])
         .spread(function(remaining_parts, last_stable_part) {
             var last_end = last_stable_part[0] ? last_stable_part[0].end : 0;
-            dbg.log0('complete_multipart_upload: found last_stable_part', last_stable_part);
-            dbg.log0('complete_multipart_upload: found remaining_parts', remaining_parts);
+            dbg.log1('complete_multipart_upload: found remaining_parts', remaining_parts);
+            dbg.log1('complete_multipart_upload: found last_stable_part', last_stable_part);
             var bulk_update = db.ObjectPart.collection.initializeUnorderedBulkOp();
             _.each(remaining_parts, function(part) {
                 var current_end = last_end + part.end - part.start;
-                dbg.log0('complete_multipart_upload: update part range',
+                dbg.log1('complete_multipart_upload: update part range',
                     last_end, '-', current_end, part);
                 bulk_update.find({
                     _id: part._id

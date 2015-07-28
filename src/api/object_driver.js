@@ -117,7 +117,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     var upload_part_number = params.upload_part_number || 0;
     var part_sequence_number = params.part_sequence_number || 0;
 
-    dbg.log0('upload_stream_parts: start', params.key, 'part number', upload_part_number,
+    dbg.log0('upload_stream: start', params.key, 'part number', upload_part_number,
         'sequence number', part_sequence_number);
     return Q.fcall(function() {
         var pipeline = new Pipeline(params.source_stream);

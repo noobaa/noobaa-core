@@ -105,8 +105,8 @@ ObjectDriver.prototype.upload_stream = function(params) {
         });
 };
 
-var chunker_tpool = new native_util.ThreadPool(1);
-var encoder_tpool = new native_util.ThreadPool(1);
+var dedup_chunker_tpool = new native_util.ThreadPool(1);
+var object_coding_tpool = new native_util.ThreadPool(1);
 
 /**
  *
@@ -129,11 +129,12 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 5
+                highWaterMark: 10
             },
             init: function() {
-                this.chunker = new native_util.ObjectChunker();
-                this.chunker.tpool = chunker_tpool;
+                this.chunker = new native_util.DedupChunker({
+                    tpool: dedup_chunker_tpool
+                });
             },
             transform: function(data) {
                 return Q.ninvoke(this.chunker, 'push', data);
@@ -146,14 +147,36 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 5
+                highWaterMark: 10
             },
             init: function() {
-                this.encoder = new native_util.ObjectEncoder();
-                this.encoder.tpool = encoder_tpool;
+                this.offset = 0;
+                this.encoder = new native_util.ObjectCoding({
+                    tpool: object_coding_tpool,
+                    digest_type: 'sha384',
+                    cipher_type: 'aes-256-gcm',
+                    block_digest_type: 'sha1',
+                    data_fragments: 1,
+                    parity_fragments: 0,
+                    // lrc_group_fragments: 0,
+                    // lrc_parity_fragments: 0,
+                });
             },
             transform: function(data) {
-                return Q.ninvoke(this.encoder, 'push', data);
+                var stream = this;
+                return Q.ninvoke(this.encoder, 'encode', data)
+                    .then(function(chunk) {
+                        var part = {
+                            start: start + stream.offset,
+                            end: start + stream.offset + chunk.length,
+                            upload_part_number: upload_part_number,
+                            part_sequence_number: part_sequence_number,
+                            chunk: chunk,
+                        };
+                        ++part_sequence_number;
+                        stream.offset += chunk.length;
+                        return part;
+                    });
             },
         }));
 
@@ -181,13 +204,20 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                         bucket: params.bucket,
                         key: params.key,
                         parts: _.map(parts, function(part) {
-                            var p = {
-                                start: part.start,
-                                end: part.end,
-                                crypt: part.crypt,
-                                chunk_size: part.encrypted_chunk.length,
-                                upload_part_number: upload_part_number
-                            };
+                            var p = _.pick(part,
+                                'start',
+                                'end',
+                                'upload_part_number',
+                                'part_sequence_number');
+                            p.chunk = _.pick(part.chunk,
+                                'length',
+                                'data_fragments',
+                                'digest_type',
+                                'cipher_type',
+                                'block_digest_type',
+                                'digest',
+                                'secret');
+                            p.chunk.fragments = _.map(part.chunks.fragments, 'digest');
                             return p;
                         })
                     })
@@ -198,10 +228,11 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             if (res.parts[i].dedup) {
                                 part = parts[i];
                                 part.dedup = true;
+                                delete part.chunk;
                                 dbg.log0('upload_stream: DEDUP part', part.start);
                             } else {
                                 part = res.parts[i].part;
-                                part.encrypted_chunk = parts[i].encrypted_chunk;
+                                part.chunk = parts[i].chunk;
                                 dbg.log0('upload_stream: allocated part', part.start);
                             }
                             stream.push(part);
@@ -220,9 +251,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 highWaterMark: 30
             },
             transform: function(part) {
-                if (part.dedup) return;
-                return self._write_part_blocks(
-                        params.bucket, params.key, part)
+                return self._write_fragments(params.bucket, params.key, part)
                     .thenResolve(part);
             }
         }));
@@ -244,36 +273,27 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 highWaterMark: 10
             },
             transform: function(parts) {
-                var stream = this;
                 dbg.log0('upload_stream: finalize parts', parts.length);
                 // send parts to server
                 return self._finalize_sem.surround(function() {
-                        return self.client.object.finalize_object_parts({
-                            bucket: params.bucket,
-                            key: params.key,
-                            parts: _.map(parts, function(part) {
-                                var p = _.pick(part, 'start', 'end');
-                                if (!part.dedup) {
-                                    p.block_ids = _.flatten(
-                                        _.map(part.fragments, function(fragment) {
-                                            return _.map(fragment.blocks, function(block) {
-                                                return block.address.id;
-                                            });
-                                        })
-                                    );
-                                }
-                                return p;
-                            })
-                        });
-                    })
-                    .then(function() {
-                        // push parts down the pipe
-                        for (var i = 0; i < parts.length; i++) {
-                            var part = parts[i];
-                            dbg.log0('upload_stream: finalize part offset', part.start);
-                            stream.push(part);
-                        }
+                    return self.client.object.finalize_object_parts({
+                        bucket: params.bucket,
+                        key: params.key,
+                        parts: _.map(parts, function(part) {
+                            var p = _.pick(part, 'start', 'end');
+                            if (!part.dedup) {
+                                p.block_ids = _.flatten(
+                                    _.map(part.fragments, function(fragment) {
+                                        return _.map(fragment.blocks, function(block) {
+                                            return block.address.id;
+                                        });
+                                    })
+                                );
+                            }
+                            return p;
+                        })
                     });
+                });
             }
         }));
 
@@ -284,7 +304,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 30
+                highWaterMark: 1
             },
             transform: function(part) {
                 dbg.log0('upload_stream: completed part offset', part.start);
@@ -304,10 +324,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
 /**
  *
- * _write_part_blocks
+ * _write_fragments
  *
  */
-ObjectDriver.prototype._write_part_blocks = function(bucket, key, part) {
+ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
     var self = this;
 
     if (part.dedup) {
@@ -315,11 +335,8 @@ ObjectDriver.prototype._write_part_blocks = function(bucket, key, part) {
         return part;
     }
 
-    dbg.log3('part before', range_utils.human_range(part));
-    var block_size = (part.chunk_size / part.kfrag) | 0;
-    var buffer_per_fragment = encode_chunk(part.encrypted_chunk, part.kfrag, block_size);
-
-    return Q.all(_.map(part.fragments, function(fragment, fragment_index) {
+    dbg.log3('_write_fragments', range_utils.human_range(part));
+    return Q.all(_.map(part.chunk.fragments, function(fragment, fragment_index) {
         return Q.all(_.map(fragment.blocks, function(block) {
             return self._attempt_write_block({
                 bucket: bucket,
@@ -328,7 +345,7 @@ ObjectDriver.prototype._write_part_blocks = function(bucket, key, part) {
                 end: part.end,
                 part: part,
                 fragment: fragment_index,
-                offset: part.start + (fragment_index * block_size),
+                desc: size_utils.human_offset(params.start) + '[' + params.fragment + ']',
                 block: block,
                 buffer: buffer_per_fragment[fragment_index],
                 remaining_attempts: 20,
@@ -349,10 +366,10 @@ ObjectDriver.prototype._write_part_blocks = function(bucket, key, part) {
 ObjectDriver.prototype._attempt_write_block = function(params) {
     var self = this;
     dbg.log3('write block _attempt_write_block', params);
-    return self._write_block(params.block.address, params.buffer, params.offset)
+    return self._write_block(params.block.address, params.buffer, params.desc)
         .then(null, function(err) {
             if (params.remaining_attempts <= 0) {
-                throw new Error('EXHAUSTED WRITE BLOCK', size_utils.human_offset(params.offset));
+                throw new Error('EXHAUSTED WRITE BLOCK', params.desc);
             }
             params.remaining_attempts -= 1;
             var bad_block_params =
@@ -360,8 +377,7 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                     block_id: params.block.address.id,
                     is_write: true
                 });
-            dbg.log0('write block remaining attempts',
-                params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
+            dbg.log0('write block remaining attempts', params.remaining_attempts, params.desc);
             return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
@@ -381,13 +397,13 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
  * write a block to the storage node
  *
  */
-ObjectDriver.prototype._write_block = function(block_address, buffer, offset) {
+ObjectDriver.prototype._write_block = function(block_address, buffer, desc) {
     var self = this;
 
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
 
-        dbg.log1('write_block', size_utils.human_offset(offset),
+        dbg.log1('write_block', desc,
             size_utils.human_size(buffer.length), block_address.id,
             'to', block_address.addr);
 
@@ -400,7 +416,7 @@ ObjectDriver.prototype._write_block = function(block_address, buffer, offset) {
             address: block_address.addr,
             timeout: config.write_timeout,
         }).then(null, function(err) {
-            console.error('FAILED write_block', size_utils.human_offset(offset),
+            console.error('FAILED write_block', desc,
                 size_utils.human_size(buffer.length), block_address.id,
                 'from', block_address.addr);
             throw err;

@@ -36,7 +36,7 @@ nb_api.factory('nbClient', [
 
         // TODO this manual hack allows https websites to call regular http to agents
         // we need to support https in the agents.
-        /*
+
         setTimeout(function() {
             console.log('******************************************' +
                 '*********************************');
@@ -49,7 +49,7 @@ nb_api.factory('nbClient', [
                 url: 'http://localhost'
             });
         }, 1000);
-        */
+        
 
         // return a new client based on mine - inherits auth token unless overriden
         function new_client() {

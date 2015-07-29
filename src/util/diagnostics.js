@@ -113,7 +113,7 @@ function collect_agent_diagnostics() {
 }
 
 function write_agent_diag_file(data) {
-    return Q.nfcall(fs.writeFile, TMP_WORK_DIR + '/agent_diag.tgz', data);
+    return Q.nfcall(fs.writeFile, TMP_WORK_DIR + '/from_agent_diag.tgz', data);
 }
 
 function pack_diagnostics(dst) {

@@ -13,16 +13,14 @@
 
         <br/>
 
-        <div class="page-properties">
-            <table class="table table-properties">
-            </table>
-        </div>
-
-        <ul class="nav nav-tabs">
-        </ul>
-
     </div>
 
+    <div class="row" >
+        <button class="btn btn-primary btn-lg" style="float: right;padding: 10px ;margin-right: 40px" nb-click-ladda="add_new_bucket();">
+            Add New Repository
+        </button>
+    </div>
+    <hr>
     <div class="row">
 
         <div class="heading-col col-sm-3">
@@ -39,25 +37,30 @@
                 <table class="table table-no-borders">
                     <tr>
                         <th>Bucket Name</th>
-                        <th>Status</th>
                         <th>Files</th>
                         <th>Storage</th>
+                        <th>Status</th>
                         <!-- <th>Tiers</th> -->
+                        <th>Actions</th>
                     </tr>
                     <tr ng-repeat="bucket in nbSystem.system.buckets">
-                        <td class="table-btn text-left">
-                            <a ng-href="bucket/{{bucket.name}}" class="btn btn-link btn-block capitalize">
+                        <td style="vertical-align: middle;" class="table-btn text-left" >
+                            <a ng-href="bucket/{{bucket.name}}" class="btn btn-link btn-block">
                                 <i class="fa fa-folder-o fa-lg fa-fw text-muted"></i>
-                                <span class="text-primary">{{bucket.name}}</span>
+                                <span class="text-primary" style="text-transform: lowercase;">{{bucket.name}}</span>
                             </a>
                         </td>
-                        <td>Healthy <i class="fa fa-check fa-lg"></i>
-                        </td>
-                        <td>{{bucket.num_objects}}</td>
-                        <td>{{human_size(bucket.storage.used)}}
+                        <td style="vertical-align: middle;">{{bucket.num_objects}}</td>
+                        <td style="vertical-align: middle;">{{human_size(bucket.storage.used)}}
                             <!-- of {{human_size(bucket.storage.alloc)}} -->
                         </td>
+                        <td style="vertical-align: middle;" class="text-success">Healthy
+                        </td>
                         <!-- <td>{{bucket.tiering}}</td> -->
+                        <td class="text-center" style="padding:0 0 0 0;vertical-align: middle;border:1px;">
+                            <i style="padding:0 0 0 0;" class="fa fa-trash-o fa-lg btn btn-default" title="Delete repository"  nb-click-ladda="delete_bucket('{{bucket.name}}')"></i></div>
+
+                        </td>
                     </tr>
                 </table>
             </div>

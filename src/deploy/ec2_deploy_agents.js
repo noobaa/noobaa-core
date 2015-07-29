@@ -13,7 +13,7 @@ function deploy_agents(params) {
     ec2_wrap.set_app_name(params.app);
     // add a --term flag to allow removing nodes
     return Q.fcall(function() {
-            return ec2_wrap.scale_agent_instances(params.scale, params.term, params.is_docker_host, params.dockers, params.is_win, params.filter_region);
+            return ec2_wrap.scale_agent_instances(params.scale, params.term, params.is_docker_host, params.dockers, params.is_win, params.filter_region,params.agent_conf);
         })
         .then(function(res) {
             ec2_wrap.console_inspect('Scale: completed to ' + params.scale, res);
@@ -74,6 +74,15 @@ function main() {
             return;
         } else {
             params.app = argv.app;
+        }
+
+        if (_.isUndefined(argv.agent_conf)) {
+            console.error('\n\n***************************************************************');
+            console.error('Please provide --agent_conf (base64 agent conf from the ui)');
+            console.error('***************************************************************\n\n');
+            return;
+        } else {
+            params.agent_conf = argv.agent_conf;
         }
 
         if (!_.isUndefined(argv.win)) {

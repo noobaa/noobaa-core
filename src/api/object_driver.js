@@ -2,7 +2,7 @@
 'use strict';
 
 var util = require('util');
-var stream = require('stream');
+var Readable = require('stream').Readable;
 var _ = require('lodash');
 var Q = require('q');
 var Semaphore = require('noobaa-util/semaphore');
@@ -117,8 +117,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     var self = this;
     var start = params.start || 0;
     var upload_part_number = params.upload_part_number || 0;
+    var part_sequence_number = params.part_sequence_number || 0;
 
-    dbg.log0('upload_stream_parts: start', params.key, 'part number', upload_part_number);
+    dbg.log0('upload_stream: start', params.key, 'part number', upload_part_number,
+        'sequence number', part_sequence_number);
     return Q.fcall(function() {
         var pipeline = new Pipeline(params.source_stream);
 
@@ -218,6 +220,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                                 'digest',
                                 'secret');
                             p.chunk.fragments = _.map(part.chunks.fragments, 'digest');
+                            dbg.log3('upload_stream: allocating specific part ul#', p.upload_part_number, 'seq#', p.part_sequence_number);
                             return p;
                         })
                     })
@@ -345,7 +348,7 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
                 end: part.end,
                 part: part,
                 fragment: fragment_index,
-                desc: size_utils.human_offset(params.start) + '[' + params.fragment + ']',
+                desc: size_utils.human_offset(part.start) + '[' + fragment_index + ']',
                 block: block,
                 buffer: buffer_per_fragment[fragment_index],
                 remaining_attempts: 20,
@@ -367,15 +370,21 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
     var self = this;
     dbg.log3('write block _attempt_write_block', params);
     return self._write_block(params.block.address, params.buffer, params.desc)
-        .then(null, function(err) {
+        .then(null, function(/*err*/) {
             if (params.remaining_attempts <= 0) {
                 throw new Error('EXHAUSTED WRITE BLOCK', params.desc);
             }
             params.remaining_attempts -= 1;
             var bad_block_params =
-                _.extend(_.pick(params, 'bucket', 'key', 'start', 'end', 'fragment'), {
+                _.extend(_.pick(params,
+                    'bucket',
+                    'key',
+                    'start',
+                    'end',
+                    'fragment',
+                    'part_sequence_number'), {
                     block_id: params.block.address.id,
-                    is_write: true
+                    is_write: true,
                 });
             dbg.log0('write block remaining attempts', params.remaining_attempts, params.desc);
             return self.client.object.report_bad_block(bad_block_params)
@@ -530,7 +539,7 @@ ObjectDriver.prototype.open_read_stream = function(params, watermark) {
  */
 function ObjectReader(client, params, watermark) {
     var self = this;
-    stream.Readable.call(self, {
+    Readable.call(self, {
         // highWaterMark Number - The maximum number of bytes to store
         // in the internal buffer before ceasing to read
         // from the underlying resource. Default=16kb
@@ -551,7 +560,7 @@ function ObjectReader(client, params, watermark) {
 }
 
 // proper inheritance
-util.inherits(ObjectReader, stream.Readable);
+util.inherits(ObjectReader, Readable);
 
 
 /**
@@ -803,6 +812,10 @@ ObjectDriver.prototype._read_object_part = function(part) {
     function read_fragment_blocks_chain(fragment, fragment_index) {
         dbg.log3('read_fragment_blocks_chain', range_utils.human_range(part), fragment_index);
 
+        // chain_initiator is used to fire the first rejection handler for the head of the chain.
+        var chain_init_err = 'chain_init_err';
+        var chain_initiator = Q.reject(chain_init_err);
+
         // chain the blocks of the fragment with array reduce
         // to handle read failures we create a promise chain such that each block of
         // this fragment will read and if fails it's promise rejection handler will go
@@ -820,10 +833,6 @@ ObjectDriver.prototype._read_object_part = function(part) {
                 });
             });
         }
-
-        // chain_initiator is used to fire the first rejection handler for the head of the chain.
-        var chain_init_err = 'chain_init_err';
-        var chain_initiator = Q.reject(chain_init_err);
 
         // reduce the blocks array to create the chain and feed it with the initial promise
         return _.reduce(fragment.blocks, add_block_promise_to_chain, chain_initiator)

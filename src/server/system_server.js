@@ -73,7 +73,7 @@ function create_system(req) {
                 s3rest_installer: 'noobaa-s3rest.exe',
                 linux_agent_installer: 'noobaa-setup'
             };
-            dbg.log0('Installer Resources:',info.resources);
+            dbg.log0('Installer Resources:', info.resources);
             return Q.when(db.System.create(info))
                 .then(null, db.check_already_exists(req, 'system'));
         })
@@ -572,7 +572,7 @@ function diagnose_with_agent(data) {
             return diag.collect_server_diagnostics();
         })
         .then(function() {
-            return diag.write_agent_diag_file(data);
+            return diag.write_agent_diag_file(data.data);
         })
         .then(function() {
             return diag.pack_diagnostics(inner_path);

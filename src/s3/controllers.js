@@ -106,7 +106,7 @@ module.exports = function(params) {
             })
             .then(function() {
                 try {
-                    dbg.log0('COMPLETED: upload', req.query.uploadId);
+                    dbg.log0('COMPLETED: upload', req.query.uploadId,' part:',req.query.partNumber);
 
                     res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
@@ -254,7 +254,7 @@ module.exports = function(params) {
                             .then(function(res) {
                                 dbg.log0('complete multipart copy ', create_params);
                                 var bucket_key_params = _.pick(create_params, 'bucket', 'key');
-                                bucket_key_params.etag =    source_object_md.etag; 
+                                bucket_key_params.etag =    source_object_md.etag;
 
                                 return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
                             })
@@ -633,7 +633,7 @@ module.exports = function(params) {
              */
             if ((/^[a-z0-9]+(-[a-z0-9]+)*$/.test(bucketName) === false)) {
                 template = templateBuilder.buildError('InvalidBucketName',
-                    'Bucket names can contain lowercase letters, numbers, and hyphens. ' +
+                    'Bucket names can contain only lowercase letters, numbers, and hyphens. ' +
                     'Each label must start and end with a lowercase letter or a number.');
                 dbg.error('Error creating bucket "%s" because the name is invalid', bucketName);
                 return buildXmlResponse(res, 400, template);

@@ -7,7 +7,6 @@ module.exports = {
     get_mount_of_path: get_mount_of_path,
     top_single: top_single,
     netstat_single: netstat_single,
-    dir_agent_storage: dir_agent_storage,
 };
 
 var _ = require('lodash');
@@ -177,18 +176,6 @@ function netstat_single(dst) {
         return promise_utils.promised_exec('netstat -na' + file_redirect);
     } else if (os.type() === 'Linux') {
         return promise_utils.promised_exec('netstat -nap' + file_redirect);
-    } else {
-        throw new Error('netstat_single ' + os.type + ' not supported');
-    }
-}
-
-
-function dir_agent_storage(dst) {
-    var file_redirect = dst ? ' >& ' + dst : '';
-    if (os.type() === 'Darwin' || os.type() === 'Linux') {
-        return promise_utils.promised_exec('ls -laR ' + process.cwd() + '/agent_storage/' + file_redirect);
-    } else if (os.type() === 'Windows_NT') {
-        return promise_utils.promised_exec('dir /A /S ' + process.cwd() + '/agent_storage/' + file_redirect);
     } else {
         throw new Error('netstat_single ' + os.type + ' not supported');
     }

@@ -9,10 +9,12 @@ config.on_premise = {
     nva_part: "NVA_Upgrade.tgz"
 };
 
-// Central Stats Collection
+// Central Stats Collection & Diagnostics
 config.central_stats = {
-  send_stats: true,
-  central_listener: '127.0.0.1',
+    send_stats: true,
+    central_listener: '127.0.0.1',
+    previous_diag_packs_dir: '/tmp/prev_diags',
+    previous_diag_packs_count: 3 //TODO: We might want to split between agent and server
 };
 
 // SIGNALING AND ICE

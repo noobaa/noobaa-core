@@ -4,11 +4,14 @@ var _ = require('lodash');
 var Q = require('q');
 var fs = require('fs');
 var path = require('path');
+var readdirp = require('readdirp');
 
 module.exports = {
     file_must_not_exist: file_must_not_exist,
     file_must_exist: file_must_exist,
-    disk_usage: disk_usage
+    disk_usage: disk_usage,
+    list_directory: list_directory,
+    list_directory_to_file: list_directory_to_file,
 };
 
 
@@ -81,5 +84,34 @@ function disk_usage(file_path, semaphore, recurse) {
                         };
                     });
             }
+        });
+}
+
+//ll -laR equivalent
+function list_directory(path) {
+    return Q.Promise(function(resolve, reject) {
+        var files = [];
+        readdirp({
+                root: path,
+                fileFilter: '*'
+            },
+            function(entry) {
+                var entry_info = entry.fullPath + ' size:' + entry.stat.size + ' mtime:' + entry.stat.mtime;
+                files.push(entry_info);
+            },
+            function(err, res) {
+                if (err) {
+                    return reject(err);
+                }
+
+                resolve(files);
+            });
+    });
+}
+
+function list_directory_to_file(path, outfile) {
+    return list_directory(path)
+        .then(function(files) {
+            return Q.nfcall(fs.writeFile, outfile, JSON.stringify(files, null, '\n'));
         });
 }

@@ -16,6 +16,7 @@ var os = require('os');
 var mkdirp = require('mkdirp');
 var promise_utils = require('../util/promise_utils');
 var os_utils = require('../util/os_util');
+var fs_utils = require('../util/fs_util');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -103,7 +104,7 @@ function collect_agent_diagnostics() {
             return collect_basic_diagnostics();
         })
         .then(function() {
-            return os_utils.dir_agent_storage(TMP_WORK_DIR + '/ls_agent_storage.out');
+            return fs_utils.list_directory_to_file(process.cwd() + '/agent_storage/', TMP_WORK_DIR + '/ls_agent_storage.out');
         })
         .then(null, function(err) {
             console.error('Error in collecting server diagnostics', err);

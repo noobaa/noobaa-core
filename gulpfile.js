@@ -21,6 +21,7 @@ var gulp_gzip = require('gulp-gzip');
 var gulp_json_editor = require('gulp-json-editor');
 var gulp_ng_template = require('gulp-angular-templatecache');
 var gulp_jshint = require('gulp-jshint');
+var gulp_eslint = require('gulp-eslint');
 var jshint_stylish = require('jshint-stylish');
 var vinyl_buffer = require('vinyl-buffer');
 var vinyl_source_stream = require('vinyl-source-stream');
@@ -221,6 +222,7 @@ function pack(dest, name) {
                 return /^gulp/.test(key) ||
                     /^vinyl/.test(key) ||
                     /^jshint/.test(key) ||
+                    /^eslint/.test(key) ||
                     /^browserify/.test(key) ||
                     _.contains([
                         'bower',
@@ -270,8 +272,13 @@ function pack(dest, name) {
 
 
 
-    var basejs_stream = gulp
-        .src(['bower.json', 'config.js', 'gulpfile.js', '.jshintrc'], {});
+    var basejs_stream = gulp.src([
+        'bower.json',
+        'config.js',
+        'gulpfile.js',
+        '.jshintrc',
+        '.eslintrc'
+    ], {});
 
     var vendor_stream = gulp
         .src(['vendor/**/*', ], {})
@@ -374,6 +381,25 @@ gulp.task('ng', function() {
         .pipe(gulp.dest(DEST));
 });
 
+gulp.task('lint', [
+    'jshint',
+    // 'eslint'
+]);
+
+gulp.task('eslint', function() {
+    return gulp
+        .src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
+        // eslint() attaches the lint output to the eslint property
+        // of the file object so it can be used by other modules.
+        .pipe(gulp_eslint())
+        // eslint.format() outputs the lint results to the console.
+        // Alternatively use eslint.formatEach() (see Docs).
+        .pipe(gulp_eslint.format())
+        // To have the process exit with an error code (1) on
+        // lint error, return the stream and pipe to failOnError last.
+        .pipe(gulp_eslint.failOnError());
+});
+
 gulp.task('jshint', function() {
     return gulp
         .src(_.flatten([PATHS.scripts, PATHS.html_scripts]))
@@ -386,7 +412,7 @@ gulp.task('jshint', function() {
     // .pipe(gulp_jshint.reporter('fail'));
 });
 
-gulp.task('agent', ['jshint'], function() {
+gulp.task('agent', ['lint'], function() {
     var DEST = 'build/public';
     var BUILD_DEST = 'build/windows';
     var NAME = 'noobaa-agent.tar';
@@ -398,6 +424,7 @@ gulp.task('agent', ['jshint'], function() {
                 return /^gulp/.test(key) ||
                     /^vinyl/.test(key) ||
                     /^jshint/.test(key) ||
+                    /^eslint/.test(key) ||
                     /^browserify/.test(key) ||
                     _.contains([
                         'bower',
@@ -471,13 +498,13 @@ function build_agent_distro() {
         .then(function() {
             gutil.log('done src/deploy/build_atom_agent_win.sh');
         })
-        .then(function(){
+        .then(function() {
             return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup',
-            build_params, process.cwd());
+                build_params, process.cwd());
         })
-        .then(function(){
+        .then(function() {
             return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup',
-            build_params, process.cwd());
+                build_params, process.cwd());
         })
         .then(function() {
             gutil.log('done downloading noobaa-setup for linux');
@@ -514,20 +541,16 @@ function package_build_task() {
     //Remove previously build package
     return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
         .then(function(res) { //build agent distribution setup
-            if (!use_local_executable){
+            if (!use_local_executable) {
                 return build_agent_distro();
-            }
-            else
-            {
+            } else {
                 return;
             }
         })
         .then(function() { //build rest distribution setup
-            if (!use_local_executable){
+            if (!use_local_executable) {
                 return build_rest_distro();
-            }
-            else
-            {
+            } else {
                 return;
             }
         })
@@ -535,17 +558,17 @@ function package_build_task() {
             //call for packing
             return pack(DEST, NAME);
         })
-        .then (null, function(error) {
+        .then(null, function(error) {
             gutil.log("error ", error, error.stack);
         });
 }
 
 if (skip_install === true) {
-    gulp.task('package_build', ['jshint', 'agent'], function() {
+    gulp.task('package_build', ['lint', 'agent'], function() {
         package_build_task();
     });
 } else {
-    gulp.task('package_build', ['jshint', 'install', 'agent'], function() {
+    gulp.task('package_build', ['lint', 'install', 'agent'], function() {
         package_build_task();
     });
 }
@@ -608,7 +631,7 @@ gulp.task('mocha', function() {
         });
 });
 
-gulp.task('test', ['jshint', 'mocha']);
+gulp.task('test', ['lint', 'mocha']);
 
 
 function serve() {
@@ -651,7 +674,7 @@ function serve() {
     gulp_notify('noobaa serving...').end('stam');
 }
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'jshint', 'client', 'agent']);
+gulp.task('install', ['bower', 'assets', 'css', 'ng', 'lint', 'client', 'agent']);
 gulp.task('serve', [], serve);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);

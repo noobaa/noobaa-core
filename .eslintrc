@@ -1,0 +1,31 @@
+{
+    "env": {
+        "browser": true,
+        "node": true,
+        "mocha": true
+    },
+    "rules": {
+        "eqeqeq": 2,
+        "camelcase": 0,
+        "quotes": [0, "single"],
+        "curly": [2, "multi-line"],
+        "no-cond-assign": [2, "always"],
+        "no-use-before-define": [2, "nofunc"],
+        "no-unused-vars": [2, {
+            "vars": "all",
+            "args": "none"
+        }],
+        "space-unary-ops": [2, {
+            "words": false,
+            "nonwords": false
+        }],
+        "comma-spacing": 0,
+        "no-process-exit": 0,
+        "new-cap": [2, {
+            "capIsNewExceptions": ["Promise"]
+        }],
+        "no-underscore-dangle": 0,
+        "consistent-return": 0,
+        "comma-dangle": 0
+    }
+}

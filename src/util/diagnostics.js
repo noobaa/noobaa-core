@@ -16,7 +16,7 @@ var os = require('os');
 var mkdirp = require('mkdirp');
 var promise_utils = require('../util/promise_utils');
 var os_utils = require('../util/os_util');
-var fs_utils = require('../util/fs_util');
+var fs_utils = require('../util/fs_utils');
 var config = require('../../config.js');
 var dbg = require('noobaa-util/debug_module')(__filename);
 

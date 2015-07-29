@@ -1,21 +1,5 @@
 'use strict';
 
-// var _ = require('lodash');
-var Q = require('q');
-var fs = require('fs');
-var os = require('os');
-var promise_utils = require('../util/promise_utils');
-var os_utils = require('../util/os_util');
-var dbg = require('noobaa-util/debug_module')(__filename);
-
-
-try {
-    var stats = require('../server/stats_aggregator');
-} catch (err) {
-    dbg.warn('stats_aggregator is unavailble');
-}
-
-
 module.exports = {
     collect_basic_diagnostics: collect_basic_diagnostics,
     collect_server_diagnostics: collect_server_diagnostics,
@@ -24,6 +8,23 @@ module.exports = {
 
     pack_diagnostics: pack_diagnostics,
 };
+
+var _ = require('lodash');
+var Q = require('q');
+var fs = require('fs');
+var os = require('os');
+var mkdirp = require('mkdirp');
+var promise_utils = require('../util/promise_utils');
+var os_utils = require('../util/os_util');
+var config = require('../../config.js');
+var dbg = require('noobaa-util/debug_module')(__filename);
+
+
+try {
+    var stats = require('../server/stats_aggregator');
+} catch (err) {
+    dbg.warn('stats_aggregator is unavailble');
+}
 
 var TMP_WORK_DIR = '/tmp/diag';
 
@@ -35,7 +36,7 @@ function collect_basic_diagnostics() {
             return promise_utils.promised_spawn('rm', ['-rf', process.cwd() + '/build/public/diagnose.tgz'], process.cwd(), true);
         })
         .then(function() {
-            return promise_utils.promised_spawn('mkdir', ['-p', TMP_WORK_DIR], process.cwd());
+            return mkdirp.sync(TMP_WORK_DIR);
         })
         .then(function() {
             return promise_utils.full_dir_copy(process.cwd() + '/logs', TMP_WORK_DIR);
@@ -118,6 +119,9 @@ function pack_diagnostics(dst) {
     return Q.fcall(function() {
             return promise_utils.promised_exec('tar -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
         })
+        .then(function() {
+            return archive_diagnostics_pack(dst);
+        })
         .then(null, function(err) {
             console.error('Error in packing diagnostics', err);
             throw new Error('Error in packing diagnostics ' + err);
@@ -139,7 +143,37 @@ function collect_supervisor_logs() {
                 throw new Error('Error in collecting supervisor logs ' + err);
             });
     } else if (os.type() === 'Darwin') {
-        console.log('Skipping supervisor logs on local OSX server');
+        console.log('Skipping supervisor logs collection on local OSX server');
     }
+}
 
+//Archive the current diagnostics pack, save to
+function archive_diagnostics_pack(dst) {
+    return Q.fcall(function() {
+            return mkdirp.sync(config.central_stats.previous_diag_packs_dir);
+        })
+        .then(function() {
+            return Q.nfcall(fs.readdir, config.central_stats.previous_diag_packs_dir);
+        })
+        .then(function(files) {
+            //Check if current number of archived packs exceeds the max
+            if (files.length === config.central_stats.previous_diag_packs_count) {
+                //Delete the oldest pack
+                var sorted_files = _.sortByOrder(files);
+                return Q.nfcall(fs.unlink, config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
+            } else {
+                return;
+            }
+        })
+        .then(function() {
+            //Archive the current pack
+            var now = new Date();
+            var tail = now.getDate() + '-' + (now.getMonth() + 1) + '_' + now.getHours() + '-' + now.getMinutes();
+
+            return promise_utils.promised_exec('cp ' + dst + ' ' + config.central_stats.previous_diag_packs_dir + '/DiagPack_' + tail + '.tgz');
+        })
+        .then(null, function(err) {
+            console.error('Error in archive_diagnostics_pack', err, err.stack);
+            return;
+        });
 }

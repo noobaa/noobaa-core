@@ -17,7 +17,7 @@ function test_ingest() {
     if (process.argv[2]) {
         console.log('FILE', process.argv[2]);
         input = fs.createReadStream(process.argv[2], {
-            highWaterMark: 128 * 1024
+            highWaterMark: 1024 * 1024
         });
     }
     var pipeline = new Pipeline(input);
@@ -45,7 +45,8 @@ function test_ingest() {
     var fin = function() {
         var mb_per_sec = stats.bytes * 1000 / (Date.now() - stats.start) / 1024 / 1024;
         console.log('\nDONE.', stats.count, 'chunks.',
-            'average speed', mb_per_sec.toFixed(1), 'MB/s');
+            'average speed', mb_per_sec.toFixed(1), 'MB/s',
+            'average chunk size', (stats.bytes/stats.count).toFixed(1));
         process.exit();
     };
     var fin_exit = function() {
@@ -66,19 +67,19 @@ function test_ingest() {
             tpool: new native_util.ThreadPool(1)
         });
         var object_coding = new native_util.ObjectCoding({
-            tpool: new native_util.ThreadPool(3),
+            tpool: new native_util.ThreadPool(1),
             digest_type: 'sha384',
             cipher_type: 'aes-256-gcm',
             block_digest_type: 'sha1',
-            data_fragments: 2,
-            parity_fragments: 1,
+            data_fragments: 1,
+            parity_fragments: 0,
             // lrc_group_fragments: 0,
             // lrc_parity_fragments: 0,
         });
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 5
+                highWaterMark: 10
             },
             transform: function(data) {
                 return Q.ninvoke(dedup_chunker, 'push', data);
@@ -90,7 +91,7 @@ function test_ingest() {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 5
+                highWaterMark: 10
             },
             transform: function(data) {
                 return Q.ninvoke(object_coding, 'encode', data);
@@ -99,7 +100,7 @@ function test_ingest() {
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
-                highWaterMark: 5
+                highWaterMark: 10
             },
             transform: function(chunk) {
                 return chunk;

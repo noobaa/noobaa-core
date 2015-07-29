@@ -73,7 +73,7 @@ private:
     NanCallbackSharedPtr _callback;
     Buf _chunk;
     Buf _digest;
-    Buf _secret_key;
+    Buf _secret;
     std::vector<Fragment> _fragments;
 public:
     explicit EncodeWorker(
@@ -109,13 +109,13 @@ public:
         Buf encrypted;
         if (!_coding._cipher_type.empty()) {
             // convergent encryption - use _digest as secret key
-            // _secret_key = _digest;
-            _secret_key = Buf(32);
-            RAND_bytes(_secret_key.data(), _secret_key.length());
+            // _secret = _digest;
+            _secret = Buf(32);
+            RAND_bytes(_secret.data(), _secret.length());
             // IV is just zeros since the key is unique then IV is not needed
             static Buf iv(64, 0);
             // RAND_bytes(iv.data(), iv.length());
-            encrypted = Crypto::encrypt(_chunk, _coding._cipher_type.c_str(), _secret_key, iv);
+            encrypted = Crypto::encrypt(_chunk, _coding._cipher_type.c_str(), _secret, iv);
         } else {
             encrypted = _chunk;
         }
@@ -158,11 +158,15 @@ public:
         obj->Set(NanNew("cipher_type"), NanNew(_coding._cipher_type));
         obj->Set(NanNew("block_digest_type"), NanNew(_coding._block_digest_type));
         obj->Set(NanNew("digest"), NanNew(_digest.hex()));
-        obj->Set(NanNew("secret_key"), NanNew(_secret_key.hex()));
+        obj->Set(NanNew("secret"), NanNew(_secret.hex()));
         obj->Set(NanNew("length"), NanNew(_chunk.length()));
-        obj->Set(NanNew("data_fragments"), NanNew(_coding._data_fragments));
-        obj->Set(NanNew("parity_fragments"), NanNew(_coding._parity_fragments));
+        // fragments rols is based on the array index
+        // indexes < data_fragments represent data blocks.
+        // indexes >= data_fragments represent parity blocks.
+        // TODO need to update to represent LRC fragments
         v8::Local<v8::Array> fragments(NanNew<v8::Array>(_fragments.size()));
+        obj->Set(NanNew("fragments"), fragments);
+        obj->Set(NanNew("data_fragments"), NanNew(_coding._data_fragments));
         for (size_t i=0; i<_fragments.size(); ++i) {
             Fragment& frag = _fragments[i];
             v8::Local<v8::Object> frag_obj(NanNew<v8::Object>());
@@ -170,7 +174,6 @@ public:
             frag_obj->Set(NanNew("digest"), NanNew(frag.digest.hex()));
             fragments->Set(i, frag_obj);
         }
-        obj->Set(NanNew("fragments"), fragments);
         v8::Local<v8::Value> argv[] = { NanUndefined(), obj };
         _callback->Call(2, argv);
         delete this;
@@ -195,11 +198,10 @@ private:
     std::string _cipher_type;
     std::string _block_digest_type;
     Buf _digest;
-    Buf _secret_key;
+    Buf _secret;
     Buf _chunk;
     int _length;
     int _data_fragments;
-    int _parity_fragments;
     std::vector<Fragment> _fragments;
 public:
     explicit DecodeWorker(
@@ -222,10 +224,9 @@ public:
         _cipher_type = *NanAsciiString(chunk->Get(NanNew("cipher_type")));
         _block_digest_type = *NanAsciiString(chunk->Get(NanNew("block_digest_type")));
         _digest = Buf(*NanAsciiString(chunk->Get(NanNew("digest"))));
-        _secret_key = Buf(*NanAsciiString(chunk->Get(NanNew("secret_key"))));
+        _secret = Buf(*NanAsciiString(chunk->Get(NanNew("secret"))));
         _length = chunk->Get(NanNew("length"))->Int32Value();
         _data_fragments = chunk->Get(NanNew("data_fragments"))->Int32Value();
-        _parity_fragments = chunk->Get(NanNew("parity_fragments"))->Int32Value();
         v8::Local<v8::Array> fragments = chunk->Get(NanNew("fragments")).As<v8::Array>();
         _fragments.resize(fragments->Length());
         for (size_t i=0; i<_fragments.size(); ++i) {
@@ -246,9 +247,11 @@ public:
         // VERIFY BLOCKS HASH
         if (!_block_digest_type.empty()) {
             for (size_t i=0; i<_fragments.size(); ++i) {
-                Buf digest = Crypto::digest(_fragments[i].block, _block_digest_type.c_str());
-                if (!digest.same(_fragments[i].digest)) {
-                    PANIC("fragment " << i << " digest mismatch " << digest.hex() << " " << _fragments[i].digest.hex());
+                if (!_fragments[i].digest.length()) {
+                    Buf digest = Crypto::digest(_fragments[i].block, _block_digest_type.c_str());
+                    if (!digest.same(_fragments[i].digest)) {
+                        PANIC("fragment " << i << " digest mismatch " << digest.hex() << " " << _fragments[i].digest.hex());
+                    }
                 }
             }
         }
@@ -266,7 +269,7 @@ public:
         if (!_cipher_type.empty()) {
             // IV is just zeros since the key is unique then IV is not needed
             static Buf iv(64, 0);
-            _chunk = Crypto::decrypt(encrypted, _cipher_type.c_str(), _secret_key, iv);
+            _chunk = Crypto::decrypt(encrypted, _cipher_type.c_str(), _secret, iv);
         } else {
             _chunk = encrypted;
         }

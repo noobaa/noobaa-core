@@ -49,7 +49,7 @@ nb_api.factory('nbClient', [
                 url: 'http://localhost'
             });
         }, 1000);
-        
+
 
         // return a new client based on mine - inherits auth token unless overriden
         function new_client() {
@@ -145,13 +145,23 @@ nb_api.factory('nbClient', [
 
         function register() {
             var scope = $rootScope.$new();
+            scope.register = true;
+            scope.system_name = '';
+            scope.email = '';
+            scope.password = '';
+
+            scope.update_email_message = function() {
+                scope.email_message ='';
+                console.log('scope.system_name'+scope.system_name);
+            };
             scope.create = function() {
-                if (!scope.name ||
+                console.log('register - create :'+scope.system_name+'::'+scope.email+'::'+scope.password);
+
+                if (!scope.system_name ||
                     !scope.email ||
                     !scope.password) {
                     return;
                 }
-
                 // use some delay otherwise the previous enter event
                 // somehow immediately affects the new password dialog
                 // and closes it with empty string. the delay worksaround.
@@ -165,7 +175,7 @@ nb_api.factory('nbClient', [
                             return;
                         }
                         return $q.when($scope.client.account.create_account({
-                                name: scope.name,
+                                name: scope.system_name,
                                 email: scope.email,
                                 password: scope.password
                             }))

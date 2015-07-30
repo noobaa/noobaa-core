@@ -108,6 +108,27 @@ module.exports = {
             }
         },
 
+        //currently the same as list_accounts.
+        list_system_accounts: {
+            doc: 'List accounts',
+            method: 'GET',
+            reply: {
+                type: 'object',
+                require: 'accounts',
+                properties: {
+                    accounts: {
+                        type: 'array',
+                        items: {
+                            $ref: '/definitions/account_api/account_info'
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+
         accounts_status: {
             method: 'GET',
             reply: {

@@ -109,7 +109,7 @@ function get_systems_stats(req) {
                     .then(function(objects) {
                         sys_stats.systems[i].chunks = objects.chunks_num;
                         sys_stats.systems[i].objects = objects.objects_num;
-                        return account_server.get_system_accounts({
+                        return account_server.get_system_roles({
                             system: sys
                         });
                     })

@@ -62,6 +62,10 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/support.html',
                 reloadOnSearch: false,
             })
+            .when('/users', {
+                templateUrl: 'console/users_management.html',
+                reloadOnSearch: false,
+            })
             .otherwise({
                 redirectTo: '/overview'
             });
@@ -138,9 +142,17 @@ nb_console.controller('SupportViewCtrl', [
 
         function create_account() {
             var scope = $scope.$new();
+            scope.system_name = '';
+            scope.email = '';
+            scope.password = '';
+
+
+            scope.update_email_message = function() {
+                scope.email_message ='';
+            };
             scope.create = function() {
                 return $q.when(nbClient.client.account.create_account({
-                        name: scope.name,
+                        name: scope.system_name,
                         email: scope.email,
                         password: scope.password
                     }))
@@ -164,6 +176,116 @@ nb_console.controller('SupportViewCtrl', [
         }
     }
 ]);
+
+nb_console.controller('UserManagementViewCtrl', [
+    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
+    'nbClient', 'nbSystem', 'nbNodes', 'nbHashRouter', 'nbAlertify', 'nbModal',
+    function($scope, $q, $timeout, $window, $location, $routeParams,
+        nbClient, nbSystem, nbNodes, nbHashRouter, nbAlertify, nbModal) {
+        $scope.nav.active = 'cog';
+        $scope.nav.reload_view = reload_view;
+        $scope.add_new_user = add_new_user;
+        $scope.delete_user = delete_user;
+
+
+        reload_accounts();
+        console.log('accounts:' + $scope.accounts);
+
+        function reload_view(init_only) {
+            return nbSystem.init_system
+                .then(function() {
+                    if (!nbClient.account || !nbClient.account.is_support) {
+                        $location.path('/');
+                        return;
+                    }
+                });
+        }
+
+        function reload_accounts() {
+            return $q.when(nbClient.client.account.list_system_accounts())
+                .then(function(res) {
+                    $scope.accounts = res.accounts;
+                });
+        }
+
+        function delete_user(user_email) {
+            console.log('attempt to delete ' + user_email);
+            var user_info = _.find($scope.accounts, function(account) {
+                console.log('attempt to delete acc:' + account.email);
+
+                return account.email === user_email;
+            });
+            if (user_info) {
+                if ($scope.accounts.length === 1) {
+                    nbAlertify.error('System must have at least one account');
+                } else {
+                    nbAlertify.confirm('Are you sure that you want to delete ' + user_email + '? (user_info._id)'+JSON.stringify(user_info))
+                        .then(function(result) {
+                            console.log('in confirm user deletion');
+
+                            return $q.when(nbClient.client.account.delete_account(user_email))
+                                .then(function() {
+                                    nbAlertify.success('User ' + user_email + ' has been deleted');
+                                    reload_accounts();
+                                });
+
+                        })
+                        .then(null, function(err) {
+                            if (err.message !== "canceled") {
+                                nbAlertify.error('Error while trying to delete user. ERROR:' + err.message);
+                            }
+                        });
+                }
+
+
+            } else {
+                nbAlertify.error('User does not exist any more.');
+                reload_accounts();
+            }
+        }
+
+        function add_new_user() {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = '';
+            console.log('system:', JSON.stringify(nbSystem.system));
+            scope.update_email_message = function() {
+                scope.email_message = 'Hi,\r\n' +
+                    'I created a noobaa user for you\r\n' +
+                    'To use NooBaa, go to ' + $location.protocol() + '://' + $location.host() + ':' + $location.port() + '\r\n' +
+                    'User name: ' + scope.email + '\r\n' +
+                    'password:' + scope.password + '\r\n' +
+                    'you can change the password on your login or later on';
+            };
+
+            scope.create = function() {
+                return $q.when(nbClient.client.account.create_account({
+                        name: nbSystem.system.name,
+                        email: scope.email,
+                        password: scope.password
+                    }))
+                    .then(function() {
+                        scope.modal.modal('hide');
+                        return reload_accounts();
+                    }, function(err) {
+                        console.error('CREATE ACCOUNT ERROR:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                        return reload_accounts();
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/account_create_dialog.html',
+                scope: scope,
+            });
+        }
+    }
+]);
+
 
 
 
@@ -326,7 +448,7 @@ nb_console.controller('SystemDataCtrl', [
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');
-                        nbAlertify.success('Congrats! '+ scope.new_bucket_name+' repository is ready');
+                        nbAlertify.success('Congrats! ' + scope.new_bucket_name + ' repository is ready');
                         reload_view();
                     }).then(null, function(err) {
                         scope.error_message = 'Error:' + err.message + ',' + err.stack;

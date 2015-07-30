@@ -33,6 +33,7 @@ nb_api.factory('nbClient', [
         $scope.init_promise = $q.when().then(init_token);
         $scope.upgrade = upgrade;
         $scope.diagnose = diagnose;
+        $scope.collect_debug = collect_debug;
 
         // TODO this manual hack allows https websites to call regular http to agents
         // we need to support https in the agents.
@@ -138,6 +139,14 @@ nb_api.factory('nbClient', [
                         return Q.delay(2000);
                     }
                 })
+                .then(function() {
+                    $window.document.body.removeChild(link);
+                });
+        }
+
+        function collect_debug() {
+            var link;
+            return $q.when($scope.client.system.start_debug({}))
                 .then(function() {
                     $window.document.body.removeChild(link);
                 });
@@ -349,6 +358,7 @@ nb_api.factory('nbSystem', [
                     return res.linux_agent_installer || '';
                 });
         }
+
         function get_s3_rest_installer() {
                 return $q.when()
                     .then(function() {

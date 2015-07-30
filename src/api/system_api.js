@@ -269,6 +269,13 @@ module.exports = {
                 system: 'admin',
             }
         },
+
+        start_debug: {
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
     },
 
 

@@ -591,7 +591,7 @@ function diagnose_with_agent(data) {
 function start_debug() {
     dbg.log0('Recieved start_debug req');
     dbg.set_level(5, 'core');
-    promise_utils.delay_unblocking(1000 * 10)
+    promise_utils.delay_unblocking(1000 * 10) //10m
         .then(function() {
             dbg.set_level(0, 'core');
         });

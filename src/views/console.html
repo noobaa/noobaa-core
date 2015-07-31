@@ -28,7 +28,7 @@
                         <li style="padding: 0 10px">
                             <span class="label label-default">Systems</span>
                         </li>
-                        <li ng-repeat="sys in nbSystem.systems">
+                        <li  ng-if="nbClient.account.is_support" ng-repeat="sys in nbSystem.systems">
                             <a ng-click="nbSystem.connect_system(sys.name)">
                                 <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
                             </a>
@@ -260,6 +260,9 @@
             <div class="pull-right">
                 <a class="btn btn-default Xbtn-flat" style="padding: 25px 20px; margin: 0" ng-if="nav.reload_view" nb-click-ladda="nav.reload_view()">
                     <i class="fa fa-repeat fa-2x text-muted"></i>
+                </a>
+                <a class="btn btn-default Xbtn-flat" style="padding: 25px 20px; margin: 0" ng-href="/console/users">
+                    <i class="fa fa-cog fa-2x text-muted"></i>
                 </a>
                 <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 25px 20px; margin: 0">
                     <i class="fa fa-clock-o fa-2x text-muted"></i>

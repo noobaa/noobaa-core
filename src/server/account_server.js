@@ -19,8 +19,9 @@ var account_server = {
     update_account: update_account,
     delete_account: delete_account,
     list_accounts: list_accounts,
+    list_system_accounts: list_system_accounts,
     accounts_status: accounts_status,
-    get_system_accounts: get_system_accounts,
+    get_system_roles: get_system_roles,
 };
 
 module.exports = account_server;
@@ -40,20 +41,40 @@ function create_account(req) {
         .then(null, db.check_already_exists(req, 'account'))
         .then(function(account_arg) {
             account = account_arg;
-            return server_rpc.client.system.create_system({
-                name: info.name
-            }, {
-                // the request needs a token with the newly created account
-                auth_token: req.make_auth_token({
-                    account_id: account.id,
-                })
-            });
-        })
-        .then(function(res) {
-            return {
-                token: res.token
-            };
+            console.log('account created!!');
+            if (req.is_support||_.isUndefined(req.system)) {
+
+                console.log('about to create system:' + info.name);
+                return server_rpc.client.system.create_system({
+                        name: info.name
+                    }, {
+                        // the request needs a token with the newly created account
+                        auth_token: req.make_auth_token({
+                            account_id: account.id,
+                        })
+                    })
+                    .then(function(res) {
+                        console.log('nothing to do');
+                        return {
+                            token: res.token
+                        };
+                    });
+            } else {
+                console.log('no need to create system:' + info.name, 'acc_id:', account.id, 'sys id', req.system);
+                return Q.when(db.Role.create({
+                        account: account.id,
+                        system: req.system._id,
+                        role: 'admin',
+                    }))
+                    .then(function() {
+                        return {
+                            token: ''
+                        };
+                    });
+
+            }
         });
+
 }
 
 
@@ -84,15 +105,45 @@ function read_account(req) {
  *
  */
 function update_account(req) {
-    // invalidate the local cache
-    db.AccountCache.invalidate(req.account.id);
+    console.log('req.rpc:',req.rpc_params);
 
     // pick and send the updates
     var info = _.pick(req.rpc_params, 'name', 'email', 'password');
-    return Q.when(db.Account
-            .findByIdAndUpdate(req.account.id, info)
-            .exec())
-        .thenResolve();
+    return Q.fcall(function() {
+            if (req.rpc_params.original_email) {
+                var original_email = req.rpc_params.original_email;
+                console.log('update account of ',original_email,' with ', info.email);
+                return Q.when(db.Account.find({
+                        email: original_email,
+                        deleted: null
+                    })
+                    .exec());
+            } else {
+                // invalidate the local cache
+                db.AccountCache.invalidate(req.account.id);
+                return [{
+                    _id: req.account.id
+                }];
+            }
+        })
+        .then(function(account_info) {
+            console.log('account update info2:' +account_info[0]._id+':::'+account_info[0].id+':::'+req.account.id+':::'+ JSON.stringify(info));
+            // we just mark the deletion time to make it easy to regret
+            // and to avoid stale refs side effects of actually removing from the db.
+            return Q.when(db.Account
+                .findByIdAndUpdate(account_info[0]._id,
+                    info)
+                .exec()).
+                then(function(update_info){
+                    console.log('update status:'+JSON.stringify(update_info));
+                }).
+                then(null,function(err){
+                    console.log('error while update2', err);
+                });
+        })
+        .then(null, function(err) {
+            console.log('error while update', err);
+        });
 }
 
 
@@ -103,17 +154,39 @@ function update_account(req) {
  *
  */
 function delete_account(req) {
-    // invalidate the local cache
-    db.AccountCache.invalidate(req.account.id);
 
-    // we just mark the deletion time to make it easy to regret
-    // and to avoid stale refs side effects of actually removing from the db.
-    return Q.when(db.Account
-            .findByIdAndUpdate(req.account.id, {
-                deleted: new Date()
-            })
-            .exec())
-        .thenResolve();
+    return Q.fcall(function() {
+            if (req.params) {
+                var user_email = req.params;
+                console.log('delete_account1', user_email);
+                return Q.when(db.Account.find({
+                        email: user_email,
+                        deleted: null
+                    })
+                    .exec());
+            } else {
+                // invalidate the local cache
+                db.AccountCache.invalidate(req.account.id);
+                return [{
+                    _id: req.account.id
+                }];
+            }
+        })
+        .then(function(account_info) {
+            console.log('account_info2:' +account_info[0]._id+':::'+ JSON.stringify(account_info[0]));
+
+            // we just mark the deletion time to make it easy to regret
+            // and to avoid stale refs side effects of actually removing from the db.
+            return Q.when(db.Account
+                .findByIdAndUpdate(account_info[0]._id, {
+                    deleted: new Date()
+                })
+                .exec())
+                .thenResolve();
+        })
+        .then(null, function(err) {
+            console.log('error while deleting', err);
+        });
 }
 
 
@@ -122,13 +195,24 @@ function delete_account(req) {
  * LIST_ACCOUNTS
  *
  */
-function list_accounts(req) {
+function list_accounts(req, system_id) {
+
 
     var roles_query = db.Role.find();
     var accounts_query = db.Account.find();
     var accounts_promise;
 
-    if (req.account.is_support) {
+    //query for all accounts, not for support user
+    if (!_.isUndefined(system_id)) {
+        roles_query = db.Role.find({
+            system: req.system.id
+        });
+        accounts_query = db.Account.find({
+            deleted: null
+        });
+
+    }
+    if (req.account.is_support || !_.isUndefined(system_id)) {
         // for support account - list all accounts and roles
         accounts_promise = accounts_query.exec();
     } else {
@@ -144,16 +228,32 @@ function list_accounts(req) {
             var roles_per_account = _.groupBy(roles, function(role) {
                 return role.account;
             });
-            console.log('roles_per_account', roles_per_account);
+
             return {
                 accounts: _.map(accounts, function(account) {
-                    var account_roles = roles_per_account[account.id];
-                    return get_account_info(account, account_roles);
+                    if (roles_per_account[account.id]) {
+                        var account_roles = roles_per_account[account.id];
+                        return get_account_info(account, account_roles);
+                    }
                 })
             };
         });
 }
 
+/**
+ *
+ * LIST_ACCOUNTS
+ *
+ */
+function list_system_accounts(req) {
+    return Q.fcall(function() {
+        return list_accounts(req, req.system.id);
+    }).then(function(accounts) {
+        var normalized_accounts = _.filter(accounts.accounts, null);
+        accounts.accounts = normalized_accounts;
+        return accounts;
+    });
+}
 
 // once any account is found then we can save this state
 // in memory since it will not change.
@@ -185,10 +285,10 @@ function accounts_status(req) {
         });
 }
 
-function get_system_accounts(req) {
+function get_system_roles(req) {
     return Q.when(
             db.Role.find({
-              system: req.system.id
+                system: req.system.id
             })
             .exec())
         .then(function(roles) {
@@ -203,7 +303,8 @@ function get_system_accounts(req) {
 
 
 function get_account_info(account, roles) {
-    var info = _.pick(account, 'name', 'email');
+    console.log('account', account);
+    var info = _.pick(account, 'name', 'email', '_id');
     if (account.is_support) {
         info.is_support = true;
     }

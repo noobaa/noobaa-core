@@ -41,8 +41,8 @@ var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
 var fs = require('fs');
-var child_process = require('child_process');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var promise_utils = require('../util/promise_utils');
 
 
 /**
@@ -127,27 +127,20 @@ function create_system(req) {
                 "access_key": info.access_keys[0].access_key,
                 "secret_key": info.access_keys[0].secret_key
             };
-            if (process.env.ON_PREMISE) {
+            if (process.env.ON_PREMISE === 'true') {
                 return Q.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
             }
         })
         .then(function() {
-            if (process.env.ON_PREMISE) {
-                return Q.Promise(function(resolve, reject) {
-                    var supervisorctl = child_process.spawn(
-                        'supervisorctl', ['restart', 's3rver'], {
-                            cwd: process.cwd()
-                        });
-
-                    supervisorctl.on('close', function(code) {
-                        if (code !== 0) {
-                            resolve();
-                        } else {
-                            dbg.log0('error code while restarting s3rver', code);
-                            resolve();
-                        }
+            if (process.env.ON_PREMISE === 'true') {
+                return Q.fcall(function() {
+                        return promise_utils.promised_spawn(
+                            'supervisorctl', ['restart', 's3rver'], process.cwd()
+                        );
+                    })
+                    .then(null, function(err) {
+                        dbg.error('Failed to restart s3rver', err);
                     });
-                });
             }
         })
         //Auto generate agent executable.
@@ -347,6 +340,7 @@ function delete_system(req) {
  *
  */
 function list_systems(req) {
+    console.log('List systems:',req.account);
     if (!req.account.is_support) {
         return list_systems_int(false, false, req.account.id);
     }

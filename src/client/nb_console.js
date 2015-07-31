@@ -148,7 +148,7 @@ nb_console.controller('SupportViewCtrl', [
 
 
             scope.update_email_message = function() {
-                scope.email_message ='';
+                scope.email_message = '';
             };
             scope.create = function() {
                 return $q.when(nbClient.client.account.create_account({
@@ -186,7 +186,8 @@ nb_console.controller('UserManagementViewCtrl', [
         $scope.nav.reload_view = reload_view;
         $scope.add_new_user = add_new_user;
         $scope.delete_user = delete_user;
-
+        $scope.reset_password = reset_password;
+        $scope.set_email = set_email;
 
         reload_accounts();
         console.log('accounts:' + $scope.accounts);
@@ -207,7 +208,58 @@ nb_console.controller('UserManagementViewCtrl', [
                     $scope.accounts = res.accounts;
                 });
         }
-
+        function reset_password(user_email){
+            nbAlertify.prompt('Set new password for '+user_email)
+                .then(function(new_password) {
+                    if (new_password) {
+                        return $q.when(nbClient.client.account.update_account({
+                                name: nbSystem.system.name,
+                                email: user_email,
+                                password: new_password,
+                                original_email: user_email,
+                            }))
+                            .then(function(){
+                                nbAlertify.success('Password for ' + user_email + ' has been set');
+                            })
+                            .then(null, function(err) {
+                                console.error('Reset password failure:', err.stack, err);
+                                if (err.rpc_code) {
+                                    nbAlertify.error(err.message);
+                                } else {
+                                    nbAlertify.error('Failed: ' + JSON.stringify(err));
+                                }
+                            });
+                    }
+                });
+        }
+        function set_email(user_email){
+            var additional_message = '';
+            if (nbClient.account.email === user_email) {
+                additional_message = ', current user will be logged out';
+            }
+            nbAlertify.prompt('Set email for '+user_email+additional_message)
+                .then(function(new_email) {
+                    if (new_email) {
+                        return $q.when(nbClient.client.account.update_account({
+                                name: nbSystem.system.name,
+                                email: new_email,
+                                original_email: user_email,
+                            }))
+                            .then(function(){
+                                nbAlertify.success('Email ' + new_email + ' has been set');
+                                reload_accounts();
+                            })
+                            .then(null, function(err) {
+                                console.error('Reset email failure:', err.stack, err);
+                                if (err.rpc_code) {
+                                    nbAlertify.error(err.message);
+                                } else {
+                                    nbAlertify.error('Failed: ' + JSON.stringify(err));
+                                }
+                            });
+                    }
+                });
+        }
         function delete_user(user_email) {
             console.log('attempt to delete ' + user_email);
             var user_info = _.find($scope.accounts, function(account) {
@@ -219,31 +271,35 @@ nb_console.controller('UserManagementViewCtrl', [
                 if ($scope.accounts.length === 1) {
                     nbAlertify.error('System must have at least one account');
                 } else {
-                    nbAlertify.confirm('Are you sure that you want to delete ' + user_email + '? (user_info._id)'+JSON.stringify(user_info))
-                        .then(function(result) {
-                            console.log('in confirm user deletion');
+                    if (nbClient.account.email === user_email) {
+                        nbAlertify.error('Cannot delete current logged in user');
+                    } else {
 
-                            return $q.when(nbClient.client.account.delete_account(user_email))
-                                .then(function() {
-                                    nbAlertify.success('User ' + user_email + ' has been deleted');
-                                    reload_accounts();
-                                });
+                        nbAlertify.confirm('Are you sure that you want to delete ' + user_email + '?')
+                            .then(function(result) {
+                                console.log('in confirm user deletion');
 
-                        })
-                        .then(null, function(err) {
-                            if (err.message !== "canceled") {
-                                nbAlertify.error('Error while trying to delete user. ERROR:' + err.message);
-                            }
-                        });
+                                return $q.when(nbClient.client.account.delete_account(user_email))
+                                    .then(function() {
+                                        nbAlertify.success('User ' + user_email + ' has been deleted');
+                                        reload_accounts();
+                                    });
+
+                            })
+                            .then(null, function(err) {
+                                if (err.message !== "canceled") {
+                                    nbAlertify.error('Error while trying to delete user. ERROR:' + err.message);
+                                }
+                            });
+                    }
+
                 }
-
 
             } else {
                 nbAlertify.error('User does not exist any more.');
                 reload_accounts();
             }
         }
-
         function add_new_user() {
             var scope = $scope.$new();
             scope.system_name = '';
@@ -258,8 +314,9 @@ nb_console.controller('UserManagementViewCtrl', [
                     'password:' + scope.password + '\r\n' +
                     'you can change the password on your login or later on';
             };
-
+            scope.update_email_message();
             scope.create = function() {
+
                 return $q.when(nbClient.client.account.create_account({
                         name: nbSystem.system.name,
                         email: scope.email,
@@ -283,6 +340,7 @@ nb_console.controller('UserManagementViewCtrl', [
                 scope: scope,
             });
         }
+
     }
 ]);
 

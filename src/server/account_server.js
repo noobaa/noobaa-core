@@ -105,15 +105,45 @@ function read_account(req) {
  *
  */
 function update_account(req) {
-    // invalidate the local cache
-    db.AccountCache.invalidate(req.account.id);
+    console.log('req.rpc:',req.rpc_params);
 
     // pick and send the updates
     var info = _.pick(req.rpc_params, 'name', 'email', 'password');
-    return Q.when(db.Account
-            .findByIdAndUpdate(req.account.id, info)
-            .exec())
-        .thenResolve();
+    return Q.fcall(function() {
+            if (req.rpc_params.original_email) {
+                var original_email = req.rpc_params.original_email;
+                console.log('update account of ',original_email,' with ', info.email);
+                return Q.when(db.Account.find({
+                        email: original_email,
+                        deleted: null
+                    })
+                    .exec());
+            } else {
+                // invalidate the local cache
+                db.AccountCache.invalidate(req.account.id);
+                return [{
+                    _id: req.account.id
+                }];
+            }
+        })
+        .then(function(account_info) {
+            console.log('account update info2:' +account_info[0]._id+':::'+account_info[0].id+':::'+req.account.id+':::'+ JSON.stringify(info));
+            // we just mark the deletion time to make it easy to regret
+            // and to avoid stale refs side effects of actually removing from the db.
+            return Q.when(db.Account
+                .findByIdAndUpdate(account_info[0]._id,
+                    info)
+                .exec()).
+                then(function(update_info){
+                    console.log('update status:'+JSON.stringify(update_info));
+                }).
+                then(null,function(err){
+                    console.log('error while update2', err);
+                });
+        })
+        .then(null, function(err) {
+            console.log('error while update', err);
+        });
 }
 
 
@@ -135,6 +165,8 @@ function delete_account(req) {
                     })
                     .exec());
             } else {
+                // invalidate the local cache
+                db.AccountCache.invalidate(req.account.id);
                 return [{
                     _id: req.account.id
                 }];
@@ -142,16 +174,15 @@ function delete_account(req) {
         })
         .then(function(account_info) {
             console.log('account_info2:' +account_info[0]._id+':::'+ JSON.stringify(account_info[0]));
-            // invalidate the local cache
-            db.AccountCache.invalidate(account_info[0]._id);
 
             // we just mark the deletion time to make it easy to regret
             // and to avoid stale refs side effects of actually removing from the db.
             return Q.when(db.Account
-                .findByIdAndUpdate(account_info[0].id, {
+                .findByIdAndUpdate(account_info[0]._id, {
                     deleted: new Date()
                 })
-                .exec());
+                .exec())
+                .thenResolve();
         })
         .then(null, function(err) {
             console.log('error while deleting', err);
@@ -171,6 +202,7 @@ function list_accounts(req, system_id) {
     var accounts_query = db.Account.find();
     var accounts_promise;
 
+    //query for all accounts, not for support user
     if (!_.isUndefined(system_id)) {
         roles_query = db.Role.find({
             system: req.system.id
@@ -178,9 +210,9 @@ function list_accounts(req, system_id) {
         accounts_query = db.Account.find({
             deleted: null
         });
-        req.account.is_support = true;
+
     }
-    if (req.account.is_support) {
+    if (req.account.is_support || !_.isUndefined(system_id)) {
         // for support account - list all accounts and roles
         accounts_promise = accounts_query.exec();
     } else {

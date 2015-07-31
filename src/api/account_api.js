@@ -73,6 +73,9 @@ module.exports = {
                     password: {
                         type: 'string',
                     },
+                    original_email: {
+                        type: 'string',
+                    },
                 }
             },
             auth: {

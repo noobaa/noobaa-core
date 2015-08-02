@@ -134,8 +134,9 @@ Section "Noobaa Local Service"
 			${WriteFile} "$INSTDIR\agent_conf.json" "}"
 
 		${Else}
-			IfFileExists $INSTDIR\agent_conf.json SkipDelete DeleteOldFile
+			IfFileExists $INSTDIR\agent_conf.json DeleteOldFile SkipDelete
 			DeleteOldFile:
+				nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
 				Delete "$INSTDIR\agent_conf.json"
 			SkipDelete:
 

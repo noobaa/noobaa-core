@@ -1,0 +1,42 @@
+<div class="modal fade">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <button class="close" type="button" data-dismiss="modal">&times;</button>
+                <h3 ng-if="update_password" class="modal-title">Reset Account Password</h3>
+                <h3 ng-if="update_email" class="modal-title">Reset Account Email</h3>
+            </div>
+            <div class="modal-body">
+                <form role="form" autocomplete="on" style="padding: 0 30px">
+
+                    <!-- fake fields to cheat chrome autofill -->
+                        <input type="text" name="prevent_autofill" id="prevent_autofill" value="" style="display:none;" />
+                        <input type="email" name="email_fake" id="email_fake" value="" style="display:none;" />
+                        <input type="password" name="password_fake" id="password_fake" value="" style="display:none;" />
+                    <!-- end of fake fields -->
+                    <div ng-if="update_email" class="form-control-wrapper" style="margin: 40px 0">
+                        <input class="form-control floating-label"  autocomplete="off" type="email" id="input_email" placeholder="EMAIL" required ng-model="$parent.email" ng-disabled="form_disabled" />
+                    </div>
+
+                    <div ng-if="update_password" class="form-control-wrapper" style="margin: 40px 0">
+                        <input class="form-control floating-label" autocomplete="off" type="password" id="input_password" placeholder="PASSWORD" required ng-model="$parent.password"  ng-disabled="form_disabled" />
+                    </div>
+                    <div class="form-control-wrapper text-center">
+                        <button type="submit" class="btn btn-primary" ng-disabled="form_disabled" nb-click-ladda="update()">
+                            Done
+                        </button>
+                    </div>
+                    <div class="form-control-wrapper alert {{alert_class || 'alert-warning'}}" role="alert" ng-show="alert_text">
+                        <button type="button" class="close" ng-click="alert_text=''">
+                            <span aria-hidden="true">&times;</span>
+                            <span class="sr-only">Close</span>
+                        </button>
+                        {{alert_text}}
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>

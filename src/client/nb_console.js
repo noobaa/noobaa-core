@@ -208,58 +208,73 @@ nb_console.controller('UserManagementViewCtrl', [
                     $scope.accounts = res.accounts;
                 });
         }
-        function reset_password(user_email){
-            nbAlertify.prompt('Set new password for '+user_email).set('type', 'password')
-                .then(function(new_password) {
-                    if (new_password) {
-                        return $q.when(nbClient.client.account.update_account({
-                                name: nbSystem.system.name,
-                                email: user_email,
-                                password: new_password,
-                                original_email: user_email,
-                            }))
-                            .then(function(){
-                                nbAlertify.success('Password for ' + user_email + ' has been set');
-                            })
-                            .then(null, function(err) {
-                                console.error('Reset password failure:', err.stack, err);
-                                if (err.rpc_code) {
-                                    nbAlertify.error(err.message);
-                                } else {
-                                    nbAlertify.error('Failed: ' + JSON.stringify(err));
-                                }
-                            });
-                    }
-                });
+
+        function reset_password(user_email) {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = '';
+            scope.update_password=true;
+            scope.update = function() {
+                return $q.when(nbClient.client.account.update_account({
+                        name: nbSystem.system.name,
+                        email: user_email,
+                        password: scope.password,
+                        original_email: user_email,
+                    }))
+                    .then(function() {
+                        nbAlertify.success('Password for ' + user_email + ' has been set');
+                        scope.modal.modal('hide');
+                    }, function(err) {
+                        console.error('Reset password failure:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/reset_user_info_dialog.html',
+                scope: scope,
+            });
         }
-        function set_email(user_email){
-            var additional_message = '';
-            if (nbClient.account.email === user_email) {
-                additional_message = ', current user will be logged out';
-            }
-            nbAlertify.prompt('Set email for '+user_email+additional_message).set('type','email')
-                .then(function(new_email) {
-                    if (new_email) {
-                        return $q.when(nbClient.client.account.update_account({
-                                name: nbSystem.system.name,
-                                email: new_email,
-                                original_email: user_email,
-                            }))
-                            .then(function(){
-                                nbAlertify.success('Email ' + new_email + ' has been set');
-                                reload_accounts();
-                            })
-                            .then(null, function(err) {
-                                console.error('Reset email failure:', err.stack, err);
-                                if (err.rpc_code) {
-                                    nbAlertify.error(err.message);
-                                } else {
-                                    nbAlertify.error('Failed: ' + JSON.stringify(err));
-                                }
-                            });
-                    }
-                });
+
+        function set_email(user_email) {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = user_email;
+            scope.update_email=true;
+            scope.update = function() {
+                console.log('scope.email:'+scope.email);
+                return $q.when(nbClient.client.account.update_account({
+                        name: nbSystem.system.name,
+                        email: scope.email,
+                        original_email: user_email,
+                    }))
+                    .then(function() {
+                        if (scope.email)
+                        {
+                            scope.modal.modal('hide');
+                            nbAlertify.success('Email ' + scope.email + ' has been set');
+                            reload_accounts();
+                        }
+                    },function(err) {
+                        console.error('Reset email failure:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/reset_user_info_dialog.html',
+                scope: scope,
+            });
         }
+
         function delete_user(user_email) {
             console.log('attempt to delete ' + user_email);
             var user_info = _.find($scope.accounts, function(account) {
@@ -300,6 +315,7 @@ nb_console.controller('UserManagementViewCtrl', [
                 reload_accounts();
             }
         }
+
         function add_new_user() {
             var scope = $scope.$new();
             scope.system_name = '';

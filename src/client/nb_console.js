@@ -208,58 +208,72 @@ nb_console.controller('UserManagementViewCtrl', [
                     $scope.accounts = res.accounts;
                 });
         }
-        function reset_password(user_email){
-            nbAlertify.prompt('Set new password for '+user_email)
-                .then(function(new_password) {
-                    if (new_password) {
-                        return $q.when(nbClient.client.account.update_account({
-                                name: nbSystem.system.name,
-                                email: user_email,
-                                password: new_password,
-                                original_email: user_email,
-                            }))
-                            .then(function(){
-                                nbAlertify.success('Password for ' + user_email + ' has been set');
-                            })
-                            .then(null, function(err) {
-                                console.error('Reset password failure:', err.stack, err);
-                                if (err.rpc_code) {
-                                    nbAlertify.error(err.message);
-                                } else {
-                                    nbAlertify.error('Failed: ' + JSON.stringify(err));
-                                }
-                            });
-                    }
-                });
+
+        function reset_password(user_email) {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = '';
+            scope.update_password = true;
+            scope.update = function() {
+                return $q.when(nbClient.client.account.update_account({
+                        name: nbSystem.system.name,
+                        email: user_email,
+                        password: scope.password,
+                        original_email: user_email,
+                    }))
+                    .then(function() {
+                        nbAlertify.success('Password for ' + user_email + ' has been set');
+                        scope.modal.modal('hide');
+                    }, function(err) {
+                        console.error('Reset password failure:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/reset_user_info_dialog.html',
+                scope: scope,
+            });
         }
-        function set_email(user_email){
-            var additional_message = '';
-            if (nbClient.account.email === user_email) {
-                additional_message = ', current user will be logged out';
-            }
-            nbAlertify.prompt('Set email for '+user_email+additional_message)
-                .then(function(new_email) {
-                    if (new_email) {
-                        return $q.when(nbClient.client.account.update_account({
-                                name: nbSystem.system.name,
-                                email: new_email,
-                                original_email: user_email,
-                            }))
-                            .then(function(){
-                                nbAlertify.success('Email ' + new_email + ' has been set');
-                                reload_accounts();
-                            })
-                            .then(null, function(err) {
-                                console.error('Reset email failure:', err.stack, err);
-                                if (err.rpc_code) {
-                                    nbAlertify.error(err.message);
-                                } else {
-                                    nbAlertify.error('Failed: ' + JSON.stringify(err));
-                                }
-                            });
-                    }
-                });
+
+        function set_email(user_email) {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = user_email;
+            scope.update_email = true;
+            scope.update = function() {
+                console.log('scope.email:' + scope.email);
+                return $q.when(nbClient.client.account.update_account({
+                        name: nbSystem.system.name,
+                        email: scope.email,
+                        original_email: user_email,
+                    }))
+                    .then(function() {
+                        if (scope.email) {
+                            scope.modal.modal('hide');
+                            nbAlertify.success('Email ' + scope.email + ' has been set');
+                            reload_accounts();
+                        }
+                    }, function(err) {
+                        console.error('Reset email failure:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/reset_user_info_dialog.html',
+                scope: scope,
+            });
         }
+
         function delete_user(user_email) {
             console.log('attempt to delete ' + user_email);
             var user_info = _.find($scope.accounts, function(account) {
@@ -300,6 +314,7 @@ nb_console.controller('UserManagementViewCtrl', [
                 reload_accounts();
             }
         }
+
         function add_new_user() {
             var scope = $scope.$new();
             scope.system_name = '';
@@ -498,15 +513,16 @@ nb_console.controller('SystemDataCtrl', [
             });
             scope.done = function() {
                 console.log('name:' + scope.new_bucket_name);
-                var return_value = validate_bucket_name(scope.new_bucket_name);
+                var bucket_name = scope.new_bucket_name.toLowerCase();
+                var return_value = validate_bucket_name(bucket_name);
                 if (return_value === "ok") {
                     $q.when(nbClient.client.bucket.create_bucket({
-                        name: scope.new_bucket_name,
+                        name: bucket_name,
                         tiering: ['nodes']
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');
-                        nbAlertify.success('Congrats! ' + scope.new_bucket_name + ' repository is ready');
+                        nbAlertify.success('Congrats! ' + bucket_name + ' repository is ready');
                         reload_view();
                     }).then(null, function(err) {
                         scope.error_message = 'Error:' + err.message + ',' + err.stack;
@@ -521,18 +537,65 @@ nb_console.controller('SystemDataCtrl', [
             };
         }
 
+        function check_is_IPv4(entry) {
+            var blocks = entry.split(".");
+            if (blocks.length === 4) {
+                return blocks.every(function(block) {
+                    return parseInt(block, 10) >= 0 && parseInt(block, 10) <= 255;
+                });
+            }
+            return false;
+        }
+
+        //Copied from amazon java sdk
         function validate_bucket_name(bucket_name) {
             var error_message = '';
-            if ((/^[a-z0-9]+(-[a-z0-9]+)*$/.test(bucket_name) === false)) {
-                error_message =
-                    ('Bucket names can contain only lowercase letters, numbers, and hyphens. ' +
-                        'Each label must start and end with a lowercase letter or a number.');
-                return error_message;
-            }
             if (bucket_name.length < 3 || bucket_name.length > 63) {
                 error_message = ('The bucket name must be between 3 and 63 characters.');
                 return error_message;
             }
+            if (check_is_IPv4(bucket_name)) {
+                return "Bucket name should not contain IP address";
+            }
+            var previous = '\0';
+
+            for (var i = 0; i < bucket_name.length; ++i) {
+                var next = bucket_name.charAt(i);
+                if (next >= 'A' && next <= 'Z') {
+                    return "Bucket name should not contain uppercase characters";
+                }
+
+                if (next === ' ' || next === '\t' || next === '\r' || next === '\n') {
+                    return "Bucket name should not contain white space";
+                }
+
+                if (next === '.') {
+                    if (previous === '\0') {
+                        return "Bucket name should not begin with a period";
+                    }
+                    if (previous === '.') {
+                        return "Bucket name should not contain two adjacent periods";
+                    }
+                    if (previous === '-') {
+                        return "Bucket name should not contain dashes next to periods";
+                    }
+                } else if (next === '-') {
+                    if (previous === '.') {
+                        return "Bucket name should not contain dashes next to periods";
+                    }
+                } else if ((next < '0') || (next > '9' && next < 'a') || (next > 'z')) {
+
+                    return "Bucket name should not contain '" + next + "'";
+                }
+
+                previous = next;
+            }
+
+            if (previous === '.' || previous === '-') {
+                return "Bucket name should not end with '-' or '.'";
+            }
+
+
             var bucket_exists = _.find(nbSystem.system.buckets, function(bucket) {
                 return bucket.name === bucket_name;
             });
@@ -724,6 +787,7 @@ nb_console.controller('NodeViewCtrl', [
                                 fragment.size = frag_size;
                             });
                             part.file = object.key;
+                            part.bucket = object.bucket;
                             $scope.parts.push(part);
                         });
                     });

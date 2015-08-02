@@ -15,7 +15,7 @@
                         <br> Each label must start and end with a lowercase letter or a number.
                     </p>
                     <div class="form-group">
-                        <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none;text-transform: lowercase;" placeholder="Enter repository name" ng-model="new_bucket_name" ng-model-options="{debounce: 700}" />
+                        <input autofocus type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none;text-transform: lowercase;" placeholder="Enter repository name" ng-model="new_bucket_name" ng-model-options="{debounce: 700}" />
                         <p class="hints text-muted">3 - 63 characters</p>
 
                         <span ng-show="has_error">

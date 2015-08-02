@@ -41,7 +41,15 @@ function create_account(req) {
         .then(null, db.check_already_exists(req, 'account'))
         .then(function(account_arg) {
             account = account_arg;
-            console.log('account created!!');
+            console.log('account created!!',account);
+            return db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'account.create',
+                account: account,
+            });
+        }).then(function(){
+
             if (req.is_support||_.isUndefined(req.system)) {
 
                 console.log('about to create system:' + info.name);
@@ -181,8 +189,16 @@ function delete_account(req) {
                 .findByIdAndUpdate(account_info[0]._id, {
                     deleted: new Date()
                 })
-                .exec())
-                .thenResolve();
+                .exec());
+        })
+        .then(function(account_info_2){
+            console.log('account_info_2',account_info_2+':');
+            return Q.when(db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'account.delete',
+                account: account_info_2,
+            }));
         })
         .then(null, function(err) {
             console.log('error while deleting', err);

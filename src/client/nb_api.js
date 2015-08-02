@@ -160,11 +160,11 @@ nb_api.factory('nbClient', [
             scope.password = '';
 
             scope.update_email_message = function() {
-                scope.email_message ='';
-                console.log('scope.system_name'+scope.system_name);
+                scope.email_message = '';
+                console.log('scope.system_name' + scope.system_name);
             };
             scope.create = function() {
-                console.log('register - create :'+scope.system_name+'::'+scope.email+'::'+scope.password);
+                console.log('register - create :' + scope.system_name + '::' + scope.email + '::' + scope.password);
 
                 if (!scope.system_name ||
                     !scope.email ||
@@ -370,16 +370,16 @@ nb_api.factory('nbSystem', [
         }
 
         function get_s3_rest_installer() {
-                return $q.when()
-                    .then(function() {
-                        return nbClient.client.system.get_system_resource_info({});
-                    })
-                    .then(function(res) {
-                        console.log('SYSTEM RESOURCES (S3)', res);
-                        return res.s3rest_installer || '';
-                    });
-            }
-            // ACTIVITY LOG
+            return $q.when()
+                .then(function() {
+                    return nbClient.client.system.get_system_resource_info({});
+                })
+                .then(function(res) {
+                    console.log('SYSTEM RESOURCES (S3)', res);
+                    return res.s3rest_installer || '';
+                });
+        }
+        // ACTIVITY LOG
 
         function read_activity_log() {
             return nbClient.init_promise
@@ -431,6 +431,38 @@ nb_api.factory('nbSystem', [
                                     }
                                     l.category = 'files';
                                     l.text = 'Upload completed ' + l.obj.key;
+                                    break;
+                                case 'bucket.create':
+                                    if (!l.bucket) {
+                                        console.log('filtered event with missing bucket info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'bucket';
+                                    l.text = 'Added new bucket ' + l.bucket.name;
+                                    break;
+                                case 'bucket.delete':
+                                    if (!l.bucket) {
+                                        console.log('filtered event with missing bucket info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'bucket';
+                                    l.text = 'Deleted bucket ' + l.bucket.name;
+                                    break;
+                                case 'account.create':
+                                    if (!l.account) {
+                                        console.log('filtered event with missing account info', l.event+':::'+JSON.stringify(l));
+                                        return false;
+                                    }
+                                    l.category = 'account';
+                                    l.text = 'Added new account ' + l.account.email;
+                                    break;
+                                case 'account.delete':
+                                    if (!l.account) {
+                                        console.log('filtered event with missing account info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'account';
+                                    l.text = 'Deleted account ' + l.account.email;
                                     break;
                                 default:
                                     console.log('filtered unrecognized event', l.event);

@@ -119,6 +119,9 @@ module.exports = {
                                 key: {
                                     type: 'string'
                                 },
+                                bucket: {
+                                    type: 'string'
+                                },
                                 parts: {
                                     type: 'array',
                                     items: {

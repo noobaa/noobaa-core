@@ -513,6 +513,7 @@ function read_activity_log(req) {
     q.populate('node', 'name');
     q.populate('bucket', 'name');
     q.populate('obj', 'key');
+    q.populate('account', 'email');
     return Q.when(q.exec())
         .then(function(logs) {
             logs = _.map(logs, function(log_item) {
@@ -529,6 +530,9 @@ function read_activity_log(req) {
                 }
                 if (log_item.obj) {
                     l.obj = _.pick(log_item.obj, 'key');
+                }
+                if (log_item.account) {
+                    l.account = _.pick(log_item.account, 'email');
                 }
                 return l;
             });

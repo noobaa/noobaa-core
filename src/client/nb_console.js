@@ -214,7 +214,7 @@ nb_console.controller('UserManagementViewCtrl', [
             scope.system_name = '';
             scope.password = '';
             scope.email = '';
-            scope.update_password=true;
+            scope.update_password = true;
             scope.update = function() {
                 return $q.when(nbClient.client.account.update_account({
                         name: nbSystem.system.name,
@@ -245,22 +245,21 @@ nb_console.controller('UserManagementViewCtrl', [
             scope.system_name = '';
             scope.password = '';
             scope.email = user_email;
-            scope.update_email=true;
+            scope.update_email = true;
             scope.update = function() {
-                console.log('scope.email:'+scope.email);
+                console.log('scope.email:' + scope.email);
                 return $q.when(nbClient.client.account.update_account({
                         name: nbSystem.system.name,
                         email: scope.email,
                         original_email: user_email,
                     }))
                     .then(function() {
-                        if (scope.email)
-                        {
+                        if (scope.email) {
                             scope.modal.modal('hide');
                             nbAlertify.success('Email ' + scope.email + ' has been set');
                             reload_accounts();
                         }
-                    },function(err) {
+                    }, function(err) {
                         console.error('Reset email failure:', err.stack, err);
                         if (err.rpc_code) {
                             nbAlertify.error(err.message);
@@ -538,18 +537,65 @@ nb_console.controller('SystemDataCtrl', [
             };
         }
 
+        function check_is_IPv4(entry) {
+            var blocks = entry.split(".");
+            if (blocks.length === 4) {
+                return blocks.every(function(block) {
+                    return parseInt(block, 10) >= 0 && parseInt(block, 10) <= 255;
+                });
+            }
+            return false;
+        }
+
+        //Copied from amazon java sdk
         function validate_bucket_name(bucket_name) {
             var error_message = '';
-            if ((/^[a-z0-9]+(-[a-z0-9]+)*$/.test(bucket_name) === false)) {
-                error_message =
-                    ('Bucket names can contain only lowercase letters, numbers, and hyphens. ' +
-                        'Each label must start and end with a lowercase letter or a number.');
-                return error_message;
-            }
             if (bucket_name.length < 3 || bucket_name.length > 63) {
                 error_message = ('The bucket name must be between 3 and 63 characters.');
                 return error_message;
             }
+            if (check_is_IPv4(bucket_name)) {
+                return "Bucket name should not contain IP address";
+            }
+            var previous = '\0';
+
+            for (var i = 0; i < bucket_name.length; ++i) {
+                var next = bucket_name.charAt(i);
+                if (next >= 'A' && next <= 'Z') {
+                    return "Bucket name should not contain uppercase characters";
+                }
+
+                if (next === ' ' || next === '\t' || next === '\r' || next === '\n') {
+                    return "Bucket name should not contain white space";
+                }
+
+                if (next === '.') {
+                    if (previous === '\0') {
+                        return "Bucket name should not begin with a period";
+                    }
+                    if (previous === '.') {
+                        return "Bucket name should not contain two adjacent periods";
+                    }
+                    if (previous === '-') {
+                        return "Bucket name should not contain dashes next to periods";
+                    }
+                } else if (next === '-') {
+                    if (previous === '.') {
+                        return "Bucket name should not contain dashes next to periods";
+                    }
+                } else if ((next < '0') || (next > '9' && next < 'a') || (next > 'z')) {
+
+                    return "Bucket name should not contain '" + next + "'";
+                }
+
+                previous = next;
+            }
+
+            if (previous === '.' || previous === '-') {
+                return "Bucket name should not end with '-' or '.'";
+            }
+
+
             var bucket_exists = _.find(nbSystem.system.buckets, function(bucket) {
                 return bucket.name === bucket_name;
             });

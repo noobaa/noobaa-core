@@ -38,6 +38,15 @@ function create_bucket(req) {
             }
             return db.Bucket.create(info);
         })
+        .then(function(bucket){
+            console.log('create bucket:',bucket);
+            return db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'bucket.create',
+                bucket: bucket,
+            });
+        })
         .then(null, db.check_already_exists(req, 'bucket'))
         .thenResolve();
 }
@@ -106,6 +115,14 @@ function delete_bucket(req) {
     return Q.when(db.Bucket
             .findOneAndUpdate(get_bucket_query(req), updates)
             .exec())
+        .then(function(bucket_info){
+            return db.ActivityLog.create({
+                system: req.system,
+                level: 'info',
+                event: 'bucket.delete',
+                bucket: bucket_info,
+            });
+        })
         .then(db.check_not_found(req, 'bucket'))
         .thenResolve();
 }

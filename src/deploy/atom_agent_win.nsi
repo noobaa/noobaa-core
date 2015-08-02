@@ -134,6 +134,11 @@ Section "Noobaa Local Service"
 			${WriteFile} "$INSTDIR\agent_conf.json" "}"
 
 		${Else}
+			IfFileExists $INSTDIR\agent_conf.json SkipDelete DeleteOldFile
+			DeleteOldFile:
+				Delete "$INSTDIR\agent_conf.json"
+			SkipDelete:
+
 			${Base64_Decode} $config
 			Pop $0
 			${WriteFile} "$INSTDIR\agent_conf.json" $0

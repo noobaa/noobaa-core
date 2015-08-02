@@ -209,7 +209,7 @@ nb_console.controller('UserManagementViewCtrl', [
                 });
         }
         function reset_password(user_email){
-            nbAlertify.prompt('Set new password for '+user_email)
+            nbAlertify.prompt('Set new password for '+user_email).set('type', 'password')
                 .then(function(new_password) {
                     if (new_password) {
                         return $q.when(nbClient.client.account.update_account({
@@ -237,7 +237,7 @@ nb_console.controller('UserManagementViewCtrl', [
             if (nbClient.account.email === user_email) {
                 additional_message = ', current user will be logged out';
             }
-            nbAlertify.prompt('Set email for '+user_email+additional_message)
+            nbAlertify.prompt('Set email for '+user_email+additional_message).set('type','email')
                 .then(function(new_email) {
                     if (new_email) {
                         return $q.when(nbClient.client.account.update_account({
@@ -498,15 +498,16 @@ nb_console.controller('SystemDataCtrl', [
             });
             scope.done = function() {
                 console.log('name:' + scope.new_bucket_name);
-                var return_value = validate_bucket_name(scope.new_bucket_name);
+                var bucket_name = scope.new_bucket_name.toLowerCase();
+                var return_value = validate_bucket_name(bucket_name);
                 if (return_value === "ok") {
                     $q.when(nbClient.client.bucket.create_bucket({
-                        name: scope.new_bucket_name,
+                        name: bucket_name,
                         tiering: ['nodes']
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');
-                        nbAlertify.success('Congrats! ' + scope.new_bucket_name + ' repository is ready');
+                        nbAlertify.success('Congrats! ' + bucket_name + ' repository is ready');
                         reload_view();
                     }).then(null, function(err) {
                         scope.error_message = 'Error:' + err.message + ',' + err.stack;

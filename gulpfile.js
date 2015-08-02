@@ -457,6 +457,8 @@ gulp.task('agent', ['jshint'], function() {
 
 
 function build_agent_distro() {
+    gutil.log('build_agent_distro');
+
     var build_params = [];
     if (build_on_premise === true) {
         build_params = ['--on_premise',
@@ -465,6 +467,7 @@ function build_agent_distro() {
     }
 
     return Q.fcall(function() {
+            gutil.log('build_atom_agent_win:'+JSON.stringify(build_params));
             return promise_utils.promised_spawn('src/deploy/build_atom_agent_win.sh',
                 build_params, process.cwd());
         })
@@ -472,6 +475,7 @@ function build_agent_distro() {
             gutil.log('done src/deploy/build_atom_agent_win.sh');
         })
         .then(function(){
+            gutil.log('before downloading linux setup');
             return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup',
             build_params, process.cwd());
         })

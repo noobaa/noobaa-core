@@ -422,6 +422,9 @@ function read_object_mappings(params) {
  * @params: node, skip, limit
  */
 function read_node_mappings(params) {
+    var objects ={};
+    var parts_per_obj_id={};
+
     return Q.fcall(function() {
             var find = db.DataBlock
                 .find({
@@ -453,17 +456,32 @@ function read_node_mappings(params) {
             });
         })
         .then(function(parts) {
-            var objects = {};
-            var parts_per_obj_id = _.groupBy(parts, function(part) {
+             objects = {};
+             parts_per_obj_id = _.groupBy(parts, function(part) {
                 var obj = part.obj;
                 delete part.obj;
                 objects[obj.id] = obj;
                 return obj.id;
             });
+
+            return  db.Bucket
+                .find({
+                    '_id': {
+                        $in: _.map(objects, 'bucket')
+                    },
+                    deleted: null,
+                })
+                .exec();
+            }).then(function(buckets){
+            var buckets_by_id = _.indexBy(buckets,'_id');
+
+            console.log('bbbbb2 list obj',objects,'::parts:',parts_per_obj_id,':::buckets:',buckets_by_id);
             return _.map(objects, function(obj, obj_id) {
+
                 return {
                     key: obj.key,
-                    parts: parts_per_obj_id[obj_id],
+                    bucket: buckets_by_id[obj.bucket].name,
+                    parts: parts_per_obj_id[obj_id]
                 };
             });
         });

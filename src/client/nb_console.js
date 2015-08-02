@@ -787,6 +787,7 @@ nb_console.controller('NodeViewCtrl', [
                                 fragment.size = frag_size;
                             });
                             part.file = object.key;
+                            part.bucket = object.bucket;
                             $scope.parts.push(part);
                         });
                     });

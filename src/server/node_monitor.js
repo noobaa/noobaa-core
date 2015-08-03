@@ -1,6 +1,14 @@
 /* jshint node:true */
 'use strict';
 
+module.exports = {
+    heartbeat: heartbeat,
+    n2n_signal: n2n_signal,
+    self_test_to_node_via_web: self_test_to_node_via_web,
+    collect_agent_diagnostics: collect_agent_diagnostics,
+    set_debug_node: set_debug_node,
+};
+
 var _ = require('lodash');
 var Q = require('q');
 var db = require('./db');
@@ -9,14 +17,6 @@ var size_utils = require('../util/size_utils');
 var server_rpc = require('../server/server_rpc');
 var system_server = require('./system_server');
 var dbg = require('noobaa-util/debug_module')(__filename);
-
-module.exports = {
-    heartbeat: heartbeat,
-    n2n_signal: n2n_signal,
-    self_test_to_node_via_web: self_test_to_node_via_web,
-    collect_agent_diagnostics: collect_agent_diagnostics,
-};
-
 
 
 /**
@@ -139,7 +139,7 @@ function heartbeat(req) {
     var node;
 
     dbg.log1('HEARTBEAT enter', node_id);
-    dbg.log0('HB VERSION:',process.env.AGENT_VERSION);
+    dbg.log0('HB VERSION:', process.env.AGENT_VERSION);
 
     var hb_delay_ms = process.env.AGENT_HEARTBEAT_DELAY_MS || 60000;
     hb_delay_ms *= 1 + Math.random(); // jitter of 2x max
@@ -300,9 +300,9 @@ function collect_agent_diagnostics(req) {
     var target = req.rpc_params.target;
 
     return Q.fcall(function() {
-          return server_rpc.client.agent.collect_diagnostics({}, {
-              address: target,
-          });
+            return server_rpc.client.agent.collect_diagnostics({}, {
+                address: target,
+            });
         })
         .then(function(data) {
             return system_server.diagnose_with_agent(data);
@@ -313,7 +313,19 @@ function collect_agent_diagnostics(req) {
         });
 }
 
+function set_debug_node(req) {
+    var target = req.rpc_params.target;
 
+    return Q.fcall(function() {
+            return server_rpc.client.agent.set_debug_node({}, {
+                address: target,
+            });
+        })
+        .then(null, function(err) {
+            dbg.log0('Error on set_debug_node', err);
+            return '';
+        });
+}
 
 /**
  *

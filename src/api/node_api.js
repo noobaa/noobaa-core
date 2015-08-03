@@ -379,6 +379,13 @@ module.exports = {
             }
         },
 
+        set_debug_node: {
+            method: 'POST',
+            auth: {
+                system: 'admin',
+            }
+        },
+
     },
 
 

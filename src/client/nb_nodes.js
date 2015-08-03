@@ -28,6 +28,7 @@ nb_api.factory('nbNodes', [
         $scope.add_node = add_node;
         $scope.self_test = self_test;
         $scope.diagnose_node = diagnose_node;
+        $scope.set_debug_node = set_debug_node;
 
 
         function refresh_node_groups(selected_geo) {
@@ -211,7 +212,7 @@ nb_api.factory('nbNodes', [
             }, {
                 name: 'Use custom DNS',
                 value: ''
-            },];
+            }, ];
             console.log('type options', scope.typeOptions);
             scope.encoding = {
                 type: scope.typeOptions[0].value,
@@ -221,17 +222,16 @@ nb_api.factory('nbNodes', [
 
             console.log(JSON.stringify(config_json), String.toString(config_json), 'encoded', encodedData);
 
-            scope.dns_select = function(selected_value){
+            scope.dns_select = function(selected_value) {
                 if (scope.typeOptions[0].value !== selected_value &&
-                    scope.typeOptions[1].value !== selected_value ){
-                        scope.encoding.show_other_dns = true;
-                    }else
-                    {
-                        scope.encoding.show_other_dns = false;
-                    }
+                    scope.typeOptions[1].value !== selected_value) {
+                    scope.encoding.show_other_dns = true;
+                } else {
+                    scope.encoding.show_other_dns = false;
+                }
             };
             scope.new_dns = function() {
-                config_json.address = 'wss://' +scope.encoding.new_dns+':'+ nbSystem.system.ssl_port;
+                config_json.address = 'wss://' + scope.encoding.new_dns + ':' + nbSystem.system.ssl_port;
                 encodedData = $window.btoa(JSON.stringify(config_json));
                 scope.typeOptions[2].value = encodedData;
                 scope.encoding.type = scope.typeOptions[2].value;
@@ -524,8 +524,23 @@ nb_api.factory('nbNodes', [
                     $window.document.body.removeChild(link);
                 })
                 .then(null, function(err) {
-                    dbg.log0('Diagnose node encountered errors',err , err.stack);
+                    dbg.log0('Diagnose node encountered errors', err, err.stack);
                     nbAlertify.error('Diagnose node encountered errors');
+                });
+        }
+
+        function set_debug_node(node) {
+            var link;
+
+            return $q.when(nbClient.client.node.set_debug_node({
+                    target: 'n2n://' + node.peer_id,
+                }))
+                .then(function() {
+                    $window.document.body.removeChild(link);
+                })
+                .then(null, function(err) {
+                    dbg.log0('Setting Node Debug collection encountered errors', err, err.stack);
+                    nbAlertify.error('Setting Node Debug collection encountered errors');
                 });
         }
 

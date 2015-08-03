@@ -135,13 +135,18 @@ function post_upgrade {
   chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
   #Installation ID generation if needed
+  #TODO: Move this into the mongo_upgrade.js
   local id=$(/mongodb/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
   if [ ${id} -eq 0 ]; then
-    id=$(uuidgen)
-	  /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
+      id=$(uuidgen)
+      /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
-  /etc/rc.d/init.d/supervisord stop
-  /etc/rc.d/init.d/supervisord start
+
+  #MongoDB nbcore upgrade
+  /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+
+  /etc/rc.d/init.d/supervisord restart
+
   rm -f /tmp/*.tar.gz
 }
 

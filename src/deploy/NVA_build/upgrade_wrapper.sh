@@ -136,11 +136,12 @@ function post_upgrade {
 
   #Installation ID generation if needed
   local id=$(/mongodb/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
-  if [ ${id} -eq 0 ]; then 
+  if [ ${id} -eq 0 ]; then
     id=$(uuidgen)
 	  /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
-
+  /etc/rc.d/init.d/supervisord stop
+  /etc/rc.d/init.d/supervisord start
   rm -f /tmp/*.tar.gz
 }
 

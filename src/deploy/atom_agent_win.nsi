@@ -147,7 +147,7 @@ Section "Noobaa Local Service"
 			nsJSON::Set /file $INSTDIR\agent_conf.json
 			; Read address from agent_conf.json
 			ClearErrors
-			nsJSON::Get `address`
+			nsJSON::Get `address` /end
 			${IfNot} ${Errors}
 				Pop $R0
 				StrCpy $address $R0

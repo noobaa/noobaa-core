@@ -39,6 +39,7 @@
                         <th>Email</th>
                         <th>Role</th>
                         <th>Status</th>
+                        <th>Actions</th>
                     </tr>
                     <tr ng-repeat="account in accounts">
                         <td style="vertical-align: middle;" class="table-btn text-left" >
@@ -56,14 +57,9 @@
                         <td style="vertical-align: middle;" class="text-success">Active
                         </td>
                         <!-- <td>{{bucket.tiering}}</td> -->
-                        <td class="text-center" style="padding:0 0 0 0;vertical-align: middle;border:1px;">
+                        <td style="padding:0 0 0 0;vertical-align: middle;border:1px;">
                             <i style="padding:0 0 0 0;" class="fa fa-trash-o fa-lg btn btn-default" rel="tooltip" title="Delete user"  nb-click-ladda="delete_user('{{account.email}}')"></i>
-
-                        </td>
-                        <td class="text-center" style="padding:0 0 0 0;vertical-align: middle;border:1px;">
                             <i style="padding:0 0 0 0;" class="fa fa-random fa-lg btn btn-default" rel="tooltip" title="Reset password"  nb-click-ladda="reset_password('{{account.email}}')"></i>
-                        </td>
-                        <td class="text-center" style="padding:0 0 0 0;vertical-align: middle;border:1px;">
                             <i style="padding:0 0 0 0;" class="fa fa-envelope fa-lg btn btn-default" rel="tooltip" title="Set email"  nb-click-ladda="set_email('{{account.email}}')"></i>
                         </td>
                     </tr>

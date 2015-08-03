@@ -11,7 +11,7 @@ if [ ! -d "/usr/local/noobaa" ]; then
        mkdir /usr/local/noobaa
        echo "config is:" ${CONFIG}
        openssl enc -base64 -d -A <<<${CONFIG} >/usr/local/noobaa/agent_conf.json
-       sudo cat /usr/local/noobaa/agent_conf.json
+       cat /usr/local/noobaa/agent_conf.json
     fi
 else
    if [ ! -f /usr/local/noobaa/agent_conf.json ]; then
@@ -26,4 +26,4 @@ if [ ! -f /usr/bin/node ]; then
    ln -s /usr/local/noobaa/node /usr/bin/node
 fi
 
-sudo ./noobaa-installer --keep --target /usr/local/noobaa
+./noobaa-installer --keep --target /usr/local/noobaa

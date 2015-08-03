@@ -5,7 +5,7 @@
 . /etc/rc.d/init.d/functions
 
 SUPERVISORD="/usr/bin/supervisord"
-PIDFILE="/var/run/supervisord.pid"
+PIDFILE="/tmp/supervisord.pid"
 
 start() {
     if [ ! -x "$SUPERVISORD" ]; then

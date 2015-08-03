@@ -19,8 +19,6 @@ function disable_supervisord {
   for s in ${services}; do
     kill -9 ${s}
   done
-  #kill supervisord
-  kill -9 $(ps -ef|grep -m 1  supervisord|awk '{print $2}')
 }
 
 function enable_supervisord {

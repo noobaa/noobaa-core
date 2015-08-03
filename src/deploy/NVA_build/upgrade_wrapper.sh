@@ -103,6 +103,7 @@ function post_upgrade {
     cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
   fi
 
+  rm -f ${CORE_DIR}/.env
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)

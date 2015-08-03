@@ -58,12 +58,12 @@ function create_account(req) {
                     })
                     .then(function(res) {
                         console.log('nothing to do' ,res);
-                        db.ActivityLog.create({
-                            system: res.info,
-                            level: 'info',
-                            event: 'account.create',
-                            account: account,
-                        });
+                        // db.ActivityLog.create({
+                        //     system: res.info,
+                        //     level: 'info',
+                        //     event: 'account.create',
+                        //     account: account,
+                        // });
                         return {
                             token: res.token
                         };

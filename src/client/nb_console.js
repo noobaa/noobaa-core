@@ -193,13 +193,7 @@ nb_console.controller('UserManagementViewCtrl', [
         console.log('accounts:' + $scope.accounts);
 
         function reload_view(init_only) {
-            return nbSystem.init_system
-                .then(function() {
-                    if (!nbClient.account || !nbClient.account.is_support) {
-                        $location.path('/');
-                        return;
-                    }
-                });
+            return nbSystem.init_system;
         }
 
         function reload_accounts() {

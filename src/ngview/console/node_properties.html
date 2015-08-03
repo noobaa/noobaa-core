@@ -8,15 +8,13 @@
             <table class="table table-no-borders">
                 <tr>
                     <th>
-                        <i class="fa fa-heartbeat fa-lg fa-fw text-muted"></i>
-                        Heartbeat
+                        <i class="fa fa-heartbeat fa-lg fa-fw text-muted"></i> Heartbeat
                     </th>
                     <td>{{node.hearbeat_moment.fromNow()}}</td>
                 </tr>
                 <tr>
                     <th>
-                        <i class="fa fa-tag fa-lg fa-fw text-muted"></i>
-                        Version
+                        <i class="fa fa-tag fa-lg fa-fw text-muted"></i> Version
                     </th>
                     <td>{{node.version}}</td>
                 </tr>
@@ -48,8 +46,7 @@
                 </tr>
                 <tr ng-repeat="drive in node.drives">
                     <td>
-                        <i class="fa fa-hdd-o fa-lg fa-fw text-muted"></i>
-                        {{drive.mount}}
+                        <i class="fa fa-hdd-o fa-lg fa-fw text-muted"></i> {{drive.mount}}
                     </td>
                     <td>
                         <span ng-if="drive.storage.used === undefined">
@@ -62,14 +59,9 @@
                     <td>{{human_size(drive.storage.used_os)}}</td>
                     <td>{{human_size(drive.storage.free)}}</td>
                     <td>
-                        <div class="progress"
-                            style="width: 100px; height: 15px; margin: 2px 0 0 0; background-color: #666">
-                            <div aria-valuemax="100" aria-valuemin="0"
-                                aria-valuenow="{{drive.storage.used_percent}}" class="progress-bar" role="progressbar"
-                                style="width: {{drive.storage.used_percent}}%; background-color: #ff008b"></div>
-                            <div aria-valuemax="100" aria-valuemin="0"
-                                aria-valuenow="{{drive.storage.used_os_percent}}" class="progress-bar" role="progressbar"
-                                style="width: {{drive.storage.used_os_percent}}%; background-color: #03a9f4"></div>
+                        <div class="progress" style="width: 100px; height: 15px; margin: 2px 0 0 0; background-color: #666">
+                            <div aria-valuemax="100" aria-valuemin="0" aria-valuenow="{{drive.storage.used_percent}}" class="progress-bar" role="progressbar" style="width: {{drive.storage.used_percent}}%; background-color: #ff008b"></div>
+                            <div aria-valuemax="100" aria-valuemin="0" aria-valuenow="{{drive.storage.used_os_percent}}" class="progress-bar" role="progressbar" style="width: {{drive.storage.used_os_percent}}%; background-color: #03a9f4"></div>
                         </div>
                     </td>
                 </tr>
@@ -79,14 +71,9 @@
                     <th>{{human_size(node.storage.used_os)}}</th>
                     <th>{{human_size(node.storage.free)}}</th>
                     <th>
-                        <div class="progress"
-                            style="width: 100px; height: 15px; margin: 2px 0 0 0; background-color: #666">
-                            <div aria-valuemax="100" aria-valuemin="0"
-                                aria-valuenow="{{node.storage.used_percent}}" class="progress-bar" role="progressbar"
-                                style="width: {{node.storage.used_percent}}%; background-color: #ff008b"></div>
-                            <div aria-valuemax="100" aria-valuemin="0"
-                                aria-valuenow="{{node.storage.used_os_percent}}" class="progress-bar" role="progressbar"
-                                style="width: {{node.storage.used_os_percent}}%; background-color: #03a9f4"></div>
+                        <div class="progress" style="width: 100px; height: 15px; margin: 2px 0 0 0; background-color: #666">
+                            <div aria-valuemax="100" aria-valuemin="0" aria-valuenow="{{node.storage.used_percent}}" class="progress-bar" role="progressbar" style="width: {{node.storage.used_percent}}%; background-color: #ff008b"></div>
+                            <div aria-valuemax="100" aria-valuemin="0" aria-valuenow="{{node.storage.used_os_percent}}" class="progress-bar" role="progressbar" style="width: {{node.storage.used_os_percent}}%; background-color: #03a9f4"></div>
                         </div>
                     </th>
                 </tr>
@@ -124,19 +111,17 @@
                     <th>Networks</th>
                     <td>
                         <div ng-repeat="addr in node.os_info.addresses">
-                            {{addr.address}}
-                            - {{addr.name}}
+                            {{addr.address}} - {{addr.name}}
                         </div>
                         <div class="checkbox">
                             <label>
-                                <input ng-model="show_ipv6" type="checkbox"/>
+                                <input ng-model="show_ipv6" type="checkbox" />
                                 <small>show IPv6</small>
                             </label>
                         </div>
                         <div ng-if="show_ipv6">
                             <div ng-repeat="addr in node.os_info.addresses6">
-                                {{addr.address}}
-                                - {{addr.name}}
+                                {{addr.address}} - {{addr.name}}
                             </div>
                         </div>
                     </td>
@@ -150,11 +135,9 @@
             <h4 class="text-primary">Self Test</h4>
         </div>
         <div class="content-col col-sm-9">
-            <button class="btn btn-primary"
-                nb-click-ladda="nbNodes.self_test(node, self_test_kind)">Start</button>
+            <button class="btn btn-primary" nb-click-ladda="nbNodes.self_test(node, self_test_kind)">Start</button>
             <div style="display: inline-block; width: 150px">
-                <select class="form-control" ng-init="self_test_kind='conn'"
-                    ng-model="self_test_kind">
+                <select class="form-control" ng-init="self_test_kind='conn'" ng-model="self_test_kind">
                     <option value="conn">Connectivity</option>
                     <option value="rw">Read-Write</option>
                     <option value="load">Load one node</option>
@@ -175,8 +158,7 @@
                             <i class="fa fa-spinner fa-spin fa-lg fa-fw"></i>
                         </span>
                         <i class="fa fa-check fa-lg fa-fw text-success" ng-if="test.done"></i>
-                        <i class="fa fa-times fa-lg fa-fw text-danger" ng-attr-title="{{test.error}}"
-                            ng-if="test.error" rel="tooltip"></i>
+                        <i class="fa fa-times fa-lg fa-fw text-danger" ng-attr-title="{{test.error}}" ng-if="test.error" rel="tooltip"></i>
                     </td>
                 </tr>
             </table>
@@ -186,9 +168,14 @@
         <div class="heading-col col-sm-3">
             <h4 class="text-primary">Diagnose Node</h4>
         </div>
-        <div class="content-col col-sm-9">
-            <button class="btn btn-primary"
-                nb-click-ladda="nbNodes.diagnose_node(node)">Diagnose</button>
+
+        <div class="content-col col-sm-3">
+            <button class="btn btn-primary" nb-click-ladda="nbNodes.diagnose_node(node)">Diagnose</button>
+            <br/>
+        </div>
+
+        <div class="content-col col-sm-3">
+            <button class="btn btn-primary" nb-click-ladda="nbNodes.set_debug_node(node)">Collect Debug</button>
             <br/>
         </div>
     </div>

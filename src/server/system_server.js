@@ -26,6 +26,7 @@ var system_server = {
 
     diagnose: diagnose,
     diagnose_with_agent: diagnose_with_agent,
+    start_debug: start_debug,
 };
 
 module.exports = system_server;
@@ -34,6 +35,7 @@ var _ = require('lodash');
 var Q = require('q');
 var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 var diag = require('../util/diagnostics');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
@@ -544,7 +546,7 @@ function read_activity_log(req) {
 }
 
 function diagnose(req) {
-    dbg.log1('Recieved diag req');
+    dbg.log0('Recieved diag req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return Q.fcall(function() {
@@ -563,14 +565,14 @@ function diagnose(req) {
 }
 
 function diagnose_with_agent(data) {
-    dbg.log1('Recieved diag with agent req');
+    dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
     return Q.fcall(function() {
             return diag.collect_server_diagnostics();
         })
         .then(function() {
-            return diag.write_agent_diag_file(data);
+            return diag.write_agent_diag_file(data.data);
         })
         .then(function() {
             return diag.pack_diagnostics(inner_path);
@@ -582,6 +584,16 @@ function diagnose_with_agent(data) {
             dbg.log0('Error while collecting diagnostics with agent', err, err.stack());
             return;
         });
+}
+
+function start_debug() {
+    dbg.log0('Recieved start_debug req');
+    dbg.set_level(5, 'core');
+    promise_utils.delay_unblocking(1000 * 10) //10m
+        .then(function() {
+            dbg.set_level(0, 'core');
+        });
+    return;
 }
 
 

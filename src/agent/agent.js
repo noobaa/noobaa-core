@@ -20,6 +20,7 @@ var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 var os_util = require('../util/os_util');
 var diag = require('../util/diagnostics');
 var AgentStore = require('./agent_store');
@@ -85,6 +86,7 @@ function Agent(params) {
         self_test_io: self.self_test_io.bind(self),
         self_test_peer: self.self_test_peer.bind(self),
         collect_diagnostics: self.collect_diagnostics.bind(self),
+        set_debug_node: self.set_debug_node.bind(self),
     };
 
     var app = express();
@@ -420,8 +422,8 @@ Agent.prototype.send_heartbeat = function() {
                     self.store.set_alloc(res.storage.alloc);
                 }
             }
-            dbg.log0('res.version:',res.version,'hb version:',self.heartbeat_version);
-            
+            dbg.log0('res.version:', res.version, 'hb version:', self.heartbeat_version);
+
             if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
                 dbg.log0('AGENT version changed, exiting');
                 process.exit(0);
@@ -634,6 +636,17 @@ Agent.prototype.collect_diagnostics = function(req) {
         .then(null, function() {
             return '';
         });
+};
+
+Agent.prototype.set_debug_node = function(req) {
+    dbg.set_level(5, 'core');
+    dbg.log1('Recieved set debug req', req);
+    
+    promise_utils.delay_unblocking(1000 * 10) //10m
+        .then(function() {
+            dbg.set_level(0, 'core');
+        });
+    return '';
 };
 
 

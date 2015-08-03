@@ -87,7 +87,7 @@ function list_multipart_parts(req) {
  */
 function complete_multipart_upload(req) {
     var obj;
-    dbg.log0('complete_multipart_upload - etag',req.rpc_params.etag,'req:',req);
+    dbg.log1('complete_multipart_upload - etag', req.rpc_params.etag, 'req:', req);
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
@@ -364,7 +364,7 @@ function list_objects(req) {
 
 
 function get_object_info(md) {
-    var info = _.pick(md, 'size', 'content_type','etag');
+    var info = _.pick(md, 'size', 'content_type', 'etag');
     info.size = info.size || 0;
     info.content_type = info.content_type || '';
     info.etag = info.etag || '';

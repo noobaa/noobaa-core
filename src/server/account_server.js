@@ -42,12 +42,7 @@ function create_account(req) {
         .then(function(account_arg) {
             account = account_arg;
             console.log('account created!!',account);
-            return db.ActivityLog.create({
-                system: req.system,
-                level: 'info',
-                event: 'account.create',
-                account: account,
-            });
+
         }).then(function(){
 
             if (req.is_support||_.isUndefined(req.system)) {
@@ -62,13 +57,25 @@ function create_account(req) {
                         })
                     })
                     .then(function(res) {
-                        console.log('nothing to do');
+                        console.log('nothing to do' ,res);
+                        db.ActivityLog.create({
+                            system: res.info,
+                            level: 'info',
+                            event: 'account.create',
+                            account: account,
+                        });
                         return {
                             token: res.token
                         };
                     });
             } else {
                 console.log('no need to create system:' + info.name, 'acc_id:', account.id, 'sys id', req.system);
+                db.ActivityLog.create({
+                    system: req.system,
+                    level: 'info',
+                    event: 'account.create',
+                    account: account,
+                });
                 return Q.when(db.Role.create({
                         account: account.id,
                         system: req.system._id,

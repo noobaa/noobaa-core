@@ -468,7 +468,7 @@ function read_node_mappings(params) {
             return  db.Bucket
                 .find({
                     '_id': {
-                        $in: _.map(objects, 'bucket')
+                        $in: _.uniq(_.map(objects, 'bucket'))
                     },
                     deleted: null,
                 })
@@ -476,7 +476,6 @@ function read_node_mappings(params) {
             }).then(function(buckets){
             var buckets_by_id = _.indexBy(buckets,'_id');
 
-            console.log('bbbbb2 list obj',objects,'::parts:',parts_per_obj_id,':::buckets:',buckets_by_id);
             return _.map(objects, function(obj, obj_id) {
 
                 return {

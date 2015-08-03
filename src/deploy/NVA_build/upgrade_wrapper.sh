@@ -144,6 +144,7 @@ function post_upgrade {
 
   #MongoDB nbcore upgrade
   /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+  unset AGENT_VERSION
 
   /etc/rc.d/init.d/supervisord restart
 

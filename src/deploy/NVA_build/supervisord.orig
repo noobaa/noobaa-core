@@ -21,7 +21,7 @@ start() {
 
 stop() {
     echo "Stopping ..."
-    kill -QUIT `cat $PIDFILE`
+    kill -9 `cat $PIDFILE`
     [ $? -eq 0 ] && rm -f $PIDFILE
     return $retval
 }
@@ -33,8 +33,12 @@ case $1 in
     stop)
         stop
     ;;
+    restart)
+        stop
+        start
+    ;;
     *)
-        echo "$0 start|srop"
+        echo "$0 start|stop|restart"
         exit 2
     ;;
 esac

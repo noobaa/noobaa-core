@@ -26,6 +26,10 @@ nb_util.run(['$rootScope', function($rootScope) {
     $rootScope.safe_callback = safe_callback;
     $rootScope.moment = moment;
     $('body').tooltip({
+        delay: {
+            show: 10,
+            hide: 50
+        },
         selector: '[rel=tooltip]'
     });
     $('body').popover({

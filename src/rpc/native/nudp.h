@@ -1,16 +1,16 @@
 #include "../../util/native/common.h"
 
-class Nudp : public node::ObjectWrap
+class Nudp : public Nan::ObjectWrap
 {
 private:
     explicit Nudp();
     ~Nudp();
 
 public:
-    static void setup(v8::Handle<v8::Object> exports);
+    static NAN_MODULE_INIT(setup);
 
 private:
-    static v8::Persistent<v8::Function> _ctor;
+    static Nan::Persistent<v8::Function> _ctor;
     static NAN_METHOD(new_instance);
     static NAN_METHOD(send);
 };

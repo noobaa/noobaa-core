@@ -52,28 +52,29 @@
     } while(0)
 #endif
 
-#define NAN_METHOD_TO_SELF(clazz, method) \
-    static NAN_METHOD(method) \
-    { \
-        return Unwrap<clazz>(args.This())->_ ## method(args); \
-    }
+typedef std::shared_ptr<Nan::Callback> NanCallbackSharedPtr;
 
-#define NAN_ACCESSOR_GETTER(method) \
-    v8::Handle<v8::Value> method(v8::Local<v8::String> property, const v8::AccessorInfo &info)
-
-#define NAN_ACCESSOR_SETTER(method) \
-    void method(v8::Local<v8::String> property, v8::Local<v8::Value> value, const v8::AccessorInfo &info)
+#define NAN_STR(str) (Nan::New(str).ToLocalChecked())
+#define NAN_GET(obj, key) (Nan::Get(obj, NAN_STR(key)).ToLocalChecked())
+#define NAN_UNWRAP_THIS(type) (Unwrap<type>(info.This()))
+#define NAN_GET_UNWRAP(type, obj, key) (Unwrap<type>(Nan::To<v8::Object>(NAN_GET(obj, key)).ToLocalChecked()))
+#define NAN_GET_STR(obj, key) *Nan::Utf8String(Nan::Get(obj, NAN_STR(key)).ToLocalChecked())
+#define NAN_RETURN(val) \
+    do { \
+        info.GetReturnValue().Set(val); \
+        return; \
+    } while (0)
 
 #define NAN_MAKE_CTOR_CALL(ctor) \
     do { \
-        if (!args.IsConstructCall()) { \
+        if (!info.IsConstructCall()) { \
             /* Invoked as plain function call, turn into construct 'new' call. */ \
-            int argc = args.Length(); \
-            std::vector<v8::Handle<v8::Value> > argv(argc); \
+            int argc = info.Length(); \
+            std::vector<v8::Local<v8::Value> > argv(argc); \
             for (int i=0; i<argc; ++i) { \
-                argv[i] = args[i]; \
+                argv[i] = info[i]; \
             } \
-            NanReturnValue(ctor->NewInstance(argc, argv.data())); \
+            NAN_RETURN(Nan::CallAsConstructor(Nan::New(ctor), argc, argv.data()).ToLocalChecked()); \
         } \
     } while (0)
 
@@ -83,10 +84,8 @@
         for (uint32_t i=0; i<keys->Length(); ++i) { \
             v8::Local<v8::Value> key = keys->Get(i); \
             v8::Local<v8::Value> val = options->Get(key); \
-            obj->Set(key, val); \
+            Nan::Set(obj, key, val); \
         } \
     } while (0)
-
-typedef std::shared_ptr<NanCallback> NanCallbackSharedPtr;
 
 #endif // COMMON_H_

@@ -1,34 +1,33 @@
 #include "tpool.h"
 #include "backtrace.h"
 
-v8::Persistent<v8::Function> ThreadPool::_ctor;
+Nan::Persistent<v8::Function> ThreadPool::_ctor;
 
-void
-ThreadPool::setup(v8::Handle<v8::Object> exports)
+NAN_MODULE_INIT(ThreadPool::setup)
 {
     auto name = "ThreadPool";
-    auto tpl(NanNew<v8::FunctionTemplate>(ThreadPool::new_instance));
-    tpl->SetClassName(NanNew(name));
+    auto tpl = Nan::New<v8::FunctionTemplate>(ThreadPool::new_instance);
+    tpl->SetClassName(NAN_STR(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    tpl->InstanceTemplate()->SetAccessor(NanNew("nthreads"), &nthreads_getter, &nthreads_setter);
-    NanAssignPersistent(_ctor, tpl->GetFunction());
-    exports->Set(NanNew(name), _ctor);
+    Nan::SetAccessor(tpl->InstanceTemplate(), NAN_STR("nthreads"), &nthreads_getter, &nthreads_setter);
+    auto func = Nan::GetFunction(tpl).ToLocalChecked();
+    _ctor.Reset(tpl->GetFunction());
+    Nan::Set(target, NAN_STR(name), func);
 }
 
 NAN_METHOD(ThreadPool::new_instance)
 {
-    NanScope();
     NAN_MAKE_CTOR_CALL(_ctor);
     uint32_t nthreads = 0;
-    if (!args[0]->IsUndefined()) {
-        if (!args[0]->IsInt32()) {
-            NanThrowError("first argument should be number of threads");
+    if (!info[0]->IsUndefined()) {
+        if (!info[0]->IsInt32()) {
+            Nan::ThrowError("first argument should be number of threads");
         }
-        nthreads = args[0]->Int32Value();
+        nthreads = info[0]->Int32Value();
     }
     ThreadPool* obj = new ThreadPool(nthreads);
-    obj->Wrap(args.This());
-    NanReturnValue(args.This());
+    obj->Wrap(info.This());
+    info.GetReturnValue().Set(info.This());
 }
 
 void atexit_cb()
@@ -191,15 +190,15 @@ ThreadPool::completion_cb()
     }
 }
 
-NAN_ACCESSOR_GETTER(ThreadPool::nthreads_getter)
+NAN_GETTER(ThreadPool::nthreads_getter)
 {
-    ThreadPool& tpool = *ObjectWrap::Unwrap<ThreadPool>(info.This());
-    return NanNew<v8::Integer>(tpool.get_nthreads());
+    ThreadPool& tpool = *NAN_UNWRAP_THIS(ThreadPool);
+    NAN_RETURN(Nan::New<v8::Integer>(tpool.get_nthreads()));
 }
 
-NAN_ACCESSOR_SETTER(ThreadPool::nthreads_setter)
+NAN_SETTER(ThreadPool::nthreads_setter)
 {
-    ThreadPool& tpool = *ObjectWrap::Unwrap<ThreadPool>(info.This());
+    ThreadPool& tpool = *NAN_UNWRAP_THIS(ThreadPool);
     tpool.set_nthreads(value->Int32Value());
 }
 
@@ -211,8 +210,7 @@ ThreadPool::thread_main_uv(void* arg)
     delete spec;
 }
 
-void
-ThreadPool::work_completed_uv(uv_async_t* async, int)
+NAUV_WORK_CB(ThreadPool::work_completed_uv)
 {
     ThreadPool* tpool = static_cast<ThreadPool*>(async->data);
     tpool->completion_cb();

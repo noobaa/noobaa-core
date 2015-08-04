@@ -3,13 +3,12 @@
 #include "dedup_chunker.h"
 #include "object_coding.h"
 
-static void
-setup(v8::Handle<v8::Object> exports)
+NAN_MODULE_INIT(setup)
 {
     Crypto::init();
-    ThreadPool::setup(exports);
-    DedupChunker::setup(exports);
-    ObjectCoding::setup(exports);
+    ThreadPool::setup(target);
+    DedupChunker::setup(target);
+    ObjectCoding::setup(target);
 }
 
 NODE_MODULE(native_util, setup)

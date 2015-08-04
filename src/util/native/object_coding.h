@@ -17,11 +17,8 @@
  *
  */
 
-class ObjectCoding : public node::ObjectWrap
+class ObjectCoding : public Nan::ObjectWrap
 {
-public:
-    static void setup(v8::Handle<v8::Object> exports);
-
 private:
     explicit ObjectCoding()
     {
@@ -36,14 +33,16 @@ private:
     class DecodeWorker;
     std::string _digest_type;
     std::string _cipher_type;
-    std::string _block_digest_type;
-    int _data_fragments;
-    int _parity_fragments;
-    // int _lrc_group_fragments;
-    // int _lrc_parity_fragments;
+    std::string _frag_digest_type;
+    int _data_frags;
+    int _parity_frags;
+    // int _lrc_group_frags;
+    // int _lrc_parity_frags;
 
+public:
+    static NAN_MODULE_INIT(setup);
 private:
-    static v8::Persistent<v8::Function> _ctor;
+    static Nan::Persistent<v8::Function> _ctor;
     static NAN_METHOD(new_instance);
     static NAN_METHOD(encode);
     static NAN_METHOD(decode);

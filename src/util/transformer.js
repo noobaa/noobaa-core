@@ -71,7 +71,7 @@ function define_transformer(params) {
     Transformer.prototype._push_data = function(data) {
         if (_.isArray(data)) {
             _.each(data, this._self_push);
-        } else {
+        } else if (data) {
             this.push(data);
         }
     };

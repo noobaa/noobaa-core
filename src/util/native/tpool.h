@@ -4,7 +4,7 @@
 #include "common.h"
 #include "mutex.h"
 
-class ThreadPool : public node::ObjectWrap
+class ThreadPool : public Nan::ObjectWrap
 {
 public:
 
@@ -43,7 +43,7 @@ private:
     void thread_main(ThreadSpec& spec);
     void completion_cb();
     static void thread_main_uv(void* arg);
-    static void work_completed_uv(uv_async_t* async, int);
+    static NAUV_WORK_CB(work_completed_uv);
 
 private:
     MutexCond _mutex;
@@ -55,13 +55,12 @@ private:
     int _refs;
 
 public:
-    static void setup(v8::Handle<v8::Object> exports);
-
+    static NAN_MODULE_INIT(setup);
 private:
-    static v8::Persistent<v8::Function> _ctor;
+    static Nan::Persistent<v8::Function> _ctor;
     static NAN_METHOD(new_instance);
-    static NAN_ACCESSOR_GETTER(nthreads_getter);
-    static NAN_ACCESSOR_SETTER(nthreads_setter);
+    static NAN_GETTER(nthreads_getter);
+    static NAN_SETTER(nthreads_setter);
 };
 
 #endif // TPOOL_H_

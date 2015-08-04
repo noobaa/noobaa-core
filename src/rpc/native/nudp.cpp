@@ -1,46 +1,34 @@
 #include "nudp.h"
 
-Nudp::Nudp()
-{
-    std::cout << "CTOR" << std::endl;
-}
+Nan::Persistent<v8::Function> Nudp::_ctor;
 
-Nudp::~Nudp()
+NAN_MODULE_INIT(Nudp::setup)
 {
-    std::cout << "DTOR" << std::endl;
-}
-
-v8::Persistent<v8::Function> Nudp::_ctor;
-
-void
-Nudp::setup(v8::Handle<v8::Object> exports)
-{
-    auto tpl(NanNew<v8::FunctionTemplate>(Nudp::new_instance));
-    tpl->SetClassName(NanNew("Nudp"));
+    auto name = "Nudp";
+    auto tpl = Nan::New<v8::FunctionTemplate>(Nudp::new_instance);
+    tpl->SetClassName(NAN_STR(name));
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
-    NODE_SET_PROTOTYPE_METHOD(tpl, "send", Nudp::send);
-    NanAssignPersistent(_ctor, tpl->GetFunction());
-    exports->Set(NanNew("Nudp"), _ctor);
+    Nan::SetPrototypeMethod(tpl, "send", Nudp::send);
+    auto func = Nan::GetFunction(tpl).ToLocalChecked();
+    _ctor.Reset(func);
+    Nan::Set(target, NAN_STR(name), func);
 }
 
 NAN_METHOD(Nudp::new_instance)
 {
-    NanScope();
     NAN_MAKE_CTOR_CALL(_ctor);
     Nudp* obj = new Nudp();
-    obj->Wrap(args.This());
-    NanReturnValue(args.This());
+    obj->Wrap(info.This());
+    info.GetReturnValue().Set(info.This());
 }
 
 NAN_METHOD(Nudp::send)
 {
-    NanScope();
-
-    if (args.Length() < 1) {
-        NanReturnUndefined();
+    if (info.Length() < 1) {
+        NAN_RETURN(Nan::Undefined());
     }
 
-    v8::Local<v8::Object> buffer_object = args[0]->ToObject();
+    v8::Local<v8::Object> buffer_object = info[0]->ToObject();
     char* data = node::Buffer::Data(buffer_object);
     int len = node::Buffer::Length(buffer_object);
     std::cout << "PUSH BUFFER " << len << std::hex;
@@ -53,5 +41,15 @@ NAN_METHOD(Nudp::send)
     }
     std::cout << std::dec << std::endl;
 
-    NanReturnUndefined();
+    NAN_RETURN(Nan::Undefined());
+}
+
+Nudp::Nudp()
+{
+    std::cout << "CTOR" << std::endl;
+}
+
+Nudp::~Nudp()
+{
+    std::cout << "DTOR" << std::endl;
 }

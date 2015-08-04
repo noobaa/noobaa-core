@@ -46,13 +46,15 @@ function test_ingest() {
         var mb_per_sec = stats.bytes * 1000 / (Date.now() - stats.start) / 1024 / 1024;
         console.log('\nDONE.', stats.count, 'chunks.',
             'average speed', mb_per_sec.toFixed(1), 'MB/s',
-            'average chunk size', (stats.bytes/stats.count).toFixed(1));
+            'average chunk size', (stats.bytes / stats.count).toFixed(1));
         process.exit();
     };
     var fin_exit = function() {
         try {
             fin();
-        } catch (err) {}
+        } catch (err) {
+            console.error(err.stack || err);
+        }
         process.exit();
     };
 
@@ -67,14 +69,14 @@ function test_ingest() {
             tpool: new native_util.ThreadPool(1)
         });
         var object_coding = new native_util.ObjectCoding({
-            tpool: new native_util.ThreadPool(1),
+            tpool: new native_util.ThreadPool(2),
             digest_type: 'sha384',
             cipher_type: 'aes-256-gcm',
-            block_digest_type: 'sha1',
-            data_fragments: 1,
-            parity_fragments: 0,
-            // lrc_group_fragments: 0,
-            // lrc_parity_fragments: 0,
+            frag_digest_type: 'sha1',
+            data_frags: 1,
+            parity_frags: 0,
+            // lrc_group_frags: 0,
+            // lrc_parity_frags: 0,
         });
         pipeline.pipe(transformer({
             options: {

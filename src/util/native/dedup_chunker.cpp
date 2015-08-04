@@ -173,8 +173,8 @@ public:
             // and is not sliced (otherwise delete would be unaligned),
             // and uniquely pointed here.
             assert(chunk.unique_alloc());
-            arr->Set(i, Nan::CopyBuffer(chunk.cdata(), chunk.length()).ToLocalChecked());
-            // chunk.detach_alloc();
+            arr->Set(i, Nan::NewBuffer(chunk.cdata(), chunk.length()).ToLocalChecked());
+            chunk.detach_alloc();
         }
         v8::Local<v8::Value> argv[] = { Nan::Undefined(), arr };
         _callback->Call(2, argv);

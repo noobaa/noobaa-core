@@ -38,8 +38,8 @@ NAN_METHOD(ObjectCoding::new_instance)
     if (coding->_frag_digest_type == "undefined") {
         coding->_frag_digest_type = "";
     }
-    coding->_data_frags = self->Get(NAN_STR("data_frags"))->Int32Value();
-    coding->_parity_frags = self->Get(NAN_STR("parity_frags"))->Int32Value();
+    coding->_data_frags = NAN_GET(self, "data_frags")->Int32Value();
+    coding->_parity_frags = NAN_GET(self, "parity_frags")->Int32Value();
     // coding->_lrc_group_fragments = self->Get(NAN_STR("lrc_group_fragments"))->Int32Value();
     // coding->_lrc_parity_fragments = self->Get(NAN_STR("lrc_parity_fragments"))->Int32Value();
     std::cout << "ObjectCoding::new_instance"

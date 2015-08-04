@@ -148,6 +148,9 @@ nb_api.factory('nbClient', [
             var link;
             return $q.when($scope.client.system.start_debug({}))
                 .then(function() {
+                    nbAlertify.success('Collecting Debug Information');
+                })
+                .then(function() {
                     $window.document.body.removeChild(link);
                 });
         }

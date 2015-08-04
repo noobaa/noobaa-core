@@ -538,6 +538,9 @@ nb_api.factory('nbNodes', [
                 .then(function() {
                     $window.document.body.removeChild(link);
                 })
+                .then(function() {
+                    nbAlertify.success('Collecting Debug Information');
+                })
                 .then(null, function(err) {
                     dbg.log0('Setting Node Debug collection encountered errors', err, err.stack);
                     nbAlertify.error('Setting Node Debug collection encountered errors');

@@ -398,7 +398,7 @@ Agent.prototype.send_heartbeat = function() {
                 }
             }
 
-            dbg.log0('AGENT heartbeat params:', params);
+            dbg.log0('Agent heartbeat params:', params);
 
             return self.client.node.heartbeat(params);
         })

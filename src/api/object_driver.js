@@ -267,6 +267,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             key: params.key,
                             parts: _.map(parts, function(part) {
                                 var p = _.pick(part, 'start', 'end');
+                                p.upload_part_number = upload_part_number;
                                 if (!part.dedup) {
                                     p.block_ids = _.flatten(
                                         _.map(part.fragments, function(fragment) {

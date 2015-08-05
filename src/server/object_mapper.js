@@ -122,6 +122,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     return {
                         start: part.start,
                         end: part.end,
+                        upload_part_number: part.upload_part_number,
                         part_sequence_number: part.part_sequence_number
                     };
                 });
@@ -261,14 +262,16 @@ function allocate_object_parts(bucket, obj, parts) {
  */
 function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.map(parts, 'block_ids'));
-    dbg.log1('finalize_object_parts');
     var chunks;
+    var upload_part_number = (parts[0].upload_part_number ? parts[0].upload_part_number : null);
+    dbg.log1('finalize_object_parts', upload_part_number);
     return Q.all([
 
             // find parts by start offset, deleted parts are handled later
             db.ObjectPart
             .find({
                 obj: obj.id,
+                upload_part_number: upload_part_number,
                 start: {
                     $in: _.map(parts, 'start')
                 }

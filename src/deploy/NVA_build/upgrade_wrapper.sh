@@ -121,8 +121,8 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
-  echo -e "Welcome to your \x1b[0;35;40mNooBaa\x1b[0m, host \n" > /etc/issue
-	echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >>/etc/issu
+  echo -e "Welcome to your \x1b[0;35;40mNooBaa\x1b[0m server,\n" > /etc/issue
+  echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >>/etc/issue
 
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf

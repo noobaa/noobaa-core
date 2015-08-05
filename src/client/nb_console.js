@@ -467,31 +467,31 @@ nb_console.controller('SystemDataCtrl', [
             });
             if (current_bucket) {
                 if (current_bucket.num_objects > 0) {
-                    nbAlertify.error('Repository contains ' + current_bucket.num_objects + ' objects. Only empty repository can be deleted.');
+                    nbAlertify.error('Bucket contains ' + current_bucket.num_objects + ' objects. Only empty bucket can be deleted.');
                 } else {
 
-                    nbAlertify.confirm('Are you sure that you want to delete ' + bucket_name + '?')
+                    nbAlertify.confirm('Are you sure that you want to delete bucket "' + bucket_name + '"?')
                         .then(function(result) {
                             console.log('in confirm');
                             $q.when(nbClient.client.bucket.delete_bucket({
                                     name: bucket_name,
                                 }))
                                 .then(function() {
-                                    nbAlertify.success('Repository ' + bucket_name + ' has been deleted');
+                                    nbAlertify.success('Bucket ' + bucket_name + ' has been deleted');
                                     reload_view();
                                 });
 
                         })
                         .then(null, function(err) {
                             if (err.message !== "canceled") {
-                                nbAlertify.error('Error while trying to delete repository. ERROR:' + err.message);
+                                nbAlertify.error('Error while trying to delete bucket. ERROR:' + err.message);
                             }
                         });
 
                 }
 
             } else {
-                nbAlertify.error('Repository does not exist any more.');
+                nbAlertify.error('Bucket does not exist any more.');
                 reload_view();
             }
         }
@@ -516,7 +516,7 @@ nb_console.controller('SystemDataCtrl', [
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');
-                        nbAlertify.success('Congrats! ' + bucket_name + ' repository is ready');
+                        nbAlertify.success('Congrats! ' + bucket_name + ' bucket is ready');
                         reload_view();
                     }).then(null, function(err) {
                         scope.error_message = 'Error:' + err.message + ',' + err.stack;

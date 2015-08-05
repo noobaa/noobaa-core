@@ -15,10 +15,10 @@
                         <input type="password" name="password_fake" id="password_fake" value="" style="display:none;" />
                     <!-- end of fake fields -->
                     <div ng-if="nbClient.account.is_support||register" class="form-control-wrapper" style="margin: 40px 0">
-                        <input class="form-control floating-label" type="text" id="input_name" placeholder="NAME" required ng-model="$parent.system_name" ng-change="update_email_message();" ng-disabled="form_disabled"/>
+                        <input class="form-control floating-label" type="text" id="input_name" placeholder="NAME" autofocus="nbClient.account.is_support||register" required ng-model="$parent.system_name" ng-change="update_email_message();" ng-disabled="form_disabled"/>
                     </div>
                     <div class="form-control-wrapper" style="margin: 40px 0">
-                        <input class="form-control floating-label"  autocomplete="off" type="email" id="input_email" placeholder="EMAIL" required ng-model="email" autofocus ng-change="update_email_message();" ng-disabled="form_disabled" />
+                        <input class="form-control floating-label"  autocomplete="off" type="email" id="input_email" placeholder="EMAIL" required ng-model="email"  autofocus="!(nbClient.account.is_support||register)" ng-change="update_email_message();" ng-disabled="form_disabled" />
                     </div>
 
                     <div class="form-control-wrapper" style="margin: 40px 0">

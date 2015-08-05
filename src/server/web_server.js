@@ -266,7 +266,7 @@ app.post('/upgrade', function(req, res) {
             stdio: ['ignore', stdout, stderr],
             cwd: '/tmp'
         });
-        res.end('<html><head><meta http-equiv="refresh" content="15;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 15 seconds.');
+        res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
     }
 });
 

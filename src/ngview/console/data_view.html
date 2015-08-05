@@ -2,13 +2,13 @@
 
     <div class="page-header page-data">
 
-        <h1 class="capitalize">Repositories</h1>
+        <h1 class="capitalize">Buckets</h1>
 
         <ol class="breadcrumb capitalize">
             <li>
                 <a href="/console/">Overview</a>
             </li>
-            <li class="active">Repositories</li>
+            <li class="active">Buckets</li>
         </ol>
 
         <br/>
@@ -17,7 +17,7 @@
 
     <div class="row" >
         <button class="btn btn-primary btn-lg" style="float: right;padding: 10px ;margin-right: 40px" nb-click-ladda="add_new_bucket();">
-            Add New Repository
+            Add New Bucket
         </button>
     </div>
     <hr>
@@ -25,10 +25,10 @@
 
         <div class="heading-col col-sm-3">
             <h4 class="text-primary">
-                Repositories
+                Buckets
             </h4>
             <p class="text-muted">
-                Repositories, also known as Buckets, are containers for storing files that can be configured with policies for tiering, quota, retention, etc.
+                Buckets are containers for storing files that can be configured with policies for tiering, quota, retention, etc.
             </p>
         </div>
 
@@ -58,7 +58,7 @@
                         </td>
                         <!-- <td>{{bucket.tiering}}</td> -->
                         <td  style="padding:0 0 0 20;border:1px;">
-                            <i style="padding:0 0 0 0;" class="fa fa-trash-o fa-lg btn btn-default" rel="tooltip" title="Delete repository"  nb-click-ladda="delete_bucket('{{bucket.name}}')"></i></div>
+                            <i style="padding:0 0 0 0;" class="fa fa-trash-o fa-lg btn btn-default" rel="tooltip" title="Delete bucket"  nb-click-ladda="delete_bucket('{{bucket.name}}')"></i></div>
 
                         </td>
                     </tr>

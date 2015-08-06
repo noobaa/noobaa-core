@@ -263,8 +263,13 @@ function allocate_object_parts(bucket, obj, parts) {
 function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.map(parts, 'block_ids'));
     var chunks;
-    var upload_part_number = (parts[0].upload_part_number ? parts[0].upload_part_number : null);
-    dbg.log1('finalize_object_parts', upload_part_number);
+    var upload_part_number = null;
+    if (parts && parts[0] && !_.isUndefined(parts[0].upload_part_number)) {
+        dbg.log1('update upload part number with', parts[0].upload_part_number);
+        upload_part_number = parts[0].upload_part_number;
+    }
+    dbg.log1('finalize_object_parts', upload_part_number, parts[0].upload_part_number, parts);
+
     return Q.all([
 
             // find parts by start offset, deleted parts are handled later

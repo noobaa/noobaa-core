@@ -1,9 +1,12 @@
 #ifndef BACKTRACE_H_
 #define BACKTRACE_H_
 
-#include <execinfo.h>
-#include <cxxabi.h>
-#include <dlfcn.h>
+#ifdef _WIN32
+#else
+# include <execinfo.h>
+# include <cxxabi.h>
+# include <dlfcn.h>
+#endif
 #include <stdlib.h>
 
 class Backtrace
@@ -24,6 +27,8 @@ public:
 
     explicit Backtrace(int depth = 32, int skip = 0)
     {
+#ifdef _WIN32
+#else
         void* trace[depth];
         int stack_depth = backtrace(trace, depth);
         for (int i = skip+1; i < stack_depth; i++) {
@@ -46,6 +51,7 @@ public:
             }
             _stack.push_back(Entry(trace[i], file, 0, func));
         }
+#endif
     }
 
     void print()

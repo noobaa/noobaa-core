@@ -23,6 +23,10 @@
 #include <node_buffer.h>
 #include <nan.h>
 
+#ifndef __func__
+#define __func__ __FUNCTION__
+#endif
+
 #define DVAL(x) #x "=" << x << " "
 
 #define PANIC(info) \

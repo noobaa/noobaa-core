@@ -60,6 +60,9 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 10,
+            make_key: function(params) {
+                return params.id;
+            },
             load: self.store.read_block.bind(self.store)
         });
     } else {
@@ -70,6 +73,9 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 1,
+            make_key: function(params) {
+                return params.id;
+            },
             load: self.store.read_block.bind(self.store)
         });
     }
@@ -421,8 +427,8 @@ Agent.prototype.send_heartbeat = function() {
                     self.store.set_alloc(res.storage.alloc);
                 }
             }
-            dbg.log0('res.version:',res.version,'hb version:',self.heartbeat_version);
-            
+            dbg.log0('res.version:', res.version, 'hb version:', self.heartbeat_version);
+
             if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
                 dbg.log0('AGENT version changed, exiting');
                 process.exit(0);
@@ -437,7 +443,7 @@ Agent.prototype.send_heartbeat = function() {
             // schedule delay to retry on error
             self.heartbeat_delay_ms = 30000 * (1 + Math.random());
 
-        })['finally'](function() {
+        }).fin(function() {
             self._start_stop_heartbeats();
         });
 };
@@ -492,16 +498,12 @@ Agent.prototype._on_rpc_reconnect = function(conn) {
 
 Agent.prototype.read_block = function(req) {
     var self = this;
-    var block_id = req.rpc_params.block_id;
-    dbg.log0('AGENT read_block', block_id);
-    return self.store_cache.get(block_id)
-        .then(function(data) {
-            return {
-                data: data
-            };
-        }, function(err) {
-            if (err === 'TAMPERING DETECTED') {
-                err = req.rpc_error('INTERNAL', 'TAMPERING DETECTED');
+    var block_md = req.rpc_params.block_md;
+    dbg.log0('AGENT read_block', block_md.id);
+    return self.store_cache.get(block_md)
+        .then(null, function(err) {
+            if (err === AgentStore.TAMPERING_ERROR) {
+                err = req.rpc_error('INTERNAL', 'TAMPERING');
             }
             throw err;
         });
@@ -509,28 +511,28 @@ Agent.prototype.read_block = function(req) {
 
 Agent.prototype.write_block = function(req) {
     var self = this;
-    var block_id = req.rpc_params.block_id;
+    var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
-    dbg.log0('AGENT write_block', block_id, data.length);
-    self.store_cache.invalidate(block_id);
-    return self.store.write_block(block_id, data);
+    dbg.log0('AGENT write_block', block_md.id, data.length);
+    self.store_cache.invalidate(block_md);
+    return self.store.write_block(block_md, data);
 };
 
 Agent.prototype.replicate_block = function(req) {
     var self = this;
-    var block_id = req.rpc_params.block_id;
+    var target = req.rpc_params.target;
     var source = req.rpc_params.source;
-    dbg.log0('AGENT replicate_block', block_id);
-    self.store_cache.invalidate(block_id);
+    dbg.log0('AGENT replicate_block', target.id);
 
     // read from source agent
     return self.client.agent.read_block({
-            block_id: source.id
+            block_md: source
         }, {
-            address: source.addr,
+            address: source.address,
         })
         .then(function(res) {
-            return self.store.write_block(block_id, res.data);
+            self.store_cache.invalidate(target);
+            return self.store.write_block(target, res.data);
         });
 };
 
@@ -629,6 +631,7 @@ Agent.prototype.collect_diagnostics = function(req) {
                     };
                 })
                 .then(null, function(err) {
+                    console.error('DIAGNOSTICS READ FAILED', err.stack || err);
                     throw new Error('Agent Collect Diag Error on reading packges diag file');
                 });
         })

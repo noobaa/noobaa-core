@@ -1,6 +1,19 @@
 /* jshint node:true */
 'use strict';
 
+/**
+ *
+ * MAPPER
+ *
+ * object = file
+ * part = part of a file logically, points to a chunk
+ * chunk = actual data of the part can be used by several object parts if identical
+ * block = representation of a chunk on a specific node
+ * fragment = if we use erasure coding than a chunk is divided to fragments
+ * where if we lose one we can rebuild it using the rest.
+ * each fragment will be replicated to x nodes as blocks
+ *
+ */
 module.exports = {
     allocate_object_parts: allocate_object_parts,
     finalize_object_parts: finalize_object_parts,
@@ -27,35 +40,10 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
  *
- * General:
- *
- * object = file
- * part = part of a file logically, points to a chunk
- * chunk = actual data of the part can be used by several object parts if identical
- * block = representation of a chunk on a specific node
- * fragment = if we use erasure coding than a chunk is divided to fragments
- * where if we lose one we can rebuild it using the rest.
- * each fragment will be replicated to x nodes as blocks
- *
- */
-
-
-// default split of chunks with kfrag
-var CHUNK_KFRAG_BITWISE = 0; // TODO: pick kfrag?
-var CHUNK_KFRAG = 1 << CHUNK_KFRAG_BITWISE;
-
-
-/**
- *
  * allocate_object_parts - allocates the object parts, chunks and blocks and writes it to the db
  *
  */
 function allocate_object_parts(bucket, obj, parts) {
-    if (!bucket.tiering || bucket.tiering.length !== 1) {
-        throw new Error('only single tier supported per bucket/chunk');
-    }
-    var tier_id = bucket.tiering[0].tier;
-
     var new_chunks = [];
     var unavail_dup_chunks = [];
     var new_parts = [];
@@ -67,7 +55,7 @@ function allocate_object_parts(bucket, obj, parts) {
         })
     };
 
-    // dedup with existing chunks by lookup of crypt.hash_val
+    // dedup with existing chunks by lookup of the digest of the data
     return Q.all([
             Q.fcall(function() {
                 if (process.env.DEDUP_DISABLED === 'true') {
@@ -76,10 +64,9 @@ function allocate_object_parts(bucket, obj, parts) {
                 return db.DataChunk
                     .find({
                         system: obj.system,
-                        tier: tier_id,
-                        'crypt.hash_val': {
+                        digest_b64: {
                             $in: _.map(parts, function(part) {
-                                return part.crypt.hash_val;
+                                return part.chunk.digest_b64;
                             })
                         },
                         deleted: null,
@@ -88,7 +75,7 @@ function allocate_object_parts(bucket, obj, parts) {
             })
             .then(function(dup_chunks) {
                 var hash_val_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
-                    return chunk.crypt.hash_val;
+                    return chunk.digest_b64;
                 });
 
                 //No dup chunks, no need to query their blocks
@@ -110,7 +97,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     //Associate all the blocks with their (dup_)chunks
                     .then(function(queried_blocks) {
                         var blocks_by_chunk_id = _.groupBy(queried_blocks, 'chunk');
-                        _.each(hash_val_to_dup_chunk, function(chunk, hash_val) {
+                        _.each(hash_val_to_dup_chunk, function(chunk) {
                             chunk.all_blocks = blocks_by_chunk_id[chunk._id];
                         });
                         return hash_val_to_dup_chunk;
@@ -119,11 +106,7 @@ function allocate_object_parts(bucket, obj, parts) {
             Q.fcall(function() {
                 //Check if some of the ObjectParts already exists from previous attempts
                 var query_parts_params = _.map(parts, function(part) {
-                    return {
-                        start: part.start,
-                        end: part.end,
-                        part_sequence_number: part.part_sequence_number
-                    };
+                    return _.pick(part, 'start', 'end', 'part_sequence_number');
                 });
 
                 return Q.when(
@@ -134,15 +117,13 @@ function allocate_object_parts(bucket, obj, parts) {
                         $or: query_parts_params,
                         deleted: null
                     })
-                    .populate('chunks.chunk')
+                    .populate('chunk')
                     .exec());
             })
         ])
         .spread(function(hash_val_to_dup_chunk, existing_obj_parts) {
             _.each(parts, function(part, i) {
-                // chunk size is aligned up to be an integer multiple of kfrag*block_size
-                var chunk_size = range_utils.align_up_bitwise(part.chunk_size, CHUNK_KFRAG_BITWISE);
-                var dup_chunk = hash_val_to_dup_chunk[part.crypt.hash_val];
+                var dup_chunk = hash_val_to_dup_chunk[part.chunk.digest_b64];
                 var chunk;
                 if (dup_chunk) {
                     chunk = dup_chunk;
@@ -156,31 +137,29 @@ function allocate_object_parts(bucket, obj, parts) {
                         reply.parts[i].dedup = true;
                     } else {
                         //Chunk is not healthy, create a new fragment on it
-                        dbg.log2('allocate_object_parts: chunk is dupped but unavailable, allocating new blocks for it',
-                            dup_chunk);
+                        dbg.log2('allocate_object_parts: chunk is dupped but unavailable,',
+                            'allocating new blocks for it', dup_chunk);
                         unavail_dup_chunks.push(chunk);
                     }
                 } else {
-                    chunk = new db.DataChunk({
+                    chunk = new db.DataChunk(_.extend({
                         system: obj.system,
-                        tier: tier_id,
-                        size: chunk_size,
-                        kfrag: CHUNK_KFRAG,
-                        crypt: part.crypt,
-                    });
+                    }, part.chunk));
                     new_chunks.push(chunk);
                 }
 
-                if (_.find(existing_obj_parts, {
-                        start: part.start,
-                        end: part.end,
-                        part_sequence_number: part.part_sequence_number
-                    })) {
+                var existing_part = _.find(existing_obj_parts, {
+                    start: part.start,
+                    end: part.end,
+                    part_sequence_number: part.part_sequence_number
+                });
+
+                if (existing_part) {
                     dbg.log2('allocate_object_parts: found existing part, not aclcoating new',
                         part.start, part.end, part.part_sequence_number);
                     //part already exists, probably from a previous attempt, use it
                     //and don't create a new part
-                    existing_parts.push();
+                    existing_parts.push(existing_part);
                 } else {
                     dbg.log3('allocate_object_parts: no existing part, aclcoating new',
                         part.start, part.end, part.part_sequence_number);
@@ -192,10 +171,7 @@ function allocate_object_parts(bucket, obj, parts) {
                         end: part.end,
                         part_sequence_number: part.part_sequence_number,
                         upload_part_number: part.upload_part_number || 0,
-                        chunks: [{
-                            chunk: chunk,
-                            // chunk_offset: 0, // not required
-                        }]
+                        chunk: chunk
                     }));
                 }
             });
@@ -219,7 +195,11 @@ function allocate_object_parts(bucket, obj, parts) {
             _.each(new_parts.concat(existing_parts), function(part, i) {
                 var reply_part = reply.parts[i];
                 if (reply_part.dedup) return;
-                var new_blocks_of_chunk = blocks_by_chunk[part.chunks[0].chunk];
+                var new_blocks_of_chunk = blocks_by_chunk[part.chunk._id];
+                _.each(new_blocks_of_chunk, function(block) {
+                    block.digest_type = 'TODO'; // TODO
+                    block.digest_b64 = 'TODO'; // TODO
+                });
                 var chunk = new_blocks_of_chunk[0].chunk;
                 dbg.log0('part info', part,
                     'chunk', chunk,
@@ -231,8 +211,8 @@ function allocate_object_parts(bucket, obj, parts) {
                     building: true
                 });
             });
-            dbg.log2('create blocks', new_blocks.length);
-            dbg.log2('create chunks', new_chunks);
+            dbg.log0('create blocks', new_blocks);
+            dbg.log0('create chunks', new_chunks);
             // we send blocks and chunks to DB in parallel,
             // even if we fail, it will be ignored until someday we reclaim it
             return Q.all([
@@ -272,7 +252,7 @@ function finalize_object_parts(bucket, obj, parts) {
                     $in: _.map(parts, 'start')
                 }
             })
-            .populate('chunks.chunk')
+            .populate('chunk')
             .exec(),
 
             // find blocks by list of ids, deleted blocks are handled later
@@ -299,7 +279,7 @@ function finalize_object_parts(bucket, obj, parts) {
                         obj.id + ' ' + range_utils.human_range(part));
                 }
                 return _.map(part_res, function(p) {
-                    return p.chunks[0].chunk;
+                    return p.chunk;
                 });
             }));
             var chunk_by_id = _.indexBy(chunks, '_id');
@@ -402,7 +382,7 @@ function read_object_mappings(params) {
                     deleted: null,
                 })
                 .sort('start')
-                .populate('chunks.chunk');
+                .populate('chunk');
             if (params.skip) find.skip(params.skip);
             if (params.limit) find.limit(params.limit);
             return find.exec();
@@ -437,12 +417,12 @@ function read_node_mappings(params) {
         .then(function(blocks) {
             return db.ObjectPart
                 .find({
-                    'chunks.chunk': {
+                    chunk: {
                         $in: _.map(blocks, 'chunk')
                     },
                     deleted: null,
                 })
-                .populate('chunks.chunk')
+                .populate('chunk')
                 .populate('obj')
                 .exec();
         })
@@ -492,16 +472,13 @@ function read_parts_mappings(params) {
                 },
                 deleted: null,
             })
-            .sort('fragment')
+            .sort('frag')
             .populate('node')
             .exec())
         .then(function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             var parts_reply = _.map(params.parts, function(part) {
-                if (!part.chunks || part.chunks.length !== 1) {
-                    throw new Error('only single tier supported per bucket/chunk');
-                }
-                var chunk = part.chunks[0].chunk;
+                var chunk = part.chunk;
                 var blocks = blocks_by_chunk[chunk.id];
                 return get_part_info({
                     part: part,
@@ -535,7 +512,7 @@ function list_multipart_parts(params) {
             })
             .sort('upload_part_number')
             // TODO set .limit(max_parts?)
-            .populate('chunks.chunk')
+            .populate('chunk')
             .exec())
         .then(function(parts) {
             var upload_parts = _.groupBy(parts, 'upload_part_number');
@@ -660,13 +637,13 @@ function fix_multipart_parts(obj) {
  */
 function agent_delete_call(node, del_blocks) {
     return Q.fcall(function() {
-        var block_addr = get_block_address(del_blocks[0]);
+        var block_md = get_block_md(del_blocks[0]);
         return server_rpc.client.agent.delete_blocks({
             blocks: _.map(del_blocks, function(block) {
                 return block._id.toString();
             })
         }, {
-            address: block_addr.addr,
+            address: block_md.address,
             timeout: 30000,
         }).then(function() {
             dbg.log0("nodeId ", node, "deleted", del_blocks);
@@ -720,7 +697,7 @@ function delete_object_mappings(obj) {
                 obj: obj.id,
                 deleted: null,
             })
-            .populate('chunks.chunk')
+            .populate('chunk')
             .exec())
         .then(function(parts) {
             deleted_parts = parts;
@@ -746,7 +723,7 @@ function delete_object_mappings(obj) {
             //For every chunk, verify if its no longer referenced
             return db.ObjectPart
                 .find({
-                    'chunks.chunk': {
+                    chunk: {
                         $in: all_chunk_ids
                     },
                     deleted: null,
@@ -806,16 +783,16 @@ function report_bad_block(params) {
                 upload_part_number: params.upload_part_number,
                 part_sequence_number: params.part_sequence_number,
             })
-            .populate('chunks.chunk')
+            .populate('chunk')
             .exec(),
         ])
         .spread(function(bad_block, part) {
-            if (!part || !part.chunks || !part.chunks[0] || !part.chunks[0].chunk) {
+            if (!part || !part.chunk) {
                 console.error('bad block - invalid part/chunk block:', bad_block, 'part',
                     part, 'params', params);
                 throw new Error('invalid bad block request no part/chunk');
             }
-            var chunk = part.chunks[0].chunk;
+            var chunk = part.chunk;
             if (!bad_block || bad_block.fragment !== params.fragment ||
                 String(bad_block.chunk) !== String(chunk.id)) {
                 console.error('bad block - invalid block', bad_block, 'part', part, 'frag', params.fragment,
@@ -851,7 +828,7 @@ function report_bad_block(params) {
                         return block_allocator.remove_blocks([bad_block]);
                     })
                     .then(function() {
-                        return get_block_address(new_block);
+                        return get_block_md(new_block);
                     });
 
             } else {
@@ -942,21 +919,23 @@ function build_chunks(chunks) {
                 var avoid_nodes = _.map(chunk_status.all_blocks, function(block) {
                     return block.node._id.toString();
                 });
-                var blocks_info = chunk_status.blocks_info_to_allocate;
-                return promise_utils.iterate(blocks_info, function(block_info) {
-                    return block_allocator.allocate_block(block_info.chunk, avoid_nodes)
-                        .then(function(new_block) {
-                            if (!new_block) {
-                                had_errors += 1;
-                                dbg.error('build_chunks: no nodes for allocation.' +
-                                    ' continue to build but will not eventually fail');
-                                return;
-                            }
-                            block_info.block = new_block;
-                            avoid_nodes.push(new_block.node._id.toString());
-                            return new_block;
-                        });
-                });
+                return promise_utils.iterate(chunk_status.blocks_info_to_allocate,
+                    function(block_info_to_allocate) {
+                        return block_allocator.allocate_block(block_info_to_allocate.chunk, avoid_nodes)
+                            .then(function(new_block) {
+                                if (!new_block) {
+                                    had_errors += 1;
+                                    dbg.error('build_chunks: no nodes for allocation.' +
+                                        ' continue to build but will not eventually fail');
+                                    return;
+                                }
+                                block_info_to_allocate.block = new_block;
+                                avoid_nodes.push(new_block.node._id.toString());
+                                new_block.digest_type = 'TODO'; // TODO
+                                new_block.digest_b64 = 'TODO'; // TODO
+                                return new_block;
+                            });
+                    });
             });
 
         })
@@ -966,7 +945,7 @@ function build_chunks(chunks) {
 
             if (!new_blocks || !new_blocks.length) return;
             new_blocks = _.compact(_.flatten(new_blocks));
-            dbg.log0('build_chunks: creating blocks', new_blocks.length);
+            dbg.log0('build_chunks: creating blocks', new_blocks);
             return db.DataBlock.create(new_blocks);
 
         })
@@ -976,41 +955,41 @@ function build_chunks(chunks) {
             // send to the agent a request to replicate from the source
 
             return Q.allSettled(_.map(chunks_status, function(chunk_status) {
-                var blocks_info = chunk_status.blocks_info_to_allocate;
-                return Q.allSettled(_.map(blocks_info, function(block_info) {
-                    var block = block_info.block;
-                    if (!block) {
-                        // block that failed to allocate - skip replicate anyhow.
-                        return;
-                    }
-                    var block_addr = get_block_address(block);
-                    var source_addr = get_block_address(block_info.source);
+                return Q.allSettled(_.map(chunk_status.blocks_info_to_allocate,
+                    function(block_info_to_allocate) {
+                        var block = block_info_to_allocate.block;
+                        if (!block) {
+                            // block that failed to allocate - skip replicate anyhow.
+                            return;
+                        }
+                        var target = get_block_md(block);
+                        var source = get_block_md(block_info_to_allocate.source);
 
-                    dbg.log0('replicating', block._id.toString(), 'from', source_addr.addr, 'to',
-                        block_addr.addr);
-                    return replicate_block_sem.surround(function() {
-                        return server_rpc.client.agent.replicate_block({
-                            block_id: block._id.toString(),
-                            source: source_addr
-                        }, {
-                            address: block_addr.addr,
+                        dbg.log0('replicating', block._id.toString(), 'from', source.address, 'to',
+                            target.address);
+                        return replicate_block_sem.surround(function() {
+                            return server_rpc.client.agent.replicate_block({
+                                target: target,
+                                source: source
+                            }, {
+                                address: target.address,
+                            });
+                        }).then(function() {
+                            dbg.log1('build_chunks replicated block', block._id,
+                                'to', target.address, 'from', source.address);
+                            replicated_block_ids.push(block._id);
+                        }, function(err) {
+                            dbg.error('build_chunks FAILED replicate block', block._id,
+                                'to', target.address, 'from', source.address,
+                                err.stack || err);
+                            replicated_failed_ids.push(block._id);
+                            block_info_to_allocate.replicate_error = err;
+                            chunk_status.replicate_error = err;
+                            had_errors += 1;
+                            // don't fail here yet to allow handling the successful blocks
+                            // so just keep the error, and we will fail at the end of build_chunks
                         });
-                    }).then(function() {
-                        dbg.log1('build_chunks replicated block', block._id,
-                            'to', block_addr.addr, 'from', source_addr.addr);
-                        replicated_block_ids.push(block._id);
-                    }, function(err) {
-                        dbg.error('build_chunks FAILED replicate block', block._id,
-                            'to', block_addr.addr, 'from', source_addr.addr,
-                            err.stack || err);
-                        replicated_failed_ids.push(block._id);
-                        block_info.replicate_error = err;
-                        chunk_status.replicate_error = err;
-                        had_errors += 1;
-                        // don't fail here yet to allow handling the successful blocks
-                        // so just keep the error, and we will fail at the end of build_chunks
-                    });
-                }));
+                    }));
             }));
 
         })
@@ -1256,7 +1235,7 @@ function analyze_chunk_status(chunk, all_blocks) {
     var chunk_health = 'available';
 
     // TODO loop over parity fragments too
-    var fragments = _.times(chunk.kfrag, function(fragment_index) {
+    var frags = _.times(chunk.data_frags, function(fragment_index) {
 
         var fragment = {
             index: fragment_index,
@@ -1352,7 +1331,7 @@ function analyze_chunk_status(chunk, all_blocks) {
     return {
         chunk: chunk,
         all_blocks: all_blocks,
-        fragments: fragments,
+        frags: frags,
         blocks_info_to_allocate: blocks_info_to_allocate,
         blocks_to_remove: blocks_to_remove,
         chunk_health: chunk_health,
@@ -1392,7 +1371,7 @@ function get_part_info(params) {
     var chunk_status = analyze_chunk_status(params.chunk, params.blocks);
     var p = _.pick(params.part, 'start', 'end', 'chunk_offset');
 
-    p.fragments = _.map(chunk_status.fragments, function(fragment) {
+    p.frags = _.map(chunk_status.frags, function(fragment) {
         var blocks = params.building && fragment.building_blocks ||
             params.details && fragment.blocks ||
             fragment.accessible_blocks;
@@ -1406,8 +1385,8 @@ function get_part_info(params) {
         }
 
         part_fragment.blocks = _.map(blocks, function(block) {
-            var block_info = {
-                address: get_block_address(block),
+            var ret = {
+                block: get_block_md(block),
             };
             var node = block.node;
             if (params.details) {
@@ -1423,16 +1402,23 @@ function get_part_info(params) {
                 if (block.building) {
                     details.building = true;
                 }
-                block_info.details = details;
+                ret.details = details;
             }
-            return block_info;
+            return ret;
         });
         return part_fragment;
     });
 
-    p.kfrag = params.chunk.kfrag;
-    p.crypt = _.pick(params.chunk.crypt, 'hash_type', 'hash_val', 'cipher_type', 'cipher_val');
-    p.chunk_size = params.chunk.size;
+    p.chunk = _.pick(params.chunk,
+        'size',
+        'digest_type',
+        'digest_b64',
+        'cipher_type',
+        'cipher_key_b64',
+        'cipher_iv_b64',
+        'cipher_auth_tag_b64',
+        'data_frags',
+        'lrc_frags');
     p.chunk_offset = p.chunk_offset || 0;
     p.part_sequence_number = params.part.part_sequence_number;
     if (params.upload_part_number) {
@@ -1445,10 +1431,10 @@ function get_part_info(params) {
 }
 
 
-function get_block_address(block) {
-    var b = {};
+function get_block_md(block) {
+    var b = _.pick(block, 'digest_type', 'digest_b64');
     b.id = block._id.toString();
-    b.addr = 'n2n://' + block.node.peer_id;
+    b.address = 'n2n://' + block.node.peer_id;
     return b;
 }
 

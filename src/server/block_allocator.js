@@ -58,21 +58,16 @@ function remove_blocks(blocks) {
 
 
 function new_block(chunk, node, size) {
-    var block = new db.DataBlock({
-        fragment: 0,
+    return new db.DataBlock({
+        system: chunk.system,
+        tier: node.tier,
+        chunk: chunk,
+        node: node,
+        layer: 'D',
+        frag: 0,
         size: size,
         building: new Date()
     });
-
-    // using setValue as a small hack to make these fields seem populated
-    // so that we can use them after returning from here.
-    // this is due to a weird mongoose behavior as described by this issue:
-    // https://github.com/LearnBoost/mongoose/issues/570
-    block.setValue('system', chunk.system);
-    block.setValue('tier', chunk.tier);
-    block.setValue('chunk', chunk);
-    block.setValue('node', node);
-    return block;
 }
 
 
@@ -81,7 +76,7 @@ var tier_alloc_nodes = {};
 
 function update_tier_alloc_nodes(system, tier) {
     var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
-    var tier_id = tier._id || tier;
+    var tier_id = (tier && tier._id) || tier || null;
     var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
         last_refresh: new Date(0),
         nodes: [],
@@ -94,17 +89,21 @@ function update_tier_alloc_nodes(system, tier) {
 
     if (info.promise) return info.promise;
 
+    var q = {
+        system: system,
+        deleted: null,
+        heartbeat: {
+            $gt: min_heartbeat
+        },
+        srvmode: null,
+    };
+    if (tier_id) {
+        q.tier = tier_id;
+    }
+
     // refresh
     info.promise =
-        db.Node.find({
-            system: system,
-            tier: tier_id,
-            deleted: null,
-            heartbeat: {
-                $gt: min_heartbeat
-            },
-            srvmode: null,
-        })
+        db.Node.find(q)
         .sort({
             // sorting with lowest used storage nodes first
             'storage.used': 1

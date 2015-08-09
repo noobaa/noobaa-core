@@ -7,7 +7,7 @@ var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
-var memwatch = require('memwatch');
+var memwatch = null; //require('memwatch');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var MB = 1024 * 1024;
 

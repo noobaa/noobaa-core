@@ -75,8 +75,8 @@ function test_ingest() {
             frag_digest_type: 'sha1',
             data_frags: 1,
             parity_frags: 0,
-            // lrc_group_frags: 0,
-            // lrc_parity_frags: 0,
+            lrc_frags: 0,
+            lrc_parity: 0,
         });
         pipeline.pipe(transformer({
             options: {
@@ -105,6 +105,7 @@ function test_ingest() {
                 highWaterMark: 10
             },
             transform: function(chunk) {
+                // console.log(chunk);
                 return chunk;
                 // return Q.ninvoke(object_coding, 'decode', chunk);
             },

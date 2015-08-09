@@ -36,8 +36,8 @@ private:
     std::string _frag_digest_type;
     int _data_frags;
     int _parity_frags;
-    // int _lrc_group_frags;
-    // int _lrc_parity_frags;
+    int _lrc_frags;
+    int _lrc_parity;
 
 public:
     static NAN_MODULE_INIT(setup);

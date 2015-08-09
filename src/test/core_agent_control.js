@@ -171,6 +171,10 @@ function get_agents_list() {
  *
  */
 function read_block(node_name, block_id) {
+    if (true) {
+        return Q.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
+    }
+
     if (!block_id) {
         return Q.reject('No block_id supplied');
     }
@@ -190,6 +194,10 @@ function read_block(node_name, block_id) {
 }
 
 function write_block(node_name, block_id, data) {
+    if (true) {
+        return Q.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
+    }
+
     if (!block_id || !data) {
         return Q.reject('No block_id/data supplied');
     }

@@ -55,22 +55,18 @@ var object_part_schema = new Schema({
       type: Number,
     },
 
-    // list of chunks (copies)
-    chunks: [{
+    // link to the data chunk, which might be shared by
+    // several parts by different objects for dedup.
+    chunk: {
+        type: types.ObjectId,
+        ref: 'DataChunk',
+        required: true,
+    },
 
-        // link to the data chunk, which might be shared by
-        // several parts by different objects for dedup.
-        chunk: {
-            type: types.ObjectId,
-            ref: 'DataChunk',
-            required: true,
-        },
-
-        // optional offset inside the chunk, used for small files sharing the chunk
-        chunk_offset: {
-            type: Number,
-        },
-    }],
+    // optional offset inside the chunk, used for small files sharing the chunk
+    chunk_offset: {
+        type: Number,
+    },
 
     // on delete set deletion time
     deleted: {
@@ -86,7 +82,7 @@ var object_part_schema = new Schema({
 object_part_schema.index({
     obj: 1,
     part_sequence_number: 1,
-    upload_part_number: 1, 
+    upload_part_number: 1,
     start: 1,
     end: 1,
     deleted: 1, // allow to filter deleted

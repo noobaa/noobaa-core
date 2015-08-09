@@ -18,10 +18,10 @@ module.exports = {
             param_raw: 'data',
             params: {
                 type: 'object',
-                required: ['block_id', 'data'],
+                required: ['block_md', 'data'],
                 properties: {
-                    block_id: {
-                        type: 'string',
+                    block_md: {
+                        $ref: '/agent_api/definitions/block_md'
                     },
                     data: {
                         type: 'buffer'
@@ -34,17 +34,20 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['block_id'],
+                required: ['block_md'],
                 properties: {
-                    block_id: {
-                        type: 'string',
+                    block_md: {
+                        $ref: '/agent_api/definitions/block_md'
                     },
                 },
             },
             reply: {
                 type: 'object',
-                required: ['data'],
+                required: ['block_md', 'data'],
                 properties: {
+                    block_md: {
+                        $ref: '/agent_api/definitions/block_md'
+                    },
                     data: {
                         type: 'buffer'
                     },
@@ -57,13 +60,13 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['block_id'],
+                required: ['target', 'source'],
                 properties: {
-                    block_id: {
-                        type: 'string',
+                    target: {
+                        $ref: '/agent_api/definitions/block_md'
                     },
                     source: {
-                        $ref: '/common_api/definitions/block_address'
+                        $ref: '/agent_api/definitions/block_md'
                     }
                 },
             },
@@ -115,7 +118,7 @@ module.exports = {
                 properties: {
                     blocks: {
                         type: 'array',
-                        ids: {
+                        items: {
                             type: 'object',
                             required: ['id'],
                             properties: {
@@ -209,6 +212,32 @@ module.exports = {
                   },
               },
           },
+        },
+
+    },
+
+    definitions: {
+
+        block_md: {
+            type: 'object',
+            required: [
+                'id',
+                'address',
+            ],
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                address: {
+                    type: 'string'
+                },
+                digest_type: {
+                    type: 'string'
+                },
+                digest_b64: {
+                    type: 'string'
+                },
+            }
         },
 
     }

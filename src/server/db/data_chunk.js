@@ -23,11 +23,16 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
-    // the storage tier of this chunk
+    // optional - a storage tier of this chunk
     tier: {
         ref: 'Tier',
         type: types.ObjectId,
-        required: true,
+    },
+
+    // optional - a bucket of this chunk
+    bucket: {
+        ref: 'Bucket',
+        type: types.ObjectId,
     },
 
     // chunk size in bytes
@@ -36,41 +41,66 @@ var data_chunk_schema = new Schema({
         required: true,
     },
 
-    // crypto info
-    crypt: {
-        hash_type: {
-            type: String,
-            required: true,
-        },
-        hash_val: {
-            type: String,
-            required: true,
-        },
-        cipher_type: {
-            type: String,
-            required: true,
-        },
-        cipher_val: {
-            type: String,
-            required: true,
-        },
+    // data chunk message-digest - computed on the plain data
+    digest_type: {
+        type: String,
+        required: true,
+    },
+    digest_b64: {
+        type: String,
+        required: true,
     },
 
-    /* for mapping to edge nodes, the logical range is divided
+    // cipher used to provide confidentiality - computed on the plain data
+    cipher_type: {
+        type: String,
+        required: true,
+    },
+    cipher_key_b64: {
+        type: String,
+        required: true,
+    },
+    cipher_iv_b64: {
+        type: String,
+    },
+    cipher_auth_tag_b64: {
+        type: String,
+    },
+
+    /*
+     * for mapping to edge nodes, the chunk range is divided
      * into k fragments of equal size.
-     * this number is configured by the tier's data_fragments but is saved
-     * in the chunk to allow future changes to the tier's configuration without
-     * breaking the chunk's encoding.
+     * this number is configured (by the tier/bucket) but saved in the chunk to allow
+     * future changes to the tier's configuration without breaking the chunk's encoding.
      *
      * to support copies and/or erasure coded blocks, chunks are composed of blocks
-     * such that each block has a fragment number.
-     * - blocks with (fragment < kfrag) contain real data fragment.
-     * - blocks with (fragment >= kfrag) contain a computed erasure coded fragment.
-     * different blocks appearing with the same fragment - means they are copies
+     * such that each block has a fragment number and a layer:
+     *
+     * - blocks with layer==='D' contain real data fragment.
+     * - blocks with layer==='RS' contain a reed solomon parity fragment.
+     * - blocks with layer==='LRC' index contain a computed LRC parity block for the group x,
+     *      the fragment index in this case represents the LRC parity index.
+     *
+     * different blocks with the same value of (frag,layer) - means they are copies
      * of the same data fragment.
+     *
+     * lrc_frags is the number of fragments in every LRC group (locally recoverable code)
+     * this number does not include the added LRC parity fragments, only the source frags.
+     *
+     * sample layout:
+     * (data_frags=8 lrc_frags=4 D=data P=global-parity L=local-parity)
+     *
+     *      [D D D D] [D D D D] [P P P P]
+     *      [  L L  ] [  L L  ] [  L L  ]
+     *
      */
-    kfrag: {
+    data_frags: {
         type: Number,
+        required: true,
+    },
+    lrc_frags: {
+        type: Number,
+        required: true,
     },
 
     building: {
@@ -92,8 +122,7 @@ var data_chunk_schema = new Schema({
 
 data_chunk_schema.index({
     system: 1,
-    tier: 1,
-    'crypt.hash_val': 1,
+    digest_b64: 1,
     deleted: 1, // allow to filter deleted
 }, {
     unique: false

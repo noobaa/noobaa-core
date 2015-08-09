@@ -165,8 +165,8 @@ module.exports = {
                             required: [
                                 'start',
                                 'end',
-                                'chunk_size',
-                                'crypt'
+                                'chunk',
+                                'frags'
                             ],
                             properties: {
                                 start: {
@@ -175,17 +175,43 @@ module.exports = {
                                 end: {
                                     type: 'integer',
                                 },
-                                chunk_size: {
-                                    type: 'integer',
-                                },
-                                crypt: {
-                                    $ref: '/object_api/definitions/crypt_info',
-                                },
                                 upload_part_number: {
                                     type: 'integer',
                                 },
                                 part_sequence_number: {
                                     type: 'integer',
+                                },
+                                chunk: {
+                                    $ref: '/object_api/definitions/chunk_info',
+                                },
+                                frags: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        required: [
+                                            'layer',
+                                            'frag',
+                                            'digest_type',
+                                            'digest_b64'
+                                        ],
+                                        properties: {
+                                            layer: {
+                                                type: 'string'
+                                            },
+                                            layer_n: {
+                                                type: 'integer'
+                                            },
+                                            frag: {
+                                                type: 'integer'
+                                            },
+                                            digest_type: {
+                                                type: 'string'
+                                            },
+                                            digest_b64: {
+                                                type: 'string'
+                                            }
+                                        }
+                                    }
                                 },
                             }
                         }
@@ -260,7 +286,15 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'start', 'end', 'fragment', 'block_id', 'is_write'],
+                required: [
+                    'bucket',
+                    'key',
+                    'start',
+                    'end',
+                    'frag',
+                    'block_id',
+                    'is_write'
+                ],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -274,7 +308,13 @@ module.exports = {
                     end: {
                         type: 'integer',
                     },
-                    fragment: {
+                    layer: {
+                        type: 'string',
+                    },
+                    layer_n: {
+                        type: 'integer',
+                    },
+                    frag: {
                         type: 'integer',
                     },
                     block_id: {
@@ -290,7 +330,7 @@ module.exports = {
                 required: [],
                 properties: {
                     new_block: {
-                        $ref: '/common_api/definitions/block_address'
+                        $ref: '/agent_api/definitions/block_md'
                     }
                 }
             },
@@ -505,11 +545,8 @@ module.exports = {
             required: [
                 'start',
                 'end',
-                'kfrag',
-                'crypt',
-                'chunk_size',
-                'chunk_offset',
-                'fragments'
+                'chunk',
+                'frags'
             ],
             properties: {
                 start: {
@@ -524,37 +561,67 @@ module.exports = {
                 part_sequence_number: {
                     type: 'integer',
                 },
-                kfrag: {
-                    type: 'integer',
-                },
-                crypt: {
-                    $ref: '/object_api/definitions/crypt_info',
-                },
-                chunk_size: {
-                    type: 'integer',
-                },
                 chunk_offset: {
                     type: 'integer',
                 },
-                fragments: {
-                    // the fragments composing the data chunk
+                chunk: {
+                    $ref: '/object_api/definitions/chunk_info',
+                },
+                // details for admin
+                details: {
+                    type: 'object',
+                    required: ['health'],
+                    properties: {
+                        health: {
+                            type: 'string'
+                        }
+                    }
+                },
+                // the fragments composing the data chunk
+                frags: {
                     type: 'array',
                     items: {
                         type: 'object',
-                        required: ['blocks'],
+                        required: [
+                            'layer',
+                            'frag',
+                            'block'
+                        ],
                         properties: {
-                            blocks: {
-                                type: 'array',
-                                items: {
-                                    $ref: '/object_api/definitions/object_block_info'
-                                }
+                            layer: {
+                                type: 'string',
                             },
+                            layer_n: {
+                                type: 'integer',
+                            },
+                            frag: {
+                                type: 'integer',
+                            },
+                            block: {
+                                $ref: '/agent_api/definitions/block_md'
+                            },
+                            // details for admin
                             details: {
                                 type: 'object',
-                                required: ['health'],
+                                required: ['tier_name', 'node_name'],
                                 properties: {
-                                    health: {
-                                        type: 'string'
+                                    tier_name: {
+                                        type: 'string',
+                                    },
+                                    node_name: {
+                                        type: 'string',
+                                    },
+                                    node_ip: {
+                                        type: 'string',
+                                    },
+                                    srvmode: {
+                                        $ref: '/node_api/definitions/srvmode'
+                                    },
+                                    online: {
+                                        type: 'boolean'
+                                    },
+                                    building: {
+                                        type: 'boolean',
                                     }
                                 }
                             }
@@ -564,63 +631,47 @@ module.exports = {
             }
         },
 
-        object_block_info: {
-            type: 'object',
-            required: ['address'],
-            properties: {
-                address: {
-                    $ref: '/common_api/definitions/block_address'
-                },
-                details: {
-                    type: 'object',
-                    required: ['tier_name', 'node_name'],
-                    properties: {
-                        tier_name: {
-                            type: 'string',
-                        },
-                        node_name: {
-                            type: 'string',
-                        },
-                        node_ip: {
-                            type: 'string',
-                        },
-                        srvmode: {
-                            $ref: '/node_api/definitions/srvmode'
-                        },
-                        online: {
-                            type: 'boolean'
-                        },
-                        building: {
-                            type: 'boolean',
-                        }
-                    }
-                }
-            }
-        },
-
-        crypt_info: {
+        chunk_info: {
             type: 'object',
             required: [
-                'hash_type',
-                'hash_val',
+                'size',
+                'digest_type',
+                'digest_b64',
                 'cipher_type',
-                'cipher_val'
+                'cipher_key_b64',
+                'data_frags',
+                'lrc_frags'
             ],
             properties: {
-                hash_type: {
+                size: {
+                    type: 'integer',
+                },
+                digest_type: {
                     type: 'string',
                 },
-                hash_val: {
+                digest_b64: {
                     type: 'string',
                 },
                 cipher_type: {
                     type: 'string',
                 },
-                cipher_val: {
+                cipher_key_b64: {
                     type: 'string',
                 },
+                cipher_iv_b64: {
+                    type: 'string',
+                },
+                cipher_auth_tag_b64: {
+                    type: 'string',
+                },
+                data_frags: {
+                    type: 'integer',
+                },
+                lrc_frags: {
+                    type: 'integer',
+                },
             }
-        }
+        },
 
     },
 

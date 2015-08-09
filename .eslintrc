@@ -26,6 +26,11 @@
         }],
         "no-underscore-dangle": 0,
         "consistent-return": 0,
-        "comma-dangle": 0
+        "comma-dangle": 0,
+        "no-constant-condition": 0,
+
+
+        "no-shadow": 0,
+        "handle-callback-err": 0
     }
 }

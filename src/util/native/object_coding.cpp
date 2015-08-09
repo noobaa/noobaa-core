@@ -26,29 +26,33 @@ NAN_METHOD(ObjectCoding::new_instance)
     coding->Wrap(self);
     NAN_COPY_OPTIONS_TO_WRAPPER(self, options);
     // TODO should we allow updating these fields?
-    coding->_digest_type = NAN_GET_STR(self, "digest_type");
-    if (coding->_digest_type == "undefined") {
-        coding->_digest_type = "";
+    ObjectCoding& c = *coding;
+    c._digest_type = NAN_GET_STR(self, "digest_type");
+    if (c._digest_type == "undefined") {
+        c._digest_type = "";
     }
-    coding->_cipher_type = NAN_GET_STR(self, "cipher_type");
-    if (coding->_cipher_type == "undefined") {
-        coding->_cipher_type = "";
+    c._cipher_type = NAN_GET_STR(self, "cipher_type");
+    if (c._cipher_type == "undefined") {
+        c._cipher_type = "";
     }
-    coding->_frag_digest_type = NAN_GET_STR(self, "frag_digest_type");
-    if (coding->_frag_digest_type == "undefined") {
-        coding->_frag_digest_type = "";
+    c._frag_digest_type = NAN_GET_STR(self, "frag_digest_type");
+    if (c._frag_digest_type == "undefined") {
+        c._frag_digest_type = "";
     }
-    coding->_data_frags = NAN_GET(self, "data_frags")->Int32Value();
-    coding->_parity_frags = NAN_GET(self, "parity_frags")->Int32Value();
-    // coding->_lrc_group_fragments = self->Get(NAN_STR("lrc_group_fragments"))->Int32Value();
-    // coding->_lrc_parity_fragments = self->Get(NAN_STR("lrc_parity_fragments"))->Int32Value();
-    std::cout << "ObjectCoding::new_instance"
-              << " digest_type=" << coding->_digest_type
-              << " cipher_type=" << coding->_cipher_type
-              << " frag_digest_type=" << coding->_frag_digest_type
-              << " data_frags=" << coding->_data_frags
-              << " parity_frags=" << coding->_parity_frags
+    c._data_frags = NAN_GET(self, "data_frags")->Int32Value();
+    c._parity_frags = NAN_GET(self, "parity_frags")->Int32Value();
+    c._lrc_frags = NAN_GET(self, "lrc_frags")->Int32Value();
+    c._lrc_parity = NAN_GET(self, "lrc_parity")->Int32Value();
+    std::cout << "ObjectCoding::new_instance "
+              << DVAL(c._digest_type)
+              << DVAL(c._cipher_type)
+              << DVAL(c._frag_digest_type)
+              << DVAL(c._data_frags)
+              << DVAL(c._parity_frags)
+              << DVAL(c._lrc_frags)
+              << DVAL(c._lrc_parity)
               << std::endl;
+    ASSERT(c._data_frags > 0, DVAL(c._data_frags));
     info.GetReturnValue().Set(self);
 }
 
@@ -73,7 +77,7 @@ private:
     Buf _chunk;
     Buf _digest;
     Buf _secret;
-    std::vector<Fragment> _fragments;
+    std::deque<Fragment> _frags;
 public:
     explicit EncodeWorker(
         ObjectCoding& coding,
@@ -124,28 +128,45 @@ public:
         const int encrypted_len = encrypted.length();
         const int data_frags = _coding._data_frags;
         const int parity_frags = _coding._parity_frags;
+        const int lrc_frags = _coding._lrc_frags;
+        const int lrc_parity = _coding._lrc_parity;
+        const int lrc_groups = (lrc_frags==0) ? 0 : (data_frags + parity_frags) / lrc_frags;
+        const int lrc_total_frags = lrc_groups * lrc_parity;
         const int block_len = (encrypted_len + data_frags - 1) / data_frags;
-        _fragments.resize(data_frags + parity_frags);
+        _frags.resize(data_frags + parity_frags + lrc_total_frags);
         for (int i=0; i<data_frags; ++i) {
-            _fragments[i].block = Buf(encrypted, i*block_len, block_len);
+            _frags[i].block = Buf(encrypted, i*block_len, block_len);
         }
         // TODO this is not erasure code, it's just XOR of all blocks to test performance
         for (int i=0; i<parity_frags; ++i) {
             Buf parity(block_len, 0);
             uint8_t* target = parity.data();
             for (int j=0; j<data_frags; ++j) {
-                const uint8_t* source = _fragments[j].block.data();
+                const uint8_t* source = _frags[j].block.data();
                 for (int k=0; k<block_len; ++k) {
                     target[k] ^= source[k];
                 }
             }
-            _fragments[i + data_frags].block = parity;
+            _frags[data_frags + i].block = parity;
+        }
+        for (int l=0; l<lrc_groups; ++l) {
+            for (int i=0; i<lrc_parity; ++i) {
+                Buf parity(block_len, 0);
+                uint8_t* target = parity.data();
+                for (int j=0; j<lrc_frags; ++j) {
+                    const uint8_t* source = _frags[(l*lrc_frags) + j].block.data();
+                    for (int k=0; k<block_len; ++k) {
+                        target[k] ^= source[k];
+                    }
+                }
+                _frags[data_frags + parity_frags + (l*lrc_parity) + i].block = parity;
+            }
         }
 
         // COMPUTE BLOCKS HASH
         if (!_coding._frag_digest_type.empty()) {
-            for (size_t i=0; i<_fragments.size(); ++i) {
-                _fragments[i].digest = Crypto::digest(_fragments[i].block, _coding._frag_digest_type.c_str());
+            for (size_t i=0; i<_frags.size(); ++i) {
+                _frags[i].digest = Crypto::digest(_frags[i].block, _coding._frag_digest_type.c_str());
             }
         }
     }
@@ -155,26 +176,31 @@ public:
         Nan::HandleScope scope;
         v8::Local<v8::String> frag_digest_type = NAN_STR(_coding._frag_digest_type);
         v8::Local<v8::Object> obj(Nan::New<v8::Object>());
-        Nan::Set(obj, NAN_STR("digest_type"), NAN_STR(_coding._digest_type));
-        Nan::Set(obj, NAN_STR("cipher_type"), NAN_STR(_coding._cipher_type));
-        Nan::Set(obj, NAN_STR("digest"), NAN_STR(_digest.hex()));
-        Nan::Set(obj, NAN_STR("secret"), NAN_STR(_secret.hex()));
         Nan::Set(obj, NAN_STR("length"), Nan::New(_chunk.length()));
-        // fragments rols is based on the array index
-        // indexes < data_frags represent data blocks.
-        // indexes >= data_frags represent parity blocks.
-        // TODO need to update to represent LRC fragments
-        v8::Local<v8::Array> fragments(Nan::New<v8::Array>(_fragments.size()));
-        Nan::Set(obj, NAN_STR("fragments"), fragments);
+        Nan::Set(obj, NAN_STR("digest_type"), NAN_STR(_coding._digest_type));
+        Nan::Set(obj, NAN_STR("digest_buf"), Nan::CopyBuffer(
+                     _digest.cdata(), _digest.length()).ToLocalChecked());
+        Nan::Set(obj, NAN_STR("cipher_type"), NAN_STR(_coding._cipher_type));
+        Nan::Set(obj, NAN_STR("cipher_key"), Nan::CopyBuffer(
+                     _secret.cdata(), _secret.length()).ToLocalChecked());
         Nan::Set(obj, NAN_STR("data_frags"), Nan::New(_coding._data_frags));
-        for (size_t i=0; i<_fragments.size(); ++i) {
-            Fragment& frag = _fragments[i];
+        Nan::Set(obj, NAN_STR("lrc_frags"), Nan::New(_coding._lrc_frags));
+        v8::Local<v8::Array> frags(Nan::New<v8::Array>(_frags.size()));
+        for (size_t i=0; i<_frags.size(); ++i) {
+            Fragment& frag = _frags[i];
             v8::Local<v8::Object> frag_obj(Nan::New<v8::Object>());
-            Nan::Set(frag_obj, NAN_STR("block"), Nan::CopyBuffer(frag.block.cdata(), frag.block.length()).ToLocalChecked());
+            Nan::Set(frag_obj, NAN_STR("block"), Nan::CopyBuffer(
+                         frag.block.cdata(), frag.block.length()).ToLocalChecked());
+            // TODO set fragment layer and index
+            Nan::Set(frag_obj, NAN_STR("layer"), NAN_STR("D"));
+            Nan::Set(frag_obj, NAN_STR("frag"), Nan::New(static_cast<int32_t>(i)));
+            // Nan::Set(frag_obj, NAN_STR("layer_n"), Nan::New(frag.layer_n));
             Nan::Set(frag_obj, NAN_STR("digest_type"), frag_digest_type);
-            Nan::Set(frag_obj, NAN_STR("digest_val"), NAN_STR(frag.digest.hex()));
-            fragments->Set(i, frag_obj);
+            Nan::Set(frag_obj, NAN_STR("digest_buf"), Nan::CopyBuffer(
+                         frag.digest.cdata(), frag.digest.length()).ToLocalChecked());
+            frags->Set(i, frag_obj);
         }
+        Nan::Set(obj, NAN_STR("frags"), frags);
         v8::Local<v8::Value> argv[] = { Nan::Undefined(), obj };
         _callback->Call(2, argv);
         delete this;
@@ -203,7 +229,7 @@ private:
     Buf _chunk;
     int _length;
     int _data_frags;
-    std::vector<Fragment> _fragments;
+    std::vector<Fragment> _frags;
 public:
     explicit DecodeWorker(
         ObjectCoding& coding,
@@ -229,13 +255,13 @@ public:
         _secret = Buf(NAN_GET_STR(chunk, "secret"));
         _length = chunk->Get(NAN_STR("length"))->Int32Value();
         _data_frags = chunk->Get(NAN_STR("data_frags"))->Int32Value();
-        v8::Local<v8::Array> fragments = chunk->Get(NAN_STR("fragments")).As<v8::Array>();
-        _fragments.resize(fragments->Length());
-        for (size_t i=0; i<_fragments.size(); ++i) {
-            v8::Local<v8::Object> frag = fragments->Get(i)->ToObject();
+        v8::Local<v8::Array> frags = chunk->Get(NAN_STR("frags")).As<v8::Array>();
+        _frags.resize(frags->Length());
+        for (size_t i=0; i<_frags.size(); ++i) {
+            v8::Local<v8::Object> frag = frags->Get(i)->ToObject();
             v8::Local<v8::Object> block = frag->Get(NAN_STR("block"))->ToObject();
-            _fragments[i].block = Buf(node::Buffer::Data(block), node::Buffer::Length(block));
-            _fragments[i].digest = Buf(NAN_GET_STR(frag, "digest"));
+            _frags[i].block = Buf(node::Buffer::Data(block), node::Buffer::Length(block));
+            _frags[i].digest = Buf(NAN_GET_STR(frag, "digest"));
         }
     }
 
@@ -248,11 +274,11 @@ public:
     {
         // VERIFY BLOCKS HASH
         if (!_frag_digest_type.empty()) {
-            for (size_t i=0; i<_fragments.size(); ++i) {
-                if (!_fragments[i].digest.length()) {
-                    Buf digest = Crypto::digest(_fragments[i].block, _frag_digest_type.c_str());
-                    if (!digest.same(_fragments[i].digest)) {
-                        PANIC("fragment " << i << " digest mismatch " << digest.hex() << " " << _fragments[i].digest.hex());
+            for (size_t i=0; i<_frags.size(); ++i) {
+                if (!_frags[i].digest.length()) {
+                    Buf digest = Crypto::digest(_frags[i].block, _frag_digest_type.c_str());
+                    if (!digest.same(_frags[i].digest)) {
+                        PANIC("fragment " << i << " digest mismatch " << digest.hex() << " " << _frags[i].digest.hex());
                     }
                 }
             }
@@ -261,7 +287,7 @@ public:
         // REBUILD ERASURE CODE DATA FROM FRAGMENTS
         std::vector<Buf> data_blocks(_data_frags);
         for (size_t i=0; i<data_blocks.size(); ++i) {
-            data_blocks[i] = _fragments[i].block;
+            data_blocks[i] = _frags[i].block;
             // std::cout << DVAL(data_blocks[i].length()) << std::endl;
         }
         const int encrypted_len = data_blocks[0].length() * _data_frags;

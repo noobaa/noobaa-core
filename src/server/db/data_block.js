@@ -14,14 +14,14 @@ var types = mongoose.Schema.Types;
  */
 var data_block_schema = new Schema({
 
-    // system is copied from the chunk/node
+    // system is copied from the chunk/node to allow filtering
     system: {
         ref: 'System',
         type: types.ObjectId,
         required: true,
     },
 
-    // tier is copied from the chunk/node
+    // tier is copied from the node to allow filtering
     tier: {
         ref: 'Tier',
         type: types.ObjectId,
@@ -42,8 +42,19 @@ var data_block_schema = new Schema({
         required: true,
     },
 
-    // the fragment in the chunk - see kfrag in DataChunk
-    fragment: {
+    // the chunk redundancy layer and fragment index - see DataChunk
+    // when layer==='D' this is the data layer,
+    // when layer==='RS' for Reed-Solomon parity,
+    // when layer==='LRC' then layer_n is the number of the LRC group.
+    layer: {
+        type: String,
+        enum: ['D', 'RS', 'LRC'],
+        required: true,
+    },
+    layer_n: {
+        type: Number,
+    },
+    frag: {
         type: Number,
         required: true,
     },
@@ -51,6 +62,16 @@ var data_block_schema = new Schema({
     // block size is "copied" from the chunk
     size: {
         type: Number,
+        required: true,
+    },
+
+    // data block message-digest - computed on the encoded fragment as stored on the node
+    digest_type: {
+        type: String,
+        required: true,
+    },
+    digest_b64: {
+        type: String,
         required: true,
     },
 

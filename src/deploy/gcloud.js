@@ -96,7 +96,7 @@ function import_key_pair_to_region() {
 
 }
 
-function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region,agent_conf) {
+function scale_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
 
     return describe_instances({
         filter: 'status ne STOPPING '
@@ -104,7 +104,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
         match: app_name
     }).then(function(instances) {
 
-        cloud_context.counter = instances.length+1;
+        cloud_context.counter = instances.length + 1;
         //console.log('full instances',instances);
         var instances_per_zone = _.groupBy(instances, 'zone');
 
@@ -160,7 +160,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
                 new_count += zone_count;
             }
 
-            return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf);
+            return scale_region(zone_name, zone_count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf);
         }));
     }).fail(function(err) {
         console.log('####');
@@ -177,11 +177,10 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
 
 function get_network_counter() {
 
-    console.log('in get_network_counter');
     return Q.fcall(function() {
         if (cloud_context) {
             return cloud_context.sem.surround(function() {
-                console.log('in get_network_counter2', cloud_context.counter);
+                console.log('Current network counter is', cloud_context.counter);
                 cloud_context.counter = cloud_context.counter + 1;
                 return cloud_context.counter;
             });
@@ -234,13 +233,13 @@ function foreach_zone(func) {
 }
 
 
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf) {
     //console.log('scale region from ' + instances.length + ' to count ' + count);
     // need to create
     if (count > instances.length) {
         console.log('ScaleRegion:', region_name, 'has', instances.length,
             ' +++ adding', count - instances.length);
-        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win,agent_conf)
+        return add_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf)
             //once the instances are up, we can add disk dependency
             .then(instance_post_creation_handler,
                 instance_creation_error_handler,
@@ -311,7 +310,7 @@ function print_instances(instances) {
                 zone_name,
                 current_instance.Name || '',
                 '[private ip ' + current_instance.networkInterfaces[0].networkIP + ']',
-                '[public ip ' + current_instance.networkInterfaces[0].accessConfigs[0].natIP+']'
+                '[public ip ' + current_instance.networkInterfaces[0].accessConfigs[0].natIP + ']'
             );
 
         });
@@ -320,28 +319,31 @@ function print_instances(instances) {
 }
 
 
-function instance_post_creation_handler(instance_full_details, callback) {
+function instance_post_creation_handler(instance_full_details_list, callback) {
 
-    var pieces_array = instance_full_details.zone.split('/');
 
-    var zoneName = pieces_array[pieces_array.length - 1];
+    return Q.all(_.map(instance_full_details_list, function(instance_full_details) {
+        var pieces_array = instance_full_details.zone.split('/');
 
-    var auto_delete_disk_params = {
-        instance: instance_full_details.name,
-        project: NooBaaProject,
-        zone: zoneName,
-        auth: authClient,
-        autoDelete: true,
-        deviceName: instance_full_details.disks[0].deviceName,
-    };
+        var zoneName = pieces_array[pieces_array.length - 1];
 
-    compute.instances.setDiskAutoDelete(auto_delete_disk_params, function(err, auto_delete_information) {
-        if (err) {
-            console.log('Disk auto deletion err:' + JSON.stringify(err));
-        } else {
-            console.log('Disk auto deletion:' + JSON.stringify(instance_full_details.name));
-        }
-    });
+        var auto_delete_disk_params = {
+            instance: instance_full_details.name,
+            project: NooBaaProject,
+            zone: zoneName,
+            auth: authClient,
+            autoDelete: true,
+            deviceName: instance_full_details.disks[0].deviceName,
+        };
+
+        compute.instances.setDiskAutoDelete(auto_delete_disk_params, function(err, auto_delete_information) {
+            if (err) {
+                console.log('Disk auto deletion err:' + JSON.stringify(err));
+            } else {
+                console.log('Disk auto deletion:' + JSON.stringify(instance_full_details.name));
+            }
+        });
+    }));
 }
 
 function instance_creation_error_handler(operationResourceInput, callback) {
@@ -475,10 +477,10 @@ function getInstanceDataPerInstanceId(instanceId) {
  * add_region_instances
  *
  */
-function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win,agent_conf) {
+function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
     var deferred = Q.defer();
-
-    console.log('adding to region ' + region_name + ' ' + count + ' instances',agent_conf);
+    var instancesDetails = [];
+    console.log('adding to region ' + region_name + ' ' + count + ' instances', agent_conf);
     var index = 0;
     promiseWhile(function() {
             return index < count;
@@ -509,10 +511,10 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                         number_of_dockers = 0;
                     }
                     var instance_name = '';
-                    if (router_address==="0.0.0.0" && is_docker_host ) {
+                    if (router_address === "0.0.0.0" && is_docker_host) {
                         machine_type = 'https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + region_name + '/machineTypes/f1-micro';
                         instance_name = 'router-for-' + app_name.replace(/\./g, "-");
-                    }else{
+                    } else {
                         instance_name = 'agent-instance-for-' + app_name.replace(/\./g, "-");
 
                     }
@@ -622,16 +624,19 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                                     auth: authClient,
 
                                                 };
-                                                compute.instances.get(instanceDetailedInformationParams, function(err, instanceDetails) {
-                                                    if (err) {
-                                                        console.log('Instance get details err:' + JSON.stringify(err));
-                                                    } else {
-                                                        deferred.resolve(instanceDetails);
+                                                return Q.nfcall(compute.instances.get, instanceDetailedInformationParams)
+                                                    .then(function(instanceDetails) {
+                                                        console.log('instanceDetails up:' + instanceDetails[0].name);
+                                                        instancesDetails.push(instanceDetails[0]);
+                                                        if (instancesDetails.length === count) {
+                                                            deferred.resolve(instancesDetails);
+                                                        }
                                                         clearInterval(interval);
-                                                    }
-                                                });
-
+                                                    }).then(null, function(err) {
+                                                        console.log('Instance get details err:' + JSON.stringify(err));
+                                                    });
                                             }
+
 
                                         })
                                         .fail(function(err) {
@@ -752,7 +757,7 @@ function main() {
 
         if (!_.isUndefined(argv.dockers)) {
             is_docker_host = true;
-            if (_.isUndefined(argv.router) ) {
+            if (_.isUndefined(argv.router)) {
                 console.error('\n\n********************************************************************************************************');
                 console.error('You must provide weave routing machine (--router)');
                 console.error('In order to create this router, use (without any additional parameters)"gcloud --set_router --region <X>"');
@@ -776,14 +781,14 @@ function main() {
             } else {
                 //add router
                 cloud_context.counter = 0;
-                add_region_instances(argv.region, 1, true, 0, false,agent_conf_arg);
+                add_region_instances(argv.region, 1, true, 0, false, agent_conf_arg);
             }
         } else if (!_.isUndefined(argv.scale)) {
             // add a --term flag to allow removing nodes
             //gcloud.js --app noobaa-test-1 --scale 20 --is_win
-            scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers, argv.is_win, argv.region,agent_conf_arg)
+            scale_instances(argv.scale, argv.term, is_docker_host, argv.dockers, argv.is_win, argv.region, agent_conf_arg)
                 .then(function(res) {
-                    console_inspect('Scale: completed to ' + argv.scale);
+                    console.log('Scale: completed to ' + argv.scale);
                     return describe_instances().then(print_instances);
                 }, function(err) {
                     if (err.message === 'allow_terminate') {

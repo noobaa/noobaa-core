@@ -187,30 +187,7 @@ module.exports = {
                                 frags: {
                                     type: 'array',
                                     items: {
-                                        type: 'object',
-                                        required: [
-                                            'layer',
-                                            'frag',
-                                            'digest_type',
-                                            'digest_b64'
-                                        ],
-                                        properties: {
-                                            layer: {
-                                                type: 'string'
-                                            },
-                                            layer_n: {
-                                                type: 'integer'
-                                            },
-                                            frag: {
-                                                type: 'integer'
-                                            },
-                                            digest_type: {
-                                                type: 'string'
-                                            },
-                                            digest_b64: {
-                                                type: 'string'
-                                            }
-                                        }
+                                        $ref: '/object_api/definitions/frag_info',
                                     }
                                 },
                             }
@@ -363,7 +340,7 @@ module.exports = {
                     limit: {
                         type: 'integer',
                     },
-                    details: {
+                    adminfo: {
                         type: 'boolean',
                     },
                 },
@@ -567,65 +544,11 @@ module.exports = {
                 chunk: {
                     $ref: '/object_api/definitions/chunk_info',
                 },
-                // details for admin
-                details: {
-                    type: 'object',
-                    required: ['health'],
-                    properties: {
-                        health: {
-                            type: 'string'
-                        }
-                    }
-                },
                 // the fragments composing the data chunk
                 frags: {
                     type: 'array',
                     items: {
-                        type: 'object',
-                        required: [
-                            'layer',
-                            'frag',
-                            'block'
-                        ],
-                        properties: {
-                            layer: {
-                                type: 'string',
-                            },
-                            layer_n: {
-                                type: 'integer',
-                            },
-                            frag: {
-                                type: 'integer',
-                            },
-                            block: {
-                                $ref: '/agent_api/definitions/block_md'
-                            },
-                            // details for admin
-                            details: {
-                                type: 'object',
-                                required: ['tier_name', 'node_name'],
-                                properties: {
-                                    tier_name: {
-                                        type: 'string',
-                                    },
-                                    node_name: {
-                                        type: 'string',
-                                    },
-                                    node_ip: {
-                                        type: 'string',
-                                    },
-                                    srvmode: {
-                                        $ref: '/node_api/definitions/srvmode'
-                                    },
-                                    online: {
-                                        type: 'boolean'
-                                    },
-                                    building: {
-                                        type: 'boolean',
-                                    }
-                                }
-                            }
-                        }
+                        $ref: '/object_api/definitions/frag_info',
                     }
                 }
             }
@@ -670,9 +593,80 @@ module.exports = {
                 lrc_frags: {
                     type: 'integer',
                 },
+                adminfo: {
+                    type: 'object',
+                    required: ['health'],
+                    properties: {
+                        health: {
+                            type: 'string'
+                        }
+                    }
+                },
             }
         },
 
+        frag_info: {
+            type: 'object',
+            required: [
+                'layer',
+                'frag',
+                'digest_type',
+                'digest_b64'
+            ],
+            properties: {
+                layer: {
+                    type: 'string'
+                },
+                layer_n: {
+                    type: 'integer'
+                },
+                frag: {
+                    type: 'integer'
+                },
+                digest_type: {
+                    type: 'string'
+                },
+                digest_b64: {
+                    type: 'string'
+                },
+                blocks: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['block_md'],
+                        properties: {
+                            block_md: {
+                                $ref: '/agent_api/definitions/block_md'
+                            },
+                            adminfo: {
+                                type: 'object',
+                                required: ['tier_name', 'node_name'],
+                                properties: {
+                                    tier_name: {
+                                        type: 'string',
+                                    },
+                                    node_name: {
+                                        type: 'string',
+                                    },
+                                    node_ip: {
+                                        type: 'string',
+                                    },
+                                    srvmode: {
+                                        $ref: '/node_api/definitions/srvmode'
+                                    },
+                                    online: {
+                                        type: 'boolean'
+                                    },
+                                    building: {
+                                        type: 'boolean',
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
     },
 
 };

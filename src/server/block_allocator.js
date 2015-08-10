@@ -30,7 +30,7 @@ function allocate_block(chunk, avoid_nodes) {
         .then(function(alloc_nodes) {
             var block_size = (chunk.size / chunk.kfrag) | 0;
             for (var i = 0; i < alloc_nodes.length; ++i) {
-                var node = pop_round_robin(alloc_nodes);
+                var node = get_round_robin(alloc_nodes);
                 if (!_.contains(avoid_nodes, node._id.toString())) {
                     dbg.log1('allocate_block: allocate node', node.name,
                         'for chunk', chunk._id, 'avoid_nodes', avoid_nodes);
@@ -127,9 +127,8 @@ function update_tier_alloc_nodes(system, tier) {
 }
 
 
-// round robin - get from head and push back to tail
-function pop_round_robin(nodes) {
-    var node = nodes.shift();
-    nodes.push(node);
-    return node;
+function get_round_robin(nodes) {
+    var rr = nodes.rr || 0;
+    nodes.rr = (rr + 1) % nodes.length;
+    return nodes[rr];
 }

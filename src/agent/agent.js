@@ -85,7 +85,6 @@ function Agent(params) {
         read_block: self.read_block.bind(self),
         replicate_block: self.replicate_block.bind(self),
         delete_blocks: self.delete_blocks.bind(self),
-        check_block: self.check_block.bind(self),
         kill_agent: self.kill_agent.bind(self),
         n2n_signal: self.n2n_signal.bind(self),
         self_test_io: self.self_test_io.bind(self),
@@ -542,26 +541,6 @@ Agent.prototype.delete_blocks = function(req) {
     dbg.log0('AGENT delete_blocks', blocks);
     self.store_cache.multi_invalidate(blocks);
     return self.store.delete_blocks(blocks);
-};
-
-Agent.prototype.check_block = function(req) {
-    var self = this;
-    var block_id = req.rpc_params.block_id;
-    dbg.log0('AGENT check_block', block_id);
-    var slices = req.rpc_params.slices;
-    return self.store_cache.get(block_id)
-        .then(function(data) {
-            // calculate the md5 of the requested slices
-            var md5_hash = crypto.createHash('md5');
-            _.each(slices, function(slice) {
-                var buf = data.slice(slice.start, slice.end);
-                md5_hash.update(buf);
-            });
-            var md5_sum = md5_hash.digest('hex');
-            return {
-                checksum: md5_sum
-            };
-        });
 };
 
 Agent.prototype.kill_agent = function(req) {

@@ -72,44 +72,6 @@ module.exports = {
             },
         },
 
-
-        check_block: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['block_id', 'slices'],
-                properties: {
-                    block_id: {
-                        type: 'string',
-                    },
-                    slices: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['start', 'end'],
-                            properties: {
-                                start: {
-                                    type: 'integer'
-                                },
-                                end: {
-                                    type: 'integer'
-                                },
-                            }
-                        }
-                    },
-                },
-            },
-            reply: {
-                type: 'object',
-                required: ['checksum'],
-                properties: {
-                    checksum: {
-                        type: 'string',
-                    },
-                },
-            },
-        },
-
         delete_blocks: {
             method: 'DELETE',
             params: {

@@ -251,7 +251,9 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                                 dbg.log0('upload_stream: DEDUP part', part.start);
                             } else {
                                 part = res.parts[i].part;
-                                part.frags_map = _.indexBy(part.chunk.frags, get_frag_key);
+                                // the buffers are kept in the object that we encoded
+                                // so we need them accessible for writing
+                                part.encoded_frags = parts[i].chunk.frags;
                                 dbg.log0('upload_stream: allocated part', part.start);
                             }
                             stream.push(part);
@@ -354,21 +356,25 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
         return part;
     }
 
-    dbg.log3('_write_fragments', range_utils.human_range(part));
-    dbg.log0('_write_fragments', part);
+    var frags_map = _.indexBy(part.encoded_frags, get_frag_key);
+    dbg.log0('_write_fragments', range_utils.human_range(part), part);
+
     return Q.all(_.map(part.frags, function(fragment) {
-        var key = get_frag_key(fragment);
-        return self._attempt_write_block({
-            bucket: bucket,
-            key: key,
-            start: part.start,
-            end: part.end,
-            part: part,
-            fragment: fragment,
-            buffer: part.frags_map[key].block,
-            desc: size_utils.human_offset(part.start) + '-' + key,
-            remaining_attempts: 20,
-        });
+        var frag_key = get_frag_key(fragment);
+        return Q.all(_.map(fragment.blocks, function(block) {
+            return self._attempt_write_block({
+                bucket: bucket,
+                key: key,
+                start: part.start,
+                end: part.end,
+                part: part,
+                fragment: fragment,
+                block_md: block.block_md,
+                buffer: frags_map[frag_key].block,
+                frag_desc: size_utils.human_offset(part.start) + '-' + frag_key,
+                remaining_attempts: 20,
+            });
+        }));
     }));
 };
 
@@ -383,27 +389,31 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
  */
 ObjectDriver.prototype._attempt_write_block = function(params) {
     var self = this;
-    var block_md = params.fragment.block;
+    var fragment = params.fragment;
+    var block_md = params.block_md;
+    var frag_desc = params.frag_desc;
     dbg.log3('write block _attempt_write_block', params);
-    return self._write_block(block_md.address, params.buffer, params.desc)
+    return self._write_block(block_md, params.buffer, frag_desc)
         .then(null, function( /*err*/ ) {
             if (params.remaining_attempts <= 0) {
-                throw new Error('EXHAUSTED WRITE BLOCK', params.desc);
+                throw new Error('EXHAUSTED WRITE BLOCK', frag_desc);
             }
             params.remaining_attempts -= 1;
-            var bad_block_params = _.extend(_.pick(params,
-                'bucket',
-                'key',
-                'start',
-                'end',
-                'part_sequence_number'), {
-                layer: params.fragment.layer,
-                layer_n: params.fragment.layer_n,
-                frag: params.fragment.frag,
-                block_id: block_md.address.id,
-                is_write: true,
-            });
-            dbg.log0('write block remaining attempts', params.remaining_attempts, params.desc);
+            var bad_block_params = _.extend(
+                _.pick(params,
+                    'bucket',
+                    'key',
+                    'start',
+                    'end',
+                    'part_sequence_number'),
+                _.pick(fragment,
+                    'layer',
+                    'layer_n',
+                    'frag'), {
+                    block_id: block_md.address.id,
+                    is_write: true,
+                });
+            dbg.log0('write block remaining attempts', params.remaining_attempts, frag_desc);
             return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);

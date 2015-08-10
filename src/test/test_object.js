@@ -13,7 +13,7 @@ var SliceReader = require('../util/slice_reader');
 
 var chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
-var chance = require('chance').Chance(chance_seed);
+var chance = new (require('chance').Chance)(chance_seed);
 
 
 describe('object', function() {

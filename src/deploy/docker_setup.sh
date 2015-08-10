@@ -77,10 +77,12 @@ else
 	network=$(curl http://metadata/computeMetadata/v1/instance/attributes/network -H "Metadata-Flavor: Google")
 	router=$(curl http://metadata/computeMetadata/v1/instance/attributes/router -H "Metadata-Flavor: Google")
 	sudo service docker start
+	sleep 3
 	sudo weave create-bridge
 	sudo ip addr add dev weave 10.2.0.$network/16
 	sudo mv /etc/default/docker_bck /etc/default/docker
 	sudo restart docker
+	sleep 3
 	#remove weave and launch new one
 	sudo docker rm  $(sudo docker ps -a |grep weave|awk '{print $1}')
 	if [ $router != "0.0.0.0" ] ; then

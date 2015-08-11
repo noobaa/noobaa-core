@@ -286,6 +286,9 @@ module.exports = {
                     is_write: {
                         type: 'boolean',
                     },
+                    part_sequence_number: {
+                        type: 'integer',
+                    },
                 },
             },
             reply: {

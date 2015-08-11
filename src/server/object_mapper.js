@@ -241,14 +241,12 @@ function allocate_object_parts(bucket, obj, parts) {
  *
  */
 function finalize_object_parts(bucket, obj, parts) {
-    var block_ids = _.flatten(_.map(parts, 'block_ids'));
     var chunks;
-    var upload_part_number = null;
-    if (parts && parts[0] && !_.isUndefined(parts[0].upload_part_number)) {
-        dbg.log1('update upload part number with', parts[0].upload_part_number);
-        upload_part_number = parts[0].upload_part_number;
-    }
-    dbg.log1('finalize_object_parts', upload_part_number, parts[0].upload_part_number, parts);
+    var block_ids = _.flatten(_.map(parts, 'block_ids'));
+    var query_parts_params = _.map(parts, function(part) {
+        return _.pick(part, 'start', 'end', 'upload_part_number', 'part_sequence_number');
+    });
+    dbg.log1('finalize_object_parts', parts);
 
     return Q.all([
 
@@ -256,10 +254,7 @@ function finalize_object_parts(bucket, obj, parts) {
             db.ObjectPart
             .find({
                 obj: obj.id,
-                upload_part_number: upload_part_number,
-                start: {
-                    $in: _.map(parts, 'start')
-                }
+                $or: query_parts_params,
             })
             .populate('chunk')
             .exec(),
@@ -957,8 +952,8 @@ function build_chunks(chunks) {
                                 }
                                 block_info_to_allocate.block = new_block;
                                 avoid_nodes.push(new_block.node._id.toString());
-                                new_block.digest_type = 'TODO'; // TODO
-                                new_block.digest_b64 = 'TODO'; // TODO
+                                new_block.digest_type = block_info_to_allocate.source.digest_type;
+                                new_block.digest_b64 = block_info_to_allocate.source.digest_b64;
                                 return new_block;
                             });
                     });
@@ -1409,8 +1404,13 @@ function get_part_info(params) {
 
         // take the digest from some block.
         // TODO better check that the rest of the blocks match...
-        part_fragment.digest_type = fragment.blocks[0].digest_type;
-        part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
+        if (fragment.blocks[0]) {
+            part_fragment.digest_type = fragment.blocks[0].digest_type;
+            part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
+        } else {
+            part_fragment.digest_type = '';
+            part_fragment.digest_b64 = '';
+        }
 
         if (params.adminfo) {
             part_fragment.adminfo = {
@@ -1453,7 +1453,6 @@ function get_part_info(params) {
         'cipher_auth_tag_b64',
         'data_frags',
         'lrc_frags');
-    p.chunk_offset = p.chunk_offset || 0;
     p.part_sequence_number = params.part.part_sequence_number;
     if (params.upload_part_number) {
         p.upload_part_number = params.upload_part_number;

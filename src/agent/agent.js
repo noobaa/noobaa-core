@@ -9,7 +9,6 @@ var path = require('path');
 var http = require('http');
 var https = require('https');
 var assert = require('assert');
-var crypto = require('crypto');
 var express = require('express');
 var express_morgan_logger = require('morgan');
 var express_body_parser = require('body-parser');
@@ -61,6 +60,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 10,
+            expiry_ms: 0, // no expiry
             make_key: function(params) {
                 return params.id;
             },
@@ -74,6 +74,7 @@ function Agent(params) {
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
             max_length: 1,
+            expiry_ms: 0, // no expiry
             make_key: function(params) {
                 return params.id;
             },
@@ -159,7 +160,7 @@ Agent.prototype.start = function() {
             return self.send_heartbeat();
         })
         .then(null, function(err) {
-            dbg.error('AGENT server failed to start', err.stack || err);
+            dbg.error('server failed to start', err.stack || err);
             self.stop();
             throw err;
         });
@@ -245,7 +246,7 @@ Agent.prototype._init_node = function() {
                 });
             }
 
-            console.error('bad token', res);
+            dbg.error('bad token', res);
             throw new Error('bad token');
         });
 };
@@ -327,7 +328,7 @@ Agent.prototype._start_stop_http_server = function() {
  */
 Agent.prototype._server_error_handler = function(err) {
     // the server will also trigger close event after
-    console.error('AGENT server error', err);
+    dbg.error('server error', err);
 };
 
 
@@ -354,7 +355,7 @@ Agent.prototype.send_heartbeat = function() {
         extended_hb = true;
     }
 
-    dbg.log0('send heartbeat by agent', self.node_id);
+    dbg.log0('send heartbeat from node', self.node_name);
 
     return Q.when(self.store.get_stats())
         .then(function(store_stats_arg) {
@@ -365,7 +366,7 @@ Agent.prototype.send_heartbeat = function() {
                     .then(function(drives_arg) {
                         self.drives = drives_arg;
                     }, function(err) {
-                        dbg.error('AGENT read_drives: ERROR', err.stack || err);
+                        dbg.error('read_drives: ERROR', err.stack || err);
                     });
             }
         })
@@ -404,7 +405,7 @@ Agent.prototype.send_heartbeat = function() {
                 }
             }
 
-            dbg.log0('AGENT heartbeat params:', params);
+            dbg.log0('heartbeat params:', params, 'node', self.node_name);
 
             return self.client.node.heartbeat(params);
         })
@@ -417,21 +418,23 @@ Agent.prototype.send_heartbeat = function() {
                 // report only if used storage mismatch
                 // TODO compare with some accepted error and handle
                 if (store_stats.used !== res.storage.used) {
-                    dbg.log0('AGENT used storage not in sync ',
+                    dbg.log0('used storage not in sync ',
                         store_stats.used, ' expected ', res.storage.used);
                 }
 
                 // update the store when allocated size change
                 if (store_stats.alloc !== res.storage.alloc) {
-                    dbg.log0('AGENT update alloc storage from ',
+                    dbg.log0('update alloc storage from ',
                         store_stats.alloc, ' to ', res.storage.alloc);
                     self.store.set_alloc(res.storage.alloc);
                 }
             }
-            dbg.log0('res.version:', res.version, 'hb version:', self.heartbeat_version);
+            dbg.log0('res.version:', res.version,
+                'hb version:', self.heartbeat_version,
+                'node', self.node_name);
 
             if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
-                dbg.log0('AGENT version changed, exiting');
+                dbg.log0('version changed, exiting');
                 process.exit(0);
             }
             self.heartbeat_version = res.version;
@@ -439,7 +442,7 @@ Agent.prototype.send_heartbeat = function() {
 
         }, function(err) {
 
-            dbg.error('HEARTBEAT FAILED', err, err.stack);
+            dbg.error('HEARTBEAT FAILED', err, err.stack, 'node', self.node_name);
 
             // schedule delay to retry on error
             self.heartbeat_delay_ms = 30000 * (1 + Math.random());
@@ -500,9 +503,13 @@ Agent.prototype._on_rpc_reconnect = function(conn) {
 Agent.prototype.read_block = function(req) {
     var self = this;
     var block_md = req.rpc_params.block_md;
-    dbg.log0('AGENT read_block', block_md.id);
+    dbg.log0('read_block', block_md.id, 'node', self.node_name);
     return self.store_cache.get(block_md)
-        .then(null, function(err) {
+        .then(function(block_from_cache) {
+            // must clone before returning to rpc encoding
+            // since it mutates the object for encoding buffers
+            return _.clone(block_from_cache);
+        }, function(err) {
             if (err === AgentStore.TAMPERING_ERROR) {
                 err = req.rpc_error('INTERNAL', 'TAMPERING');
             }
@@ -514,7 +521,7 @@ Agent.prototype.write_block = function(req) {
     var self = this;
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
-    dbg.log0('AGENT write_block', block_md.id, data.length);
+    dbg.log0('write_block', block_md.id, data.length, 'node', self.node_name);
     self.store_cache.invalidate(block_md);
     return self.store.write_block(block_md, data);
 };
@@ -523,7 +530,7 @@ Agent.prototype.replicate_block = function(req) {
     var self = this;
     var target = req.rpc_params.target;
     var source = req.rpc_params.source;
-    dbg.log0('AGENT replicate_block', target.id);
+    dbg.log0('replicate_block', target.id, 'node', self.node_name);
 
     // read from source agent
     return self.client.agent.read_block({
@@ -540,13 +547,13 @@ Agent.prototype.replicate_block = function(req) {
 Agent.prototype.delete_blocks = function(req) {
     var self = this;
     var blocks = req.rpc_params.blocks;
-    dbg.log0('AGENT delete_blocks', blocks);
+    dbg.log0('delete_blocks', blocks, 'node', self.node_name);
     self.store_cache.multi_invalidate(blocks);
     return self.store.delete_blocks(blocks);
 };
 
 Agent.prototype.kill_agent = function(req) {
-    dbg.log0('AGENT kill requested, exiting');
+    dbg.log0('kill requested, exiting');
     process.exit();
 };
 
@@ -559,7 +566,7 @@ Agent.prototype.self_test_io = function(req) {
     var req_len = data ? data.length : 0;
     var res_len = req.rpc_params.response_length;
 
-    dbg.log0('SELF TEST IO',
+    dbg.log0('SELF_TEST_IO',
         'req_len', req_len,
         'res_len', res_len);
 
@@ -574,7 +581,7 @@ Agent.prototype.self_test_peer = function(req) {
     var req_len = req.rpc_params.request_length;
     var res_len = req.rpc_params.response_length;
 
-    dbg.log0('SELF TEST PEER',
+    dbg.log0('SELF_TEST_PEER',
         'req_len', req_len,
         'res_len', res_len,
         'target', target);
@@ -612,7 +619,7 @@ Agent.prototype.collect_diagnostics = function(req) {
                     };
                 })
                 .then(null, function(err) {
-                    console.error('DIAGNOSTICS READ FAILED', err.stack || err);
+                    dbg.error('DIAGNOSTICS READ FAILED', err.stack || err);
                     throw new Error('Agent Collect Diag Error on reading packges diag file');
                 });
         })
@@ -624,7 +631,7 @@ Agent.prototype.collect_diagnostics = function(req) {
 Agent.prototype.set_debug_node = function(req) {
     dbg.set_level(5, 'core');
     dbg.log1('Recieved set debug req', req);
-    
+
     promise_utils.delay_unblocking(1000 * 10) //10m
         .then(function() {
             dbg.set_level(0, 'core');
@@ -636,18 +643,18 @@ Agent.prototype.set_debug_node = function(req) {
 // AGENT TEST API /////////////////////////////////////////////////////////////
 
 Agent.prototype._add_test_APIs = function() {
-    console.warn("Adding test APIs for Agent prototype");
+    dbg.warn("Adding test APIs for Agent prototype");
 
     Agent.prototype.corrupt_blocks = function(req) {
         var self = this;
         var blocks = req.rpc_params.blocks;
-        dbg.log0('AGENT TEST API corrupt_blocks', blocks);
+        dbg.log0('TEST API corrupt_blocks', blocks);
         return self.store.corrupt_blocks(blocks);
     };
 
     Agent.prototype.list_blocks = function() {
         var self = this;
-        dbg.log0('AGENT TEST API list_blocks');
+        dbg.log0('TEST API list_blocks');
         return self.store.list_blocks();
     };
 };

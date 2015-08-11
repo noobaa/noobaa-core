@@ -25,10 +25,10 @@ function LRUCache(options) {
         return data;
     };
     self.use_negative_cache = options.use_negative_cache;
-    self.lru = new LRU({
-        max_length: options.max_length || 100,
-        expiry_ms: options.expiry_ms || 60000, // default 1 minute
-    });
+    self.lru = new LRU(_.extend({
+        max_length: 100,
+        expiry_ms: 60000, // default 1 minute
+    }, options));
 }
 
 /**

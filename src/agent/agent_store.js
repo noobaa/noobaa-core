@@ -110,7 +110,7 @@ AgentStore.prototype.set_alloc = function(size) {
  */
 AgentStore.prototype.read_block = function(block_md) {
     var self = this;
-    var block_path = self._get_block_path(block_md.id);
+    var block_path = self._get_block_data_path(block_md.id);
     var meta_path = self._get_block_meta_path(block_md.id);
     dbg.log0('fs read block', block_path);
     return Q.all([
@@ -149,7 +149,7 @@ AgentStore.prototype.read_block = function(block_md) {
  */
 AgentStore.prototype.write_block = function(block_md, data) {
     var self = this;
-    var block_path = self._get_block_path(block_md.id);
+    var block_path = self._get_block_data_path(block_md.id);
     var meta_path = self._get_block_meta_path(block_md.id);
     var file_stats;
 
@@ -238,7 +238,7 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
  */
 AgentStore.prototype.stat_block = function(block_id) {
     var self = this;
-    var block_path = self._get_block_path(block_id);
+    var block_path = self._get_block_data_path(block_id);
     return self._stat_block_path(block_path);
 };
 
@@ -253,7 +253,7 @@ AgentStore.prototype.stat_block = function(block_id) {
  */
 AgentStore.prototype._delete_block = function(block_id) {
     var self = this;
-    var block_path = self._get_block_path(block_id);
+    var block_path = self._get_block_data_path(block_id);
     var meta_path = self._get_block_meta_path(block_id);
     var file_stats;
 
@@ -276,11 +276,11 @@ AgentStore.prototype._delete_block = function(block_id) {
 
 /**
  *
- * _get_block_path
+ * _get_block_data_path
  *
  */
-AgentStore.prototype._get_block_path = function(block_id) {
-    return path.join(this.blocks_path, block_id);
+AgentStore.prototype._get_block_data_path = function(block_id) {
+    return path.join(this.blocks_path, block_id + '.data');
 };
 
 /**
@@ -289,7 +289,7 @@ AgentStore.prototype._get_block_path = function(block_id) {
  *
  */
 AgentStore.prototype._get_block_meta_path = function(block_id) {
-    return path.join(this.meta_path, block_id);
+    return path.join(this.blocks_path, block_id + '.meta');
 };
 
 /**

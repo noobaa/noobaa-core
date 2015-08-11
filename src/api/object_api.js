@@ -245,12 +245,15 @@ module.exports = {
                                 end: {
                                     type: 'integer',
                                 },
+                                upload_part_number: {
+                                    type: 'integer',
+                                },
+                                part_sequence_number: {
+                                    type: 'integer',
+                                },
                                 block_ids: {
                                     type: 'array',
                                     items: 'string',
-                                },
-                                upload_part_number: {
-                                    type: 'integer',
                                 },
                             }
                         }

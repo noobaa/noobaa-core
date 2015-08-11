@@ -89,7 +89,7 @@ RpcSchema.prototype.register_api = function(api) {
             var result = method_api.reply_validator(reply);
             if (!result) {
                 dbg.error('INVALID REPLY SCHEMA', desc, method_api.fullname,
-                    'ERRORS:', method_api.params_validator.errors,
+                    'ERRORS:', method_api.reply_validator.errors,
                     'REPLY:', reply);
                 throw new Error('INVALID REPLY SCHEMA ' + desc + ' ' + method_api.fullname);
             }
@@ -145,8 +145,7 @@ function prepare_schema(base, schema, path) {
          * so can't use array of buffers or a additionalProperties which is not listed
          * in schema.properties while this preparation code runs.
          */
-        var efn = genfun()
-            ('function export_buffers(obj) {');
+        var efn = genfun()('function export_buffers(obj) {');
         if (base.buffers) {
             // create a concatenated buffer from all the buffers
             // and replace each of the original paths with the buffer length
@@ -164,8 +163,7 @@ function prepare_schema(base, schema, path) {
         base.export_buffers = efn('}').toFunction();
 
         // the import_buffers counterpart
-        var ifn = genfun()
-            ('function import_buffers(obj, data) {');
+        var ifn = genfun()('function import_buffers(obj, data) {');
         if (base.buffers) {
             ifn('var start = 0;');
             ifn('var end = 0;');

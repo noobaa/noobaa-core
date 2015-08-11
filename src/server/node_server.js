@@ -10,7 +10,6 @@ var node_monitor = require('./node_monitor');
 var db = require('./db');
 // var dbg = require('noobaa-util/debug_module')(__filename);
 
-
 /**
  *
  * NODE_SERVER
@@ -31,11 +30,10 @@ var node_server = {
     n2n_signal: node_monitor.n2n_signal,
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
+    set_debug_node: node_monitor.set_debug_node,
 };
 
 module.exports = node_server;
-
-
 
 /**
  *

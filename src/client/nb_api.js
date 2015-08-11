@@ -33,6 +33,7 @@ nb_api.factory('nbClient', [
         $scope.init_promise = $q.when().then(init_token);
         $scope.upgrade = upgrade;
         $scope.diagnose = diagnose;
+        $scope.collect_debug = collect_debug;
 
         // TODO this manual hack allows https websites to call regular http to agents
         // we need to support https in the agents.
@@ -49,7 +50,7 @@ nb_api.factory('nbClient', [
                 url: 'http://localhost'
             });
         }, 1000);
-        
+
 
         // return a new client based on mine - inherits auth token unless overriden
         function new_client() {
@@ -143,15 +144,36 @@ nb_api.factory('nbClient', [
                 });
         }
 
+        function collect_debug() {
+            var link;
+            return $q.when($scope.client.system.start_debug({}))
+                .then(function() {
+                    nbAlertify.success('Collecting Debug Information');
+                })
+                .then(function() {
+                    $window.document.body.removeChild(link);
+                });
+        }
+
         function register() {
             var scope = $rootScope.$new();
+            scope.register = true;
+            scope.system_name = '';
+            scope.email = '';
+            scope.password = '';
+
+            scope.update_email_message = function() {
+                scope.email_message = '';
+                console.log('scope.system_name' + scope.system_name);
+            };
             scope.create = function() {
-                if (!scope.name ||
+                console.log('register - create :' + scope.system_name + '::' + scope.email + '::' + scope.password);
+
+                if (!scope.system_name ||
                     !scope.email ||
                     !scope.password) {
                     return;
                 }
-
                 // use some delay otherwise the previous enter event
                 // somehow immediately affects the new password dialog
                 // and closes it with empty string. the delay worksaround.
@@ -165,7 +187,7 @@ nb_api.factory('nbClient', [
                             return;
                         }
                         return $q.when($scope.client.account.create_account({
-                                name: scope.name,
+                                name: scope.system_name,
                                 email: scope.email,
                                 password: scope.password
                             }))
@@ -349,17 +371,18 @@ nb_api.factory('nbSystem', [
                     return res.linux_agent_installer || '';
                 });
         }
+
         function get_s3_rest_installer() {
-                return $q.when()
-                    .then(function() {
-                        return nbClient.client.system.get_system_resource_info({});
-                    })
-                    .then(function(res) {
-                        console.log('SYSTEM RESOURCES (S3)', res);
-                        return res.s3rest_installer || '';
-                    });
-            }
-            // ACTIVITY LOG
+            return $q.when()
+                .then(function() {
+                    return nbClient.client.system.get_system_resource_info({});
+                })
+                .then(function(res) {
+                    console.log('SYSTEM RESOURCES (S3)', res);
+                    return res.s3rest_installer || '';
+                });
+        }
+        // ACTIVITY LOG
 
         function read_activity_log() {
             return nbClient.init_promise
@@ -411,6 +434,38 @@ nb_api.factory('nbSystem', [
                                     }
                                     l.category = 'files';
                                     l.text = 'Upload completed ' + l.obj.key;
+                                    break;
+                                case 'bucket.create':
+                                    if (!l.bucket) {
+                                        console.log('filtered event with missing bucket info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'bucket';
+                                    l.text = 'Added new bucket ' + l.bucket.name;
+                                    break;
+                                case 'bucket.delete':
+                                    if (!l.bucket) {
+                                        console.log('filtered event with missing bucket info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'bucket';
+                                    l.text = 'Deleted bucket ' + l.bucket.name;
+                                    break;
+                                case 'account.create':
+                                    if (!l.account) {
+                                        console.log('filtered event with missing account info', l.event+':::'+JSON.stringify(l));
+                                        return false;
+                                    }
+                                    l.category = 'account';
+                                    l.text = 'Added new account ' + l.account.email;
+                                    break;
+                                case 'account.delete':
+                                    if (!l.account) {
+                                        console.log('filtered event with missing account info', l.event);
+                                        return false;
+                                    }
+                                    l.category = 'account';
+                                    l.text = 'Deleted account ' + l.account.email;
                                     break;
                                 default:
                                     console.log('filtered unrecognized event', l.event);

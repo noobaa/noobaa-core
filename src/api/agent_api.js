@@ -164,16 +164,20 @@ module.exports = {
         },
 
         collect_diagnostics: {
-          method: 'GET',
-          reply: {
-              type: 'object',
-              required: ['data'],
-              properties: {
-                  data: {
-                      type: 'buffer'
-                  },
-              },
-          },
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: ['data'],
+                properties: {
+                    data: {
+                        type: 'buffer'
+                    },
+                },
+            },
+        },
+
+        set_debug_node: {
+            method: 'POST',
         },
 
     },

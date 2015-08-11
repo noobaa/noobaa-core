@@ -134,6 +134,12 @@ Section "Noobaa Local Service"
 			${WriteFile} "$INSTDIR\agent_conf.json" "}"
 
 		${Else}
+			IfFileExists $INSTDIR\agent_conf.json DeleteOldFile SkipDelete
+			DeleteOldFile:
+				nsExec::ExecToStack '$\"$INSTDIR\service_uninstaller.bat$\""'
+				Delete "$INSTDIR\agent_conf.json"
+			SkipDelete:
+
 			${Base64_Decode} $config
 			Pop $0
 			${WriteFile} "$INSTDIR\agent_conf.json" $0
@@ -141,7 +147,7 @@ Section "Noobaa Local Service"
 			nsJSON::Set /file $INSTDIR\agent_conf.json
 			; Read address from agent_conf.json
 			ClearErrors
-			nsJSON::Get `address`
+			nsJSON::Get `address` /end
 			${IfNot} ${Errors}
 				Pop $R0
 				StrCpy $address $R0

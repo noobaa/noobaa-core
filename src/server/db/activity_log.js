@@ -53,6 +53,10 @@ var activity_log_schema = new Schema({
         ref: 'ObjectMD',
         type: types.ObjectId,
     },
+    account: {
+        ref: 'Account',
+        type: types.ObjectId,
+    },
 
 }, {
     // we prefer to call ensureIndexes explicitly when needed

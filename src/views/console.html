@@ -28,7 +28,7 @@
                         <li style="padding: 0 10px">
                             <span class="label label-default">Systems</span>
                         </li>
-                        <li ng-repeat="sys in nbSystem.systems">
+                        <li  ng-if="nbClient.account.is_support" ng-repeat="sys in nbSystem.systems">
                             <a ng-click="nbSystem.connect_system(sys.name)">
                                 <i ng-if="nbSystem.system.name==sys.name" class="fa fa-check pull-right"></i> {{sys.name}}
                             </a>
@@ -45,6 +45,9 @@
                         </li>
                         <li>
                             <a ng-click="nbClient.diagnose()">Diagnose</a>
+                        </li>
+                        <li>
+                            <a ng-click="nbClient.collect_debug()">Start Debug Collection</a>
                         </li>
                         <li class="divider"></li>
                         <li>
@@ -98,7 +101,7 @@
                     <a ng-href="/console/data">
                         <i class="fa fa-folder-o fa-fw fa-3x"></i>
                         <br/>
-                        <span class="uppercase">Repositories</span>
+                        <span class="uppercase">Buckets</span>
                     </a>
                 </li>
                 <!--
@@ -256,10 +259,13 @@
             </div>
             <div class="pull-right">
                 <a class="btn btn-default Xbtn-flat" style="padding: 25px 20px; margin: 0" ng-if="nav.reload_view" nb-click-ladda="nav.reload_view()">
-                    <i class="fa fa-repeat fa-2x text-muted"></i>
+                    <i rel="tooltip" title="Refresh" class="fa fa-repeat fa-2x text-muted"></i>
+                </a>
+                <a ng-if="nbSystem.system" class="btn btn-default Xbtn-flat" style="padding: 25px 20px; margin: 0" ng-href="/console/users">
+                    <i rel="tooltip" title="User Management" class="fa fa-user fa-2x text-muted"></i>
                 </a>
                 <a class="btn btn-default Xbtn-flat navbar-toggle toggle-left" data-toggle="sidebar" data-target=".sidebar-right" style="padding: 25px 20px; margin: 0">
-                    <i class="fa fa-clock-o fa-2x text-muted"></i>
+                    <i rel="tooltip" title="Activity Log" class="fa fa-clock-o fa-2x text-muted"></i>
                 </a>
             </div>
         </div>

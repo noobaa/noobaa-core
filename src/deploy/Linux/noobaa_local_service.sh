@@ -20,8 +20,8 @@ if [[ $? -eq 0 ]]; then
    if [ ! -f ./noobaa-setup ]; then
        echo "Failed to download upgrade package"
    else
-      chmod +x noobaa-setup
-      ./noobaa-setup
+      chmod 777 noobaa-setup
+      ./noobaa-setup &>>/var/log/setup.out
    fi
 else
    echo "Agent exited with error" $?

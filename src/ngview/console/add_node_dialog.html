@@ -83,7 +83,11 @@
                         </span>
 
                         <pre style="font-size: 11px; color: hsl(0,0%,50%)" class="block" nb-clipboard="'/S /config ' + encoding.type" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
+                        <button class="btn btn-default" style="width: 30%;padding: 10px" nb-clipboard="'/S /config ' + encoding.type">
+                            Copy To Clipboard
+                        </button>
                     </div>
+
                     <div ng-if="stage==4">
                         <p class="text-center">
                             <b>Review the new nodes</b>

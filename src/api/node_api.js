@@ -119,6 +119,9 @@ module.exports = {
                                 key: {
                                     type: 'string'
                                 },
+                                bucket: {
+                                    type: 'string'
+                                },
                                 parts: {
                                     type: 'array',
                                     items: {
@@ -371,6 +374,13 @@ module.exports = {
             reply: {
                 type: 'string',
             },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        set_debug_node: {
+            method: 'POST',
             auth: {
                 system: 'admin',
             }

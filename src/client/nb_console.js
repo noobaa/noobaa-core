@@ -62,6 +62,10 @@ nb_console.config(['$routeProvider', '$locationProvider', '$compileProvider',
                 templateUrl: 'console/support.html',
                 reloadOnSearch: false,
             })
+            .when('/users', {
+                templateUrl: 'console/users_management.html',
+                reloadOnSearch: false,
+            })
             .otherwise({
                 redirectTo: '/overview'
             });
@@ -138,9 +142,17 @@ nb_console.controller('SupportViewCtrl', [
 
         function create_account() {
             var scope = $scope.$new();
+            scope.system_name = '';
+            scope.email = '';
+            scope.password = '';
+
+
+            scope.update_email_message = function() {
+                scope.email_message = '';
+            };
             scope.create = function() {
                 return $q.when(nbClient.client.account.create_account({
-                        name: scope.name,
+                        name: scope.system_name,
                         email: scope.email,
                         password: scope.password
                     }))
@@ -164,6 +176,183 @@ nb_console.controller('SupportViewCtrl', [
         }
     }
 ]);
+
+nb_console.controller('UserManagementViewCtrl', [
+    '$scope', '$q', '$timeout', '$window', '$location', '$routeParams',
+    'nbClient', 'nbSystem', 'nbNodes', 'nbHashRouter', 'nbAlertify', 'nbModal',
+    function($scope, $q, $timeout, $window, $location, $routeParams,
+        nbClient, nbSystem, nbNodes, nbHashRouter, nbAlertify, nbModal) {
+        $scope.nav.active = 'cog';
+        $scope.nav.reload_view = reload_view;
+        $scope.add_new_user = add_new_user;
+        $scope.delete_user = delete_user;
+        $scope.reset_password = reset_password;
+        $scope.set_email = set_email;
+
+        reload_accounts();
+        console.log('accounts:' + $scope.accounts);
+
+        function reload_view(init_only) {
+            return nbSystem.init_system;
+        }
+
+        function reload_accounts() {
+            return $q.when(nbClient.client.account.list_system_accounts())
+                .then(function(res) {
+                    $scope.accounts = res.accounts;
+                });
+        }
+
+        function reset_password(user_email) {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = '';
+            scope.update_password = true;
+            scope.update = function() {
+                return $q.when(nbClient.client.account.update_account({
+                        name: nbSystem.system.name,
+                        email: user_email,
+                        password: scope.password,
+                        original_email: user_email,
+                    }))
+                    .then(function() {
+                        nbAlertify.success('Password for ' + user_email + ' has been set');
+                        scope.modal.modal('hide');
+                    }, function(err) {
+                        console.error('Reset password failure:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/reset_user_info_dialog.html',
+                scope: scope,
+            });
+        }
+
+        function set_email(user_email) {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = user_email;
+            scope.update_email = true;
+            scope.update = function() {
+                console.log('scope.email:' + scope.email);
+                return $q.when(nbClient.client.account.update_account({
+                        name: nbSystem.system.name,
+                        email: scope.email,
+                        original_email: user_email,
+                    }))
+                    .then(function() {
+                        if (scope.email) {
+                            scope.modal.modal('hide');
+                            nbAlertify.success('Email ' + scope.email + ' has been set');
+                            reload_accounts();
+                        }
+                    }, function(err) {
+                        console.error('Reset email failure:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/reset_user_info_dialog.html',
+                scope: scope,
+            });
+        }
+
+        function delete_user(user_email) {
+            console.log('attempt to delete ' + user_email);
+            var user_info = _.find($scope.accounts, function(account) {
+                console.log('attempt to delete acc:' + account.email);
+
+                return account.email === user_email;
+            });
+            if (user_info) {
+                if ($scope.accounts.length === 1) {
+                    nbAlertify.error('System must have at least one account');
+                } else {
+                    if (nbClient.account.email === user_email) {
+                        nbAlertify.error('Cannot delete current logged in user');
+                    } else {
+
+                        nbAlertify.confirm('Are you sure that you want to delete ' + user_email + '?')
+                            .then(function(result) {
+                                console.log('in confirm user deletion');
+
+                                return $q.when(nbClient.client.account.delete_account(user_email))
+                                    .then(function() {
+                                        nbAlertify.success('User ' + user_email + ' has been deleted');
+                                        reload_accounts();
+                                    });
+
+                            })
+                            .then(null, function(err) {
+                                if (err.message !== "canceled") {
+                                    nbAlertify.error('Error while trying to delete user. ERROR:' + err.message);
+                                }
+                            });
+                    }
+
+                }
+
+            } else {
+                nbAlertify.error('User does not exist any more.');
+                reload_accounts();
+            }
+        }
+
+        function add_new_user() {
+            var scope = $scope.$new();
+            scope.system_name = '';
+            scope.password = '';
+            scope.email = '';
+            console.log('system:', JSON.stringify(nbSystem.system));
+            scope.update_email_message = function() {
+                scope.email_message = 'Hi,\r\n' +
+                    'I created a noobaa user for you\r\n' +
+                    'To use NooBaa, go to ' + $location.protocol() + '://' + $location.host() + ':' + $location.port() + '\r\n' +
+                    'User name: ' + scope.email + '\r\n' +
+                    'password:' + scope.password + '\r\n' +
+                    'you can change the password on your login or later on';
+            };
+            scope.update_email_message();
+            scope.create = function() {
+
+                return $q.when(nbClient.client.account.create_account({
+                        name: nbSystem.system.name,
+                        email: scope.email,
+                        password: scope.password
+                    }))
+                    .then(function() {
+                        scope.modal.modal('hide');
+                        return reload_accounts();
+                    }, function(err) {
+                        console.error('CREATE ACCOUNT ERROR:', err.stack, err);
+                        if (err.rpc_code) {
+                            nbAlertify.error(err.message);
+                        } else {
+                            nbAlertify.error('Failed: ' + JSON.stringify(err));
+                        }
+                        return reload_accounts();
+                    });
+            };
+            scope.modal = nbModal({
+                template: 'console/account_create_dialog.html',
+                scope: scope,
+            });
+        }
+
+    }
+]);
+
 
 
 
@@ -278,31 +467,31 @@ nb_console.controller('SystemDataCtrl', [
             });
             if (current_bucket) {
                 if (current_bucket.num_objects > 0) {
-                    nbAlertify.error('Repository contains ' + current_bucket.num_objects + ' objects. Only empty repository can be deleted.');
+                    nbAlertify.error('Bucket contains ' + current_bucket.num_objects + ' objects. Only empty bucket can be deleted.');
                 } else {
 
-                    nbAlertify.confirm('Are you sure that you want to delete ' + bucket_name + '?')
+                    nbAlertify.confirm('Are you sure that you want to delete bucket "' + bucket_name + '"?')
                         .then(function(result) {
                             console.log('in confirm');
                             $q.when(nbClient.client.bucket.delete_bucket({
                                     name: bucket_name,
                                 }))
                                 .then(function() {
-                                    nbAlertify.success('Repository ' + bucket_name + ' has been deleted');
+                                    nbAlertify.success('Bucket ' + bucket_name + ' has been deleted');
                                     reload_view();
                                 });
 
                         })
                         .then(null, function(err) {
                             if (err.message !== "canceled") {
-                                nbAlertify.error('Error while trying to delete repository. ERROR:' + err.message);
+                                nbAlertify.error('Error while trying to delete bucket. ERROR:' + err.message);
                             }
                         });
 
                 }
 
             } else {
-                nbAlertify.error('Repository does not exist any more.');
+                nbAlertify.error('Bucket does not exist any more.');
                 reload_view();
             }
         }
@@ -318,15 +507,16 @@ nb_console.controller('SystemDataCtrl', [
             });
             scope.done = function() {
                 console.log('name:' + scope.new_bucket_name);
-                var return_value = validate_bucket_name(scope.new_bucket_name);
+                var bucket_name = scope.new_bucket_name.toLowerCase();
+                var return_value = validate_bucket_name(bucket_name);
                 if (return_value === "ok") {
                     $q.when(nbClient.client.bucket.create_bucket({
-                        name: scope.new_bucket_name,
+                        name: bucket_name,
                         tiering: ['nodes']
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');
-                        nbAlertify.success('Congrats! '+ scope.new_bucket_name+' repository is ready');
+                        nbAlertify.success('Congrats! ' + bucket_name + ' bucket is ready');
                         reload_view();
                     }).then(null, function(err) {
                         scope.error_message = 'Error:' + err.message + ',' + err.stack;
@@ -341,18 +531,65 @@ nb_console.controller('SystemDataCtrl', [
             };
         }
 
+        function check_is_IPv4(entry) {
+            var blocks = entry.split(".");
+            if (blocks.length === 4) {
+                return blocks.every(function(block) {
+                    return parseInt(block, 10) >= 0 && parseInt(block, 10) <= 255;
+                });
+            }
+            return false;
+        }
+
+        //Copied from amazon java sdk
         function validate_bucket_name(bucket_name) {
             var error_message = '';
-            if ((/^[a-z0-9]+(-[a-z0-9]+)*$/.test(bucket_name) === false)) {
-                error_message =
-                    ('Bucket names can contain only lowercase letters, numbers, and hyphens. ' +
-                        'Each label must start and end with a lowercase letter or a number.');
-                return error_message;
-            }
             if (bucket_name.length < 3 || bucket_name.length > 63) {
                 error_message = ('The bucket name must be between 3 and 63 characters.');
                 return error_message;
             }
+            if (check_is_IPv4(bucket_name)) {
+                return "Bucket name should not contain IP address";
+            }
+            var previous = '\0';
+
+            for (var i = 0; i < bucket_name.length; ++i) {
+                var next = bucket_name.charAt(i);
+                if (next >= 'A' && next <= 'Z') {
+                    return "Bucket name should not contain uppercase characters";
+                }
+
+                if (next === ' ' || next === '\t' || next === '\r' || next === '\n') {
+                    return "Bucket name should not contain white space";
+                }
+
+                if (next === '.') {
+                    if (previous === '\0') {
+                        return "Bucket name should not begin with a period";
+                    }
+                    if (previous === '.') {
+                        return "Bucket name should not contain two adjacent periods";
+                    }
+                    if (previous === '-') {
+                        return "Bucket name should not contain dashes next to periods";
+                    }
+                } else if (next === '-') {
+                    if (previous === '.') {
+                        return "Bucket name should not contain dashes next to periods";
+                    }
+                } else if ((next < '0') || (next > '9' && next < 'a') || (next > 'z')) {
+
+                    return "Bucket name should not contain '" + next + "'";
+                }
+
+                previous = next;
+            }
+
+            if (previous === '.' || previous === '-') {
+                return "Bucket name should not end with '-' or '.'";
+            }
+
+
             var bucket_exists = _.find(nbSystem.system.buckets, function(bucket) {
                 return bucket.name === bucket_name;
             });
@@ -544,6 +781,7 @@ nb_console.controller('NodeViewCtrl', [
                                 fragment.size = frag_size;
                             });
                             part.file = object.key;
+                            part.bucket = object.bucket;
                             $scope.parts.push(part);
                         });
                     });

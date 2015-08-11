@@ -249,6 +249,9 @@ module.exports = {
                                     type: 'array',
                                     items: 'string',
                                 },
+                                upload_part_number: {
+                                    type: 'integer',
+                                },
                             }
                         }
                     }

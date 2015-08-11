@@ -250,6 +250,15 @@ module.exports = {
                                         }
                                     }
                                 },
+                                account: {
+                                    type: 'object',
+                                    required: ['email'],
+                                    properties: {
+                                        email: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
                             }
                         }
                     },
@@ -265,6 +274,13 @@ module.exports = {
             reply: {
                 type: 'string',
             },
+            auth: {
+                system: 'admin',
+            }
+        },
+
+        start_debug: {
+            method: 'POST',
             auth: {
                 system: 'admin',
             }

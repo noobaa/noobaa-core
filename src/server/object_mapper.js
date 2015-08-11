@@ -104,7 +104,7 @@ function allocate_object_parts(bucket, obj, parts) {
             Q.fcall(function() {
                 // Check if some of the ObjectParts already exists from previous attempts
                 var query_parts_params = _.map(parts, function(part) {
-                    return _.pick(part, 'start', 'end', 'part_sequence_number');
+                    return _.pick(part, 'start', 'end', 'upload_part_number', 'part_sequence_number');
                 });
                 return Q.when(
                     db.ObjectPart
@@ -242,14 +242,21 @@ function allocate_object_parts(bucket, obj, parts) {
  */
 function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.map(parts, 'block_ids'));
-    dbg.log0('finalize_object_parts', parts);
     var chunks;
+    var upload_part_number = null;
+    if (parts && parts[0] && !_.isUndefined(parts[0].upload_part_number)) {
+        dbg.log1('update upload part number with', parts[0].upload_part_number);
+        upload_part_number = parts[0].upload_part_number;
+    }
+    dbg.log1('finalize_object_parts', upload_part_number, parts[0].upload_part_number, parts);
+
     return Q.all([
 
             // find parts by start offset, deleted parts are handled later
             db.ObjectPart
             .find({
                 obj: obj.id,
+                upload_part_number: upload_part_number,
                 start: {
                     $in: _.map(parts, 'start')
                 }
@@ -300,7 +307,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 }
                 var chunk = chunk_by_id[block.chunk];
                 if (!chunk) {
-                    throw new Error('missing block chunk');
+                    throw new Error('missing block chunk for ' + block.chunk);
                 }
             });
 
@@ -405,6 +412,9 @@ function read_object_mappings(params) {
  * @params: node, skip, limit
  */
 function read_node_mappings(params) {
+    var objects = {};
+    var parts_per_obj_id = {};
+
     return Q.fcall(function() {
             var find = db.DataBlock
                 .find({
@@ -436,17 +446,31 @@ function read_node_mappings(params) {
             });
         })
         .then(function(parts) {
-            var objects = {};
-            var parts_per_obj_id = _.groupBy(parts, function(part) {
+            objects = {};
+            parts_per_obj_id = _.groupBy(parts, function(part) {
                 var obj = part.obj;
                 delete part.obj;
                 objects[obj.id] = obj;
                 return obj.id;
             });
+
+            return db.Bucket
+                .find({
+                    '_id': {
+                        $in: _.uniq(_.map(objects, 'bucket'))
+                    },
+                    deleted: null,
+                })
+                .exec();
+        }).then(function(buckets) {
+            var buckets_by_id = _.indexBy(buckets, '_id');
+
             return _.map(objects, function(obj, obj_id) {
+
                 return {
                     key: obj.key,
-                    parts: parts_per_obj_id[obj_id],
+                    bucket: buckets_by_id[obj.bucket].name,
+                    parts: parts_per_obj_id[obj_id]
                 };
             });
         });

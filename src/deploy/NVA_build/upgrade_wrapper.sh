@@ -103,6 +103,7 @@ function post_upgrade {
     cp -f /tmp/agent_conf.json ${CORE_DIR}/agent_conf.json
   fi
 
+  rm -f ${CORE_DIR}/.env
   cp -f ${CORE_DIR}/src/deploy/NVA_build/env.orig ${CORE_DIR}/.env
 
   local AGENT_VERSION_VAR=$(grep AGENT_VERSION /backup/.env)
@@ -120,8 +121,8 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
-  echo -e "Welcome to your \x1b[0;35;40mNooBaa\x1b[0m, host \n" > /etc/issue
-	echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >>/etc/issu
+  echo -e "Welcome to your \x1b[0;35;40mNooBaa\x1b[0m server,\n" > /etc/issue
+  echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >>/etc/issue
 
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
@@ -135,11 +136,18 @@ function post_upgrade {
   chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
   #Installation ID generation if needed
+  #TODO: Move this into the mongo_upgrade.js
   local id=$(/mongodb/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
-  if [ ${id} -eq 0 ]; then 
-    id=$(uuidgen)
-	  /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
+  if [ ${id} -eq 0 ]; then
+      id=$(uuidgen)
+      /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
+
+  #MongoDB nbcore upgrade
+  /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+  unset AGENT_VERSION
+
+  /etc/rc.d/init.d/supervisord restart
 
   rm -f /tmp/*.tar.gz
 }

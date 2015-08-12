@@ -42,6 +42,35 @@ var bucket_schema = new Schema({
         },
     }],
 
+    // cloud sync target, if exists
+    cloud_sync: {
+        // Target endpoint, location + bucket
+        endpoint: {
+            type: String
+        },
+
+        access_keys: [{
+            access_key: {
+                type: String,
+                required: true,
+            },
+            secret_key: {
+                type: String,
+                required: true,
+            }
+        }],
+
+        // Changed query interval
+        schedule: {
+            type: Number
+        },
+
+        // Last finished sync
+        last_sync: {
+            type: Date
+        },
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date,

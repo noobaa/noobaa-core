@@ -20,11 +20,13 @@ var native_util = typeof(bindings) === 'function' && bindings('native_util.node'
 
 module.exports = ObjectDriver;
 
-// these threadpools are global OS threads used to offload heavy CPU work
-// from the node.js thread so that it will keep processing incoming IO while
-// encoding/decoding the object chunks in high performance native code.
-var dedup_chunker_tpool = new native_util.ThreadPool(1);
-var object_coding_tpool = new native_util.ThreadPool(1);
+if (native_util) {
+    // these threadpools are global OS threads used to offload heavy CPU work
+    // from the node.js thread so that it will keep processing incoming IO while
+    // encoding/decoding the object chunks in high performance native code.
+    var dedup_chunker_tpool = new native_util.ThreadPool(1);
+    var object_coding_tpool = new native_util.ThreadPool(1);
+}
 
 
 /**

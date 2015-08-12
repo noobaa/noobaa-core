@@ -30,7 +30,8 @@
     "compression": false,
     "node-libnice": false,
     "libnice": false,
-    "bindings": false
+    "bindings": false,
+    "native_util": false
   },
   "dependencies": {
     "animate.css": "~3.2.5",

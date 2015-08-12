@@ -8,11 +8,11 @@ if (require.main === module) {
 
 function test_ingest() {
 
-    require('./panic');
+    require('../util/panic');
     var Q = require('q');
     var fs = require('fs');
-    var transformer = require('./transformer');
-    var Pipeline = require('./pipeline');
+    var transformer = require('../util/transformer');
+    var Pipeline = require('../util/pipeline');
     var input = process.stdin;
     if (process.argv[2]) {
         console.log('FILE', process.argv[2]);
@@ -114,9 +114,9 @@ function test_ingest() {
     } else {
 
         // for comparison this is the old javascript impl
-        var rabin = require('./rabin');
-        var Poly = require('./poly');
-        var chunk_crypto = require('./chunk_crypto');
+        var rabin = require('../util/rabin');
+        var Poly = require('../util/poly');
+        var chunk_crypto = require('../util/chunk_crypto');
         pipeline.pipe(new rabin.RabinChunkStream({
             window_length: 64,
             min_chunk_size: 3 * 128 * 1024,

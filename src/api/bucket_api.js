@@ -114,6 +114,65 @@ module.exports = {
             }
         },
 
+        cloud_sync_policies: {
+            method: 'GET',
+            reply: {
+                type: 'object',
+                required: [],
+                properties: {
+                    cloud_sync_policies: {
+                        type: 'array',
+                        items: {
+                            name: {
+                                type: 'string',
+                            },
+                            policy: {
+                                $ref: '/bucket_api/definitions/cloud_sync'
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        delete_cloud_sync: {
+            method: 'DELETE',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        set_cloud_sync: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['name', 'policy'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                    policy: {
+                        $ref: '/bucket_api/definitions/cloud_sync'
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        }
+
     },
 
 
@@ -142,6 +201,25 @@ module.exports = {
             type: 'array',
             items: {
                 type: 'string',
+            }
+        },
+
+        cloud_sync: {
+            type: 'object',
+            required: ['endpoint', 'access_keys', 'schedule'],
+            properties: {
+                endpoint: {
+                    type: 'string',
+                },
+                access_keys: {
+                    type: 'array',
+                    item: {
+                        $ref: '/system_api/definitions/access_keys'
+                    }
+                },
+                schedule: {
+                    type: 'integer'
+                },
             }
         }
 

@@ -59,7 +59,7 @@ function Agent(params) {
         self.store = new AgentStore(self.storage_path);
         self.store_cache = new LRUCache({
             name: 'AgentBlocksCache',
-            max_length: 10,
+            max_length: 200, // ~200 MB
             expiry_ms: 0, // no expiry
             make_key: function(params) {
                 return params.id;
@@ -522,8 +522,15 @@ Agent.prototype.write_block = function(req) {
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
     dbg.log0('write_block', block_md.id, data.length, 'node', self.node_name);
-    self.store_cache.invalidate(block_md);
-    return self.store.write_block(block_md, data);
+    return Q.when(self.store.write_block(block_md, data))
+        .then(function() {
+            self.store_cache.put(block_md, {
+                block_md: block_md,
+                data: data
+            });
+        }, function() {
+            self.store_cache.invalidate(block_md);
+        });
 };
 
 Agent.prototype.replicate_block = function(req) {

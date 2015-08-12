@@ -71,12 +71,20 @@ LRUCache.prototype.get = function(params, cache_miss) {
         });
 };
 
+LRUCache.prototype.put = function(params, data) {
+    var key = this.make_key(params);
+    var item = this.lru.find_or_add_item(key);
+    item.d = data;
+};
+
 /**
  * remove multiple keys from the cache
  */
 LRUCache.prototype.multi_invalidate = function(params) {
     var self = this;
-    return _.map(params, function(p) { return self.invalidate(p); });
+    return _.map(params, function(p) {
+        return self.invalidate(p);
+    });
 };
 
 /**

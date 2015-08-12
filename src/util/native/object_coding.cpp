@@ -59,7 +59,11 @@ NAN_METHOD(ObjectCoding::new_instance)
 struct Fragment
 {
     Buf block;
-    Buf digest;
+    std::string layer;
+    int layer_n;
+    int frag;
+    std::string digest_type;
+    Buf digest_buf;
 };
 
 /**
@@ -135,7 +139,11 @@ public:
         const int block_len = (encrypted_len + data_frags - 1) / data_frags;
         _frags.resize(data_frags + parity_frags + lrc_total_frags);
         for (int i=0; i<data_frags; ++i) {
-            _frags[i].block = Buf(encrypted, i*block_len, block_len);
+            Fragment& f = _frags[i];
+            f.block = Buf(encrypted, i*block_len, block_len);
+            f.layer = "D";
+            f.layer_n = 0;
+            f.frag = i;
         }
         // TODO this is not erasure code, it's just XOR of all blocks to test performance
         for (int i=0; i<parity_frags; ++i) {
@@ -147,7 +155,11 @@ public:
                     target[k] ^= source[k];
                 }
             }
-            _frags[data_frags + i].block = parity;
+            Fragment& f = _frags[data_frags + i];
+            f.block = parity;
+            f.layer = "RS";
+            f.layer_n = 0;
+            f.frag = i;
         }
         for (int l=0; l<lrc_groups; ++l) {
             for (int i=0; i<lrc_parity; ++i) {
@@ -159,14 +171,20 @@ public:
                         target[k] ^= source[k];
                     }
                 }
-                _frags[data_frags + parity_frags + (l*lrc_parity) + i].block = parity;
+                Fragment& f = _frags[data_frags + parity_frags + (l*lrc_parity) + i];
+                f.block = parity;
+                f.layer = "LRC";
+                f.layer_n = l;
+                f.frag = i;
             }
         }
 
         // COMPUTE BLOCKS HASH
         if (!_coding._frag_digest_type.empty()) {
             for (size_t i=0; i<_frags.size(); ++i) {
-                _frags[i].digest = Crypto::digest(_frags[i].block, _coding._frag_digest_type.c_str());
+                Fragment& f = _frags[i];
+                f.digest_type = _coding._frag_digest_type;
+                f.digest_buf = Crypto::digest(f.block, f.digest_type.c_str());
             }
         }
     }
@@ -174,7 +192,6 @@ public:
     virtual void after_work() override
     {
         Nan::HandleScope scope;
-        v8::Local<v8::String> frag_digest_type = NAN_STR(_coding._frag_digest_type);
         v8::Local<v8::Object> obj(Nan::New<v8::Object>());
         Nan::Set(obj, NAN_STR("length"), Nan::New(_chunk.length()));
         Nan::Set(obj, NAN_STR("digest_type"), NAN_STR(_coding._digest_type));
@@ -187,17 +204,16 @@ public:
         Nan::Set(obj, NAN_STR("lrc_frags"), Nan::New(_coding._lrc_frags));
         v8::Local<v8::Array> frags(Nan::New<v8::Array>(_frags.size()));
         for (size_t i=0; i<_frags.size(); ++i) {
-            Fragment& frag = _frags[i];
+            Fragment& f = _frags[i];
             v8::Local<v8::Object> frag_obj(Nan::New<v8::Object>());
-            Nan::Set(frag_obj, NAN_STR("block"), Nan::CopyBuffer(
-                         frag.block.cdata(), frag.block.length()).ToLocalChecked());
-            // TODO set fragment layer and index
-            Nan::Set(frag_obj, NAN_STR("layer"), NAN_STR("D"));
-            Nan::Set(frag_obj, NAN_STR("frag"), Nan::New(static_cast<int32_t>(i)));
-            // Nan::Set(frag_obj, NAN_STR("layer_n"), Nan::New(frag.layer_n));
-            Nan::Set(frag_obj, NAN_STR("digest_type"), frag_digest_type);
+            Nan::Set(frag_obj, NAN_STR("layer"), NAN_STR(f.layer));
+            Nan::Set(frag_obj, NAN_STR("layer_n"), Nan::New(f.layer_n));
+            Nan::Set(frag_obj, NAN_STR("frag"), Nan::New(f.frag));
+            Nan::Set(frag_obj, NAN_STR("digest_type"), NAN_STR(f.digest_type));
             Nan::Set(frag_obj, NAN_STR("digest_buf"), Nan::CopyBuffer(
-                         frag.digest.cdata(), frag.digest.length()).ToLocalChecked());
+                         f.digest_buf.cdata(), f.digest_buf.length()).ToLocalChecked());
+            Nan::Set(frag_obj, NAN_STR("block"), Nan::CopyBuffer(
+                         f.block.cdata(), f.block.length()).ToLocalChecked());
             frags->Set(i, frag_obj);
         }
         Nan::Set(obj, NAN_STR("frags"), frags);
@@ -223,7 +239,6 @@ private:
     NanCallbackSharedPtr _callback;
     std::string _digest_type;
     std::string _cipher_type;
-    std::string _frag_digest_type;
     Buf _digest;
     Buf _secret;
     Buf _chunk;
@@ -249,19 +264,23 @@ public:
         // to be created/dereferenced/destroyed from other threads.
 
         _digest_type = NAN_GET_STR(chunk, "digest_type");
+        _digest = Buf(NAN_GET_STR(chunk, "digest_buf"));
         _cipher_type = NAN_GET_STR(chunk, "cipher_type");
-        _frag_digest_type = NAN_GET_STR(chunk, "frag_digest_type");
-        _digest = Buf(NAN_GET_STR(chunk, "digest"));
         _secret = Buf(NAN_GET_STR(chunk, "secret"));
         _length = chunk->Get(NAN_STR("length"))->Int32Value();
         _data_frags = chunk->Get(NAN_STR("data_frags"))->Int32Value();
         v8::Local<v8::Array> frags = chunk->Get(NAN_STR("frags")).As<v8::Array>();
         _frags.resize(frags->Length());
         for (size_t i=0; i<_frags.size(); ++i) {
+            Fragment& f = _frags[i];
             v8::Local<v8::Object> frag = frags->Get(i)->ToObject();
             v8::Local<v8::Object> block = frag->Get(NAN_STR("block"))->ToObject();
-            _frags[i].block = Buf(node::Buffer::Data(block), node::Buffer::Length(block));
-            _frags[i].digest = Buf(NAN_GET_STR(frag, "digest"));
+            f.layer = NAN_GET_STR(frag, "layer");
+            f.layer_n = frag->Get(NAN_STR("layer_n"))->Int32Value();
+            f.frag = frag->Get(NAN_STR("frag"))->Int32Value();
+            f.digest_type = NAN_GET_STR(frag, "digest_type");
+            f.digest_buf = Buf(NAN_GET_STR(frag, "digest_buf"));
+            f.block = Buf(node::Buffer::Data(block), node::Buffer::Length(block));
         }
     }
 
@@ -273,13 +292,12 @@ public:
     virtual void work() override
     {
         // VERIFY BLOCKS HASH
-        if (!_frag_digest_type.empty()) {
-            for (size_t i=0; i<_frags.size(); ++i) {
-                if (!_frags[i].digest.length()) {
-                    Buf digest = Crypto::digest(_frags[i].block, _frag_digest_type.c_str());
-                    if (!digest.same(_frags[i].digest)) {
-                        PANIC("fragment " << i << " digest mismatch " << digest.hex() << " " << _frags[i].digest.hex());
-                    }
+        for (size_t i=0; i<_frags.size(); ++i) {
+            Fragment& f = _frags[i];
+            if (!f.digest_type.empty()) {
+                Buf digest_buf = Crypto::digest(f.block, f.digest_type.c_str());
+                if (!digest_buf.same(f.digest_buf)) {
+                    PANIC("fragment " << i << " digest mismatch " << digest_buf.hex() << " " << f.digest_buf.hex());
                 }
             }
         }

@@ -482,7 +482,7 @@ function read_node_mappings(params) {
  * @params: parts, set_obj, adminfo
  */
 function read_parts_mappings(params) {
-    var chunks = _.pluck(_.flatten(_.map(params.parts, 'chunks')), 'chunk');
+    var chunks = _.map(params.parts, 'chunk');
     var chunk_ids = _.pluck(chunks, 'id');
 
     // find all blocks of the resulting parts
@@ -579,36 +579,10 @@ function fix_multipart_parts(obj) {
                     })
                     .sort({
                         upload_part_number: 1,
-                        start: 1
+                        part_sequence_number: 1,
+                        _id: -1 // when same, get newest first
                     })
                     .exec();
-            })
-            .then(function(parts) {
-                // Verify no duplicte ObjectParts in the returned result
-                // If duplicates exist (start, end, sequence matching),
-                // Take the best object (chunk wise)
-                var uniq = {};
-                var parts2 = parts;
-                _.each(parts2, function(p, i) {
-                    if (!uniq.hasOwnProperty(p.start)) {
-                        uniq[p.start] = {
-                            data: p,
-                            ind: i
-                        };
-                    } else {
-                        //if all params are the same, take the part with the most chunks
-                        if (uniq[p.start].data.end === p.end &&
-                            uniq[p.start].data.part_sequence_number === p.part_sequence_number &&
-                            uniq[p.start].data.upload_part_number === p.upload_part_number &&
-                            uniq[p.start].data.chunks.length < p.chunks.length) {
-                            parts = parts.splice(uniq[p.start].ind, 1);
-                        } else {
-                            console.warn('found an unexpected duplicate part', uniq[p.start].data, p);
-                        }
-
-                    }
-                });
-                return parts;
             }),
             // query to find the last part without upload_part_number
             // which has largest end offset.
@@ -624,26 +598,62 @@ function fix_multipart_parts(obj) {
             .exec()
         ])
         .spread(function(remaining_parts, last_stable_part) {
-            var last_end = last_stable_part[0] ? last_stable_part[0].end : 0;
+            var last_end = 0;
+            var last_upload_part_number = 0;
+            var last_part_sequence_number = -1;
+            if (last_stable_part[0]) {
+                last_end = last_stable_part[0].end;
+                last_upload_part_number = last_stable_part[0].upload_part_number;
+                last_part_sequence_number = last_stable_part[0].part_sequence_number;
+            }
             dbg.log1('complete_multipart_upload: found remaining_parts', remaining_parts);
             dbg.log1('complete_multipart_upload: found last_stable_part', last_stable_part);
             var bulk_update = db.ObjectPart.collection.initializeUnorderedBulkOp();
             _.each(remaining_parts, function(part) {
-                var current_end = last_end + part.end - part.start;
-                dbg.log1('complete_multipart_upload: update part range',
-                    last_end, '-', current_end, part);
-                bulk_update.find({
-                    _id: part._id
-                }).updateOne({
-                    $set: {
-                        start: last_end,
-                        end: current_end,
-                    },
-                    $unset: {
-                        upload_part_number: 1
+                var mismatch;
+                var unneeded;
+                if (part.upload_part_number === last_upload_part_number) {
+                    if (part.part_sequence_number === last_part_sequence_number) {
+                        unneeded = true;
+                    } else if (part.part_sequence_number !== last_part_sequence_number + 1) {
+                        mismatch = true;
                     }
-                });
-                last_end = current_end;
+                } else if (part.upload_part_number === last_upload_part_number + 1) {
+                    if (part.part_sequence_number !== 0) {
+                        mismatch = true;
+                    }
+                } else {
+                    mismatch = true;
+                }
+                if (mismatch) {
+                    dbg.error('MISMATCH UPLOAD_PART_NUMBER',
+                        'last_upload_part_number', last_upload_part_number,
+                        'last_part_sequence_number', last_part_sequence_number,
+                        'part', part);
+                    throw new Error('MISMATCH UPLOAD_PART_NUMBER');
+                } else if (unneeded) {
+                    bulk_update.find({
+                        _id: part._id
+                    }).removeOne();
+                } else {
+                    var current_end = last_end + part.end - part.start;
+                    dbg.log1('complete_multipart_upload: update part range',
+                        last_end, '-', current_end, part);
+                    bulk_update.find({
+                        _id: part._id
+                    }).updateOne({
+                        $set: {
+                            start: last_end,
+                            end: current_end,
+                        },
+                        $unset: {
+                            upload_part_number: 1
+                        }
+                    });
+                    last_end = current_end;
+                    last_upload_part_number = part.upload_part_number;
+                    last_part_sequence_number = part.part_sequence_number;
+                }
             });
             // calling execute on bulk and handling node callbacks
             return Q.ninvoke(bulk_update, 'execute').thenResolve(last_end);
@@ -1251,6 +1261,7 @@ var LONG_BUILD_THRESHOLD = 300000;
 function analyze_chunk_status(chunk, all_blocks) {
     var now = Date.now();
     var blocks_by_frag_key = _.groupBy(all_blocks, get_frag_key);
+    dbg.log0('GGG analyze_chunk_status', chunk, all_blocks, blocks_by_frag_key);
     var blocks_info_to_allocate;
     var blocks_to_remove;
     var chunk_health = 'available';
@@ -1460,12 +1471,13 @@ function get_part_info(params) {
     if (params.set_obj) {
         p.obj = params.part.obj;
     }
+    dbg.log0('GGG PART', p);
     return p;
 }
 
 
 function get_block_md(block) {
-    var b = _.pick(block, 'digest_type', 'digest_b64');
+    var b = _.pick(block, 'size', 'digest_type', 'digest_b64');
     b.id = block._id.toString();
     b.address = 'n2n://' + block.node.peer_id;
     return b;

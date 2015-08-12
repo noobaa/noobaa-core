@@ -186,16 +186,16 @@ module.exports = {
 
         block_md: {
             type: 'object',
-            required: [
-                'id',
-                'address',
-            ],
+            required: ['id'],
             properties: {
                 id: {
                     type: 'string'
                 },
                 address: {
                     type: 'string'
+                },
+                size: {
+                    type: 'integer'
                 },
                 digest_type: {
                     type: 'string'

@@ -9,7 +9,6 @@ var Semaphore = require('noobaa-util/semaphore');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
 var CoalesceStream = require('../util/coalesce_stream');
-var chunk_crypto = require('../util/chunk_crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
 var LRUCache = require('../util/lru_cache');
@@ -230,10 +229,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             if (part.chunk.cipher_auth_tag) {
                                 p.chunk.cipher_auth_tag_b64 = part.chunk.cipher_auth_tag.toString('base64');
                             }
-                            p.frags = _.map(part.chunk.frags, function(frag) {
-                                var f = _.pick(frag, 'layer', 'layer_n', 'frag', 'digest_type');
-                                if (frag.digest_buf) {
-                                    f.digest_b64 = frag.digest_buf.toString('base64');
+                            p.frags = _.map(part.chunk.frags, function(fragment) {
+                                var f = _.pick(fragment, 'layer', 'layer_n', 'frag', 'digest_type');
+                                if (fragment.digest_buf) {
+                                    f.digest_b64 = fragment.digest_buf.toString('base64');
                                 }
                                 return f;
                             });
@@ -820,81 +819,80 @@ ObjectDriver.prototype._init_object_map_cache = function() {
  */
 ObjectDriver.prototype._read_object_part = function(part) {
     var self = this;
-    var block_size = (part.chunk_size / part.kfrag) | 0;
-    var buffer_per_fragment = {};
-    var next_fragment_index = 0;
-
-    dbg.log2('_read_object_part', range_utils.human_range(part));
-
-    // advancing the read by taking the next fragment and return promise to read it.
-    // will fail if no more fragments remain, which means the part cannot be served.
-    function read_the_next_fragment() {
-        while (next_fragment_index < part.fragments.length) {
-            var curr_fragment_index = next_fragment_index;
-            var fragment = part.fragments[curr_fragment_index];
-            next_fragment_index += 1;
-            if (fragment) {
-                return read_fragment_blocks_chain(fragment, curr_fragment_index);
-            }
-        }
-        throw new Error('READ PART EXHAUSTED', part);
-    }
-
-    function read_fragment_blocks_chain(fragment, fragment_index) {
-        dbg.log3('read_fragment_blocks_chain', range_utils.human_range(part), fragment_index);
-
-        // chain_initiator is used to fire the first rejection handler for the head of the chain.
-        var chain_init_err = 'chain_init_err';
-        var chain_initiator = Q.reject(chain_init_err);
-
-        // chain the blocks of the fragment with array reduce
-        // to handle read failures we create a promise chain such that each block of
-        // this fragment will read and if fails it's promise rejection handler will go
-        // to read the next block of the fragment.
-        function add_block_promise_to_chain(promise, block) {
-            return promise.then(null, function(err) {
-                if (err !== chain_init_err) {
-                    console.error('READ FAILED BLOCK', err);
-                }
-                var offset = part.start + (fragment_index * block_size);
-                return self._blocks_cache.get({
-                    block_md: block.address,
-                    block_size: block_size,
-                    offset: offset,
-                });
-            });
-        }
-
-        // reduce the blocks array to create the chain and feed it with the initial promise
-        return _.reduce(fragment.blocks, add_block_promise_to_chain, chain_initiator)
-            .then(function(buffer) {
-                // when done, just keep the buffer and finish this promise chain
-                buffer_per_fragment[fragment_index] = buffer;
-            })
-            .then(null, function(err) {
-                // failed to read this fragment, try another.
-                console.error('READ FAILED FRAGMENT', fragment_index, err);
-                return read_the_next_fragment();
-            });
-    }
-
-    // start reading by queueing the first kfrag
-    return Q.all(_.times(part.kfrag, read_the_next_fragment))
+    dbg.log0('_read_object_part', range_utils.human_range(part));
+    var frags_by_layer = _.groupBy(part.frags, 'layer');
+    var data_frags = frags_by_layer.D;
+    return Q.all(_.map(data_frags, function(fragment) {
+            return self._read_fragment(part, fragment);
+        }))
         .then(function() {
-            var encrypted_buffer = decode_chunk(part, buffer_per_fragment);
-            dbg.log2('decrypt_chunk', encrypted_buffer.length, part);
-            return chunk_crypto.decrypt_chunk(encrypted_buffer, part.crypt);
-        }).then(function(chunk) {
-            part.buffer = chunk.slice(
-                part.chunk_offset,
-                part.chunk_offset + part.end - part.start);
+            var chunk = _.pick(part.chunk,
+                'digest_type',
+                'cipher_type',
+                'data_frags',
+                'lrc_frags');
+            if (part.chunk.digest_b64) {
+                chunk.digest_buf = new Buffer(part.chunk.digest_b64, 'base64');
+            }
+            if (part.chunk.cipher_key_b64) {
+                chunk.cipher_key = new Buffer(part.chunk.cipher_key_b64, 'base64');
+            }
+            if (part.chunk.cipher_iv_b64) {
+                chunk.cipher_iv = new Buffer(part.chunk.cipher_iv_b64, 'base64');
+            }
+            if (part.chunk.cipher_auth_tag_b64) {
+                chunk.cipher_auth_tag = new Buffer(part.chunk.cipher_auth_tag_b64, 'base64');
+            }
+            chunk.frags = _.map(part.frags, function(fragment) {
+                var f = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size', 'digest_type');
+                if (fragment.digest_b64) {
+                    f.digest_buf = new Buffer(fragment.digest_b64, 'base64');
+                }
+                return f;
+            });
+            var decoder = new native_util.ObjectCoding({
+                tpool: object_coding_tpool,
+                digest_type: chunk.digest_type,
+                cipher_type: chunk.cipher_type,
+                data_frags: chunk.data_frags,
+                lrc_frags: chunk.lrc_frags,
+            });
+            dbg.log2('decode chunk', part);
+            return Q.ninvoke(decoder, 'decode', chunk);
+        }).then(function(buffer) {
+            if (part.chunk_offset) {
+                part.buffer = buffer.slice(
+                    part.chunk_offset,
+                    part.chunk_offset + part.end - part.start);
+            } else {
+                part.buffer = buffer;
+            }
             return part;
-        }).catch(function(err) {
-            console.error('decrypt_chunk FAILED FRAGMENT ' + require('util').inspect(err) + ' ; ' + err.stack);
-            throw err;
         });
 };
 
+ObjectDriver.prototype._read_fragment = function(part, fragment) {
+    var self = this;
+    var frag_desc = size_utils.human_offset(part.start) + '-' + get_frag_key(fragment);
+    dbg.log0('read_fragment_blocks_chain', frag_desc);
+    var next_block = 0;
+    return read_next_block();
+
+    function read_next_block() {
+        if (next_block >= fragment.blocks.length) {
+            dbg.error('READ FRAGMENT EXHAUSTED', frag_desc, fragment.blocks);
+            throw new Error('READ FRAGMENT EXHAUSTED');
+        }
+        var block = fragment.blocks[next_block];
+        next_block += 1;
+        return self._blocks_cache.get(block.block_md)
+            .then(finish, read_next_block);
+    }
+
+    function finish(buffer) {
+        fragment.block = buffer;
+    }
+};
 
 /**
  *
@@ -907,14 +905,12 @@ ObjectDriver.prototype._init_blocks_cache = function() {
         name: 'BlocksCache',
         max_length: self.READ_CONCURRENCY, // very small, just to handle repeated calls
         expiry_ms: 600000, // 10 minutes
-        make_key: function(params) {
-            return params.block_md.id;
+        make_key: function(block_md) {
+            return block_md.id;
         },
-        load: function(params) {
-            dbg.log1('BlocksCache: load',
-                size_utils.human_offset(params.offset),
-                params.block_md.id);
-            return self._read_block(params.block_md, params.block_size, params.offset);
+        load: function(block_md) {
+            dbg.log1('BlocksCache: load', block_md.id);
+            return self._read_block(block_md);
         }
     });
 
@@ -928,16 +924,11 @@ ObjectDriver.prototype._init_blocks_cache = function() {
  * read a block from the storage node
  *
  */
-ObjectDriver.prototype._read_block = function(block_md, block_size, offset) {
+ObjectDriver.prototype._read_block = function(block_md) {
     var self = this;
-
     // use semaphore to surround the IO
     return self._block_read_sem.surround(function() {
-
-        dbg.log1('read_block', size_utils.human_offset(offset),
-            size_utils.human_size(block_size), block_md.id,
-            'from', block_md.address);
-
+        dbg.log0('read_block', block_md.id, 'from', block_md.address);
         return self.client.agent.read_block({
                 block_md: block_md
             }, {
@@ -945,19 +936,9 @@ ObjectDriver.prototype._read_block = function(block_md, block_size, offset) {
                 timeout: config.read_timeout,
             })
             .then(function(res) {
-                var buffer = res.data;
-                // verify the received buffer length must be full size
-                if (!Buffer.isBuffer(buffer)) {
-                    throw new Error('NOT A BUFFER ' + typeof(buffer));
-                }
-                if (buffer.length !== block_size) {
-                    throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
-                }
-                return buffer;
+                return res.data;
             }, function(err) {
-                console.error('FAILED read_block', size_utils.human_offset(offset),
-                    size_utils.human_size(block_size), block_md.id,
-                    'from', block_md.address);
+                dbg.error('FAILED read_block', block_md.id, 'from', block_md.address);
                 throw err;
             });
     });
@@ -1127,42 +1108,6 @@ function combine_parts_buffers_in_range(parts, start, end) {
         throw new Error('missing parts for data');
     }
     return Buffer.concat(buffers, end - start);
-}
-
-
-/**
- * for now just encode without erasure coding
- */
-function encode_chunk(buffer, kfrag, block_size) {
-    var buffer_per_fragment = [];
-    for (var i = 0, pos = 0; i < kfrag; i++, pos += block_size) {
-        var b = buffer.slice(pos, pos + block_size);
-        if (b.length !== block_size) {
-            var pad = new Buffer(block_size - b.length);
-            pad.fill(0);
-            b = Buffer.concat([b, pad]);
-            if (b.length !== block_size) {
-                throw new Error('incorrect padding');
-            }
-        }
-        buffer_per_fragment[i] = b;
-    }
-    return buffer_per_fragment;
-}
-
-
-/**
- * for now just decode without erasure coding
- */
-function decode_chunk(part, buffer_per_fragment) {
-    var buffers = [];
-    for (var i = 0; i < part.kfrag; i++) {
-        buffers[i] = buffer_per_fragment[i];
-        if (!buffers[i]) {
-            throw new Error('DECODE FAILED MISSING BLOCK ' + i);
-        }
-    }
-    return Buffer.concat(buffers, part.chunk_size);
 }
 
 function get_frag_key(f) {

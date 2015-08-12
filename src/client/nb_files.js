@@ -13,8 +13,8 @@ var streams = require('stream');
 
 
 nb_api.factory('nbFiles', [
-    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope', 'nbClient','$location','nbSystem',
-    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope, nbClient,$location,nbSystem) {
+    '$http', '$q', '$window', '$timeout', '$sce', 'nbAlertify', '$rootScope', 'nbClient', '$location', 'nbSystem',
+    function($http, $q, $window, $timeout, $sce, nbAlertify, $rootScope, nbClient, $location, nbSystem) {
         var $scope = {};
 
         $scope.list_files = list_files;
@@ -62,7 +62,7 @@ nb_api.factory('nbFiles', [
 
         //update access keys.
         //TODO: find more secured approach
-        function set_access_keys(access_keys,web_port,ssl_port) {
+        function set_access_keys(access_keys, web_port, ssl_port) {
             $scope.web_port = web_port;
             $scope.ssl_port = ssl_port;
             if (!_.isEmpty(access_keys)) {
@@ -71,7 +71,7 @@ nb_api.factory('nbFiles', [
                     secretAccessKey: access_keys[0].secret_key,
                     sslEnabled: false
                 });
-                console.log('updated keys', access_keys[0].access_key,$location);
+                console.log('updated keys', access_keys[0].access_key, $location);
             }
             /*
             //TODO: move to ssl. disable certificate validation.
@@ -91,13 +91,13 @@ nb_api.factory('nbFiles', [
             // var https_endpoint = 'https://127.0.0.1' +
             //     (rest_ssl_port ? ':' + rest_ssl_port : '')+'/s3';
             //var rest_host = ($window.location.host).replace(':'+web_port,'').replace(':'+ssl_port,':443');
-            var rest_host = ($window.location.host).replace(':'+web_port,'').replace(':'+ssl_port,'');
+            var rest_host = ($window.location.host).replace(':' + web_port, '').replace(':' + ssl_port, '');
 
-            console.log('SYS1:'+web_port+' host:'+rest_host);
+            console.log('SYS1:' + web_port + ' host:' + rest_host);
 
-            var rest_endpoint = $window.location.protocol+'//' +rest_host;
-            rest_endpoint = rest_endpoint.replace('https','http');
-            console.log('win:',$window.location,":",rest_endpoint);
+            var rest_endpoint = $window.location.protocol + '//' + rest_host;
+            rest_endpoint = rest_endpoint.replace('https', 'http');
+            console.log('win:', $window.location, ":", rest_endpoint);
             $scope.s3 = new AWS.S3({
                 // endpoint: $window.location.protocol === 'https:' ?
                 //     https_endpoint : http_endpoint,
@@ -128,7 +128,7 @@ nb_api.factory('nbFiles', [
                     return nbClient.client.object_driver_lazy().get_object_md(params, cache_miss);
                 })
                 .then(function(res) {
-                    console.log('FILE', res,params.key);
+                    console.log('FILE', res, params.key);
                     var file_info = make_file_info({
                         key: params.key,
                         info: res
@@ -138,9 +138,9 @@ nb_api.factory('nbFiles', [
                         Bucket: params.bucket,
                         Key: params.key
                     });
-                    url = url.replace(':'+$scope.web_port,'').replace(':'+$scope.ssl_port,':443');
+                    url = url.replace(':' + $scope.web_port, '').replace(':' + $scope.ssl_port, ':443');
 
-                    console.log('urlll:',url);
+                    console.log('urlll:', url);
                     file_info.url = url;
                     return file_info;
                 });
@@ -263,7 +263,7 @@ nb_api.factory('nbFiles', [
                         ContentType: tx.content_type
                     }, function(err, data) {
                         if (err) {
-                            console.error('upload failed (s3)', err,err.stack);
+                            console.error('upload failed (s3)', err, err.stack);
                             _.pull($scope.transfers, tx);
                             tx.error = err;
                             tx.running = false;

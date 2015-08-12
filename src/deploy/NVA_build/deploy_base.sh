@@ -19,8 +19,8 @@ function deploy_log {
 function build_node {
 	deploy_log "build_node start"
 	yum -y groupinstall "Development Tools"
-
-	#Install Node.js / NPM
+`	export PATH=$PATH:/usr/local/bin
+`	#Install Node.js / NPM
 	cd /usr/src
 	curl ${NODE_DL} > node-v0.10.33.tar.gz || true
 	tar zxf node-v0.10.33.tar.gz
@@ -122,7 +122,7 @@ function setup_makensis {
 function install_mongo {
 	deploy_log "install_mongo start"
 	# create a Mongo 2.4 Repo file
-	cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-2.4.repo
+		cp -f ${CORE_DIR}/src/deploy/NVA_build/mongo.repo /etc/yum.repos.d/mongodb-org-2.4.repo
 
 	# install the needed RPM
 	yum install -y mongo-10gen.x86_64 mongo-10gen-server.x86_64

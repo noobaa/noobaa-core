@@ -635,6 +635,15 @@ module.exports = {
                 digest_b64: {
                     type: 'string'
                 },
+                adminfo: {
+                    type: 'object',
+                    required: ['health'],
+                    properties: {
+                        health: {
+                            type: 'string'
+                        }
+                    }
+                },
                 blocks: {
                     type: 'array',
                     items: {

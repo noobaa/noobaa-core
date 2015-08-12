@@ -12,7 +12,7 @@ NAN_MODULE_INIT(ThreadPool::setup)
     Nan::SetAccessor(tpl->InstanceTemplate(), NAN_STR("nthreads"), &nthreads_getter, &nthreads_setter);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
     _ctor.Reset(tpl->GetFunction());
-    Nan::Set(target, NAN_STR(name), func);
+    NAN_SET(target, name, func);
 }
 
 NAN_METHOD(ThreadPool::new_instance)

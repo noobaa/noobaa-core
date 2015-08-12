@@ -205,11 +205,11 @@ function read_object_mappings(req) {
                 'end',
                 'skip',
                 'limit',
-                'details');
+                'adminfo');
             params.obj = obj;
-            // allow details only to admin!
-            if (params.details && req.role !== 'admin') {
-                params.details = false;
+            // allow adminfo only to admin!
+            if (params.adminfo && req.role !== 'admin') {
+                params.adminfo = false;
             }
             return object_mapper.read_object_mappings(params);
         })

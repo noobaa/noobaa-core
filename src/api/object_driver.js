@@ -170,13 +170,13 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                     .then(function(chunk) {
                         var part = {
                             start: start + stream.offset,
-                            end: start + stream.offset + chunk.length,
+                            end: start + stream.offset + chunk.size,
                             upload_part_number: upload_part_number,
                             part_sequence_number: part_sequence_number,
                             chunk: chunk,
                         };
                         ++part_sequence_number;
-                        stream.offset += chunk.length;
+                        stream.offset += chunk.size;
                         return part;
                     });
             },
@@ -212,11 +212,11 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                                 'upload_part_number',
                                 'part_sequence_number');
                             p.chunk = _.pick(part.chunk,
+                                'size',
                                 'digest_type',
                                 'cipher_type',
                                 'data_frags',
                                 'lrc_frags');
-                            p.chunk.size = part.chunk.length;
                             if (part.chunk.digest_buf) {
                                 p.chunk.digest_b64 = part.chunk.digest_buf.toString('base64');
                             }
@@ -360,7 +360,8 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
     }
 
     var frags_map = _.indexBy(part.encoded_frags, get_frag_key);
-    dbg.log0('_write_fragments', range_utils.human_range(part), part);
+    dbg.log0('_write_fragments', range_utils.human_range(part));
+    dbg.log2('_write_fragments part', part);
 
     return Q.all(_.map(part.frags, function(fragment) {
         var frag_key = get_frag_key(fragment);
@@ -528,9 +529,9 @@ ObjectDriver.prototype.read_entire_object = function(params) {
     return Q.Promise(function(resolve, reject) {
         var buffers = [];
         self.open_read_stream(params)
-            .on('data', function(chunk) {
-                console.log('read data', chunk.length);
-                buffers.push(chunk);
+            .on('data', function(buffer) {
+                console.log('read data', buffer.length);
+                buffers.push(buffer);
             })
             .once('end', function() {
                 var read_buf = Buffer.concat(buffers);
@@ -827,6 +828,7 @@ ObjectDriver.prototype._read_object_part = function(part) {
         }))
         .then(function() {
             var chunk = _.pick(part.chunk,
+                'size',
                 'digest_type',
                 'cipher_type',
                 'data_frags',
@@ -844,7 +846,8 @@ ObjectDriver.prototype._read_object_part = function(part) {
                 chunk.cipher_auth_tag = new Buffer(part.chunk.cipher_auth_tag_b64, 'base64');
             }
             chunk.frags = _.map(part.frags, function(fragment) {
-                var f = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size', 'digest_type');
+                var f = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size', 'digest_type', 'block');
+                f.layer_n = f.layer_n || 0;
                 if (fragment.digest_b64) {
                     f.digest_buf = new Buffer(fragment.digest_b64, 'base64');
                 }
@@ -857,16 +860,10 @@ ObjectDriver.prototype._read_object_part = function(part) {
                 data_frags: chunk.data_frags,
                 lrc_frags: chunk.lrc_frags,
             });
-            dbg.log2('decode chunk', part);
+            dbg.log2('GGG decode chunk', chunk);
             return Q.ninvoke(decoder, 'decode', chunk);
-        }).then(function(buffer) {
-            if (part.chunk_offset) {
-                part.buffer = buffer.slice(
-                    part.chunk_offset,
-                    part.chunk_offset + part.end - part.start);
-            } else {
-                part.buffer = buffer;
-            }
+        }).then(function(decoded_chunk) {
+            part.buffer = decoded_chunk.data;
             return part;
         });
 };
@@ -1095,7 +1092,10 @@ function combine_parts_buffers_in_range(parts, start, end) {
         if (!part_range) {
             return;
         }
-        var offset = part.chunk_offset + part_range.start - part.start;
+        var offset = part_range.start - part.start;
+        if (part.chunk_offset) {
+            offset += part.chunk_offset;
+        }
         pos = part_range.end;
         return part.buffer.slice(offset, pos);
     }));

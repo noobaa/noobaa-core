@@ -55,7 +55,7 @@ function test_ingest() {
         } catch (err) {
             console.error(err.stack || err);
         }
-        process.exit();
+        process.abort();
     };
 
     process.on('SIGTERM', fin_exit);
@@ -106,8 +106,8 @@ function test_ingest() {
             },
             transform: function(chunk) {
                 // console.log(chunk);
-                return chunk;
-                // return Q.ninvoke(object_coding, 'decode', chunk);
+                // return chunk;
+                return Q.ninvoke(object_coding, 'decode', chunk);
             },
         }));
 
@@ -149,7 +149,7 @@ function test_ingest() {
         },
         transform: function(chunk) {
             // console.log('done', chunk);
-            progress(chunk.length);
+            progress(chunk.size || chunk.length || 0);
         },
     }));
 

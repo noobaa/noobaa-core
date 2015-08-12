@@ -11,7 +11,7 @@ NAN_MODULE_INIT(Nudp::setup)
     Nan::SetPrototypeMethod(tpl, "send", Nudp::send);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
     _ctor.Reset(func);
-    Nan::Set(target, NAN_STR(name), func);
+    NAN_SET(target, name, func);
 }
 
 NAN_METHOD(Nudp::new_instance)

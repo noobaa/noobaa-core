@@ -14,7 +14,7 @@ NAN_MODULE_INIT(DedupChunker::setup)
     Nan::SetPrototypeMethod(tpl, "flush", DedupChunker::flush);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
     _ctor.Reset(tpl->GetFunction());
-    Nan::Set(target, NAN_STR(name), func);
+    NAN_SET(target, name, func);
 }
 
 NAN_METHOD(DedupChunker::new_instance)
@@ -83,9 +83,9 @@ public:
         , _callback(callback)
         , _buf(node::Buffer::Data(buf_handle), node::Buffer::Length(buf_handle))
     {
-        auto persistent = Nan::New<v8::Object>();
-        Nan::Set(persistent, 0, chunker_handle);
-        Nan::Set(persistent, 1, buf_handle);
+        auto persistent = NAN_NEW_OBJ();
+        NAN_SET(persistent, 0, chunker_handle);
+        NAN_SET(persistent, 1, buf_handle);
         _persistent.Reset(persistent);
     }
 
@@ -97,8 +97,8 @@ public:
         : _chunker(chunker)
         , _callback(callback)
     {
-        auto persistent = Nan::New<v8::Object>();
-        Nan::Set(persistent, 0, chunker_handle);
+        auto persistent = NAN_NEW_OBJ();
+        NAN_SET(persistent, 0, chunker_handle);
         _persistent.Reset(persistent);
     }
 
@@ -163,7 +163,7 @@ public:
     {
         Nan::HandleScope scope;
         int len = _chunks.size();
-        v8::Local<v8::Array> arr(Nan::New<v8::Array>());
+        auto arr = NAN_NEW_ARR(len);
         for (int i=0; i<len; ++i) {
             Buf chunk = _chunks.front();
             _chunks.pop_front();
@@ -172,9 +172,7 @@ public:
             // which is safe since we know that it was constructed in process_chunk
             // and is not sliced (otherwise delete would be unaligned),
             // and uniquely pointed here.
-            assert(chunk.unique_alloc());
-            arr->Set(i, Nan::NewBuffer(chunk.cdata(), chunk.length()).ToLocalChecked());
-            chunk.detach_alloc();
+            NAN_SET_BUF_DETACH(arr, i, chunk);
         }
         v8::Local<v8::Value> argv[] = { Nan::Undefined(), arr };
         _callback->Call(2, argv);

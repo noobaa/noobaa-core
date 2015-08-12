@@ -14,7 +14,7 @@ NAN_MODULE_INIT(ObjectCoding::setup)
     Nan::SetPrototypeMethod(tpl, "decode", ObjectCoding::decode);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
     _ctor.Reset(tpl->GetFunction());
-    Nan::Set(target, NAN_STR(name), func);
+    NAN_SET(target, name, func);
 }
 
 NAN_METHOD(ObjectCoding::new_instance)
@@ -39,10 +39,10 @@ NAN_METHOD(ObjectCoding::new_instance)
     if (c._frag_digest_type == "undefined") {
         c._frag_digest_type = "";
     }
-    c._data_frags = NAN_GET(self, "data_frags")->Int32Value();
-    c._parity_frags = NAN_GET(self, "parity_frags")->Int32Value();
-    c._lrc_frags = NAN_GET(self, "lrc_frags")->Int32Value();
-    c._lrc_parity = NAN_GET(self, "lrc_parity")->Int32Value();
+    c._data_frags = NAN_GET_INT(self, "data_frags");
+    c._parity_frags = NAN_GET_INT(self, "parity_frags");
+    c._lrc_frags = NAN_GET_INT(self, "lrc_frags");
+    c._lrc_parity = NAN_GET_INT(self, "lrc_parity");
     std::cout << "ObjectCoding::new_instance "
               << DVAL(c._digest_type)
               << DVAL(c._cipher_type)
@@ -94,9 +94,9 @@ public:
     {
         // create a persistent object with references to the handles
         // that we need to keep alive during this job
-        auto persistent = Nan::New<v8::Object>();
-        Nan::Set(persistent, 0, object_coding_handle);
-        Nan::Set(persistent, 1, buf_handle);
+        auto persistent = NAN_NEW_OBJ();
+        NAN_SET(persistent, 0, object_coding_handle);
+        NAN_SET(persistent, 1, buf_handle);
         _persistent.Reset(persistent);
     }
 
@@ -145,7 +145,9 @@ public:
             f.layer_n = 0;
             f.frag = i;
         }
+
         // TODO this is not erasure code, it's just XOR of all blocks to test performance
+
         for (int i=0; i<parity_frags; ++i) {
             Buf parity(block_len, 0);
             uint8_t* target = parity.data();
@@ -192,31 +194,27 @@ public:
     virtual void after_work() override
     {
         Nan::HandleScope scope;
-        v8::Local<v8::Object> obj(Nan::New<v8::Object>());
-        Nan::Set(obj, NAN_STR("length"), Nan::New(_chunk.length()));
-        Nan::Set(obj, NAN_STR("digest_type"), NAN_STR(_coding._digest_type));
-        Nan::Set(obj, NAN_STR("digest_buf"), Nan::CopyBuffer(
-                     _digest.cdata(), _digest.length()).ToLocalChecked());
-        Nan::Set(obj, NAN_STR("cipher_type"), NAN_STR(_coding._cipher_type));
-        Nan::Set(obj, NAN_STR("cipher_key"), Nan::CopyBuffer(
-                     _secret.cdata(), _secret.length()).ToLocalChecked());
-        Nan::Set(obj, NAN_STR("data_frags"), Nan::New(_coding._data_frags));
-        Nan::Set(obj, NAN_STR("lrc_frags"), Nan::New(_coding._lrc_frags));
-        v8::Local<v8::Array> frags(Nan::New<v8::Array>(_frags.size()));
+        auto obj = NAN_NEW_OBJ();
+        NAN_SET_INT(obj, "size", _chunk.length());
+        NAN_SET_STR(obj, "digest_type", _coding._digest_type);
+        NAN_SET_BUF_COPY(obj, "digest_buf", _digest);
+        NAN_SET_STR(obj, "cipher_type", _coding._cipher_type);
+        NAN_SET_BUF_COPY(obj, "cipher_key", _secret);
+        NAN_SET_INT(obj, "data_frags", _coding._data_frags);
+        NAN_SET_INT(obj, "lrc_frags", _coding._lrc_frags);
+        auto frags = NAN_NEW_ARR(_frags.size());
         for (size_t i=0; i<_frags.size(); ++i) {
             Fragment& f = _frags[i];
-            v8::Local<v8::Object> frag_obj(Nan::New<v8::Object>());
-            Nan::Set(frag_obj, NAN_STR("layer"), NAN_STR(f.layer));
-            Nan::Set(frag_obj, NAN_STR("layer_n"), Nan::New(f.layer_n));
-            Nan::Set(frag_obj, NAN_STR("frag"), Nan::New(f.frag));
-            Nan::Set(frag_obj, NAN_STR("digest_type"), NAN_STR(f.digest_type));
-            Nan::Set(frag_obj, NAN_STR("digest_buf"), Nan::CopyBuffer(
-                         f.digest_buf.cdata(), f.digest_buf.length()).ToLocalChecked());
-            Nan::Set(frag_obj, NAN_STR("block"), Nan::CopyBuffer(
-                         f.block.cdata(), f.block.length()).ToLocalChecked());
-            frags->Set(i, frag_obj);
+            auto frag_obj = NAN_NEW_OBJ();
+            NAN_SET_STR(frag_obj, "layer", f.layer);
+            NAN_SET_INT(frag_obj, "layer_n", f.layer_n);
+            NAN_SET_INT(frag_obj, "frag", f.frag);
+            NAN_SET_STR(frag_obj, "digest_type", f.digest_type);
+            NAN_SET_BUF_COPY(frag_obj, "digest_buf", f.digest_buf);
+            NAN_SET_BUF_COPY(frag_obj, "block", f.block);
+            NAN_SET(frags, i, frag_obj);
         }
-        Nan::Set(obj, NAN_STR("frags"), frags);
+        NAN_SET(obj, "frags", frags);
         v8::Local<v8::Value> argv[] = { Nan::Undefined(), obj };
         _callback->Call(2, argv);
         delete this;
@@ -245,6 +243,8 @@ private:
     int _length;
     int _data_frags;
     std::vector<Fragment> _frags;
+    std::deque<Buf> _bad_frags_digests;
+    Buf _bad_chunk_digest;
 public:
     explicit DecodeWorker(
         ObjectCoding& coding,
@@ -254,9 +254,9 @@ public:
         : _coding(coding)
         , _callback(callback)
     {
-        auto persistent = Nan::New<v8::Object>();
-        Nan::Set(persistent, 0, object_coding_handle);
-        Nan::Set(persistent, 1, chunk);
+        auto persistent = NAN_NEW_OBJ();
+        NAN_SET(persistent, 0, object_coding_handle);
+        NAN_SET(persistent, 1, chunk);
         _persistent.Reset(persistent);
 
         // converting from v8 structures to native to be accessible during run()
@@ -264,23 +264,22 @@ public:
         // to be created/dereferenced/destroyed from other threads.
 
         _digest_type = NAN_GET_STR(chunk, "digest_type");
-        _digest = Buf(NAN_GET_STR(chunk, "digest_buf"));
+        _digest = NAN_GET_BUF(chunk, "digest_buf");
         _cipher_type = NAN_GET_STR(chunk, "cipher_type");
-        _secret = Buf(NAN_GET_STR(chunk, "secret"));
-        _length = chunk->Get(NAN_STR("length"))->Int32Value();
-        _data_frags = chunk->Get(NAN_STR("data_frags"))->Int32Value();
-        v8::Local<v8::Array> frags = chunk->Get(NAN_STR("frags")).As<v8::Array>();
+        _secret = NAN_GET_BUF(chunk, "cipher_key");
+        _length = NAN_GET_INT(chunk, "size");
+        _data_frags = NAN_GET_INT(chunk, "data_frags");
+        auto frags = NAN_GET_ARR(chunk, "frags");
         _frags.resize(frags->Length());
         for (size_t i=0; i<_frags.size(); ++i) {
             Fragment& f = _frags[i];
-            v8::Local<v8::Object> frag = frags->Get(i)->ToObject();
-            v8::Local<v8::Object> block = frag->Get(NAN_STR("block"))->ToObject();
+            auto frag = NAN_GET_OBJ(frags, i);
             f.layer = NAN_GET_STR(frag, "layer");
-            f.layer_n = frag->Get(NAN_STR("layer_n"))->Int32Value();
-            f.frag = frag->Get(NAN_STR("frag"))->Int32Value();
+            f.layer_n = NAN_GET_INT(frag, "layer_n");
+            f.frag = NAN_GET_INT(frag, "frag");
             f.digest_type = NAN_GET_STR(frag, "digest_type");
-            f.digest_buf = Buf(NAN_GET_STR(frag, "digest_buf"));
-            f.block = Buf(node::Buffer::Data(block), node::Buffer::Length(block));
+            f.digest_buf = NAN_GET_BUF(frag, "digest_buf");
+            f.block = NAN_GET_BUF(frag, "block");
         }
     }
 
@@ -296,20 +295,25 @@ public:
             Fragment& f = _frags[i];
             if (!f.digest_type.empty()) {
                 Buf digest_buf = Crypto::digest(f.block, f.digest_type.c_str());
+                // std::cout << digest_buf.length() << " " << digest_buf.hex() << std::endl;
+                // std::cout << f.digest_buf.length() << " " << f.digest_buf.hex() << std::endl;
                 if (!digest_buf.same(f.digest_buf)) {
-                    PANIC("fragment " << i << " digest mismatch " << digest_buf.hex() << " " << f.digest_buf.hex());
+                    _bad_frags_digests.resize(i+1);
+                    _bad_frags_digests[i] = digest_buf;
                 }
             }
         }
+        if (!_bad_frags_digests.empty()) {
+            return;
+        }
 
         // REBUILD ERASURE CODE DATA FROM FRAGMENTS
-        std::vector<Buf> data_blocks(_data_frags);
-        for (size_t i=0; i<data_blocks.size(); ++i) {
-            data_blocks[i] = _frags[i].block;
-            // std::cout << DVAL(data_blocks[i].length()) << std::endl;
+        std::vector<Buf> data_bufs(_data_frags);
+        for (size_t i=0; i<data_bufs.size(); ++i) {
+            data_bufs[i] = _frags[i].block;
+            // std::cout << DVAL(data_bufs[i].length()) << std::endl;
         }
-        const int encrypted_len = data_blocks[0].length() * _data_frags;
-        Buf encrypted(encrypted_len, data_blocks.begin(), data_blocks.end());
+        Buf encrypted(_length, data_bufs.begin(), data_bufs.end());
 
         // DECRYPT DATA
         if (!_cipher_type.empty()) {
@@ -324,7 +328,7 @@ public:
         if (!_digest_type.empty()) {
             Buf digest = Crypto::digest(_chunk, _digest_type.c_str());
             if (!digest.same(_digest)) {
-                PANIC("digest mismatch " << digest.hex() << " " << _digest.hex());
+                _bad_chunk_digest = digest;
             }
         }
     }
@@ -332,13 +336,31 @@ public:
     virtual void after_work() override
     {
         Nan::HandleScope scope;
-        v8::Local<v8::Object> persistent = Nan::New(_persistent);
-        v8::Local<v8::Object> chunk = Nan::To<v8::Object>(Nan::Get(persistent, 1).ToLocalChecked()).ToLocalChecked();
-        assert(_chunk.unique_alloc());
-        Nan::Set(chunk, NAN_STR("data"), Nan::NewBuffer(_chunk.cdata(), _chunk.length()).ToLocalChecked());
-        _chunk.detach_alloc();
-        v8::Local<v8::Value> argv[] = { Nan::Undefined(), chunk };
-        _callback->Call(2, argv);
+        if (!_bad_frags_digests.empty()) {
+            int len = _bad_frags_digests.size();
+            auto err = NAN_ERR("FRAGS DIGEST MISMATCH");
+            auto bad_frags_digests = NAN_NEW_ARR(len);
+            NAN_SET(err, "bad_frags_digests", bad_frags_digests);
+            for (int i=0; i<len; ++i) {
+                Buf& digest = _bad_frags_digests[i];
+                if (digest.length()) {
+                    NAN_SET_BUF_COPY(bad_frags_digests, i, digest);
+                }
+            }
+            v8::Local<v8::Value> argv[] = { err };
+            _callback->Call(1, argv);
+        } else if (_bad_chunk_digest.length()) {
+            auto err = NAN_ERR("CHUNK DIGEST MISMATCH");
+            NAN_SET_BUF_COPY(err, "bad_chunk_digest", _bad_chunk_digest);
+            v8::Local<v8::Value> argv[] = { err };
+            _callback->Call(1, argv);
+        } else {
+            auto persistent = Nan::New(_persistent);
+            auto chunk = NAN_GET_OBJ(persistent, 1);
+            NAN_SET_BUF_DETACH(chunk, "data", _chunk);
+            v8::Local<v8::Value> argv[] = { Nan::Undefined(), chunk };
+            _callback->Call(2, argv);
+        }
         delete this;
     }
 

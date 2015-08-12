@@ -164,12 +164,12 @@ describe('object', function() {
                     return client.object.read_object_mappings({
                         bucket: BKT,
                         key: key,
-                        details: true
+                        adminfo: true
                     }).then(function(res) {
                         _.each(res.parts, function(part) {
                             var blocks = _.flatten(_.map(part.fragments, 'blocks'));
                             var blocks_per_node = _.groupBy(blocks, function(block) {
-                                return block.details.node_name;
+                                return block.adminfo.node_name;
                             });
                             console.log('VERIFY MAPPING UNIQUE ON NODE', blocks_per_node);
                             _.each(blocks_per_node, function(blocks, node_name) {
@@ -252,9 +252,9 @@ describe('object', function() {
                     });
                 })
                 .then(function(read_buf) {
-                    assert.strictEqual(data.length, read_buf.length);
+                    assert.strictEqual(data.length, read_buf.length, "mismatch data length");
                     for (var i = 0; i < data.length; i++) {
-                        assert.strictEqual(data[i], read_buf[i]);
+                        assert.strictEqual(data[i], read_buf[i], "mismatch data at offset " + i);
                     }
                 })
                 .nodeify(done);

@@ -192,17 +192,22 @@ function allocate_object_parts(bucket, obj, parts) {
             });
             _.each(parts, function(part, i) {
                 var reply_part = reply.parts[i];
-                dbg.log0('GGG', part, blocks_by_chunk);
+                dbg.log2('GGG', part, blocks_by_chunk);
                 if (reply_part.dedup) return;
                 var new_blocks_of_chunk = blocks_by_chunk[part.db_part.chunk._id];
                 _.each(new_blocks_of_chunk, function(block) {
                     // TODO allocate fragment info for each block
                     var fragment = part.frags[0];
+                    block.layer = fragment.layer;
+                    block.frag = fragment.frag;
+                    if (fragment.layer_n) {
+                        block.layer_n = fragment.layer_n;
+                    }
                     block.digest_type = fragment.digest_type;
                     block.digest_b64 = fragment.digest_b64;
                 });
                 var chunk = new_blocks_of_chunk[0].chunk;
-                dbg.log0('allocate_object_parts: part info', part,
+                dbg.log2('allocate_object_parts: part info', part,
                     'chunk', chunk,
                     'blocks', new_blocks_of_chunk);
                 reply_part.part = get_part_info({
@@ -212,8 +217,8 @@ function allocate_object_parts(bucket, obj, parts) {
                     building: true
                 });
             });
-            dbg.log0('allocate_object_parts: db create blocks', new_blocks);
-            dbg.log0('allocate_object_parts: db create chunks', new_chunks);
+            dbg.log2('allocate_object_parts: db create blocks', new_blocks);
+            dbg.log2('allocate_object_parts: db create chunks', new_chunks);
             // we send blocks and chunks to DB in parallel,
             // even if we fail, it will be ignored until someday we reclaim it
             return Q.all([
@@ -976,7 +981,7 @@ function build_chunks(chunks) {
 
             if (!new_blocks || !new_blocks.length) return;
             new_blocks = _.compact(_.flatten(new_blocks));
-            dbg.log0('build_chunks: creating blocks', new_blocks);
+            dbg.log2('build_chunks: creating blocks', new_blocks);
             return db.DataBlock.create(new_blocks);
 
         })
@@ -1261,7 +1266,7 @@ var LONG_BUILD_THRESHOLD = 300000;
 function analyze_chunk_status(chunk, all_blocks) {
     var now = Date.now();
     var blocks_by_frag_key = _.groupBy(all_blocks, get_frag_key);
-    dbg.log0('GGG analyze_chunk_status', chunk, all_blocks, blocks_by_frag_key);
+    dbg.log2('GGG analyze_chunk_status', chunk, all_blocks, blocks_by_frag_key);
     var blocks_info_to_allocate;
     var blocks_to_remove;
     var chunk_health = 'available';
@@ -1404,7 +1409,33 @@ function array_push_all(array, items) {
 
 function get_part_info(params) {
     var chunk_status = analyze_chunk_status(params.chunk, params.blocks);
-    var p = _.pick(params.part, 'start', 'end', 'chunk_offset');
+    var p = _.pick(params.part, 'start', 'end');
+
+    p.chunk = _.pick(params.chunk,
+        'size',
+        'digest_type',
+        'digest_b64',
+        'cipher_type',
+        'cipher_key_b64',
+        'cipher_iv_b64',
+        'cipher_auth_tag_b64',
+        'data_frags',
+        'lrc_frags');
+    if (params.adminfo) {
+        p.chunk.adminfo = {
+            health: chunk_status.chunk_health
+        };
+    }
+    p.part_sequence_number = params.part.part_sequence_number;
+    if (params.upload_part_number) {
+        p.upload_part_number = params.upload_part_number;
+    }
+    if (params.set_obj) {
+        p.obj = params.part.obj;
+    }
+    if (params.part.chunk_offset) {
+        p.chunk_offset = params.part.chunk_offset;
+    }
 
     p.frags = _.map(chunk_status.frags, function(fragment) {
         var blocks = params.building && fragment.building_blocks ||
@@ -1454,24 +1485,7 @@ function get_part_info(params) {
         return part_fragment;
     });
 
-    p.chunk = _.pick(params.chunk,
-        'size',
-        'digest_type',
-        'digest_b64',
-        'cipher_type',
-        'cipher_key_b64',
-        'cipher_iv_b64',
-        'cipher_auth_tag_b64',
-        'data_frags',
-        'lrc_frags');
-    p.part_sequence_number = params.part.part_sequence_number;
-    if (params.upload_part_number) {
-        p.upload_part_number = params.upload_part_number;
-    }
-    if (params.set_obj) {
-        p.obj = params.part.obj;
-    }
-    dbg.log0('GGG PART', p);
+    dbg.log0('GGG PART', JSON.stringify(p));
     return p;
 }
 

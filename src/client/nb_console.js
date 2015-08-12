@@ -1024,7 +1024,7 @@ nb_console.controller('FileViewCtrl', [
                 key: $routeParams.file_name,
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
-                details: true
+                adminfo: true
             };
             return nbFiles.list_file_parts(params)
                 .then(function(res) {

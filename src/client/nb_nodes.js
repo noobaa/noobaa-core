@@ -87,7 +87,7 @@ nb_api.factory('nbNodes', [
         }
 
         function goto_node_by_block(block) {
-            var path = '/tier/' + block.details.tier_name + '/' + block.details.node_name;
+            var path = '/tier/' + block.adminfo.tier_name + '/' + block.adminfo.node_name;
             console.log('goto', path);
             $location.path(path);
             $location.hash('');

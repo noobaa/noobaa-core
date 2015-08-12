@@ -58,11 +58,53 @@
 
 typedef std::shared_ptr<Nan::Callback> NanCallbackSharedPtr;
 
+template <class T>
+inline v8::Local<T> UnmaybeLocal(v8::Local<T> h) {
+    return h;
+}
+template <class T>
+inline v8::Local<T> UnmaybeLocal(Nan::MaybeLocal<T> h) {
+    return h.ToLocalChecked();
+}
+inline int NanKey(int i) {
+    return i;
+}
+inline v8::Local<v8::Value> NanKey(const char* s) {
+    return Nan::New(s).ToLocalChecked();
+}
+inline v8::Local<v8::Value> NanKey(std::string s) {
+    return Nan::New(s).ToLocalChecked();
+}
+
 #define NAN_STR(str) (Nan::New(str).ToLocalChecked())
-#define NAN_GET(obj, key) (Nan::Get(obj, NAN_STR(key)).ToLocalChecked())
+#define NAN_NEW_OBJ() (Nan::New<v8::Object>())
+#define NAN_NEW_ARR(len) (Nan::New<v8::Array>(len))
+#define NAN_GET(obj, key) (Nan::Get(obj, NanKey(key)).ToLocalChecked())
 #define NAN_UNWRAP_THIS(type) (Unwrap<type>(info.This()))
 #define NAN_GET_UNWRAP(type, obj, key) (Unwrap<type>(Nan::To<v8::Object>(NAN_GET(obj, key)).ToLocalChecked()))
-#define NAN_GET_STR(obj, key) *Nan::Utf8String(Nan::Get(obj, NAN_STR(key)).ToLocalChecked())
+#define NAN_GET_STR(obj, key) *Nan::Utf8String(NAN_GET(obj, key))
+#define NAN_GET_OBJ(obj, key) (NAN_GET(obj, key)->ToObject())
+#define NAN_GET_ARR(obj, key) (NAN_GET(obj, key).As<v8::Array>())
+#define NAN_GET_INT(obj, key) (NAN_GET(obj, key)->Int32Value())
+#define NAN_GET_BUF(obj, key) \
+    ({ \
+        auto node_buf = NAN_GET_OBJ(obj, key); \
+        Buf(node::Buffer::Data(node_buf), node::Buffer::Length(node_buf)); \
+    })
+
+#define NAN_SET(obj, key, val) (Nan::Set(obj, NanKey(key), val))
+#define NAN_SET_STR(obj, key, val) (NAN_SET(obj, key, NAN_STR(val)))
+#define NAN_SET_INT(obj, key, val) (NAN_SET(obj, key, Nan::New(val)))
+#define NAN_SET_BUF_COPY(obj, key, buf) \
+    (NAN_SET(obj, key, Nan::CopyBuffer(buf.cdata(), buf.length()).ToLocalChecked()))
+#define NAN_SET_BUF_DETACH(obj, key, buf) \
+    do { \
+        assert(buf.unique_alloc()); \
+        NAN_SET(obj, key, Nan::NewBuffer(buf.cdata(), buf.length()).ToLocalChecked()); \
+        buf.detach_alloc(); \
+    } while(0)
+
+#define NAN_ERR(msg) (Nan::To<v8::Object>(Nan::Error(msg)).ToLocalChecked())
 #define NAN_RETURN(val) \
     do { \
         info.GetReturnValue().Set(val); \

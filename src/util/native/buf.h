@@ -178,7 +178,7 @@ public:
 
     inline bool same(const Buf& buf) const
     {
-        return (_len == buf._len) && (0 == memcmp(_data, buf._data, _len));
+        return (_len == buf._len) && !memcmp(_data, buf._data, _len);
     }
 
 private:

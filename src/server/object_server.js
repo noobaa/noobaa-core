@@ -175,8 +175,11 @@ function report_bad_block(req) {
                 'end',
                 'fragment',
                 'block_id',
-                'is_write');
+                'is_write',
+                'upload_part_number',
+                'part_sequence_number');
             params.obj = obj;
+            dbg.log0('bad block, pick for mapper',req.rpc_params);
             return object_mapper.report_bad_block(params);
         })
         .then(function(new_block) {

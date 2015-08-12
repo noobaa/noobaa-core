@@ -216,6 +216,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             } else {
                                 part = res.parts[i].part;
                                 part.encrypted_chunk = parts[i].encrypted_chunk;
+                                part.upload_part_number = upload_part_number;
                                 dbg.log0('upload_stream: allocated part', part.start);
                             }
                             stream.push(part);
@@ -329,7 +330,6 @@ ObjectDriver.prototype._write_part_blocks = function(bucket, key, part, part_seq
         dbg.log0('DEDUP', range_utils.human_range(part));
         return part;
     }
-
     dbg.log3('part before', range_utils.human_range(part));
     var block_size = (part.chunk_size / part.kfrag) | 0;
     var buffer_per_fragment = encode_chunk(part.encrypted_chunk, part.kfrag, block_size);
@@ -347,6 +347,7 @@ ObjectDriver.prototype._write_part_blocks = function(bucket, key, part, part_seq
                 block: block,
                 buffer: buffer_per_fragment[fragment_index],
                 remaining_attempts: 20,
+                upload_part_number: part.upload_part_number,
                 part_sequence_number: part_sequence_number,
             });
         }));
@@ -375,10 +376,11 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                 _.extend(_.pick(params, 'bucket', 'key', 'start', 'end', 'fragment'), {
                     block_id: params.block.address.id,
                     is_write: true,
+                    upload_part_number: params.upload_part_number,
                     part_sequence_number: params.part_sequence_number,
                 });
             dbg.log0('write block remaining attempts',
-                params.remaining_attempts, 'offset', size_utils.human_offset(params.offset));
+                params.remaining_attempts, 'offset', size_utils.human_offset(params.offset),' params.upload_part_number',params.upload_part_number,'params.part_sequence_number',params.part_sequence_number);
             return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);

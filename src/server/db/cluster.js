@@ -6,9 +6,9 @@ var Schema = mongoose.Schema;
 
 /**
  *
- * TIER SCHEMA
+ * CLUSTER SCHEMA
  *
- * storage tier - either edge or cloud.
+ * Cluster Definitions and structure
  *
  */
 var tier_schema = new Schema({

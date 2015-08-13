@@ -33,6 +33,9 @@ var object_server = {
     update_object_md: update_object_md,
     delete_object: delete_object,
     list_objects: list_objects,
+
+    //cloud sync
+    list_need_sync: list_need_sync,
 };
 
 module.exports = object_server;
@@ -54,6 +57,7 @@ function create_multipart_upload(req) {
                 size: req.rpc_params.size,
                 content_type: req.rpc_params.content_type || 'application/octet-stream',
                 upload_size: 0,
+                cloud_synced: false,
             };
             return db.ObjectMD.create(info);
         }).thenResolve();
@@ -271,7 +275,8 @@ function delete_object(req) {
             deleted_object = obj;
             dbg.log4('deleting object', obj);
             return obj.update({
-                deleted: new Date()
+                deleted: new Date(),
+                cloud_synced: false
             }).exec();
         })
         .then(function() {
@@ -357,7 +362,33 @@ function list_objects(req) {
 }
 
 
+function list_need_sync(sysid, bucketid) {
+    var res = {
+        deleted: [],
+        added: [],
+    };
 
+    return Q.when(db.ObjectMD
+            .find({
+                system: sysid,
+                bucket: bucketid,
+                cloud_synced: false
+            })
+            .exec())
+        .then(function(need_to_sync) {
+            _.each(need_to_sync, function(obj) {
+                if (need_to_sync.deleted) {
+                    res.deleted.push(obj);
+                } else {
+                    res.added.push(obj);
+                }
+            });
+            return res;
+        })
+        .then(null, function(err) {
+            console.warn('list_need_sync got error', err, err.stack);
+        });
+}
 
 
 // UTILS //////////////////////////////////////////////////////////

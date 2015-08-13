@@ -171,7 +171,7 @@ AgentStore.prototype.write_block = function(block_md, data) {
             // create/replace the block on fs
             return Q.all([
                 Q.nfcall(fs.writeFile, block_path, data),
-                Q.nfcall(fs.writeFile, meta_path, block_md_to_store)
+                Q.nfcall(fs.writeFile, meta_path, JSON.stringify(block_md_to_store))
             ]);
         })
         .then(function() {

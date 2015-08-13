@@ -273,7 +273,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 highWaterMark: 30
             },
             transform: function(part) {
-                return self._write_fragments(params.bucket, params.key, part)
+                return Q.when(self._write_fragments(params.bucket, params.key, part))
                     .thenResolve(part);
             }
         }));

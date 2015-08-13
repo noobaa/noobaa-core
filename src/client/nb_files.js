@@ -160,9 +160,10 @@ nb_api.factory('nbFiles', [
                 })
                 .then(function(res) {
                     _.each(res.parts, function(part) {
-                        var frag_size = part.chunk_size / part.kfrag;
-                        _.each(part.fragments, function(fragment, fragment_index) {
-                            fragment.start = part.start + (frag_size * fragment_index);
+                        // TODO handle parity frags
+                        var frag_size = part.chunk.size / part.chunk.data_frags;
+                        _.each(part.frags, function(fragment) {
+                            fragment.start = part.start + (frag_size * fragment.frag);
                             fragment.size = frag_size;
                         });
                     });

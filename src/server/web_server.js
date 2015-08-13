@@ -162,8 +162,8 @@ function use_exclude(path, middleware) {
 var server_rpc = require('./server_rpc');
 server_rpc.register_http_transport(app);
 // server_rpc.register_n2n_transport();
-var http_port = process.env.PORT || 5001;
-var https_port = process.env.SSL_PORT || 5443;
+var http_port = process.env.PORT = process.env.PORT || 5001;
+var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 

@@ -58,8 +58,14 @@ var objmd_schema = new Schema({
         default: Date.now,
         required: true,
     },
+
     etag: {
         type: String,
+    },
+
+    // is the object synced with the cloud
+    cloud_synced: {
+        type: Boolean,
     },
 
     // on delete set deletion time
@@ -79,6 +85,15 @@ objmd_schema.index({
     deleted: 1, // allow to filter deleted
 }, {
     unique: true
+});
+
+// Index according to cloud_sync
+objmd_schema.index({
+    bucket: 1,
+    cloud_synced: 1,
+    deleted: 1,
+}, {
+    unique: false
 });
 
 

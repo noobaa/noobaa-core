@@ -43,8 +43,8 @@ config.READ_RANGE_CONCURRENCY = 8;
 
 config.REPLICATE_CONCURRENCY = 16;
 
-config.write_timeout = 120 * 1000;
-config.read_timeout = 120 * 1000;
+config.write_timeout = 20 * 1000;
+config.read_timeout = 10 * 1000;
 config.server_finalize_build_timeout = 120 * 1000;
 
 // ~60 seconds overall before give up on this channel

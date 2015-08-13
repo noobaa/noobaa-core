@@ -220,6 +220,9 @@ module.exports = {
                 schedule: {
                     type: 'integer'
                 },
+                paused: {
+                    type: 'boolean',
+                },
             }
         }
 

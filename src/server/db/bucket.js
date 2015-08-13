@@ -65,6 +65,11 @@ var bucket_schema = new Schema({
             type: Number
         },
 
+        // Paused cloud sync
+        paused: {
+            type: Boolean,
+        },
+
         // Last finished sync
         last_sync: {
             type: Date

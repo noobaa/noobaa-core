@@ -145,14 +145,11 @@ nb_api.factory('nbClient', [
         }
 
         function collect_debug() {
-            var link;
             return $q.when($scope.client.system.start_debug({}))
                 .then(function() {
                     nbAlertify.success('Collecting Debug Information');
                 })
-                .then(function() {
-                    $window.document.body.removeChild(link);
-                });
+                .then(function() {});
         }
 
         function register() {
@@ -453,7 +450,7 @@ nb_api.factory('nbSystem', [
                                     break;
                                 case 'account.create':
                                     if (!l.account) {
-                                        console.log('filtered event with missing account info', l.event+':::'+JSON.stringify(l));
+                                        console.log('filtered event with missing account info', l.event + ':::' + JSON.stringify(l));
                                         return false;
                                     }
                                     l.category = 'account';

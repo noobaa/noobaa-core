@@ -170,12 +170,7 @@ function finalize_object_parts(req) {
 function report_bad_block(req) {
     return find_object_md(req)
         .then(function(obj) {
-            var params = _.pick(req.rpc_params,
-                'start',
-                'end',
-                'fragment',
-                'block_id',
-                'is_write');
+            var params = req.rpc_params;
             params.obj = obj;
             return object_mapper.report_bad_block(params);
         })

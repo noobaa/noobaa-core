@@ -274,7 +274,6 @@ module.exports = {
                     'key',
                     'start',
                     'end',
-                    'frag',
                     'block_id',
                     'is_write'
                 ],
@@ -291,13 +290,10 @@ module.exports = {
                     end: {
                         type: 'integer',
                     },
-                    layer: {
-                        type: 'string',
-                    },
-                    layer_n: {
+                    upload_part_number: {
                         type: 'integer',
                     },
-                    frag: {
+                    part_sequence_number: {
                         type: 'integer',
                     },
                     block_id: {

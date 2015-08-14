@@ -249,6 +249,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             if (res.parts[i].dedup) {
                                 part = parts[i];
                                 part.dedup = true;
+                                part.frags = null;
                                 dbg.log0('upload_stream: DEDUP part', part.start);
                             } else {
                                 part = res.parts[i].part;
@@ -308,13 +309,11 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                                 'upload_part_number',
                                 'part_sequence_number');
                             if (!part.dedup) {
-                                p.block_ids = _.flatten(
-                                    _.map(part.frags, function(fragment) {
-                                        return _.map(fragment.blocks, function(block) {
-                                            return block.block_md.id;
-                                        });
-                                    })
-                                );
+                                p.block_ids = _.flatten(_.map(part.frags, function(fragment) {
+                                    return _.map(fragment.blocks, function(block) {
+                                        return block.block_md.id;
+                                    });
+                                }));
                             }
                             return p;
                         })
@@ -374,7 +373,6 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
                 start: part.start,
                 end: part.end,
                 part: part,
-                fragment: fragment,
                 block_md: block.block_md,
                 buffer: frags_map[frag_key].block,
                 frag_desc: size_utils.human_offset(part.start) + '-' + frag_key,
@@ -395,7 +393,6 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
  */
 ObjectDriver.prototype._attempt_write_block = function(params) {
     var self = this;
-    var fragment = params.fragment;
     var block_md = params.block_md;
     var frag_desc = params.frag_desc;
     dbg.log3('write block _attempt_write_block', params);
@@ -411,12 +408,9 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                     'key',
                     'start',
                     'end',
-                    'part_sequence_number'),
-                _.pick(fragment,
-                    'layer',
-                    'layer_n',
-                    'frag'), {
-                    block_id: block_md.address.id,
+                    'upload_part_number',
+                    'part_sequence_number'), {
+                    block_id: block_md.id,
                     is_write: true,
                 });
             dbg.log0('write block remaining attempts', params.remaining_attempts, frag_desc);
@@ -425,7 +419,7 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
                     // update the block itself in the part so
                     // that finalize will see this update as well.
-                    block_md.address = res.new_block;
+                    params.block_md = res.new_block;
                     return self._attempt_write_block(params);
                 });
         });
@@ -449,7 +443,7 @@ ObjectDriver.prototype._write_block = function(block_md, buffer, desc) {
             size_utils.human_size(buffer.length), block_md.id,
             'to', block_md.address);
 
-        // if (Math.random() < 0.5) throw new Error('testing error');
+        if (Math.random() < 0.5) throw new Error('testing error');
 
         return self.client.agent.write_block({
             block_md: block_md,

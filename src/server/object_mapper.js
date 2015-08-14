@@ -83,8 +83,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 // Query all blocks of the found dup chunks
                 var query_chunks_ids = _.flatten(_.map(digest_to_dup_chunk, '_id'));
                 return Q.when(
-                        db.DataBlock
-                        .find({
+                        db.DataBlock.find({
                             chunk: {
                                 $in: query_chunks_ids
                             },
@@ -121,12 +120,12 @@ function allocate_object_parts(bucket, obj, parts) {
         .spread(function(digest_to_dup_chunk, existing_obj_parts) {
             _.each(parts, function(part, i) {
                 var dup_chunk = digest_to_dup_chunk[part.chunk.digest_b64];
+                var dup_chunk_status = dup_chunk && analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
                 var chunk;
                 if (dup_chunk) {
                     chunk = dup_chunk;
                     part.dup_chunk = chunk;
                     // Verify chunk health
-                    var dup_chunk_status = analyze_chunk_status(dup_chunk, dup_chunk.all_blocks);
                     if (dup_chunk_status.chunk_health !== 'unavailable') {
                         // Chunk health is ok, we can mark it as dedup
                         dbg.log3('allocate_object_parts: chunk is dupped and available',
@@ -192,7 +191,6 @@ function allocate_object_parts(bucket, obj, parts) {
             });
             _.each(parts, function(part, i) {
                 var reply_part = reply.parts[i];
-                dbg.log2('GGG', part, blocks_by_chunk);
                 if (reply_part.dedup) return;
                 var new_blocks_of_chunk = blocks_by_chunk[part.db_part.chunk._id];
                 _.each(new_blocks_of_chunk, function(block) {
@@ -247,7 +245,7 @@ function allocate_object_parts(bucket, obj, parts) {
  */
 function finalize_object_parts(bucket, obj, parts) {
     var chunks;
-    var block_ids = _.flatten(_.map(parts, 'block_ids'));
+    var block_ids = _.flatten(_.compact(_.map(parts, 'block_ids')));
     var query_parts_params = _.map(parts, function(part) {
         return _.pick(part, 'start', 'end', 'upload_part_number', 'part_sequence_number');
     });
@@ -266,8 +264,7 @@ function finalize_object_parts(bucket, obj, parts) {
 
             // find blocks by list of ids, deleted blocks are handled later
             (block_ids.length ?
-                db.DataBlock
-                .find({
+                db.DataBlock.find({
                     _id: {
                         $in: block_ids
                     },
@@ -811,29 +808,31 @@ function delete_object_mappings(obj) {
 function report_bad_block(params) {
     return Q.all([
             db.DataBlock.findById(params.block_id).exec(),
-            db.ObjectPart.findOne({
+            db.ObjectPart.findOne(_.extend({
                 system: params.obj.system,
                 obj: params.obj.id,
-                start: params.start,
-                end: params.end,
-                upload_part_number: params.upload_part_number,
-                part_sequence_number: params.part_sequence_number,
-            })
+            }, _.pick(params,
+                'start',
+                'end',
+                'upload_part_number',
+                'part_sequence_number')))
             .populate('chunk')
             .exec(),
         ])
         .spread(function(bad_block, part) {
-            if (!part || !part.chunk) {
-                console.error('bad block - invalid part/chunk block:', bad_block, 'part',
-                    part, 'params', params);
-                throw new Error('invalid bad block request no part/chunk');
+            if (!bad_block) {
+                dbg.error('report_bad_block: block not found', params);
+                throw new Error('report_bad_block: block not found');
+            }
+            if (!part) {
+                dbg.error('report_bad_block: part not found', params);
+                throw new Error('report_bad_block: part not found');
             }
             var chunk = part.chunk;
-            if (!bad_block || bad_block.fragment !== params.fragment ||
-                String(bad_block.chunk) !== String(chunk.id)) {
-                console.error('bad block - invalid block', bad_block, 'part', part, 'frag', params.fragment,
-                    'seq', params.part_sequence_number, 'chunk', chunk);
-                throw new Error('invalid bad block request mismatch ');
+            if (!chunk || String(bad_block.chunk) !== String(chunk.id)) {
+                dbg.error('report_bad_block: mismatching chunk for block', bad_block,
+                    'and part', part, 'params', params);
+                throw new Error('report_bad_block: mismatching chunk for block and part');
             }
 
             if (params.is_write) {
@@ -857,7 +856,12 @@ function report_bad_block(params) {
                         if (!new_block) {
                             throw new Error('report_bad_block: no nodes for allocation');
                         }
-                        new_block.fragment = params.fragment;
+                        new_block.layer = bad_block.layer;
+                        new_block.layer_n = bad_block.layer_n;
+                        new_block.frag = bad_block.frag;
+                        new_block.size = bad_block.size;
+                        new_block.digest_type = bad_block.digest_type;
+                        new_block.digest_b64 = bad_block.digest_b64;
                         return db.DataBlock.create(new_block);
                     })
                     .then(function() {
@@ -869,6 +873,7 @@ function report_bad_block(params) {
 
             } else {
                 // TODO mark the block as bad for next reads and decide when to trigger rebuild
+                dbg.log0('report_bad_block: on read. TODO not yet doing anything about it');
             }
 
         });
@@ -906,8 +911,7 @@ function build_chunks(chunks) {
                 // TODO: sort by _id is a hack to make consistent decisions between
                 // different servers or else they might decide to remove different blocks
                 // and leave no good blocks...
-                return db.DataBlock
-                    .find({
+                return db.DataBlock.find({
                         chunk: in_chunk_ids,
                         deleted: null,
                     })
@@ -1001,8 +1005,7 @@ function build_chunks(chunks) {
                         var target = get_block_md(block);
                         var source = get_block_md(block_info_to_allocate.source);
 
-                        dbg.log0('replicating', block._id.toString(), 'from', source.address, 'to',
-                            target.address);
+                        dbg.log0('replicating to', target, 'from', source);
                         return replicate_block_sem.surround(function() {
                             return server_rpc.client.agent.replicate_block({
                                 target: target,
@@ -1266,7 +1269,6 @@ var LONG_BUILD_THRESHOLD = 300000;
 function analyze_chunk_status(chunk, all_blocks) {
     var now = Date.now();
     var blocks_by_frag_key = _.groupBy(all_blocks, get_frag_key);
-    dbg.log2('GGG analyze_chunk_status', chunk, all_blocks, blocks_by_frag_key);
     var blocks_info_to_allocate;
     var blocks_to_remove;
     var chunk_health = 'available';
@@ -1485,7 +1487,6 @@ function get_part_info(params) {
         return part_fragment;
     });
 
-    dbg.log0('GGG PART', JSON.stringify(p));
     return p;
 }
 

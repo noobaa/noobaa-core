@@ -482,7 +482,7 @@ module.exports = function(params) {
                     'signature': req.signature,
                 });
             }).then(function(token) {
-                dbg.log0('Got Token:', token, clients[req.access_key]);
+                dbg.log0('Got Token:', token);
             }).then(null, function(err) {
                 dbg.error('failure while creating new client', err, err.stack);
                 delete clients[req.access_key];

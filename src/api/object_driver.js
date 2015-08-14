@@ -373,7 +373,7 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
                 start: part.start,
                 end: part.end,
                 part: part,
-                block_md: block.block_md,
+                block: block,
                 buffer: frags_map[frag_key].block,
                 frag_desc: size_utils.human_offset(part.start) + '-' + frag_key,
                 remaining_attempts: 20,
@@ -393,10 +393,10 @@ ObjectDriver.prototype._write_fragments = function(bucket, key, part) {
  */
 ObjectDriver.prototype._attempt_write_block = function(params) {
     var self = this;
-    var block_md = params.block_md;
+    var block = params.block;
     var frag_desc = params.frag_desc;
-    dbg.log3('write block _attempt_write_block', params);
-    return self._write_block(block_md, params.buffer, frag_desc)
+    dbg.log3('_attempt_write_block:', params);
+    return self._write_block(block.block_md, params.buffer, frag_desc)
         .then(null, function( /*err*/ ) {
             if (params.remaining_attempts <= 0) {
                 throw new Error('EXHAUSTED WRITE BLOCK', frag_desc);
@@ -410,16 +410,17 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                     'end',
                     'upload_part_number',
                     'part_sequence_number'), {
-                    block_id: block_md.id,
+                    block_id: block.block_md.id,
                     is_write: true,
                 });
-            dbg.log0('write block remaining attempts', params.remaining_attempts, frag_desc);
+            dbg.log0('_attempt_write_block: write failed, report_bad_block.',
+                'remaining attempts', params.remaining_attempts, frag_desc);
             return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
-                    // update the block itself in the part so
+                    // NOTE: we update the block itself in the part so
                     // that finalize will see this update as well.
-                    params.block_md = res.new_block;
+                    block.block_md = res.new_block;
                     return self._attempt_write_block(params);
                 });
         });

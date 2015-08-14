@@ -228,8 +228,10 @@ function allocate_object_parts(bucket, obj, parts) {
             dbg.log2('allocate_object_parts: db create parts', new_parts);
             return db.ObjectPart.create(new_parts);
         })
-        .thenResolve(reply)
-        .then(null, function(err) {
+        .then(function() {
+            dbg.log0('allocate_object_parts: DONE. parts', parts, 'reply', reply);
+            return reply;
+        }, function(err) {
             dbg.error('allocate_object_parts: ERROR', err.stack || err);
             throw err;
         });
@@ -249,7 +251,6 @@ function finalize_object_parts(bucket, obj, parts) {
     var query_parts_params = _.map(parts, function(part) {
         return _.pick(part, 'start', 'end', 'upload_part_number', 'part_sequence_number');
     });
-    dbg.log1('finalize_object_parts', parts);
 
     return Q.all([
 
@@ -268,6 +269,9 @@ function finalize_object_parts(bucket, obj, parts) {
                     _id: {
                         $in: block_ids
                     },
+                    // deleted blocks can occur due to report_bad_block,
+                    // so filter out and leave as trash
+                    deleted: null
                 })
                 .exec() : null
             )
@@ -290,10 +294,6 @@ function finalize_object_parts(bucket, obj, parts) {
             }));
             var chunk_by_id = _.indexBy(chunks, '_id');
             _.each(blocks, function(block) {
-                if (block.deleted) {
-                    // Block was deleted before we finalized the object, race with delete ?
-                    dbg.warn("BUG? during finalize found block marked as deleted ", block);
-                }
                 dbg.log3('going to finalize block ', block);
                 if (!block.building) {
                     dbg.warn("ERROR block not in building mode ", block);
@@ -347,9 +347,10 @@ function finalize_object_parts(bucket, obj, parts) {
                 }).exec());
             }
         })
-        .thenResolve()
-        .then(null, function(err) {
-            dbg.error('error finalize_object_parts ' + err + ' ; ' + err.stack);
+        .then(function() {
+            dbg.log0('finalize_object_parts: DONE. parts', parts);
+        }, function(err) {
+            dbg.error('finalize_object_parts: ERROR', err.stack || err);
             throw err;
         });
 }
@@ -608,8 +609,8 @@ function fix_multipart_parts(obj) {
                 last_upload_part_number = last_stable_part[0].upload_part_number;
                 last_part_sequence_number = last_stable_part[0].part_sequence_number;
             }
-            dbg.log1('complete_multipart_upload: found remaining_parts', remaining_parts);
-            dbg.log1('complete_multipart_upload: found last_stable_part', last_stable_part);
+            dbg.log1('fix_multipart_parts: found remaining_parts', remaining_parts);
+            dbg.log1('fix_multipart_parts: found last_stable_part', last_stable_part);
             var bulk_update = db.ObjectPart.collection.initializeUnorderedBulkOp();
             _.each(remaining_parts, function(part) {
                 var mismatch;
@@ -628,18 +629,18 @@ function fix_multipart_parts(obj) {
                     mismatch = true;
                 }
                 if (mismatch) {
-                    dbg.error('MISMATCH UPLOAD_PART_NUMBER',
+                    dbg.error('fix_multipart_parts: MISMATCH UPLOAD_PART_NUMBER',
                         'last_upload_part_number', last_upload_part_number,
                         'last_part_sequence_number', last_part_sequence_number,
                         'part', part);
-                    throw new Error('MISMATCH UPLOAD_PART_NUMBER');
+                    throw new Error('fix_multipart_parts: MISMATCH UPLOAD_PART_NUMBER');
                 } else if (unneeded) {
                     bulk_update.find({
                         _id: part._id
                     }).removeOne();
                 } else {
                     var current_end = last_end + part.end - part.start;
-                    dbg.log1('complete_multipart_upload: update part range',
+                    dbg.log1('fix_multipart_parts: update part range',
                         last_end, '-', current_end, part);
                     bulk_update.find({
                         _id: part._id
@@ -679,9 +680,9 @@ function agent_delete_call(node, del_blocks) {
             address: block_md.address,
             timeout: 30000,
         }).then(function() {
-            dbg.log0("nodeId ", node, "deleted", del_blocks);
+            dbg.log0('agent_delete_call: DONE. node', node, 'del_blocks', del_blocks);
         }, function(err) {
-            dbg.log0("ERROR deleting blocks", del_blocks, "from nodeId", node);
+            dbg.log0('agent_delete_call: ERROR node', node, 'del_blocks', del_blocks);
         });
     });
 }
@@ -868,12 +869,17 @@ function report_bad_block(params) {
                         return block_allocator.remove_blocks([bad_block]);
                     })
                     .then(function() {
+                        dbg.log0('report_bad_block: DONE. create new_block', new_block,
+                            'params', params);
                         return get_block_md(new_block);
+                    }, function(err) {
+                        dbg.error('report_bad_block: ERROR params', params, err.stack || err);
+                        throw err;
                     });
 
             } else {
                 // TODO mark the block as bad for next reads and decide when to trigger rebuild
-                dbg.log0('report_bad_block: on read. TODO not yet doing anything about it');
+                dbg.log0('report_bad_block: TODO! is_read not yet doing anything');
             }
 
         });
@@ -959,6 +965,9 @@ function build_chunks(chunks) {
                 var avoid_nodes = _.map(chunk_status.all_blocks, function(block) {
                     return block.node._id.toString();
                 });
+                dbg.log0('build_chunks: chunk', _.get(chunk_status, 'chunk._id'),
+                    'all_blocks', _.get(chunk_status, 'all_blocks.length'),
+                    'blocks_info_to_allocate', _.get(chunk_status, 'blocks_info_to_allocate.length'));
                 return promise_utils.iterate(chunk_status.blocks_info_to_allocate,
                     function(block_info_to_allocate) {
                         return block_allocator.allocate_block(block_info_to_allocate.chunk, avoid_nodes)
@@ -1005,7 +1014,7 @@ function build_chunks(chunks) {
                         var target = get_block_md(block);
                         var source = get_block_md(block_info_to_allocate.source);
 
-                        dbg.log0('replicating to', target, 'from', source);
+                        dbg.log0('replicating to', target, 'from', source, 'chunk', chunk_status.chunk);
                         return replicate_block_sem.surround(function() {
                             return server_rpc.client.agent.replicate_block({
                                 target: target,

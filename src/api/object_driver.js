@@ -437,7 +437,10 @@ ObjectDriver.prototype._write_block = function(block_md, buffer, desc) {
             size_utils.human_size(buffer.length), block_md.id,
             'to', block_md.address);
 
-        if (Math.random() < 0.5) throw new Error('testing error');
+        if (process.env.WRITE_BLOCK_ERROR_INJECTON &&
+            process.env.WRITE_BLOCK_ERROR_INJECTON > Math.random()) {
+            throw new Error('WRITE_BLOCK_ERROR_INJECTON');
+        }
 
         return self.client.agent.write_block({
             block_md: block_md,

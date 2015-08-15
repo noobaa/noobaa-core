@@ -7,10 +7,10 @@
 var Q = require('q');
 var fs = require('fs');
 var path = require('path');
-var rabin = require('../util/rabin');
-var Poly = require('../util/poly');
-var size_utils = require('../util/size_utils');
-var RandStream = require('../util/rand_stream');
+var rabin = require('./rabin');
+var Poly = require('./poly');
+var size_utils = require('../src/util/size_utils');
+var RandStream = require('../src/util/rand_stream');
 
 
 describe('rabin', function() {

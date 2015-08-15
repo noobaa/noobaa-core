@@ -6,7 +6,7 @@
 var _ = require('lodash');
 var Q = require('q');
 // var assert = require('assert');
-var Poly = require('../util/poly');
+var Poly = require('./poly');
 
 
 describe('poly', function() {

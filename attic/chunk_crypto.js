@@ -7,7 +7,7 @@ var subtle_crypto = global && global.crypto && global.crypto.subtle;
 if (subtle_crypto) {
     var evp_bytes_to_key = require('browserify-aes/EVP_BytesToKey');
 }
-var buffer_utils = require('../util/buffer_utils');
+var buffer_utils = require('../src/util/buffer_utils');
 
 /**
  *
@@ -73,7 +73,7 @@ function encrypt_chunk(plain_buffer, crypt_info) {
                     var encrypted_buffer = new Buffer(new Uint8Array(encrypted_array));
                     return encrypted_buffer;
                 }).then(null, function(err){
-                    console.error('encrypt_chunk error:'+err);
+                    console.error('encrypt_chunk error:', err);
                 });
         }
 

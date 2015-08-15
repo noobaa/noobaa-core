@@ -114,9 +114,9 @@ function test_ingest() {
     } else {
 
         // for comparison this is the old javascript impl
-        var rabin = require('../util/rabin');
-        var Poly = require('../util/poly');
-        var chunk_crypto = require('../util/chunk_crypto');
+        var rabin = require('../../attic/rabin');
+        var Poly = require('../../attic/poly');
+        var chunk_crypto = require('../../attic/chunk_crypto');
         pipeline.pipe(new rabin.RabinChunkStream({
             window_length: 64,
             min_chunk_size: 3 * 128 * 1024,

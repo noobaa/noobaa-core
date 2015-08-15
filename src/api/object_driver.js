@@ -26,6 +26,16 @@ if (native_util) {
     // encoding/decoding the object chunks in high performance native code.
     var dedup_chunker_tpool = new native_util.ThreadPool(1);
     var object_coding_tpool = new native_util.ThreadPool(1);
+    var object_coding = new native_util.ObjectCoding({
+        tpool: object_coding_tpool,
+        digest_type: 'sha384',
+        cipher_type: 'aes-256-gcm',
+        frag_digest_type: 'sha1',
+        data_frags: 1,
+        parity_frags: 0,
+        lrc_frags: 0,
+        lrc_parity: 0,
+    });
 }
 
 
@@ -155,20 +165,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
             },
             init: function() {
                 this.offset = 0;
-                this.encoder = new native_util.ObjectCoding({
-                    tpool: object_coding_tpool,
-                    digest_type: 'sha384',
-                    cipher_type: 'aes-256-gcm',
-                    frag_digest_type: 'sha1',
-                    data_frags: 1,
-                    parity_frags: 0,
-                    lrc_frags: 0,
-                    lrc_parity: 0,
-                });
             },
             transform: function(data) {
                 var stream = this;
-                return Q.ninvoke(this.encoder, 'encode', data)
+                return Q.ninvoke(object_coding, 'encode', data)
                     .then(function(chunk) {
                         var part = {
                             start: start + stream.offset,
@@ -218,25 +218,18 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                                 'digest_type',
                                 'cipher_type',
                                 'data_frags',
-                                'lrc_frags');
-                            if (part.chunk.digest_buf) {
-                                p.chunk.digest_b64 = part.chunk.digest_buf.toString('base64');
-                            }
-                            if (part.chunk.cipher_key) {
-                                p.chunk.cipher_key_b64 = part.chunk.cipher_key.toString('base64');
-                            }
-                            if (part.chunk.cipher_iv) {
-                                p.chunk.cipher_iv_b64 = part.chunk.cipher_iv.toString('base64');
-                            }
-                            if (part.chunk.cipher_auth_tag) {
-                                p.chunk.cipher_auth_tag_b64 = part.chunk.cipher_auth_tag.toString('base64');
-                            }
+                                'lrc_frags',
+                                'digest_b64',
+                                'cipher_key_b64',
+                                'cipher_iv_b64',
+                                'cipher_auth_tag_b64');
                             p.frags = _.map(part.chunk.frags, function(fragment) {
-                                var f = _.pick(fragment, 'layer', 'layer_n', 'frag', 'digest_type');
-                                if (fragment.digest_buf) {
-                                    f.digest_b64 = fragment.digest_buf.toString('base64');
-                                }
-                                return f;
+                                return _.pick(fragment,
+                                    'layer',
+                                    'layer_n',
+                                    'frag',
+                                    'digest_type',
+                                    'digest_b64');
                             });
                             dbg.log3('upload_stream: allocating specific part ul#', p.upload_part_number, 'seq#', p.part_sequence_number);
                             return p;
@@ -653,7 +646,7 @@ ObjectReader.prototype._read = function(requested_size) {
 ObjectDriver.prototype.read_object = function(params) {
     var self = this;
 
-    dbg.log1('read_object1', range_utils.human_range(params));
+    dbg.log1('read_object: range', range_utils.human_range(params));
 
     if (params.end <= params.start) {
         // empty read range
@@ -670,7 +663,7 @@ ObjectDriver.prototype.read_object = function(params) {
             params.end,
             range_utils.align_up_bitwise(pos + 1, self.OBJECT_RANGE_ALIGN_NBITS)
         );
-        dbg.log2('read_object2', range_utils.human_range(range));
+        dbg.log2('read_object: submit concurrent range', range_utils.human_range(range));
         promises.push(self._object_range_cache.get(range));
         pos = range.end;
     }
@@ -750,7 +743,7 @@ ObjectDriver.prototype._read_object_range = function(params) {
     var self = this;
     var obj_size;
 
-    dbg.log2('_read_object_range', range_utils.human_range(params));
+    dbg.log2('_read_object_range:', range_utils.human_range(params));
 
     return self._object_map_cache.get(params) // get meta data on object range we want to read
         .then(function(mappings) {
@@ -817,7 +810,8 @@ ObjectDriver.prototype._init_object_map_cache = function() {
  */
 ObjectDriver.prototype._read_object_part = function(part) {
     var self = this;
-    dbg.log0('_read_object_part', range_utils.human_range(part));
+    dbg.log0('_read_object_part:', range_utils.human_range(part));
+    // read the data fragments of the chunk
     var frags_by_layer = _.groupBy(part.frags, 'layer');
     var data_frags = frags_by_layer.D;
     return Q.all(_.map(data_frags, function(fragment) {
@@ -829,53 +823,46 @@ ObjectDriver.prototype._read_object_part = function(part) {
                 'digest_type',
                 'cipher_type',
                 'data_frags',
-                'lrc_frags');
-            if (part.chunk.digest_b64) {
-                chunk.digest_buf = new Buffer(part.chunk.digest_b64, 'base64');
-            }
-            if (part.chunk.cipher_key_b64) {
-                chunk.cipher_key = new Buffer(part.chunk.cipher_key_b64, 'base64');
-            }
-            if (part.chunk.cipher_iv_b64) {
-                chunk.cipher_iv = new Buffer(part.chunk.cipher_iv_b64, 'base64');
-            }
-            if (part.chunk.cipher_auth_tag_b64) {
-                chunk.cipher_auth_tag = new Buffer(part.chunk.cipher_auth_tag_b64, 'base64');
-            }
+                'lrc_frags',
+                'digest_b64',
+                'cipher_key_b64',
+                'cipher_iv_b64',
+                'cipher_auth_tag_b64');
             chunk.frags = _.map(part.frags, function(fragment) {
-                var f = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size', 'digest_type', 'block');
+                var f = _.pick(fragment,
+                    'layer',
+                    'layer_n',
+                    'frag',
+                    'size',
+                    'digest_type',
+                    'digest_b64',
+                    'block');
                 f.layer_n = f.layer_n || 0;
-                if (fragment.digest_b64) {
-                    f.digest_buf = new Buffer(fragment.digest_b64, 'base64');
-                }
                 return f;
             });
-            var decoder = new native_util.ObjectCoding({
-                tpool: object_coding_tpool,
-                digest_type: chunk.digest_type,
-                cipher_type: chunk.cipher_type,
-                data_frags: chunk.data_frags,
-                lrc_frags: chunk.lrc_frags,
-            });
-            dbg.log2('GGG decode chunk', chunk);
-            return Q.ninvoke(decoder, 'decode', chunk);
-        }).then(function(decoded_chunk) {
-            part.buffer = decoded_chunk.data;
-            return part;
+            dbg.log2('_read_object_part: decode chunk', chunk);
+            return Q.ninvoke(object_coding, 'decode', chunk)
+                .then(function(decoded_chunk) {
+                    part.buffer = decoded_chunk.data;
+                    return part;
+                }, function(err) {
+                    dbg.error('_read_object_part: DECODE CHUNK FAILED', err, part);
+                    throw err;
+                });
         });
 };
 
 ObjectDriver.prototype._read_fragment = function(part, fragment) {
     var self = this;
     var frag_desc = size_utils.human_offset(part.start) + '-' + get_frag_key(fragment);
-    dbg.log0('read_fragment_blocks_chain', frag_desc);
+    dbg.log0('_read_fragment', frag_desc);
     var next_block = 0;
     return read_next_block();
 
     function read_next_block() {
         if (next_block >= fragment.blocks.length) {
-            dbg.error('READ FRAGMENT EXHAUSTED', frag_desc, fragment.blocks);
-            throw new Error('READ FRAGMENT EXHAUSTED');
+            dbg.error('_read_fragment: EXHAUSTED', frag_desc, fragment.blocks);
+            throw new Error('_read_fragment: EXHAUSTED');
         }
         var block = fragment.blocks[next_block];
         next_block += 1;
@@ -922,7 +909,7 @@ ObjectDriver.prototype._read_block = function(block_md) {
     var self = this;
     // use semaphore to surround the IO
     return self._block_read_sem.surround(function() {
-        dbg.log0('read_block', block_md.id, 'from', block_md.address);
+        dbg.log0('_read_block:', block_md.id, 'from', block_md.address);
         return self.client.agent.read_block({
                 block_md: block_md
             }, {
@@ -932,7 +919,7 @@ ObjectDriver.prototype._read_block = function(block_md) {
             .then(function(res) {
                 return res.data;
             }, function(err) {
-                dbg.error('FAILED read_block', block_md.id, 'from', block_md.address);
+                dbg.error('_read_block: FAILED', block_md.id, 'from', block_md.address);
                 throw err;
             });
     });

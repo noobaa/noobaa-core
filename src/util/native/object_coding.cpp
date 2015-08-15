@@ -197,9 +197,9 @@ public:
         auto obj = NAN_NEW_OBJ();
         NAN_SET_INT(obj, "size", _chunk.length());
         NAN_SET_STR(obj, "digest_type", _coding._digest_type);
-        NAN_SET_BUF_COPY(obj, "digest_buf", _digest);
+        NAN_SET_STR(obj, "digest_b64", _digest.base64());
         NAN_SET_STR(obj, "cipher_type", _coding._cipher_type);
-        NAN_SET_BUF_COPY(obj, "cipher_key", _secret);
+        NAN_SET_STR(obj, "cipher_key_b64", _secret.base64());
         NAN_SET_INT(obj, "data_frags", _coding._data_frags);
         NAN_SET_INT(obj, "lrc_frags", _coding._lrc_frags);
         auto frags = NAN_NEW_ARR(_frags.size());
@@ -210,7 +210,7 @@ public:
             NAN_SET_INT(frag_obj, "layer_n", f.layer_n);
             NAN_SET_INT(frag_obj, "frag", f.frag);
             NAN_SET_STR(frag_obj, "digest_type", f.digest_type);
-            NAN_SET_BUF_COPY(frag_obj, "digest_buf", f.digest_buf);
+            NAN_SET_STR(frag_obj, "digest_b64", f.digest_buf.base64());
             NAN_SET_BUF_COPY(frag_obj, "block", f.block);
             NAN_SET(frags, i, frag_obj);
         }
@@ -264,9 +264,9 @@ public:
         // to be created/dereferenced/destroyed from other threads.
 
         _digest_type = NAN_GET_STR(chunk, "digest_type");
-        _digest = NAN_GET_BUF(chunk, "digest_buf");
+        _digest = Buf(std::string(NAN_GET_STR(chunk, "digest_b64")), Buf::BASE64);
         _cipher_type = NAN_GET_STR(chunk, "cipher_type");
-        _secret = NAN_GET_BUF(chunk, "cipher_key");
+        _secret = Buf(std::string(NAN_GET_STR(chunk, "cipher_key_b64")), Buf::BASE64);
         _length = NAN_GET_INT(chunk, "size");
         _data_frags = NAN_GET_INT(chunk, "data_frags");
         auto frags = NAN_GET_ARR(chunk, "frags");
@@ -278,7 +278,7 @@ public:
             f.layer_n = NAN_GET_INT(frag, "layer_n");
             f.frag = NAN_GET_INT(frag, "frag");
             f.digest_type = NAN_GET_STR(frag, "digest_type");
-            f.digest_buf = NAN_GET_BUF(frag, "digest_buf");
+            f.digest_buf = Buf(std::string(NAN_GET_STR(frag, "digest_b64")), Buf::BASE64);
             f.block = NAN_GET_BUF(frag, "block");
         }
     }
@@ -351,18 +351,18 @@ public:
             int len = _bad_frags_digests.size();
             auto err = NAN_ERR("FRAGS DIGEST MISMATCH");
             auto bad_frags_digests = NAN_NEW_ARR(len);
-            NAN_SET(err, "bad_frags_digests", bad_frags_digests);
+            NAN_SET(err, "bad_frags_digests_b64", bad_frags_digests);
             for (int i=0; i<len; ++i) {
                 Buf& digest = _bad_frags_digests[i];
                 if (digest.length()) {
-                    NAN_SET_BUF_COPY(bad_frags_digests, i, digest);
+                    NAN_SET_STR(bad_frags_digests, i, digest.base64());
                 }
             }
             v8::Local<v8::Value> argv[] = { err };
             _callback->Call(1, argv);
         } else if (_bad_chunk_digest.length()) {
             auto err = NAN_ERR("CHUNK DIGEST MISMATCH");
-            NAN_SET_BUF_COPY(err, "bad_chunk_digest", _bad_chunk_digest);
+            NAN_SET_STR(err, "bad_chunk_digest_b64", _bad_chunk_digest.base64());
             v8::Local<v8::Value> argv[] = { err };
             _callback->Call(1, argv);
         } else {

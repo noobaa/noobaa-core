@@ -21,7 +21,7 @@ var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var os_util = require('../util/os_util');
-var diag = require('../util/diagnostics');
+var diag = require('./agent_diagnostics');
 var AgentStore = require('./agent_store');
 var config = require('../../config.js');
 
@@ -619,6 +619,7 @@ Agent.prototype.collect_diagnostics = function(req) {
             return diag.pack_diagnostics(inner_path);
         })
         .then(function() {
+            dbg.log1('Reading packed file');
             return Q.nfcall(fs.readFile, inner_path)
                 .then(function(data) {
                     return {

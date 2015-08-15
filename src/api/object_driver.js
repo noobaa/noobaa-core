@@ -407,7 +407,7 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                     is_write: true,
                 });
             dbg.log0('_attempt_write_block: write failed, report_bad_block.',
-                'remaining attempts', params.remaining_attempts, frag_desc);
+                'remaining attempts', params.remaining_attempts, frag_desc, bad_block_params);
             return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);

@@ -253,6 +253,14 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             self.emit_stats('stats.client_request.error', req);
 
+            // TODO:
+            // move to rpc_code and retries - postponed for now
+
+            if (err.message === 'RPC client_request: send TIMEOUT'){
+                dbg.log1('closing connection due to timeout');
+                self._connection_closed(req.connection);
+            }
+
             throw err;
 
         })

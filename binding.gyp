@@ -12,6 +12,8 @@
             'src/util/native/buzhash.cpp',
             'src/util/native/crypto.cpp',
             'src/util/native/buf.cpp',
+            'src/util/native/b64/cencode.cpp',
+            'src/util/native/b64/cdecode.cpp',
         ],
     }, {
         'target_name': 'native_rpc',

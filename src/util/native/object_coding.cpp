@@ -295,8 +295,19 @@ public:
             Fragment& f = _frags[i];
             if (!f.digest_type.empty()) {
                 Buf digest_buf = Crypto::digest(f.block, f.digest_type.c_str());
-                // std::cout << digest_buf.length() << " " << digest_buf.hex() << std::endl;
-                // std::cout << f.digest_buf.length() << " " << f.digest_buf.hex() << std::endl;
+                /*
+                std::cout
+                    << std::endl
+                    << digest_buf.length()
+                    << " hex " << digest_buf.hex()
+                    << " base64 " << digest_buf.base64()
+                    << std::endl
+                    << f.digest_buf.length()
+                    << " hex " << f.digest_buf.hex()
+                    << " base64 " << f.digest_buf.base64()
+                    << std::endl;
+                digest_buf = Buf(digest_buf.base64(), Buf::BASE64);
+                */
                 if (!digest_buf.same(f.digest_buf)) {
                     _bad_frags_digests.resize(i+1);
                     _bad_frags_digests[i] = digest_buf;

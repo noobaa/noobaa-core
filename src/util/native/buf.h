@@ -2,6 +2,8 @@
 #define MEM_H_
 
 #include "common.h"
+#include "b64/cencode.h"
+#include "b64/cdecode.h"
 
 /**
  * Like a nodejs buffer, but thread safe
@@ -56,15 +58,6 @@ public:
         slice(offset, len);
     }
 
-    Buf(std::string hex)
-        : _alloc(new Alloc((hex.size()+1)/2))
-        , _data(_alloc->data())
-        , _len(_alloc->length())
-    {
-        for (int i=0, j=0; i<_len; ++i, j+=2) {
-            _data[i] = (hex_to_int(hex[j]) << 4) | hex_to_int(hex[j+1]);
-        }
-    }
 
     // copyful concat
     template <typename Iter>
@@ -82,6 +75,30 @@ public:
             data += now;
             len -= now;
             begin++;
+        }
+    }
+
+    enum Encoding { HEX, BASE64 };
+
+    Buf(std::string data, Encoding encoding)
+    {
+        switch (encoding) {
+            case HEX:
+                _len = (data.size()+1) / 2;
+                _alloc.reset(new Alloc(_len));
+                _data = _alloc->data();
+                for (int i=0, j=0; i<_len; ++i, j+=2) {
+                    _data[i] = (hex_to_int(data[j]) << 4) | hex_to_int(data[j+1]);
+                }
+                break;
+            case BASE64:
+                _len = data.size();
+                _alloc.reset(new Alloc(_len));
+                _data = _alloc->data();
+                base64_decodestate state;
+                base64_init_decodestate(&state);
+                _len = base64_decode_block(data.data(), data.size(), cdata(), &state);
+                break;
         }
     }
 
@@ -167,18 +184,34 @@ public:
         return _alloc.unique();
     }
 
+    inline bool same(const Buf& buf) const
+    {
+        return (_len == buf._len) && !memcmp(_data, buf._data, _len);
+    }
+
     inline std::string hex() const
     {
         std::string str;
-        for (int i=0; i<_len; ++i) {
-            str += BYTE_TO_HEX[_data[i]];
+        str.resize(2 * _len);
+        for (int i=0, j=0; i<_len; ++i, j+=2) {
+            str[j]   = HEX_CHARS[_data[i] >> 4];
+            str[j+1] = HEX_CHARS[_data[i] & 0xf];
         }
         return str;
     }
 
-    inline bool same(const Buf& buf) const
+    inline std::string base64() const
     {
-        return (_len == buf._len) && !memcmp(_data, buf._data, _len);
+        std::string str;
+        str.resize(2 * _len);
+        char* data = const_cast<char*>(str.data());
+        int pos = 0;
+        base64_encodestate state;
+        base64_init_encodestate(&state);
+        pos += base64_encode_block(cdata(), _len, data, &state);
+        pos += base64_encode_blockend(data + pos, &state);
+        str.resize(pos);
+        return str;
     }
 
 private:
@@ -243,7 +276,7 @@ public:
         _len = other._len;
     }
 
-    static const char* BYTE_TO_HEX[256];
+    static const char HEX_CHARS[16];
 
     inline int hex_to_int(char hex)
     {

@@ -128,6 +128,12 @@ module.exports = {
                             },
                             policy: {
                                 $ref: '/bucket_api/definitions/cloud_sync'
+                            },
+                            health: {
+                                type: 'boolean'
+                            },
+                            status: {
+                                $ref: '/bucket_api/definitions/sync_status_enum'
                             }
                         }
                     }
@@ -174,7 +180,6 @@ module.exports = {
         }
 
     },
-
 
     definitions: {
 
@@ -224,7 +229,13 @@ module.exports = {
                     type: 'boolean',
                 },
             }
-        }
+        },
+
+        sync_status_enum: {
+            enum: ['IDLE', 'SYNCING'],
+            type: 'string',
+        },
+
 
     },
 

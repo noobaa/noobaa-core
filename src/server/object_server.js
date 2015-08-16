@@ -36,6 +36,7 @@ var object_server = {
 
     //cloud sync
     list_need_sync: list_need_sync,
+    mark_cloud_synced: mark_cloud_synced,
 };
 
 module.exports = object_server;
@@ -361,7 +362,7 @@ function list_objects(req) {
         });
 }
 
-
+//return all objects which need sync (new and deleted) for sysid, bucketid
 function list_need_sync(sysid, bucketid) {
     var res = {
         deleted: [],
@@ -390,7 +391,22 @@ function list_need_sync(sysid, bucketid) {
         });
 }
 
-
+//set cloud_sync to true on given object
+function mark_cloud_synced(object) {
+    return Q.when(db.ObjectMD
+            .findOne({
+                system: object.system,
+                bucket: object.bucket,
+                key: object.key,
+                //Don't set deleted, since we update both deleted and not
+            })
+            .exec())
+        .then(function(dbobj) {
+            return dbobj.update({
+                cloud_synced: true
+            }).exec();
+        });
+}
 // UTILS //////////////////////////////////////////////////////////
 
 

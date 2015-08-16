@@ -2,8 +2,8 @@
 #define MEM_H_
 
 #include "common.h"
-#include "b64/cencode.h"
-#include "b64/cdecode.h"
+#include "base64/cencode.h"
+#include "base64/cdecode.h"
 
 /**
  * Like a nodejs buffer, but thread safe

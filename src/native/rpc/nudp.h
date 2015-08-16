@@ -1,4 +1,4 @@
-#include "../../util/native/common.h"
+#include "../util/common.h"
 
 class Nudp : public Nan::ObjectWrap
 {

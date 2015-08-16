@@ -49,7 +49,7 @@ var bucket_schema = new Schema({
             type: String
         },
 
-        access_keys: [{
+        access_keys: {
             access_key: {
                 type: String,
                 required: true,
@@ -58,7 +58,7 @@ var bucket_schema = new Schema({
                 type: String,
                 required: true,
             }
-        }],
+        },
 
         // Changed query interval
         schedule: {

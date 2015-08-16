@@ -114,7 +114,46 @@ module.exports = {
             }
         },
 
-        cloud_sync_policies: {
+        get_cloud_sync_policy: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['name'],
+                properties: {
+                    name: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [],
+                properties: {
+                    cloud_sync_policy: {
+                        type: 'object',
+                        items: {
+                            name: {
+                                type: 'string',
+                            },
+                            policy: {
+                                $ref: '/bucket_api/definitions/cloud_sync'
+                            },
+                            health: {
+                                type: 'boolean'
+                            },
+                            status: {
+                                $ref: '/bucket_api/definitions/sync_status_enum'
+                            }
+                        }
+                    }
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
+        get_all_cloud_sync_policies: {
             method: 'GET',
             reply: {
                 type: 'object',

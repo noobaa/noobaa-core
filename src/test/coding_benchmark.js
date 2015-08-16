@@ -21,14 +21,21 @@ function test_ingest() {
         });
     }
     var mode = process.argv[3];
-    var pipeline = new Pipeline(input);
     var stats = {
+        raw_bytes: 0,
         count: 0,
         bytes: 0,
         last_bytes: 0,
         start: Date.now(),
         last_start: Date.now(),
     };
+    var pipeline = new Pipeline(input);
+    pipeline.pipe(transformer({
+        transform: function(data) {
+            stats.raw_bytes += data.length;
+            return data;
+        }
+    }));
     var progress = function(len) {
         process.stdout.write('.');
         // process.stdout.write(len + '.');
@@ -47,7 +54,8 @@ function test_ingest() {
         var mb_per_sec = stats.bytes * 1000 / (Date.now() - stats.start) / 1024 / 1024;
         console.log('\nDONE.', stats.count, 'chunks.',
             'average speed', mb_per_sec.toFixed(1), 'MB/s',
-            'average chunk size', (stats.bytes / stats.count).toFixed(1));
+            'average chunk size', (stats.bytes / stats.count).toFixed(1),
+            'compression ratio', (100 * stats.bytes / stats.raw_bytes).toFixed(1) + '%');
         process.exit();
     };
     var fin_exit = function() {
@@ -72,6 +80,7 @@ function test_ingest() {
         var object_coding = new native_util.ObjectCoding({
             tpool: new native_util.ThreadPool(2),
             digest_type: 'sha384',
+            compress_type: 'snappy',
             cipher_type: 'aes-256-gcm',
             frag_digest_type: 'sha1',
             data_frags: 1,

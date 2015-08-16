@@ -32,6 +32,7 @@ private:
     class EncodeWorker;
     class DecodeWorker;
     std::string _digest_type;
+    std::string _compress_type;
     std::string _cipher_type;
     std::string _frag_digest_type;
     int _data_frags;

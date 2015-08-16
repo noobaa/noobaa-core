@@ -1,6 +1,7 @@
 #include "object_coding.h"
 #include "buf.h"
 #include "crypto.h"
+#include "compression.h"
 
 Nan::Persistent<v8::Function> ObjectCoding::_ctor;
 
@@ -31,6 +32,10 @@ NAN_METHOD(ObjectCoding::new_instance)
     if (c._digest_type == "undefined") {
         c._digest_type = "";
     }
+    c._compress_type = NAN_GET_STR(self, "compress_type");
+    if (c._compress_type == "undefined") {
+        c._compress_type = "";
+    }
     c._cipher_type = NAN_GET_STR(self, "cipher_type");
     if (c._cipher_type == "undefined") {
         c._cipher_type = "";
@@ -45,6 +50,7 @@ NAN_METHOD(ObjectCoding::new_instance)
     c._lrc_parity = NAN_GET_INT(self, "lrc_parity");
     LOG("ObjectCoding::new_instance "
         << DVAL(c._digest_type)
+        << DVAL(c._compress_type)
         << DVAL(c._cipher_type)
         << DVAL(c._frag_digest_type)
         << DVAL(c._data_frags)
@@ -80,6 +86,7 @@ private:
     Buf _chunk;
     Buf _digest;
     Buf _secret;
+    Buf _compressed_chunk;
     std::deque<Fragment> _frags;
 public:
     explicit EncodeWorker(
@@ -112,6 +119,13 @@ public:
             _digest = Crypto::digest(_chunk, _coding._digest_type.c_str());
         }
 
+        // COMPRESSION
+        if (!_coding._compress_type.empty()) {
+            _compressed_chunk = Compression::compress(_chunk, _coding._compress_type);
+        } else {
+            _compressed_chunk = _chunk;
+        }
+
         // COMPUTE ENCRYPTED BUFFER
         Buf encrypted;
         if (!_coding._cipher_type.empty()) {
@@ -122,9 +136,9 @@ public:
             // IV is just zeros since the key is unique then IV is not needed
             static Buf iv(64, 0);
             // RAND_bytes(iv.data(), iv.length());
-            encrypted = Crypto::encrypt(_chunk, _coding._cipher_type.c_str(), _secret, iv);
+            encrypted = Crypto::encrypt(_compressed_chunk, _coding._cipher_type.c_str(), _secret, iv);
         } else {
-            encrypted = _chunk;
+            encrypted = _compressed_chunk;
         }
 
         // BUILD FRAGMENTS OF ERASURE CODE
@@ -194,9 +208,10 @@ public:
     {
         Nan::HandleScope scope;
         auto obj = NAN_NEW_OBJ();
-        NAN_SET_INT(obj, "size", _chunk.length());
+        NAN_SET_INT(obj, "size", _compressed_chunk.length());
         NAN_SET_STR(obj, "digest_type", _coding._digest_type);
         NAN_SET_STR(obj, "digest_b64", _digest.base64());
+        NAN_SET_STR(obj, "compress_type", _coding._compress_type);
         NAN_SET_STR(obj, "cipher_type", _coding._cipher_type);
         NAN_SET_STR(obj, "cipher_key_b64", _secret.base64());
         NAN_SET_INT(obj, "data_frags", _coding._data_frags);
@@ -235,6 +250,7 @@ private:
     Nan::Persistent<v8::Object> _persistent;
     NanCallbackSharedPtr _callback;
     std::string _digest_type;
+    std::string _compress_type;
     std::string _cipher_type;
     Buf _digest;
     Buf _secret;
@@ -263,8 +279,9 @@ public:
         // to be created/dereferenced/destroyed from other threads.
 
         _digest_type = NAN_GET_STR(chunk, "digest_type");
-        _digest = Buf(std::string(NAN_GET_STR(chunk, "digest_b64")), Buf::BASE64);
+        _compress_type = NAN_GET_STR(chunk, "compress_type");
         _cipher_type = NAN_GET_STR(chunk, "cipher_type");
+        _digest = Buf(std::string(NAN_GET_STR(chunk, "digest_b64")), Buf::BASE64);
         _secret = Buf(std::string(NAN_GET_STR(chunk, "cipher_key_b64")), Buf::BASE64);
         _length = NAN_GET_INT(chunk, "size");
         _data_frags = NAN_GET_INT(chunk, "data_frags");
@@ -324,12 +341,20 @@ public:
         Buf encrypted(_length, data_bufs.begin(), data_bufs.end());
 
         // DECRYPT DATA
+        Buf compressed;
         if (!_cipher_type.empty()) {
             // IV is just zeros since the key is unique then IV is not needed
             static Buf iv(64, 0);
-            _chunk = Crypto::decrypt(encrypted, _cipher_type.c_str(), _secret, iv);
+            compressed = Crypto::decrypt(encrypted, _cipher_type.c_str(), _secret, iv);
         } else {
-            _chunk = encrypted;
+            compressed = encrypted;
+        }
+
+        // DECOMPRESSION
+        if (!_compress_type.empty()) {
+            _chunk = Compression::decompress(compressed, _compress_type);
+        } else {
+            _chunk = compressed;
         }
 
         // VERIFY CONTENT HASH

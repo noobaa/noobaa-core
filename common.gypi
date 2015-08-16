@@ -79,8 +79,8 @@
                 # '-stdlib=libstdc++', # gcc
             ],
             'OTHER_LDFLAGS': [
-                '-std=c++11',
-                '-stdlib=libc++', # clang
+                # '-std=c++11',
+                # '-stdlib=libc++', # clang
                 # '-stdlib=libstdc++', # gcc
             ],
         },

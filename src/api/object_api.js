@@ -577,6 +577,9 @@ module.exports = {
                 digest_b64: {
                     type: 'string',
                 },
+                compress_type: {
+                    type: 'string',
+                },
                 cipher_type: {
                     type: 'string',
                 },

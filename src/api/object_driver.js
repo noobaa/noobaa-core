@@ -89,6 +89,7 @@ function lazy_init_natives() {
         object_coding = new native_util.ObjectCoding({
             tpool: object_coding_tpool,
             digest_type: 'sha384',
+            compress_type: 'snappy',
             cipher_type: 'aes-256-gcm',
             frag_digest_type: 'sha1',
             data_frags: 1,
@@ -229,6 +230,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             p.chunk = _.pick(part.chunk,
                                 'size',
                                 'digest_type',
+                                'compress_type',
                                 'cipher_type',
                                 'data_frags',
                                 'lrc_frags',
@@ -419,7 +421,7 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                     block_id: block.block_md.id,
                     is_write: true,
                 });
-            dbg.log0('_attempt_write_block: write failed, report_bad_block.',
+            dbg.warn('_attempt_write_block: write failed, report_bad_block.',
                 'remaining attempts', params.remaining_attempts, frag_desc, bad_block_params);
             return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
@@ -837,6 +839,7 @@ ObjectDriver.prototype._read_object_part = function(part) {
             var chunk = _.pick(part.chunk,
                 'size',
                 'digest_type',
+                'compress_type',
                 'cipher_type',
                 'data_frags',
                 'lrc_frags',

@@ -10,10 +10,9 @@
  *
  * DedupChunker
  *
- * Performs variable length dedup.
+ * Node.js object that performs variable length dedup.
  *
  */
-
 class DedupChunker : public Nan::ObjectWrap
 {
 private:

@@ -4,6 +4,18 @@
 #include "common.h"
 #include <math.h>
 
+/**
+ *
+ * GALOIS FIELD ARITHMETICS
+ *
+ * (finite field with 2^degree elements)
+ *
+ * Use cases: rabin fingerprinting, erasure coding.
+ *
+ * The type T should have enough bits to handle the degree of the polynom.
+ *
+ * TODO: support multiply, divide, invert using log tables if applicable for the degree.
+ */
 template <typename _T>
 class GF2
 {
@@ -29,14 +41,18 @@ public:
         }
     }
 
+    /**
+     * check that poly is indeed ireeducible using a necessary (yet not sufficient) condition
+     * by checking that 2^(2^degree) = 2 (mod p)
+     */
     bool necessary_check_for_irreducible() const
     {
-        const T two = 2;
-        T a = two;
+        static const T TWO = 2;
+        T a = TWO;
         for (int i=0; i<degree; ++i) {
             a = mult(a, a);
         }
-        return a == two;
+        return a == TWO;
     }
 
     inline T shift_left(T a) const

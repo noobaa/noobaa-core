@@ -1,11 +1,15 @@
 #ifndef MUTEX_H_
 #define MUTEX_H_
 
-#include "common.h"
+#include <uv.h>
 
 /**
  *
  * MUTEX
+ *
+ * C++ wrapper to libuv mutex (cross platform)
+ *
+ * NOTE: recursive lock will crash since libuv cannot guarantee it works cross platform.
  *
  */
 class Mutex

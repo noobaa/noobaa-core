@@ -20,23 +20,6 @@ var native_util = typeof(bindings) === 'function' && bindings('native_util.node'
 
 module.exports = ObjectDriver;
 
-if (native_util) {
-    // these threadpools are global OS threads used to offload heavy CPU work
-    // from the node.js thread so that it will keep processing incoming IO while
-    // encoding/decoding the object chunks in high performance native code.
-    var dedup_chunker_tpool = new native_util.ThreadPool(1);
-    var object_coding_tpool = new native_util.ThreadPool(1);
-    var object_coding = new native_util.ObjectCoding({
-        tpool: object_coding_tpool,
-        digest_type: 'sha384',
-        cipher_type: 'aes-256-gcm',
-        frag_digest_type: 'sha1',
-        data_frags: 1,
-        parity_frags: 0,
-        lrc_frags: 0,
-        lrc_parity: 0,
-    });
-}
 
 
 /**
@@ -85,7 +68,36 @@ function ObjectDriver(client) {
     self._init_blocks_cache();
 }
 
+var dedup_chunker_tpool;
+var object_coding_tpool;
+var object_coding;
 
+function lazy_init_natives() {
+    if (!native_util) {
+        return;
+    }
+    // these threadpools are global OS threads used to offload heavy CPU work
+    // from the node.js thread so that it will keep processing incoming IO while
+    // encoding/decoding the object chunks in high performance native code.
+    if (!dedup_chunker_tpool) {
+        dedup_chunker_tpool = new native_util.ThreadPool(1);
+    }
+    if (!object_coding_tpool) {
+        object_coding_tpool = new native_util.ThreadPool(1);
+    }
+    if (!object_coding) {
+        object_coding = new native_util.ObjectCoding({
+            tpool: object_coding_tpool,
+            digest_type: 'sha384',
+            cipher_type: 'aes-256-gcm',
+            frag_digest_type: 'sha1',
+            data_frags: 1,
+            parity_frags: 0,
+            lrc_frags: 0,
+            lrc_parity: 0,
+        });
+    }
+}
 
 
 
@@ -126,6 +138,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     var start = params.start || 0;
     var upload_part_number = params.upload_part_number || 0;
     var part_sequence_number = params.part_sequence_number || 0;
+    lazy_init_natives();
 
     dbg.log0('upload_stream: start', params.key, 'part number', upload_part_number,
         'sequence number', part_sequence_number);
@@ -418,7 +431,6 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
                 });
         });
 };
-
 
 /**
  *
@@ -814,6 +826,7 @@ ObjectDriver.prototype._init_object_map_cache = function() {
 ObjectDriver.prototype._read_object_part = function(part) {
     var self = this;
     dbg.log0('_read_object_part:', range_utils.human_range(part));
+    lazy_init_natives();
     // read the data fragments of the chunk
     var frags_by_layer = _.groupBy(part.frags, 'layer');
     var data_frags = frags_by_layer.D;

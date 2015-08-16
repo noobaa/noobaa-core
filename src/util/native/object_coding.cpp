@@ -43,15 +43,14 @@ NAN_METHOD(ObjectCoding::new_instance)
     c._parity_frags = NAN_GET_INT(self, "parity_frags");
     c._lrc_frags = NAN_GET_INT(self, "lrc_frags");
     c._lrc_parity = NAN_GET_INT(self, "lrc_parity");
-    std::cout << "ObjectCoding::new_instance "
-              << DVAL(c._digest_type)
-              << DVAL(c._cipher_type)
-              << DVAL(c._frag_digest_type)
-              << DVAL(c._data_frags)
-              << DVAL(c._parity_frags)
-              << DVAL(c._lrc_frags)
-              << DVAL(c._lrc_parity)
-              << std::endl;
+    LOG("ObjectCoding::new_instance "
+        << DVAL(c._digest_type)
+        << DVAL(c._cipher_type)
+        << DVAL(c._frag_digest_type)
+        << DVAL(c._data_frags)
+        << DVAL(c._parity_frags)
+        << DVAL(c._lrc_frags)
+        << DVAL(c._lrc_parity));
     ASSERT(c._data_frags > 0, DVAL(c._data_frags));
     info.GetReturnValue().Set(self);
 }
@@ -296,18 +295,16 @@ public:
             if (!f.digest_type.empty()) {
                 Buf digest_buf = Crypto::digest(f.block, f.digest_type.c_str());
                 /*
-                std::cout
-                    << std::endl
+                   LOG(std::endl
                     << digest_buf.length()
                     << " hex " << digest_buf.hex()
                     << " base64 " << digest_buf.base64()
                     << std::endl
                     << f.digest_buf.length()
                     << " hex " << f.digest_buf.hex()
-                    << " base64 " << f.digest_buf.base64()
-                    << std::endl;
-                digest_buf = Buf(digest_buf.base64(), Buf::BASE64);
-                */
+                    << " base64 " << f.digest_buf.base64());
+                   digest_buf = Buf(digest_buf.base64(), Buf::BASE64);
+                 */
                 if (!digest_buf.same(f.digest_buf)) {
                     _bad_frags_digests.resize(i+1);
                     _bad_frags_digests[i] = digest_buf;
@@ -322,7 +319,7 @@ public:
         std::vector<Buf> data_bufs(_data_frags);
         for (size_t i=0; i<data_bufs.size(); ++i) {
             data_bufs[i] = _frags[i].block;
-            // std::cout << DVAL(data_bufs[i].length()) << std::endl;
+            // LOG(DVAL(data_bufs[i].length()));
         }
         Buf encrypted(_length, data_bufs.begin(), data_bufs.end());
 

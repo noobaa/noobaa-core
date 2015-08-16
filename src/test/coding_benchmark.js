@@ -20,6 +20,7 @@ function test_ingest() {
             highWaterMark: 1024 * 1024
         });
     }
+    var mode = process.argv[3];
     var pipeline = new Pipeline(input);
     var stats = {
         count: 0,
@@ -62,7 +63,7 @@ function test_ingest() {
     process.on('SIGINT', fin_exit);
 
 
-    if (!process.argv[3]) {
+    if (!mode || mode === '1') {
 
         var native_util = require("bindings")("native_util.node");
         var dedup_chunker = new native_util.DedupChunker({
@@ -106,8 +107,11 @@ function test_ingest() {
             },
             transform: function(chunk) {
                 // console.log(chunk);
-                // return chunk;
-                return Q.ninvoke(object_coding, 'decode', chunk);
+                if (mode === '1') {
+                    return Q.ninvoke(object_coding, 'decode', chunk);
+                } else {
+                    return chunk;
+                }
             },
         }));
 

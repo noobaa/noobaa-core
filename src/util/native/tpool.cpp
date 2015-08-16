@@ -41,6 +41,7 @@ ThreadPool::ThreadPool(int nthreads)
     , _nthreads(0)
     , _refs(0)
 {
+    LOG("ThreadPool created with " << nthreads << " threads");
     set_nthreads(nthreads);
 
     // set the async handle to unreferenced (note that ref/unref is boolean, not counter)
@@ -127,7 +128,6 @@ ThreadPool::thread_main(ThreadPool::ThreadSpec& spec)
 {
     int index = spec.index;
     Worker* worker = 0;
-    // std::cout << "Started Thread " << index << std::endl;
 
     while (index < _nthreads) {
 

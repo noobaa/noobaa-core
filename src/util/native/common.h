@@ -29,6 +29,8 @@
 
 #define DVAL(x) #x "=" << x << " "
 
+#define LOG(x) std::cout << x << std::endl;
+
 #define PANIC(info) \
     do { \
         std::cerr << "PANIC: " << info \

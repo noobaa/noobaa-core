@@ -215,11 +215,20 @@
                     <h4>No activity</h4>
                 </div>
                 <table class="Xtext-muted">
+                    <tr>
+                    <th class="" style="width: 1px; padding: 5px; white-space: nowrap">Date</td>
+                    <th class="" style="width: 1px; padding: 5px; white-space: nowrap"></td>
+                    <th class="capitalize" style="width: 20px; padding: 0 15px 0 15px; ">Level</td>
+                    <th class="" style="width: 1px; padding: 0 15px 0 15px; ">User</td>
+                    <th class="capitalize" style="width: 1px; padding: 0 15px 0 15px; ">Category</td>
+                    <th class="text-left" style="padding: 5px; word-break: break-all">Event</td>
+                    </tr>
                     <tr ng-repeat="log in nbSystem.activity_log">
                         <td class="" style="width: 1px; padding: 5px; white-space: nowrap">{{log.day_of_year}}</td>
                         <td class="" style="width: 1px; padding: 5px; white-space: nowrap">{{log.time_of_day}}</td>
-                        <td class="capitalize text-{{log.level}}" style="width: 1px; padding: 5px; ">{{log.level}}</td>
-                        <td class="capitalize" style="width: 1px; padding: 5px; ">{{log.category}}</td>
+                        <td class="capitalize text-{{log.level}}" style="width: 20px; padding: 0 15px 0 15px; ">{{log.level}}</td>
+                        <td class="" style="width: 1px; padding: 0 15px 0 15px; ">{{log.actor.email}}</td>
+                        <td class="capitalize" style="width: 1px; padding: 0 15px 0 15px; ">{{log.category}}</td>
                         <td class="text-left" style="padding: 5px; word-break: break-all">{{log.text}}</td>
                     </tr>
                 </table>

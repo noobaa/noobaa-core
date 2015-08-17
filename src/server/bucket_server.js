@@ -420,7 +420,7 @@ function load_configured_policies() {
 //Update work lists for all configured policies, save state in global CLOUD_SYNC
 //TODO:: SCALE: Limit to batches like the build worker does
 function update_work_list(sysid, bucketid) {
-    dbg.log2('update_work_list sys', sysid, 'bucket', bucketid);
+    /*dbg.log2('update_work_list sys', sysid, 'bucket', bucketid);
     return Q.fcall(function() {
             return object_server.list_need_sync(sysid, bucketid);
         })
@@ -443,7 +443,7 @@ function update_work_list(sysid, bucketid) {
         })
         .then(function() {
 
-        });
+        });*/
     //TODO:: Now add additions / deletions done on the cloud
 }
 
@@ -464,9 +464,6 @@ function sync_single_file_to_cloud(object, target, s3) {
     };
 
     return Q.ninvoke(s3, 'upload', params)
-        .then(function() {
-            return object_server.mark_cloud_synced(object);
-        })
         .fail(function(err) {
             dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
                 err, err.stack);
@@ -513,12 +510,6 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
                 return;
             }
         })
-        .then(function() {
-            //marked deleted objects as cloud synced
-            return Q.all(_.map(bucket_work_list.deleted, function(object) {
-                return object_server.mark_cloud_synced(object);
-            }));
-        })
         .fail(function(error) {
             dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', error, error.stack);
         })
@@ -547,7 +538,24 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
 
 //Perform c2n cloud sync for a specific policy with a given work list
 function sync_from_cloud_single_bucket(bucket_work_list, policy) {
-    return;
+    //TODO:: this is problematic, global config ? should be per AWS.S3 creation...
+    //multi can cause failures
+    AWS.config.update({
+        accessKeyId: policy.access_keys.access_key,
+        secretAccessKey: policy.access_keys.secret_key,
+        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK
+    });
+
+    var target = policy.endpoint;
+    var s3 = new AWS.S3();
+    var params = {
+        Bucket: target,
+    };
+    return Q.ninvoke(s3, 'listObjects', params)
+        .then(function(object_list) {
+            console.warn('NBNB:: sync_from_cloud_single_bucket object_list', object_list);
+            return;
+        });
 }
 
 //Cloud Sync Refresher worker
@@ -596,7 +604,7 @@ promise_utils.run_background_worker({
             .then(function() {
                 return Q.fcall(function() {
                     dbg.log2('CLOUD_SYNC_REFRESHER:', 'END');
-                    return 600000;
+                    return 6000; //TODO:: NBNB move back to 600000
                 });
             });
     }

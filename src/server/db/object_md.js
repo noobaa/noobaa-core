@@ -63,11 +63,6 @@ var objmd_schema = new Schema({
         type: String,
     },
 
-    // is the object synced with the cloud
-    cloud_synced: {
-        type: Boolean,
-    },
-
     // on delete set deletion time
     deleted: {
         type: Date,
@@ -86,16 +81,6 @@ objmd_schema.index({
 }, {
     unique: true
 });
-
-// Index according to cloud_sync
-objmd_schema.index({
-    bucket: 1,
-    cloud_synced: 1,
-    deleted: 1,
-}, {
-    unique: false
-});
-
 
 /**
  *

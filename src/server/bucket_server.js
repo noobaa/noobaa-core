@@ -26,7 +26,7 @@ var _ = require('lodash');
 var Q = require('q');
 var AWS = require('aws-sdk');
 var db = require('./db');
-var object_server = require('./object_server.js');
+var server_rpc = require('./server_rpc');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -359,7 +359,7 @@ function resolve_tiering(system_id, tiering) {
 
 function get_policy_health(bucketid, sysid) {
     var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-        return p.sysid === sysid && p.bucket.id === bucketid;
+        return p.system._id === sysid && p.bucket.id === bucketid;
     });
 
     return policy.health;
@@ -390,17 +390,18 @@ function load_configured_policies() {
             .find({
                 deleted: null,
             })
+            .populate('system')
             .exec())
         .then(function(buckets) {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
-                    dbg.log4('adding sysid', bucket.system, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
+                    dbg.log4('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
                     CLOUD_SYNC.configured_policies.push({
                         bucket: {
                             name: bucket.name,
                             id: bucket._id
                         },
-                        sysid: bucket.system,
+                        system: bucket.system,
                         endpoint: bucket.cloud_sync.endpoint,
                         access_keys: {
                             access_key: bucket.cloud_sync.access_keys.access_key,
@@ -419,32 +420,42 @@ function load_configured_policies() {
 
 //Update work lists for all configured policies, save state in global CLOUD_SYNC
 //TODO:: SCALE: Limit to batches like the build worker does
-function update_work_list(sysid, bucketid) {
-    /*dbg.log2('update_work_list sys', sysid, 'bucket', bucketid);
-    return Q.fcall(function() {
-            return object_server.list_need_sync(sysid, bucketid);
-        })
-        .then(function(res) {
-            var ind = _.findIndex(CLOUD_SYNC.work_lists, function(b) {
-                return b.sysid === sysid &&
-                    b.bucketid === bucketid;
-            });
-            if (ind === -1) {
-                CLOUD_SYNC.work_lists.push({
-                    sysid: sysid,
-                    bucketid: bucketid,
-                    added: res.added,
-                    deleted: res.deleted,
-                });
-            } else {
-                CLOUD_SYNC.work_lists[ind].added = res.added;
-                CLOUD_SYNC.work_lists[ind].deleted = res.deleted;
-            }
-        })
-        .then(function() {
+function update_work_list(policy) {
+    dbg.log2('update_work_list sys', policy.system._id, 'bucket', policy.bucket.id);
+    //TODO:: this is problematic, global config ? should be per AWS.S3 creation...
+    //multi can cause failures
+    AWS.config.update({
+        accessKeyId: policy.access_keys.access_key,
+        secretAccessKey: policy.access_keys.secret_key,
+        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK
+    });
 
-        });*/
-    //TODO:: Now add additions / deletions done on the cloud
+    var target = policy.endpoint;
+    var s3 = new AWS.S3();
+    var params = {
+        Bucket: target,
+    };
+    var cloud_object_list, bucket_object_list;
+    return Q.ninvoke(s3, 'listObjects', params)
+        .fail(function(error) {
+            dbg.error('update_work_list failed to list files from cloud: sys', policy.system._id, 'bucket',
+                policy.bucket.id, error, error.stack);
+            throw new Error('update_work_list failed to list files from cloud');
+        })
+        .then(function(cloud_obj) {
+            cloud_object_list = cloud_obj.Contents;
+            console.warn('NBNB:: update_work_list cloud_object_list length', cloud_object_list.length);
+            return server_rpc.client.object.list_objects({
+                name: policy.bucket.name},
+                policy.system
+            );
+        })
+        .then(function(bucket_obj) {
+            //bucket_object_list = bucket_obj;
+            bucket_object_list = cloud_object_list;
+            console.warn('NBNB:: update_work_list bucket_object_list length', bucket_object_list.length);
+            
+        });
 }
 
 //sync a single file to the cloud
@@ -531,31 +542,14 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
             dbg.error('sync_to_cloud_single_bucket Failed syncing added objects n2c', error, error.stack);
         })
         .then(function() {
-            dbg.log1('Done sync_to_cloud_single_bucket on {', policy.bucket.name, policy.sysid, policy.endpoint, '}');
+            dbg.log1('Done sync_to_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
             return;
         });
 }
 
 //Perform c2n cloud sync for a specific policy with a given work list
 function sync_from_cloud_single_bucket(bucket_work_list, policy) {
-    //TODO:: this is problematic, global config ? should be per AWS.S3 creation...
-    //multi can cause failures
-    AWS.config.update({
-        accessKeyId: policy.access_keys.access_key,
-        secretAccessKey: policy.access_keys.secret_key,
-        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK
-    });
 
-    var target = policy.endpoint;
-    var s3 = new AWS.S3();
-    var params = {
-        Bucket: target,
-    };
-    return Q.ninvoke(s3, 'listObjects', params)
-        .then(function(object_list) {
-            console.warn('NBNB:: sync_from_cloud_single_bucket object_list', object_list);
-            return;
-        });
 }
 
 //Cloud Sync Refresher worker
@@ -577,14 +571,14 @@ promise_utils.run_background_worker({
                 return Q.all(_.map(CLOUD_SYNC.configured_policies, function(policy) {
                     if (((now - policy.last_refresh) / 1000 / 60 / 60) > policy.schedule &&
                         !policy.paused) {
-                        return update_work_list(policy.sysid, policy.bucket.id);
+                        return update_work_list(policy);
                     }
                 }));
             })
             .then(function() {
                 return Q.all(_.map(CLOUD_SYNC.work_lists, function(single_bucket) {
                     var current_policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-                        return p.sysid === single_bucket.sysid &&
+                        return p.system._id === single_bucket.sysid &&
                             p.bucket.id === single_bucket.bucketid;
                     });
                     //Sync n2c

@@ -86,8 +86,9 @@ private:
     Buf _chunk;
     Buf _digest;
     Buf _secret;
-    Buf _compressed_chunk;
+    int _compress_size;
     std::deque<Fragment> _frags;
+    std::string _bad_compress;
 public:
     explicit EncodeWorker(
         ObjectCoding& coding,
@@ -120,11 +121,14 @@ public:
         }
 
         // COMPRESSION
-        if (!_coding._compress_type.empty()) {
-            _compressed_chunk = Compression::compress(_chunk, _coding._compress_type);
-        } else {
-            _compressed_chunk = _chunk;
+        Buf compressed_chunk;
+        try {
+            compressed_chunk = Compression::compress(_chunk, _coding._compress_type);
+        } catch (const std::exception& ex) {
+            _bad_compress = ex.what();
+            return;
         }
+        _compress_size = compressed_chunk.length();
 
         // COMPUTE ENCRYPTED BUFFER
         Buf encrypted;
@@ -136,9 +140,9 @@ public:
             // IV is just zeros since the key is unique then IV is not needed
             static Buf iv(64, 0);
             // RAND_bytes(iv.data(), iv.length());
-            encrypted = Crypto::encrypt(_compressed_chunk, _coding._cipher_type.c_str(), _secret, iv);
+            encrypted = Crypto::encrypt(compressed_chunk, _coding._cipher_type.c_str(), _secret, iv);
         } else {
-            encrypted = _compressed_chunk;
+            encrypted = compressed_chunk;
         }
 
         // BUILD FRAGMENTS OF ERASURE CODE
@@ -207,30 +211,46 @@ public:
     virtual void after_work() override
     {
         Nan::HandleScope scope;
-        auto obj = NAN_NEW_OBJ();
-        NAN_SET_INT(obj, "size", _compressed_chunk.length());
-        NAN_SET_STR(obj, "digest_type", _coding._digest_type);
-        NAN_SET_STR(obj, "digest_b64", _digest.base64());
-        NAN_SET_STR(obj, "compress_type", _coding._compress_type);
-        NAN_SET_STR(obj, "cipher_type", _coding._cipher_type);
-        NAN_SET_STR(obj, "cipher_key_b64", _secret.base64());
-        NAN_SET_INT(obj, "data_frags", _coding._data_frags);
-        NAN_SET_INT(obj, "lrc_frags", _coding._lrc_frags);
-        auto frags = NAN_NEW_ARR(_frags.size());
-        for (size_t i=0; i<_frags.size(); ++i) {
-            Fragment& f = _frags[i];
-            auto frag_obj = NAN_NEW_OBJ();
-            NAN_SET_STR(frag_obj, "layer", f.layer);
-            NAN_SET_INT(frag_obj, "layer_n", f.layer_n);
-            NAN_SET_INT(frag_obj, "frag", f.frag);
-            NAN_SET_STR(frag_obj, "digest_type", f.digest_type);
-            NAN_SET_STR(frag_obj, "digest_b64", f.digest_buf.base64());
-            NAN_SET_BUF_COPY(frag_obj, "block", f.block);
-            NAN_SET(frags, i, frag_obj);
+        if (!_bad_compress.empty()) {
+            auto err = NAN_ERR("CHUNK COMPRESS ERROR");
+            NAN_SET_STR(err, "compress_error", _bad_compress);
+            v8::Local<v8::Value> argv[] = { err };
+            _callback->Call(1, argv);
+        } else {
+            auto obj = NAN_NEW_OBJ();
+            NAN_SET_INT(obj, "size", _chunk.length());
+            NAN_SET_STR(obj, "digest_type", _coding._digest_type);
+            NAN_SET_STR(obj, "compress_type", _coding._compress_type);
+            NAN_SET_STR(obj, "cipher_type", _coding._cipher_type);
+            if (!_coding._digest_type.empty()) {
+                NAN_SET_STR(obj, "digest_b64", _digest.base64());
+            }
+            if (!_coding._compress_type.empty()) {
+                NAN_SET_INT(obj, "compress_size", _compress_size);
+            }
+            if (!_coding._cipher_type.empty()) {
+                NAN_SET_STR(obj, "cipher_key_b64", _secret.base64());
+            }
+            NAN_SET_INT(obj, "data_frags", _coding._data_frags);
+            NAN_SET_INT(obj, "lrc_frags", _coding._lrc_frags);
+            auto frags = NAN_NEW_ARR(_frags.size());
+            for (size_t i=0; i<_frags.size(); ++i) {
+                Fragment& f = _frags[i];
+                auto frag_obj = NAN_NEW_OBJ();
+                NAN_SET_STR(frag_obj, "layer", f.layer);
+                NAN_SET_INT(frag_obj, "layer_n", f.layer_n);
+                NAN_SET_INT(frag_obj, "frag", f.frag);
+                NAN_SET_STR(frag_obj, "digest_type", f.digest_type);
+                if (!f.digest_type.empty()) {
+                    NAN_SET_STR(frag_obj, "digest_b64", f.digest_buf.base64());
+                }
+                NAN_SET_BUF_COPY(frag_obj, "block", f.block);
+                NAN_SET(frags, i, frag_obj);
+            }
+            NAN_SET(obj, "frags", frags);
+            v8::Local<v8::Value> argv[] = { Nan::Undefined(), obj };
+            _callback->Call(2, argv);
         }
-        NAN_SET(obj, "frags", frags);
-        v8::Local<v8::Value> argv[] = { Nan::Undefined(), obj };
-        _callback->Call(2, argv);
         delete this;
     }
 
@@ -255,11 +275,13 @@ private:
     Buf _digest;
     Buf _secret;
     Buf _chunk;
-    int _length;
+    int _size;
+    int _compress_size;
     int _data_frags;
     std::vector<Fragment> _frags;
     std::deque<Buf> _bad_frags_digests;
     Buf _bad_chunk_digest;
+    std::string _bad_decompress;
 public:
     explicit DecodeWorker(
         ObjectCoding& coding,
@@ -283,7 +305,8 @@ public:
         _cipher_type = NAN_GET_STR(chunk, "cipher_type");
         _digest = Buf(std::string(NAN_GET_STR(chunk, "digest_b64")), Buf::BASE64);
         _secret = Buf(std::string(NAN_GET_STR(chunk, "cipher_key_b64")), Buf::BASE64);
-        _length = NAN_GET_INT(chunk, "size");
+        _size = NAN_GET_INT(chunk, "size");
+        _compress_size = NAN_GET_INT(chunk, "compress_size");
         _data_frags = NAN_GET_INT(chunk, "data_frags");
         auto frags = NAN_GET_ARR(chunk, "frags");
         _frags.resize(frags->Length());
@@ -338,7 +361,8 @@ public:
             data_bufs[i] = _frags[i].block;
             // LOG(DVAL(data_bufs[i].length()));
         }
-        Buf encrypted(_length, data_bufs.begin(), data_bufs.end());
+        int encrypted_size = _compress_type.empty() ? _size : _compress_size;
+        Buf encrypted(encrypted_size, data_bufs.begin(), data_bufs.end());
 
         // DECRYPT DATA
         Buf compressed;
@@ -351,10 +375,11 @@ public:
         }
 
         // DECOMPRESSION
-        if (!_compress_type.empty()) {
-            _chunk = Compression::decompress(compressed, _compress_type);
-        } else {
-            _chunk = compressed;
+        try {
+            _chunk = Compression::decompress(compressed, _size, _compress_type);
+        } catch (const std::exception& ex) {
+            _bad_decompress = ex.what();
+            return;
         }
 
         // VERIFY CONTENT HASH
@@ -362,6 +387,7 @@ public:
             Buf digest = Crypto::digest(_chunk, _digest_type.c_str());
             if (!digest.same(_digest)) {
                 _bad_chunk_digest = digest;
+                return;
             }
         }
     }
@@ -380,6 +406,11 @@ public:
                     NAN_SET_STR(bad_frags_digests, i, digest.base64());
                 }
             }
+            v8::Local<v8::Value> argv[] = { err };
+            _callback->Call(1, argv);
+        } else if (!_bad_decompress.empty()) {
+            auto err = NAN_ERR("CHUNK DECOMPRESS FAILED");
+            NAN_SET_STR(err, "decompress_error", _bad_decompress);
             v8::Local<v8::Value> argv[] = { err };
             _callback->Call(1, argv);
         } else if (_bad_chunk_digest.length()) {

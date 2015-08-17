@@ -11,7 +11,7 @@ class Compression
 {
 public:
     static Buf compress(Buf buf, std::string type);
-    static Buf decompress(Buf buf, std::string type);
+    static Buf decompress(Buf buf, int decompressed_len, std::string type);
 };
 
 #endif // COMPRESS_H_

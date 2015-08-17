@@ -580,6 +580,9 @@ module.exports = {
                 compress_type: {
                     type: 'string',
                 },
+                compress_size: {
+                    type: 'integer',
+                },
                 cipher_type: {
                     type: 'string',
                 },

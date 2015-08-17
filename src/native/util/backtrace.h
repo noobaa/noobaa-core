@@ -54,13 +54,20 @@ public:
 #endif
     }
 
+    friend std::ostream& operator<<(std::ostream& os, Backtrace& bt)
+    {
+        os << "Backtrace:" << std::endl;
+        int len = bt._stack.size();
+        for (int i=0; i<len; i++) {
+            const Entry& e = bt._stack[i];
+            os << "\t" << e.addr << " " << e.file << ":" << e.line << " " << e.func << std::endl;
+        }
+        return os;
+    }
+
     void print()
     {
-        int len = _stack.size();
-        for (int i=0; i<len; i++) {
-            const Entry& e = _stack[i];
-            std::cout << "BT \t" << e.addr << " " << e.file << ":" << e.line << " " << e.func << std::endl;
-        }
+        std::cout << *this;
     }
 
 private:

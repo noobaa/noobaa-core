@@ -23,6 +23,8 @@
 #include <node_buffer.h>
 #include <nan.h>
 
+#include "backtrace.h"
+
 #ifndef __func__
 #define __func__ __FUNCTION__
 #endif
@@ -57,6 +59,27 @@
         } \
     } while(0)
 #endif
+
+class Exception : public std::exception
+{
+public:
+    Exception(std::string msg)
+        : _msg(msg)
+        , _bt(new Backtrace())
+    {
+    }
+    virtual const char* what() const throw()
+    {
+        return (std::string("Exception: ") + _msg).c_str();
+    }
+    friend std::ostream& operator<<(std::ostream& os, Exception& e)
+    {
+        return os << "Exception: " << e._msg << " " << *e._bt;
+    }
+private:
+    std::string _msg;
+    std::shared_ptr<Backtrace> _bt;
+};
 
 typedef std::shared_ptr<Nan::Callback> NanCallbackSharedPtr;
 

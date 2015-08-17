@@ -1,5 +1,4 @@
 #include "tpool.h"
-#include "backtrace.h"
 
 Nan::Persistent<v8::Function> ThreadPool::_ctor;
 
@@ -30,12 +29,6 @@ NAN_METHOD(ThreadPool::new_instance)
     info.GetReturnValue().Set(info.This());
 }
 
-void atexit_cb()
-{
-    Backtrace bt;
-    bt.print();
-}
-
 ThreadPool::ThreadPool(int nthreads)
     : _mutex()
     , _nthreads(0)
@@ -50,8 +43,6 @@ ThreadPool::ThreadPool(int nthreads)
     uv_async_init(uv_default_loop(), &_async_completion, &work_completed_uv);
     uv_unref(reinterpret_cast<uv_handle_t*>(&_async_completion));
     _async_completion.data = this;
-
-    // atexit(atexit_cb);
 }
 
 ThreadPool::~ThreadPool()

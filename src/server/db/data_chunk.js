@@ -54,6 +54,9 @@ var data_chunk_schema = new Schema({
         type: String,
         enum: ['snappy', 'zlib']
     },
+    compress_size: {
+        type: Number,
+    },
 
     // cipher used to provide confidentiality - computed on the plain data
     cipher_type: {

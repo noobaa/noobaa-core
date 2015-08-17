@@ -22,25 +22,20 @@ function test_ingest() {
     }
     var mode = process.argv[3];
     var stats = {
-        raw_bytes: 0,
         count: 0,
         bytes: 0,
+        compress_bytes: 0,
         last_bytes: 0,
         start: Date.now(),
         last_start: Date.now(),
     };
     var pipeline = new Pipeline(input);
-    pipeline.pipe(transformer({
-        transform: function(data) {
-            stats.raw_bytes += data.length;
-            return data;
-        }
-    }));
-    var progress = function(len) {
+    var progress = function(size, compress_size) {
         process.stdout.write('.');
-        // process.stdout.write(len + '.');
+        // process.stdout.write(size + '.');
         stats.count += 1;
-        stats.bytes += len;
+        stats.bytes += size;
+        stats.compress_bytes += compress_size;
         if (stats.count % 60 === 0) {
             var now = Date.now();
             var mb_per_sec = (stats.bytes - stats.last_bytes) *
@@ -55,7 +50,7 @@ function test_ingest() {
         console.log('\nDONE.', stats.count, 'chunks.',
             'average speed', mb_per_sec.toFixed(1), 'MB/s',
             'average chunk size', (stats.bytes / stats.count).toFixed(1),
-            'compression ratio', (100 * stats.bytes / stats.raw_bytes).toFixed(1) + '%');
+            'compression ratio', (100 * stats.compress_bytes / stats.bytes).toFixed(1) + '%');
         process.exit();
     };
     var fin_exit = function() {
@@ -115,9 +110,8 @@ function test_ingest() {
                 highWaterMark: 10
             },
             transform: function(chunk) {
-                // console.log(chunk);
                 if (mode === '1') {
-                    return Q.ninvoke(object_coding, 'decode', chunk);
+                    return Q.ninvoke(object_coding, 'decode', chunk).thenResolve(chunk);
                 } else {
                     return chunk;
                 }
@@ -162,7 +156,7 @@ function test_ingest() {
         },
         transform: function(chunk) {
             // console.log('done', chunk);
-            progress(chunk.size || chunk.length || 0);
+            progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
         },
     }));
 

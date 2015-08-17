@@ -1427,6 +1427,7 @@ function get_part_info(params) {
         'digest_type',
         'digest_b64',
         'compress_type',
+        'compress_size',
         'cipher_type',
         'cipher_key_b64',
         'cipher_iv_b64',

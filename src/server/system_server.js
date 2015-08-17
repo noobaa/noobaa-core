@@ -514,6 +514,7 @@ function read_activity_log(req) {
     q.populate('bucket', 'name');
     q.populate('obj', 'key');
     q.populate('account', 'email');
+    q.populate('actor', 'email');
     return Q.when(q.exec())
         .then(function(logs) {
             logs = _.map(logs, function(log_item) {
@@ -533,6 +534,9 @@ function read_activity_log(req) {
                 }
                 if (log_item.account) {
                     l.account = _.pick(log_item.account, 'email');
+                }
+                if (log_item.actor) {
+                    l.actor = _.pick(log_item.actor, 'email');
                 }
                 return l;
             });

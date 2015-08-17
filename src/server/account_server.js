@@ -75,6 +75,7 @@ function create_account(req) {
                     level: 'info',
                     event: 'account.create',
                     account: account,
+                    actor: req.account.id
                 });
                 return Q.when(db.Role.create({
                         account: account.id,
@@ -205,6 +206,7 @@ function delete_account(req) {
                 level: 'info',
                 event: 'account.delete',
                 account: account_info_2,
+                actor: req.account.id
             }));
         })
         .then(null, function(err) {

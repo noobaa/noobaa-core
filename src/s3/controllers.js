@@ -58,8 +58,8 @@ module.exports = function(params) {
 
     var toBinary = function(str) {
         var result = '';
-        for (var i=0, l=str.length; i<l; i+=2) {
-          result += String.fromCharCode(parseInt(str.substr(i, 2), 16));
+        for (var i = 0, l = str.length; i < l; i += 2) {
+            result += String.fromCharCode(parseInt(str.substr(i, 2), 16));
         }
         return result;
     };
@@ -77,9 +77,11 @@ module.exports = function(params) {
 
                 md5_calc.on('finish', function() {
                     part_md5 = md5_calc.toString();
-                    dbg.log0('uploadObject: MD5 data (end)', part_md5,'part:',upload_part_number);
-                    clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number-1]= {md5: part_md5};
-                    dbg.log0('updated of md5 ', clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number-1]);
+                    dbg.log0('uploadObject: MD5 data (end)', part_md5, 'part:', upload_part_number);
+                    clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1] = {
+                        md5: part_md5
+                    };
+                    dbg.log0('updated of md5 ', clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1]);
                     return part_md5;
                 });
 
@@ -106,9 +108,10 @@ module.exports = function(params) {
             })
             .then(function() {
                 try {
-                    dbg.log0('COMPLETED: upload', req.query.uploadId,' part:',req.query.partNumber);
+                    dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber);
 
-                    res.header('ETag', req.query.uploadId + req.query.partNumber);
+                    // res.header('ETag', req.query.uploadId + req.query.partNumber);
+                    res.header('ETag', part_md5);
                 } catch (err) {
                     dbg.log0('FAILED', err, res);
 
@@ -254,7 +257,7 @@ module.exports = function(params) {
                             .then(function(res) {
                                 dbg.log0('complete multipart copy ', create_params);
                                 var bucket_key_params = _.pick(create_params, 'bucket', 'key');
-                                bucket_key_params.etag =    source_object_md.etag;
+                                bucket_key_params.etag = source_object_md.etag;
 
                                 return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
                             })
@@ -375,7 +378,7 @@ module.exports = function(params) {
                     })
                     .then(function() {
                         bucket_key_params.etag = md5;
-                        dbg.log0('upload_stream: complete upload', upload_params.key, 'with md5',bucket_key_params);
+                        dbg.log0('upload_stream: complete upload', upload_params.key, 'with md5', bucket_key_params);
                         return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
                     }, function(err) {
                         dbg.log0('upload_stream: error write stream', upload_params.key, err);
@@ -715,7 +718,7 @@ module.exports = function(params) {
                     dbg.log0('getObject', object_path, req.method);
                     return clients[access_key].client.object_driver_lazy().get_object_md(object_path)
                         .then(function(object_md) {
-                            dbg.log0('object_md:',object_md);
+                            dbg.log0('object_md:', object_md);
                             var create_date = new Date(object_md.create_time);
                             create_date.setMilliseconds(0);
 
@@ -953,16 +956,16 @@ module.exports = function(params) {
                 else if (!_.isUndefined(req.query.uploadId)) {
                     var aggregated_bin_md5 = '';
                     var aggregated_nobin_md5 = '';
-                    dbg.log0('request to complete ', req.query.uploadId,clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts);
+                    dbg.log0('request to complete ', req.query.uploadId, clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts);
                     _.each(_.keys(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts), function(part_number) {
                         var part_md5 = clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[part_number].md5;
-                        aggregated_nobin_md5 = aggregated_nobin_md5+part_md5;
+                        aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
                         aggregated_bin_md5 = aggregated_bin_md5 + toBinary(part_md5);
                         dbg.log0('part', part_number, ' with md5', part_md5, 'aggregated:', aggregated_bin_md5);
                     });
                     var digester = crypto.createHash('md5');
                     digester.update(aggregated_bin_md5);
-                    aggregated_md5 = digester.digest('hex')+'-'+clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts.length;
+                    aggregated_md5 = digester.digest('hex') + '-' + clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts.length;
                     dbg.log0('aggregated:', aggregated_md5);
 
 

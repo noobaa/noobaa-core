@@ -35,7 +35,7 @@ echo ""
 echo "running ..."
 
 echo ""
-source _clean_agent_blocks.sh
+mongo nbcore _clean_db_objects.js
 
 echo ""
-mongo nbcore _clean_db_objects.js
+source _clean_agent_blocks.sh

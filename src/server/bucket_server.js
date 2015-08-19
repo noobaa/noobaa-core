@@ -26,8 +26,9 @@ var _ = require('lodash');
 var Q = require('q');
 var AWS = require('aws-sdk');
 var db = require('./db');
-var server_rpc = require('./server_rpc');
+var object_server = require('./object_server');
 var promise_utils = require('../util/promise_utils');
+var js_utils = require('../util/js_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 var CLOUD_SYNC = {
@@ -71,8 +72,6 @@ function create_bucket(req) {
         .then(null, db.check_already_exists(req, 'bucket'))
         .thenResolve();
 }
-
-
 
 /**
  *
@@ -418,10 +417,42 @@ function load_configured_policies() {
         });
 }
 
-//Update work lists for all configured policies, save state in global CLOUD_SYNC
-//TODO:: SCALE: Limit to batches like the build worker does
 function update_work_list(policy) {
-    dbg.log2('update_work_list sys', policy.system._id, 'bucket', policy.bucket.id);
+    update_n2c_worklist(policy);
+    update_c2n_worklist(policy);
+}
+
+//TODO:: SCALE: Limit to batches like the build worker does
+function update_n2c_worklist(policy) {
+    dbg.log2('update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket.id);
+    return Q.fcall(function() {
+            return object_server.list_need_sync(policy.system._id, policy.bucket.id);
+        })
+        .then(function(res) {
+            var ind = _.findIndex(CLOUD_SYNC.work_lists, function(b) {
+                return b.sysid === policy.system._id &&
+                    b.bucketid === policy.bucket.id;
+            });
+            if (ind === -1) {
+                CLOUD_SYNC.work_lists.push({
+                    sysid: policy.system._id,
+                    bucketid: policy.bucket.id,
+                    added: res.added,
+                    deleted: res.deleted,
+                });
+            } else {
+                CLOUD_SYNC.work_lists[ind].added = res.added;
+                CLOUD_SYNC.work_lists[ind].deleted = res.deleted;
+            }
+            dbg.log2('DONE update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket.id, 'total changes', res.added.length + res.deleted.length);
+            return;
+        });
+}
+
+//Update work lists for specific policy
+//TODO:: SCALE: Limit to batches like the build worker does
+function update_c2n_worklist(policy) {
+    dbg.log2('update_c2n_worklist sys', policy.system._id, 'bucket', policy.bucket.id);
     //TODO:: this is problematic, global config ? should be per AWS.S3 creation...
     //multi can cause failures
     AWS.config.update({
@@ -435,26 +466,36 @@ function update_work_list(policy) {
     var params = {
         Bucket: target,
     };
+
+    //Take a list from the cloud, list from the bucket, keep only key and ETag
+    //Compare the two for diffs of additions/deletions
     var cloud_object_list, bucket_object_list;
     return Q.ninvoke(s3, 'listObjects', params)
         .fail(function(error) {
-            dbg.error('update_work_list failed to list files from cloud: sys', policy.system._id, 'bucket',
+            dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
                 policy.bucket.id, error, error.stack);
-            throw new Error('update_work_list failed to list files from cloud');
+            throw new Error('update_c2n_worklist failed to list files from cloud');
         })
         .then(function(cloud_obj) {
-            cloud_object_list = cloud_obj.Contents;
-            console.warn('NBNB:: update_work_list cloud_object_list length', cloud_object_list.length);
-            return server_rpc.client.object.list_objects({
-                name: policy.bucket.name},
-                policy.system
-            );
+            cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
+                return {
+                    etag: obj.ETag,
+                    key: obj.Key
+                };
+            });
+            dbg.log2('update_c2n_worklist cloud_object_list length', cloud_object_list.length);
+            return object_server.list_all_objects(policy.system._id, policy.bucket.id);
         })
         .then(function(bucket_obj) {
-            //bucket_object_list = bucket_obj;
-            bucket_object_list = cloud_object_list;
-            console.warn('NBNB:: update_work_list bucket_object_list length', bucket_object_list.length);
-            
+            bucket_object_list = _.map(bucket_obj, function(obj) {
+                return {
+                    etag: obj.etag,
+                    key: obj.key
+                };
+            });
+            dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
+            var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list);
+            console.warn('NBNB:: diff is', diff);
         });
 }
 
@@ -475,6 +516,9 @@ function sync_single_file_to_cloud(object, target, s3) {
     };
 
     return Q.ninvoke(s3, 'upload', params)
+        .then(function() {
+            return object_server.mark_cloud_synced(object);
+        })
         .fail(function(err) {
             dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
                 err, err.stack);
@@ -520,6 +564,12 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
                 dbg.log1('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
                 return;
             }
+        })
+        .then(function() {
+            //marked deleted objects as cloud synced
+            return Q.all(_.map(bucket_work_list.deleted, function(object) {
+                return object_server.mark_cloud_synced(object);
+            }));
         })
         .fail(function(error) {
             dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', error, error.stack);

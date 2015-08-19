@@ -1,9 +1,12 @@
 'use strict';
 
 var _ = require('lodash');
+var dbg = require('noobaa-util/debug_module')(__filename);
+
 
 module.exports = {
-    self_bind: self_bind
+    self_bind: self_bind,
+    diff_arrays: diff_arrays
 };
 
 
@@ -42,4 +45,54 @@ function self_bind(object, method_desc) {
     object[method_desc] = closure_func;
 
     return closure_func;
+}
+
+//Recieve two array and a comperator
+//Comperator definition: (a<b) return -1, (a>b) return 1, (a===b) return 0
+//Return uniq items in arr1 and uniq items in arr2
+function diff_arrays(arr1, arr2, comp) {
+    var uniq_1 = [],
+        uniq_2 = [];
+    var pos1 = 0,
+        pos2 = 0;
+
+    if (!_.isFunction(comp)) {
+        throw new Error('Comp must be a comperator function');
+    }
+
+    while (comp(arr1[pos1], arr2[pos2]) === -1) {
+        uniq_1.push(arr1[pos1]);
+        pos1++;
+    }
+
+    while (pos1 < arr1.length && pos2 < arr2.length) {
+        if (comp(arr1[pos1], arr2[pos2]) === -1) {
+            uniq_1.push(arr1[pos1]);
+            pos1++;
+        } else if (comp(arr1[pos1], arr2[pos2]) === 1) {
+            uniq_2.push(arr2[pos2]);
+            pos2++;
+        } else {
+            pos1++;
+            pos2++;
+        }
+    }
+
+    //Handle tails
+    for (; pos1 < arr1.length; ++pos1) {
+        uniq_1.push(arr1[pos1]);
+        pos1++;
+    }
+
+    for (; pos2 < arr2.length; ++pos2) {
+        uniq_2.push(arr2[pos2]);
+        pos2++;
+    }
+
+    dbg.log4('diff_arrays recieved arr1 #', arr1.length, 'arr2 #', arr2.length, 'returns uniq_1', uniq_1, 'uniq_2', uniq_2);
+
+    return {
+        uniq_a: uniq_1,
+        uniq_b: uniq_2
+    };
 }

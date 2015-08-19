@@ -1,26 +1,24 @@
 'use strict';
 
-module.exports = null;
+require('../util/panic');
+var Q = require('q');
+var fs = require('fs');
+var range_utils = require('../util/range_utils');
+var transformer = require('../util/transformer');
+var Pipeline = require('../util/pipeline');
 
 if (require.main === module) {
-    test_ingest();
+    test();
 }
 
-function test_ingest() {
+function test() {
 
-    require('../util/panic');
-    var Q = require('q');
-    var fs = require('fs');
-    var transformer = require('../util/transformer');
-    var Pipeline = require('../util/pipeline');
-    var input = process.stdin;
-    if (process.argv[2]) {
-        console.log('FILE', process.argv[2]);
-        input = fs.createReadStream(process.argv[2], {
-            highWaterMark: 1024 * 1024
-        });
-    }
+    var filename = process.argv[2];
     var mode = process.argv[3];
+    console.log('FILE', filename);
+    var input = fs.createReadStream(filename, {
+        highWaterMark: 1024 * 1024
+    });
     var stats = {
         count: 0,
         bytes: 0,
@@ -29,7 +27,6 @@ function test_ingest() {
         start: Date.now(),
         last_start: Date.now(),
     };
-    var pipeline = new Pipeline(input);
     var progress = function(size, compress_size) {
         process.stdout.write('.');
         // process.stdout.write(size + '.');
@@ -40,14 +37,18 @@ function test_ingest() {
             var now = Date.now();
             var mb_per_sec = (stats.bytes - stats.last_bytes) *
                 1000 / (now - stats.last_start) / 1024 / 1024;
-            console.log('', mb_per_sec.toFixed(1), 'MB/s');
+            process.stdout.write(' ' + mb_per_sec.toFixed(1) + ' MB/s\n');
             stats.last_bytes = stats.bytes;
             stats.last_start = now;
         }
     };
-    var fin = function() {
+    var fin = function(err) {
+        if (err) {
+            console.error('ERROR', err.stack || err);
+        }
+        process.stdout.write('\n\n');
         var mb_per_sec = stats.bytes * 1000 / (Date.now() - stats.start) / 1024 / 1024;
-        console.log('\nDONE.', stats.count, 'chunks.',
+        console.log('DONE.', stats.count, 'chunks.',
             'average speed', mb_per_sec.toFixed(1), 'MB/s',
             'average chunk size', (stats.bytes / stats.count).toFixed(1),
             'compression ratio', (100 * stats.compress_bytes / stats.bytes).toFixed(1) + '%');
@@ -61,13 +62,20 @@ function test_ingest() {
         }
         process.abort();
     };
-
     process.on('SIGTERM', fin_exit);
     process.on('SIGINT', fin_exit);
 
 
     if (!mode || mode === '1') {
+        test_coding();
+    } else if (mode === '2') {
+        test_upload();
+    } else {
+        test_legacy_js_coding();
+    }
 
+    function test_coding() {
+        var CoalesceStream = require("../util/coalesce_stream");
         var native_util = require("bindings")("native_util.node");
         var dedup_chunker = new native_util.DedupChunker({
             tpool: new native_util.ThreadPool(1)
@@ -83,6 +91,7 @@ function test_ingest() {
             lrc_frags: 0,
             lrc_parity: 0,
         });
+        var pipeline = new Pipeline(input);
         pipeline.pipe(transformer({
             options: {
                 objectMode: true,
@@ -97,19 +106,28 @@ function test_ingest() {
         }));
         pipeline.pipe(transformer({
             options: {
+                flatten: true,
                 objectMode: true,
                 highWaterMark: 10
             },
-            transform: function(data) {
+            transform_parallel: function(data) {
+                // console.log('encode chunk');
                 return Q.ninvoke(object_coding, 'encode', data);
             },
         }));
+        pipeline.pipe(new CoalesceStream({
+            objectMode: true,
+            max_length: 10,
+            max_wait_ms: 100,
+        }));
         pipeline.pipe(transformer({
             options: {
+                flatten: true,
                 objectMode: true,
                 highWaterMark: 10
             },
-            transform: function(chunk) {
+            transform_parallel: function(chunk) {
+                // console.log('decode chunk');
                 if (mode === '1') {
                     return Q.ninvoke(object_coding, 'decode', chunk).thenResolve(chunk);
                 } else {
@@ -117,13 +135,55 @@ function test_ingest() {
                 }
             },
         }));
+        pipeline.pipe(transformer({
+            options: {
+                flatten: true,
+                objectMode: true,
+                highWaterMark: 1
+            },
+            transform: function(chunk) {
+                // console.log('done', chunk);
+                progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
+            },
+        }));
+        pipeline.run().then(fin, fin);
+    }
 
-    } else {
+    function test_upload() {
+        var api = require('../api');
+        var client = new api.Client();
+        client.create_auth_token({
+                email: 'demo@noobaa.com',
+                password: 'DeMo',
+                system: 'demo',
+            })
+            .then(function() {
+                return client.object.delete_object({
+                    bucket: 'files',
+                    key: filename,
+                }).fail(function(){});
+            })
+            .then(function() {
+                return client.object_driver_lazy().upload_stream({
+                    bucket: 'files',
+                    key: filename,
+                    size: fs.statSync(filename).size,
+                    content_type: require('mime').lookup(filename),
+                    source_stream: input
+                })
+                .then(null, null, function(progress_info) {
+                    console.log('upload progress', range_utils.human_range(progress_info.part));
+                });
+            })
+            .then(fin, fin);
+    }
 
+    function test_legacy_js_coding() {
         // for comparison this is the old javascript impl
         var rabin = require('../../attic/rabin');
         var Poly = require('../../attic/poly');
         var chunk_crypto = require('../../attic/chunk_crypto');
+        var pipeline = new Pipeline(input);
         pipeline.pipe(new rabin.RabinChunkStream({
             window_length: 64,
             min_chunk_size: 3 * 128 * 1024,
@@ -147,18 +207,17 @@ function test_ingest() {
                 return chunk_crypto.encrypt_chunk(data, crypt_info);
             }
         }));
+        pipeline.pipe(transformer({
+            options: {
+                objectMode: true,
+                highWaterMark: 1
+            },
+            transform: function(chunk) {
+                // console.log('done', chunk);
+                progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
+            },
+        }));
+        pipeline.run().then(fin, fin);
     }
 
-    pipeline.pipe(transformer({
-        options: {
-            objectMode: true,
-            highWaterMark: 1
-        },
-        transform: function(chunk) {
-            // console.log('done', chunk);
-            progress(chunk.size || chunk.length || 0, chunk.compress_size || 0);
-        },
-    }));
-
-    pipeline.run().then(fin);
 }

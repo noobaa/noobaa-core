@@ -83,7 +83,7 @@ function lazy_init_natives() {
         dedup_chunker_tpool = new native_util.ThreadPool(1);
     }
     if (!object_coding_tpool) {
-        object_coding_tpool = new native_util.ThreadPool(1);
+        object_coding_tpool = new native_util.ThreadPool(2);
     }
     if (!object_coding) {
         object_coding = new native_util.ObjectCoding({
@@ -144,6 +144,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     dbg.log0('upload_stream: start', params.key, 'part number', upload_part_number,
         'sequence number', part_sequence_number);
     return Q.fcall(function() {
+        params.source_stream._readableState.highWaterMark = 1024 * 1024;
         var pipeline = new Pipeline(params.source_stream);
 
         //////////////////////////////
@@ -174,13 +175,14 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
         pipeline.pipe(transformer({
             options: {
+                flatten: true,
                 objectMode: true,
                 highWaterMark: 10
             },
             init: function() {
                 this.offset = 0;
             },
-            transform: function(data) {
+            transform_parallel: function(data) {
                 var stream = this;
                 return Q.ninvoke(object_coding, 'encode', data)
                     .then(function(chunk) {
@@ -204,9 +206,8 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
         pipeline.pipe(new CoalesceStream({
             objectMode: true,
-            highWaterMark: 30,
             max_length: 10,
-            max_wait_ms: 1000,
+            max_wait_ms: 200,
         }));
 
         pipeline.pipe(transformer({
@@ -214,8 +215,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 objectMode: true,
                 highWaterMark: 10
             },
-            transform: function(parts) {
-                var stream = this;
+            transform_parallel: function(parts) {
                 dbg.log0('upload_stream: allocating parts', parts.length);
                 // send parts to server
                 return self.client.object.allocate_object_parts({
@@ -252,10 +252,9 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                         })
                     })
                     .then(function(res) {
-                        // push parts down the pipe
-                        var part;
-                        for (var i = 0; i < res.parts.length; i++) {
-                            if (res.parts[i].dedup) {
+                        return _.map(res.parts, function(res_part, i) {
+                            var part;
+                            if (res_part.dedup) {
                                 part = parts[i];
                                 part.dedup = true;
                                 part.frags = null;
@@ -265,10 +264,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                                 // the buffers are kept in the object that we encoded
                                 // so we need them accessible for writing
                                 part.encoded_frags = parts[i].chunk.frags;
-                                dbg.log0('upload_stream: allocated part', part.start);
+                                dbg.log1('upload_stream: allocated part', part.start);
                             }
-                            stream.push(part);
-                        }
+                            return part;
+                        });
                     });
             }
         }));
@@ -279,10 +278,11 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
         pipeline.pipe(transformer({
             options: {
+                flatten: true,
                 objectMode: true,
-                highWaterMark: 30
+                highWaterMark: 10
             },
-            transform: function(part) {
+            transform_parallel: function(part) {
                 return Q.when(self._write_fragments(params.bucket, params.key, part))
                     .thenResolve(part);
             }
@@ -294,9 +294,8 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
         pipeline.pipe(new CoalesceStream({
             objectMode: true,
-            highWaterMark: 30,
             max_length: 10,
-            max_wait_ms: 1000,
+            max_wait_ms: 200,
         }));
 
         pipeline.pipe(transformer({
@@ -304,7 +303,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 objectMode: true,
                 highWaterMark: 10
             },
-            transform: function(parts) {
+            transform_parallel: function(parts) {
                 dbg.log0('upload_stream: finalize parts', parts.length);
                 // send parts to server
                 return self._finalize_sem.surround(function() {
@@ -337,6 +336,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
         pipeline.pipe(transformer({
             options: {
+                flatten: true,
                 objectMode: true,
                 highWaterMark: 1
             },

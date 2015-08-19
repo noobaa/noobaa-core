@@ -11,7 +11,7 @@ var Schema = mongoose.Schema;
  * Cluster Definitions and structure
  *
  */
-var tier_schema = new Schema({
+var cluster_schema = new Schema({
 
     cluster_id: {
         type: String,
@@ -22,10 +22,10 @@ var tier_schema = new Schema({
     autoIndex: false
 });
 
-tier_schema.index({
+cluster_schema.index({
     cluster_id: 1,
 }, {
     unique: true
 });
 
-module.exports = mongoose.model('Cluster', tier_schema);
+module.exports = mongoose.model('Cluster', cluster_schema);

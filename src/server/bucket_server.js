@@ -418,8 +418,10 @@ function load_configured_policies() {
 }
 
 function update_work_list(policy) {
-    update_n2c_worklist(policy);
-    update_c2n_worklist(policy);
+    return Q.allSettled([
+        update_n2c_worklist(policy),
+        update_c2n_worklist(policy)
+    ]);
 }
 
 //TODO:: SCALE: Limit to batches like the build worker does
@@ -479,7 +481,7 @@ function update_c2n_worklist(policy) {
         .then(function(cloud_obj) {
             cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
                 return {
-                    etag: obj.ETag,
+                    //TODO:: NBNB add this back once ul is real etag: obj.ETag,
                     key: obj.Key
                 };
             });
@@ -489,13 +491,22 @@ function update_c2n_worklist(policy) {
         .then(function(bucket_obj) {
             bucket_object_list = _.map(bucket_obj, function(obj) {
                 return {
-                    etag: obj.etag,
+                    //TODO:: NBNB add this back once ul is real etag: obj.etag,
                     key: obj.key
                 };
             });
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
-            var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list);
-            console.warn('NBNB:: diff is', diff);
+            var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list, function(a, b) {
+                if (a.key < b.key) {
+                    return -1;
+                } else if (a.key > b.key) {
+                    return 1;
+                } else {
+                    //TODO::NBNB take into account the etag once its back, for overwrite scenarios, if same etag, drop
+                    return 0;
+                }
+            });
+            dbg.log2('update_c2n_worklist found ', diff.uniq_a.length + diff.uniq_b.length, 'diffs to resolve');
         });
 }
 
@@ -511,7 +522,6 @@ function sync_single_file_to_cloud(object, target, s3) {
         Bucket: target,
         Key: object.key,
         ContentType: object.content_type,
-        etag: object.etag,
         Body: body
     };
 

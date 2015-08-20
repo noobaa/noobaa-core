@@ -385,6 +385,7 @@ function get_policy_status(bucketid, sysid) {
 function load_configured_policies() {
     dbg.log2('load_configured_policies');
     CLOUD_SYNC.configured_policies = [];
+    CLOUD_SYNC.work_lists = [];
     return Q.when(db.Bucket
             .find({
                 deleted: null,
@@ -395,6 +396,7 @@ function load_configured_policies() {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
                     dbg.log4('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
+                    //Cache Configuration
                     CLOUD_SYNC.configured_policies.push({
                         bucket: {
                             name: bucket.name,
@@ -411,6 +413,16 @@ function load_configured_policies() {
                         last_refresh: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
                         health: true,
                     });
+
+                    //Init empty work lists for current policy
+                    CLOUD_SYNC.work_lists.push({
+                        sysid: bucket.system._id,
+                        bucketid: bucket._id,
+                        n2c_added: [],
+                        n2c_deleted: [],
+                        c2n_added: [],
+                        c2n_deleted: []
+                    });
                 }
             });
             CLOUD_SYNC.refresh_list = false;
@@ -418,10 +430,12 @@ function load_configured_policies() {
 }
 
 function update_work_list(policy) {
-    return Q.allSettled([
-        update_n2c_worklist(policy),
-        update_c2n_worklist(policy)
-    ]);
+    //order is important, in order to query needed sync objects only once form DB
+    //fill the n2c list first
+    return Q.when(update_n2c_worklist(policy))
+        .then(function() {
+            return update_c2n_worklist(policy);
+        });
 }
 
 //TODO:: SCALE: Limit to batches like the build worker does
@@ -435,17 +449,8 @@ function update_n2c_worklist(policy) {
                 return b.sysid === policy.system._id &&
                     b.bucketid === policy.bucket.id;
             });
-            if (ind === -1) {
-                CLOUD_SYNC.work_lists.push({
-                    sysid: policy.system._id,
-                    bucketid: policy.bucket.id,
-                    added: res.added,
-                    deleted: res.deleted,
-                });
-            } else {
-                CLOUD_SYNC.work_lists[ind].added = res.added;
-                CLOUD_SYNC.work_lists[ind].deleted = res.deleted;
-            }
+            CLOUD_SYNC.work_lists[ind].n2c_added = res.added;
+            CLOUD_SYNC.work_lists[ind].n2c_deleted = res.deleted;
             dbg.log2('DONE update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket.id, 'total changes', res.added.length + res.deleted.length);
             return;
         });
@@ -455,6 +460,13 @@ function update_n2c_worklist(policy) {
 //TODO:: SCALE: Limit to batches like the build worker does
 function update_c2n_worklist(policy) {
     dbg.log2('update_c2n_worklist sys', policy.system._id, 'bucket', policy.bucket.id);
+
+    var worklist_ind = _.findIndex(CLOUD_SYNC.work_lists, function(b) {
+        return b.sysid === policy.system._id &&
+            b.bucketid === policy.bucket.id;
+    });
+    var current_worklists = CLOUD_SYNC.work_lists[worklist_ind];
+
     //TODO:: this is problematic, global config ? should be per AWS.S3 creation...
     //multi can cause failures
     AWS.config.update({
@@ -481,7 +493,7 @@ function update_c2n_worklist(policy) {
         .then(function(cloud_obj) {
             cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
                 return {
-                    //TODO:: NBNB add this back once ul is real etag: obj.ETag,
+                    //TODO:: NBNB add this back once ul is real etag: obj.ETag, also dates
                     key: obj.Key
                 };
             });
@@ -491,11 +503,12 @@ function update_c2n_worklist(policy) {
         .then(function(bucket_obj) {
             bucket_object_list = _.map(bucket_obj, function(obj) {
                 return {
-                    //TODO:: NBNB add this back once ul is real etag: obj.etag,
+                    //TODO:: NBNB add this back once ul is real etag: obj.etag, also dates
                     key: obj.key
                 };
             });
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
+            //Diff the arrays
             var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list, function(a, b) {
                 if (a.key < b.key) {
                     return -1;
@@ -507,6 +520,37 @@ function update_c2n_worklist(policy) {
                 }
             });
             dbg.log2('update_c2n_worklist found ', diff.uniq_a.length + diff.uniq_b.length, 'diffs to resolve');
+            /*Now resolve each diff in the following manner:
+              Appear On   Appear On   Need Sync         Action
+              NooBaa      Cloud       (in N2C list)
+              ----------  ----------  -------------     ------
+                 T          F             F             Deleted on cloud, add to c2n
+                 T          F             T             Ignore, Added on NooBaa, handled in n2c
+                 F          T             F             Added on cloud, add to c2n
+                 F          T             T             Ignore, Deleted on NooBaa, handled in n2c
+                 F          F             -             Can't Appear, not interesting
+                 T          T             ?             Overwrite possibility, if dates !=, take latest.
+                                                        handled by the comperator sent to diff_arrays
+
+              For need sync purposes, check the N2C worklist for current policy,
+              should be filled before the c2n list
+            */
+            var joint_worklist = current_worklists.n2c_added.concat(current_worklists.n2c_deleted);
+            _.each(diff.uniq_b, function(bucket_obj) { //Appear in noobaa and not on cloud
+                if (_.findIndex(joint_worklist, function(it) {
+                        return it.key === bucket_obj.key;
+                    }) === -1) {
+                    current_worklists.c2n_deleted.push(bucket_obj);
+                }
+            });
+            _.each(diff.uniq_a, function(cloud_obj) { //Appear in cloud and not on NooBaa
+                if (_.findIndex(joint_worklist, function(it) {
+                        return it.key === cloud_obj.key;
+                    }) === -1) {
+                    current_worklists.c2n_added.push(cloud_obj);
+                }
+            });
+            console.warn('NBNB*******  c2n worklists added\n', current_worklists.c2n_added, 'deleted\n', current_worklists.c2n_deleted);
         });
 }
 
@@ -537,9 +581,9 @@ function sync_single_file_to_cloud(object, target, s3) {
 }
 
 //Perform n2c cloud sync for a specific policy with a given work list
-function sync_to_cloud_single_bucket(bucket_work_list, policy) {
-    dbg.log1('Start sync_to_cloud_single_bucket on work list', bucket_work_list, 'policy', policy);
-    if (!bucket_work_list || !policy) {
+function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
+    dbg.log1('Start sync_to_cloud_single_bucket on work list for policy', policy);
+    if (!bucket_work_lists || !policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
 
@@ -555,7 +599,7 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
     var s3 = new AWS.S3();
     //First delete all the deleted objects
     return Q.fcall(function() {
-            if (bucket_work_list.deleted.length) {
+            if (bucket_work_lists.n2c_deleted.length) {
                 var params = {
                     Bucket: target,
                     Delete: {
@@ -563,12 +607,12 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
                     },
                 };
 
-                _.each(bucket_work_list.deleted, function(obj) {
+                _.each(bucket_work_lists.n2c_deleted, function(obj) {
                     params.Delete.Objects.push({
                         Key: obj.key
                     });
                 });
-                dbg.log1('sync_to_cloud_single_bucket syncing', bucket_work_list.deleted.length, 'deletions n2c');
+                dbg.log1('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c');
                 return Q.ninvoke(s3, 'deleteObjects', params);
             } else {
                 dbg.log1('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
@@ -577,7 +621,7 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
         })
         .then(function() {
             //marked deleted objects as cloud synced
-            return Q.all(_.map(bucket_work_list.deleted, function(object) {
+            return Q.all(_.map(bucket_work_lists.n2c_deleted, function(object) {
                 return object_server.mark_cloud_synced(object);
             }));
         })
@@ -586,12 +630,12 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
         })
         .then(function() {
             //empty deleted work list jsperf http://jsperf.com/empty-javascript-array
-            while (bucket_work_list.deleted.length > 0) {
-                bucket_work_list.deleted.pop();
+            while (bucket_work_lists.n2c_deleted.length > 0) {
+                bucket_work_lists.n2c_deleted.pop();
             }
             //Now upload the new objects
-            if (bucket_work_list.added.length) {
-                return Q.all(_.map(bucket_work_list.added, function(object) {
+            if (bucket_work_lists.n2c_added.length) {
+                return Q.all(_.map(bucket_work_lists.n2c_added, function(object) {
                     return sync_single_file_to_cloud(object, target, s3);
                 }));
             } else {
@@ -608,7 +652,7 @@ function sync_to_cloud_single_bucket(bucket_work_list, policy) {
 }
 
 //Perform c2n cloud sync for a specific policy with a given work list
-function sync_from_cloud_single_bucket(bucket_work_list, policy) {
+function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
 
 }
 

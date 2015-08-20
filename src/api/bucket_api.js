@@ -129,22 +129,17 @@ module.exports = {
                 type: 'object',
                 required: [],
                 properties: {
-                    cloud_sync_policy: {
-                        type: 'object',
-                        items: {
-                            name: {
-                                type: 'string',
-                            },
-                            policy: {
-                                $ref: '/bucket_api/definitions/cloud_sync'
-                            },
-                            health: {
-                                type: 'boolean'
-                            },
-                            status: {
-                                $ref: '/bucket_api/definitions/sync_status_enum'
-                            }
-                        }
+                    name: {
+                        type: 'string',
+                    },
+                    policy: {
+                        $ref: '/bucket_api/definitions/cloud_sync'
+                    },
+                    health: {
+                        type: 'boolean'
+                    },
+                    status: {
+                        $ref: '/bucket_api/definitions/sync_status_enum'
                     }
                 }
             },
@@ -156,24 +151,22 @@ module.exports = {
         get_all_cloud_sync_policies: {
             method: 'GET',
             reply: {
-                type: 'object',
+                type: 'array',
                 required: [],
                 properties: {
-                    cloud_sync_policies: {
-                        type: 'array',
-                        items: {
-                            name: {
-                                type: 'string',
-                            },
-                            policy: {
-                                $ref: '/bucket_api/definitions/cloud_sync'
-                            },
-                            health: {
-                                type: 'boolean'
-                            },
-                            status: {
-                                $ref: '/bucket_api/definitions/sync_status_enum'
-                            }
+                    type: 'object',
+                    items: {
+                        name: {
+                            type: 'string',
+                        },
+                        policy: {
+                            $ref: '/bucket_api/definitions/cloud_sync'
+                        },
+                        health: {
+                            type: 'boolean'
+                        },
+                        status: {
+                            $ref: '/bucket_api/definitions/sync_status_enum'
                         }
                     }
                 }
@@ -288,6 +281,10 @@ module.exports = {
                 schedule: {
                     type: 'integer'
                 },
+                // last_sync: {
+                //     type: 'integer',
+                //     format: 'idate'
+                // },
                 paused: {
                     type: 'boolean',
                 },

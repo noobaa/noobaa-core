@@ -514,7 +514,7 @@ nb_console.controller('SystemDataCtrl', [
                     if (_.isEmpty(cloud_sync_policy)) {
                         scope.status = "No policy defined";
                     } else {
-                        scope.status = cloud_sync_policy.cloud_sync_policy.status;
+                        scope.status = cloud_sync_policy.status;
                         console.log('cloud policy' + JSON.stringify(cloud_sync_policy));
                     }
 

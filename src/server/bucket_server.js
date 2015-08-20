@@ -195,23 +195,23 @@ function get_cloud_sync_policy(req) {
             var bucket = buckets[0];
             dbg.log0('get_cloud_sync_policy bucket:', bucket);
             dbg.log0('get_cloud_sync_policy policy:', bucket.cloud_sync,bucket.cloud_sync.endpoint);
+            dbg.log0('access key for reply',[bucket.cloud_sync.access_keys]);
             if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
-                reply.push({
+                reply = {
                     name: bucket.name,
                     policy: {
                         endpoint: bucket.cloud_sync.endpoint,
-                        access_keys: bucket.cloud_sync.access_keys,
+                        access_keys: [bucket.cloud_sync.access_keys],
                         schedule: bucket.cloud_sync.schedule,
-                        last_sync: bucket.cloud_sync.last_sync,
+                //TODO: added this one properly
+                //        last_sync: bucket.cloud_sync.last_sync,
                         paused: bucket.cloud_sync.paused
                     },
                     health: get_policy_health(bucket._id, req.system.id),
                     status: get_policy_status(bucket._id, req.system.id),
-                });
-
-                return {
-                    cloud_sync_policy: reply
                 };
+
+                return reply;
             } else {
                 return {};
             }
@@ -239,7 +239,7 @@ function get_all_cloud_sync_policies(req) {
                         name: bucket.name,
                         policy: {
                             endpoint: bucket.cloud_sync.endpoint,
-                            access_keys: bucket.cloud_sync.access_keys,
+                            access_keys: [bucket.cloud_sync.access_keys],
                             schedule: bucket.cloud_sync.schedule,
                             last_sync: bucket.cloud_sync.last_sync,
                             paused: bucket.cloud_sync.paused
@@ -249,9 +249,7 @@ function get_all_cloud_sync_policies(req) {
                     });
                 }
             });
-            return {
-                cloud_sync_policies: reply
-            };
+            return  reply;
         });
 }
 
@@ -403,24 +401,25 @@ function resolve_tiering(system_id, tiering) {
         });
 }
 
+//TODO: rewrite the find and get rid from toString
 function get_policy_health(bucketid, sysid) {
     dbg.log0('get policy health',bucketid,sysid,CLOUD_SYNC.configured_policies);
     var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-        dbg.log0('get policy health (inner)',p.system._id,p.bucket.id,p);
-        return p.system._id === sysid && p.bucket.id === bucketid;
+        var p_sys_id = p.system._id.toString();
+        return ( p_sys_id === sysid && p.bucket.id.toString() === bucketid.toString());
     });
-    dbg.log0('get policy health after',policy);
 
     return policy.health;
 }
 
+//TODO: rewrite the find and get rid from toString
 function get_policy_status(bucketid, sysid) {
     var work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
-        return wl.sysid === sysid && wl.bucketid === bucketid;
+        return wl.sysid.toString() === sysid && wl.bucketid.toString() === bucketid.toString();
     });
 
     //TODO:: Add check against c2n lists lengths as well
-    if (work_list.added.length || work_list.deleted.length) {
+    if (work_list.n2c_added.length || work_list.n2c_deleted.length) {
         return 'SYNCING';
     } else {
         return 'IDLE';
@@ -559,7 +558,10 @@ function update_c2n_worklist(policy) {
             });
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
             //Diff the arrays
+            dbg.log0('cloud_object_list',cloud_object_list,'bucket_object_list',bucket_object_list);
+
             var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list, function(a, b) {
+
                 if (a.key < b.key) {
                     return -1;
                 } else if (a.key > b.key) {
@@ -610,7 +612,7 @@ function sync_single_file_to_cloud(object, target, s3) {
 
     //TODO:: remove this require, read actual file
     var fs = require('fs');
-    var body = fs.createReadStream('../config.js');
+    var body = fs.createReadStream('/Users/eran/workspace/noobaa-core-new/clear_db.js');
     //Read file
     var params = {
         Bucket: target,
@@ -717,7 +719,9 @@ promise_utils.run_background_worker({
         return Q.fcall(function() {
                 dbg.log2('CLOUD_SYNC_REFRESHER:', 'BEGIN');
                 ///if policies not loaded, load them now
+                dbg.log0('bg:',CLOUD_SYNC.configured_policies.length);
                 if (CLOUD_SYNC.configured_policies.length === 0 || CLOUD_SYNC.refresh_list) {
+
                     load_configured_policies();
                 }
             })

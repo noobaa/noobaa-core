@@ -63,7 +63,14 @@ var objmd_schema = new Schema({
         type: String,
     },
 
+    // is the object synced with the cloud
+    cloud_synced: {
+        type: Boolean,
+    },
+
     // on delete set deletion time
+    //see relation to cloud_synced, if deleted will ever be actually
+    //remove from the DB, need to wait until its cloud_synced === true
     deleted: {
         type: Date,
     },
@@ -80,6 +87,15 @@ objmd_schema.index({
     deleted: 1, // allow to filter deleted
 }, {
     unique: true
+});
+
+// Index according to cloud_sync
+objmd_schema.index({
+    bucket: 1,
+    cloud_synced: 1,
+    deleted: 1,
+}, {
+    unique: false
 });
 
 /**

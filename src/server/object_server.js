@@ -33,6 +33,11 @@ var object_server = {
     update_object_md: update_object_md,
     delete_object: delete_object,
     list_objects: list_objects,
+
+    //cloud sync
+    list_need_sync: list_need_sync,
+    mark_cloud_synced: mark_cloud_synced,
+    list_all_objects: list_all_objects
 };
 
 module.exports = object_server;
@@ -54,6 +59,7 @@ function create_multipart_upload(req) {
                 size: req.rpc_params.size,
                 content_type: req.rpc_params.content_type || 'application/octet-stream',
                 upload_size: 0,
+                cloud_synced: false,
             };
             return db.ObjectMD.create(info);
         }).thenResolve();
@@ -272,6 +278,7 @@ function delete_object(req) {
             dbg.log4('deleting object', obj);
             return obj.update({
                 deleted: new Date(),
+                cloud_synced: false
             }).exec();
         })
         .then(function() {
@@ -304,7 +311,7 @@ var ONE_LEVEL_SLASH_DELIMITER = one_level_delimiter('/');
  *
  */
 function list_objects(req) {
-    console.log('key query', req.rpc_params);
+    dbg.log0('key query', req.rpc_params);
     return load_bucket(req)
         .then(function() {
             var info = _.omit(object_md_query(req), 'key');
@@ -355,6 +362,69 @@ function list_objects(req) {
             return res;
         });
 }
+
+//TODO:: add limit and skip
+//Preferably move part of list_objects to a mutual function called by both
+function list_all_objects(sysid, bucket) {
+    return Q.when(db.ObjectMD
+            .find({
+                system: sysid,
+                bucket: bucket,
+                deleted: null
+            })
+            .sort('key')
+            .exec())
+        .then(function(list) {
+            return list;
+        });
+}
+
+//return all objects which need sync (new and deleted) for sysid, bucketid
+function list_need_sync(sysid, bucketid) {
+    var res = {
+        deleted: [],
+        added: [],
+    };
+
+    return Q.when(db.ObjectMD
+            .find({
+                system: sysid,
+                bucket: bucketid,
+                cloud_synced: false
+            })
+            .exec())
+        .then(function(need_to_sync) {
+            _.each(need_to_sync, function(obj) {
+                if (need_to_sync.deleted) {
+                    res.deleted.push(obj);
+                } else {
+                    res.added.push(obj);
+                }
+            });
+            return res;
+        })
+        .then(null, function(err) {
+            console.warn('list_need_sync got error', err, err.stack);
+        });
+}
+
+//set cloud_sync to true on given object
+function mark_cloud_synced(object) {
+    return Q.when(db.ObjectMD
+            .findOne({
+                system: object.system,
+                bucket: object.bucket,
+                key: object.key,
+                //Don't set deleted, since we update both deleted and not
+            })
+            .exec())
+        .then(function(dbobj) {
+            return dbobj.update({
+                cloud_synced: true
+            }).exec();
+        });
+}
+
 // UTILS //////////////////////////////////////////////////////////
 
 

@@ -370,7 +370,7 @@ function get_policy_status(bucketid, sysid) {
     });
 
     //TODO:: Add check against c2n lists lengths as well
-    if (work_list.added.length || work_list.deleted.length) {
+    if (work_list.n2c_added.length || work_list.n2c_deleted.length) {
         return 'SYNCING';
     } else {
         return 'IDLE';

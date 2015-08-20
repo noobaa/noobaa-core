@@ -216,6 +216,30 @@ module.exports = {
             auth: {
                 system: 'admin'
             }
+        },
+        get_cloud_buckets: {
+            method: 'GET',
+            params: {
+                type: 'object',
+                required: ['access_key', 'secret_key'],
+                properties: {
+                    access_key: {
+                        type: 'string',
+                    },
+                    secret_key: {
+                        type: 'string',
+                    },
+                }
+            },
+            reply: {
+                type: 'array',
+                items: {
+                    type: 'string'
+                }
+            },
+            auth: {
+                system: 'admin'
+            }
         }
 
     },

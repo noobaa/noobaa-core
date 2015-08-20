@@ -19,7 +19,10 @@ module.exports = {
     get_cloud_sync_policy: get_cloud_sync_policy,
     get_all_cloud_sync_policies: get_all_cloud_sync_policies,
     delete_cloud_sync: delete_cloud_sync,
-    set_cloud_sync: set_cloud_sync
+    set_cloud_sync: set_cloud_sync,
+
+    //Temporary - TODO: move to new server
+    get_cloud_buckets: get_cloud_buckets
 };
 
 var _ = require('lodash');
@@ -29,6 +32,7 @@ var db = require('./db');
 var server_rpc = require('./server_rpc');
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var AWS = require('aws-sdk');
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
@@ -179,6 +183,7 @@ function list_buckets(req) {
  */
 function get_cloud_sync_policy(req) {
     dbg.log3('get_cloud_sync_policy');
+    dbg.log0('rpc!!!', req.rpc_params);
     var reply = [];
     return Q.when(db.Bucket
             .find({
@@ -187,8 +192,11 @@ function get_cloud_sync_policy(req) {
                 deleted: null,
             })
             .exec())
-        .then(function(bucket) {
-            if (bucket.cloud_sync.endpoint) {
+        .then(function(buckets) {
+            var bucket = buckets[0];
+            dbg.log0('get_cloud_sync_policy bucket:', bucket);
+            dbg.log0('get_cloud_sync_policy policy:', bucket.cloud_sync,bucket.cloud_sync.endpoint);
+            if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
                 reply.push({
                     name: bucket.name,
                     policy: {
@@ -201,10 +209,13 @@ function get_cloud_sync_policy(req) {
                     health: get_policy_health(bucket._id, req.system.id),
                     status: get_policy_status(bucket._id, req.system.id),
                 });
+
+                return {
+                    cloud_sync_policy: reply
+                };
+            } else {
+                return {};
             }
-            return {
-                cloud_sync_policy: reply
-            };
         });
 }
 
@@ -300,15 +311,51 @@ function set_cloud_sync(req) {
             })
             .exec())
         .then(function(bucket) {
+            dbg.log0('set_cloud_sync2:', bucket);
             return Q.when(db.Bucket
                 .findOneAndUpdate(get_bucket_query(req), updates)
                 .exec());
         })
         .then(function() {
+            dbg.log0('set_cloud_sync3 after update:');
             CLOUD_SYNC.refresh_list = true;
+        }).then(null,function(err){
+            throw new Error(err.message);
         })
         .thenResolve();
 }
+
+
+/**
+ *
+ * GET_CLOUD_BUCKETS
+ *
+ */
+function get_cloud_buckets(req) {
+    var buckets = [];
+    console.log('rpc rpc:', req.rpc_params);
+    return Q.fcall(function() {
+        var s3 = new AWS.S3({
+            accessKeyId: req.rpc_params.access_key,
+            secretAccessKey: req.rpc_params.secret_key,
+            sslEnabled: false
+        });
+        return Q.ninvoke(s3, "listBuckets");
+    }).then(function(data) {
+        console.log('data:', data);
+        _.each(data.Buckets, function(bucket) {
+            console.log("Bucket: ", bucket.Name, ' : ', bucket.CreationDate);
+            buckets.push(bucket.Name);
+        });
+        console.log("Buckets:", buckets);
+        return buckets;
+    }).then(null, function(err) {
+        console.log("Error:", err.message);
+        throw new Error(err.message);
+    });
+
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -358,9 +405,12 @@ function resolve_tiering(system_id, tiering) {
 }
 
 function get_policy_health(bucketid, sysid) {
+    dbg.log0('get policy health',bucketid,sysid,CLOUD_SYNC.configured_policies);
     var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
+        dbg.log0('get policy health (inner)',p.system._id,p.bucket.id,p);
         return p.system._id === sysid && p.bucket.id === bucketid;
     });
+    dbg.log0('get policy health after',policy);
 
     return policy.health;
 }
@@ -446,7 +496,8 @@ function update_work_list(policy) {
             cloud_object_list = cloud_obj.Contents;
             console.warn('NBNB:: update_work_list cloud_object_list length', cloud_object_list.length);
             return server_rpc.client.object.list_objects({
-                name: policy.bucket.name},
+                    name: policy.bucket.name
+                },
                 policy.system
             );
         })
@@ -454,7 +505,7 @@ function update_work_list(policy) {
             //bucket_object_list = bucket_obj;
             bucket_object_list = cloud_object_list;
             console.warn('NBNB:: update_work_list bucket_object_list length', bucket_object_list.length);
-            
+
         });
 }
 

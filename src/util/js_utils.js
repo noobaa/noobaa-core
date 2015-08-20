@@ -59,6 +59,12 @@ function diff_arrays(arr1, arr2, comp) {
     if (!_.isFunction(comp)) {
         throw new Error('Comp must be a comperator function');
     }
+    if (arr1.length === 0 || arr2.length === 0) {
+        return {
+            uniq_a: arr1,
+            uniq_b: arr2
+        };
+    }
 
     if (arr1.length === 0 || arr2.length === 0) {
         return {

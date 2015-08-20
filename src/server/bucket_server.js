@@ -19,7 +19,10 @@ module.exports = {
     get_cloud_sync_policy: get_cloud_sync_policy,
     get_all_cloud_sync_policies: get_all_cloud_sync_policies,
     delete_cloud_sync: delete_cloud_sync,
-    set_cloud_sync: set_cloud_sync
+    set_cloud_sync: set_cloud_sync,
+
+    //Temporary - TODO: move to new server
+    get_cloud_buckets: get_cloud_buckets
 };
 
 var _ = require('lodash');
@@ -30,6 +33,7 @@ var object_server = require('./object_server');
 var promise_utils = require('../util/promise_utils');
 var js_utils = require('../util/js_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
+var AWS = require('aws-sdk');
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
@@ -178,6 +182,7 @@ function list_buckets(req) {
  */
 function get_cloud_sync_policy(req) {
     dbg.log3('get_cloud_sync_policy');
+    dbg.log0('rpc!!!', req.rpc_params);
     var reply = [];
     return Q.when(db.Bucket
             .find({
@@ -186,24 +191,30 @@ function get_cloud_sync_policy(req) {
                 deleted: null,
             })
             .exec())
-        .then(function(bucket) {
-            if (bucket.cloud_sync.endpoint) {
-                reply.push({
+        .then(function(buckets) {
+            var bucket = buckets[0];
+            dbg.log0('get_cloud_sync_policy bucket:', bucket);
+            dbg.log0('get_cloud_sync_policy policy:', bucket.cloud_sync,bucket.cloud_sync.endpoint);
+            dbg.log0('access key for reply',[bucket.cloud_sync.access_keys]);
+            if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
+                reply = {
                     name: bucket.name,
                     policy: {
                         endpoint: bucket.cloud_sync.endpoint,
-                        access_keys: bucket.cloud_sync.access_keys,
+                        access_keys: [bucket.cloud_sync.access_keys],
                         schedule: bucket.cloud_sync.schedule,
-                        last_sync: bucket.cloud_sync.last_sync,
+                //TODO: added this one properly
+                //        last_sync: bucket.cloud_sync.last_sync,
                         paused: bucket.cloud_sync.paused
                     },
                     health: get_policy_health(bucket._id, req.system.id),
                     status: get_policy_status(bucket._id, req.system.id),
-                });
+                };
+
+                return reply;
+            } else {
+                return {};
             }
-            return {
-                cloud_sync_policy: reply
-            };
         });
 }
 
@@ -228,7 +239,7 @@ function get_all_cloud_sync_policies(req) {
                         name: bucket.name,
                         policy: {
                             endpoint: bucket.cloud_sync.endpoint,
-                            access_keys: bucket.cloud_sync.access_keys,
+                            access_keys: [bucket.cloud_sync.access_keys],
                             schedule: bucket.cloud_sync.schedule,
                             last_sync: bucket.cloud_sync.last_sync,
                             paused: bucket.cloud_sync.paused
@@ -238,9 +249,7 @@ function get_all_cloud_sync_policies(req) {
                     });
                 }
             });
-            return {
-                cloud_sync_policies: reply
-            };
+            return  reply;
         });
 }
 
@@ -299,15 +308,51 @@ function set_cloud_sync(req) {
             })
             .exec())
         .then(function(bucket) {
+            dbg.log0('set_cloud_sync2:', bucket);
             return Q.when(db.Bucket
                 .findOneAndUpdate(get_bucket_query(req), updates)
                 .exec());
         })
         .then(function() {
+            dbg.log0('set_cloud_sync3 after update:');
             CLOUD_SYNC.refresh_list = true;
+        }).then(null,function(err){
+            throw new Error(err.message);
         })
         .thenResolve();
 }
+
+
+/**
+ *
+ * GET_CLOUD_BUCKETS
+ *
+ */
+function get_cloud_buckets(req) {
+    var buckets = [];
+    console.log('rpc rpc:', req.rpc_params);
+    return Q.fcall(function() {
+        var s3 = new AWS.S3({
+            accessKeyId: req.rpc_params.access_key,
+            secretAccessKey: req.rpc_params.secret_key,
+            sslEnabled: false
+        });
+        return Q.ninvoke(s3, "listBuckets");
+    }).then(function(data) {
+        console.log('data:', data);
+        _.each(data.Buckets, function(bucket) {
+            console.log("Bucket: ", bucket.Name, ' : ', bucket.CreationDate);
+            buckets.push(bucket.Name);
+        });
+        console.log("Buckets:", buckets);
+        return buckets;
+    }).then(null, function(err) {
+        console.log("Error:", err.message);
+        throw new Error(err.message);
+    });
+
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
@@ -356,17 +401,21 @@ function resolve_tiering(system_id, tiering) {
         });
 }
 
+//TODO: rewrite the find and get rid from toString
 function get_policy_health(bucketid, sysid) {
+    dbg.log0('get policy health',bucketid,sysid,CLOUD_SYNC.configured_policies);
     var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-        return p.system._id === sysid && p.bucket.id === bucketid;
+        var p_sys_id = p.system._id.toString();
+        return ( p_sys_id === sysid && p.bucket.id.toString() === bucketid.toString());
     });
 
     return policy.health;
 }
 
+//TODO: rewrite the find and get rid from toString
 function get_policy_status(bucketid, sysid) {
     var work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
-        return wl.sysid === sysid && wl.bucketid === bucketid;
+        return wl.sysid.toString() === sysid && wl.bucketid.toString() === bucketid.toString();
     });
 
     //TODO:: Add check against c2n lists lengths as well
@@ -491,7 +540,7 @@ function update_c2n_worklist(policy) {
             throw new Error('update_c2n_worklist failed to list files from cloud');
         })
         .then(function(cloud_obj) {
-            cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
+        cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
                 return {
                     //TODO:: NBNB add this back once ul is real etag: obj.ETag, also dates
                     key: obj.Key
@@ -509,7 +558,10 @@ function update_c2n_worklist(policy) {
             });
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
             //Diff the arrays
+            dbg.log0('cloud_object_list',cloud_object_list,'bucket_object_list',bucket_object_list);
+
             var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list, function(a, b) {
+
                 if (a.key < b.key) {
                     return -1;
                 } else if (a.key > b.key) {
@@ -560,7 +612,7 @@ function sync_single_file_to_cloud(object, target, s3) {
 
     //TODO:: remove this require, read actual file
     var fs = require('fs');
-    var body = fs.createReadStream('../config.js');
+    var body = fs.createReadStream('/Users/eran/workspace/noobaa-core-new/clear_db.js');
     //Read file
     var params = {
         Bucket: target,
@@ -667,7 +719,9 @@ promise_utils.run_background_worker({
         return Q.fcall(function() {
                 dbg.log2('CLOUD_SYNC_REFRESHER:', 'BEGIN');
                 ///if policies not loaded, load them now
+                dbg.log0('bg:',CLOUD_SYNC.configured_policies.length);
                 if (CLOUD_SYNC.configured_policies.length === 0 || CLOUD_SYNC.refresh_list) {
+
                     load_configured_policies();
                 }
             })

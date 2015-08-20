@@ -34,7 +34,16 @@ var account_schema = new Schema({
     is_support: {
         type: Boolean,
     },
-
+    sync_credentials_cache: [{
+        access_key: {
+            type: String,
+            required: true,
+        },
+        secret_key: {
+            type: String,
+            required: true,
+        }
+    }],
     // on delete set deletion time
     deleted: {
         type: Date
@@ -78,13 +87,12 @@ account_schema.methods.sign_password = function(account, callback) {
 
 // bcrypt middleware - replace passwords with hash before saving account
 account_schema.pre('findOneAndUpdate', function(next) {
-  var account = this._update;
-  if (account.password){
-      account_schema.methods.sign_password(account,next);
-  }else
-  {
-      next();
-  }
+    var account = this._update;
+    if (account.password) {
+        account_schema.methods.sign_password(account, next);
+    } else {
+        next();
+    }
 });
 
 // bcrypt middleware - replace passwords with hash before saving account
@@ -93,7 +101,7 @@ account_schema.pre('save', function(callback) {
     if (!account.isModified('password')) {
         return callback();
     }
-    account_schema.methods.sign_password(account,callback);
+    account_schema.methods.sign_password(account, callback);
 
 });
 

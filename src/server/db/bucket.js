@@ -52,11 +52,9 @@ var bucket_schema = new Schema({
         access_keys: {
             access_key: {
                 type: String,
-                required: true,
             },
             secret_key: {
                 type: String,
-                required: true,
             }
         },
 

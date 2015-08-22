@@ -506,6 +506,7 @@ nb_console.controller('SystemDataCtrl', [
             scope.accessKeys = [];
 
             console.log('Account:::' + JSON.stringify(nbClient.account));
+
             $q.when(nbClient.client.bucket.get_cloud_sync_policy({
                     name: bucket_name
                 }))
@@ -513,9 +514,15 @@ nb_console.controller('SystemDataCtrl', [
                     console.log('cloud policy' + JSON.stringify(cloud_sync_policy));
                     if (_.isEmpty(cloud_sync_policy)) {
                         scope.status = "No policy defined";
+                        scope.aws_target = "None";
+                        scope.has_policy = false;
+                        scope.arrow_type = 'arrow-inverse';
                     } else {
                         scope.status = cloud_sync_policy.status;
+                        scope.aws_target = cloud_sync_policy.policy.endpoint;
+                        scope.has_policy = true;
                         console.log('cloud policy' + JSON.stringify(cloud_sync_policy));
+                        scope.arrow_type = 'arrow-success';
                     }
 
                 });
@@ -543,6 +550,21 @@ nb_console.controller('SystemDataCtrl', [
                 scope.access_key = '';
                 scope.secret_key = '';
             };
+            scope.set_cloud_sync_policy = function() {
+                scope.has_policy = false;
+            };
+            scope.delete_cloud_sync_policy = function() {
+                $q.when(nbClient.client.bucket.delete_cloud_sync({
+                    name: bucket_name
+                })).then(function() {
+                    scope.status = "No policy defined";
+                    scope.arrow_type = 'arrow-inverse';
+                    scope.has_policy = false;
+                }).then(null, function(err) {
+                    scope.error_message = err.message;
+                    scope.has_error = true;
+                });
+            };
             scope.select_key = function() {
                 console.log("selected:" + scope.selected_key.access_key);
                 scope.buckets = ["Loading..."];
@@ -566,7 +588,7 @@ nb_console.controller('SystemDataCtrl', [
             };
 
             scope.select_bucket = function() {
-                console.log("selected:" + scope.selected_bucket);
+                console.log("selected1:" + scope.selected_bucket);
                 if (scope.selected_bucket !== scope.buckets[scope.buckets.length - 1]) {
                     scope.done_disabled = '';
                 } else {
@@ -601,6 +623,7 @@ nb_console.controller('SystemDataCtrl', [
                 scope.enable_new_key = false;
                 scope.error_message = '';
                 scope.has_error = false;
+                scope.select_key();
 
             };
             scope.save_new_key = function() {

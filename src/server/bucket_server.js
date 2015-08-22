@@ -408,8 +408,13 @@ function get_policy_health(bucketid, sysid) {
         var p_sys_id = p.system._id.toString();
         return ( p_sys_id === sysid && p.bucket.id.toString() === bucketid.toString());
     });
-
-    return policy.health;
+    if (policy){
+        return policy.health;
+    }
+    else
+    {
+        return true;
+    }
 }
 
 //TODO: rewrite the find and get rid from toString

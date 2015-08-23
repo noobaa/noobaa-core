@@ -78,11 +78,13 @@ function diff_arrays(arr1, arr2, comp) {
         pos1++;
     }
 
+    var res;
     while (pos1 < arr1.length && pos2 < arr2.length) {
-        if (comp(arr1[pos1], arr2[pos2]) === -1) {
+        res = comp(arr1[pos1], arr2[pos2]);
+        if (res === -1) {
             uniq_1.push(arr1[pos1]);
             pos1++;
-        } else if (comp(arr1[pos1], arr2[pos2]) === 1) {
+        } else if (res === 1) {
             uniq_2.push(arr2[pos2]);
             pos2++;
         } else {

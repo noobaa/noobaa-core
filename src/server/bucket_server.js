@@ -33,7 +33,6 @@ var object_server = require('./object_server');
 var promise_utils = require('../util/promise_utils');
 var js_utils = require('../util/js_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
-var AWS = require('aws-sdk');
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
@@ -44,9 +43,6 @@ var CLOUD_SYNC = {
 
     //works lists (addition/deletion) per each configured bucket
     work_lists: [],
-
-    //s3rver connector
-    s3rver_connect: null,
 };
 
 /**
@@ -202,7 +198,7 @@ function get_cloud_sync_policy(req) {
                         endpoint: bucket.cloud_sync.endpoint,
                         access_keys: [bucket.cloud_sync.access_keys],
                         schedule: bucket.cloud_sync.schedule_min,
-                        last_sync: bucket.cloud_sync.last_sync,
+                        last_sync: bucket.cloud_sync.last_sync.getTime(),
                         paused: bucket.cloud_sync.paused
                     },
                     health: get_policy_health(bucket._id, req.system.id),
@@ -421,11 +417,19 @@ function get_policy_status(bucketid, sysid) {
         return wl.sysid.toString() === sysid && wl.bucketid.toString() === bucketid.toString();
     });
 
-    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
-        work_list.c2n_added.length || work_list.c2n_deleted.length) {
+    if (!is_empty_sync_worklist(work_list)) {
         return 'SYNCING';
     } else {
         return 'IDLE';
+    }
+}
+
+function is_empty_sync_worklist(work_list) {
+    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
+        work_list.c2n_added.length || work_list.c2n_deleted.length) {
+        return false;
+    } else {
+        return true;
     }
 }
 
@@ -462,9 +466,9 @@ function load_configured_policies() {
                         },
                         schedule_min: bucket.cloud_sync.schedule_min,
                         paused: bucket.cloud_sync.paused,
-                        c2n_enabled: true, //TODO:: Should be passed in polic coinfiguration
-                        n2c_enalbed: true, //TODO:: Should be passed in polic coinfiguration
-                        last_refresh: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
+                        c2n_enabled: true, //TODO:: Should be passed in policy coinfiguration
+                        n2c_enabled: true, //TODO:: Should be passed in policy coinfiguration
+                        last_sync: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
                         health: true,
                     });
 
@@ -555,7 +559,7 @@ function update_c2n_worklist(policy) {
         .then(function(cloud_obj) {
             cloud_object_list = _.map(cloud_obj.Contents, function(obj) {
                 return {
-                    //TODO:: NBNB add this back once ul is real etag: obj.ETag, also dates
+                    create_time: obj.LastModified,
                     key: obj.Key
                 };
             });
@@ -565,23 +569,24 @@ function update_c2n_worklist(policy) {
         .then(function(bucket_obj) {
             bucket_object_list = _.map(bucket_obj, function(obj) {
                 return {
-                    //TODO:: NBNB add this back once ul is real etag: obj.etag, also dates
+                    create_time: obj.create_time,
                     key: obj.key
                 };
             });
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
+
             //Diff the arrays
-            //dbg.log0('cloud_object_list', cloud_object_list, 'bucket_object_list', bucket_object_list);
-
             var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list, function(a, b) {
-
                 if (a.key < b.key) {
                     return -1;
                 } else if (a.key > b.key) {
                     return 1;
                 } else {
-                    //TODO::NBNB take into account the modify time
-                    return 0;
+                    if (a.create_time > policy.last_sync) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
                 }
             });
             dbg.log2('update_c2n_worklist found ', diff.uniq_a.length + diff.uniq_b.length, 'diffs to resolve');
@@ -619,32 +624,33 @@ function update_c2n_worklist(policy) {
 }
 
 //sync a single file to the cloud
-function sync_single_file_to_cloud(object, target, s3) {
+function sync_single_file_to_cloud(bucket, object, target, s3cloud, s3rver) {
     dbg.log3('sync_single_file_to_cloud', object.key, '->', target + '/' + object.key);
 
-    if (!CLOUD_SYNC.s3rver_connect) {
-        //CLOUD_SYNC.s3rver_connect = new ;
-    }
-
-    //TODO:: remove this require, read actual file
-    var fs = require('fs');
-    var body = fs.createReadStream('/tmp/bla.log');
-    //Read file
-    var params = {
-        Bucket: target,
-        Key: object.key,
-        ContentType: object.content_type,
-        Body: body
-    };
-
-    return Q.ninvoke(s3, 'upload', params)
-        .then(function() {
-            return object_server.mark_cloud_synced(object);
+    return Q.fcall(function() {
+            return s3rver.getObject({
+                Bucket: bucket,
+                Key: object,
+            });
         })
-        .fail(function(err) {
-            dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
-                err, err.stack);
-            throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
+        .then(function(res) {
+            //Read file
+            var params = {
+                Bucket: target,
+                Key: object.key,
+                ContentType: object.content_type,
+                Body: 'Hello' //res.Body
+            };
+
+            return Q.ninvoke(s3cloud, 'upload', params)
+                .fail(function(err) {
+                    dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
+                        err, err.stack);
+                    throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
+                })
+                .then(function() {
+                    return object_server.mark_cloud_synced(object);
+                });
         });
 }
 
@@ -701,10 +707,18 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
             while (bucket_work_lists.n2c_deleted.length > 0) {
                 bucket_work_lists.n2c_deleted.pop();
             }
-            //Now upload the new objects
+
+            //TODO::fix this, both object and endpoint
+            var s3rver = new AWS.S3({
+                endpoint: 'http://127.0.0.1:' + process.env.SSL_PORT,
+                s3ForcePathStyle: true,
+                sslEnabled: false,
+            });
+
             if (bucket_work_lists.n2c_added.length) {
+                //Now upload the new objects
                 return Q.all(_.map(bucket_work_lists.n2c_added, function(object) {
-                    return sync_single_file_to_cloud(object, target, s3);
+                    return sync_single_file_to_cloud(policy.bucket.name, object, target, s3, s3rver);
                 }));
             } else {
                 dbg.log1('sync_to_cloud_single_bucket syncing additions n2c, nothing to sync');
@@ -721,22 +735,78 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
 
 //Perform c2n cloud sync for a specific policy with a given work list
 function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
+    dbg.log2('Start sync_from_cloud_single_bucket on work list for policy', policy);
+    if (!bucket_work_lists || !policy) {
+        throw new Error('bucket_work_list and bucket_work_list must be provided');
+    }
 
+    //TODO::fix this, both object and endpoint
+    var s3rver = new AWS.S3({
+        endpoint: 'http://127.0.0.1:' + process.env.SSL_PORT,
+        s3ForcePathStyle: true,
+        sslEnabled: false,
+    });
+
+    //TODO:: move to a function which is called both by sync_from_cloud_single_bucket and from sync_to_cloud_single_bucket
+    return Q.fcall(function() {
+            if (bucket_work_lists.c2n_deleted.length) {
+                var params = {
+                    Bucket: policy.bucket.name,
+                    Delete: {
+                        Objects: [],
+                    },
+                };
+
+                _.each(bucket_work_lists.c2n_deleted, function(obj) {
+                    params.Delete.Objects.push({
+                        Key: obj.key
+                    });
+                });
+                dbg.log2('sync_from_cloud_single_bucket syncing', bucket_work_lists.c2n_deleted.length, 'deletions c2n', params);
+                return Q.ninvoke(s3rver, 'deleteObjects', params);
+            } else {
+                dbg.log2('sync_to_cloud_single_bucket syncing deletions c2n, nothing to sync');
+                return;
+            }
+        })
+        .fail(function(err) {
+            dbg.error('sync_from_cloud_single_bucket failed on syncing deletions', err, err.stack);
+        })
+        .then(function() {
+            //empty deleted work list jsperf http://jsperf.com/empty-javascript-array
+            while (bucket_work_lists.c2n_deleted.length > 0) {
+                bucket_work_lists.c2n_deleted.pop();
+            }
+            //Now handle c2n additions
+        });
 }
 
 function update_bucket_last_sync(sysid, bucketname) {
-
     return Q.when(db.Bucket
-        .update({
-            system: sysid,
-            name: bucketname,
-            deleted: null,
-        }, {
-            cloud_sync: {
-                last_sync: new Date()
-            }
-        })
-        .exec());
+            .find({
+                system: sysid,
+                name: bucketname,
+                deleted: null,
+            }).exec())
+        .then(function(bucket) {
+            return db.Bucket.findOneAndUpdate({
+                system: sysid,
+                name: bucketname,
+                deleted: null,
+            }, {
+                //Fill the entire cloud_sync object, otherwise its being overwriten
+                cloud_sync: {
+                    endpoint: bucket[0].cloud_sync.endpoint,
+                    access_keys: {
+                        access_key: bucket[0].cloud_sync.access_keys.access_key,
+                        secret_key: bucket[0].cloud_sync.access_keys.secret_key
+                    },
+                    schedule_min: bucket[0].cloud_sync.schedule_min,
+                    last_sync: new Date(),
+                    paused: bucket[0].cloud_sync.paused,
+                }
+            }).exec();
+        });
 }
 
 //Cloud Sync Refresher worker
@@ -755,7 +825,7 @@ promise_utils.run_background_worker({
             })
             .then(function() {
                 return Q.all(_.map(CLOUD_SYNC.configured_policies, function(policy) {
-                    if (((now - policy.last_refresh) / 1000 / 60 / 60) > policy.schedule_min &&
+                    if (((now - policy.last_sync) / 1000 / 60 / 60) > policy.schedule_min &&
                         !policy.paused) {
                         return update_work_list(policy);
                     }
@@ -767,6 +837,11 @@ promise_utils.run_background_worker({
                         return p.system._id === single_bucket.sysid &&
                             p.bucket.id === single_bucket.bucketid;
                     });
+                    var should_update_time = false;
+                    if (!is_empty_sync_worklist(single_bucket)) {
+                        should_update_time = true;
+                        //TODO:: return here, means previous sync was not done, always set last_sync
+                    }
                     //Sync n2c
                     return Q.when(sync_to_cloud_single_bucket(single_bucket, current_policy))
                         .then(function() {
@@ -774,12 +849,16 @@ promise_utils.run_background_worker({
                             return sync_from_cloud_single_bucket(single_bucket, current_policy);
                         })
                         .fail(function(error) {
-                            dbg.error('cloud_sync_refresher failed syncing objects for bucket', single_bucket, 'with', error, error.stack);
+                            dbg.error('cloud_sync_refresher failed syncing objects for bucket', single_bucket.sysid, single_bucket.bucketid, 'with', error, error.stack);
                             return;
                         })
                         .then(function() {
                             dbg.log3('Done syncing', current_policy.bucket.name, 'on sys', current_policy.system._id);
-                            return update_bucket_last_sync(current_policy.system._id, current_policy.bucket.name);
+                            if (should_update_time) {
+                                return update_bucket_last_sync(current_policy.system._id, current_policy.bucket.name);
+                            } else {
+                                return;
+                            }
                         });
                 }));
             })

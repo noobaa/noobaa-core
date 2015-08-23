@@ -501,7 +501,12 @@ nb_console.controller('SystemDataCtrl', [
             var scope = $rootScope.$new();
             scope.done_disabled = 'disabled';
             scope.status = "Loading...";
-            scope.bucket_name = bucket_name;
+            if (bucket_name.length > 10) {
+                scope.bucket_name = bucket_name.substring(0, 10) + '...';
+            } else {
+                scope.bucket_name = bucket_name;
+            }
+            scope.full_bucket_name = bucket_name;
             scope.$location = $location;
             scope.accessKeys = [];
 
@@ -519,7 +524,12 @@ nb_console.controller('SystemDataCtrl', [
                         scope.arrow_type = 'arrow-inverse';
                     } else {
                         scope.status = cloud_sync_policy.status;
-                        scope.aws_target = cloud_sync_policy.policy.endpoint;
+                        if (cloud_sync_policy.policy.endpoint.length > 10) {
+                            scope.aws_target = cloud_sync_policy.policy.endpoint.substring(0, 10) + '...';
+                        } else {
+                            scope.aws_target = cloud_sync_policy.policy.endpoint;
+                        }
+                        scope.full_target_name = cloud_sync_policy.policy.endpoint;
                         scope.has_policy = true;
                         console.log('cloud policy' + JSON.stringify(cloud_sync_policy));
                         scope.arrow_type = 'arrow-success';
@@ -579,8 +589,8 @@ nb_console.controller('SystemDataCtrl', [
                         scope.aws_target = '';
                     })
                     .then(null, function(err) {
-                        console.log('err:'+err.message);
-                        if (err.message !== 'canceled'){
+                        console.log('err:' + err.message);
+                        if (err.message !== 'canceled') {
                             scope.error_message = err.message;
                             scope.has_error = true;
                         }

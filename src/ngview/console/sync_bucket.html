@@ -16,11 +16,11 @@
                     <div class="panel panel-default" >
                         <div class="form-group panel-body">
 
-                        <h3 style="display:inline-block;margin: 10 0 0 30px;" class="modal-title"> NooBaa: {{bucket_name}}</h3>
+                            <span style=" float: left; width: 40%; " rel="tooltip" title="{{full_bucket_name}}"  class="modal-title"> NooBaa: {{bucket_name}}</span>
 
-                        <span style="display:inline-block;margin: 0 0 0 30px;" class="{{arrow_type}} arrow-right" ></span>
+                            <span style="display: inline-block; margin:0 0 0 10px" class="{{arrow_type}} arrow-right" ></span>
 
-                        <h3  style="display:inline-block;margin: 10 0 0 30px;" class="modal-title">AWS: {{aws_target}}</h3>
+                            <span  style="float: right; width: 40%;" rel="tooltip" title="{{full_target_name}}" class="modal-title">AWS: {{aws_target}}</span>
 
                          <div style="padding: 0 0 0 30px" class="text-right">
                                 <button ng-if="has_policy"nb-click-ladda="set_cloud_sync_policy();" class="btn btn-default" style="display:inline-block;margin: 0 0 0 10px" >Replace</button>

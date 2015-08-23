@@ -71,6 +71,32 @@ var native_util;
 var dedup_chunker_tpool;
 var object_coding_tpool;
 var object_coding;
+var PART_ATTRS = [
+    'start',
+    'end',
+    'upload_part_number',
+    'part_sequence_number'
+];
+var CHUNK_ATTRS = [
+    'size',
+    'digest_type',
+    'compress_type',
+    'compress_size',
+    'cipher_type',
+    'data_frags',
+    'lrc_frags',
+    'digest_b64',
+    'cipher_key_b64',
+    'cipher_iv_b64',
+    'cipher_auth_tag_b64'
+];
+var FRAG_ATTRS = [
+    'layer',
+    'layer_n',
+    'frag',
+    'digest_type',
+    'digest_b64'
+];
 
 function lazy_init_natives() {
     var bindings = require('bindings');
@@ -239,30 +265,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                         bucket: params.bucket,
                         key: params.key,
                         parts: _.map(parts, function(part) {
-                            var p = _.pick(part,
-                                'start',
-                                'end',
-                                'upload_part_number',
-                                'part_sequence_number');
-                            p.chunk = _.pick(part.chunk,
-                                'size',
-                                'digest_type',
-                                'compress_type',
-                                'compress_size',
-                                'cipher_type',
-                                'data_frags',
-                                'lrc_frags',
-                                'digest_b64',
-                                'cipher_key_b64',
-                                'cipher_iv_b64',
-                                'cipher_auth_tag_b64');
+                            var p = _.pick(part, PART_ATTRS);
+                            p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
                             p.frags = _.map(part.chunk.frags, function(fragment) {
-                                return _.pick(fragment,
-                                    'layer',
-                                    'layer_n',
-                                    'frag',
-                                    'digest_type',
-                                    'digest_b64');
+                                return _.pick(fragment, FRAG_ATTRS);
                             });
                             dbg.log3('upload_stream_parts: allocating specific part ul#',
                                 p.upload_part_number, 'seq#', p.part_sequence_number);
@@ -332,11 +338,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
-                                var p = _.pick(part,
-                                    'start',
-                                    'end',
-                                    'upload_part_number',
-                                    'part_sequence_number');
+                                var p = _.pick(part, PART_ATTRS);
                                 if (!part.dedup) {
                                     p.block_ids = _.flatten(_.map(part.alloc_part.frags, function(fragment) {
                                         return _.map(fragment.blocks, function(block) {
@@ -433,13 +435,7 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
             }
             params.remaining_attempts -= 1;
             var bad_block_params = _.extend(
-                _.pick(part,
-                    'bucket',
-                    'key',
-                    'start',
-                    'end',
-                    'upload_part_number',
-                    'part_sequence_number'), {
+                _.pick(part, 'bucket', 'key', PART_ATTRS), {
                     block_id: block.block_md.id,
                     is_write: true,
                 });
@@ -858,27 +854,9 @@ ObjectDriver.prototype._read_object_part = function(part) {
             return self._read_fragment(part, fragment);
         }))
         .then(function() {
-            var chunk = _.pick(part.chunk,
-                'size',
-                'digest_type',
-                'compress_type',
-                'compress_size',
-                'cipher_type',
-                'data_frags',
-                'lrc_frags',
-                'digest_b64',
-                'cipher_key_b64',
-                'cipher_iv_b64',
-                'cipher_auth_tag_b64');
+            var chunk = _.pick(part.chunk, CHUNK_ATTRS);
             chunk.frags = _.map(part.frags, function(fragment) {
-                var f = _.pick(fragment,
-                    'layer',
-                    'layer_n',
-                    'frag',
-                    'size',
-                    'digest_type',
-                    'digest_b64',
-                    'block');
+                var f = _.pick(fragment, FRAG_ATTRS, 'block');
                 f.layer_n = f.layer_n || 0;
                 return f;
             });

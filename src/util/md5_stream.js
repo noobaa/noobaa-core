@@ -8,7 +8,7 @@ var MD5Stream = transformer.ctor({
         this.digester = crypto.createHash('md5');
     },
     transform: function(data, encoding) {
-        console.log('MD5Stream', data.length);
+        // console.log('MD5Stream', data.length);
         this.digester.update(data);
         return data;
     }

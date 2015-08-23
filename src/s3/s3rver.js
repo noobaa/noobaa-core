@@ -100,7 +100,8 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
 
 
 function connection_setup(socket) {
+    // this is an attempt to read from the socket in large chunks,
+    // but it seems like it has no effect and we still get small chunks
     socket._readableState.highWaterMark = 1024 * 1024;
     socket.setNoDelay(true);
-    console.log('CONNECTION', socket);
 }

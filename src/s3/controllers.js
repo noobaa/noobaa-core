@@ -73,7 +73,6 @@ module.exports = function(params) {
                 var upload_id = req.query.uploadId;
 
                 req._readableState.highWaterMark = 1024 * 1024;
-                console.log('REQ', req);
                 var md5_calc = new MD5Stream({
                     highWaterMark: 1024 * 1024
                 });

@@ -70,7 +70,7 @@ RpcRequest.encode_message = function(header, buffers) {
     }
     dbg.log3('encode_message', msg_buffers[1].length, msg_buffers.length);
     msg_buffers[0].writeUInt32BE(msg_buffers[1].length, 0);
-    return Buffer.concat(msg_buffers);
+    return msg_buffers;
 };
 
 /**
@@ -91,7 +91,7 @@ RpcRequest.decode_message = function(msg_buffer) {
 /**
  *
  */
-RpcRequest.prototype.export_request_buffer = function() {
+RpcRequest.prototype.export_request_buffers = function() {
     var header = {
         op: 'req',
         reqid: this.reqid,

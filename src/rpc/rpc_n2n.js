@@ -7,6 +7,7 @@ var _ = require('lodash');
 // var Q = require('q');
 var util = require('util');
 var url = require('url');
+var time_utils = require('../util/time_utils');
 var EventEmitter = require('events').EventEmitter;
 var dbg = require('noobaa-util/debug_module')(__filename);
 var IceConnection = require('./ice_connection');
@@ -65,8 +66,7 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     self.url = addr_url;
 
     // generate connection id only used for identifying in debug prints
-    var t = process.hrtime();
-    self.connid = 'N2N-' + t[0].toString(36) + t[1].toString(36);
+    self.connid = 'N2N-' + time_utils.nanostamp().toString(36);
 
     // use the configuration from the url query (parsed before)
     var conf = self.conf = _.defaults(self.url.query, DEFAULT_N2N_CONF);

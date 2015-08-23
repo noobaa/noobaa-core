@@ -2,13 +2,14 @@
 
 module.exports = NudpFlow;
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
 var js_utils = require('../util/js_utils');
+var time_utils = require('../util/time_utils');
 var EventEmitter = require('events').EventEmitter;
 var LinkedList = require('noobaa-util/linked_list');
-var chance = require('chance').Chance();
+var chance = new(require('chance').Chance)();
 var dbg = require('noobaa-util/debug_module')(__filename);
 // var nudp_native = require('../../build/Release/nudp_native.node');
 
@@ -120,14 +121,15 @@ function NudpFlow() {
  *
  */
 NudpFlow.prototype.send = function(buffer) {
-    if (!buffer || !buffer.length) {
+    var msg_length = _.sum(buffer, 'length');
+    if (msg_length <= 0) {
         throw new Error('NUDP cannot send empty message');
     }
     var send_defer = Q.defer();
     this._messages_send_queue.push_back({
         send_defer: send_defer,
         buffer: buffer,
-        offset: 0,
+        remain: msg_length,
         num_packets: 0,
         acked_packets: 0,
     });
@@ -273,11 +275,10 @@ NudpFlow.prototype._populate_send_window = function() {
         }
         var buf = new Buffer(this._mtu || this._mtu_min);
         var packet_remain = buf.length - PACKET_HEADER_LEN;
-        var message_remain = message.buffer.length - message.offset;
-        var payload_len = Math.min(packet_remain, message_remain);
+        var payload_len = Math.min(packet_remain, message.remain);
         var packet_len = PACKET_HEADER_LEN + payload_len;
         var flags = 0;
-        if (packet_remain >= message_remain) {
+        if (packet_remain >= message.remain) {
             flags |= PACKET_FLAG_BOUNDARY_END;
         }
         var seq = this._packets_send_window_seq;
@@ -290,12 +291,32 @@ NudpFlow.prototype._populate_send_window = function() {
             message: message
         };
         write_packet_header(buf, PACKET_TYPE_DATA, this.time, this.rand, seq, flags);
-        message.buffer.copy(
-            buf, PACKET_HEADER_LEN,
-            message.offset, message.offset + payload_len);
-        message.offset += payload_len;
+        if (message.remain > 0) {
+            if (_.isArray(message.buffer)) {
+                var payload_offset = 0;
+                var payload_remain = payload_len;
+                while (payload_remain > 0) {
+                    var msg_buf = message.buffer[0];
+                    if (msg_buf.length <= payload_remain) {
+                        msg_buf.copy(buf, PACKET_HEADER_LEN + payload_offset, 0, msg_buf.length);
+                        payload_offset += msg_buf.length;
+                        payload_remain -= msg_buf.length;
+                        message.buffer.shift();
+                    } else {
+                        msg_buf.copy(buf, PACKET_HEADER_LEN + payload_offset, 0, payload_remain);
+                        message.buffer[0] = msg_buf.slice(payload_remain);
+                        payload_offset += payload_remain;
+                        payload_remain = 0;
+                    }
+                }
+            } else {
+                message.buffer.copy(buf, PACKET_HEADER_LEN, 0, payload_len);
+                message.buffer = message.buffer.slice(payload_len);
+            }
+        }
         message.num_packets += 1;
-        if (message.offset >= message.buffer.length) {
+        message.remain -= payload_len;
+        if (message.remain <= 0) {
             this._messages_send_queue.remove(message);
             message.populated = true;
         }
@@ -377,9 +398,8 @@ NudpFlow.prototype._send_packets = function() {
         packet = next_packet;
     }
 
-    var hrtime = process.hrtime();
-    var hrsec = hrtime[0] + hrtime[1] / 1e9;
-    var dt = hrsec - this._packets_ack_counter_last_time;
+    var secstamp = time_utils.secstamp();
+    var dt = secstamp - this._packets_ack_counter_last_time;
     var num_acks = this._packets_ack_counter - this._packets_ack_counter_last_val;
     var acks_per_sec = num_acks / dt;
     var num_retrans = this._packets_retrasmits - this._packets_retrasmits_last_val;
@@ -404,19 +424,19 @@ NudpFlow.prototype._send_packets = function() {
         (rate_change * Math.max(acks_per_sec, ACKS_PER_SEC_MIN));
 
     // print a report
-    if (hrsec - this._send_packets_report_last_time >= 3) {
+    if (secstamp - this._send_packets_report_last_time >= 10) {
         dbg.log0('NUDP _send_packets:',
             'num_acks', num_acks,
             'acks_per_sec', acks_per_sec.toFixed(2),
             'retrans_per_sec', retrans_per_sec.toFixed(2),
             'ms_per_batch', ms_per_batch.toFixed(2),
             this.connid);
-        this._send_packets_report_last_time = hrsec;
+        this._send_packets_report_last_time = secstamp;
     }
 
     // update the saved values once in fixed intervals
     if (dt >= 0.03) {
-        this._packets_ack_counter_last_time = hrsec;
+        this._packets_ack_counter_last_time = secstamp;
         this._packets_ack_counter_last_val = this._packets_ack_counter;
         this._packets_retrasmits_last_val = this._packets_retrasmits;
     }
@@ -767,7 +787,7 @@ NudpFlow.prototype._receive_acks = function(hdr, buffer) {
         // check if this ack is the last ACK waited by this message,
         // and wakeup the sender.
         packet.message.acked_packets += 1;
-        if (packet.message.offset >= packet.message.buffer.length &&
+        if (packet.message.remain <= 0 &&
             packet.message.acked_packets === packet.message.num_packets) {
             packet.message.send_defer.resolve();
             packet.message.send_defer = null;

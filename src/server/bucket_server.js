@@ -202,7 +202,7 @@ function get_cloud_sync_policy(req) {
                         endpoint: bucket.cloud_sync.endpoint,
                         access_keys: [bucket.cloud_sync.access_keys],
                         schedule: bucket.cloud_sync.schedule_min,
-                        last_sync: bucket.cloud_sync.last_sync,
+                        //last_sync: bucket.cloud_sync.last_sync,
                         paused: bucket.cloud_sync.paused
                     },
                     health: get_policy_health(bucket._id, req.system.id),
@@ -421,8 +421,8 @@ function get_policy_status(bucketid, sysid) {
         return wl.sysid.toString() === sysid && wl.bucketid.toString() === bucketid.toString();
     });
 
-    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
-        work_list.c2n_added.length || work_list.c2n_deleted.length) {
+    if (!_.isUndefined(work_list) && (work_list.n2c_added.length || work_list.n2c_deleted.length ||
+        work_list.c2n_added.length || work_list.c2n_deleted.length)) {
         return 'SYNCING';
     } else {
         return 'IDLE';

@@ -93,7 +93,6 @@ var data_block_schema = new Schema({
 
 data_block_schema.index({
     chunk: 1,
-    fragment: 1,
     deleted: 1, // allow to filter deleted
 }, {
     unique: false

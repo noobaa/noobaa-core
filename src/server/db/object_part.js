@@ -80,25 +80,10 @@ var object_part_schema = new Schema({
 
 
 object_part_schema.index({
-    obj: 1,
-    part_sequence_number: 1,
-    upload_part_number: 1,
-    start: 1,
-    end: 1,
-    deleted: 1, // allow to filter deleted
-}, {
-    unique: false
-});
-
-object_part_schema.index({
-    chunk: 1,
-    deleted: 1, // allow to filter deleted
-}, {
-    unique: false
-});
-
-object_part_schema.index({
     system: 1,
+    obj: 1,
+    start: 1,
+    upload_part_number: 1,
     deleted: 1, // allow to filter deleted
 }, {
     unique: false

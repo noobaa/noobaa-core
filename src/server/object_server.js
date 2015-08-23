@@ -394,7 +394,11 @@ function object_md_query(req) {
 function find_object_md(req) {
     return load_bucket(req)
         .then(function() {
-            return db.ObjectMD.findOne(object_md_query(req)).exec();
+            return db.ObjectMDCache.get({
+                system: req.system.id,
+                bucket: req.bucket.id,
+                key: req.rpc_params.key,
+            });
         })
         .then(db.check_not_deleted(req, 'object'));
 }

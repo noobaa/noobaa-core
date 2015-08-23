@@ -58,8 +58,8 @@ var bucket_schema = new Schema({
             }
         },
 
-        // Changed query interval
-        schedule: {
+        // Changed Objectsa query interval (in minutes)
+        schedule_min: {
             type: Number
         },
 

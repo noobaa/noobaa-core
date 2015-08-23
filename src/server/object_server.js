@@ -37,7 +37,8 @@ var object_server = {
     //cloud sync
     list_need_sync: list_need_sync,
     mark_cloud_synced: mark_cloud_synced,
-    list_all_objects: list_all_objects
+    list_all_objects: list_all_objects,
+    set_all_files_for_sync: set_all_files_for_sync
 };
 
 module.exports = object_server;
@@ -425,6 +426,19 @@ function mark_cloud_synced(object) {
         });
 }
 
+//mark all objects on specific bucket for sync
+function set_all_files_for_sync(sysid, bucketid) {
+    dbg.log2('marking all objects on sys', sysid, 'bucket', bucketid, 'as sync needed');
+    return Q.when(db.ObjectMD.update({
+        system: sysid,
+        bucket: bucketid,
+        cloud_synced: true
+    }, {
+        cloud_synced: false
+    }, {
+        multi: true
+    }).exec());
+}
 // UTILS //////////////////////////////////////////////////////////
 
 

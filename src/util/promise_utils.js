@@ -3,6 +3,7 @@
 
 // var _ = require('lodash');
 var Q = require('q');
+require('./bluebird_hijack_q');
 var child_process = require('child_process');
 require('setimmediate');
 var ncp = require('ncp').ncp;

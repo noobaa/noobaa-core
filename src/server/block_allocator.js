@@ -58,7 +58,8 @@ function remove_blocks(blocks) {
 
 
 function new_block(chunk, node, size) {
-    return new db.DataBlock({
+    return /*new db.DataBlock*/({
+        _id: db.new_object_id(),
         system: chunk.system,
         tier: node.tier,
         chunk: chunk,
@@ -66,6 +67,7 @@ function new_block(chunk, node, size) {
         layer: 'D',
         frag: 0,
         size: size,
+        // always allocate in building mode
         building: new Date()
     });
 }

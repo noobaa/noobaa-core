@@ -426,6 +426,7 @@ module.exports = {
                 'name',
                 'tier',
                 'geolocation',
+                'rpc_address',
                 'peer_id',
                 'ip',
                 'port',
@@ -449,6 +450,9 @@ module.exports = {
                 },
                 srvmode: {
                     $ref: '/node_api/definitions/srvmode'
+                },
+                rpc_address: {
+                    type: 'string'
                 },
                 peer_id: {
                     type: 'string'

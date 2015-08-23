@@ -63,8 +63,8 @@ account_schema.index({
 account_schema.methods.verify_password = function(password, callback) {
     bcrypt.compare(password, this.password, callback);
 };
-account_schema.methods.sign_password = function(account, callback) {
 
+account_schema.methods.sign_password = function(account, callback) {
     bcrypt.genSalt(10, function(err, salt) {
         if (err) return callback(err);
         bcrypt.hash(account.password, salt, function(err, hash) {
@@ -78,13 +78,12 @@ account_schema.methods.sign_password = function(account, callback) {
 
 // bcrypt middleware - replace passwords with hash before saving account
 account_schema.pre('findOneAndUpdate', function(next) {
-  var account = this._update;
-  if (account.password){
-      account_schema.methods.sign_password(account,next);
-  }else
-  {
-      next();
-  }
+    var account = this._update;
+    if (account.password) {
+        account_schema.methods.sign_password(account, next);
+    } else {
+        next();
+    }
 });
 
 // bcrypt middleware - replace passwords with hash before saving account
@@ -93,8 +92,7 @@ account_schema.pre('save', function(callback) {
     if (!account.isModified('password')) {
         return callback();
     }
-    account_schema.methods.sign_password(account,callback);
-
+    account_schema.methods.sign_password(account, callback);
 });
 
 

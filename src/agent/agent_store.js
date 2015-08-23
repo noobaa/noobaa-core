@@ -112,7 +112,7 @@ AgentStore.prototype.read_block = function(block_md) {
     var self = this;
     var block_path = self._get_block_data_path(block_md.id);
     var meta_path = self._get_block_meta_path(block_md.id);
-    dbg.log0('fs read block', block_path);
+    dbg.log1('fs read block', block_path);
     return Q.all([
             Q.nfcall(fs.readFile, block_path),
             Q.nfcall(fs.readFile, meta_path)
@@ -163,10 +163,10 @@ AgentStore.prototype.write_block = function(block_md, data) {
         throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
     }
 
-    return self._stat_block_path(block_path, true)
+    return Q.when(self._stat_block_path(block_path, true))
         .then(function(stats) {
             file_stats = stats;
-            dbg.log0('fs write block', block_path, data.length, typeof(data), file_stats);
+            dbg.log1('fs write block', block_path, data.length, typeof(data), file_stats);
 
             // create/replace the block on fs
             return Q.all([

@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var Q = require('q');
+require('../util/bluebird_hijack_q');
 var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);

@@ -14,6 +14,7 @@ require('heapdump');
 var dot_engine = require('noobaa-util/dot_engine');
 var _ = require('lodash');
 var Q = require('q');
+require('../util/bluebird_hijack_q');
 var path = require('path');
 var http = require('http');
 var https = require('https');
@@ -289,7 +290,9 @@ app.get('/get_latest_version*', function(req, res) {
             res.status(200).send({
                 version: ret_version,
             });
-        } catch (err) {}
+        } catch (err) {
+            // nop
+        }
     }
     res.status(400).send({});
 });

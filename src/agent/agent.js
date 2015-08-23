@@ -265,9 +265,11 @@ Agent.prototype._start_stop_http_server = function() {
 
     if (!self.is_started) {
         if (self.http_server) {
+            // close event will also nullify the pointer (see below)
             self.http_server.close();
         }
         if (self.https_server) {
+            // close event will also nullify the pointer (see below)
             self.https_server.close();
         }
         return;
@@ -373,16 +375,14 @@ Agent.prototype.send_heartbeat = function() {
         .then(function() {
 
             var ip = ip_module.address();
-            var http_port = 0;
-            if (self.http_server) {
-                http_port = self.http_server.address().port;
-            }
+            var https_port = self.https_server && self.https_server.address().port;
+            // var http_port = self.http_server && self.http_server.address().port;
 
             var params = {
                 id: self.node_id,
                 geolocation: self.geolocation,
                 ip: ip,
-                port: http_port,
+                port: https_port || 0,
                 version: self.heartbeat_version || '',
                 storage: {
                     alloc: store_stats.alloc,
@@ -503,7 +503,7 @@ Agent.prototype._on_rpc_reconnect = function(conn) {
 Agent.prototype.read_block = function(req) {
     var self = this;
     var block_md = req.rpc_params.block_md;
-    dbg.log0('read_block', block_md.id, 'node', self.node_name);
+    dbg.log1('read_block', block_md.id, 'node', self.node_name);
     return self.store_cache.get(block_md)
         .then(function(block_from_cache) {
             // must clone before returning to rpc encoding
@@ -521,7 +521,7 @@ Agent.prototype.write_block = function(req) {
     var self = this;
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
-    dbg.log0('write_block', block_md.id, data.length, 'node', self.node_name);
+    dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
     return Q.when(self.store.write_block(block_md, data))
         .then(function() {
             self.store_cache.put(block_md, {
@@ -537,7 +537,7 @@ Agent.prototype.replicate_block = function(req) {
     var self = this;
     var target = req.rpc_params.target;
     var source = req.rpc_params.source;
-    dbg.log0('replicate_block', target.id, 'node', self.node_name);
+    dbg.log1('replicate_block', target.id, 'node', self.node_name);
 
     // read from source agent
     return self.client.agent.read_block({

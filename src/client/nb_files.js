@@ -228,6 +228,9 @@ nb_api.factory('nbFiles', [
                             highWaterMark: size_utils.MEGABYTE,
                             FileReader: $window.FileReader,
                         }),
+                        progress: function(part) {
+                            tx.progress = 100 * part.end / tx.size;
+                        }
                     }))
                     .then(function() {
                         _.pull($scope.transfers, tx);
@@ -246,12 +249,6 @@ nb_api.factory('nbFiles', [
                         tx.running = false;
                         console.error('upload failed1', err);
                         nbAlertify.error('upload failed. ' + err.toString());
-                    }, function(progress) {
-                        if (progress.event === 'part:after') {
-                            var pos = progress.part && progress.part.end || 0;
-                            tx.progress = 100 * pos / tx.size;
-                            return progress;
-                        }
                     });
             } else {
                 tx.promise = $q(function(resolve, reject, notify) {

@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var moment = require('moment');
-var chance = require('chance').Chance();
+var chance = new (require('chance').Chance)();
 var promise_utils = require('../util/promise_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
@@ -508,7 +508,7 @@ nb_api.factory('nbNodes', [
             var link;
 
             return $q.when(nbClient.client.node.collect_agent_diagnostics({
-                    target: 'n2n://' + node.peer_id,
+                    target: node.rpc_address,
                 }))
                 .then(function(url) {
                     if (url !== '') {
@@ -533,7 +533,7 @@ nb_api.factory('nbNodes', [
             var link;
 
             return $q.when(nbClient.client.node.set_debug_node({
-                    target: 'n2n://' + node.peer_id,
+                    target: node.rpc_address,
                 }))
                 .then(function() {
                     $window.document.body.removeChild(link);
@@ -553,7 +553,7 @@ nb_api.factory('nbNodes', [
                 data: new Buffer(request_length || 0),
                 response_length: response_length || 0,
             }, {
-                address: 'n2n://' + node.peer_id,
+                address: node.rpc_address,
             });
         }
 
@@ -561,11 +561,11 @@ nb_api.factory('nbNodes', [
             console.log('SELF TEST', node.name, 'to', target_node.name);
 
             return nbClient.client.agent.self_test_peer({
-                target: 'n2n://' + target_node.peer_id,
+                target: target_node.rpc_address,
                 request_length: request_length || 0,
                 response_length: response_length || 0,
             }, {
-                address: 'n2n://' + node.peer_id,
+                address: node.rpc_address,
             });
         }
         */
@@ -574,8 +574,8 @@ nb_api.factory('nbNodes', [
             console.log('SELF TEST', node.name, 'to', target_node.name);
 
             return nbClient.client.node.self_test_to_node_via_web({
-                target: 'n2n://' + target_node.peer_id,
-                source: 'n2n://' + node.peer_id,
+                target: target_node.rpc_address,
+                source: node.rpc_address,
                 request_length: request_length || 0,
                 response_length: response_length || 0,
             });

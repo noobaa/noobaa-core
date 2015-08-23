@@ -4,7 +4,7 @@ require('../util/panic');
 var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
-var md5_stream = require('../util/md5_stream');
+var MD5Stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
@@ -65,7 +65,6 @@ module.exports = function(params) {
     };
 
     var uploadPart = function(req, res) {
-        var md5_calc = new md5_stream();
         var part_md5 = '0';
 
         Q.fcall(function() {
@@ -73,6 +72,11 @@ module.exports = function(params) {
                 var bucket_name = req.bucket;
                 var upload_id = req.query.uploadId;
 
+                req._readableState.highWaterMark = 1024 * 1024;
+                console.log('REQ', req);
+                var md5_calc = new MD5Stream({
+                    highWaterMark: 1024 * 1024
+                });
                 req.pipe(md5_calc);
 
                 md5_calc.on('finish', function() {
@@ -352,7 +356,10 @@ module.exports = function(params) {
 
 
                 // tranform stream that calculates md5 on-the-fly
-                var md5_calc = new md5_stream();
+                req._readableState.highWaterMark = 1024 * 1024;
+                var md5_calc = new MD5Stream({
+                    highWaterMark: 1024 * 1024
+                });
                 req.pipe(md5_calc);
 
                 md5_calc.on('finish', function() {

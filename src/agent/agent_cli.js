@@ -4,6 +4,7 @@ require('../util/panic');
 
 var _ = require('lodash');
 var Q = require('q');
+require('../util/bluebird_hijack_q');
 var fs = require('fs');
 var os = require('os');
 var path = require('path');

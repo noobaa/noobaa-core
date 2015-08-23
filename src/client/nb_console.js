@@ -528,10 +528,21 @@ nb_console.controller('SystemDataCtrl', [
                 });
             $q.when(nbClient.client.account.get_account_sync_credentials_cache())
                 .then(function(cached_access_key) {
-                    console.log('Account 22 22 22 :::' + JSON.stringify(cached_access_key));
+                    // TODO: Test, remove
+                    // AKIAJOP7ZFXOOPGL5BOA knaTbOnT9F3Afk+lfbWDSAUACAqsfoWj1FnHMaDz
+                    // AKIAIKFRM4EAAO5TAXJA nntw4SsW60qUUldKiLH99SJnUe2c+rsVlmSyQWHF
+
+
+                    console.log('Cached keys :::' + JSON.stringify(cached_access_key));
+                    scope.accessKeys.push({
+                        access_key: 'Choose Access Key',
+                        secret_key: '',
+                        _id: ''
+                    });
+                    scope.selected_key = scope.accessKeys[0];
                     if (!_.isEmpty(cached_access_key)) {
-                        scope.accessKeys.push(cached_access_key[0]);
-                        scope.selected_key = scope.accessKeys[0];
+                        scope.accessKeys = (_(scope.accessKeys).concat(cached_access_key)).value();
+
                         console.log('keys', scope.accessKeys);
                         scope.select_key();
                     }
@@ -554,36 +565,52 @@ nb_console.controller('SystemDataCtrl', [
                 scope.has_policy = false;
             };
             scope.delete_cloud_sync_policy = function() {
-                $q.when(nbClient.client.bucket.delete_cloud_sync({
-                    name: bucket_name
-                })).then(function() {
-                    scope.status = "No policy defined";
-                    scope.arrow_type = 'arrow-inverse';
-                    scope.has_policy = false;
-                }).then(null, function(err) {
-                    scope.error_message = err.message;
-                    scope.has_error = true;
-                });
+                nbAlertify.confirm('Are you sure that you want to delete the sync policy?')
+                    .then(function(result) {
+                        console.log('in confirm sync policy deletion');
+                        $q.when(nbClient.client.bucket.delete_cloud_sync({
+                            name: bucket_name
+                        }));
+                    })
+                    .then(function() {
+                        scope.status = "No policy defined";
+                        scope.arrow_type = 'arrow-inverse';
+                        scope.has_policy = false;
+                        scope.aws_target = '';
+                    })
+                    .then(null, function(err) {
+                        console.log('err:'+err.message);
+                        if (err.message !== 'canceled'){
+                            scope.error_message = err.message;
+                            scope.has_error = true;
+                        }
+                    });
             };
             scope.select_key = function() {
                 console.log("selected:" + scope.selected_key.access_key);
-                scope.buckets = ["Loading..."];
-                scope.selected_bucket = scope.buckets[0];
-                $q.when(nbClient.client.bucket.get_cloud_buckets({
-                    access_key: scope.selected_key.access_key,
-                    secret_key: scope.selected_key.secret_key
-                })).then(function(buckets_list) {
-                    console.log('got list1' + JSON.stringify(buckets_list));
-                    buckets_list.push('Choose Bucket for sync');
-                    scope.buckets = buckets_list;
-                    console.log('got list2' + JSON.stringify(scope.buckets));
-                    scope.selected_bucket = scope.buckets[buckets_list.length - 1];
+                if (scope.selected_key.access_key === scope.accessKeys[0].access_key) {
+                    console.log("empty bucket list");
+                    scope.buckets = [];
+                } else {
 
-                }).then(null, function(err) {
-                    scope.error_message = 'Error:' + err.message + ',' + err.stack;
-                    scope.has_error = true;
+                    scope.buckets = ["Loading..."];
+                    scope.selected_bucket = scope.buckets[0];
+                    $q.when(nbClient.client.bucket.get_cloud_buckets({
+                        access_key: scope.selected_key.access_key,
+                        secret_key: scope.selected_key.secret_key
+                    })).then(function(buckets_list) {
+                        console.log('got list1' + JSON.stringify(buckets_list));
+                        buckets_list.push('Choose Bucket for sync');
+                        scope.buckets = buckets_list;
+                        console.log('got list2' + JSON.stringify(scope.buckets));
+                        scope.selected_bucket = scope.buckets[buckets_list.length - 1];
 
-                });
+                    }).then(null, function(err) {
+                        scope.error_message = 'Error:' + err.message + ',' + err.stack;
+                        scope.has_error = true;
+
+                    });
+                }
 
             };
 
@@ -628,40 +655,48 @@ nb_console.controller('SystemDataCtrl', [
             };
             scope.save_new_key = function() {
                 console.log('save done key:', scope.access_key, ' secret: ', scope.secret_key);
-                if (!_.isUndefined(scope.access_key) && !_.isUndefined(scope.secret_key)) {
-                    scope.buckets = ["Loading..."];
-                    scope.selected_bucket = scope.buckets[0];
-                    $q.when(nbClient.client.bucket.get_cloud_buckets({
-                        access_key: scope.access_key,
-                        secret_key: scope.secret_key
-                    })).then(function(buckets_list) {
-                        console.log('got list' + JSON.stringify(buckets_list));
-                        scope.enable_new_key = false;
-                        scope.error_message = '';
-                        scope.has_error = false;
-
-                        scope.buckets = _(['Choose Bucket for sync']).concat(buckets_list);
-                        scope.selected_bucket = scope.buckets[0];
-
-                    }).then(function() {
-                        scope.accessKeys.push({
-                            access_key: scope.access_key,
-                            secret_key: scope.secret_key
-                        });
-                        scope.selected_key = scope.accessKeys[0];
-                        return $q.when(nbClient.client.account.add_account_sync_credentials_cache({
-                            access_key: scope.access_key,
-                            secret_key: scope.secret_key
-                        }));
-                    }).then(function() {
-                        console.log('done save');
-                        scope.enable_new_key = false;
-                        nbAlertify.success('Added AWS credentials to the cache!');
-                    }).then(null, function(err) {
-                        scope.error_message = err.message;
+                if (!_.isEmpty(scope.access_key) && !_.isEmpty(scope.secret_key)) {
+                    if (_.findIndex(scope.accessKeys, {
+                            'access_key': scope.access_key
+                        }) > 0) {
+                        scope.error_message = "Key already exists";
                         scope.has_error = true;
+                    } else {
 
-                    });
+                        scope.buckets = ["Loading..."];
+                        scope.selected_bucket = scope.buckets[0];
+                        $q.when(nbClient.client.bucket.get_cloud_buckets({
+                            access_key: scope.access_key,
+                            secret_key: scope.secret_key
+                        })).then(function(buckets_list) {
+                            console.log('got list' + JSON.stringify(buckets_list));
+                            scope.enable_new_key = false;
+                            scope.error_message = '';
+                            scope.has_error = false;
+
+                            scope.buckets = _(['Choose Bucket for sync']).concat(buckets_list);
+                            scope.selected_bucket = scope.buckets[0];
+
+                        }).then(function() {
+                            scope.accessKeys.push({
+                                access_key: scope.access_key,
+                                secret_key: scope.secret_key
+                            });
+                            scope.selected_key = scope.accessKeys[0];
+                            return $q.when(nbClient.client.account.add_account_sync_credentials_cache({
+                                access_key: scope.access_key,
+                                secret_key: scope.secret_key
+                            }));
+                        }).then(function() {
+                            console.log('done save');
+                            scope.enable_new_key = false;
+                            nbAlertify.success('Added AWS credentials to the cache!');
+                        }).then(null, function(err) {
+                            scope.error_message = err.message;
+                            scope.has_error = true;
+
+                        });
+                    }
                 } else {
                     scope.error_message = "Empty keys. Please enter access key and secret key.";
                     scope.has_error = true;

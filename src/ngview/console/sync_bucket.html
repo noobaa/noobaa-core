@@ -35,7 +35,7 @@
                     <div class="form-group" ng-if="has_policy!=true">
                         <div class="controls form-inline">
                             <label style="width:100px;">Access Key</label>
-                            <select class="form-control"  style="display:inline-block;" required ng-model="selected_key" ng-change="select_key()" ng-options='option as option.access_key for option in accessKeys'>
+                            <select class="form-control"  style="display:inline-block;" required ng-model="$parent.selected_key" ng-change="select_key()" ng-options='option as option.access_key for option in accessKeys'>
                             </select>
                             <button nb-click-ladda="add_new_key();" class="btn btn-default" style="display:inline-block;margin: 0 0 0 30px" >New</button>
                         </div>

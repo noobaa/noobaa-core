@@ -281,10 +281,10 @@ module.exports = {
                 schedule: {
                     type: 'integer'
                 },
-                // last_sync: {
-                //     type: 'integer',
-                //     format: 'idate'
-                // },
+                last_sync: {
+                    type: 'integer',
+                    format: 'idate'
+                },
                 paused: {
                     type: 'boolean',
                 },

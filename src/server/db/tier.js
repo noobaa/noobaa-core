@@ -35,7 +35,7 @@ var tier_schema = new Schema({
         replicas: {
             type: Number,
         },
-        // see kfrag in data_chunk.js
+        // see data_frags in data_chunk.js
         data_fragments: {
             type: Number,
         },

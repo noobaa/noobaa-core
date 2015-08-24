@@ -25,10 +25,10 @@ function LRUCache(options) {
         return data;
     };
     self.use_negative_cache = options.use_negative_cache;
-    self.lru = new LRU({
-        max_length: options.max_length || 100,
-        expiry_ms: options.expiry_ms || 60000, // default 1 minute
-    });
+    self.lru = new LRU(_.extend({
+        max_length: 100,
+        expiry_ms: 60000, // default 1 minute
+    }, options));
 }
 
 /**
@@ -71,12 +71,20 @@ LRUCache.prototype.get = function(params, cache_miss) {
         });
 };
 
+LRUCache.prototype.put = function(params, data) {
+    var key = this.make_key(params);
+    var item = this.lru.find_or_add_item(key);
+    item.d = data;
+};
+
 /**
  * remove multiple keys from the cache
  */
 LRUCache.prototype.multi_invalidate = function(params) {
     var self = this;
-    return _.map(params, function(p) { return self.invalidate(p); });
+    return _.map(params, function(p) {
+        return self.invalidate(p);
+    });
 };
 
 /**

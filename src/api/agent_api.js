@@ -18,10 +18,10 @@ module.exports = {
             param_raw: 'data',
             params: {
                 type: 'object',
-                required: ['block_id', 'data'],
+                required: ['block_md', 'data'],
                 properties: {
-                    block_id: {
-                        type: 'string',
+                    block_md: {
+                        $ref: '/agent_api/definitions/block_md'
                     },
                     data: {
                         type: 'buffer'
@@ -34,17 +34,20 @@ module.exports = {
             method: 'GET',
             params: {
                 type: 'object',
-                required: ['block_id'],
+                required: ['block_md'],
                 properties: {
-                    block_id: {
-                        type: 'string',
+                    block_md: {
+                        $ref: '/agent_api/definitions/block_md'
                     },
                 },
             },
             reply: {
                 type: 'object',
-                required: ['data'],
+                required: ['block_md', 'data'],
                 properties: {
+                    block_md: {
+                        $ref: '/agent_api/definitions/block_md'
+                    },
                     data: {
                         type: 'buffer'
                     },
@@ -57,52 +60,14 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['block_id'],
+                required: ['target', 'source'],
                 properties: {
-                    block_id: {
-                        type: 'string',
+                    target: {
+                        $ref: '/agent_api/definitions/block_md'
                     },
                     source: {
-                        $ref: '/common_api/definitions/block_address'
+                        $ref: '/agent_api/definitions/block_md'
                     }
-                },
-            },
-        },
-
-
-        check_block: {
-            method: 'POST',
-            params: {
-                type: 'object',
-                required: ['block_id', 'slices'],
-                properties: {
-                    block_id: {
-                        type: 'string',
-                    },
-                    slices: {
-                        type: 'array',
-                        items: {
-                            type: 'object',
-                            required: ['start', 'end'],
-                            properties: {
-                                start: {
-                                    type: 'integer'
-                                },
-                                end: {
-                                    type: 'integer'
-                                },
-                            }
-                        }
-                    },
-                },
-            },
-            reply: {
-                type: 'object',
-                required: ['checksum'],
-                properties: {
-                    checksum: {
-                        type: 'string',
-                    },
                 },
             },
         },
@@ -115,7 +80,7 @@ module.exports = {
                 properties: {
                     blocks: {
                         type: 'array',
-                        ids: {
+                        items: {
                             type: 'object',
                             required: ['id'],
                             properties: {
@@ -213,6 +178,32 @@ module.exports = {
 
         set_debug_node: {
             method: 'POST',
+        },
+
+    },
+
+    definitions: {
+
+        block_md: {
+            type: 'object',
+            required: ['id'],
+            properties: {
+                id: {
+                    type: 'string'
+                },
+                address: {
+                    type: 'string'
+                },
+                size: {
+                    type: 'integer'
+                },
+                digest_type: {
+                    type: 'string'
+                },
+                digest_b64: {
+                    type: 'string'
+                },
+            }
         },
 
     }

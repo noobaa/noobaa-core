@@ -3,6 +3,7 @@
 
 // var _ = require('lodash');
 var Q = require('q');
+require('./bluebird_hijack_q');
 var child_process = require('child_process');
 require('setimmediate');
 var ncp = require('ncp').ncp;
@@ -123,7 +124,7 @@ function retry(attempts, delay, delay_increment, func) {
 
             // delay and retry next attempt
             return Q.delay(delay).then(function() {
-                return retry(attempts, delay+delay_increment, delay_increment, func);
+                return retry(attempts, delay + delay_increment, delay_increment, func);
             });
 
         });
@@ -195,8 +196,8 @@ function promised_spawn(command, args, cwd, ignore_rc) {
 
     var out;
     proc.stdout.on('data', function(data) {
-      out = data;
-      dbg.log2('on stdout', data);
+        out = data;
+        dbg.log2('on stdout', data);
     });
 
     proc.on('error', function(error) {

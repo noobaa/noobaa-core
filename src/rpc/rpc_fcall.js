@@ -2,6 +2,7 @@
 
 module.exports = RpcFcallConnection;
 
+var _ = require('lodash');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 
@@ -17,6 +18,7 @@ function RpcFcallConnection(addr_url) {
     self.connect = function() {};
 
     self.send = function(msg) {
+        msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
         setImmediate(function() {
             self.emit('message', msg);
         });

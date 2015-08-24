@@ -13,6 +13,8 @@ var dbg = require('noobaa-util/debug_module')(__filename);
 
 module.exports = AgentStore;
 
+// error used to throw from here to upper levels
+AgentStore.TAMPERING_ERROR = 'TAMPERING';
 
 /**
  *
@@ -22,9 +24,9 @@ module.exports = AgentStore;
 function AgentStore(root_path) {
     this.root_path = root_path;
     this.blocks_path = path.join(this.root_path, 'blocks');
-    this.hash_path = path.join(this.root_path, '.h');
+    this.meta_path = path.join(this.root_path, '.meta');
     mkdirp.sync(this.blocks_path);
-    mkdirp.sync(this.hash_path);
+    mkdirp.sync(this.meta_path);
 }
 
 
@@ -106,30 +108,36 @@ AgentStore.prototype.set_alloc = function(size) {
  * READ_BLOCK
  *
  */
-AgentStore.prototype.read_block = function(block_id) {
+AgentStore.prototype.read_block = function(block_md) {
     var self = this;
-    var block_path = self._get_block_path(block_id);
-    var hash_path = self._get_hash_path(block_id);
-    dbg.log0('fs read block', block_path);
+    var block_path = self._get_block_data_path(block_md.id);
+    var meta_path = self._get_block_meta_path(block_md.id);
+    dbg.log1('fs read block', block_path);
     return Q.all([
             Q.nfcall(fs.readFile, block_path),
-            Q.nfcall(fs.readFile, hash_path)
+            Q.nfcall(fs.readFile, meta_path)
             .then(null, function(err) {
                 if (err.code === 'ENOENT') return;
                 throw err;
             })
         ])
-        .spread(function(data, hash_info) {
-            if (hash_info) {
-                var hash_val = crypto.createHash('sha256').update(data).digest('base64');
-                hash_info = hash_info.toString().split(' ');
-                var len = parseInt(hash_info[0], 10);
-                var val = hash_info[1];
-                if (len !== data.length || hash_val !== val) {
-                    throw 'TAMPERING DETECTED';
-                }
+        .spread(function(data, meta) {
+            var block_md_from_store = JSON.parse(meta);
+            if (block_md_from_store.id !== block_md.id ||
+                block_md_from_store.digest_type !== block_md.digest_type ||
+                block_md_from_store.digest_b64 !== block_md.digest_b64) {
+                dbg.error('BLOCK MD MISMATCH ON READ', block_md_from_store, block_md);
+                throw AgentStore.TAMPERING_ERROR;
             }
-            return data;
+            var digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+            if (digest_b64 !== block_md_from_store.digest_b64) {
+                dbg.error('BLOCK DIGEST MISMATCH ON READ', block_md_from_store, digest_b64);
+                throw AgentStore.TAMPERING_ERROR;
+            }
+            return {
+                block_md: block_md,
+                data: data,
+            };
         });
 };
 
@@ -139,28 +147,31 @@ AgentStore.prototype.read_block = function(block_id) {
  * WRITE_BLOCK
  *
  */
-AgentStore.prototype.write_block = function(block_id, data) {
+AgentStore.prototype.write_block = function(block_md, data) {
     var self = this;
-    var block_path = self._get_block_path(block_id);
-    var hash_path = self._get_hash_path(block_id);
+    var block_path = self._get_block_data_path(block_md.id);
+    var meta_path = self._get_block_meta_path(block_md.id);
     var file_stats;
 
     if (!Buffer.isBuffer(data) && typeof(data) !== 'string') {
         throw new Error('data is not a buffer/string');
     }
 
-    var hash_val = crypto.createHash('sha256').update(data).digest('base64');
-    var hash_info = data.length.toString(10) + ' ' + hash_val;
+    var block_md_to_store = _.pick(block_md, 'id', 'digest_type', 'digest_b64');
+    var digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+    if (digest_b64 !== block_md_to_store.digest_b64) {
+        throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
+    }
 
-    return self._stat_block_path(block_path, true)
+    return Q.when(self._stat_block_path(block_path, true))
         .then(function(stats) {
             file_stats = stats;
-            dbg.log0('fs write block', block_path, data.length, typeof(data), file_stats);
+            dbg.log1('fs write block', block_path, data.length, typeof(data), file_stats);
 
             // create/replace the block on fs
             return Q.all([
                 Q.nfcall(fs.writeFile, block_path, data),
-                Q.nfcall(fs.writeFile, hash_path, hash_info)
+                Q.nfcall(fs.writeFile, meta_path, JSON.stringify(block_md_to_store))
             ]);
         })
         .then(function() {
@@ -227,7 +238,7 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
  */
 AgentStore.prototype.stat_block = function(block_id) {
     var self = this;
-    var block_path = self._get_block_path(block_id);
+    var block_path = self._get_block_data_path(block_id);
     return self._stat_block_path(block_path);
 };
 
@@ -242,8 +253,8 @@ AgentStore.prototype.stat_block = function(block_id) {
  */
 AgentStore.prototype._delete_block = function(block_id) {
     var self = this;
-    var block_path = self._get_block_path(block_id);
-    var hash_path = self._get_hash_path(block_id);
+    var block_path = self._get_block_data_path(block_id);
+    var meta_path = self._get_block_meta_path(block_id);
     var file_stats;
 
     dbg.log("delete block", block_id);
@@ -255,7 +266,7 @@ AgentStore.prototype._delete_block = function(block_id) {
             }
         })
         .then(function() {
-            return Q.nfcall(fs.unlink, hash_path);
+            return Q.nfcall(fs.unlink, meta_path);
         })
         .then(function() {
             return file_stats ? file_stats.size : 0;
@@ -265,20 +276,20 @@ AgentStore.prototype._delete_block = function(block_id) {
 
 /**
  *
- * _get_block_path
+ * _get_block_data_path
  *
  */
-AgentStore.prototype._get_block_path = function(block_id) {
-    return path.join(this.blocks_path, block_id);
+AgentStore.prototype._get_block_data_path = function(block_id) {
+    return path.join(this.blocks_path, block_id + '.data');
 };
 
 /**
  *
- * _get_hash_path
+ * _get_block_meta_path
  *
  */
-AgentStore.prototype._get_hash_path = function(block_id) {
-    return path.join(this.hash_path, block_id);
+AgentStore.prototype._get_block_meta_path = function(block_id) {
+    return path.join(this.blocks_path, block_id + '.meta');
 };
 
 /**
@@ -372,34 +383,36 @@ function MemoryStore() {
             count: this._count,
         };
     };
-    this.read_block = function(block_id) {
+    this.read_block = function(block_md) {
+        var block_id = block_md.id;
         var b = this._blocks[block_id];
         if (!b) {
             throw new Error('No such block ' + block_id);
         }
-        var hash_val = crypto.createHash('sha256').update(b.data).digest('base64');
-        var hash_info = b.data.length.toString(10) + ' ' + hash_val;
 
-        if (this._blocks[block_id].hash_val !== hash_val ||
-            this._blocks[block_id].hash_info !== hash_info) {
-            throw 'TAMPERING DETECTED';
+        var digest_b64 = crypto.createHash(block_md.digest_type).update(b.data).digest('base64');
+        if (digest_b64 !== block_md.digest_b64) {
+            throw AgentStore.TAMPERING_ERROR;
         }
 
-        return this._blocks[block_id].data;
+        return b;
     };
-    this.write_block = function(block_id, data) {
+    this.write_block = function(block_md, data) {
+        var block_id = block_md.id;
         var b = this._blocks[block_id];
         if (b) {
             this._used -= b.length;
             this._count -= 1;
         }
 
-        var hash_val = crypto.createHash('sha256').update(data).digest('base64');
-        var hash_info = data.length.toString(10) + ' ' + hash_val;
+        var digest_b64 = crypto.createHash(block_md.digest_type).update(data).digest('base64');
+        if (digest_b64 !== block_md.digest_b64) {
+            throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
+        }
+
         this._blocks[block_id] = {
             data: data,
-            hash_val: hash_val,
-            hash_info: hash_info
+            block_md: block_md
         };
 
         this._used += data.length;
@@ -437,6 +450,6 @@ function MemoryStore() {
     };
     this.list_blocks = function() {
         var self = this;
-        return  _.keys(self._blocks);
+        return _.keys(self._blocks);
     };
 }

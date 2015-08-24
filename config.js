@@ -38,10 +38,9 @@ config.min_node_number = 3;
 
 // ACTION CONCURRENCY
 config.READ_CONCURRENCY = 32;
-config.WRITE_CONCURRENCY = 16;
+config.WRITE_CONCURRENCY = 32;
 config.READ_RANGE_CONCURRENCY = 8;
-
-config.REPLICATE_CONCURRENCY = 16;
+config.REPLICATE_CONCURRENCY = 32;
 
 config.write_timeout = 20 * 1000;
 config.read_timeout = 10 * 1000;
@@ -57,5 +56,11 @@ config.channel_buffer_stop_throttle = 0;
 config.ice_conn_timeout = 10 * 1000;
 config.response_timeout = 10 * 1000;
 config.ws_conn_timeout = 10 * 1000;
+
+// TODO take config of desired replicas from tier/bucket
+config.OPTIMAL_REPLICAS = 3;
+config.LONG_GONE_THRESHOLD = 3600000;
+config.SHORT_GONE_THRESHOLD = 300000;
+config.LONG_BUILD_THRESHOLD = 300000;
 
 module.exports = config;

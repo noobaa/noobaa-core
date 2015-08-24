@@ -447,6 +447,7 @@ var NODE_DEFAULT_FIELDS = {
 
 function get_node_full_info(node) {
     var info = _.defaults(_.pick(node, NODE_PICK_FIELDS), NODE_DEFAULT_FIELDS);
+    info.rpc_address = node.get_rpc_address();
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }

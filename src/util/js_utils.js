@@ -3,7 +3,10 @@
 var _ = require('lodash');
 
 module.exports = {
-    self_bind: self_bind
+    self_bind: self_bind,
+    array_push_all: array_push_all,
+    named_array_push: named_array_push,
+    append_buffer_or_array: append_buffer_or_array,
 };
 
 
@@ -18,7 +21,7 @@ module.exports = {
  *
  * see http://stackoverflow.com/questions/17638305/why-is-bind-slower-than-a-closure
  *
- * see src/test/test_bind_perf.js
+ * see src/test/measure_bind_perf.js
  *
  * @param method_desc optional string or array of strings of method names
  *      to bind, if not supplied all enumerable functions will be used.
@@ -42,4 +45,52 @@ function self_bind(object, method_desc) {
     object[method_desc] = closure_func;
 
     return closure_func;
+}
+
+
+// see http://jsperf.com/concat-vs-push-apply/39
+var _cached_array_push = Array.prototype.push;
+
+
+/**
+ * push list of items into array
+ */
+function array_push_all(array, items) {
+    // see http://jsperf.com/concat-vs-push-apply/39
+    // using Function.apply with items list to sends all the items
+    // to the push function which actually does: array.push(items[0], items[1], ...)
+    _cached_array_push.apply(array, items);
+    return array;
+}
+
+/**
+ * add to array, create it in the object if doesnt exist
+ */
+function named_array_push(obj, arr_name, item) {
+    var arr = obj[arr_name];
+    if (arr) {
+        _cached_array_push.call(arr, item);
+    } else {
+        arr = obj[arr_name] = [item];
+    }
+    return arr;
+}
+
+
+function append_buffer_or_array(buffer_or_array, item)
+{
+    if (_.isArray(buffer_or_array)) {
+        if (_.isArray(item)) {
+            return array_push_all(buffer_or_array, item);
+        } else {
+            buffer_or_array.push(item);
+        }
+    } else {
+        if (_.isArray(item)) {
+            buffer_or_array = Buffer.concat(array_push_all([buffer_or_array], item));
+        } else {
+            buffer_or_array = Buffer.concat([buffer_or_array, item]);
+        }
+    }
+    return buffer_or_array;
 }

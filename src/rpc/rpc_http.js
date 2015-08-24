@@ -88,6 +88,7 @@ RpcHttpConnection.prototype.close = function() {
  *
  */
 RpcHttpConnection.prototype.send = function(msg, op, req) {
+    msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     if (op === 'res') {
         return this.send_http_response(msg, req);
     } else {

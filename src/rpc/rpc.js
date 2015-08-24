@@ -8,6 +8,7 @@ var url = require('url');
 var util = require('util');
 var assert = require('assert');
 // var ip_module = require('ip');
+var time_utils = require('../util/time_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
@@ -30,7 +31,7 @@ var browser_ws = global.window && global.window.WebSocket;
 // in the browser we take the address as the host of the web page
 // just like any ajax request. for development we take localhost.
 // for any other case the RPC objects can set the base_address property.
-var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:' + process.env.web_port;
+var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:5001';
 if (browser_location) {
     if (browser_ws) {
         // use ws/s address
@@ -173,6 +174,7 @@ RPC.prototype.create_client = function(api, default_options) {
  */
 RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
+    var millistamp = time_utils.millistamp();
     options = options || {};
 
     // initialize the request
@@ -202,10 +204,10 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
                 'reqid', req.reqid);
 
             // encode the request buffer (throws if params are not valid)
-            var req_buffer = req.export_request_buffer();
+            var req_buffers = req.export_request_buffers();
 
             // send request over the connection
-            var send_promise = Q.invoke(req.connection, 'send', req_buffer, 'req', req);
+            var send_promise = Q.invoke(req.connection, 'send', req_buffers, 'req', req);
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -256,7 +258,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             // TODO:
             // move to rpc_code and retries - postponed for now
 
-            if (err.message === 'RPC client_request: send TIMEOUT'){
+            if (err.message === 'RPC client_request: send TIMEOUT') {
                 dbg.log1('closing connection due to timeout');
                 self._connection_closed(req.connection);
             }
@@ -265,6 +267,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
         })
         .fin(function() {
+            // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
             return self._release_connection(req);
         });
 };
@@ -277,6 +280,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
  */
 RPC.prototype.handle_request = function(conn, msg) {
     var self = this;
+    var millistamp = time_utils.millistamp();
     var req = new RpcRequest();
     req.connection = conn;
     var rseq = conn._rpc_req_seq || 1;
@@ -372,6 +376,9 @@ RPC.prototype.handle_request = function(conn, msg) {
             }
 
             return conn.send(req.export_response_buffer(), 'res', req);
+        })
+        .fin(function() {
+            // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
         });
 };
 
@@ -589,6 +596,19 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
 /**
  *
  */
+RPC.prototype.disconnect_all = function() {
+    var self = this;
+    _.each(self._connection_by_address, function(conn) {
+        // stop reconnect from picking up immediately
+        conn._no_reconnect = true;
+        conn.close();
+    });
+};
+
+
+/**
+ *
+ */
 RPC.prototype._connection_error = function(conn, err) {
     dbg.error('RPC CONNECTION ERROR:', conn.connid, conn.url.href, err.stack || err);
     conn.close();
@@ -620,7 +640,7 @@ RPC.prototype._connection_closed = function(conn) {
     // for base_address try to reconnect after small delay.
     // using _.startsWith() since in some cases url.parse will add a trailing /
     // specifically in http urls for some strange reason...
-    if (_.startsWith(conn.url.href, self.base_address)) {
+    if (!conn._no_reconnect && _.startsWith(conn.url.href, self.base_address)) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
 };

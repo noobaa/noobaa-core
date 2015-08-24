@@ -1,9 +1,11 @@
 // module targets: nodejs & browserify
 'use strict';
 
+var _ = require('lodash');
+var Q = require('q');
 var util = require('util');
 var stream = require('stream');
-
+var js_utils = require('./js_utils');
 
 module.exports = CoalesceStream;
 
@@ -32,23 +34,25 @@ util.inherits(CoalesceStream, stream.Transform);
  * implement the stream's Transform._transform() function.
  */
 CoalesceStream.prototype._transform = function(data, encoding, callback) {
+    var self = this;
+    // console.log('coalesce', self._pending.length, data);
+    var data_promise = _.isArray(data) ? Q.all(data) : Q.when(data);
+    data_promise.then(function(data_in) {
+        // console.log('coalesce', self._pending.length, data_in);
+        self._pending = js_utils.append_buffer_or_array(self._pending, data_in);
 
-    // append the data
-    if (this._obj) {
-        this._pending.push(data);
-    } else {
-        this._pending = Buffer.concat([this._pending, data]);
-    }
+        // flush if passed threshold, or set a timer to flush
+        if (self._pending.length >= self._max_length) {
+            self.flush_me();
+        } else if (!self._timeout) {
+            self._timeout = setTimeout(self.flush_me, self._max_wait_ms);
+        }
 
-    // flush if passed threshold, or set a timer to flush
-    if (this._pending.length >= this._max_length) {
-        this.flush_me();
-    } else if (!this._timeout) {
-        this._timeout = setTimeout(this.flush_me, this._max_wait_ms);
-    }
-
-    // notify i'm ready for more
-    callback();
+        // notify i'm ready for more
+        callback();
+    }, function(err) {
+        callback(err);
+    });
 };
 
 /**

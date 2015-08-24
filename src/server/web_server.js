@@ -6,12 +6,6 @@ if (process.env.NEW_RELIC_LICENSE_KEY) {
     require('newrelic');
 }
 
-if (process.env.NODETIME_ACCOUNT_KEY) {
-    require('nodetime').profile({
-        accountKey: process.env.NODETIME_ACCOUNT_KEY
-    });
-}
-
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 
@@ -20,6 +14,7 @@ require('heapdump');
 var dot_engine = require('noobaa-util/dot_engine');
 var _ = require('lodash');
 var Q = require('q');
+require('../util/bluebird_hijack_q');
 var path = require('path');
 var http = require('http');
 var https = require('https');
@@ -168,8 +163,8 @@ function use_exclude(path, middleware) {
 var server_rpc = require('./server_rpc');
 server_rpc.register_http_transport(app);
 // server_rpc.register_n2n_transport();
-var http_port = process.env.PORT || 5001;
-var https_port = process.env.SSL_PORT || 5443;
+var http_port = process.env.PORT = process.env.PORT || 5001;
+var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 
@@ -295,7 +290,9 @@ app.get('/get_latest_version*', function(req, res) {
             res.status(200).send({
                 version: ret_version,
             });
-        } catch (err) {}
+        } catch (err) {
+            // nop
+        }
     }
     res.status(400).send({});
 });

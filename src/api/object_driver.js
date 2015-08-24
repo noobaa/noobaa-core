@@ -2,18 +2,16 @@
 'use strict';
 
 var util = require('util');
-var stream = require('stream');
+var Readable = require('stream').Readable;
 var _ = require('lodash');
 var Q = require('q');
 var Semaphore = require('noobaa-util/semaphore');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
 var CoalesceStream = require('../util/coalesce_stream');
-var rabin = require('../util/rabin');
-var Poly = require('../util/poly');
-var chunk_crypto = require('../util/chunk_crypto');
 var range_utils = require('../util/range_utils');
 var size_utils = require('../util/size_utils');
+var time_utils = require('../util/time_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var config = require('../../config.js');
@@ -59,11 +57,6 @@ function ObjectDriver(client) {
     self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 32 MB
     self.HTTP_TRUNCATE_PART_SIZE = false;
 
-    self.CRYPT_TYPE = {
-        hash_type: 'sha256',
-        cipher_type: 'aes256',
-    };
-
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
     self._block_read_sem = new Semaphore(self.READ_CONCURRENCY);
     self._finalize_sem = new Semaphore(config.REPLICATE_CONCURRENCY);
@@ -74,7 +67,67 @@ function ObjectDriver(client) {
     self._init_blocks_cache();
 }
 
+var native_util;
+var dedup_chunker_tpool;
+var object_coding_tpool;
+var object_coding;
+var PART_ATTRS = [
+    'start',
+    'end',
+    'upload_part_number',
+    'part_sequence_number'
+];
+var CHUNK_ATTRS = [
+    'size',
+    'digest_type',
+    'compress_type',
+    'compress_size',
+    'cipher_type',
+    'data_frags',
+    'lrc_frags',
+    'digest_b64',
+    'cipher_key_b64',
+    'cipher_iv_b64',
+    'cipher_auth_tag_b64'
+];
+var FRAG_ATTRS = [
+    'layer',
+    'layer_n',
+    'frag',
+    'digest_type',
+    'digest_b64'
+];
 
+function lazy_init_natives() {
+    var bindings = require('bindings');
+    if (typeof(bindings) !== 'function') {
+        return;
+    }
+    native_util = bindings('native_util.node');
+
+    // these threadpools are global OS threads used to offload heavy CPU work
+    // from the node.js thread so that it will keep processing incoming IO while
+    // encoding/decoding the object chunks in high performance native code.
+    if (!dedup_chunker_tpool) {
+        dedup_chunker_tpool = new native_util.ThreadPool(1);
+    }
+    if (!object_coding_tpool) {
+        object_coding_tpool = new native_util.ThreadPool(2);
+    }
+    if (!object_coding) {
+        object_coding = new native_util.ObjectCoding({
+            tpool: object_coding_tpool,
+            digest_type: 'sha384',
+            compress_type: 'snappy',
+            cipher_type: 'aes-256-gcm',
+            frag_digest_type: 'sha1',
+            data_frags: 1,
+            parity_frags: 0,
+            lrc_frags: 0,
+            lrc_parity: 0,
+        });
+    }
+}
 
 
 
@@ -105,7 +158,6 @@ ObjectDriver.prototype.upload_stream = function(params) {
         });
 };
 
-
 /**
  *
  * UPLOAD_STREAM_PART
@@ -116,57 +168,73 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
     var start = params.start || 0;
     var upload_part_number = params.upload_part_number || 0;
     var part_sequence_number = params.part_sequence_number || 0;
+    lazy_init_natives();
 
     dbg.log0('upload_stream: start', params.key, 'part number', upload_part_number,
         'sequence number', part_sequence_number);
     return Q.fcall(function() {
+        params.source_stream._readableState.highWaterMark = 1024 * 1024;
         var pipeline = new Pipeline(params.source_stream);
 
-        ////////////////////////////////////////
-        // PIPELINE: split to chunks by rabin //
-        ////////////////////////////////////////
-
-        pipeline.pipe(new rabin.RabinChunkStream({
-            window_length: 128,
-            min_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 3,
-            max_chunk_size: ((self.OBJECT_RANGE_ALIGN / 4) | 0) * 6,
-            hash_spaces: [{
-                poly: new Poly(Poly.PRIMITIVES[31]),
-                hash_bits: self.OBJECT_RANGE_ALIGN_NBITS - 1, // 256 KB average chunk
-                hash_val: 0x07071070 // hebrew calculator pimp
-            }],
-        }));
-
-        ////////////////////////////
-        // PIPELINE: encrypt part //
-        ////////////////////////////
+        //////////////////////////////
+        // PIPELINE: dedup chunking //
+        //////////////////////////////
 
         pipeline.pipe(transformer({
             options: {
-                objectMode: true,
+                highWaterMark: 4,
+                objectMode: true
             },
             init: function() {
-                this._pos = 0;
+                this.offset = start;
+                this.chunker = new native_util.DedupChunker({
+                    tpool: dedup_chunker_tpool
+                });
             },
-            transform: function(chunk) {
-                dbg.log1('upload_stream_parts: encrypt_chunk pos', this._pos);
-                var stream = this;
-                var crypt = _.clone(self.CRYPT_TYPE);
-                return chunk_crypto.encrypt_chunk(chunk, crypt)
-                    .then(function(encrypted_chunk) {
-                        var part = {
-                            start: start + stream._pos,
-                            end: start + stream._pos + chunk.length,
-                            crypt: crypt,
-                            encrypted_chunk: encrypted_chunk,
-                            part_sequence_number:  part_sequence_number,
+            transform: function(data) {
+                dbg.log0('upload_stream_parts: chunking', size_utils.human_offset(this.offset));
+                this.offset += data.length;
+                return Q.ninvoke(this.chunker, 'push', data);
+            },
+            flush: function() {
+                return Q.ninvoke(this.chunker, 'flush');
+            }
+        }));
 
-                        };
-                        ++part_sequence_number;
-                        stream._pos += chunk.length;
+        ///////////////////////////////
+        // PIPELINE: object encoding //
+        ///////////////////////////////
+
+        pipeline.pipe(transformer({
+            options: {
+                highWaterMark: 4,
+                flatten: true,
+                objectMode: true
+            },
+            init: function() {
+                this.offset = start;
+            },
+            transform_parallel: function(data) {
+                var part = {
+                    millistamp: time_utils.millistamp(),
+                    bucket: params.bucket,
+                    key: params.key,
+                    start: this.offset,
+                    end: this.offset + data.length,
+                    upload_part_number: upload_part_number,
+                    part_sequence_number: part_sequence_number,
+                };
+                part_sequence_number += 1;
+                this.offset += data.length;
+                dbg.log0('upload_stream_parts: encode', range_utils.human_range(part));
+                return Q.ninvoke(object_coding, 'encode', data)
+                    .then(function(chunk) {
+                        part.chunk = chunk;
+                        dbg.log0('upload_stream_parts: encode', range_utils.human_range(part),
+                            'took', time_utils.millitook(part.millistamp));
                         return part;
                     });
-            }
+            },
         }));
 
         //////////////////////////////////////
@@ -174,53 +242,47 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         //////////////////////////////////////
 
         pipeline.pipe(new CoalesceStream({
-            objectMode: true,
-            highWaterMark: 30,
-            max_length: 10,
-            max_wait_ms: 1000,
+            highWaterMark: 4,
+            max_length: 20,
+            max_wait_ms: 100,
+            objectMode: true
         }));
 
         pipeline.pipe(transformer({
             options: {
-                objectMode: true,
-                highWaterMark: 10
+                highWaterMark: 4,
+                objectMode: true
             },
-            transform: function(parts) {
-                var stream = this;
-                dbg.log0('upload_stream: allocating parts', parts.length);
+            transform_parallel: function(parts) {
+                var millistamp = time_utils.millistamp();
+                var range = {
+                    start: parts[0].start,
+                    end: parts[parts.length - 1].end
+                };
+                dbg.log0('upload_stream_parts: allocate', range_utils.human_range(range));
                 // send parts to server
                 return self.client.object.allocate_object_parts({
                         bucket: params.bucket,
                         key: params.key,
                         parts: _.map(parts, function(part) {
-                            var p = {
-                                start: part.start,
-                                end: part.end,
-                                crypt: part.crypt,
-                                chunk_size: part.encrypted_chunk.length,
-                                upload_part_number: upload_part_number,
-                                part_sequence_number: part.part_sequence_number
-                            };
-                            dbg.log3('upload_stream: allocating specific part ul#', p.upload_part_number, 'seq#', p.part_sequence_number);
+                            var p = _.pick(part, PART_ATTRS);
+                            p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
+                            p.frags = _.map(part.chunk.frags, function(fragment) {
+                                return _.pick(fragment, FRAG_ATTRS);
+                            });
+                            dbg.log3('upload_stream_parts: allocating specific part ul#',
+                                p.upload_part_number, 'seq#', p.part_sequence_number);
                             return p;
                         })
                     })
                     .then(function(res) {
-                        // push parts down the pipe
-                        var part;
-                        for (var i = 0; i < res.parts.length; i++) {
-                            if (res.parts[i].dedup) {
-                                part = parts[i];
-                                part.dedup = true;
-                                dbg.log0('upload_stream: DEDUP part', part.start);
-                            } else {
-                                part = res.parts[i].part;
-                                part.encrypted_chunk = parts[i].encrypted_chunk;
-                                part.upload_part_number = upload_part_number;
-                                dbg.log0('upload_stream: allocated part', part.start);
-                            }
-                            stream.push(part);
-                        }
+                        _.each(parts, function(part, i) {
+                            part.dedup = res.parts[i].dedup;
+                            part.alloc_part = res.parts[i].part;
+                        });
+                        dbg.log0('upload_stream_parts: allocate', range_utils.human_range(range),
+                            'took', time_utils.millitook(millistamp));
+                        return parts;
                     });
             }
         }));
@@ -231,14 +293,19 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
         pipeline.pipe(transformer({
             options: {
+                highWaterMark: 20,
+                flatten: true,
                 objectMode: true,
-                highWaterMark: 30
             },
-            transform: function(part) {
-                if (part.dedup) return;
-                return self._write_part_blocks(
-                        params.bucket, params.key, part, part.part_sequence_number)
-                    .thenResolve(part);
+            transform_parallel: function(part) {
+                var millistamp = time_utils.millistamp();
+                dbg.log1('upload_stream_parts: write', range_utils.human_range(part));
+                return Q.when(self._write_fragments(part))
+                    .then(function() {
+                        dbg.log0('upload_stream_parts: write', range_utils.human_range(part),
+                            'took', time_utils.millitook(millistamp));
+                        return part;
+                    });
             }
         }));
 
@@ -247,48 +314,46 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
         /////////////////////////////
 
         pipeline.pipe(new CoalesceStream({
-            objectMode: true,
-            highWaterMark: 30,
+            highWaterMark: 4,
             max_length: 10,
-            max_wait_ms: 1000,
+            max_wait_ms: 100,
+            objectMode: true
         }));
 
         pipeline.pipe(transformer({
             options: {
-                objectMode: true,
-                highWaterMark: 10
+                highWaterMark: 4,
+                objectMode: true
             },
-            transform: function(parts) {
-                var stream = this;
-                dbg.log0('upload_stream: finalize parts', parts.length);
+            transform_parallel: function(parts) {
+                var millistamp = time_utils.millistamp();
+                var range = {
+                    start: parts[0].start,
+                    end: parts[parts.length - 1].end
+                };
+                dbg.log1('upload_stream_parts: finalize', range_utils.human_range(range));
                 // send parts to server
                 return self._finalize_sem.surround(function() {
                         return self.client.object.finalize_object_parts({
                             bucket: params.bucket,
                             key: params.key,
                             parts: _.map(parts, function(part) {
-                                var p = _.pick(part, 'start', 'end');
-                                p.upload_part_number = upload_part_number;
+                                var p = _.pick(part, PART_ATTRS);
                                 if (!part.dedup) {
-                                    p.block_ids = _.flatten(
-                                        _.map(part.fragments, function(fragment) {
-                                            return _.map(fragment.blocks, function(block) {
-                                                return block.address.id;
-                                            });
-                                        })
-                                    );
+                                    p.block_ids = _.flatten(_.map(part.alloc_part.frags, function(fragment) {
+                                        return _.map(fragment.blocks, function(block) {
+                                            return block.block_md.id;
+                                        });
+                                    }));
                                 }
                                 return p;
                             })
                         });
                     })
                     .then(function() {
-                        // push parts down the pipe
-                        for (var i = 0; i < parts.length; i++) {
-                            var part = parts[i];
-                            dbg.log0('upload_stream: finalize part offset', part.start);
-                            stream.push(part);
-                        }
+                        dbg.log0('upload_stream_parts: finalize', range_utils.human_range(range),
+                            'took', time_utils.millitook(millistamp));
+                        return parts;
                     });
             }
         }));
@@ -299,16 +364,17 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
         pipeline.pipe(transformer({
             options: {
-                objectMode: true,
-                highWaterMark: 30
+                highWaterMark: 4,
+                flatten: true,
+                objectMode: true
             },
             transform: function(part) {
-                dbg.log0('upload_stream: completed part offset', part.start);
+                dbg.log1('upload_stream_parts: completed', range_utils.human_range(part),
+                    'took', time_utils.millitook(part.millistamp));
                 dbg.log_progress(part.end / params.size);
-                pipeline.notify({
-                    event: 'part:after',
-                    part: part
-                });
+                if (params.progress) {
+                    params.progress(part);
+                }
             }
         }));
 
@@ -320,35 +386,28 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
 /**
  *
- * _write_part_blocks
+ * _write_fragments
  *
  */
-ObjectDriver.prototype._write_part_blocks = function(bucket, key, part, part_sequence_number) {
+ObjectDriver.prototype._write_fragments = function(part) {
     var self = this;
-
     if (part.dedup) {
-        dbg.log0('DEDUP', range_utils.human_range(part));
-        return part;
+        dbg.log0('_write_fragments: DEDUP', range_utils.human_range(part));
+        return;
     }
-    dbg.log3('part before', range_utils.human_range(part));
-    var block_size = (part.chunk_size / part.kfrag) | 0;
-    var buffer_per_fragment = encode_chunk(part.encrypted_chunk, part.kfrag, block_size);
 
-    return Q.all(_.map(part.fragments, function(fragment, fragment_index) {
+    var frags_map = _.indexBy(part.chunk.frags, get_frag_key);
+    dbg.log2('_write_fragments: part', part);
+
+    return Q.all(_.map(part.alloc_part.frags, function(fragment) {
+        var frag_key = get_frag_key(fragment);
         return Q.all(_.map(fragment.blocks, function(block) {
             return self._attempt_write_block({
-                bucket: bucket,
-                key: key,
-                start: part.start,
-                end: part.end,
                 part: part,
-                fragment: fragment_index,
-                offset: part.start + (fragment_index * block_size),
                 block: block,
-                buffer: buffer_per_fragment[fragment_index],
+                buffer: frags_map[frag_key].block,
+                frag_desc: size_utils.human_offset(part.start) + '-' + frag_key,
                 remaining_attempts: 20,
-                upload_part_number: part.upload_part_number,
-                part_sequence_number: part_sequence_number,
             });
         }));
     }));
@@ -365,33 +424,33 @@ ObjectDriver.prototype._write_part_blocks = function(bucket, key, part, part_seq
  */
 ObjectDriver.prototype._attempt_write_block = function(params) {
     var self = this;
-    dbg.log3('write block _attempt_write_block', params);
-    return self._write_block(params.block.address, params.buffer, params.offset)
-        .then(null, function(err) {
+    var part = params.part;
+    var block = params.block;
+    var frag_desc = params.frag_desc;
+    dbg.log3('_attempt_write_block:', params);
+    return self._write_block(block.block_md, params.buffer, frag_desc)
+        .then(null, function( /*err*/ ) {
             if (params.remaining_attempts <= 0) {
-                throw new Error('EXHAUSTED WRITE BLOCK', size_utils.human_offset(params.offset));
+                throw new Error('EXHAUSTED WRITE BLOCK', frag_desc);
             }
             params.remaining_attempts -= 1;
-            var bad_block_params =
-                _.extend(_.pick(params, 'bucket', 'key', 'start', 'end', 'fragment'), {
-                    block_id: params.block.address.id,
+            var bad_block_params = _.extend(
+                _.pick(part, 'bucket', 'key', PART_ATTRS), {
+                    block_id: block.block_md.id,
                     is_write: true,
-                    upload_part_number: params.upload_part_number,
-                    part_sequence_number: params.part_sequence_number,
                 });
-            dbg.log0('write block remaining attempts',
-                params.remaining_attempts, 'offset', size_utils.human_offset(params.offset),' params.upload_part_number',params.upload_part_number,'params.part_sequence_number',params.part_sequence_number);
+            dbg.warn('_attempt_write_block: write failed, report_bad_block.',
+                'remaining attempts', params.remaining_attempts, frag_desc, bad_block_params);
             return self.client.object.report_bad_block(bad_block_params)
                 .then(function(res) {
                     dbg.log2('write block _attempt_write_block retry with', res.new_block);
-                    // update the block itself in the part so
+                    // NOTE: we update the block itself in the part so
                     // that finalize will see this update as well.
-                    params.block.address = res.new_block;
+                    block.block_md = res.new_block;
                     return self._attempt_write_block(params);
                 });
         });
 };
-
 
 /**
  *
@@ -400,28 +459,31 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
  * write a block to the storage node
  *
  */
-ObjectDriver.prototype._write_block = function(block_address, buffer, offset) {
+ObjectDriver.prototype._write_block = function(block_md, buffer, desc) {
     var self = this;
 
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
 
-        dbg.log1('write_block', size_utils.human_offset(offset),
-            size_utils.human_size(buffer.length), block_address.id,
-            'to', block_address.addr);
+        dbg.log1('write_block', desc,
+            size_utils.human_size(buffer.length), block_md.id,
+            'to', block_md.address);
 
-        // if (Math.random() < 0.5) throw new Error('testing error');
+        if (process.env.WRITE_BLOCK_ERROR_INJECTON &&
+            process.env.WRITE_BLOCK_ERROR_INJECTON > Math.random()) {
+            throw new Error('WRITE_BLOCK_ERROR_INJECTON');
+        }
 
         return self.client.agent.write_block({
-            block_id: block_address.id,
+            block_md: block_md,
             data: buffer,
         }, {
-            address: block_address.addr,
+            address: block_md.address,
             timeout: config.write_timeout,
         }).then(null, function(err) {
-            console.error('FAILED write_block', size_utils.human_offset(offset),
-                size_utils.human_size(buffer.length), block_address.id,
-                'from', block_address.addr);
+            console.error('FAILED write_block', desc,
+                size_utils.human_size(buffer.length), block_md.id,
+                'from', block_md.address);
             throw err;
         });
 
@@ -492,9 +554,9 @@ ObjectDriver.prototype.read_entire_object = function(params) {
     return Q.Promise(function(resolve, reject) {
         var buffers = [];
         self.open_read_stream(params)
-            .on('data', function(chunk) {
-                console.log('read data', chunk.length);
-                buffers.push(chunk);
+            .on('data', function(buffer) {
+                console.log('read data', buffer.length);
+                buffers.push(buffer);
             })
             .once('end', function() {
                 var read_buf = Buffer.concat(buffers);
@@ -533,7 +595,7 @@ ObjectDriver.prototype.open_read_stream = function(params, watermark) {
  */
 function ObjectReader(client, params, watermark) {
     var self = this;
-    stream.Readable.call(self, {
+    Readable.call(self, {
         // highWaterMark Number - The maximum number of bytes to store
         // in the internal buffer before ceasing to read
         // from the underlying resource. Default=16kb
@@ -554,7 +616,7 @@ function ObjectReader(client, params, watermark) {
 }
 
 // proper inheritance
-util.inherits(ObjectReader, stream.Readable);
+util.inherits(ObjectReader, Readable);
 
 
 /**
@@ -619,7 +681,7 @@ ObjectReader.prototype._read = function(requested_size) {
 ObjectDriver.prototype.read_object = function(params) {
     var self = this;
 
-    dbg.log1('read_object1', range_utils.human_range(params));
+    dbg.log1('read_object: range', range_utils.human_range(params));
 
     if (params.end <= params.start) {
         // empty read range
@@ -636,7 +698,7 @@ ObjectDriver.prototype.read_object = function(params) {
             params.end,
             range_utils.align_up_bitwise(pos + 1, self.OBJECT_RANGE_ALIGN_NBITS)
         );
-        dbg.log2('read_object2', range_utils.human_range(range));
+        dbg.log2('read_object: submit concurrent range', range_utils.human_range(range));
         promises.push(self._object_range_cache.get(range));
         pos = range.end;
     }
@@ -716,7 +778,7 @@ ObjectDriver.prototype._read_object_range = function(params) {
     var self = this;
     var obj_size;
 
-    dbg.log2('_read_object_range', range_utils.human_range(params));
+    dbg.log2('_read_object_range:', range_utils.human_range(params));
 
     return self._object_map_cache.get(params) // get meta data on object range we want to read
         .then(function(mappings) {
@@ -783,81 +845,55 @@ ObjectDriver.prototype._init_object_map_cache = function() {
  */
 ObjectDriver.prototype._read_object_part = function(part) {
     var self = this;
-    var block_size = (part.chunk_size / part.kfrag) | 0;
-    var buffer_per_fragment = {};
-    var next_fragment_index = 0;
-
-    dbg.log2('_read_object_part', range_utils.human_range(part));
-
-    // advancing the read by taking the next fragment and return promise to read it.
-    // will fail if no more fragments remain, which means the part cannot be served.
-    function read_the_next_fragment() {
-        while (next_fragment_index < part.fragments.length) {
-            var curr_fragment_index = next_fragment_index;
-            var fragment = part.fragments[curr_fragment_index];
-            next_fragment_index += 1;
-            if (fragment) {
-                return read_fragment_blocks_chain(fragment, curr_fragment_index);
-            }
-        }
-        throw new Error('READ PART EXHAUSTED', part);
-    }
-
-    function read_fragment_blocks_chain(fragment, fragment_index) {
-        dbg.log3('read_fragment_blocks_chain', range_utils.human_range(part), fragment_index);
-
-        // chain the blocks of the fragment with array reduce
-        // to handle read failures we create a promise chain such that each block of
-        // this fragment will read and if fails it's promise rejection handler will go
-        // to read the next block of the fragment.
-        function add_block_promise_to_chain(promise, block) {
-            return promise.then(null, function(err) {
-                if (err !== chain_init_err) {
-                    console.error('READ FAILED BLOCK', err);
-                }
-                var offset = part.start + (fragment_index * block_size);
-                return self._blocks_cache.get({
-                    block_address: block.address,
-                    block_size: block_size,
-                    offset: offset,
-                });
-            });
-        }
-
-        // chain_initiator is used to fire the first rejection handler for the head of the chain.
-        var chain_init_err = 'chain_init_err';
-        var chain_initiator = Q.reject(chain_init_err);
-
-        // reduce the blocks array to create the chain and feed it with the initial promise
-        return _.reduce(fragment.blocks, add_block_promise_to_chain, chain_initiator)
-            .then(function(buffer) {
-                // when done, just keep the buffer and finish this promise chain
-                buffer_per_fragment[fragment_index] = buffer;
-            })
-            .then(null, function(err) {
-                // failed to read this fragment, try another.
-                console.error('READ FAILED FRAGMENT', fragment_index, err);
-                return read_the_next_fragment();
-            });
-    }
-
-    // start reading by queueing the first kfrag
-    return Q.all(_.times(part.kfrag, read_the_next_fragment))
+    dbg.log0('_read_object_part:', range_utils.human_range(part));
+    lazy_init_natives();
+    // read the data fragments of the chunk
+    var frags_by_layer = _.groupBy(part.frags, 'layer');
+    var data_frags = frags_by_layer.D;
+    return Q.all(_.map(data_frags, function(fragment) {
+            return self._read_fragment(part, fragment);
+        }))
         .then(function() {
-            var encrypted_buffer = decode_chunk(part, buffer_per_fragment);
-            dbg.log2('decrypt_chunk', encrypted_buffer.length, part);
-            return chunk_crypto.decrypt_chunk(encrypted_buffer, part.crypt);
-        }).then(function(chunk) {
-            part.buffer = chunk.slice(
-                part.chunk_offset,
-                part.chunk_offset + part.end - part.start);
-            return part;
-        }).catch(function(err) {
-            console.error('decrypt_chunk FAILED FRAGMENT ' + require('util').inspect(err) + ' ; ' + err.stack);
-            throw err;
+            var chunk = _.pick(part.chunk, CHUNK_ATTRS);
+            chunk.frags = _.map(part.frags, function(fragment) {
+                var f = _.pick(fragment, FRAG_ATTRS, 'block');
+                f.layer_n = f.layer_n || 0;
+                return f;
+            });
+            dbg.log2('_read_object_part: decode chunk', chunk);
+            return Q.ninvoke(object_coding, 'decode', chunk)
+                .then(function(decoded_chunk) {
+                    part.buffer = decoded_chunk.data;
+                    return part;
+                }, function(err) {
+                    dbg.error('_read_object_part: DECODE CHUNK FAILED', err, part);
+                    throw err;
+                });
         });
 };
 
+ObjectDriver.prototype._read_fragment = function(part, fragment) {
+    var self = this;
+    var frag_desc = size_utils.human_offset(part.start) + '-' + get_frag_key(fragment);
+    dbg.log0('_read_fragment', frag_desc);
+    var next_block = 0;
+    return read_next_block();
+
+    function read_next_block() {
+        if (next_block >= fragment.blocks.length) {
+            dbg.error('_read_fragment: EXHAUSTED', frag_desc, fragment.blocks);
+            throw new Error('_read_fragment: EXHAUSTED');
+        }
+        var block = fragment.blocks[next_block];
+        next_block += 1;
+        return self._blocks_cache.get(block.block_md)
+            .then(finish, read_next_block);
+    }
+
+    function finish(buffer) {
+        fragment.block = buffer;
+    }
+};
 
 /**
  *
@@ -870,14 +906,12 @@ ObjectDriver.prototype._init_blocks_cache = function() {
         name: 'BlocksCache',
         max_length: self.READ_CONCURRENCY, // very small, just to handle repeated calls
         expiry_ms: 600000, // 10 minutes
-        make_key: function(params) {
-            return params.block_address.id;
+        make_key: function(block_md) {
+            return block_md.id;
         },
-        load: function(params) {
-            dbg.log1('BlocksCache: load',
-                size_utils.human_offset(params.offset),
-                params.block_address.id);
-            return self._read_block(params.block_address, params.block_size, params.offset);
+        load: function(block_md) {
+            dbg.log1('BlocksCache: load', block_md.id);
+            return self._read_block(block_md);
         }
     });
 
@@ -891,36 +925,21 @@ ObjectDriver.prototype._init_blocks_cache = function() {
  * read a block from the storage node
  *
  */
-ObjectDriver.prototype._read_block = function(block_address, block_size, offset) {
+ObjectDriver.prototype._read_block = function(block_md) {
     var self = this;
-
     // use semaphore to surround the IO
     return self._block_read_sem.surround(function() {
-
-        dbg.log1('read_block', size_utils.human_offset(offset),
-            size_utils.human_size(block_size), block_address.id,
-            'from', block_address.addr);
-
+        dbg.log0('_read_block:', block_md.id, 'from', block_md.address);
         return self.client.agent.read_block({
-                block_id: block_address.id
+                block_md: block_md
             }, {
-                address: block_address.addr,
+                address: block_md.address,
                 timeout: config.read_timeout,
             })
             .then(function(res) {
-                var buffer = res.data;
-                // verify the received buffer length must be full size
-                if (!Buffer.isBuffer(buffer)) {
-                    throw new Error('NOT A BUFFER ' + typeof(buffer));
-                }
-                if (buffer.length !== block_size) {
-                    throw new Error('BLOCK SHORT READ ' + buffer.length + ' / ' + block_size);
-                }
-                return buffer;
+                return res.data;
             }, function(err) {
-                console.error('FAILED read_block', size_utils.human_offset(offset),
-                    size_utils.human_size(block_size), block_address.id,
-                    'from', block_address.addr);
+                dbg.error('_read_block: FAILED', block_md.id, 'from', block_md.address);
                 throw err;
             });
     });
@@ -1077,7 +1096,10 @@ function combine_parts_buffers_in_range(parts, start, end) {
         if (!part_range) {
             return;
         }
-        var offset = part.chunk_offset + part_range.start - part.start;
+        var offset = part_range.start - part.start;
+        if (part.chunk_offset) {
+            offset += part.chunk_offset;
+        }
         pos = part_range.end;
         return part.buffer.slice(offset, pos);
     }));
@@ -1092,38 +1114,6 @@ function combine_parts_buffers_in_range(parts, start, end) {
     return Buffer.concat(buffers, end - start);
 }
 
-
-/**
- * for now just encode without erasure coding
- */
-function encode_chunk(buffer, kfrag, block_size) {
-    var buffer_per_fragment = [];
-    for (var i = 0, pos = 0; i < kfrag; i++, pos += block_size) {
-        var b = buffer.slice(pos, pos + block_size);
-        if (b.length !== block_size) {
-            var pad = new Buffer(block_size - b.length);
-            pad.fill(0);
-            b = Buffer.concat([b, pad]);
-            if (b.length !== block_size) {
-                throw new Error('incorrect padding');
-            }
-        }
-        buffer_per_fragment[i] = b;
-    }
-    return buffer_per_fragment;
-}
-
-
-/**
- * for now just decode without erasure coding
- */
-function decode_chunk(part, buffer_per_fragment) {
-    var buffers = [];
-    for (var i = 0; i < part.kfrag; i++) {
-        buffers[i] = buffer_per_fragment[i];
-        if (!buffers[i]) {
-            throw new Error('DECODE FAILED MISSING BLOCK ' + i);
-        }
-    }
-    return Buffer.concat(buffers, part.chunk_size);
+function get_frag_key(f) {
+    return f.layer + '-' + f.frag;
 }

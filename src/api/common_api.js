@@ -15,21 +15,6 @@ module.exports = {
 
     definitions: {
 
-
-        block_address: {
-            type: 'object',
-            required: ['id', 'addr'],
-            properties: {
-                id: {
-                    type: 'string'
-                },
-                addr: {
-                    type: 'string'
-                },
-            }
-        },
-
-
         storage_info: {
             type: 'object',
             required: [],

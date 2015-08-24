@@ -143,6 +143,9 @@ var PATHS = {
         'src/server/**/*.*',
         'src/util/**/*.*',
         'src/views/**/*.*',
+        'src/native/**/*.*',
+        'binding.gyp'
+
     ],
 };
 

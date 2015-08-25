@@ -2,6 +2,7 @@
     'variables': {
 
         'nan_path': '<!(node -e \"require(\'nan\')\")',
+        'zlib_include_path': '<(node_root_dir)/deps/zlib',
 
         # node v0.6.x doesn't give us its build variables,
         # but on Unix it was only possible to use the system OpenSSL library,
@@ -56,6 +57,7 @@
 
         'include_dirs' : [
             '<(nan_path)',
+            '<(zlib_include_path)',
             '<(openssl_include_path)',
             '<(openssl_config_path)',
         ],

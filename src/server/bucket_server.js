@@ -38,10 +38,10 @@ var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
     refresh_list: false,
 
-    //Configured policies cache
+    //Configured policies cache & related objects
     configured_policies: [],
 
-    //works lists (addition/deletion) per each configured bucket
+    //works lists (n2c/c2n -> addition/deletion) per each configured cloud synced bucket
     work_lists: [],
 };
 
@@ -179,18 +179,18 @@ function list_buckets(req) {
  * GET_CLOUD_SYNC_POLICY
  *
  */
+//TODO:: wait till refresh_list is false
 function get_cloud_sync_policy(req) {
     dbg.log3('get_cloud_sync_policy');
     var reply = [];
     return Q.when(db.Bucket
-            .find({
+            .findOne({
                 system: req.system.id,
                 name: req.rpc_params.name,
                 deleted: null,
             })
             .exec())
-        .then(function(buckets) {
-            var bucket = buckets[0];
+        .then(function(bucket) {
             if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
                 reply = {
                     name: bucket.name,
@@ -217,6 +217,7 @@ function get_cloud_sync_policy(req) {
  * GET_ALL_CLOUD_SYNC_POLICIES
  *
  */
+//TODO:: wait till refresh_list is false
 function get_all_cloud_sync_policies(req) {
     dbg.log3('get_all_cloud_sync_policies');
     var reply = [];
@@ -397,12 +398,11 @@ function resolve_tiering(system_id, tiering) {
         });
 }
 
-//TODO: rewrite the find and get rid from toString
 function get_policy_health(bucketid, sysid) {
     dbg.log3('get policy health', bucketid, sysid, CLOUD_SYNC.configured_policies);
     var policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
-        var p_sys_id = p.system._id.toString();
-        return (p_sys_id === sysid && p.bucket.id.toString() === bucketid.toString());
+        return (p.system._id.toString() === sysid &&
+            p.bucket.id.toString() === bucketid.toString());
     });
     if (policy) {
         return policy.health;
@@ -411,10 +411,10 @@ function get_policy_health(bucketid, sysid) {
     }
 }
 
-//TODO: rewrite the find and get rid from toString
 function get_policy_status(bucketid, sysid) {
     var work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
-        return wl.sysid.toString() === sysid && wl.bucketid.toString() === bucketid.toString();
+        return wl.sysid.toString() === sysid &&
+            wl.bucketid.toString() === bucketid.toString();
     });
 
     if (!is_empty_sync_worklist(work_list)) {
@@ -452,8 +452,8 @@ function load_configured_policies() {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
                     dbg.log4('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
-                    //Cache Configuration
-                    CLOUD_SYNC.configured_policies.push({
+                    //Cache Configuration, S3 Objects and empty work lists
+                    var policy = {
                         bucket: {
                             name: bucket.name,
                             id: bucket._id
@@ -470,7 +470,25 @@ function load_configured_policies() {
                         n2c_enabled: true, //TODO:: Should be passed in policy coinfiguration
                         last_sync: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
                         health: true,
+                        s3rver: null,
+                        s3cloud: null,
+                    };
+                    //Create a corresponding local bucket s3 object and a cloud bucket object
+                    policy.s3rver = new AWS.S3({
+                        endpoint: 'http://127.0.0.1',
+                        s3ForcePathStyle: true,
+                        sslEnabled: false,
+                        accessKeyId: policy.system.access_keys[0].access_key,
+                        secretAccessKey: policy.system.access_keys[0].secret_key,
                     });
+
+                    policy.s3cloud = new AWS.S3({
+                        accessKeyId: policy.access_keys.access_key,
+                        secretAccessKey: policy.access_keys.secret_key,
+                        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK :-/
+                    });
+
+                    CLOUD_SYNC.configured_policies.push(policy);
 
                     //Init empty work lists for current policy
                     CLOUD_SYNC.work_lists.push({
@@ -484,7 +502,8 @@ function load_configured_policies() {
                 }
             });
             CLOUD_SYNC.refresh_list = false;
-        });
+        })
+        .thenResolve();
 }
 
 function update_work_list(policy) {
@@ -514,8 +533,8 @@ function update_n2c_worklist(policy) {
             CLOUD_SYNC.work_lists[ind].n2c_added = res.added;
             CLOUD_SYNC.work_lists[ind].n2c_deleted = res.deleted;
             dbg.log2('DONE update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket.id, 'total changes', res.added.length + res.deleted.length);
-            return;
-        });
+        })
+        .thenResolve();
 }
 
 //Update work lists for specific policy
@@ -533,16 +552,7 @@ function update_c2n_worklist(policy) {
     });
     var current_worklists = CLOUD_SYNC.work_lists[worklist_ind];
 
-    //TODO:: this is problematic, global config ? should be per AWS.S3 creation...
-    //multi can cause failures
-    AWS.config.update({
-        accessKeyId: policy.access_keys.access_key,
-        secretAccessKey: policy.access_keys.secret_key,
-        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK
-    });
-
     var target = policy.endpoint;
-    var s3 = new AWS.S3();
     var params = {
         Bucket: target,
     };
@@ -550,7 +560,7 @@ function update_c2n_worklist(policy) {
     //Take a list from the cloud, list from the bucket, keep only key and ETag
     //Compare the two for diffs of additions/deletions
     var cloud_object_list, bucket_object_list;
-    return Q.ninvoke(s3, 'listObjects', params)
+    return Q.ninvoke(policy.s3cloud, 'listObjects', params)
         .fail(function(error) {
             dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
                 policy.bucket.id, error, error.stack);
@@ -620,18 +630,17 @@ function update_c2n_worklist(policy) {
                     current_worklists.c2n_added.push(cloud_obj);
                 }
             });
-        });
+        })
+        .thenResolve();
 }
 
 //sync a single file to the cloud
-function sync_single_file_to_cloud(bucket, object, target, s3cloud, s3rver) {
+function sync_single_file_to_cloud(policy, object, target) {
     dbg.log3('sync_single_file_to_cloud', object.key, '->', target + '/' + object.key);
 
-    return Q.fcall(function() {
-            return s3rver.getObject({
-                Bucket: bucket,
-                Key: object,
-            });
+    return Q.ninvoke(policy.s3rver, 'getObject', {
+            Bucket: policy.bucket.name,
+            Key: object.key,
         })
         .then(function(res) {
             //Read file
@@ -639,10 +648,10 @@ function sync_single_file_to_cloud(bucket, object, target, s3cloud, s3rver) {
                 Bucket: target,
                 Key: object.key,
                 ContentType: object.content_type,
-                Body: 'Hello' //res.Body
+                Body: res.Body
             };
 
-            return Q.ninvoke(s3cloud, 'upload', params)
+            return Q.ninvoke(policy.s3cloud, 'upload', params)
                 .fail(function(err) {
                     dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
                         err, err.stack);
@@ -661,16 +670,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
 
-    //TODO:: this is problematic, global config ? should be per AWS.S3 creation...
-    //multi can cause failures
-    AWS.config.update({
-        accessKeyId: policy.access_keys.access_key,
-        secretAccessKey: policy.access_keys.secret_key,
-        region: 'eu-west-1', //TODO:: WA for AWS poorly developed SDK
-    });
-
     var target = policy.endpoint;
-    var s3 = new AWS.S3();
     //First delete all the deleted objects
     return Q.fcall(function() {
             if (bucket_work_lists.n2c_deleted.length) {
@@ -687,7 +687,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                     });
                 });
                 dbg.log2('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c');
-                return Q.ninvoke(s3, 'deleteObjects', params);
+                return Q.ninvoke(policy.s3cloud, 'deleteObjects', params);
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
                 return;
@@ -708,17 +708,10 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                 bucket_work_lists.n2c_deleted.pop();
             }
 
-            //TODO::fix this, both object and endpoint
-            var s3rver = new AWS.S3({
-                endpoint: 'http://127.0.0.1:' + process.env.SSL_PORT,
-                s3ForcePathStyle: true,
-                sslEnabled: false,
-            });
-
             if (bucket_work_lists.n2c_added.length) {
                 //Now upload the new objects
                 return Q.all(_.map(bucket_work_lists.n2c_added, function(object) {
-                    return sync_single_file_to_cloud(policy.bucket.name, object, target, s3, s3rver);
+                    return sync_single_file_to_cloud(policy, object, target);
                 }));
             } else {
                 dbg.log1('sync_to_cloud_single_bucket syncing additions n2c, nothing to sync');
@@ -729,8 +722,8 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
         })
         .then(function() {
             dbg.log1('Done sync_to_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
-            return;
-        });
+        })
+        .thenResolve();
 }
 
 //Perform c2n cloud sync for a specific policy with a given work list
@@ -739,13 +732,6 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
     if (!bucket_work_lists || !policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
-
-    //TODO::fix this, both object and endpoint
-    var s3rver = new AWS.S3({
-        endpoint: 'http://127.0.0.1:' + process.env.SSL_PORT,
-        s3ForcePathStyle: true,
-        sslEnabled: false,
-    });
 
     //TODO:: move to a function which is called both by sync_from_cloud_single_bucket and from sync_to_cloud_single_bucket
     return Q.fcall(function() {
@@ -763,7 +749,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
                     });
                 });
                 dbg.log2('sync_from_cloud_single_bucket syncing', bucket_work_lists.c2n_deleted.length, 'deletions c2n', params);
-                return Q.ninvoke(s3rver, 'deleteObjects', params);
+                return Q.ninvoke(policy.s3rver, 'deleteObjects', params);
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions c2n, nothing to sync');
                 return;
@@ -778,7 +764,8 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
                 bucket_work_lists.c2n_deleted.pop();
             }
             //Now handle c2n additions
-        });
+        })
+        .thenResolve();
 }
 
 function update_bucket_last_sync(sysid, bucketname) {

@@ -157,35 +157,31 @@ function gulp_size_log(title) {
 }
 
 function simple_bower() {
-    // create a pass through stream
-    var done;
-    var stream = through2.obj(function(file, enc, callback) {
+    var done = false;
+    return through2.obj(function(file, enc, callback) {
         var self = this;
+        // only run for the first file in the stream,
+        // and for the rest of the files just push them forward
         if (done) {
             self.push(file);
             callback();
             return;
         }
         done = true;
-        bower.commands
-            .install([], {}, {
-                directory: './bower_components'
-            })
+        bower.commands.install()
             .on('log', function(result) {
                 gutil.log('bower', gutil.colors.cyan(result.id), result.message);
             })
-            .on('error', function(error) {
-                stream.emit('error', new gutil.PluginError('simple_bower', error));
-                stream.end();
-                callback();
+            .on('error', function(err) {
+                console.log('BOWER ERROR');
+                self.emit('error', new gutil.PluginError('simple_bower', err));
             })
             .on('end', function() {
+                console.log('BOWER END');
                 self.push(file);
-                stream.end();
                 callback();
             });
     });
-    return stream;
 }
 
 /**

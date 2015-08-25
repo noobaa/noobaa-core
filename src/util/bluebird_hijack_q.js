@@ -38,6 +38,7 @@ Q.defer = function defer() {
     return {
         resolve: resolve,
         reject: reject,
+        notify: function() {},
         promise: promise
     };
 };

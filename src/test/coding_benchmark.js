@@ -140,8 +140,8 @@ function test() {
         var pipeline = new Pipeline(input);
         pipeline.pipe(transformer({
             options: {
+                highWaterMark: 4,
                 objectMode: true,
-                highWaterMark: 10
             },
             transform: function(data) {
                 return Q.ninvoke(dedup_chunker, 'push', data);
@@ -152,40 +152,38 @@ function test() {
         }));
         pipeline.pipe(transformer({
             options: {
+                highWaterMark: 4,
                 flatten: true,
                 objectMode: true,
-                highWaterMark: 10
             },
             transform_parallel: function(data) {
                 // console.log('encode chunk');
                 return Q.ninvoke(object_coding, 'encode', data);
             },
         }));
-        pipeline.pipe(new CoalesceStream({
-            objectMode: true,
-            max_length: 10,
-            max_wait_ms: 100,
-        }));
-        pipeline.pipe(transformer({
-            options: {
-                flatten: true,
+        if (process.argv[4]) {
+            pipeline.pipe(new CoalesceStream({
+                highWaterMark: 4,
+                max_length: 10,
+                max_wait_ms: 100,
                 objectMode: true,
-                highWaterMark: 10
-            },
-            transform_parallel: function(chunk) {
-                // console.log('decode chunk');
-                if (process.argv[4]) {
+            }));
+            pipeline.pipe(transformer({
+                options: {
+                    highWaterMark: 4,
+                    flatten: true,
+                    objectMode: true,
+                },
+                transform_parallel: function(chunk) {
                     return Q.ninvoke(object_coding, 'decode', chunk).thenResolve(chunk);
-                } else {
-                    return chunk;
-                }
-            },
-        }));
+                },
+            }));
+        }
         pipeline.pipe(transformer({
             options: {
+                highWaterMark: 4,
                 flatten: true,
                 objectMode: true,
-                highWaterMark: 1
             },
             transform: function(chunk) {
                 // console.log('done', chunk);

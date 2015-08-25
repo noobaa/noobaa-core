@@ -112,7 +112,7 @@ public:
         _persistent.Reset();
     }
 
-    virtual void work() override
+    virtual void work() //override (override requires C++11, N/A before gcc-4.7)
     {
         // COMPUTE CONTENT VERIFIER
         if (!_coding._digest_type.empty()) {
@@ -208,7 +208,7 @@ public:
         }
     }
 
-    virtual void after_work() override
+    virtual void after_work() //override (override requires C++11, N/A before gcc-4.7)
     {
         Nan::HandleScope scope;
         if (!_bad_compress.empty()) {
@@ -327,7 +327,7 @@ public:
         _persistent.Reset();
     }
 
-    virtual void work() override
+    virtual void work() //override (override requires C++11, N/A before gcc-4.7)
     {
         // VERIFY BLOCKS HASH
         for (size_t i=0; i<_frags.size(); ++i) {
@@ -392,7 +392,7 @@ public:
         }
     }
 
-    virtual void after_work() override
+    virtual void after_work() //override (override requires C++11, N/A before gcc-4.7)
     {
         Nan::HandleScope scope;
         if (!_bad_frags_digests.empty()) {

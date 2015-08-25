@@ -396,7 +396,7 @@ function list_need_sync(sysid, bucketid) {
             .exec())
         .then(function(need_to_sync) {
             _.each(need_to_sync, function(obj) {
-                if (need_to_sync.deleted) {
+                if (typeof(obj.deleted) !== 'undefined') {
                     res.deleted.push(obj);
                 } else {
                     res.added.push(obj);
@@ -427,17 +427,35 @@ function mark_cloud_synced(object) {
 }
 
 //mark all objects on specific bucket for sync
+//TODO:: use mongoDB bulk instead of two mongoose ops
 function set_all_files_for_sync(sysid, bucketid) {
     dbg.log2('marking all objects on sys', sysid, 'bucket', bucketid, 'as sync needed');
+    //Mark all "live" objects to be cloud synced
     return Q.when(db.ObjectMD.update({
-        system: sysid,
-        bucket: bucketid,
-        cloud_synced: true
-    }, {
-        cloud_synced: false
-    }, {
-        multi: true
-    }).exec());
+            system: sysid,
+            bucket: bucketid,
+            cloud_synced: true,
+            deleted: null,
+        }, {
+            cloud_synced: false
+        }, {
+            multi: true
+        }).exec())
+        .then(function() {
+            //Mark all "previous" deleted objects as not needed for cloud sync
+            return Q.when(db.ObjectMD.update({
+                system: sysid,
+                bucket: bucketid,
+                cloud_synced: false,
+                deleted: {
+                    $ne: null
+                },
+            }, {
+                cloud_synced: true
+            }, {
+                multi: true
+            }).exec());
+        });
 }
 // UTILS //////////////////////////////////////////////////////////
 

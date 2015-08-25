@@ -34,14 +34,14 @@ public:
     }
 
     explicit Buf(void* data, int len)
-        : _alloc(0)
+        : _alloc()
         , _data(reinterpret_cast<uint8_t*>(data))
         , _len(len)
     {
     }
 
     explicit Buf(const void* data, int len)
-        : _alloc(0)
+        : _alloc()
         , _data(reinterpret_cast<uint8_t*>(const_cast<void*>(data)))
         , _len(len)
     {

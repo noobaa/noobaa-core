@@ -63,7 +63,7 @@
         # enable exceptions using negative (cflags!) to remove cflags set by node.js common.gypi
         'cflags!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
         'cflags_cc!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
-        'cflags': ['-std=c++11'],
+        'cflags': ['-std=c++0x'],
 
         'libraries': [
             '<(openssl_lib)',
@@ -71,15 +71,15 @@
 
         'xcode_settings': {
             'OTHER_CFLAGS': [
-                '-std=c++11',
+                '-std=c++0x',
             ],
             'OTHER_CPLUSPLUSFLAGS': [
-                '-std=c++11',
+                '-std=c++0x',
                 '-stdlib=libc++', # clang
                 # '-stdlib=libstdc++', # gcc
             ],
             'OTHER_LDFLAGS': [
-                # '-std=c++11',
+                # '-std=c++0x',
                 # '-stdlib=libc++', # clang
                 # '-stdlib=libstdc++', # gcc
             ],

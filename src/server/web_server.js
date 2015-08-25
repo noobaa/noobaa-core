@@ -135,7 +135,7 @@ app.use(use_exclude('/s3', express_body_parser.urlencoded({
     extended: false
 })));
 app.use(express_cookie_session({
-    key: 'noobaa_session',
+    keys: ['noobaa_session'],
     secret: process.env.COOKIE_SECRET,
     // TODO: setting max-age for all sessions although we prefer only for /auth.html
     // but express/connect seems broken to accept individual session maxAge,

@@ -42,7 +42,7 @@
     "bluebird": "^2.9.34",
     "body-parser": "~1.12.3",
     "bootstrap": "~3.3.4",
-    "bower": "~1.4.1",
+    "bower": "^1.5.1",
     "browserify": "~9.0.8",
     "browserify-aes": "~1.0.0",
     "bson-ext": "^0.1.12",

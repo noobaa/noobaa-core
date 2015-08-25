@@ -107,7 +107,7 @@ public:
         _persistent.Reset();
     }
 
-    virtual void work() override
+    virtual void work() //override (override requires C++11, N/A before gcc-4.7)
     {
         if (!_buf.data()) {
             // just flush
@@ -159,7 +159,7 @@ public:
         _chunks.push_back(chunk);
     }
 
-    virtual void after_work() override
+    virtual void after_work() //override (override requires C++11, N/A before gcc-4.7)
     {
         Nan::HandleScope scope;
         int len = _chunks.size();

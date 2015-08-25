@@ -68,6 +68,7 @@ public:
         , _bt(new Backtrace())
     {
     }
+    virtual ~Exception() throw() {}
     virtual const char* what() const throw()
     {
         return (std::string("Exception: ") + _msg).c_str();

@@ -72,8 +72,8 @@ account_schema.index({
 account_schema.methods.verify_password = function(password, callback) {
     bcrypt.compare(password, this.password, callback);
 };
-account_schema.methods.sign_password = function(account, callback) {
 
+account_schema.methods.sign_password = function(account, callback) {
     bcrypt.genSalt(10, function(err, salt) {
         if (err) return callback(err);
         bcrypt.hash(account.password, salt, function(err, hash) {
@@ -102,7 +102,6 @@ account_schema.pre('save', function(callback) {
         return callback();
     }
     account_schema.methods.sign_password(account, callback);
-
 });
 
 

@@ -2,8 +2,10 @@
 'use strict';
 
 var Q = require('q');
+var _ = require('lodash');
 var util = require('util');
 var stream = require('stream');
+var promise_utils = require('./promise_utils');
 
 
 module.exports = transformer;
@@ -53,7 +55,13 @@ function define_transformer(params) {
         var self = this;
         stream.Transform.call(self, options);
         self._init(options);
+        self._flatten = options.flatten;
         self.transformer = true;
+        self._self_push = function(item) {
+            if (item) {
+                self.push(item);
+            }
+        };
 
         // set error handler to forward errors to pipes
         // otherwise pipelines are harder to write without missing error events
@@ -71,19 +79,95 @@ function define_transformer(params) {
         Transformer.prototype._init = function() {};
     }
 
-    if (params.transform) {
+
+    if (params.transform_parallel) {
+
+        /**
+         * data can be a promise - when piped from another transform_parallel
+         */
         Transformer.prototype._transform = function(data, encoding, callback) {
             var self = this;
-            Q.fcall(function() {
-                    return params.transform.call(self, data, encoding);
-                })
-                .done(function(data) {
-                    callback(null, data);
+            wait_for_data_item_or_array(data)
+                .done(function(data_in) {
+                    if (self._flatten && _.isArray(data_in)) {
+                        _.each(data_in, function(item) {
+                            self._push_parallel(item, encoding);
+                        });
+                    } else if (data_in) {
+                        self._push_parallel(data_in, encoding);
+                    }
+                    callback();
                 }, function(err) {
                     console.log('transformer error', err);
                     self.transformer_error(err);
                 });
         };
+
+        /**
+         * when transforming in parllel we push a promise into the writable end
+         * so that the receiver of the promise will wait for it
+         */
+        Transformer.prototype._push_parallel = function(data, encoding) {
+            var self = this;
+            var promise = Q.fcall(function() {
+                return params.transform_parallel.call(self, data, encoding);
+            });
+            self._self_push(promise);
+        };
+
+
+    } else if (params.transform) {
+
+        /**
+         * synchronous transform - waits for every transformation before accepting the next one.
+         * data can be a promise - when piped from another transform_parallel
+         */
+        Transformer.prototype._transform = function(data, encoding, callback) {
+            var self = this;
+            wait_for_data_item_or_array(data)
+                .then(function(data_in) {
+                    if (self._flatten && _.isArray(data_in)) {
+                        return promise_utils.iterate(data_in, function(item) {
+                            return Q.when(params.transform.call(self, item, encoding))
+                                .then(self._self_push);
+                        }).thenResolve();
+                    } else if (data_in) {
+                        return params.transform.call(self, data_in, encoding);
+                    }
+                })
+                .done(function(data_out) {
+                    self._self_push(data_out);
+                    callback();
+                }, function(err) {
+                    console.log('transformer error', err);
+                    self.transformer_error(err);
+                });
+        };
+
+    } else {
+
+        /**
+         * default empty transform only waits for promise
+         */
+        Transformer.prototype._transform = function(data, encoding, callback) {
+            var self = this;
+            wait_for_data_item_or_array(data)
+                .then(function(data_in) {
+                    if (self._flatten && _.isArray(data_in)) {
+                        _.each(data_in, self._self_push);
+                    } else if (data_in) {
+                        self._self_push(data_in);
+                    }
+                    callback();
+                }, function(err) {
+                    console.log('transformer error', err);
+                    self.transformer_error(err);
+                });
+        };
+    }
+
+    function wait_for_data_item_or_array(data) {
+        return _.isArray(data) ? Q.all(data) : Q.when(data);
     }
 
     if (params.flush) {
@@ -92,7 +176,10 @@ function define_transformer(params) {
             Q.fcall(function() {
                     return params.flush.call(self);
                 })
-                .done(function() {
+                .done(function(data) {
+                    if (data) {
+                        self.push(data);
+                    }
                     callback();
                 }, function(err) {
                     console.log('transformer flush error', err);
@@ -108,11 +195,12 @@ function define_transformer(params) {
         // error handlers that want to register in the current stack
         setTimeout(function() {
 
-            // emit error always throws the err immediately,
-            // so we catch and ignore
             try {
                 self.emit('error', err);
-            } catch (e) {}
+            } catch (e) {
+                // emit error always throws the err immediately,
+                // so we catch and ignore
+            }
 
             // transformers already know to forward by their error handler
             // but for non transformer streams we manualy forward here

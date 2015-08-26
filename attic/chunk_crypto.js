@@ -7,7 +7,7 @@ var subtle_crypto = global && global.crypto && global.crypto.subtle;
 if (subtle_crypto) {
     var evp_bytes_to_key = require('browserify-aes/EVP_BytesToKey');
 }
-var buffer_utils = require('../util/buffer_utils');
+var buffer_utils = require('../src/util/buffer_utils');
 
 /**
  *
@@ -37,8 +37,6 @@ function encrypt_chunk(plain_buffer, crypt_info) {
         return digest_hash_base64(crypt_info.hash_type, plain_buffer);
 
     }).then(function(hash_val) {
-
-
 
         // convergent encryption - use data hash as cipher key
         crypt_info.cipher_val = hash_val;
@@ -75,7 +73,7 @@ function encrypt_chunk(plain_buffer, crypt_info) {
                     var encrypted_buffer = new Buffer(new Uint8Array(encrypted_array));
                     return encrypted_buffer;
                 }).then(null, function(err){
-                    console.error('encrypt_chunk error:'+err);
+                    console.error('encrypt_chunk error:', err);
                 });
         }
 
@@ -160,10 +158,9 @@ function decrypt_chunk(encrypted_buffer, crypt_info) {
 
 function digest_hash_base64(hash_type, buffer) {
 
-    var plnBuf = buffer_utils.toArrayBuffer(buffer);
-
     // WebCrypto optimization
     if (subtle_crypto && hash_type === 'sha256') {
+        var plnBuf = buffer_utils.toArrayBuffer(buffer);
         return subtle_crypto.digest({
                 name: 'SHA-256'
             }, plnBuf)

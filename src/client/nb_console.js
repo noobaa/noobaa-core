@@ -993,9 +993,10 @@ nb_console.controller('NodeViewCtrl', [
                     $scope.parts = [];
                     _.each(res.objects, function(object) {
                         _.each(object.parts, function(part) {
-                            var frag_size = part.chunk_size / part.kfrag;
-                            _.each(part.fragments, function(fragment, fragment_index) {
-                                fragment.start = part.start + (frag_size * fragment_index);
+                            // TODO handle parity frags
+                            var frag_size = part.chunk.size / part.chunk.data_frags;
+                            _.each(part.frags, function(fragment) {
+                                fragment.start = part.start + (frag_size * fragment.frag);
                                 fragment.size = frag_size;
                             });
                             part.file = object.key;
@@ -1242,7 +1243,7 @@ nb_console.controller('FileViewCtrl', [
                 key: $routeParams.file_name,
                 skip: $scope.parts_query.page * $scope.parts_page_size,
                 limit: $scope.parts_page_size,
-                details: true
+                adminfo: true
             };
             return nbFiles.list_file_parts(params)
                 .then(function(res) {

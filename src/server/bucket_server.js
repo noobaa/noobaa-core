@@ -59,13 +59,14 @@ function create_bucket(req) {
             }
             return db.Bucket.create(info);
         })
-        .then(function(bucket) {
-            console.log('create bucket:', bucket);
+        .then(function(bucket){
+            console.log('create bucket:',bucket,'account',req.account.id);
             return db.ActivityLog.create({
                 system: req.system,
                 level: 'info',
                 event: 'bucket.create',
                 bucket: bucket,
+                actor: req.account.id
             });
         })
         .then(null, db.check_already_exists(req, 'bucket'))
@@ -140,6 +141,7 @@ function delete_bucket(req) {
                 level: 'info',
                 event: 'bucket.delete',
                 bucket: bucket_info,
+                actor: req.account.id
             });
         })
         .then(db.check_not_found(req, 'bucket'))

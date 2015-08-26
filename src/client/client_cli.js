@@ -418,7 +418,10 @@ ClientCLI.prototype.write_block = function(ip, port, file_name) {
             console.log('write_block', buffer.length, block_id, address);
 
             return self.client.agent.write_block({
-                block_id: block_id,
+                block_md: {
+                    id: block_id,
+                    address: address,
+                },
                 data: buffer,
             }, {
                 address: address
@@ -451,7 +454,10 @@ ClientCLI.prototype.read_block = function(ip, port, file_name) {
             console.log('read_block', block_id, address);
 
             return self.client.agent.read_block({
-                block_id: block_id,
+                block_md: {
+                    id: block_id,
+                    address: address,
+                }
             }, {
                 address: address
             });

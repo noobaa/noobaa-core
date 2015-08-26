@@ -83,7 +83,7 @@ function init_test_nodes(count, system, tier) {
             var sem = new Semaphore(3);
             return Q.all(_.times(count, function(i) {
                     return sem.surround(function() {
-                        agentctl.create_agent(1);
+                        return agentctl.create_agent(1);
                     });
                 }))
                 .then(function() {

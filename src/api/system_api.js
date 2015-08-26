@@ -259,6 +259,15 @@ module.exports = {
                                         }
                                     }
                                 },
+                                actor: {
+                                    type: 'object',
+                                    required: ['email'],
+                                    properties: {
+                                        email: {
+                                            type: 'string'
+                                        }
+                                    }
+                                },
                             }
                         }
                     },

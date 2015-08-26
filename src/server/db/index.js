@@ -106,6 +106,26 @@ module.exports = {
             }).exec());
         }
     }),
+
+    // short living cache for objects
+    // the purpose is to reduce hitting the DB many many times per second during upload/download.
+    ObjectMDCache: new LRUCache({
+        name: 'ObjectMDCache',
+        max_length: 1000,
+        expiry_ms: 10000, // 10 seconds of blissfull ignorance
+        make_key: function(params) {
+            return params.system + ':' + params.bucket + ':' + params.key;
+        },
+        load: function(params) {
+            console.log('ObjectMDCache: load', params.name);
+            return Q.when(ObjectMD.findOne({
+                system: params.system,
+                bucket: params.bucket,
+                key: params.key,
+                deleted: null,
+            }).exec());
+        }
+    }),
 };
 
 

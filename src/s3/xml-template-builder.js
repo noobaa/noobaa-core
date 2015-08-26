@@ -74,11 +74,13 @@ var xml = function() {
                 DisplayName: 'admin'
             },
             StorageClass: 'STANDARD',
-            PartNumberMarker: (_.first(items)).part_number,
             NextPartNumberMarker: options.NextPartNumberMarker,
             MaxParts: options.MaxParts,
             IsTruncated: options.IsTruncated,
         };
+        if (items.length) {
+            additional_data.PartNumberMarker = _.first(items).part_number;
+        }
 
         content.unshift(additional_data);
         return content;
@@ -178,11 +180,11 @@ var xml = function() {
                 Error: {
                     Code: 'SignatureDoesNotMatch',
                     Type: 'Sender',
-                    Message: 'The request signature we calculated does not match the signature you provided.'+
-                            ' Check your AWS Secret Access Key and signing method.'+
-                            'Consult the service documentation for details.The canonical string'+
-                            'for this request should have been '+'(no info)'+
-                            'The String - to - Sign should have been '+string_to_sign,
+                    Message: 'The request signature we calculated does not match the signature you provided.' +
+                        ' Check your AWS Secret Access Key and signing method.' +
+                        'Consult the service documentation for details.The canonical string' +
+                        'for this request should have been ' + '(no info)' +
+                        'The String - to - Sign should have been ' + string_to_sign,
                     RequestId: 1
                 }
             }, {
@@ -306,7 +308,7 @@ var xml = function() {
             }
 
         },
-        buildInitiateMultipartUploadResult: function(key,bucket) {
+        buildInitiateMultipartUploadResult: function(key, bucket) {
             return jstoxml.toXML({
                 InitiateMultipartUploadResult: {
                     Bucket: bucket,

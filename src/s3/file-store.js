@@ -2,7 +2,7 @@
 var path = require('path'),
     fs = require('fs-extra'),
     async = require('async'),
-    md5 = require('MD5'),
+    crypto = require('crypto'),
     mkdirp = require('mkdirp'),
     utils = require('./utils'),
     _ = require('lodash');
@@ -180,7 +180,7 @@ var FileStore = function(rootDirectory) {
                 fs.readFile(contentFile, function(err, data) {
                     return callback(null, {
                         size: data.length,
-                        md5: md5(data)
+                        md5: crypto.createHash('md5').update(data).digest('hex')
                     });
                 });
             }

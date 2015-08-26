@@ -3,6 +3,7 @@
 module.exports = RpcRequest;
 
 var _ = require('lodash');
+// var zlib = require('zlib');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 /**
@@ -44,6 +45,17 @@ RpcRequest.prototype.new_request = function(api, method_api, params, auth_token)
     }
 };
 
+/*
+// TODO zlib in browserify doesn't work?
+var ZLIB_OPTIONS = {
+    level: zlib.Z_BEST_SPEED,
+    // setup memLevel and windowBits to reduce memory overhead to 32K
+    // see https://nodejs.org/api/zlib.html#zlib_memory_usage_tuning
+    memLevel: 5,
+    windowBits: 12,
+};
+*/
+
 /**
  * @static
  */
@@ -51,13 +63,14 @@ RpcRequest.encode_message = function(header, buffers) {
     var msg_buffers = [
         new Buffer(4),
         new Buffer(JSON.stringify(header)),
+        // zlib.deflateRawSync(new Buffer(JSON.stringify(header)), ZLIB_OPTIONS),
     ];
     if (buffers) {
         msg_buffers = msg_buffers.concat(buffers);
     }
     dbg.log3('encode_message', msg_buffers[1].length, msg_buffers.length);
     msg_buffers[0].writeUInt32BE(msg_buffers[1].length, 0);
-    return Buffer.concat(msg_buffers);
+    return msg_buffers;
 };
 
 /**
@@ -67,6 +80,7 @@ RpcRequest.decode_message = function(msg_buffer) {
     var len = msg_buffer.readUInt32BE(0);
     dbg.log3('decode_message', msg_buffer.length, len);
     var header = JSON.parse(msg_buffer.slice(4, 4 + len).toString());
+    // var header = JSON.parse(zlib.inflateRawSync(msg_buffer.slice(4, 4 + len)).toString());
     var buffer = (4 + len < msg_buffer.length) ? msg_buffer.slice(4 + len) : null;
     return {
         header: header,
@@ -77,7 +91,7 @@ RpcRequest.decode_message = function(msg_buffer) {
 /**
  *
  */
-RpcRequest.prototype.export_request_buffer = function() {
+RpcRequest.prototype.export_request_buffers = function() {
     var header = {
         op: 'req',
         reqid: this.reqid,

@@ -4,6 +4,7 @@
     "forin": true,
     "eqeqeq": true,
     "onevar": true,
+    "white": true,
     "eqnull": true,
     "expr": true,
     "noarg": true,

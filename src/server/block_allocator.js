@@ -30,7 +30,7 @@ function allocate_block(chunk, avoid_nodes) {
         .then(function(alloc_nodes) {
             var block_size = (chunk.size / chunk.kfrag) | 0;
             for (var i = 0; i < alloc_nodes.length; ++i) {
-                var node = pop_round_robin(alloc_nodes);
+                var node = get_round_robin(alloc_nodes);
                 if (!_.contains(avoid_nodes, node._id.toString())) {
                     dbg.log1('allocate_block: allocate node', node.name,
                         'for chunk', chunk._id, 'avoid_nodes', avoid_nodes);
@@ -58,21 +58,18 @@ function remove_blocks(blocks) {
 
 
 function new_block(chunk, node, size) {
-    var block = new db.DataBlock({
-        fragment: 0,
+    return /*new db.DataBlock*/({
+        _id: db.new_object_id(),
+        system: chunk.system,
+        tier: node.tier,
+        chunk: chunk,
+        node: node,
+        layer: 'D',
+        frag: 0,
         size: size,
+        // always allocate in building mode
         building: new Date()
     });
-
-    // using setValue as a small hack to make these fields seem populated
-    // so that we can use them after returning from here.
-    // this is due to a weird mongoose behavior as described by this issue:
-    // https://github.com/LearnBoost/mongoose/issues/570
-    block.setValue('system', chunk.system);
-    block.setValue('tier', chunk.tier);
-    block.setValue('chunk', chunk);
-    block.setValue('node', node);
-    return block;
 }
 
 
@@ -81,7 +78,7 @@ var tier_alloc_nodes = {};
 
 function update_tier_alloc_nodes(system, tier) {
     var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
-    var tier_id = tier._id || tier;
+    var tier_id = (tier && tier._id) || tier || null;
     var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
         last_refresh: new Date(0),
         nodes: [],
@@ -94,17 +91,21 @@ function update_tier_alloc_nodes(system, tier) {
 
     if (info.promise) return info.promise;
 
+    var q = {
+        system: system,
+        deleted: null,
+        heartbeat: {
+            $gt: min_heartbeat
+        },
+        srvmode: null,
+    };
+    if (tier_id) {
+        q.tier = tier_id;
+    }
+
     // refresh
     info.promise =
-        db.Node.find({
-            system: system,
-            tier: tier_id,
-            deleted: null,
-            heartbeat: {
-                $gt: min_heartbeat
-            },
-            srvmode: null,
-        })
+        db.Node.find(q)
         .sort({
             // sorting with lowest used storage nodes first
             'storage.used': 1
@@ -128,9 +129,8 @@ function update_tier_alloc_nodes(system, tier) {
 }
 
 
-// round robin - get from head and push back to tail
-function pop_round_robin(nodes) {
-    var node = nodes.shift();
-    nodes.push(node);
-    return node;
+function get_round_robin(nodes) {
+    var rr = nodes.rr || 0;
+    nodes.rr = (rr + 1) % nodes.length;
+    return nodes[rr];
 }

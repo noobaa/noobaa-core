@@ -3,6 +3,7 @@ require('../util/panic');
 
 var _ = require('lodash');
 var Q = require('q');
+require('../util/bluebird_hijack_q');
 var fs = require('fs');
 var util = require('util');
 var http = require('http');
@@ -64,6 +65,7 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
         return Q.Promise(function(resolve, reject) {
             dbg.log0('Starting HTTP', params.port);
             http.createServer(app)
+                .on('connection', connection_setup)
                 .listen(params.port, function(err) {
                     if (err) {
                         dbg.error('HTTP listen', err);
@@ -81,6 +83,7 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
                     key: certificate.serviceKey,
                     cert: certificate.certificate
                 }, app)
+                .on('connection', connection_setup)
                 .listen(params.ssl_port, function(err) {
                     if (err) {
                         dbg.error('HTTPS listen', err);
@@ -94,3 +97,11 @@ Q.nfcall(fs.readFile, 'agent_conf.json')
     .then(null, function(err) {
         dbg.log0('S3RVER ERROR', err.stack || err);
     });
+
+
+function connection_setup(socket) {
+    // this is an attempt to read from the socket in large chunks,
+    // but it seems like it has no effect and we still get small chunks
+    socket._readableState.highWaterMark = 1024 * 1024;
+    socket.setNoDelay(true);
+}

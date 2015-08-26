@@ -177,12 +177,7 @@ function finalize_object_parts(req) {
 function report_bad_block(req) {
     return find_object_md(req)
         .then(function(obj) {
-            var params = _.pick(req.rpc_params,
-                'start',
-                'end',
-                'fragment',
-                'block_id',
-                'is_write');
+            var params = req.rpc_params;
             params.obj = obj;
             return object_mapper.report_bad_block(params);
         })
@@ -212,11 +207,11 @@ function read_object_mappings(req) {
                 'end',
                 'skip',
                 'limit',
-                'details');
+                'adminfo');
             params.obj = obj;
-            // allow details only to admin!
-            if (params.details && req.role !== 'admin') {
-                params.details = false;
+            // allow adminfo only to admin!
+            if (params.adminfo && req.role !== 'admin') {
+                params.adminfo = false;
             }
             return object_mapper.read_object_mappings(params);
         })
@@ -496,7 +491,11 @@ function object_md_query(req) {
 function find_object_md(req) {
     return load_bucket(req)
         .then(function() {
-            return db.ObjectMD.findOne(object_md_query(req)).exec();
+            return db.ObjectMDCache.get({
+                system: req.system.id,
+                bucket: req.bucket.id,
+                key: req.rpc_params.key,
+            });
         })
         .then(db.check_not_deleted(req, 'object'));
 }

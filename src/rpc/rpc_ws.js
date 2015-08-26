@@ -111,6 +111,7 @@ RpcWsConnection.prototype.send = function(msg) {
     if (!this.ws || this.closed) {
         throw new Error('WS NOT OPEN ' + this.connid + ' ' + this.url.href);
     }
+    msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     this.ws.send(msg, WS_SEND_OPTIONS);
 };
 

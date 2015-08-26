@@ -4,6 +4,7 @@ require('../util/panic');
 
 var _ = require('lodash');
 var Q = require('q');
+require('../util/bluebird_hijack_q');
 var fs = require('fs');
 var os = require('os');
 var path = require('path');
@@ -59,11 +60,11 @@ AgentCLI.prototype.init = function() {
         .then(function(data) {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
-            self.params = _.defaults(self.params, agent_conf);
+            _.defaults(self.params, agent_conf);
         })
         .then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.', err);
-            self.params = _.defaults(self.params, {
+            _.defaults(self.params, {
                 root_path: './agent_storage/',
                 port: 0,
                 access_key: '123',

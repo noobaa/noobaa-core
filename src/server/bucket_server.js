@@ -955,6 +955,7 @@ promise_utils.run_background_worker({
                         return p.system._id === single_bucket.sysid &&
                             p.bucket.id === single_bucket.bucketid;
                     });
+
                     var should_update_time = false;
                     if (!is_empty_sync_worklist(single_bucket)) {
                         should_update_time = true;
@@ -973,6 +974,7 @@ promise_utils.run_background_worker({
                         .then(function() {
                             dbg.log3('Done syncing', current_policy.bucket.name, 'on sys', current_policy.system._id);
                             if (should_update_time) {
+                                current_policy.last_sync = new Date();
                                 return update_bucket_last_sync(current_policy.system._id, current_policy.bucket.name);
                             } else {
                                 return;
@@ -986,7 +988,7 @@ promise_utils.run_background_worker({
             .then(function() {
                 return Q.fcall(function() {
                     dbg.log0('CLOUD_SYNC_REFRESHER:', 'END');
-                    return 10000; //TODO:: NBNB move back to 600000
+                    return 60000; //TODO:: Different time interval ?
                 });
             });
     }

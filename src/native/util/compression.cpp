@@ -139,6 +139,7 @@ private:
     int _len;
 };
 
+#undef compress
 
 Buf
 Compression::compress(Buf buf, std::string type)

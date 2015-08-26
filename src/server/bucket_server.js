@@ -609,7 +609,6 @@ function load_configured_policies() {
 function update_work_list(policy) {
     //order is important, in order to query needed sync objects only once form DB
     //fill the n2c list first
-
     return Q.when(update_n2c_worklist(policy))
         .then(function() {
             return update_c2n_worklist(policy);
@@ -732,11 +731,9 @@ function sync_single_file_to_cloud(policy, object, target) {
             Key: object.key,
         })
         .then(function(res) {
-            //Read file
             var params = {
                 Bucket: target,
                 Key: object.key,
-                ContentType: object.content_type,
                 Body: res.Body
             };
 
@@ -748,6 +745,34 @@ function sync_single_file_to_cloud(policy, object, target) {
                 })
                 .then(function() {
                     return object_server.mark_cloud_synced(object);
+                });
+        });
+}
+
+//sync a single file to NooBaa
+function sync_single_file_to_noobaa(policy, object) {
+    dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
+
+    return Q.ninvoke(policy.s3cloud, 'getObject', {
+            Bucket: policy.endpoint,
+            Key: object.key,
+        })
+        .then(function(res) {
+            var params = {
+                Bucket: policy.bucket.name,
+                Key: object.key,
+                ContentType: object.content_type,
+                Body: res.Body
+            };
+
+            return Q.ninvoke(policy.s3rver, 'upload', params)
+                .fail(function(err) {
+                    dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
+                        err, err.stack);
+                    throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
+                })
+                .then(function() {
+                    return;
                 });
         });
 }
@@ -818,7 +843,6 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
 
 //Perform c2n cloud sync for a specific policy with a given work list
 function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
-    console.error('NBNB:: sync_from_cloud_single_bucket c2n lists are \ndeleted', bucket_work_lists.c2n_deleted, '\nadded', bucket_work_lists.c2n_added);
     dbg.log2('Start sync_from_cloud_single_bucket on work list for policy', pretty_policy(policy));
     if (!bucket_work_lists || !policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
@@ -854,14 +878,28 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
             while (bucket_work_lists.c2n_deleted.length > 0) {
                 bucket_work_lists.c2n_deleted.pop();
             }
-            //Now handle c2n additions
+            //now handle c2n additions
+            if (bucket_work_lists.c2n_added.length) {
+                //Now upload the new objects to NooBaa
+                return Q.all(_.map(bucket_work_lists.c2n_added, function(object) {
+                    return sync_single_file_to_noobaa(policy, object);
+                }));
+            } else {
+                dbg.log1('sync_from_cloud_single_bucket syncing additions c2n, nothing to sync');
+            }
+        })
+        .fail(function(error) {
+            dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
+        })
+        .then(function() {
+            dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
         })
         .thenResolve();
 }
 
 function update_bucket_last_sync(sysid, bucketname) {
     return Q.when(db.Bucket
-            .find({
+            .findOne({
                 system: sysid,
                 name: bucketname,
                 deleted: null,
@@ -874,14 +912,16 @@ function update_bucket_last_sync(sysid, bucketname) {
             }, {
                 //Fill the entire cloud_sync object, otherwise its being overwriten
                 cloud_sync: {
-                    endpoint: bucket[0].cloud_sync.endpoint,
+                    endpoint: bucket.cloud_sync.endpoint,
                     access_keys: {
-                        access_key: bucket[0].cloud_sync.access_keys.access_key,
-                        secret_key: bucket[0].cloud_sync.access_keys.secret_key
+                        access_key: bucket.cloud_sync.access_keys.access_key,
+                        secret_key: bucket.cloud_sync.access_keys.secret_key
                     },
-                    schedule_min: bucket[0].cloud_sync.schedule_min,
+                    schedule_min: bucket.cloud_sync.schedule_min,
                     last_sync: new Date(),
-                    paused: bucket[0].cloud_sync.paused,
+                    paused: bucket.cloud_sync.paused,
+                    c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                    n2c_enabled: bucket.cloud_sync.n2c_enabled,
                 }
             }).exec();
         });
@@ -892,7 +932,6 @@ promise_utils.run_background_worker({
     name: 'cloud_sync_refresher',
 
     run_batch: function() {
-        var now = Date.now();
 
         return Q.fcall(function() {
                 dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
@@ -902,8 +941,9 @@ promise_utils.run_background_worker({
                 }
             })
             .then(function() {
+                var now = Date.now();
                 return Q.all(_.map(CLOUD_SYNC.configured_policies, function(policy) {
-                    if (((now - policy.last_sync) / 1000 / 60 / 60) > policy.schedule_min &&
+                    if (((now - policy.last_sync) / 1000 / 60) > policy.schedule_min &&
                         !policy.paused) {
                         return update_work_list(policy);
                     }

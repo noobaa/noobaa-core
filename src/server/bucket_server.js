@@ -31,7 +31,6 @@ var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
 var promise_utils = require('../util/promise_utils');
-var js_utils = require('../util/js_utils');
 var dbg = require('noobaa-util/debug_module')(__filename);
 
 var CLOUD_SYNC = {
@@ -433,9 +432,104 @@ function is_empty_sync_worklist(work_list) {
     }
 }
 
+//return pretty (printable) policy obj
+function pretty_policy(policy) {
+    return {
+        bucket_name: policy.bucket.name,
+        bucket_id: policy.bucket.id,
+        system_id: policy.system._id,
+        endpoint: policy.endpoint,
+        schedule_min: policy.schedule_min,
+        last_sync: policy.last_sync,
+    };
+}
+
 /*
  *************  BACKGROUND WORKERS & Internal Workers Functions  *************
  */
+
+function diff_worklists(wl1, wl2, sync_time) {
+    var uniq_1 = [],
+        uniq_2 = [];
+    var pos1 = 0,
+        pos2 = 0;
+
+    var comp = function(a, b, sync_time) {
+        if (a.key < b.key) {
+            return -1;
+        } else if (a.key > b.key) {
+            return 1;
+        } else {
+            if (a.create_time > sync_time) {
+                return 2;
+            } else if (b.create_time > sync_time) {
+                return -2;
+            } else {
+                return 0;
+            }
+        }
+    };
+
+    if (wl1.length === 0 || wl2.length === 0) {
+        return {
+            uniq_a: wl1,
+            uniq_b: wl2
+        };
+    }
+
+    if (wl1.length === 0 || wl2.length === 0) {
+        return {
+            uniq_a: wl1,
+            uniq_b: wl2
+        };
+    }
+
+    while (comp(wl1[pos1], wl2[pos2]) === -1) {
+        uniq_1.push(wl1[pos1]);
+        pos1++;
+    }
+
+    var res;
+    while (pos1 < wl1.length && pos2 < wl2.length) {
+        res = comp(wl1[pos1], wl2[pos2]);
+        if (res === -1) { //appear in bucket
+            uniq_1.push(wl1[pos1]);
+            pos1++;
+        } else if (res === 1) { //appear in cloud
+            uniq_2.push(wl2[pos2]);
+            pos2++;
+        } else if (res === 2) { //same key, mod time newer in bucket
+            uniq_1.push(wl1[pos1]);
+            pos1++;
+            pos2++;
+        } else if (res === -2) { //same key, mod time newer in cloud
+            uniq_2.push(wl2[pos2]);
+            pos1++;
+            pos2++;
+        } else { //same key, same mod time
+            pos1++;
+            pos2++;
+        }
+    }
+
+    //Handle tails
+    for (; pos1 < wl1.length; ++pos1) {
+        uniq_1.push(wl1[pos1]);
+        pos1++;
+    }
+
+    for (; pos2 < wl2.length; ++pos2) {
+        uniq_2.push(wl2[pos2]);
+        pos2++;
+    }
+
+    dbg.log4('diff_arrays recieved wl1 #', wl1.length, 'wl2 #', wl2.length, 'returns uniq_1', uniq_1, 'uniq_2', uniq_2);
+
+    return {
+        uniq_a: uniq_1,
+        uniq_b: uniq_2
+    };
+}
 
 //Load all configured could sync policies into global CLOUD_SYNC
 function load_configured_policies() {
@@ -509,6 +603,7 @@ function load_configured_policies() {
 function update_work_list(policy) {
     //order is important, in order to query needed sync objects only once form DB
     //fill the n2c list first
+
     return Q.when(update_n2c_worklist(policy))
         .then(function() {
             return update_c2n_worklist(policy);
@@ -586,19 +681,7 @@ function update_c2n_worklist(policy) {
             dbg.log2('update_c2n_worklist bucket_object_list length', bucket_object_list.length);
 
             //Diff the arrays
-            var diff = js_utils.diff_arrays(cloud_object_list, bucket_object_list, function(a, b) {
-                if (a.key < b.key) {
-                    return -1;
-                } else if (a.key > b.key) {
-                    return 1;
-                } else {
-                    if (a.create_time > policy.last_sync) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
-            });
+            var diff = diff_worklists(cloud_object_list, bucket_object_list);
             dbg.log2('update_c2n_worklist found ', diff.uniq_a.length + diff.uniq_b.length, 'diffs to resolve');
             /*Now resolve each diff in the following manner:
               Appear On   Appear On   Need Sync         Action
@@ -610,7 +693,7 @@ function update_c2n_worklist(policy) {
                  F          T             T             Ignore, Deleted on NooBaa, handled in n2c
                  F          F             -             Can't Appear, not interesting
                  T          T             ?             Overwrite possibility, if dates !=, take latest.
-                                                        handled by the comperator sent to diff_arrays
+                                                        handled by the comperator sent to diff_worklists
 
               For need sync purposes, check the N2C worklist for current policy,
               should be filled before the c2n list
@@ -665,7 +748,7 @@ function sync_single_file_to_cloud(policy, object, target) {
 
 //Perform n2c cloud sync for a specific policy with a given work list
 function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
-    dbg.log2('Start sync_to_cloud_single_bucket on work list for policy', policy);
+    dbg.log2('Start sync_to_cloud_single_bucket on work list for policy', pretty_policy(policy));
     if (!bucket_work_lists || !policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
@@ -693,14 +776,15 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                 return;
             }
         })
+        .fail(function(error) {
+            dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', error, error.stack);
+            throw new Error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c ' + error);
+        })
         .then(function() {
             //marked deleted objects as cloud synced
             return Q.all(_.map(bucket_work_lists.n2c_deleted, function(object) {
                 return object_server.mark_cloud_synced(object);
             }));
-        })
-        .fail(function(error) {
-            dbg.error('sync_to_cloud_single_bucket Failed syncing deleted objects n2c', error, error.stack);
         })
         .then(function() {
             //empty deleted work list jsperf http://jsperf.com/empty-javascript-array
@@ -728,7 +812,8 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
 
 //Perform c2n cloud sync for a specific policy with a given work list
 function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
-    dbg.log2('Start sync_from_cloud_single_bucket on work list for policy', policy);
+    console.error('NBNB:: sync_from_cloud_single_bucket c2n lists are \ndeleted', bucket_work_lists.c2n_deleted, '\nadded', bucket_work_lists.c2n_added);
+    dbg.log2('Start sync_from_cloud_single_bucket on work list for policy', pretty_policy(policy));
     if (!bucket_work_lists || !policy) {
         throw new Error('bucket_work_list and bucket_work_list must be provided');
     }
@@ -804,7 +889,7 @@ promise_utils.run_background_worker({
         var now = Date.now();
 
         return Q.fcall(function() {
-                dbg.log2('CLOUD_SYNC_REFRESHER:', 'BEGIN');
+                dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
                 ///if policies not loaded, load them now
                 if (CLOUD_SYNC.configured_policies.length === 0 || CLOUD_SYNC.refresh_list) {
                     load_configured_policies();
@@ -854,8 +939,8 @@ promise_utils.run_background_worker({
             })
             .then(function() {
                 return Q.fcall(function() {
-                    dbg.log2('CLOUD_SYNC_REFRESHER:', 'END');
-                    return 6000; //TODO:: NBNB move back to 600000
+                    dbg.log0('CLOUD_SYNC_REFRESHER:', 'END');
+                    return 10000; //TODO:: NBNB move back to 600000
                 });
             });
     }

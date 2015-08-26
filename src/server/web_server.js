@@ -299,7 +299,7 @@ app.get('/get_latest_version*', function(req, res) {
 
 //Log level setter
 app.post('/set_log_level*', function(req, res) {
-    console.log('NB:: req.module', req.param('module'), 'req.level', req.param('level'));
+    console.log('req.module', req.param('module'), 'req.level', req.param('level'));
     if (typeof req.param('module') === 'undefined' || typeof req.param('level') === 'undefined') {
         res.status(400).send({});
     }

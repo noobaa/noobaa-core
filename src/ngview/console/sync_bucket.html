@@ -1,0 +1,75 @@
+<div class="modal fade">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header" style="padding: 20px;">
+                <button class="close" type="button" data-dismiss="modal">&times;</button>
+                <h3 class="modal-title">AWS Cloud sync for {{bucket_name}}</h3>
+            </div>
+
+            <div class="modal-body">
+
+                <div style="min-height: 200px; padding: 20px">
+                    <p class="text-left">
+                        Status: {{status}}
+                    </p>
+                    <div class="panel panel-default" >
+                        <div class="form-group panel-body">
+
+                            <span style=" float: left; width: 40%; " rel="tooltip" title="{{full_bucket_name}}"  class="modal-title"> NooBaa: {{bucket_name}}</span>
+
+                            <span style="display: inline-block; margin:0 0 0 10px" class="{{arrow_type}} arrow-right" ></span>
+
+                            <span  style="float: right; width: 40%;" rel="tooltip" title="{{full_target_name}}" class="modal-title">AWS: {{aws_target}}</span>
+
+                         <div style="padding: 0 0 0 30px" class="text-right">
+                                <button ng-if="has_policy"nb-click-ladda="set_cloud_sync_policy();" class="btn btn-default" style="display:inline-block;margin: 0 0 0 10px" >Replace</button>
+                                <button ng-if="has_policy"nb-click-ladda="delete_cloud_sync_policy();" class="btn btn-default" style="display:inline-block;margin: 0 0 0 10px" >Remove</button>
+                            </div>
+                        </div>
+
+                    </div>
+                    <br>
+                    <br>
+
+                    <div class="form-group" ng-if="has_policy!=true">
+                        <div class="controls form-inline">
+                            <label style="width:100px;">Access Key</label>
+                            <select class="form-control"  style="display:inline-block;" required ng-model="$parent.selected_key" ng-change="select_key()" ng-options='option as option.access_key for option in accessKeys'>
+                            </select>
+                            <button nb-click-ladda="add_new_key();" class="btn btn-default" style="display:inline-block;margin: 0 0 0 30px" >New</button>
+                        </div>
+                        <br>
+                        <div class="panel panel-default" ng-show="enable_new_key" >
+                            <div class="form-group panel-body">
+                                <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="enter AWS access key"  ng-model="$parent.access_key" ng-model-options="{debounce: 700}" />
+                                <br>
+                                <input type="password" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="enter AWS secret key"  ng-model="$parent.secret_key" ng-model-options="{debounce: 700}" />
+                                <div style="padding: 0 0 0 30px" class="text-right">
+                                    <button nb-click-ladda="cancel_new_key()" class="btn btn-default" style="width: 30%;padding: 10px" >Cancel</button>
+                                    <button nb-click-ladda="save_new_key()" class="btn btn-default" style="width: 30%;padding: 10px" >Save</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="controls form-inline">
+                            <label style="width:100px;">Bucket</label>
+                            <select class="form-control"  required ng-model="$parent.selected_bucket" ng-change="select_bucket()" ng-options='option as option for option in buckets'>
+                            </select>
+                        </div>
+                        <br>
+                        <br>
+                        <div class="form-control-wrapper alert {{alert_class || 'alert-warning'}}" role="alert"  ng-show="has_error">
+                            {{error_message}}
+                        </div>
+                    </div>
+                </div>
+                <div style="padding: 30px" class="text-right">
+                    <button class="btn btn-primary text-left {{done_disabled}}" ng-click="done()">
+                        Done
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>

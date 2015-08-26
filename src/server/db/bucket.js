@@ -42,6 +42,48 @@ var bucket_schema = new Schema({
         },
     }],
 
+    // cloud sync target, if exists
+    cloud_sync: {
+        // Target endpoint, location + bucket
+        endpoint: {
+            type: String
+        },
+
+        access_keys: {
+            access_key: {
+                type: String,
+            },
+            secret_key: {
+                type: String,
+            }
+        },
+
+        // Changed Objectsa query interval (in minutes)
+        schedule_min: {
+            type: Number
+        },
+
+        // Paused cloud sync
+        paused: {
+            type: Boolean,
+        },
+
+        // Last finished sync
+        last_sync: {
+            type: Date
+        },
+
+        //Enable cloud to NooBaa bucket sync
+        c2n_enabled: {
+            type: Boolean,
+        },
+
+        //Enable NooBaa to cloud bucket sync
+        n2c_enabled: {
+            type: Boolean,
+        }
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date,

@@ -198,7 +198,9 @@ function get_cloud_sync_policy(req) {
                         access_keys: [bucket.cloud_sync.access_keys],
                         schedule: bucket.cloud_sync.schedule_min,
                         last_sync: bucket.cloud_sync.last_sync.getTime(),
-                        paused: bucket.cloud_sync.paused
+                        paused: bucket.cloud_sync.paused,
+                        c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                        n2c_enabled: bucket.cloud_sync.n2c_enabled
                     },
                     health: get_policy_health(bucket._id, req.system.id),
                     status: get_policy_status(bucket._id, req.system.id),
@@ -236,7 +238,9 @@ function get_all_cloud_sync_policies(req) {
                             access_keys: [bucket.cloud_sync.access_keys],
                             schedule: bucket.cloud_sync.schedule_min,
                             last_sync: bucket.cloud_sync.last_sync,
-                            paused: bucket.cloud_sync.paused
+                            paused: bucket.cloud_sync.paused,
+                            c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                            n2c_enabled: bucket.cloud_sync.n2c_enabled
                         },
                         health: get_policy_health(bucket._id, req.system.id),
                         status: get_policy_status(bucket._id, req.system.id),
@@ -294,6 +298,8 @@ function set_cloud_sync(req) {
             schedule_min: req.rpc_params.policy.schedule,
             last_sync: 0,
             paused: req.rpc_params.policy.paused,
+            c2n_enabled: true,
+            n2c_enabled: true
         }
     };
     return Q.when(db.Bucket
@@ -560,8 +566,8 @@ function load_configured_policies() {
                         },
                         schedule_min: bucket.cloud_sync.schedule_min,
                         paused: bucket.cloud_sync.paused,
-                        c2n_enabled: true, //TODO:: Should be passed in policy coinfiguration
-                        n2c_enabled: true, //TODO:: Should be passed in policy coinfiguration
+                        c2n_enabled: bucket.cloud_sync.c2n_enabled,
+                        n2c_enabled: bucket.cloud_sync.n2c_enabled,
                         last_sync: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
                         health: true,
                         s3rver: null,

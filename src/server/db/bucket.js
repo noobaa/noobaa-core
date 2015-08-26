@@ -72,6 +72,16 @@ var bucket_schema = new Schema({
         last_sync: {
             type: Date
         },
+
+        //Enable cloud to NooBaa bucket sync
+        c2n_enabled: {
+            type: Boolean,
+        },
+
+        //Enable NooBaa to cloud bucket sync
+        n2c_enabled: {
+            type: Boolean,
+        }
     },
 
     // on delete set deletion time

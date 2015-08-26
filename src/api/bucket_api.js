@@ -288,6 +288,12 @@ module.exports = {
                 paused: {
                     type: 'boolean',
                 },
+                c2n_enabled: {
+                    type: 'boolean',
+                },
+                n2c_enabled: {
+                    type: 'boolean',
+                }
             }
         },
 

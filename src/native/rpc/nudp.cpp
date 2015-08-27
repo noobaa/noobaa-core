@@ -28,9 +28,9 @@ NAN_METHOD(Nudp::send)
         NAN_RETURN(Nan::Undefined());
     }
 
-    v8::Local<v8::Object> buffer_object = info[0]->ToObject();
-    char* data = node::Buffer::Data(buffer_object);
-    int len = node::Buffer::Length(buffer_object);
+    v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[0]).ToLocalChecked();
+    char* data = node::Buffer::Data(buffer);
+    int len = node::Buffer::Length(buffer);
     std::cout << "PUSH BUFFER " << len << std::hex;
 
     for (int i=0; i<len; i++) {

@@ -13,7 +13,7 @@ NAN_MODULE_INIT(DedupChunker::setup)
     Nan::SetPrototypeMethod(tpl, "push", DedupChunker::push);
     Nan::SetPrototypeMethod(tpl, "flush", DedupChunker::flush);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
-    _ctor.Reset(tpl->GetFunction());
+    _ctor.Reset(func);
     NAN_SET(target, name, func);
 }
 

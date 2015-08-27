@@ -10,7 +10,7 @@ NAN_MODULE_INIT(ThreadPool::setup)
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
     Nan::SetAccessor(tpl->InstanceTemplate(), NAN_STR("nthreads"), &nthreads_getter, &nthreads_setter);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
-    _ctor.Reset(tpl->GetFunction());
+    _ctor.Reset(func);
     NAN_SET(target, name, func);
 }
 

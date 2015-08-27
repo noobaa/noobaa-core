@@ -645,6 +645,10 @@ nb_console.controller('SystemDataCtrl', [
                         }],
                         schedule: 360,
                         paused: false,
+                        c2n_enabled: true,
+                        n2c_enabled: true,
+                        //TODO:: Change to this once direction can be chosen additions_only: scope.sync_deleted,
+                        additions_only: false
                     }
                 })).then(function() {
                     scope.modal.modal('hide');

@@ -59,8 +59,8 @@ function create_bucket(req) {
             }
             return db.Bucket.create(info);
         })
-        .then(function(bucket){
-            console.log('create bucket:',bucket,'account',req.account.id);
+        .then(function(bucket) {
+            console.log('create bucket:', bucket, 'account', req.account.id);
             return db.ActivityLog.create({
                 system: req.system,
                 level: 'info',
@@ -202,7 +202,8 @@ function get_cloud_sync_policy(req) {
                         last_sync: bucket.cloud_sync.last_sync.getTime(),
                         paused: bucket.cloud_sync.paused,
                         c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                        n2c_enabled: bucket.cloud_sync.n2c_enabled
+                        n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                        additions_only: bucket.cloud_sync.additions_only
                     },
                     health: get_policy_health(bucket._id, req.system.id),
                     status: get_policy_status(bucket._id, req.system.id),
@@ -242,7 +243,8 @@ function get_all_cloud_sync_policies(req) {
                             last_sync: bucket.cloud_sync.last_sync.getTime(),
                             paused: bucket.cloud_sync.paused,
                             c2n_enabled: bucket.cloud_sync.c2n_enabled,
-                            n2c_enabled: bucket.cloud_sync.n2c_enabled
+                            n2c_enabled: bucket.cloud_sync.n2c_enabled,
+                            additions_only: bucket.cloud_sync.additions_only
                         },
                         health: get_policy_health(bucket._id, req.system.id),
                         status: get_policy_status(bucket._id, req.system.id),
@@ -290,6 +292,13 @@ function delete_cloud_sync(req) {
 function set_cloud_sync(req) {
     dbg.log0('set_cloud_sync:', req.rpc_params.name, 'on', req.system.id, 'with', req.rpc_params.policy);
     var bucket;
+    //Verify parameters, bi-directional sync can't be set with additions_only
+    if (req.rpc_params.policy.additions_only &&
+        req.rpc_params.policy.n2c_enabled &&
+        req.rpc_params.policy.c2n_enabled) {
+        dbg.warn('set_cloud_sync bi-directional sync cant be set with additions_only');
+        throw new Error('bi-directional sync cant be set with additions_only');
+    }
     var updates = {
         cloud_sync: {
             endpoint: req.rpc_params.policy.endpoint,
@@ -300,8 +309,9 @@ function set_cloud_sync(req) {
             schedule_min: req.rpc_params.policy.schedule,
             last_sync: 0,
             paused: req.rpc_params.policy.paused,
-            c2n_enabled: true,
-            n2c_enabled: true
+            c2n_enabled: req.rpc_params.policy.c2n_enabled,
+            n2c_enabled: req.rpc_params.policy.n2c_enabled,
+            additions_only: req.rpc_params.policy.additions_only
         }
     };
     return Q.when(db.Bucket
@@ -449,6 +459,9 @@ function pretty_policy(policy) {
         endpoint: policy.endpoint,
         schedule_min: policy.schedule_min,
         last_sync: policy.last_sync,
+        additions_only: policy.additions_only,
+        c2n_enabled: policy.c2n_enabled,
+        n2c_enabled: policy.n2c_enabled,
     };
 }
 
@@ -571,6 +584,7 @@ function load_configured_policies() {
                         c2n_enabled: bucket.cloud_sync.c2n_enabled,
                         n2c_enabled: bucket.cloud_sync.n2c_enabled,
                         last_sync: (bucket.cloud_sync.last_sync) ? bucket.cloud_sync.last_sync : 0,
+                        additions_only: bucket.cloud_sync.additions_only,
                         health: true,
                         s3rver: null,
                         s3cloud: null,
@@ -633,7 +647,11 @@ function update_n2c_worklist(policy) {
                     b.bucketid === policy.bucket.id;
             });
             CLOUD_SYNC.work_lists[ind].n2c_added = res.added;
-            CLOUD_SYNC.work_lists[ind].n2c_deleted = res.deleted;
+            if (policy.additions_only) {
+                dbg.log2('update_n2c_worklist not adding deletions');
+            } else {
+                CLOUD_SYNC.work_lists[ind].n2c_deleted = res.deleted;
+            }
             dbg.log2('DONE update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket.id, 'total changes', res.added.length + res.deleted.length);
         })
         .thenResolve();
@@ -706,13 +724,17 @@ function update_c2n_worklist(policy) {
               should be filled before the c2n list
             */
             var joint_worklist = current_worklists.n2c_added.concat(current_worklists.n2c_deleted);
-            _.each(diff.uniq_b, function(bucket_obj) { //Appear in noobaa and not on cloud
-                if (_.findIndex(joint_worklist, function(it) {
-                        return it.key === bucket_obj.key;
-                    }) === -1) {
-                    current_worklists.c2n_deleted.push(bucket_obj);
-                }
-            });
+            if (!policy.additions_only) {
+                _.each(diff.uniq_b, function(bucket_obj) { //Appear in noobaa and not on cloud
+                    if (_.findIndex(joint_worklist, function(it) {
+                            return it.key === bucket_obj.key;
+                        }) === -1) {
+                        current_worklists.c2n_deleted.push(bucket_obj);
+                    }
+                });
+            } else {
+                dbg.log2('update_c2n_worklist not adding deletions');
+            }
             _.each(diff.uniq_a, function(cloud_obj) { //Appear in cloud and not on NooBaa
                 if (_.findIndex(joint_worklist, function(it) {
                         return it.key === cloud_obj.key;

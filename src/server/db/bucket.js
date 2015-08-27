@@ -81,6 +81,11 @@ var bucket_schema = new Schema({
         //Enable NooBaa to cloud bucket sync
         n2c_enabled: {
             type: Boolean,
+        },
+
+        //If true, only additions will be synced, and not deletions
+        additions_only: {
+            type: Boolean,
         }
     },
 

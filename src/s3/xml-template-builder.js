@@ -74,13 +74,11 @@ var xml = function() {
                 DisplayName: 'admin'
             },
             StorageClass: 'STANDARD',
+            PartNumberMarker: (_.first(items)).part_number,
             NextPartNumberMarker: options.NextPartNumberMarker,
             MaxParts: options.MaxParts,
             IsTruncated: options.IsTruncated,
         };
-        if (items.length) {
-            additional_data.PartNumberMarker = _.first(items).part_number;
-        }
 
         content.unshift(additional_data);
         return content;
@@ -121,6 +119,27 @@ var xml = function() {
         //console.log('content:', content, ' opts', options, 'items:', items);
 
         return content;
+    };
+    var buildDeleteContentXML = function(items,errors){
+        var content = _.map(items, function(item) {
+            return {
+                Deleted: {
+                    Key: item.Key
+                }
+            };
+        });
+        var errors_content = _.map(errors, function(error) {
+            return {
+                Error: {
+                    Key: error.Key,
+                    Code: error.Code,
+                    Message: error.Message
+                }
+            };
+        });
+
+        errors_content.unshift(content);
+        return errors_content;
     };
 
     return {
@@ -180,11 +199,11 @@ var xml = function() {
                 Error: {
                     Code: 'SignatureDoesNotMatch',
                     Type: 'Sender',
-                    Message: 'The request signature we calculated does not match the signature you provided.' +
-                        ' Check your AWS Secret Access Key and signing method.' +
-                        'Consult the service documentation for details.The canonical string' +
-                        'for this request should have been ' + '(no info)' +
-                        'The String - to - Sign should have been ' + string_to_sign,
+                    Message: 'The request signature we calculated does not match the signature you provided.'+
+                            ' Check your AWS Secret Access Key and signing method.'+
+                            'Consult the service documentation for details.The canonical string'+
+                            'for this request should have been '+'(no info)'+
+                            'The String - to - Sign should have been '+string_to_sign,
                     RequestId: 1
                 }
             }, {
@@ -308,7 +327,7 @@ var xml = function() {
             }
 
         },
-        buildInitiateMultipartUploadResult: function(key, bucket) {
+        buildInitiateMultipartUploadResult: function(key,bucket) {
             return jstoxml.toXML({
                 InitiateMultipartUploadResult: {
                     Bucket: bucket,
@@ -363,6 +382,20 @@ var xml = function() {
                 header: true,
                 indent: '  '
             });
+        },
+        buildDeleteResult: function(items,errors){
+            var xml = {
+                _name: 'DeleteResult',
+                _attrs: {
+                    'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
+                },
+                _content: buildDeleteContentXML(items, errors)
+            };
+            return jstoxml.toXML(xml, {
+                header: true,
+                indent: '  '
+            });
+
         }
     };
 };

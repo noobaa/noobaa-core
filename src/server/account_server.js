@@ -22,6 +22,8 @@ var account_server = {
     list_system_accounts: list_system_accounts,
     accounts_status: accounts_status,
     get_system_roles: get_system_roles,
+    add_account_sync_credentials_cache: add_account_sync_credentials_cache,
+    get_account_sync_credentials_cache: get_account_sync_credentials_cache
 };
 
 module.exports = account_server;
@@ -41,11 +43,11 @@ function create_account(req) {
         .then(null, db.check_already_exists(req, 'account'))
         .then(function(account_arg) {
             account = account_arg;
-            console.log('account created!!',account);
+            console.log('account created!!', account);
 
-        }).then(function(){
+        }).then(function() {
 
-            if (req.is_support||_.isUndefined(req.system)) {
+            if (req.is_support || _.isUndefined(req.system)) {
 
                 console.log('about to create system:' + info.name);
                 return server_rpc.client.system.create_system({
@@ -57,7 +59,7 @@ function create_account(req) {
                         })
                     })
                     .then(function(res) {
-                        console.log('nothing to do' ,res);
+                        console.log('nothing to do', res);
                         // db.ActivityLog.create({
                         //     system: res.info,
                         //     level: 'info',
@@ -121,14 +123,14 @@ function read_account(req) {
  *
  */
 function update_account(req) {
-    console.log('req.rpc:',req.rpc_params);
+    console.log('req.rpc:', req.rpc_params);
 
     // pick and send the updates
     var info = _.pick(req.rpc_params, 'name', 'email', 'password');
     return Q.fcall(function() {
             if (req.rpc_params.original_email) {
                 var original_email = req.rpc_params.original_email;
-                console.log('update account of ',original_email,' with ', info.email);
+                console.log('update account of ', original_email, ' with ', info.email);
                 return Q.when(db.Account.find({
                         email: original_email,
                         deleted: null
@@ -143,19 +145,19 @@ function update_account(req) {
             }
         })
         .then(function(account_info) {
-            console.log('account update info2:' +account_info[0]._id+':::'+account_info[0].id+':::'+req.account.id+':::'+ JSON.stringify(info));
+            console.log('account update info2:' + account_info[0]._id + ':::' + account_info[0].id + ':::' + req.account.id + ':::' + JSON.stringify(info));
             // we just mark the deletion time to make it easy to regret
             // and to avoid stale refs side effects of actually removing from the db.
             return Q.when(db.Account
                 .findByIdAndUpdate(account_info[0]._id,
                     info)
                 .exec()).
-                then(function(update_info){
-                    console.log('update status:'+JSON.stringify(update_info));
-                }).
-                then(null,function(err){
-                    console.log('error while update2', err);
-                });
+            then(function(update_info) {
+                console.log('update status:' + JSON.stringify(update_info));
+            }).
+            then(null, function(err) {
+                console.log('error while update2', err);
+            });
         })
         .then(null, function(err) {
             console.log('error while update', err);
@@ -189,7 +191,7 @@ function delete_account(req) {
             }
         })
         .then(function(account_info) {
-            console.log('account_info2:' +account_info[0]._id+':::'+ JSON.stringify(account_info[0]));
+            console.log('account_info2:' + account_info[0]._id + ':::' + JSON.stringify(account_info[0]));
 
             // we just mark the deletion time to make it easy to regret
             // and to avoid stale refs side effects of actually removing from the db.
@@ -199,8 +201,8 @@ function delete_account(req) {
                 })
                 .exec());
         })
-        .then(function(account_info_2){
-            console.log('account_info_2',account_info_2+':');
+        .then(function(account_info_2) {
+            console.log('account_info_2', account_info_2 + ':');
             return Q.when(db.ActivityLog.create({
                 system: req.system,
                 level: 'info',
@@ -320,6 +322,79 @@ function get_system_roles(req) {
             return roles;
         });
 }
+
+/**
+ *
+ * UPDATE_ACCOUNT with keys
+ *
+ */
+
+function get_account_sync_credentials_cache(req) {
+    console.log('req.rpc2:', req.rpc_params);
+
+    return Q.fcall(function() {
+        return Q.when(db.Account.find({
+                    _id: req.account.id,
+                    deleted: null
+                })
+                .exec())
+            .then(function(account_info) {
+                var current_account = account_info[0];
+                console.log('account update info5:' + req.account.id + ':::' + JSON.stringify(current_account));
+                if (current_account.sync_credentials_cache) {
+                    return current_account.sync_credentials_cache;
+                } else {
+                    return [];
+                }
+            });
+    });
+}
+/**
+ *
+ * UPDATE_ACCOUNT with keys
+ *
+ */
+
+function add_account_sync_credentials_cache(req) {
+    console.log('req.rpc:', req.rpc_params);
+
+    // pick and send the updates
+    var info = _.pick(req.rpc_params, 'access_key', 'secret_key');
+    return Q.fcall(function() {
+            return Q.when(db.Account.find({
+                        _id: req.account.id,
+                        deleted: null
+                    })
+                    .exec())
+                .then(function(account_info) {
+                    var current_account = account_info[0];
+                    console.log('account update info3:' + req.account.id + ':::' + JSON.stringify(account_info), '::AA::', JSON.stringify(info));
+                    if (current_account.sync_credentials_cache) {
+                        current_account.sync_credentials_cache.push(info);
+                        console.log('push');
+
+                    } else {
+                        current_account.sync_credentials_cache = [info];
+                        console.log('no push ', current_account);
+                    }
+                    console.log('account update info4:' + req.account.id + ':::' + JSON.stringify(current_account));
+                    return Q.when(db.Account
+                        .findByIdAndUpdate(req.account.id,
+                            _.pick(current_account, 'sync_credentials_cache')
+                        )
+                        .exec());
+                }).then(function(update_info) {
+                    console.log('update status:' + JSON.stringify(update_info));
+                }).
+            then(null, function(err) {
+                console.log('error while update2', err);
+            });
+        })
+        .then(null, function(err) {
+            console.log('error while update', err);
+        });
+}
+
 
 
 

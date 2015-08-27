@@ -34,7 +34,16 @@ var account_schema = new Schema({
     is_support: {
         type: Boolean,
     },
-
+    sync_credentials_cache: [{
+        access_key: {
+            type: String,
+            required: true,
+        },
+        secret_key: {
+            type: String,
+            required: true,
+        }
+    }],
     // on delete set deletion time
     deleted: {
         type: Date

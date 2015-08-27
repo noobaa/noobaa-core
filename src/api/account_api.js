@@ -148,6 +148,43 @@ module.exports = {
                 system: false,
             }
         },
+        add_account_sync_credentials_cache: {
+            doc: 'Update the credentials cache of the authorized account',
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: [],
+                properties: {
+                    access_key: {
+                        type: 'string',
+                    },
+                    secret_key: {
+                        type: 'string',
+                    },
+                }
+            },
+            auth: {
+                system: false,
+            }
+        },
+        get_account_sync_credentials_cache: {
+            method: 'GET',
+            reply: {
+                type: 'array',
+                properties: [{
+                    access_key: {
+                        type: 'string',
+                    },
+                    secret_key: {
+                        type: 'string',
+                    },
+                }]
+            },
+            auth: {
+                account: false,
+                system: false,
+            }
+        },
 
     },
 

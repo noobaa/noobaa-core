@@ -126,6 +126,7 @@
     "vinyl-source-stream": "~1.1.0",
     "which": "^1.0.9",
     "ws": "~0.7.1",
+    "xml2js": "^0.4.10",
     "yargs": "^3.8.0",
     "zeroclipboard": "^2.2.0"
   }

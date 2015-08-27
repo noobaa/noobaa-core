@@ -120,6 +120,27 @@ var xml = function() {
 
         return content;
     };
+    var buildDeleteContentXML = function(items,errors){
+        var content = _.map(items, function(item) {
+            return {
+                Deleted: {
+                    Key: item.Key
+                }
+            };
+        });
+        var errors_content = _.map(errors, function(error) {
+            return {
+                Error: {
+                    Key: error.Key,
+                    Code: error.Code,
+                    Message: error.Message
+                }
+            };
+        });
+
+        errors_content.unshift(content);
+        return errors_content;
+    };
 
     return {
         buildBuckets: function(buckets) {
@@ -361,6 +382,20 @@ var xml = function() {
                 header: true,
                 indent: '  '
             });
+        },
+        buildDeleteResult: function(items,errors){
+            var xml = {
+                _name: 'DeleteResult',
+                _attrs: {
+                    'xmlns': 'http://doc.s3.amazonaws.com/2006-03-01'
+                },
+                _content: buildDeleteContentXML(items, errors)
+            };
+            return jstoxml.toXML(xml, {
+                header: true,
+                indent: '  '
+            });
+
         }
     };
 };

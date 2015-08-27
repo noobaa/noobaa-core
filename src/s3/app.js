@@ -33,13 +33,27 @@ function s3app(params) {
             next();
         }
     });
+    app.use(function(req, res, next) {
+        if (req.method === 'POST') {
+            var data = '';
+            req.setEncoding('utf8');
+            req.on('data', function(chunk) {
+                data += chunk;
+            });
 
+            req.on('end', function() {
+                req.body = data;
+                next();
+            });
+        } else {
+            next();
+        }
+    });
     app.use(function(req, res, next) {
 
         return Q.fcall(function() {
 
-                dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
-
+                dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'method:', req.method, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
                 var authenticated_request = false;
 
                 if (req.headers.authorization) {
@@ -107,7 +121,7 @@ function s3app(params) {
      * getBuckets (listBuckets)
      * bucketExists (listBuckets)
      * putBucket (listBuckets)
-     * 
+     *
      */
     app.get('/', controllers.getBuckets);
     app.get('/:bucket', controllers.bucketExists, controllers.getBucket);
@@ -117,6 +131,7 @@ function s3app(params) {
     app.get('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.head('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.delete('/:bucket/:key(*)', controllers.bucketExists, controllers.deleteObject);
+    app.post('/:bucket', controllers.bucketExists, controllers.deleteObjects);
     app.post('/:bucket/:key(*)', controllers.bucketExists, controllers.postMultipartObject);
 
     return app;

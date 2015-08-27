@@ -4,12 +4,13 @@ require('../util/panic');
 var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
-var MD5Stream = require('../util/md5_stream');
+var md5_stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var crypto = require('crypto');
+var xml2js = require('xml2js');
 
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
@@ -65,6 +66,7 @@ module.exports = function(params) {
     };
 
     var uploadPart = function(req, res) {
+        var md5_calc = new md5_stream();
         var part_md5 = '0';
 
         Q.fcall(function() {
@@ -72,10 +74,6 @@ module.exports = function(params) {
                 var bucket_name = req.bucket;
                 var upload_id = req.query.uploadId;
 
-                req._readableState.highWaterMark = 1024 * 1024;
-                var md5_calc = new MD5Stream({
-                    highWaterMark: 1024 * 1024
-                });
                 req.pipe(md5_calc);
 
                 md5_calc.on('finish', function() {
@@ -113,8 +111,7 @@ module.exports = function(params) {
                 try {
                     dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber);
 
-                    // res.header('ETag', req.query.uploadId + req.query.partNumber);
-                    res.header('ETag', part_md5);
+                    res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
                     dbg.log0('FAILED', err, res);
 
@@ -159,7 +156,7 @@ module.exports = function(params) {
         //dbg.log("build",res);
         res.header('Content-Type', 'application/xml');
         res.status(status);
-        dbg.log2('template:', template);
+        dbg.log0('template:', template);
         return res.send(template);
     };
 
@@ -355,10 +352,7 @@ module.exports = function(params) {
 
 
                 // tranform stream that calculates md5 on-the-fly
-                req._readableState.highWaterMark = 1024 * 1024;
-                var md5_calc = new MD5Stream({
-                    highWaterMark: 1024 * 1024
-                });
+                var md5_calc = new md5_stream();
                 req.pipe(md5_calc);
 
                 md5_calc.on('finish', function() {
@@ -491,7 +485,7 @@ module.exports = function(params) {
                     'signature': req.signature,
                 });
             }).then(function(token) {
-                dbg.log0('Got Token:', token);
+                dbg.log2('Got Token:', token, clients[req.access_key]);
             }).then(null, function(err) {
                 dbg.error('failure while creating new client', err, err.stack);
                 delete clients[req.access_key];
@@ -1005,6 +999,7 @@ module.exports = function(params) {
         deleteObject: function(req, res) {
             //this is also valid for the Abort Multipart Upload
             var key = req.params.key;
+            dbg.log0('Attempt to delete object "%s" in bucket "%s"', key, req.bucket);
             var access_key = extract_access_key(req);
             var template;
             Q.fcall(function() {
@@ -1020,7 +1015,7 @@ module.exports = function(params) {
                 template = templateBuilder.buildKeyNotFound(key);
 
                 if (err.rpc_code === 'NOT_FOUND') {
-                    dbg.log2('Could not delete object "%s"', key);
+                    dbg.log0('Could not delete object "%s"', key);
                     return buildXmlResponse(res, 404, template);
 
                 } else {
@@ -1028,6 +1023,47 @@ module.exports = function(params) {
                     return buildXmlResponse(res, 500, template);
                 }
 
+            });
+        },
+        deleteObjects: function(req, res) {
+            var template = '';
+            var access_key = extract_access_key(req);
+            var errors = [];
+            var deleted = [];
+            return Q.ninvoke(xml2js, 'parseString', req.body)
+                .then(function(data) {
+                    var objects_to_delete = data.Delete.Object;
+                    dbg.log0('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.bucket);
+                    return Q.all(_.map(objects_to_delete,function(object_to_delete) {
+                        dbg.log2('About to delete ',object_to_delete.Key[0]);
+                        return clients[access_key].client.object.delete_object({
+                            bucket: req.bucket,
+                            key: object_to_delete.Key[0]
+                        }).then(function() {
+                            dbg.log2('deleted',object_to_delete.Key[0]);
+                            deleted.push({
+                                'Key': object_to_delete.Key[0]
+                            });
+                        }).then(null, function(err) {
+                            dbg.log2('cannot delete:',object_to_delete.Key[0],err.message);
+                            errors.push({
+                                'Key': object_to_delete.Key[0],
+                                'Code': 'InternalError', //only options are AccessDenied, InternalError
+                                'Message': err.message
+                            });
+                        });
+                    }));
+                }).
+            then(function() {
+                template = templateBuilder.buildDeleteResult(deleted, errors);
+                return buildXmlResponse(res, 200, template);
+            }).
+
+            then(null, function(err) {
+                dbg.error('Failure while trying to delete objects', err, err.stack);
+                var template = templateBuilder.buildError('InternalError',
+                    'We encountered an internal error. Please try again.');
+                return buildXmlResponse(res, 500, template);
             });
         }
     };

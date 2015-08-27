@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var WS = require('ws');
 var EventEmitter = require('events').EventEmitter;
 var dbg = require('../util/debug_module')(__filename);
@@ -29,7 +29,7 @@ function SignalClient(peerId) {
  *
  */
 SignalClient.prototype.signal = function(from, to, data) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
         if (this._state !== STATE_READY) {
             throw new Error('WS BAD STATE');
         }

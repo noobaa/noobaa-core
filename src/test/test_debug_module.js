@@ -4,7 +4,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var assert = require('assert');
 var fs = require('fs');
 var DebugModule = require('../util/debug_module');
@@ -13,7 +13,7 @@ var processType;
 
 // File Content Verifier according to given expected result (positive/negative)
 function file_content_verify(flag, expected, done) {
-    return Q.delay(1).then(function() {
+    return P.delay(1).then(function() {
             var content = fs.readFileSync("logs/noobaa.log", "utf8");
 
             if (flag === "text") { // Verify Log requests content
@@ -128,10 +128,11 @@ describe('debug_module', function() {
         return _.reduce(syslog_levels, function(promise, l) {
                 return promise.then(function() {
                     var dbg = new DebugModule('/web/noise/noobaa-core/src/blabla.asd/lll.asd');
+                    dbg = dbg; // lint unused bypass
                     console[l]("console - %s - should be captured", l);
                     return file_content_verify("text", "CONSOLE:: console - " + l + " - should be captured");
                 });
-            }, Q.resolve())
+            }, P.resolve())
             .nodeify(done);
     });
 

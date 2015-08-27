@@ -26,12 +26,12 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
 var promise_utils = require('../util/promise_utils');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed
@@ -79,7 +79,7 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOne(get_bucket_query(req))
             .populate('tiering.tier')
             .exec())
@@ -132,7 +132,7 @@ function delete_bucket(req) {
     var updates = {
         deleted: new Date()
     };
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOneAndUpdate(get_bucket_query(req), updates)
             .exec())
         .then(function(bucket_info) {
@@ -159,7 +159,7 @@ function delete_bucket(req) {
  *
  */
 function list_buckets(req) {
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .find({
                 system: req.system.id,
                 deleted: null,
@@ -184,7 +184,7 @@ function list_buckets(req) {
 function get_cloud_sync_policy(req) {
     dbg.log3('get_cloud_sync_policy');
     var reply = [];
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOne({
                 system: req.system.id,
                 name: req.rpc_params.name,
@@ -225,7 +225,7 @@ function get_cloud_sync_policy(req) {
 function get_all_cloud_sync_policies(req) {
     dbg.log3('get_all_cloud_sync_policies');
     var reply = [];
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .find({
                 system: req.system.id,
                 deleted: null,
@@ -265,7 +265,7 @@ function delete_cloud_sync(req) {
     var updates = {
         cloud_sync: {}
     };
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .find({
                 system: req.system.id,
                 name: req.rpc_params.name,
@@ -274,7 +274,7 @@ function delete_cloud_sync(req) {
             .exec())
         .then(function(bucket) {
             dbg.log3('delete_cloud_sync: delete on bucket', bucket);
-            return Q.when(db.Bucket
+            return P.when(db.Bucket
                 .findOneAndUpdate(get_bucket_query(req), updates)
                 .exec());
         })
@@ -314,7 +314,7 @@ function set_cloud_sync(req) {
             additions_only: req.rpc_params.policy.additions_only
         }
     };
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .find({
                 system: req.system.id,
                 name: req.rpc_params.name,
@@ -323,7 +323,7 @@ function set_cloud_sync(req) {
             .exec())
         .then(function(b) {
             bucket = b[0];
-            return Q.when(db.Bucket
+            return P.when(db.Bucket
                 .findOneAndUpdate(get_bucket_query(req), updates)
                 .exec());
         })
@@ -348,13 +348,13 @@ function set_cloud_sync(req) {
  */
 function get_cloud_buckets(req) {
     var buckets = [];
-    return Q.fcall(function() {
+    return P.fcall(function() {
         var s3 = new AWS.S3({
             accessKeyId: req.rpc_params.access_key,
             secretAccessKey: req.rpc_params.secret_key,
             sslEnabled: false
         });
-        return Q.ninvoke(s3, "listBuckets");
+        return P.ninvoke(s3, "listBuckets");
     }).then(function(data) {
         _.each(data.Buckets, function(bucket) {
             buckets.push(bucket.Name);
@@ -390,8 +390,8 @@ function get_bucket_info(bucket) {
 }
 
 function resolve_tiering(system_id, tiering) {
-    if (!tiering) return Q.resolve();
-    return Q.when(db.Tier
+    if (!tiering) return P.resolve();
+    return P.when(db.Tier
             .find({
                 system: system_id,
                 name: {
@@ -557,7 +557,7 @@ function load_configured_policies() {
     dbg.log2('load_configured_policies');
     CLOUD_SYNC.configured_policies = [];
     CLOUD_SYNC.work_lists = [];
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .find({
                 deleted: null,
             })
@@ -625,7 +625,7 @@ function load_configured_policies() {
 function update_work_list(policy) {
     //order is important, in order to query needed sync objects only once form DB
     //fill the n2c list first
-    return Q.when(update_n2c_worklist(policy))
+    return P.when(update_n2c_worklist(policy))
         .then(function() {
             return update_c2n_worklist(policy);
         });
@@ -638,7 +638,7 @@ function update_n2c_worklist(policy) {
     }
 
     dbg.log2('update_n2c_worklist sys', policy.system._id, 'bucket', policy.bucket.id);
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return object_server.list_need_sync(policy.system._id, policy.bucket.id);
         })
         .then(function(res) {
@@ -680,7 +680,7 @@ function update_c2n_worklist(policy) {
     //Take a list from the cloud, list from the bucket, keep only key and ETag
     //Compare the two for diffs of additions/deletions
     var cloud_object_list, bucket_object_list;
-    return Q.ninvoke(policy.s3cloud, 'listObjects', params)
+    return P.ninvoke(policy.s3cloud, 'listObjects', params)
         .fail(function(error) {
             dbg.error('update_c2n_worklist failed to list files from cloud: sys', policy.system._id, 'bucket',
                 policy.bucket.id, error, error.stack);
@@ -750,7 +750,7 @@ function update_c2n_worklist(policy) {
 function sync_single_file_to_cloud(policy, object, target) {
     dbg.log3('sync_single_file_to_cloud', object.key, '->', target + '/' + object.key);
 
-    return Q.ninvoke(policy.s3rver, 'getObject', {
+    return P.ninvoke(policy.s3rver, 'getObject', {
             Bucket: policy.bucket.name,
             Key: object.key,
         })
@@ -761,7 +761,7 @@ function sync_single_file_to_cloud(policy, object, target) {
                 Body: res.Body
             };
 
-            return Q.ninvoke(policy.s3cloud, 'upload', params)
+            return P.ninvoke(policy.s3cloud, 'upload', params)
                 .fail(function(err) {
                     dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
                         err, err.stack);
@@ -777,7 +777,7 @@ function sync_single_file_to_cloud(policy, object, target) {
 function sync_single_file_to_noobaa(policy, object) {
     dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
 
-    return Q.ninvoke(policy.s3cloud, 'getObject', {
+    return P.ninvoke(policy.s3cloud, 'getObject', {
             Bucket: policy.endpoint,
             Key: object.key,
         })
@@ -789,7 +789,7 @@ function sync_single_file_to_noobaa(policy, object) {
                 Body: res.Body
             };
 
-            return Q.ninvoke(policy.s3rver, 'upload', params)
+            return P.ninvoke(policy.s3rver, 'upload', params)
                 .fail(function(err) {
                     dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
                         err, err.stack);
@@ -810,7 +810,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
 
     var target = policy.endpoint;
     //First delete all the deleted objects
-    return Q.fcall(function() {
+    return P.fcall(function() {
             if (bucket_work_lists.n2c_deleted.length) {
                 var params = {
                     Bucket: target,
@@ -825,7 +825,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
                     });
                 });
                 dbg.log2('sync_to_cloud_single_bucket syncing', bucket_work_lists.n2c_deleted.length, 'deletions n2c');
-                return Q.ninvoke(policy.s3cloud, 'deleteObjects', params);
+                return P.ninvoke(policy.s3cloud, 'deleteObjects', params);
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions n2c, nothing to sync');
                 return;
@@ -837,7 +837,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
         })
         .then(function() {
             //marked deleted objects as cloud synced
-            return Q.all(_.map(bucket_work_lists.n2c_deleted, function(object) {
+            return P.all(_.map(bucket_work_lists.n2c_deleted, function(object) {
                 return object_server.mark_cloud_synced(object);
             }));
         })
@@ -849,7 +849,7 @@ function sync_to_cloud_single_bucket(bucket_work_lists, policy) {
 
             if (bucket_work_lists.n2c_added.length) {
                 //Now upload the new objects
-                return Q.all(_.map(bucket_work_lists.n2c_added, function(object) {
+                return P.all(_.map(bucket_work_lists.n2c_added, function(object) {
                     return sync_single_file_to_cloud(policy, object, target);
                 }));
             } else {
@@ -873,7 +873,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
     }
 
     //TODO:: move to a function which is called both by sync_from_cloud_single_bucket and from sync_to_cloud_single_bucket
-    return Q.fcall(function() {
+    return P.fcall(function() {
             if (bucket_work_lists.c2n_deleted.length) {
                 var params = {
                     Bucket: policy.bucket.name,
@@ -888,7 +888,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
                     });
                 });
                 dbg.log2('sync_from_cloud_single_bucket syncing', bucket_work_lists.c2n_deleted.length, 'deletions c2n', params);
-                return Q.ninvoke(policy.s3rver, 'deleteObjects', params);
+                return P.ninvoke(policy.s3rver, 'deleteObjects', params);
             } else {
                 dbg.log2('sync_to_cloud_single_bucket syncing deletions c2n, nothing to sync');
                 return;
@@ -905,7 +905,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
             //now handle c2n additions
             if (bucket_work_lists.c2n_added.length) {
                 //Now upload the new objects to NooBaa
-                return Q.all(_.map(bucket_work_lists.c2n_added, function(object) {
+                return P.all(_.map(bucket_work_lists.c2n_added, function(object) {
                     return sync_single_file_to_noobaa(policy, object);
                 }));
             } else {
@@ -922,7 +922,7 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
 }
 
 function update_bucket_last_sync(sysid, bucketname) {
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOne({
                 system: sysid,
                 name: bucketname,
@@ -957,7 +957,7 @@ promise_utils.run_background_worker({
 
     run_batch: function() {
 
-        return Q.fcall(function() {
+        return P.fcall(function() {
                 dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
                 ///if policies not loaded, load them now
                 if (CLOUD_SYNC.configured_policies.length === 0 || CLOUD_SYNC.refresh_list) {
@@ -966,7 +966,7 @@ promise_utils.run_background_worker({
             })
             .then(function() {
                 var now = Date.now();
-                return Q.all(_.map(CLOUD_SYNC.configured_policies, function(policy) {
+                return P.all(_.map(CLOUD_SYNC.configured_policies, function(policy) {
                     if (((now - policy.last_sync) / 1000 / 60) > policy.schedule_min &&
                         !policy.paused) {
                         return update_work_list(policy);
@@ -974,7 +974,7 @@ promise_utils.run_background_worker({
                 }));
             })
             .then(function() {
-                return Q.all(_.map(CLOUD_SYNC.work_lists, function(single_bucket) {
+                return P.all(_.map(CLOUD_SYNC.work_lists, function(single_bucket) {
                     var current_policy = _.find(CLOUD_SYNC.configured_policies, function(p) {
                         return p.system._id === single_bucket.sysid &&
                             p.bucket.id === single_bucket.bucketid;
@@ -986,7 +986,7 @@ promise_utils.run_background_worker({
                         //TODO:: return here, means previous sync was not done, always set last_sync
                     }
                     //Sync n2c
-                    return Q.when(sync_to_cloud_single_bucket(single_bucket, current_policy))
+                    return P.when(sync_to_cloud_single_bucket(single_bucket, current_policy))
                         .then(function() {
                             //Sync c2n
                             return sync_from_cloud_single_bucket(single_bucket, current_policy);
@@ -1010,7 +1010,7 @@ promise_utils.run_background_worker({
                 dbg.error('cloud_sync_refresher Failed', error, error.stack);
             })
             .then(function() {
-                return Q.fcall(function() {
+                return P.fcall(function() {
                     dbg.log0('CLOUD_SYNC_REFRESHER:', 'END');
                     return 60000; //TODO:: Different time interval ?
                 });

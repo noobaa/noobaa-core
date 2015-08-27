@@ -13,7 +13,7 @@ require('heapdump');
 // or else the it will get mess up (like the email.js code)
 var dot_engine = require('../util/dot_engine');
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var path = require('path');
 var http = require('http');
 var https = require('https');
@@ -58,8 +58,8 @@ if (debug_mode) {
 mongoose.connection.once('open', function() {
     // call ensureIndexes explicitly for each model
     mongoose_connected = true;
-    return Q.all(_.map(mongoose.modelNames(), function(model_name) {
-        return Q.npost(mongoose.model(model_name), 'ensureIndexes');
+    return P.all(_.map(mongoose.modelNames(), function(model_name) {
+        return P.npost(mongoose.model(model_name), 'ensureIndexes');
     }));
 });
 
@@ -166,11 +166,11 @@ var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 
-Q.fcall(function() {
-        return Q.ninvoke(http_server, 'listen', http_port);
+P.fcall(function() {
+        return P.ninvoke(http_server, 'listen', http_port);
     })
     .then(function() {
-        return Q.nfcall(pem.createCertificate, {
+        return P.nfcall(pem.createCertificate, {
             days: 365 * 100,
             selfSigned: true
         });
@@ -180,7 +180,7 @@ Q.fcall(function() {
             key: cert.serviceKey,
             cert: cert.certificate
         }, app);
-        return Q.ninvoke(https_server, 'listen', https_port);
+        return P.ninvoke(https_server, 'listen', https_port);
     })
     .then(function() {
         dbg.log('Web Server ports: http', http_port, 'https', https_port);

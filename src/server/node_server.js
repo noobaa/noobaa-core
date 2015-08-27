@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
 var object_mapper = require('./object_mapper');
@@ -153,7 +153,7 @@ function update_node(req) {
     // TODO move node between tiers - requires decomission
     if (req.rpc_params.tier) throw req.rpc_error('INTERNAL', 'TODO switch tier');
 
-    return Q.when(db.Node
+    return P.when(db.Node
             .findOneAndUpdate(get_node_query(req), updates)
             .exec())
         .then(db.check_not_deleted(req, 'node'))
@@ -171,7 +171,7 @@ function delete_node(req) {
     var updates = {
         deleted: new Date()
     };
-    return Q.when(db.Node
+    return P.when(db.Node
             .findOneAndUpdate(get_node_query(req), updates)
             .exec())
         .then(db.check_not_found(req, 'node'))
@@ -227,7 +227,7 @@ function list_nodes(req) {
  */
 function list_nodes_int(query, system_id, skip, limit, pagination, req) {
     var info;
-    return Q.fcall(function() {
+    return P.fcall(function() {
             info = {
                 system: system_id,
                 deleted: null,
@@ -297,7 +297,7 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
             if (limit) {
                 find.limit(limit);
             }
-            return Q.all([
+            return P.all([
                 find.exec(),
                 pagination && db.Node.count(info)
             ]);
@@ -321,7 +321,7 @@ function list_nodes_int(query, system_id, skip, limit, pagination, req) {
  *
  */
 function group_nodes(req) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             var minimum_online_heartbeat = db.Node.get_minimum_online_heartbeat();
             var reduce_sum = size_utils.reduce_sum;
             var group_by = req.rpc_params.group_by;
@@ -411,7 +411,7 @@ function group_nodes(req) {
 
 /*
 function count_node_storage_used(node_id) {
-    return Q.when(db.DataBlock.mapReduce({
+    return P.when(db.DataBlock.mapReduce({
             query: {
                 node: node_id,
                 deleted: null,
@@ -474,7 +474,7 @@ function get_storage_info(storage) {
 }
 
 function find_node_by_name(req) {
-    return Q.when(
+    return P.when(
             db.Node.findOne(get_node_query(req))
             .populate('tier', 'name')
             .exec())

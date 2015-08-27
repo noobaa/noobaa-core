@@ -1,7 +1,7 @@
 /* jshint browser:true */
 'use strict';
 
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var _ = require('lodash');
 
 var debug = require('debug');

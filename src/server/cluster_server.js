@@ -2,7 +2,7 @@
 'use strict';
 
 var db = require('./db');
-var Q = require('q');
+var P = require('../util/promise');
 
 /*
  * Cluster Server
@@ -20,7 +20,7 @@ module.exports = cluster_server;
  *
  */
 function get_cluster_id(req) {
-    return Q.when(db.Cluster.find()
+    return P.when(db.Cluster.find()
             .exec())
         .then(function(id) {
             return id[0].cluster_id;

@@ -10,7 +10,7 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
@@ -28,7 +28,7 @@ var heartbeat_find_node_by_id_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_find_node_by_id_barrier', node_ids.length);
-        return Q.when(db.Node
+        return P.when(db.Node
                 .find({
                     deleted: null,
                     _id: {
@@ -57,7 +57,7 @@ var heartbeat_count_node_storage_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_count_node_storage_barrier', node_ids.length);
-        return Q.when(db.DataBlock.mapReduce({
+        return P.when(db.DataBlock.mapReduce({
                 query: {
                     deleted: null,
                     node: {
@@ -90,7 +90,7 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     expiry_ms: 500, // milliseconds to wait for others to join
     process: function(node_ids) {
         dbg.log2('heartbeat_update_node_timestamp_barrier', node_ids.length);
-        return Q.when(db.Node
+        return P.when(db.Node
                 .update({
                     deleted: null,
                     _id: {
@@ -163,7 +163,7 @@ function heartbeat(req) {
 
     // the DB calls are optimized by merging concurrent requests to use a single query
     // by using barriers that wait a bit for concurrent calls to join together.
-    var promise = Q.all([
+    var promise = P.all([
             heartbeat_find_node_by_id_barrier.call(node_id),
             heartbeat_count_node_storage_barrier.call(node_id)
         ])
@@ -298,7 +298,7 @@ function self_test_to_node_via_web(req) {
 function collect_agent_diagnostics(req) {
     var target = req.rpc_params.target;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return server_rpc.client.agent.collect_diagnostics({}, {
                 address: target,
             });
@@ -315,7 +315,7 @@ function collect_agent_diagnostics(req) {
 function set_debug_node(req) {
     var target = req.rpc_params.target;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return server_rpc.client.agent.set_debug_node({}, {
                 address: target,
             });
@@ -345,7 +345,7 @@ var node_monitor_worker = promise_utils.run_background_worker({
      * /
     run_batch: function() {
         var self = this;
-        return Q.fcall(function() {
+        return P.fcall(function() {
                 dbg.log0('NODE_MONITOR_WORKER:', 'RUN');
             })
             .then(function() {

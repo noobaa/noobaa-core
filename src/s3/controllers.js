@@ -1030,11 +1030,11 @@ module.exports = function(params) {
             var access_key = extract_access_key(req);
             var errors = [];
             var deleted = [];
-            return Q.ninvoke(xml2js, 'parseString', req.body)
+            return P.ninvoke(xml2js, 'parseString', req.body)
                 .then(function(data) {
                     var objects_to_delete = data.Delete.Object;
                     dbg.log0('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.bucket);
-                    return Q.all(_.map(objects_to_delete,function(object_to_delete) {
+                    return P.all(_.map(objects_to_delete,function(object_to_delete) {
                         dbg.log2('About to delete ',object_to_delete.Key[0]);
                         return clients[access_key].client.object.delete_object({
                             bucket: req.bucket,

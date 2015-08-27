@@ -14,10 +14,6 @@ var config = require('../../config.js');
 
 var agentctl = require('./core_agent_control');
 
-// better stack traces for promises
-// used for testing only to avoid its big mem & cpu overheads
-P.longStackSupport = true;
-
 process.env.JWT_SECRET = 'coretest';
 
 var account_credentials = {

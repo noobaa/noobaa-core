@@ -8,7 +8,7 @@ var url = require('url');
 var util = require('util');
 var assert = require('assert');
 // var ip_module = require('ip');
-var time_utils = require('../util/time_utils');
+// var time_utils = require('../util/time_utils');
 var dbg = require('../util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
@@ -174,7 +174,7 @@ RPC.prototype.create_client = function(api, default_options) {
  */
 RPC.prototype.client_request = function(api, method_api, params, options) {
     var self = this;
-    var millistamp = time_utils.millistamp();
+    // var millistamp = time_utils.millistamp();
     options = options || {};
 
     // initialize the request
@@ -280,7 +280,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
  */
 RPC.prototype.handle_request = function(conn, msg) {
     var self = this;
-    var millistamp = time_utils.millistamp();
+    // var millistamp = time_utils.millistamp();
     var req = new RpcRequest();
     req.connection = conn;
     var rseq = conn._rpc_req_seq || 1;

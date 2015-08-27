@@ -21,8 +21,6 @@ var dbg = require('../util/debug_module')(__filename);
 var child_process = require('child_process');
 var s3_auth = require('aws-sdk/lib/signers/s3');
 
-P.longStackSupport = true;
-
 setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
 }, 30000);

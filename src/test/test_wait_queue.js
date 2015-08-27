@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var assert = require('assert');
 var WaitQueue = require('../util/wait_queue');
 
@@ -12,7 +12,7 @@ describe('wait_queue', function() {
 
     it('should create ok', function() {
         var wq = new WaitQueue('a long name just for spite');
-        wq = wq; // for jshint no-unused-vars
+        wq = wq; // lint unused bypass
     });
 
     it('should return null when no items', function() {
@@ -29,7 +29,7 @@ describe('wait_queue', function() {
         var item = {
             foo: 'bar',
         };
-        Q.fcall(function() {
+        P.fcall(function() {
             wq = new WaitQueue();
             assert.strictEqual(wq.length, 0);
 

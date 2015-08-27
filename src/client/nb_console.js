@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 
 require('./nb_util');
 require('./nb_api');
@@ -420,7 +420,7 @@ nb_console.controller('OverviewCtrl', [
                     link.download = '';
                     link.href = url;
                     link.click();
-                    return Q.delay(2000);
+                    return P.delay(2000);
                 }).then(function() {
                     $window.document.body.removeChild(link);
                 });
@@ -1140,7 +1140,7 @@ nb_console.controller('BucketViewCtrl', [
                     link.href = url;
                     $window.document.body.appendChild(link);
                     link.click();
-                    return Q.delay(2000);
+                    return P.delay(2000);
                 }).then(function() {
                     $window.document.body.removeChild(link);
                 });

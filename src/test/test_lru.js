@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var assert = require('assert');
 var LRU = require('../util/lru');
 
@@ -38,7 +38,7 @@ describe('lru', function() {
         });
         var item = lru.find_or_add_item(1);
         item.foo = 'bar';
-        Q.delay(1).then(function() {
+        P.delay(1).then(function() {
             item = lru.find_or_add_item(1);
             assert.strictEqual(item.foo, 'bar');
         }).delay(20).then(function() {

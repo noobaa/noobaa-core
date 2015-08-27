@@ -11,7 +11,7 @@ describe('linked_list', function() {
 
     it('should create ok', function() {
         var ll = new LinkedList();
-        ll = ll; // for jshint no-unused-vars
+        ll = ll; // lint unused bypass
     });
 
     it('should handle single item', function() {

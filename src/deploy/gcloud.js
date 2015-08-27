@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var util = require('util');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
@@ -10,7 +10,6 @@ var compute = google.compute('v1');
 var Semaphore = require('../util/semaphore');
 
 // var OAuth2 = google.auth.OAuth2;
-Q.longStackSupport = true;
 
 //production
 //var SERVICE_ACCOUNT_EMAIL = '212693709820-eosjslu4ekqsp95nqnon23n9sfbl4u5b@developer.gserviceaccount.com';
@@ -64,27 +63,18 @@ module.exports = {
 
 // var _gcloud_per_zone = {};
 var app_name = '';
-// // returns a promise for the completion of the loop
+
+// returns a promise for the completion of the loop
 function promiseWhile(condition, body) {
-    var done = Q.defer();
+    return loop();
 
+    // When the result of calling `condition` is no longer true, we are done.
+    // Use `when`, in case `body` does not return a promise.
+    // When it completes loop again otherwise, if it fails, reject the
+    // done promise
     function loop() {
-        // When the result of calling `condition` is no longer true, we are
-        // done.
-        if (!condition()) return done.resolve();
-        // Use `when`, in case `body` does not return a promise.
-        // When it completes loop again otherwise, if it fails, reject the
-        // done promise
-        Q.when(body(), loop, done.reject);
+        return condition() && P.fcall(body).then(loop);
     }
-
-    // Start running the loop in the next tick so that this function is
-    // completely async. It would be unexpected if `body` was called
-    // synchronously the first time.
-    Q.nextTick(loop);
-
-    // The promise
-    return done.promise;
 }
 
 /**
@@ -147,7 +137,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
         console.log('Scale:', first_zone_extra_count, 'extra in first zone');
 
         var new_count = 0;
-        return Q.all(_.map(zones_names, function(zone_name) {
+        return P.all(_.map(zones_names, function(zone_name) {
             //console.log('aa');
             var instances = instances_per_zone['https://www.googleapis.com/compute/v1/projects/' + NooBaaProject + '/zones/' + zone_name] || [];
             var zone_count = 0;
@@ -177,7 +167,7 @@ function scale_instances(count, allow_terminate, is_docker_host, number_of_docke
 
 function get_network_counter() {
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
         if (cloud_context) {
             return cloud_context.sem.surround(function() {
                 console.log('Current network counter is', cloud_context.counter);
@@ -199,7 +189,7 @@ function get_network_counter() {
 function get_zones(func) {
     //console.log('get_zones1');
 
-    return Q.nfcall(compute.zones.list, {
+    return P.nfcall(compute.zones.list, {
             project: NooBaaProject,
             auth: authClient
         }).then(func)
@@ -226,7 +216,7 @@ function get_zones(func) {
  */
 function foreach_zone(func) {
     return get_zones(function(res) {
-        return Q.all(_.map(res[0].items, func));
+        return P.all(_.map(res[0].items, func));
     }).fail(function(err) {
         console.log('err zone:', err);
     });
@@ -322,7 +312,7 @@ function print_instances(instances) {
 function instance_post_creation_handler(instance_full_details_list, callback) {
 
 
-    return Q.all(_.map(instance_full_details_list, function(instance_full_details) {
+    return P.all(_.map(instance_full_details_list, function(instance_full_details) {
         var pieces_array = instance_full_details.zone.split('/');
 
         var zoneName = pieces_array[pieces_array.length - 1];
@@ -377,7 +367,7 @@ function describe_instances(params, filter) {
             instancesListParams.filter = params.filter;
         }
 
-        return Q.nfcall(compute.instances.list, instancesListParams).then(
+        return P.nfcall(compute.instances.list, instancesListParams).then(
             function(instances_list_results) {
                 if (instances_list_results[0].hasOwnProperty('items')) {
                     // var number_of_instances_in_zone = instances_list_results[0].items.length;
@@ -445,7 +435,7 @@ function getInstanceDataPerInstanceId(instanceId) {
         project: NooBaaProject,
         auth: authClient
     }.then(function(zones_list) {
-        return Q.all(_.map(zones_list, function(zone_name) {
+        return P.all(_.map(zones_list, function(zone_name) {
             // var instances = instances_per_zone[zone_name] || [];
             return index < zones_list.items.length;
         }, function() {
@@ -465,7 +455,7 @@ function getInstanceDataPerInstanceId(instanceId) {
             });
 
             index++;
-            return Q.delay(500); // delay, otherwise error from google
+            return P.delay(500); // delay, otherwise error from google
         })).then(function() {}).done();
 
     }));
@@ -478,7 +468,7 @@ function getInstanceDataPerInstanceId(instanceId) {
  *
  */
 function add_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
-    var deferred = Q.defer();
+    var deferred = P.defer();
     var instancesDetails = [];
     console.log('adding to region ' + region_name + ' ' + count + ' instances', agent_conf);
     var index = 0;
@@ -486,7 +476,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
             return index < count;
         }, function() {
 
-            return Q.fcall(function() {
+            return P.fcall(function() {
                     return get_network_counter();
 
                 })
@@ -593,7 +583,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
 
                     };
                     console.log('New instance name: in region:' + region_name, instanceResource.resource.tags);
-                    return Q.nfcall(compute.instances.insert, instanceResource)
+                    return P.nfcall(compute.instances.insert, instanceResource)
                         .then(function(instanceInformation) {
                             var pieces_array = instanceInformation[0].targetLink.split('/');
                             var instanceName = pieces_array[pieces_array.length - 1];
@@ -611,7 +601,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                         instanceName: instanceName
                                     };
 
-                                    return Q.nfcall(compute.zoneOperations.get, operationsParams)
+                                    return P.nfcall(compute.zoneOperations.get, operationsParams)
                                         .then(function(operationResource) {
                                             deferred.notify(operationResource);
 
@@ -624,7 +614,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                                     auth: authClient,
 
                                                 };
-                                                return Q.nfcall(compute.instances.get, instanceDetailedInformationParams)
+                                                return P.nfcall(compute.instances.get, instanceDetailedInformationParams)
                                                     .then(function(instanceDetails) {
                                                         console.log('instanceDetails up:' + instanceDetails[0].name);
                                                         instancesDetails.push(instanceDetails[0]);
@@ -648,7 +638,7 @@ function add_region_instances(region_name, count, is_docker_host, number_of_dock
                                 }, 8000);
                             }
                             index++;
-                            return Q.delay(1000); // arbitrary async
+                            return P.delay(1000); // arbitrary async
                         });
 
 
@@ -682,7 +672,7 @@ function terminate_instances(region_name, instance_ids) {
             zone: region_name,
             auth: authClient
         };
-        return Q.nfcall(compute.instances.delete, terminationParams)
+        return P.nfcall(compute.instances.delete, terminationParams)
             .then(function(terminationResults) {
                 console.log('Termination of instance ' + current_instance + ' done');
 

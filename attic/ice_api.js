@@ -1,7 +1,7 @@
 'use strict';
 
 var ice = require('./ice_lib');
-var Q = require('q');
+var P = require('../src/util/promise');
 var buffer_utils = require('./buffer_utils');
 var chance = require('chance').Chance();
 var dbg = require('../util/debug_module')(__filename);
@@ -144,7 +144,7 @@ function generateRequestId() {
 
 
 function writeMessage(socket, channel, header, buffer, reqId) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return ice.writeToChannel(socket, channel, JSON.stringify(header), reqId);
         })
         .then(function() {
@@ -201,13 +201,13 @@ function writeBufferToSocket(socket, channel, block, reqId) {
 
         // send and recurse
          return ice.writeToChannel(socket, channel, chunk, reqId)
-         .then(function() {return Q.delay(1);})
+         .then(function() {return P.delay(1);})
          .then(send_next);
 
     }
 
     // start sending (recursive async loop)
-    return Q.fcall(send_next)
+    return P.fcall(send_next)
         .then(function(){
             dbg.log3('send_next ended for', reqId,channel.peerId);
             return;
@@ -275,7 +275,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         p2p_context.sem = new Semaphore(1);
     }
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
         if (p2p_context) {
             return p2p_context.sem.surround(function() {
@@ -305,7 +305,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
                 if (sigSocket.conn_defer) {
                     return sigSocket.conn_defer.promise.timeout(config.ws_conn_timeout, 'connection ws timeout');
                 }
-                return Q.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
+                return P.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
             });
         } else {
             dbg.log0('CREATE NEW WS CONN (no context) - peer '+peerId+' req '+requestId);
@@ -314,7 +314,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
             if (sigSocket.conn_defer) {
                 return sigSocket.conn_defer.promise.timeout(config.ws_conn_timeout, 'connection ws timeout');
             }
-            return Q.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
+            return P.fcall(function() {return sigSocket;}).timeout(config.ws_conn_timeout, 'connection ws timeout');
         }
     }).then(function() {
         dbg.log0('send ws request to peer for request '+requestId+ ' and peer '+peerId);
@@ -323,7 +323,7 @@ module.exports.sendWSRequest = function sendWSRequest(p2p_context, peerId, optio
         if (!sigSocket.action_defer) {
             sigSocket.action_defer = {};
         }
-        sigSocket.action_defer[requestId] = Q.defer();
+        sigSocket.action_defer[requestId] = P.defer();
         return sigSocket.action_defer[requestId].promise.timeout(timeout || config.response_timeout, 'response ws timeout');
     }).then(function(response) {
         dbg.log0('return response data '+util.inspect(response)+' for request '+requestId+ ' and peer '+peerId);
@@ -357,7 +357,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         isAgent = true;
     }
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
         dbg.log3('starting setup for peer '+peerId);
 
         if (ws_socket) {
@@ -383,7 +383,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         }
 
         if (sigSocket.conn_defer) {return sigSocket.conn_defer.promise;}
-        return Q.fcall(function() {return sigSocket;});
+        return P.fcall(function() {return sigSocket;});
     }).then(function() {
         requestId = generateRequestId();
         dbg.log0('starting to initiate ice to '+peerId+' request '+requestId);
@@ -394,7 +394,7 @@ module.exports.sendRequest = function sendRequest(p2p_context, ws_socket, peerId
         iceSocket.msgs[requestId] = {};
         msgObj = iceSocket.msgs[requestId];
 
-        msgObj.action_defer = Q.defer();
+        msgObj.action_defer = P.defer();
 
         if (buffer) {
             request.size = buffer.length;

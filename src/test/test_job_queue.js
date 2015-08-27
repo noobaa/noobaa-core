@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var assert = require('assert');
 var JobQueue = require('../util/job_queue');
 
@@ -13,7 +13,7 @@ describe('job_queue', function() {
 
     it('should create ok', function() {
         var q = new JobQueue();
-        q = q; // for jshint no-unused-vars
+        q = q; // lint unused bypass
     });
 
 
@@ -139,7 +139,7 @@ describe('job_queue', function() {
                         run_inner();
                         return {};
                     } else {
-                        return Q.delay(1).then(run_inner);
+                        return P.delay(1).then(run_inner);
                     }
                 }
             };

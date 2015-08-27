@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var util = require('util');
 var dgram = require('dgram');
 var crypto = require('crypto');
@@ -70,7 +70,7 @@ UdpConnection.prototype._removeChannel = function(channel) {
 UdpConnection.prototype._send = function(buffer, remotePort, remoteAddr) {
     dbg.log2('SOCKET send to', remoteAddr + ':' + remotePort, 'buffer', buffer.length);
     this.checkClosed();
-    return Q.ninvoke(this.socket, 'send', buffer, 0, buffer.length, remotePort, remoteAddr)
+    return P.ninvoke(this.socket, 'send', buffer, 0, buffer.length, remotePort, remoteAddr)
         .then(immediateQ);
 };
 
@@ -86,7 +86,7 @@ UdpConnection.prototype._onSocketBind = function() {
 };
 
 function immediateQ() {
-    var defer = Q.defer();
+    var defer = P.defer();
     setImmediate(defer.resolve);
     // setTimeout(defer.resolve, 1);
     return defer.promise;
@@ -149,7 +149,7 @@ UdpChannel.prototype.waitForMessage = function() {
         throw new Error('CHANNEL NOT QUEUEING');
     }
     if (!this.messageQueue.length) {
-        return Q.delay(500).then(this.waitForMessage.bind(this));
+        return P.delay(500).then(this.waitForMessage.bind(this));
     }
     return this.messageQueue.shift();
 };

@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var moment = require('moment');
 var chance = new (require('chance').Chance)();
 var promise_utils = require('../util/promise_utils');
@@ -267,7 +267,7 @@ nb_api.factory('nbNodes', [
                         link.href = url;
                         $window.document.body.appendChild(link);
                         link.click();
-                        return Q.delay(2000);
+                        return P.delay(2000);
                     }).then(function() {
                         $window.document.body.removeChild(link);
                         scope.next_stage();
@@ -282,7 +282,7 @@ nb_api.factory('nbNodes', [
                         link.href = url;
                         $window.document.body.appendChild(link);
                         link.click();
-                        return Q.delay(2000);
+                        return P.delay(2000);
                     }).then(function() {
                         $window.document.body.removeChild(link);
                         scope.next_stage();
@@ -314,7 +314,7 @@ nb_api.factory('nbNodes', [
                 test.start = Date.now();
                 $rootScope.safe_apply();
 
-                return Q.fcall(test.func.bind(test))
+                return P.fcall(test.func.bind(test))
                     .then(function(res) {
                         test.done = true;
                         test.took = (Date.now() - test.start) / 1000;
@@ -419,7 +419,7 @@ nb_api.factory('nbNodes', [
                                 self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
                                 $rootScope.safe_apply();
                             };
-                            return Q.all(_.map(online_nodes, function(target_node) {
+                            return P.all(_.map(online_nodes, function(target_node) {
                                 self.total += 10;
                                 return promise_utils.loop(10, function() {
                                     return self_test_to_node_via_web(
@@ -442,7 +442,7 @@ nb_api.factory('nbNodes', [
                                 self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
                                 $rootScope.safe_apply();
                             };
-                            return Q.all(_.map(online_nodes, function(target_node) {
+                            return P.all(_.map(online_nodes, function(target_node) {
                                 self.total += 10;
                                 return promise_utils.loop(10, function() {
                                     return self_test_to_node_via_web(
@@ -517,7 +517,7 @@ nb_api.factory('nbNodes', [
                         link.href = url;
                         $window.document.body.appendChild(link);
                         link.click();
-                        return Q.delay(2000);
+                        return P.delay(2000);
                     }
                 })
                 .then(function() {

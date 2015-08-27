@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
@@ -338,7 +338,7 @@ function list_objects(req) {
             if (limit) {
                 find.limit(limit);
             }
-            return Q.all([
+            return P.all([
                 find.exec(),
                 req.rpc_params.pagination && db.ObjectMD.count(info)
             ]);
@@ -362,7 +362,7 @@ function list_objects(req) {
 //TODO:: add limit and skip
 //Preferably move part of list_objects to a mutual function called by both
 function list_all_objects(sysid, bucket) {
-    return Q.when(db.ObjectMD
+    return P.when(db.ObjectMD
             .find({
                 system: sysid,
                 bucket: bucket,
@@ -382,7 +382,7 @@ function list_need_sync(sysid, bucketid) {
         added: [],
     };
 
-    return Q.when(db.ObjectMD
+    return P.when(db.ObjectMD
             .find({
                 system: sysid,
                 bucket: bucketid,
@@ -406,7 +406,7 @@ function list_need_sync(sysid, bucketid) {
 
 //set cloud_sync to true on given object
 function mark_cloud_synced(object) {
-    return Q.when(db.ObjectMD
+    return P.when(db.ObjectMD
             .findOne({
                 system: object.system,
                 bucket: object.bucket,
@@ -426,7 +426,7 @@ function mark_cloud_synced(object) {
 function set_all_files_for_sync(sysid, bucketid) {
     dbg.log2('marking all objects on sys', sysid, 'bucket', bucketid, 'as sync needed');
     //Mark all "live" objects to be cloud synced
-    return Q.when(db.ObjectMD.update({
+    return P.when(db.ObjectMD.update({
             system: sysid,
             bucket: bucketid,
             cloud_synced: true,
@@ -438,7 +438,7 @@ function set_all_files_for_sync(sysid, bucketid) {
         }).exec())
         .then(function() {
             //Mark all "previous" deleted objects as not needed for cloud sync
-            return Q.when(db.ObjectMD.update({
+            return P.when(db.ObjectMD.update({
                 system: sysid,
                 bucket: bucketid,
                 cloud_synced: false,

@@ -293,6 +293,9 @@ module.exports = {
                 },
                 n2c_enabled: {
                     type: 'boolean',
+                },
+                additions_only: { //If true, only additions will be synced
+                    type: 'boolean',
                 }
             }
         },

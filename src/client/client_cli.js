@@ -13,7 +13,7 @@ var argv = require('minimist')(process.argv);
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 Q.longStackSupport = true;
 

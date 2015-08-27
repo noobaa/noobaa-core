@@ -41,7 +41,7 @@ var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
 var fs = require('fs');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 
 

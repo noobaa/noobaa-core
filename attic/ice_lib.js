@@ -2,11 +2,11 @@
 
 var WebSocket = require('ws');
 var Q = require('q');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var zlib = require('zlib');
 var _ = require('lodash');
-var Semaphore = require('noobaa-util/semaphore');
+var Semaphore = require('../util/semaphore');
 var buffer_utils = require('./buffer_utils');
 var promise_utils = require('./promise_utils');
 var wrtc = require('./wrtc');

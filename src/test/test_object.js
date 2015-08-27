@@ -4,7 +4,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var assert = require('assert');
 var argv = require('minimist')(process.argv);
 var promise_utils = require('../util/promise_utils');
@@ -15,6 +15,8 @@ var chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
 var chance = new (require('chance').Chance)(chance_seed);
 
+var dbg = require('../util/debug_module')(__filename);
+dbg.set_level(5, 'core');
 
 describe('object', function() {
 
@@ -26,7 +28,7 @@ describe('object', function() {
 
     before(function(done) {
         this.timeout(30000);
-        Q.fcall(function() {
+        P.fcall(function() {
             return client.system.create_system({
                 name: SYS
             });
@@ -52,7 +54,7 @@ describe('object', function() {
 
     after(function(done) {
         this.timeout(30000);
-        Q.fcall(function() {
+        P.fcall(function() {
             return coretest.clear_test_nodes();
         }).nodeify(done);
     });
@@ -61,7 +63,7 @@ describe('object', function() {
     it('works', function(done) {
         this.timeout(30000);
         var key = KEY + Date.now();
-        Q.fcall(function() {
+        P.fcall(function() {
             return client.object.create_multipart_upload({
                 bucket: BKT,
                 key: key,
@@ -120,7 +122,7 @@ describe('object', function() {
             this.timeout(30000);
             var key = KEY + Date.now();
             var size, data;
-            return Q.fcall(function() {
+            return P.fcall(function() {
                     return client.node.list_nodes({});
                 })
                 .then(function(list) {
@@ -194,7 +196,7 @@ describe('object', function() {
             for (var i = 0; i < data.length; i++) {
                 data[i] = chance.integer(CHANCE_BYTE);
             }
-            Q.fcall(function() {
+            P.fcall(function() {
                     return client.object.create_multipart_upload({
                         bucket: BKT,
                         key: key,

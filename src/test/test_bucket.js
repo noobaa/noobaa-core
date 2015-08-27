@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 // var assert = require('assert');
 var coretest = require('./coretest');
 
@@ -15,7 +15,7 @@ describe('bucket', function() {
 
     before(function(done) {
         this.timeout(20000);
-        Q.fcall(function() {
+        P.fcall(function() {
             return client.system.create_system({
                 name: 'sys'
             });
@@ -33,7 +33,7 @@ describe('bucket', function() {
     });
 
     it('works', function(done) {
-        Q.fcall(function() {
+        P.fcall(function() {
             return client.bucket.list_buckets();
         }).then(function() {
             return client.bucket.create_bucket({

@@ -3,12 +3,12 @@
 module.exports = RpcWsConnection;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var buffer_utils = require('../util/buffer_utils');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var WS = require('ws');
 
 util.inherits(RpcWsConnection, EventEmitter);
@@ -51,7 +51,7 @@ RpcWsConnection.prototype.connect = function() {
     }
 
     ws = new WS(self.url.href);
-    self.connect_defer = Q.defer();
+    self.connect_defer = P.defer();
     ws.binaryType = 'arraybuffer';
     self.ws = ws;
     self._init();

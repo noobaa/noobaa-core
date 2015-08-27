@@ -4,7 +4,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 // var assert = require('assert');
 var Prefetch = require('../util/prefetch');
 
@@ -13,7 +13,7 @@ describe('prefetch', function() {
 
     it('should work', function(done) {
         var pr;
-        Q.fcall(function() {
+        P.fcall(function() {
                 var id = 0;
                 pr = new Prefetch({
                     low_length: 30,
@@ -21,7 +21,7 @@ describe('prefetch', function() {
                     load: function(count) {
                         var n = count;
                         console.log('... LOAD', n, '(' + count + ')', 'length', pr.length);
-                        return Q.delay(5).then(function() {
+                        return P.delay(5).then(function() {
                             console.log('>>> LOAD', n, '(' + count + ')', 'length', pr.length);
                             return _.times(n, function() {
                                 id += 1;
@@ -34,7 +34,7 @@ describe('prefetch', function() {
             .delay(10)
             .then(function() {
                 console.log('A - length', pr.length);
-                var promise = Q.resolve();
+                var promise = P.resolve();
                 _.times(10, function() {
                     promise = promise.delay(0).then(function() {
                         return pr.fetch(2).then(function(res) {
@@ -47,7 +47,7 @@ describe('prefetch', function() {
             .delay(10)
             .then(function() {
                 console.log('B - length', pr.length);
-                return Q.all(_.times(10, function() {
+                return P.all(_.times(10, function() {
                     return pr.fetch(2).then(function(res) {
                         console.log('B - fetch', res, 'length', pr.length);
                     });

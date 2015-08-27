@@ -5,7 +5,7 @@ var _ = require('lodash');
 var Q = require('q');
 var db = require('./db');
 var jwt = require('jsonwebtoken');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var s3_auth = require('aws-sdk/lib/signers/s3');
 var s3 = new s3_auth();
 

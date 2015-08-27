@@ -4,12 +4,13 @@ module.exports = RpcN2NConnection;
 RpcN2NConnection.Agent = RpcN2NAgent;
 
 var _ = require('lodash');
-// var Q = require('q');
+// var P = require('../util/promise');
 var util = require('util');
 var url = require('url');
+var js_utils = require('../util/js_utils');
 var time_utils = require('../util/time_utils');
 var EventEmitter = require('events').EventEmitter;
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var IceConnection = require('./ice_connection');
 var NiceConnection = require('./nice_connection');
 var NudpFlow = require('./nudp');
@@ -73,28 +74,34 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     dbg.log0('N2N', 'con=' + conf.con, 'sec=' + conf.sec, 'flow=' + conf.flow);
     self.connector = new CONNECTORS[conf.con]({
         addr_url: addr_url,
-        signaller: self.signaller.bind(self)
+        signaller: js_utils.self_bind(self, 'signaller')
     });
     self.security = new SECURITY[conf.sec]();
-    self.flow = new FLOW_CONTROL[conf.flow]();
+    self.flow = new FLOW_CONTROL[conf.flow](self.connid);
+
+    js_utils.self_bind(self, 'close');
+    js_utils.self_bind(self.security, 'sendmsg');
+    js_utils.self_bind(self.security, 'recvmsg');
+    js_utils.self_bind(self.flow, 'recvmsg');
+    js_utils.self_bind(self.connector, 'send');
 
     // handle close and error
-    var my_close = self.close.bind(self);
-    self.connector.on('error', my_close);
-    self.connector.on('close', my_close);
-    self.security.on('close', my_close);
-    self.security.on('close', my_close);
-    self.flow.on('error', my_close);
-    self.flow.on('close', my_close);
+    self.connector.on('error', self.close);
+    self.connector.on('close', self.close);
+    self.security.on('close', self.close);
+    self.security.on('close', self.close);
+    self.flow.on('error', self.close);
+    self.flow.on('close', self.close);
 
     // packets redirection - connector <-> security <-> flow
-    self.connector.on('message', self.security.recvmsg.bind(self.security));
-    self.security.on('recvmsg', self.flow.recvmsg.bind(self.flow));
-    self.flow.on('sendmsg', self.security.sendmsg.bind(self.security));
-    self.security.on('sendmsg', self.connector.send.bind(self.connector));
-
-    // once a complete message is assembled it is emitted from the connection
-    self.flow.on('message', self.emit.bind(self, 'message'));
+    self.connector.on('message', self.security.recvmsg);
+    self.security.on('sendmsg', self.connector.send);
+    self.security.on('recvmsg', self.flow.recvmsg);
+    self.flow.on('sendmsg', self.security.sendmsg);
+    self.flow.on('message', function(msg) {
+        // once a complete message is assembled it is emitted from the connection
+        self.emit('message', msg);
+    });
 }
 
 util.inherits(RpcN2NConnection, EventEmitter);
@@ -175,8 +182,13 @@ util.inherits(NoSecurity, EventEmitter);
  *
  */
 function NoSecurity() {
-    EventEmitter.call(this);
-    this.recvmsg = this.emit.bind(this, 'recvmsg');
-    this.sendmsg = this.emit.bind(this, 'sendmsg');
-    this.close = function() {};
+    var self = this;
+    EventEmitter.call(self);
+    self.recvmsg = function(msg) {
+        self.emit('recvmsg', msg);
+    };
+    self.sendmsg = function(msg) {
+        self.emit('sendmsg', msg);
+    };
+    self.close = function() {};
 }

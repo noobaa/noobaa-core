@@ -3,15 +3,15 @@
 module.exports = IceConnection;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 // var url = require('url');
 var util = require('util');
 var dgram = require('dgram');
 var EventEmitter = require('events').EventEmitter;
 var ip_module = require('ip');
 var stun = require('./stun');
-var chance = require('chance').Chance();
-var dbg = require('noobaa-util/debug_module')(__filename);
+var chance = new(require('chance').Chance)();
+var dbg = require('../util/debug_module')(__filename);
 
 var CAND_TYPE_HOST = 'host';
 var CAND_TYPE_SERVER_REFLEX = 'server';
@@ -66,7 +66,7 @@ function IceConnection(options) {
     };
 
     self.selected_candidate = null;
-    self.stun_candidate_defer = Q.defer();
+    self.stun_candidate_defer = P.defer();
 
     // the socket multiplexes with stun so we receive also
     // stun messages by our listener, but the stun listener already handled
@@ -226,7 +226,7 @@ IceConnection.prototype._bind = function() {
     var self = this;
 
     // bind the udp socket to requested port (can be 0 to allocate random)
-    return Q.ninvoke(self.socket, 'bind', self.port)
+    return P.ninvoke(self.socket, 'bind', self.port)
         .then(function() {
 
             // update port in case it was 0 to bind to any port
@@ -246,7 +246,7 @@ IceConnection.prototype._gather_local_candidates = function() {
     var self = this;
     var stun_url = stun.STUN.DEFAULT_SERVER;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
             // add my host address
             self._add_local_candidate({
@@ -272,9 +272,9 @@ IceConnection.prototype._gather_local_candidates = function() {
 
             return self.stun_candidate_defer.promise
                 .timeout(3000, 'STUN SERVER RESPONSE EXHAUSTED');
-        }).then(null,function(err){
-            stun.STUN.DEFAULT_SERVER = stun.STUN.PUBLIC_SERVERS[Math.floor(Math.random()*stun.STUN.PUBLIC_SERVERS.length)];
-            dbg.log0('Changed default STUN server to ',stun.STUN.DEFAULT_SERVER);
+        }).then(null, function(err) {
+            stun.STUN.DEFAULT_SERVER = stun.STUN.PUBLIC_SERVERS[Math.floor(Math.random() * stun.STUN.PUBLIC_SERVERS.length)];
+            dbg.log0('Changed default STUN server to ', stun.STUN.DEFAULT_SERVER);
         });
 };
 
@@ -313,7 +313,7 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
         value: credentials.pwd
     }]);
 
-    return Q.ninvoke(self.socket, 'send',
+    return P.ninvoke(self.socket, 'send',
             buffer, 0, buffer.length,
             addr.port, addr.address)
         .then(null, function(err) {
@@ -327,7 +327,7 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
         })
         .then(function() {
             // TODO implement ICE scheduling https://tools.ietf.org/html/rfc5245#page-37
-            return Q.delay(100);
+            return P.delay(100);
         })
         .then(function() {
             return self._punch_hole(credentials, addr, attempts + 1);
@@ -342,12 +342,13 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
  */
 IceConnection.prototype._punch_holes = function() {
     var self = this;
-    return Q.fcall(function() {
+    return P.fcall(function() {
             dbg.log0('ICE _punch_holes: remote info', self.remote,
                 'my port', self.port);
             // send stun request to each of the remote candidates
-            return Q.all(_.map(self.remote.candidates,
-                self._punch_hole.bind(self, self.remote.credentials)));
+            return P.map(self.remote.candidates, function(candidate) {
+                return self._punch_hole(self.remote.credentials, candidate);
+            });
         })
         .then(function() {
             if (!self.selected_candidate) {
@@ -425,7 +426,7 @@ IceConnection.prototype._handle_stun_request = function(buffer, rinfo) {
         value: this.remote.credentials.pwd
     }], buffer);
 
-    return Q.ninvoke(this.socket, 'send',
+    return P.ninvoke(this.socket, 'send',
             reply, 0, reply.length,
             rinfo.port, rinfo.address)
         .then(null, function(err) {

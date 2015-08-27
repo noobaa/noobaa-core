@@ -3,15 +3,14 @@
 module.exports = NudpFlow;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var util = require('util');
 var js_utils = require('../util/js_utils');
 var time_utils = require('../util/time_utils');
 var EventEmitter = require('events').EventEmitter;
-var LinkedList = require('noobaa-util/linked_list');
+var LinkedList = require('../util/linked_list');
 var chance = new(require('chance').Chance)();
-var dbg = require('noobaa-util/debug_module')(__filename);
-// var nudp_native = require('../../build/Release/nudp_native.node');
+var dbg = require('../util/debug_module')(__filename);
 
 
 var STATE_INIT = 'init';
@@ -50,6 +49,23 @@ var RAND_SPEC = {
     max: (1 << 16) * (1 << 16)
 };
 
+var native_rpc;
+
+function lazy_init_native() {
+    var bindings = require('bindings');
+    if (typeof(bindings) !== 'function') {
+        return;
+    }
+    try {
+        console.log('native_rpc: trying to load ...');
+        native_rpc = bindings('native_rpc.node');
+        console.log('native_rpc: loaded !!!');
+    } catch (err) {
+        // ignore
+    }
+}
+
+
 util.inherits(NudpFlow, EventEmitter);
 
 /**
@@ -61,10 +77,15 @@ util.inherits(NudpFlow, EventEmitter);
  * (regardless of underlying mtu).
  *
  */
-function NudpFlow() {
+function NudpFlow(connid) {
     EventEmitter.call(this);
 
-    this.connid = 'TODO-connid';
+    lazy_init_native();
+    if (native_rpc) {
+        // TODO ...
+    }
+
+    this.connid = connid;
     this.time = Date.now();
     this.rand = chance.integer(RAND_SPEC);
 
@@ -73,7 +94,7 @@ function NudpFlow() {
 
     // the message send queue is the first phase for sending messages,
     // and its main purpose is to maintain the buffer message boundary,
-    // and a Q.defer used to wakeup the caller once acknowledged.
+    // and a P.defer used to wakeup the caller once acknowledged.
     this._messages_send_queue = new LinkedList('m');
 
     // the send & receive windows holding packet objects which are being
@@ -125,7 +146,7 @@ NudpFlow.prototype.send = function(buffer) {
     if (msg_length <= 0) {
         throw new Error('NUDP cannot send empty message');
     }
-    var send_defer = Q.defer();
+    var send_defer = P.defer();
     this._messages_send_queue.push_back({
         send_defer: send_defer,
         buffer: buffer,

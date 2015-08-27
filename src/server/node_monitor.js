@@ -16,7 +16,7 @@ var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
 var server_rpc = require('../server/server_rpc');
 var system_server = require('./system_server');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 
 /**

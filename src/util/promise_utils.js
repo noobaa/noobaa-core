@@ -2,12 +2,11 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
-require('./bluebird_hijack_q');
+var P = require('./promise');
 var child_process = require('child_process');
 require('setimmediate');
 var ncp = require('ncp').ncp;
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 
 module.exports = {
@@ -34,7 +33,7 @@ function join(obj, property, func) {
         return promise;
     }
     promise =
-        Q.fcall(func)
+        P.fcall(func)
         .fin(function() {
             delete obj[property];
         });
@@ -52,7 +51,7 @@ function iterate(array, func) {
     var i = -1;
     var results = [];
     if (!array || !array.length) {
-        return Q.when(results);
+        return P.when(results);
     }
     results.length = array.length;
 
@@ -75,10 +74,10 @@ function iterate(array, func) {
         }
 
         // call func as function(item, index, array)
-        return Q.fcall(func, array[i], i, array).then(next);
+        return P.fcall(func, array[i], i, array).then(next);
     }
 
-    return Q.fcall(next).thenResolve(results);
+    return P.fcall(next).thenResolve(results);
 }
 
 
@@ -91,7 +90,7 @@ function iterate(array, func) {
  */
 function loop(times, func) {
     if (times > 0) {
-        return Q.fcall(func)
+        return P.fcall(func)
             .then(function() {
                 return loop(times - 1, func);
             });
@@ -113,7 +112,7 @@ function retry(attempts, delay, delay_increment, func) {
 
     // call func and catch errors,
     // passing remaining attempts just fyi
-    return Q.fcall(func, attempts)
+    return P.fcall(func, attempts)
         .then(null, function(err) {
 
             // check attempts
@@ -123,7 +122,7 @@ function retry(attempts, delay, delay_increment, func) {
             }
 
             // delay and retry next attempt
-            return Q.delay(delay).then(function() {
+            return P.delay(delay).then(function() {
                 return retry(attempts, delay + delay_increment, delay_increment, func);
             });
 
@@ -137,7 +136,7 @@ function retry(attempts, delay, delay_increment, func) {
  * see http://nodejs.org/api/timers.html#timers_unref
  */
 function delay_unblocking(delay) {
-    var defer = Q.defer();
+    var defer = P.defer();
     var timer = setTimeout(defer.resolve, delay);
     timer.unref();
     return defer.promise;
@@ -151,7 +150,7 @@ function run_background_worker(worker) {
     var DEFUALT_DELAY = 10000;
 
     function run() {
-        Q.fcall(function() {
+        P.fcall(function() {
                 return worker.run_batch();
             })
             .then(function(delay) {
@@ -168,13 +167,13 @@ function run_background_worker(worker) {
 }
 
 function next_tick() {
-    var defer = Q.defer();
+    var defer = P.defer();
     process.nextTick(defer.resolve);
     return defer.promise;
 }
 
 function set_immediate() {
-    var defer = Q.defer();
+    var defer = P.defer();
     setImmediate(defer.resolve);
     return defer.promise;
 }
@@ -185,10 +184,10 @@ function set_immediate() {
 function promised_spawn(command, args, cwd, ignore_rc) {
     dbg.log2('promise spawn', command, args, cwd, ignore_rc);
     if (!command || !cwd) {
-        return Q.reject(new Error('Both command and working directory must be given'));
+        return P.reject(new Error('Both command and working directory must be given'));
     }
 
-    var deferred = Q.defer();
+    var deferred = P.defer();
 
     var proc = child_process.spawn(command, args, {
         cwd: cwd
@@ -223,10 +222,10 @@ function promised_spawn(command, args, cwd, ignore_rc) {
 function promised_exec(command, ignore_rc) {
     dbg.log2('promise exec', command, ignore_rc);
     if (!command) {
-        return Q.reject(new Error('Command must be given'));
+        return P.reject(new Error('Command must be given'));
     }
 
-    var deferred = Q.defer();
+    var deferred = P.defer();
 
     child_process.exec(command,
         function(error, stdout, stderr) {
@@ -244,14 +243,14 @@ function full_dir_copy(src, dst) {
     ncp.limit = 10;
 
     if (!src || !dst) {
-        return Q.reject(new Error('Both src and dst must be given'));
+        return P.reject(new Error('Both src and dst must be given'));
     }
 
-    return Q.nfcall(ncp, src, dst).done(function(err) {
+    return P.nfcall(ncp, src, dst).done(function(err) {
         if (err) {
-            return Q.reject(new Error('full_dir_copy failed with ' + err));
+            return P.reject(new Error('full_dir_copy failed with ' + err));
         } else {
-            return Q.resolve();
+            return P.resolve();
         }
     });
 }

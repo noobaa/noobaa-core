@@ -2,8 +2,8 @@
 'use strict';
 
 var _ = require('lodash');
-// var Q = require('q');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+// var P = require('../util/promise');
+// var dbg = require('../util/debug_module')(__filename);
 var s3_util = require('aws-sdk/lib/util');
 
 // The original s3 code doesn't work well with express and query string.

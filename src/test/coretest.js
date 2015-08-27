@@ -4,19 +4,19 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var mongoose = require('mongoose');
-var Semaphore = require('noobaa-util/semaphore');
+var Semaphore = require('../util/semaphore');
 var api = require('../api');
 var db = require('../server/db');
 var config = require('../../config.js');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('../util/debug_module')(__filename);
 
 var agentctl = require('./core_agent_control');
 
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
-Q.longStackSupport = true;
+P.longStackSupport = true;
 
 process.env.JWT_SECRET = 'coretest';
 
@@ -34,17 +34,17 @@ _.each(mongoose.modelNames(), function(model_name) {
     mongoose.model(model_name).schema.set('autoIndex', false);
 });
 
-var utilitest = require('noobaa-util/utilitest');
+var utilitest = require('../util/utilitest');
 
 
 before(function(done) {
-    Q.fcall(function() {
+    P.fcall(function() {
         // after dropDatabase() we need to recreate the indexes
         // otherwise we get "MongoError: ns doesn't exist"
         // see https://github.com/LearnBoost/mongoose/issues/2671
         // TODO move this to utilitest
-        return Q.all(_.map(mongoose.modelNames(), function(model_name) {
-            return Q.npost(mongoose.model(model_name), 'ensureIndexes');
+        return P.all(_.map(mongoose.modelNames(), function(model_name) {
+            return P.npost(mongoose.model(model_name), 'ensureIndexes');
         }));
     }).then(function() {
         server_rpc.register_http_transport(utilitest.app);
@@ -81,7 +81,7 @@ function init_test_nodes(count, system, tier) {
             var create_node_token = res.token;
             agentctl.use_local_agents(utilitest, create_node_token);
             var sem = new Semaphore(3);
-            return Q.all(_.times(count, function(i) {
+            return P.all(_.times(count, function(i) {
                     return sem.surround(function() {
                         return agentctl.create_agent(1);
                     });
@@ -94,7 +94,7 @@ function init_test_nodes(count, system, tier) {
 
 // delete all edge nodes directly from the db
 function clear_test_nodes() {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             console.log('REMOVE NODES');
             var warning_timeout = setTimeout(function() {
                 console.log(
@@ -104,18 +104,18 @@ function clear_test_nodes() {
                     'it does work fine when running with gulp, so we let it be.\n\n');
                 process.exit(1);
             }, 3000);
-            return Q.when(db.Node.remove().exec())['finally'](function() {
+            return P.when(db.Node.remove().exec())['finally'](function() {
                 clearTimeout(warning_timeout);
             });
         }).then(function() {
             console.log('STOPING AGENTS');
-            return Q.fcall(function() {
+            return P.fcall(function() {
                 return agentctl.stop_all_agents();
             });
         })
         .then(function() {
             console.log('CLEANING AGENTS');
-            return Q.fcall(function() {
+            return P.fcall(function() {
                 return agentctl.cleanup_agents();
             });
         });

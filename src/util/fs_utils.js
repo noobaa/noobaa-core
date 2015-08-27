@@ -1,7 +1,7 @@
 'use strict';
 
-var _ = require('lodash');
-var Q = require('q');
+// var _ = require('lodash');
+var P = require('../util/promise');
 var fs = require('fs');
 var path = require('path');
 var readdirp = require('readdirp');
@@ -21,7 +21,7 @@ module.exports = {
  *
  */
 function file_must_not_exist(path) {
-    return Q.nfcall(fs.stat, path)
+    return fs.statAsync(path)
         .then(function() {
             throw new Error('exists');
         }, function(err) {
@@ -36,7 +36,7 @@ function file_must_not_exist(path) {
  *
  */
 function file_must_exist(path) {
-    return Q.nfcall(fs.stat, path).thenResolve();
+    return fs.statAsync(path).return();
 }
 
 
@@ -48,7 +48,7 @@ function file_must_exist(path) {
 function disk_usage(file_path, semaphore, recurse) {
     // surround fs io with semaphore
     return semaphore.surround(function() {
-            return Q.nfcall(fs.stat, file_path);
+            return fs.statAsync(file_path);
         })
         .then(function(stats) {
 
@@ -62,13 +62,13 @@ function disk_usage(file_path, semaphore, recurse) {
             if (stats.isDirectory() && recurse) {
                 // surround fs io with semaphore
                 return semaphore.surround(function() {
-                        return Q.nfcall(fs.readdir, file_path);
+                        return fs.readdirAsync(file_path);
                     })
                     .then(function(entries) {
-                        return Q.all(_.map(entries, function(entry) {
+                        return P.map(entries, function(entry) {
                             var entry_path = path.join(file_path, entry);
                             return disk_usage(entry_path, semaphore, recurse);
-                        }));
+                        });
                     })
                     .then(function(res) {
                         var size = 0;
@@ -89,7 +89,7 @@ function disk_usage(file_path, semaphore, recurse) {
 
 //ll -laR equivalent
 function list_directory(path) {
-    return Q.Promise(function(resolve, reject) {
+    return new P(function(resolve, reject) {
         var files = [];
         readdirp({
                 root: path,
@@ -112,6 +112,6 @@ function list_directory(path) {
 function list_directory_to_file(path, outfile) {
     return list_directory(path)
         .then(function(files) {
-            return Q.nfcall(fs.writeFile, outfile, JSON.stringify(files, null, '\n'));
+            return fs.writeFileAsync(outfile, JSON.stringify(files, null, '\n'));
         });
 }

@@ -1,18 +1,15 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
-require('../util/bluebird_hijack_q');
+var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
 var memwatch = null; //require('memwatch');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var MB = 1024 * 1024;
-
-// Q.longStackSupport = true;
 
 // test arguments
 
@@ -128,7 +125,7 @@ var report_io_wbytes = 0;
 start();
 
 function start() {
-    Q.fcall(function() {
+    P.fcall(function() {
 
             if (!argv.server) {
                 return;
@@ -176,7 +173,7 @@ function start() {
             }
 
             // run io with concurrency
-            return Q.all(_.times(argv.concur, function() {
+            return P.all(_.times(argv.concur, function() {
                 return call_next_io();
             }));
 

@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 
 module.exports = Barrier;
 
@@ -44,11 +44,11 @@ function Barrier(options) {
  */
 Barrier.prototype.call = function(item) {
     var self = this;
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
         // add the item to the pending barrier and assign a defer
         // that will be resolved/rejected per this item.
-        var defer = Q.defer();
+        var defer = P.defer();
         self.barrier.items.push(item);
         self.barrier.defers.push(defer);
 
@@ -87,7 +87,7 @@ Barrier.prototype.release = function() {
     };
 
     // call the process function with the items list
-    Q.fcall(self.process, barrier.items)
+    P.fcall(self.process, barrier.items)
         .done(function(res) {
             res = res || [];
             _.each(barrier.defers, function(defer, index) {

@@ -17,7 +17,7 @@ var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('../util/debug_module')(__filename);
 
 /**
  *

@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var assert = require('assert');
 var coretest = require('./coretest');
 
@@ -25,7 +25,7 @@ describe('account', function() {
 
         it('works', function(done) {
             this.timeout(20000);
-            Q.fcall(function() {
+            P.fcall(function() {
                 return client.account.create_account({
                     name: NAME,
                     email: EMAIL,

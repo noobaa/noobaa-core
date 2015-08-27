@@ -3,13 +3,13 @@
 module.exports = RPC;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var assert = require('assert');
 // var ip_module = require('ip');
 var time_utils = require('../util/time_utils');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
 var RpcHttpConnection = require('./rpc_http');
@@ -87,7 +87,7 @@ RPC.prototype.register_service = function(api, server, options) {
         var func = server[method_name];
         if (!func && options.allow_missing_methods) {
             func = function() {
-                return Q.reject({
+                return P.reject({
                     data: 'RPC register_service:' +
                         ' missing method implementation - ' +
                         method_api.fullname
@@ -180,9 +180,9 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     // initialize the request
     var req = new RpcRequest();
     req.new_request(api, method_api, params, options.auth_token);
-    req.response_defer = Q.defer();
+    req.response_defer = P.defer();
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
             // assign a connection to the request
             self._assign_connection(req, options);
@@ -194,7 +194,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             self.emit_stats('stats.client_request.start', req);
 
             // connect the connection
-            return Q.invoke(req.connection, 'connect');
+            return P.invoke(req.connection, 'connect');
 
         })
         .then(function() {
@@ -207,7 +207,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             var req_buffers = req.export_request_buffers();
 
             // send request over the connection
-            var send_promise = Q.invoke(req.connection, 'send', req_buffers, 'req', req);
+            var send_promise = P.invoke(req.connection, 'send', req_buffers, 'req', req);
 
             // set timeout to abort if the specific connection/transport
             // can do anything with it, for http this calls req.abort()
@@ -299,7 +299,7 @@ RPC.prototype.handle_request = function(conn, msg) {
         return conn.send(req.export_response_buffer(), 'res', req);
     }
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
             // set api info to the request
             req.import_request_message(msg, service.api, service.method_api);
@@ -336,7 +336,7 @@ RPC.prototype.handle_request = function(conn, msg) {
 
             // insert to requests map and process using the server func
             conn._received_requests[req.reqid] = req;
-            req.server_promise = Q.fcall(service.server_func, req)
+            req.server_promise = P.fcall(service.server_func, req)
                 .fin(function() {
                     // TODO keep received requests for some time after with LRU?
                     delete conn._received_requests[req.reqid];
@@ -552,7 +552,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
     // use the previous backoff for delay
     reconn_backoff = reconn_backoff || RECONN_BACKOFF_BASE;
 
-    Q.delay(reconn_backoff)
+    P.delay(reconn_backoff)
         .then(function() {
 
             // create new connection (if not present)
@@ -567,7 +567,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
             conn._reconn_backoff = Math.min(
                 reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
 
-            return Q.invoke(conn, 'connect');
+            return P.invoke(conn, 'connect');
 
         })
         .then(function() {

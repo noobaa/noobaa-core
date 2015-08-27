@@ -1,7 +1,7 @@
 /* jshint browser:true */
 'use strict';
 
-var Q = require('q');
+var P = require('../util/promise');
 var _ = require('lodash');
 
 var debug = require('debug');
@@ -186,7 +186,7 @@ function run_test(peer) {
     if (!peer.initiator) return;
 
     console.log('PEER test');
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return send_request(peer, 256 * 1024 * 1024);
         })
         .then(null, function(err) {
@@ -212,10 +212,10 @@ function send_request(peer, request_size) {
         return send_request(peer, request_size);
     }
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
         // wait until channel is created
         if (!peer._channel) {
-            return Q.delay(1000).then(retry);
+            return P.delay(1000).then(retry);
         }
 
         // while channel has buffered amount, wait to let it drain
@@ -224,7 +224,7 @@ function send_request(peer, request_size) {
             (state.throttled && peer._channel.bufferedAmount > THROTTLE_LOW)) {
             state.throttled = true;
             state.send.delays += 1;
-            return Q.delay(10).then(retry);
+            return P.delay(10).then(retry);
         } else {
             state.throttled = false;
         }
@@ -249,7 +249,7 @@ function send_buffer(peer, buf_size, seq) {
     test_buffer.fill(0);
     // write sequence to start of buffer
     test_buffer.writeUInt32BE(seq, 0);
-    return Q.nfcall(peer.send.bind(peer), toArrayBuffer(test_buffer));
+    return P.nfcall(peer.send.bind(peer), toArrayBuffer(test_buffer));
 }
 
 

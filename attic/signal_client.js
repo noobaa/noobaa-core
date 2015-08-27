@@ -4,7 +4,7 @@ var _ = require('lodash');
 var Q = require('q');
 var WS = require('ws');
 var EventEmitter = require('events').EventEmitter;
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 
 module.exports = SignalClient;

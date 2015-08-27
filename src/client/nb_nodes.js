@@ -6,7 +6,7 @@ var Q = require('q');
 var moment = require('moment');
 var chance = new (require('chance').Chance)();
 var promise_utils = require('../util/promise_utils');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 var nb_api = angular.module('nb_api');
 

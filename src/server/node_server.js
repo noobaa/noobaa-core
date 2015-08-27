@@ -8,7 +8,7 @@ var string_utils = require('../util/string_utils');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
 var db = require('./db');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('../util/debug_module')(__filename);
 
 /**
  *

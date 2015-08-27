@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 // var assert = require('assert');
 var coretest = require('./coretest');
 
@@ -15,7 +15,7 @@ describe('agent', function() {
 
     before(function(done) {
         this.timeout(20000);
-        Q.fcall(function() {
+        P.fcall(function() {
             return client.system.create_system({
                 name: SYS
             });
@@ -36,7 +36,7 @@ describe('agent', function() {
 
     after(function(done) {
         this.timeout(20000);
-        Q.fcall(function() {
+        P.fcall(function() {
             return coretest.clear_test_nodes();
         }).nodeify(done);
     });

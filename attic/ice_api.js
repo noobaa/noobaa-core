@@ -4,9 +4,9 @@ var ice = require('./ice_lib');
 var Q = require('q');
 var buffer_utils = require('./buffer_utils');
 var chance = require('chance').Chance();
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
-var Semaphore = require('noobaa-util/semaphore');
+var Semaphore = require('../util/semaphore');
 var util = require('util');
 
 dbg.set_level(config.dbg_log_level);

@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 // var assert = require('assert');
 var size_utils = require('../util/size_utils');
 var coretest = require('./coretest');
@@ -17,7 +17,7 @@ describe('node', function() {
 
     it('works', function(done) {
         this.timeout(20000);
-        Q.fcall(function() {
+        P.fcall(function() {
             return client.system.create_system({
                 name: SYS
             });

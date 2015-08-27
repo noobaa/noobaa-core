@@ -17,7 +17,7 @@ var thenRedis = require('then-redis');
 var uuid = require('node-uuid');
 var redis = require('redis');
 var posix = require('posix');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 // constants
 var STATE_INIT = 'init';

@@ -7,7 +7,7 @@ var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
 var google = require('googleapis');
 var compute = google.compute('v1');
-var Semaphore = require('noobaa-util/semaphore');
+var Semaphore = require('../util/semaphore');
 
 // var OAuth2 = google.auth.OAuth2;
 Q.longStackSupport = true;

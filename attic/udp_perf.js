@@ -3,7 +3,7 @@
 var _ = require('lodash');
 var Q = require('q');
 var util = require('util');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var UdpConnection = require('./udp_connection');
 var argv = require('minimist')(process.argv);
 

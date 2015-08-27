@@ -3,11 +3,11 @@
 module.exports = NiceConnection;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var stun = require('./stun');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 try {
     var libnice = require('node-libnice');
@@ -58,7 +58,7 @@ NiceConnection.prototype.connect = function() {
     if (self.stream) {
         throw new Error('NICE invalid connect state');
     }
-    self.connect_defer = Q.defer();
+    self.connect_defer = P.defer();
 
     // create a nice-stream to be used for connecting.
     // 1 is number of components to init
@@ -134,7 +134,7 @@ NiceConnection.prototype.accept = function(info) {
     if (self.stream) {
         throw new Error('NICE invalid accept state');
     }
-    self.accept_defer = Q.defer();
+    self.accept_defer = P.defer();
 
     // create a nice-stream to be used for connecting.
     // 1 is number of components to init

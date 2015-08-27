@@ -6,7 +6,7 @@ var Q = require('q');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 
 /**

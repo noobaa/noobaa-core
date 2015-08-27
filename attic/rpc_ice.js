@@ -7,7 +7,7 @@ var buffer_utils = require('../util/buffer_utils');
 var ice_api = require('../util/ice_api');
 var ice_lib = require('../util/ice_lib');
 var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 dbg.set_level(config.dbg_log_level);
 

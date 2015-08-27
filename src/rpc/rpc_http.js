@@ -3,7 +3,7 @@
 module.exports = RpcHttpConnection;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
@@ -15,7 +15,7 @@ var express_body_parser = require('body-parser');
 var express_method_override = require('method-override');
 var express_compress = require('compression');
 var pem = require('../util/pem');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 
 util.inherits(RpcHttpConnection, EventEmitter);
@@ -157,7 +157,7 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
 
     dbg.log3('HTTP request', http_req.method, http_req.path, http_req._headers);
 
-    var send_defer = Q.defer();
+    var send_defer = P.defer();
 
     // reject on send errors
     http_req.on('error', send_defer.reject);
@@ -228,7 +228,7 @@ function read_http_response_data(res) {
     var chunks_length = 0;
     dbg.log3('HTTP response headers', res.statusCode, res.headers);
 
-    var defer = Q.defer();
+    var defer = P.defer();
     res.on('error', defer.reject);
     res.on('data', add_chunk);
     res.on('end', finish);
@@ -351,8 +351,8 @@ RpcHttpServer.prototype.start = function(port, secure, logging) {
     app.use(express_compress());
     this.install(app);
 
-    return Q.fcall(function() {
-            return secure && Q.nfcall(pem.createCertificate, {
+    return P.fcall(function() {
+            return secure && P.nfcall(pem.createCertificate, {
                 days: 365 * 100,
                 selfSigned: true
             });
@@ -364,7 +364,7 @@ RpcHttpServer.prototype.start = function(port, secure, logging) {
                     cert: cert.certificate
                 }, app) :
                 http.createServer(app);
-            return Q.ninvoke(server, 'listen', port)
+            return P.ninvoke(server, 'listen', port)
                 .thenResolve(server);
         });
 };

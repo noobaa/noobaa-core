@@ -53,6 +53,7 @@ function define_transformer(params) {
 
     function Transformer(options) {
         var self = this;
+        options = options || {};
         stream.Transform.call(self, options);
         self._init(options);
         self._flatten = options.flatten;

@@ -88,7 +88,6 @@ RpcHttpConnection.prototype.close = function() {
  *
  */
 RpcHttpConnection.prototype.send = function(msg, op, req) {
-    msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     if (op === 'res') {
         return this.send_http_response(msg, req);
     } else {
@@ -103,8 +102,17 @@ RpcHttpConnection.prototype.send = function(msg, op, req) {
  *
  */
 RpcHttpConnection.prototype.send_http_response = function(msg, req) {
-    if (this.res) {
-        this.res.status(200).end(msg);
+    var res = this.res;
+    if (res) {
+        res.status(200);
+        if (_.isArray(msg)) {
+            _.each(msg, function(m) {
+                res.write(m);
+            });
+            res.end();
+        } else {
+            res.end(msg);
+        }
         this.res = null;
     } else {
         dbg.warn('HTTP RESPONSE ALREADY SENT', req.reqid);
@@ -127,14 +135,9 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
     // use POST for all requests (used to be req.method_api.method but unneeded),
     // and send the body as binary buffer
     var http_method = 'POST';
-    var body = msg;
-    if (Buffer.isBuffer(body)) {
-        headers['content-length'] = body.length;
-        headers['content-type'] = 'application/octet-stream';
-    } else {
-        headers['content-length'] = body.length;
-        headers['content-type'] = 'application/json';
-    }
+    var content_length = _.sum(msg, 'length');
+    headers['content-length'] = content_length;
+    headers['content-type'] = 'application/octet-stream';
 
     var http_options = {
         protocol: self.url.protocol,
@@ -206,8 +209,15 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
     });
 
     // send the request data
-    if (body) {
-        http_req.end(body);
+    if (msg) {
+        if (_.isArray(msg)) {
+            _.each(msg, function(m) {
+                http_req.write(m);
+            });
+            http_req.end();
+        } else {
+            http_req.end(msg);
+        }
     } else {
         http_req.end();
     }

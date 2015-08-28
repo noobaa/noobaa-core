@@ -346,9 +346,9 @@ IceConnection.prototype._punch_holes = function() {
             dbg.log0('ICE _punch_holes: remote info', self.remote,
                 'my port', self.port);
             // send stun request to each of the remote candidates
-            return P.map(self.remote.candidates, function(candidate) {
+            return P.all(_.map(self.remote.candidates, function(candidate) {
                 return self._punch_hole(self.remote.credentials, candidate);
-            });
+            }));
         })
         .then(function() {
             if (!self.selected_candidate) {

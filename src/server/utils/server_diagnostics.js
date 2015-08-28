@@ -9,7 +9,7 @@ module.exports = {
 var TMP_WORK_DIR = '/tmp/diag';
 
 var stats = require('../stats_aggregator');
-var Q = require('q');
+var P = require('../../util/promise');
 var os = require('os');
 var fs = require('fs');
 var os_utils = require('../../util/os_util');
@@ -18,7 +18,7 @@ var base_diagnostics = require('../../util/base_diagnostics');
 
 //TODO: Add temp collection dir as param
 function collect_server_diagnostics() {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return base_diagnostics.collect_basic_diagnostics();
         })
         .then(function() {
@@ -46,7 +46,7 @@ function collect_server_diagnostics() {
         .then(function(restats) {
             if (stats) {
                 var stats_data = JSON.stringify(restats);
-                return Q.nfcall(fs.writeFile, TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
+                return P.nfcall(fs.writeFile, TMP_WORK_DIR + '/phone_home_stats.out', stats_data);
             } else {
                 return;
             }
@@ -68,7 +68,7 @@ function write_agent_diag_file(data) {
 //Collect supervisor logs, only do so on linux platforms and not on OSX (WA for local server run)
 function collect_supervisor_logs() {
     if (os.type() === 'Linux') {
-        return Q.fcall(function() {
+        return P.fcall(function() {
                 return promise_utils.full_dir_copy('/tmp/supervisor', TMP_WORK_DIR);
             })
             .then(null, function(err) {

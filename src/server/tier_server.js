@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('./db');
 
 
@@ -32,7 +32,7 @@ module.exports = tier_server;
 function create_tier(req) {
     var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details');
     info.system = req.system.id;
-    return Q.when(db.Tier.create(info))
+    return P.when(db.Tier.create(info))
         .then(null, db.check_already_exists(req, 'tier'))
         .thenResolve();
 }
@@ -45,7 +45,7 @@ function create_tier(req) {
  *
  */
 function read_tier(req) {
-    return Q.when(db.Tier
+    return P.when(db.Tier
             .findOne(get_tier_query(req))
             .exec())
         .then(db.check_not_deleted(req, 'tier'))
@@ -81,7 +81,7 @@ function update_tier(req) {
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
     }
-    return Q.when(db.Tier
+    return P.when(db.Tier
             .findOneAndUpdate(get_tier_query(req), updates)
             .exec())
         .then(db.check_not_deleted(req, 'tier'))
@@ -99,7 +99,7 @@ function delete_tier(req) {
     var updates = {
         deleted: new Date()
     };
-    return Q.when(db.Tier
+    return P.when(db.Tier
             .findOneAndUpdate(get_tier_query(req), updates)
             .exec())
         .then(db.check_not_found(req, 'tier'))
@@ -118,7 +118,7 @@ function list_tiers(req) {
         delete: null,
     };
 
-    return Q.when(
+    return P.when(
             db.Tier.find(query).exec())
         .then(function(tiers) {
             return tiers;

@@ -5,7 +5,7 @@
 require('../util/panic');
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var assert = require("assert");
 var sinon     = require('sinon');
 var buffer_utils = require('../util/buffer_utils');
@@ -130,7 +130,7 @@ describe('write buffer to socket', function() {
 
         var ice_api = mockIceApi();
 
-        Q.fcall(function() {
+        P.fcall(function() {
             return ice_api.writeBufferToSocket(null,channel, block, '45344');
         }).then(function() {
 
@@ -445,7 +445,7 @@ describe('on ice message', function() {
 
             var ice_api = mockIceApi();
 
-            return Q.fcall(function() {
+            return P.fcall(function() {
                 return ice_api.sendWSRequest(p2p_context, peerId, {method: 'GET', path: '/replicate/block/4t5t54t4', body: 'my body'});
             }).then(function(res) {
                 assert.ok(res.indexOf('200') >= 0, 'sendWSRequest failed res is: '+res);
@@ -559,7 +559,7 @@ describe('on ice message', function() {
             },1000);
             int2.unref();
 
-            return Q.fcall(function() {
+            return P.fcall(function() {
                 var options = {body:'thfhf',path:'/read',method:'GET'};
                 return ice_api.sendRequest(p2p_context, socket, peerId, options);
             }).then(function(res) {

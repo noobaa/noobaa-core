@@ -1,5 +1,5 @@
 'use strict';
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var xml = function() {
     var jstoxml = require('jstoxml');

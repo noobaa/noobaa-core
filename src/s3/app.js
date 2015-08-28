@@ -1,7 +1,7 @@
 'use strict';
 
-var Q = require('q');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var P = require('../util/promise');
+var dbg = require('../util/debug_module')(__filename);
 var s3_util = require('../util/s3_utils');
 var express = require('express');
 
@@ -51,7 +51,7 @@ function s3app(params) {
     });
     app.use(function(req, res, next) {
 
-        return Q.fcall(function() {
+        return P.fcall(function() {
 
                 dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'method:', req.method, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
                 var authenticated_request = false;
@@ -89,7 +89,7 @@ function s3app(params) {
                     //      dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization || req.query.Signature);
                     //  }
 
-                    return Q.fcall(function() {
+                    return P.fcall(function() {
                         return controllers.is_system_client_exists(req.access_key);
                     }).then(function(is_exists) {
                         if (!is_exists) {

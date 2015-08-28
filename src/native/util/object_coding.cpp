@@ -14,7 +14,7 @@ NAN_MODULE_INIT(ObjectCoding::setup)
     Nan::SetPrototypeMethod(tpl, "encode", ObjectCoding::encode);
     Nan::SetPrototypeMethod(tpl, "decode", ObjectCoding::decode);
     auto func = Nan::GetFunction(tpl).ToLocalChecked();
-    _ctor.Reset(tpl->GetFunction());
+    _ctor.Reset(func);
     NAN_SET(target, name, func);
 }
 

@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 
 require('./nb_util');
 require('./nb_api');
@@ -420,7 +420,7 @@ nb_console.controller('OverviewCtrl', [
                     link.download = '';
                     link.href = url;
                     link.click();
-                    return Q.delay(2000);
+                    return P.delay(2000);
                 }).then(function() {
                     $window.document.body.removeChild(link);
                 });
@@ -1140,7 +1140,7 @@ nb_console.controller('BucketViewCtrl', [
                     link.href = url;
                     $window.document.body.appendChild(link);
                     link.click();
-                    return Q.delay(2000);
+                    return P.delay(2000);
                 }).then(function() {
                     $window.document.body.removeChild(link);
                 });
@@ -1158,7 +1158,6 @@ nb_console.controller('FileViewCtrl', [
         nbClient, nbSystem, nbFiles, nbNodes, nbHashRouter, nbModal) {
         $scope.nav.active = 'bucket';
         $scope.nav.reload_view = reload_view;
-        $scope.download = download;
         $scope.play = play;
         $scope.parts_num_pages = 0;
         $scope.parts_page_size = 10;
@@ -1216,20 +1215,9 @@ nb_console.controller('FileViewCtrl', [
                 .then(function(res) {
                     $scope.file = res;
 
-                    // TODO take address from system
-                    var rest_address =
-                        ($location.protocol() === 'https') ?
-                        'https://localhost:5006' :
-                        -'http://localhost:5005';
-                    console.log('rest_addres', rest_address);
-                    $scope.download_url = $sce.trustAsResourceUrl(
-                        rest_address + '/' +
-                        $routeParams.bucket_name + '/' +
-                        $routeParams.file_name + '?download=1');
-
                     //now we get s3 rest signed url
                     console.log('url', $scope.file.url, $sce.trustAsResourceUrl($scope.file.url));
-                    $scope.play_url = $sce.trustAsResourceUrl($scope.file.url);
+                    $scope.file_url = $sce.trustAsResourceUrl($scope.file.url);
 
                     // TODO handle file parts pages
                     $scope.parts_num_pages = 9;
@@ -1252,16 +1240,6 @@ nb_console.controller('FileViewCtrl', [
             return nbFiles.list_file_parts(params)
                 .then(function(res) {
                     $scope.parts = res.parts;
-                });
-        }
-
-        function download() {
-            return nbFiles.download_file($routeParams.bucket_name, $scope.file)
-                .then(function(tx) {
-                    $scope.dl = tx;
-                    tx.promise.then(null, function() {
-                        $scope.dl = null;
-                    });
                 });
         }
 

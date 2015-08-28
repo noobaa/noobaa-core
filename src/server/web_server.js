@@ -11,10 +11,9 @@ require('heapdump');
 
 // important - dot settings should run before any require() that might use dot
 // or else the it will get mess up (like the email.js code)
-var dot_engine = require('noobaa-util/dot_engine');
+var dot_engine = require('../util/dot_engine');
 var _ = require('lodash');
-var Q = require('q');
-require('../util/bluebird_hijack_q');
+var P = require('../util/promise');
 var path = require('path');
 var http = require('http');
 var https = require('https');
@@ -30,13 +29,12 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var util = require('util');
 var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
-var mongoose_logger = require('noobaa-util/mongoose_logger');
+var dbg = require('../util/debug_module')(__filename);
+var mongoose_logger = require('../util/mongoose_logger');
 //var s3app = require('../s3/app');
 var pem = require('../util/pem');
 var multer = require('multer');
 var fs = require('fs');
-var done_upgrade_file_upload = false;
 
 //if (!process.env.PORT) {
 console.log('loading .env file ( no foreman ;)');
@@ -60,8 +58,8 @@ if (debug_mode) {
 mongoose.connection.once('open', function() {
     // call ensureIndexes explicitly for each model
     mongoose_connected = true;
-    return Q.all(_.map(mongoose.modelNames(), function(model_name) {
-        return Q.npost(mongoose.model(model_name), 'ensureIndexes');
+    return P.all(_.map(mongoose.modelNames(), function(model_name) {
+        return P.npost(mongoose.model(model_name), 'ensureIndexes');
     }));
 });
 
@@ -168,11 +166,11 @@ var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
 var https_server;
 
-Q.fcall(function() {
-        return Q.ninvoke(http_server, 'listen', http_port);
+P.fcall(function() {
+        return P.ninvoke(http_server, 'listen', http_port);
     })
     .then(function() {
-        return Q.nfcall(pem.createCertificate, {
+        return P.nfcall(pem.createCertificate, {
             days: 365 * 100,
             selfSigned: true
         });
@@ -182,7 +180,7 @@ Q.fcall(function() {
             key: cert.serviceKey,
             cert: cert.certificate
         }, app);
-        return Q.ninvoke(https_server, 'listen', https_port);
+        return P.ninvoke(https_server, 'listen', https_port);
     })
     .then(function() {
         dbg.log('Web Server ports: http', http_port, 'https', https_port);
@@ -234,36 +232,33 @@ function page_context(req) {
     };
 }
 
-app.use('/upgrade', multer({
-    dest: '/tmp',
-    rename: function(fieldname, filename) {
-        return Date.now() + filename;
-    },
-    onFileUploadStart: function(file) {
-        dbg.log0(file.originalname + ' is starting ...');
-    },
-    onFileUploadComplete: function(file) {
-        dbg.log0(file.fieldname + ' uploaded to  ' + file.path);
-        done_upgrade_file_upload = true;
-    }
-}));
-
-
-app.post('/upgrade', function(req, res) {
-    if (done_upgrade_file_upload === true) {
-        dbg.log0('Uploaded to ', req.files.upgrade_file.path, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
+app.post('/upgrade',
+    multer({
+        storage: multer.diskStorage({
+            destination: function(req, file, cb) {
+                cb(null, '/tmp');
+            },
+            filename: function(req, file, cb) {
+                dbg.log0('UPGRADE upload', file);
+                cb(null, 'nb_upgrade_' + Date.now() + '_' + file.originalname);
+            }
+        })
+    })
+    .single('upgrade_file'),
+    function(req, res) {
+        var upgrade_file = req.file;
+        dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
         var stdout = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
         var stderr = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
         var spawn = require('child_process').spawn;
-        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + req.files.upgrade_file.path + ' &');
-        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh', 'from_file', req.files.upgrade_file.path], {
+        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path + ' &');
+        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh', 'from_file', upgrade_file.path], {
             detached: true,
             stdio: ['ignore', stdout, stderr],
             cwd: '/tmp'
         });
         res.end('<html><head><meta http-equiv="refresh" content="60;url=/console/" /></head>Upgrading. You will be redirected back to the upgraded site in 60 seconds.');
-    }
-});
+    });
 
 app.get('/console/*', function(req, res) {
     return res.render('console.html', page_context(req));

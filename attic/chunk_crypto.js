@@ -1,7 +1,7 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var Q = require('q');
+var P = require('../src/util/promise');
 var crypto = require('crypto');
 var subtle_crypto = global && global.crypto && global.crypto.subtle;
 if (subtle_crypto) {
@@ -33,7 +33,7 @@ module.exports = {
  */
 function encrypt_chunk(plain_buffer, crypt_info) {
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
         return digest_hash_base64(crypt_info.hash_type, plain_buffer);
 
     }).then(function(hash_val) {
@@ -99,7 +99,7 @@ function encrypt_chunk(plain_buffer, crypt_info) {
 function decrypt_chunk(encrypted_buffer, crypt_info) {
     var plain_buffer;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
         // WebCrypto optimization
         // the improvement is drastic in supported browsers

@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var util = require('util');
 var stream = require('stream');
 var js_utils = require('./js_utils');
@@ -36,7 +36,7 @@ util.inherits(CoalesceStream, stream.Transform);
 CoalesceStream.prototype._transform = function(data, encoding, callback) {
     var self = this;
     // console.log('coalesce', self._pending.length, data);
-    var data_promise = _.isArray(data) ? Q.all(data) : Q.when(data);
+    var data_promise = _.isArray(data) ? P.all(data) : P.when(data);
     data_promise.then(function(data_in) {
         // console.log('coalesce', self._pending.length, data_in);
         self._pending = js_utils.append_buffer_or_array(self._pending, data_in);

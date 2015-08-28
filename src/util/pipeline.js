@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 
 
 module.exports = Pipeline;
@@ -18,7 +18,7 @@ module.exports = Pipeline;
 function Pipeline(source_stream) {
     this._last = source_stream;
     this._queue = [source_stream];
-    this._defer = Q.defer();
+    this._defer = P.defer();
 }
 
 Pipeline.prototype.pipe = function(next) {

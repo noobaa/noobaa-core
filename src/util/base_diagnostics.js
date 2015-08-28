@@ -12,7 +12,7 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var fs = require('fs');
 var mkdirp = require('mkdirp');
 var promise_utils = require('../util/promise_utils');
@@ -22,7 +22,7 @@ var config = require('../../config.js');
 var TMP_WORK_DIR = '/tmp/diag';
 
 function collect_basic_diagnostics() {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return promise_utils.promised_spawn('rm', ['-rf', TMP_WORK_DIR], process.cwd(), true);
         })
         .then(function() {
@@ -50,11 +50,11 @@ function collect_basic_diagnostics() {
 }
 
 function write_agent_diag_file(data) {
-    return Q.nfcall(fs.writeFile, TMP_WORK_DIR + '/from_agent_diag.tgz', data);
+    return P.nfcall(fs.writeFile, TMP_WORK_DIR + '/from_agent_diag.tgz', data);
 }
 
 function pack_diagnostics(dst) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return promise_utils.promised_exec('tar -zcvf ' + dst + ' ' + TMP_WORK_DIR + '/*');
         })
         .then(function() {
@@ -72,18 +72,18 @@ function pack_diagnostics(dst) {
 
 //Archive the current diagnostics pack, save to
 function archive_diagnostics_pack(dst) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return mkdirp.sync(config.central_stats.previous_diag_packs_dir);
         })
         .then(function() {
-            return Q.nfcall(fs.readdir, config.central_stats.previous_diag_packs_dir);
+            return P.nfcall(fs.readdir, config.central_stats.previous_diag_packs_dir);
         })
         .then(function(files) {
             //Check if current number of archived packs exceeds the max
             if (files.length === config.central_stats.previous_diag_packs_count) {
                 //Delete the oldest pack
                 var sorted_files = _.sortByOrder(files);
-                return Q.nfcall(fs.unlink, config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
+                return P.nfcall(fs.unlink, config.central_stats.previous_diag_packs_dir + '/' + sorted_files[0]);
             } else {
                 return;
             }

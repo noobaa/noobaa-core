@@ -3,7 +3,7 @@
 require('../util/panic');
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var fs = require('fs');
 var path = require('path');
 var util = require('util');
@@ -13,9 +13,7 @@ var argv = require('minimist')(process.argv);
 var size_utils = require('../util/size_utils');
 var api = require('../api');
 var client_streamer = require('./client_streamer');
-var dbg = require('noobaa-util/debug_module')(__filename);
-
-Q.longStackSupport = true;
+var dbg = require('../util/debug_module')(__filename);
 
 
 /**
@@ -39,7 +37,7 @@ function ClientCLI(params) {
 ClientCLI.prototype.init = function() {
     var self = this;
 
-    return Q.nfcall(fs.readFile, 'agent_conf.json')
+    return P.nfcall(fs.readFile, 'agent_conf.json')
         .then(function(data) {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
@@ -103,7 +101,7 @@ ClientCLI.prototype.init = function() {
 ClientCLI.prototype.load = function() {
     var self = this;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             var auth_params = _.pick(self.params,
                 'email', 'password', 'system', 'role');
             dbg.log1('create auth', auth_params);
@@ -130,8 +128,8 @@ ClientCLI.prototype.upload = function(file_path) {
     var self = this;
     var key = path.basename(file_path) + '_' + Date.now();
 
-    return Q.fcall(function() {
-            return Q.nfcall(fs.stat, file_path);
+    return P.fcall(function() {
+            return P.nfcall(fs.stat, file_path);
         })
         .then(function(stats) {
             return self.client.object_driver_lazy().upload_stream({
@@ -159,7 +157,7 @@ ClientCLI.prototype.upload = function(file_path) {
  *
  */
 ClientCLI.prototype.download = function(key) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             // ...
         })
         .then(function() {
@@ -184,7 +182,7 @@ ClientCLI.prototype.download = function(key) {
 ClientCLI.prototype.del = function(key) {
     var self = this;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return self.client.object.delete_object({
                 bucket: self.params.bucket,
                 key: key
@@ -208,7 +206,7 @@ ClientCLI.prototype.del = function(key) {
 ClientCLI.prototype.sys = function() {
     var self = this;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return self.client.system.read_system();
         })
         .then(function(res) {
@@ -267,7 +265,7 @@ ClientCLI.prototype.sys = function() {
 ClientCLI.prototype.list_objects = function(key) {
     var self = this;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return self.client.object.list_objects({
                 bucket: self.params.bucket
             });
@@ -298,7 +296,7 @@ ClientCLI.prototype.list_objects = function(key) {
 ClientCLI.prototype.list_nodes = function() {
     var self = this;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return self.client.node.list_nodes({});
         })
         .then(function(res) {
@@ -362,7 +360,7 @@ ClientCLI.prototype.object_maps = function(key) {
 ClientCLI.prototype.node_maps = function(node_name) {
     var self = this;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return self.client.node.read_node_maps({
                 name: node_name
             });
@@ -411,7 +409,7 @@ ClientCLI.prototype.write_block = function(ip, port, file_name) {
         return;
     }
 
-    return Q.nfcall(fs.readFile, file_name)
+    return P.nfcall(fs.readFile, file_name)
         .then(function(buffer) {
             var address = 'http://' + ip + ':' + port;
             var block_id = 'TEST-' + path.basename(file_name);
@@ -448,7 +446,7 @@ ClientCLI.prototype.read_block = function(ip, port, file_name) {
         return;
     }
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             var address = 'http://' + ip + ':' + port;
             var block_id = 'TEST-' + path.basename(file_name);
             console.log('read_block', block_id, address);

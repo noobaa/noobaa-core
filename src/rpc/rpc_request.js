@@ -4,7 +4,7 @@ module.exports = RpcRequest;
 
 var _ = require('lodash');
 // var zlib = require('zlib');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  *

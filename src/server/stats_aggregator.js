@@ -20,14 +20,14 @@ var stats_aggregator = {
 module.exports = stats_aggregator;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var request = require('request');
 var formData = require('form-data');
-var util = require('util');
+// var util = require('util');
 var db = require('./db');
 var promise_utils = require('../util/promise_utils');
 var histogram = require('../util/histogram');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var system_server = require('./system_server');
 var bucket_server = require('./bucket_server');
@@ -76,7 +76,7 @@ function get_systems_stats(req) {
     sys_stats.version = process.env.CURRENT_VERSION || 'Unknown';
     sys_stats.agent_version = process.env.AGENT_VERSION || 'Unknown';
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return cluster_server.get_cluster_id();
         })
         .then(function(clusterid) {
@@ -90,8 +90,8 @@ function get_systems_stats(req) {
                 sys_stats.systems.push(_.cloneDeep(SINGLE_SYS_DEFAULTS));
             }
             //Per each system fill out the needed info
-            return Q.all(_.map(res.systems, function(sys, i) {
-                return Q.fcall(function() {
+            return P.all(_.map(res.systems, function(sys, i) {
+                return P.fcall(function() {
                         return tier_server.list_tiers({
                             system: sys,
                         });
@@ -151,14 +151,14 @@ var NODES_STATS_DEFAULTS = {
 function get_nodes_stats(req) {
     var nodes_stats = _.cloneDeep(NODES_STATS_DEFAULTS);
     var nodes_histo = get_empty_nodes_histo();
-    return Q.fcall(function() {
+    return P.fcall(function() {
             //Get ALL systems
             return system_server.list_systems_int(true, true);
         })
         .then(function(res) {
             //Per each system fill out the needed info
-            return Q.all(_.map(res.systems, function(sys, i) {
-                    return Q.fcall(function() {
+            return P.all(_.map(res.systems, function(sys, i) {
+                    return P.fcall(function() {
                         return node_server.list_nodes_int({}, sys.id);
                     });
                 }))
@@ -217,7 +217,7 @@ function get_all_stats(req) {
     };
 
     dbg.log2('SYSTEM_SERVER_STATS_AGGREGATOR:', 'BEGIN');
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return get_support_account_id();
         })
         .then(function() {
@@ -295,11 +295,13 @@ function get_support_account_id() {
         });
 }
 
+send_stats_payload; // lint unused bypass
+
 function send_stats_payload(payload) {
     var form = new formData();
     form.append('phdata', JSON.stringify(payload));
 
-    return Q.ninvoke(request, 'post', {
+    return P.ninvoke(request, 'post', {
             url: config.central_stats.central_listener + '/phdata',
             formData: form,
             rejectUnauthorized: false,
@@ -311,8 +313,8 @@ function send_stats_payload(payload) {
         .then(null, function(err) {
             dbg.log0('Phone Home data send failed', err, err.stack());
         });
-
 }
+
 
 function get_empty_nodes_histo() {
     //TODO: Add histogram for limit, once implemented
@@ -379,7 +381,7 @@ if ((config.central_stats.send_stats !== 'true') &&
 
         //Run the system statistics gatheting
         run_batch: function() {
-            Q.fcall(function() {
+            P.fcall(function() {
                     return get_all_stats({});
                 })
                 .then(function(payload) {

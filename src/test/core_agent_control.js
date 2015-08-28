@@ -4,9 +4,9 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var Agent = require('../agent/agent');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('../util/debug_module')(__filename);
 
 var agntCtlConfig = {
     use_local: true,
@@ -76,8 +76,8 @@ function use_remote_agents() {
 
 function create_agent(howmany) {
     var count = howmany || 1;
-    return Q.all(_.times(count, function(i) {
-        return Q.fcall(function() {
+    return P.all(_.times(count, function(i) {
+        return P.fcall(function() {
                 var agent = new Agent({
                     address: 'ws://localhost:' + agntCtlConfig.local_conf.utilitest.http_port(),
                     node_name: 'node' + (_num_allocated() + 1) + '_' + (Date.now() % 100000),
@@ -98,7 +98,7 @@ function create_agent(howmany) {
 }
 
 function cleanup_agents() {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return stop_all_agents();
         })
         .then(function() {
@@ -113,7 +113,7 @@ function cleanup_agents() {
 function start_agent(node_name) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         !agntCtlConfig.allocated_agents[node_name].started) {
-        return Q.fcall(function() {
+        return P.fcall(function() {
                 return agntCtlConfig.allocated_agents[node_name].agent.start();
             })
             .then(function() {
@@ -121,13 +121,13 @@ function start_agent(node_name) {
             });
     }
 
-    return Q.reject('No node_name supplied');
+    return P.reject('No node_name supplied');
 }
 
 function stop_agent(node_name) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
-        return Q.fcall(function() {
+        return P.fcall(function() {
                 return agntCtlConfig.allocated_agents[node_name].agent.stop();
             })
             .then(function() {
@@ -135,11 +135,11 @@ function stop_agent(node_name) {
             });
     }
 
-    return Q.reject('No node_name supplied');
+    return P.reject('No node_name supplied');
 }
 
 function start_all_agents() {
-    return Q.all(_.map(agntCtlConfig.allocated_agents,
+    return P.all(_.map(agntCtlConfig.allocated_agents,
         function(data, id) {
             if (data.started === false) {
                 return start_agent(id);
@@ -148,7 +148,7 @@ function start_all_agents() {
 }
 
 function stop_all_agents() {
-    return Q.all(_.map(agntCtlConfig.allocated_agents,
+    return P.all(_.map(agntCtlConfig.allocated_agents,
         function(data, id) {
             if (data.started === true) {
                 return stop_agent(id);
@@ -172,11 +172,11 @@ function get_agents_list() {
  */
 function read_block(node_name, block_id) {
     if (true) {
-        return Q.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
+        return P.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
     }
 
     if (!block_id) {
-        return Q.reject('No block_id supplied');
+        return P.reject('No block_id supplied');
     }
 
     var req = {
@@ -185,21 +185,21 @@ function read_block(node_name, block_id) {
 
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
-        return Q.fcall(function() {
+        return P.fcall(function() {
             return agntCtlConfig.allocated_agents[node_name].agent.read_block(req);
         });
     }
 
-    return Q.reject('No node_name supplied');
+    return P.reject('No node_name supplied');
 }
 
 function write_block(node_name, block_id, data) {
     if (true) {
-        return Q.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
+        return P.reject('FUNCTION NOT MAINTAINED TO RECENT API CHANGES');
     }
 
     if (!block_id || !data) {
-        return Q.reject('No block_id/data supplied');
+        return P.reject('No block_id/data supplied');
     }
 
     var req = {
@@ -209,17 +209,17 @@ function write_block(node_name, block_id, data) {
 
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
-        return Q.fcall(function() {
+        return P.fcall(function() {
             return agntCtlConfig.allocated_agents[node_name].agent.write_block(req);
         });
     }
 
-    return Q.reject('No node_name supplied');
+    return P.reject('No node_name supplied');
 }
 
 function delete_blocks(node_name, block_ids) {
     if (!block_ids) {
-        return Q.reject('No block_ids supplied');
+        return P.reject('No block_ids supplied');
     }
 
     var req = {
@@ -230,17 +230,17 @@ function delete_blocks(node_name, block_ids) {
 
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
-        return Q.fcall(function() {
+        return P.fcall(function() {
             return agntCtlConfig.allocated_agents[node_name].agent.delete_blocks(req);
         });
     }
 
-    return Q.reject('No node_name supplied');
+    return P.reject('No node_name supplied');
 }
 
 function corrupt_blocks(node_name, block_ids) {
     if (!block_ids) {
-        return Q.reject('No block_ids supplied');
+        return P.reject('No block_ids supplied');
     }
 
     /*
@@ -253,23 +253,23 @@ function corrupt_blocks(node_name, block_ids) {
 
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
-        return Q.fcall(function() {
+        return P.fcall(function() {
             return agntCtlConfig.allocated_agents[node_name].agent.corrupt_blocks(block_ids);
         });
     }
 
-    return Q.reject('No node_name supplied');
+    return P.reject('No node_name supplied');
 }
 
 function list_blocks(node_name) {
     if (agntCtlConfig.allocated_agents.hasOwnProperty(node_name) &&
         agntCtlConfig.allocated_agents[node_name].started) {
-        return Q.fcall(function() {
+        return P.fcall(function() {
             return agntCtlConfig.allocated_agents[node_name].agent.list_blocks();
         });
     }
 
-    return Q.reject('No node_name supplied');
+    return P.reject('No node_name supplied');
 }
 
 /*

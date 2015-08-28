@@ -1,13 +1,13 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var util = require('util');
 var buffer_utils = require('../util/buffer_utils');
 var ice_api = require('../util/ice_api');
 var ice_lib = require('../util/ice_lib');
 var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 dbg.set_level(config.dbg_log_level);
 
@@ -109,7 +109,7 @@ function serve(rpc, peer_id) {
         var reqId = msgObj.requestId;
         var rpc_method;
 
-        return Q.fcall(function() {
+        return P.fcall(function() {
 
                 if (!msg.path) {
                     throw {
@@ -156,7 +156,7 @@ function serve(rpc, peer_id) {
 
         function send_reply(status, data, buffer) {
             var reply;
-            return Q.fcall(function() {
+            return P.fcall(function() {
 
                     dbg.log0('done manual status: ' + status + " reply: " + data + ' buffer: ' + (buffer ? buffer.length : 0) + ' req ' + reqId, 'from', msgObj.from || channel.peerId);
 

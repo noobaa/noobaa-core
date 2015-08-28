@@ -3,8 +3,7 @@
 require('../util/panic');
 
 var _ = require('lodash');
-var Q = require('q');
-require('../util/bluebird_hijack_q');
+var P = require('../util/promise');
 var fs = require('fs');
 var os = require('os');
 var path = require('path');
@@ -12,17 +11,15 @@ var util = require('util');
 var repl = require('repl');
 var mkdirp = require('mkdirp');
 var argv = require('minimist')(process.argv);
-var Semaphore = require('noobaa-util/semaphore');
+var Semaphore = require('../util/semaphore');
 var api = require('../api');
 var Agent = require('./agent');
 var fs_utils = require('../util/fs_utils');
 var promise_utils = require('../util/promise_utils');
 // var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var child_process = require('child_process');
 var s3_auth = require('aws-sdk/lib/signers/s3');
-
-Q.longStackSupport = true;
 
 setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
@@ -56,7 +53,7 @@ function AgentCLI(params) {
 AgentCLI.prototype.init = function() {
     var self = this;
 
-    return Q.nfcall(fs.readFile, 'agent_conf.json')
+    return P.nfcall(fs.readFile, 'agent_conf.json')
         .then(function(data) {
             var agent_conf = JSON.parse(data);
             dbg.log0('using agent_conf.json', util.inspect(agent_conf));
@@ -64,6 +61,8 @@ AgentCLI.prototype.init = function() {
         })
         .then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.', err);
+        })
+        .then(function() {
             _.defaults(self.params, {
                 root_path: './agent_storage/',
                 port: 0,
@@ -73,8 +72,6 @@ AgentCLI.prototype.init = function() {
                 tier: 'nodes',
                 bucket: 'files'
             });
-        })
-        .then(function() {
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
@@ -119,8 +116,8 @@ AgentCLI.prototype.init.helper = function() {
 AgentCLI.prototype.load = function() {
     var self = this;
 
-    return Q.fcall(function() {
-            return Q.nfcall(mkdirp, self.params.root_path);
+    return P.fcall(function() {
+            return P.nfcall(mkdirp, self.params.root_path);
         })
         .then(function() {
             return self.hide_storage_folder();
@@ -130,10 +127,11 @@ AgentCLI.prototype.load = function() {
             // TODO really continue on error?
         })
         .then(function() {
-            return Q.nfcall(fs.readdir, self.params.root_path);
+            dbg.log0('root_path', self.params.root_path);
+            return P.nfcall(fs.readdir, self.params.root_path);
         })
         .then(function(names) {
-            return Q.all(_.map(names, function(node_name) {
+            return P.all(_.map(names, function(node_name) {
                 return self.start(node_name);
             }));
         })
@@ -158,11 +156,11 @@ AgentCLI.prototype.hide_storage_folder = function() {
         current_path = current_path.replace('./', '');
 
         //hiding storage folder
-        return Q.nfcall(child_process.exec, 'attrib +H ' + current_path)
+        return P.nfcall(child_process.exec, 'attrib +H ' + current_path)
             .then(function() {
                 //Setting system full permissions and remove builtin users permissions.
                 //TODO: remove other users
-                return Q.nfcall(child_process.exec,
+                return P.nfcall(child_process.exec,
                     'icacls ' + current_path +
                     ' /t' +
                     ' /grant:r administrators:(oi)(ci)F' +
@@ -226,9 +224,9 @@ AgentCLI.prototype.create = function() {
             }
         })
         .then(function() {
-            return Q.nfcall(mkdirp, node_path);
+            return P.nfcall(mkdirp, node_path);
         }).then(function() {
-            return Q.nfcall(fs.writeFile, token_path, self.create_node_token);
+            return P.nfcall(fs.writeFile, token_path, self.create_node_token);
         })
         .then(function() {
             return self.start(node_name);
@@ -255,7 +253,7 @@ AgentCLI.prototype.create.helper = function() {
 AgentCLI.prototype.create_some = function(n) {
     var self = this;
     var sem = new Semaphore(5);
-    return Q.all(_.times(n, function() {
+    return P.all(_.times(n, function() {
         return sem.surround(function() {
             return self.create();
         });
@@ -288,7 +286,7 @@ AgentCLI.prototype.start = function(node_name) {
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port);
     }
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
         return promise_utils.retry(100, 1000, 1000, agent.start.bind(agent));
     }).then(function(res) {
         dbg.log0('agent started', node_name);

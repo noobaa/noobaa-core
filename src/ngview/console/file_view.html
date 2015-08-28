@@ -76,35 +76,7 @@
 
         <button class="btn btn-primary btn-material-teal btn-fab mdi-av-play-arrow pull-right" ng-click="play()" rel="tooltip" title="Open file content for streaming / preview..." data-placement="top"></button>
 
-        <div class="pull-right" style="margin-right: 15px">
-
-            <div ng-if="!dl">
-                <button ng-if="!dl" class="btn btn-warning btn-fab mdi-file-file-download" ng-click="download()" rel="tooltip" title="Click to start downloading..." data-placement="top"></button>
-            </div>
-
-            <div ng-if="dl && !dl.done" class="Xdropdown dropup">
-                <button class="btn {{dl.error && 'btn-danger' || 'btn-primary'}} btn-fab dropdown-toggle" data-toggle="dropdown">
-                    <span style="font-size: 14px; line-height: 36px">{{dl.progress.toFixed(0)}}%</span>
-                    </span>
-                </button>
-                <ul class="dropdown-menu pull-right well" style="Xpadding: 15px; width: auto">
-                    <li style="white-space: nowrap">{{dl.name}}</li>
-                    <li>
-                        <div class="progress" style="margin: 7px 0 0 0">
-                            <div class="progress-bar" role="progressbar" aria-valuenow="{{dl.progress}}" aria-valuemin="0" aria-valuemax="100" style="width: {{dl.progress}}%; Xbackground-color: black">
-                            </div>
-                        </div>
-                    </li>
-                    <li>{{human_size(dl.size)}} {{dl.content_type}}</li>
-                    <li>{{tx.error}}</li>
-                </ul>
-            </div>
-
-            <div ng-if="dl && dl.done">
-                <a class="btn btn-success btn-fab mdi-content-save animated bounce" ng-href="{{dl.url}}" ng-attr-download="{{file.name}}" rel="tooltip" title="Click to save the downloaded file..." data-placement="top"></a>
-            </div>
-
-        </div>
+        <a class="btn btn-warning btn-fab mdi-file-file-download pull-right" style="margin-right: 15px" href="{{file_url}}" download="{{file.name}}" rel="tooltip" title="Click to start downloading..." data-placement="top"></a>
 
     </div>
 

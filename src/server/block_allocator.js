@@ -2,11 +2,11 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var moment = require('moment');
 var db = require('./db');
 var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 
 module.exports = {
@@ -86,7 +86,7 @@ function update_tier_alloc_nodes(system, tier) {
 
     // cache the nodes for 1 minutes and then refresh
     if (info.last_refresh >= moment().subtract(1, 'minute').toDate()) {
-        return Q.resolve(info.nodes);
+        return P.resolve(info.nodes);
     }
 
     if (info.promise) return info.promise;

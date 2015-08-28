@@ -1,11 +1,11 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var WS = require('ws');
 var util = require('util');
 var buffer_utils = require('../util/buffer_utils');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 module.exports = SimpleWS;
 
@@ -62,7 +62,7 @@ function SimpleWS(options) {
  */
 SimpleWS.prototype.send = function(data) {
     var self = this;
-    return Q.fcall(function() {
+    return P.fcall(function() {
         if (self._state !== STATE_READY) {
             dbg.warn('WS NOT READY', self._name, self._state);
             throw new Error('WS NOT READY');
@@ -169,7 +169,7 @@ SimpleWS.prototype._sendHandshake = function() {
     var self = this;
     dbg.log0('WS HANDSHAKE', self._name);
     var createFunc = self._options.handshake && self._options.handshake.create || noop;
-    Q.fcall(createFunc, self)
+    P.fcall(createFunc, self)
         .then(function(data) {
             self._state = STATE_HANDSHAKE;
             self._sendData({
@@ -194,7 +194,7 @@ SimpleWS.prototype._acceptHandshake = function(msg) {
     }
     dbg.log0('WS HANDSHAKE ACCEPT', self._name);
     var acceptFunc = self._options.handshake && self._options.handshake.accept || noop;
-    Q.fcall(acceptFunc, self, msg.data)
+    P.fcall(acceptFunc, self, msg.data)
         .then(function() {
             self._state = STATE_READY;
         }, function(err) {
@@ -221,7 +221,7 @@ SimpleWS.prototype._sendKeepalive = function() {
     var self = this;
     dbg.log('WS KEEPALIVE', self._name);
     var createFunc = self._options.keepalive.create || noop;
-    Q.fcall(createFunc, self)
+    P.fcall(createFunc, self)
         .then(function(data) {
             clearTimeout(self._keepalive_timeout);
             self._keepalive_timeout = null;
@@ -248,7 +248,7 @@ SimpleWS.prototype._acceptKeepalive = function(msg) {
     }
     dbg.log0('WS KEEPALIVE ACCEPT', self._name);
     var acceptFunc = self._options.keepalive && self._options.keepalive.accept || noop;
-    Q.fcall(acceptFunc, self, msg.data)
+    P.fcall(acceptFunc, self, msg.data)
         .then(null, function(err) {
             dbg.error('WS HANDSHAKE ACCEPT ERROR', self._name);
             self._onWsError(msg._ws, err);
@@ -268,7 +268,7 @@ SimpleWS.prototype._acceptMessage = function(msg) {
     }
     dbg.log0('WS MESSAGE', this._name, msg.data);
     var handlerFunc = self._options.handler || noop;
-    Q.fcall(handlerFunc, self, msg.data)
+    P.fcall(handlerFunc, self, msg.data)
         .then(null, function(err) {
             dbg.error('WS MESSAGE HANDLER ERROR', self._name);
             self._onWsError(msg._ws, err);
@@ -372,7 +372,7 @@ SimpleWSServer.prototype._onConnection = function(ws) {
 
     // notify on new connection if connHandler was provided
     var connHandlerFunc = self._options.connHandler || noop;
-    Q.fcall(connHandlerFunc, simpleWS)
+    P.fcall(connHandlerFunc, simpleWS)
         .then(null, function(err) {
             dbg.log('WS SERVER CONNECTION HANDLER ERROR', err.stack || err);
             simpleWS.close();

@@ -32,7 +32,7 @@ var system_server = {
 module.exports = system_server;
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var crypto = require('crypto');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
@@ -41,7 +41,7 @@ var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
 var fs = require('fs');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 
 
@@ -55,7 +55,7 @@ function create_system(req) {
     var system_token;
     var info = _.pick(req.rpc_params, 'name');
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             if (info.name === 'demo') {
                 info.access_keys = [{
                     access_key: '123',
@@ -76,7 +76,7 @@ function create_system(req) {
                 linux_agent_installer: 'noobaa-setup'
             };
             dbg.log0('Installer Resources:', info.resources);
-            return Q.when(db.System.create(info))
+            return P.when(db.System.create(info))
                 .then(null, db.check_already_exists(req, 'system'));
         })
         .then(function(system_arg) {
@@ -90,7 +90,7 @@ function create_system(req) {
             });
 
             // TODO if role create fails, we should recover the role from the system owner
-            return Q.when(db.Role.create({
+            return P.when(db.Role.create({
                     account: req.account.id,
                     system: system.id,
                     role: 'admin',
@@ -128,12 +128,12 @@ function create_system(req) {
                 "secret_key": info.access_keys[0].secret_key
             };
             if (process.env.ON_PREMISE === 'true') {
-                return Q.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
+                return P.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
             }
         })
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
-                return Q.fcall(function() {
+                return P.fcall(function() {
                         return promise_utils.promised_spawn(
                             'supervisorctl', ['restart', 's3rver'], process.cwd()
                         );
@@ -148,7 +148,7 @@ function create_system(req) {
         //
         // .then(function() {
         //     if (process.env.ON_PREMISE) {
-        //         return Q.Promise(function(resolve, reject) {
+        //         return P.Promise(function(resolve, reject) {
         //
         //             var build_params = [
         //                 '--access_key=' + info.access_keys[0].access_key,
@@ -206,7 +206,7 @@ function create_system(req) {
  *
  */
 function read_system(req) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
         var by_system_id = {
             system: req.system.id
         };
@@ -215,7 +215,7 @@ function read_system(req) {
             deleted: null,
         };
 
-        return Q.all([
+        return P.all([
             // roles
             db.Role.find(by_system_id).populate('account').exec(),
 
@@ -313,7 +313,7 @@ function read_system(req) {
 
 function update_system(req) {
     var info = _.pick(req.rpc_params, 'name');
-    return Q.when(req.system.update(info).exec())
+    return P.when(req.system.update(info).exec())
         .thenResolve();
 }
 
@@ -324,7 +324,7 @@ function update_system(req) {
  *
  */
 function delete_system(req) {
-    return Q.when(
+    return P.when(
             req.system.update({
                 deleted: new Date()
             })
@@ -361,7 +361,7 @@ function list_systems_int(is_support, get_ids, account) {
         query.account = account;
     }
 
-    return Q.when(
+    return P.when(
             db.Role.find(query)
             .populate('system')
             .exec())
@@ -384,7 +384,7 @@ function list_systems_int(is_support, get_ids, account) {
  *
  */
 function add_role(req) {
-    return Q.when(
+    return P.when(
             db.Account
             .findOne({
                 email: req.rpc_params.email,
@@ -411,7 +411,7 @@ function add_role(req) {
  *
  */
 function remove_role(req) {
-    return Q.when(
+    return P.when(
             db.Account
             .findOne({
                 email: req.rpc_params.email,
@@ -515,7 +515,7 @@ function read_activity_log(req) {
     q.populate('obj', 'key');
     q.populate('account', 'email');
     q.populate('actor', 'email');
-    return Q.when(q.exec())
+    return P.when(q.exec())
         .then(function(logs) {
             logs = _.map(logs, function(log_item) {
                 var l = _.pick(log_item, 'id', 'level', 'event');
@@ -553,7 +553,7 @@ function diagnose(req) {
     dbg.log0('Recieved diag req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return diag.collect_server_diagnostics();
         })
         .then(function() {
@@ -572,7 +572,7 @@ function diagnose_with_agent(data) {
     dbg.log0('Recieved diag with agent req');
     var out_path = '/public/diagnostics.tgz';
     var inner_path = process.cwd() + '/build' + out_path;
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return diag.collect_server_diagnostics();
         })
         .then(function() {

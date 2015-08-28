@@ -1,11 +1,11 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var util = require('util');
 var dgram = require('dgram');
 var crypto = require('crypto');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var EventEmitter = require('events').EventEmitter;
 var promise_utils = require('../util/promise_utils');
 // TODO Temporary disabled CRC
@@ -120,7 +120,7 @@ UdpProtocol.prototype._sendMessageWithRetries = function(msg) {
     // check for timeout
     var now = Date.now();
     if (now > msg.startTime + msg.timeout) {
-        return Q.reject('MESSAGE TIMEOUT');
+        return P.reject('MESSAGE TIMEOUT');
     }
 
     // according to number of acks we managed to get in last attempt
@@ -132,7 +132,7 @@ UdpProtocol.prototype._sendMessageWithRetries = function(msg) {
     msg.sentAckIndex = msg.ackIndex;
 
     // wait for acks for short time
-    msg.defer = Q.defer();
+    msg.defer = P.defer();
     return msg.defer.promise.timeout((2 * self.ACK_PERIOD) + msg.channel.RTT)
         .then(null, function(err) {
             // retry on timeout
@@ -143,7 +143,7 @@ UdpProtocol.prototype._sendMessageWithRetries = function(msg) {
                 'rate', ackRate);
             // if we made no progress at all, avoid fast retry
             if (msg.ackIndex === msg.sentAckIndex) {
-                return Q.delay(Math.max(msg.timeout / 10, 2 * self.ACK_PERIOD));
+                return P.delay(Math.max(msg.timeout / 10, 2 * self.ACK_PERIOD));
             }
         })
         .then(function() {
@@ -193,7 +193,7 @@ UdpProtocol.prototype._handleDataPacket = function(channel, packet) {
     if (!msg.done && msg.arrivedPackets === msg.numPackets) {
         msg.done = now;
         msg.buffer = Buffer.concat(msg.packets);
-        Q.fcall(this._sendAckPacket.bind(this, msg))
+        P.fcall(this._sendAckPacket.bind(this, msg))
             .fin(this._completedMessage.bind(this, msg));
     } else {
         this._joinAckPacket(msg);

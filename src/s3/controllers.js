@@ -2,12 +2,12 @@
 require('../util/panic');
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var util = require('util');
 var md5_stream = require('../util/md5_stream');
 var mime = require('mime');
 var api = require('../api');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var crypto = require('crypto');
 var xml2js = require('xml2js');
@@ -69,7 +69,7 @@ module.exports = function(params) {
         var md5_calc = new md5_stream();
         var part_md5 = '0';
 
-        Q.fcall(function() {
+        P.fcall(function() {
                 var upload_part_number = parseInt(req.query.partNumber, 10);
                 var bucket_name = req.bucket;
                 var upload_id = req.query.uploadId;
@@ -124,7 +124,7 @@ module.exports = function(params) {
     };
 
     var listPartsResult = function(req, res) {
-        Q.fcall(function() {
+        P.fcall(function() {
             var template;
             var upload_id = req.query.uploadId;
             var max_parts = req.query['max-parts'] || 1000;
@@ -204,18 +204,18 @@ module.exports = function(params) {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
                             return list_objects_with_prefix(from_object, '/', src_bucket, access_key)
                                 .then(function(objects_and_folders) {
-                                    return Q.all(_.times(objects_and_folders.objects.length, function(i) {
+                                    return P.all(_.times(objects_and_folders.objects.length, function(i) {
                                         dbg.log0('copy inner objects:', objects_and_folders.objects[i].key, objects_and_folders.objects[i].key.replace(from_object, to_object));
                                         return copy_object(objects_and_folders.objects[i].key,
                                             objects_and_folders.objects[i].key.replace(from_object, to_object),
                                             src_bucket, target_bucket, access_key);
                                     })).then(function() {
                                         //                                dbg.log0('folders......',_.keys(objects_and_folders.folders));
-                                        return Q.all(_.each(_.keys(objects_and_folders.folders), function(folder) {
+                                        return P.map(_.keys(objects_and_folders.folders), function(folder) {
                                             dbg.log0('copy inner folders:', folder, folder.replace(from_object, to_object));
                                             return copy_object(folder, folder.replace(from_object, to_object),
                                                 src_bucket, target_bucket, access_key);
-                                        }));
+                                        });
                                     });
                                 });
                         }
@@ -346,7 +346,7 @@ module.exports = function(params) {
     var uploadObject = function(req, res, file_key_name) {
 
         var md5 = 0;
-        Q.fcall(function() {
+        P.fcall(function() {
                 var access_key = extract_access_key(req);
                 dbg.log0('uploadObject: upload', file_key_name);
 
@@ -428,7 +428,7 @@ module.exports = function(params) {
             return buildXmlResponse(res, 401, template);
         },
         update_system_auth: function(req) {
-            // return Q.fcall(function() {
+            // return P.fcall(function() {
             //     if (clients[req.access_key].client.options.auth_token.indexOf('auth_token') > 0) {
             //         //update signature and string_to_sign
             //         //TODO: optimize this part. two converstions per request is a bit too much.
@@ -457,14 +457,14 @@ module.exports = function(params) {
             // });
         },
         is_system_client_exists: function(access_key) {
-            return Q.fcall(function() {
+            return P.fcall(function() {
                 dbg.log0('check if system exists for key:', access_key, _.has(clients, access_key));
                 return _.has(clients, access_key);
             });
         },
         add_new_system_client: function(req) {
             dbg.log0('add_new_system_client', req.access_key);
-            return Q.fcall(function() {
+            return P.fcall(function() {
                 if (_.isEmpty(req.access_key)) {
                     dbg.log0('Exiting as there is no credential information.');
                     throw new Error("No credentials");
@@ -647,7 +647,7 @@ module.exports = function(params) {
                     'The bucket name must be between 3 and 63 characters.');
                 return buildXmlResponse(res, 400, template);
             }
-            Q.fcall(function() {
+            P.fcall(function() {
                 dbg.log0('check if bucket exists');
                 return isBucketExists(bucketName, s3_info)
                     .then(function(exists) {
@@ -848,7 +848,7 @@ module.exports = function(params) {
 
                 var file_key_name = req.params.key;
 
-                return Q.fcall(function() {
+                return P.fcall(function() {
                     dbg.log0('listing ', req.params.key, ' in bucket:', req.bucket);
                     return clients[access_key].client.object_driver_lazy().get_object_md({
                         bucket: req.bucket,
@@ -896,7 +896,7 @@ module.exports = function(params) {
 
         postMultipartObject: function(req, res) {
             var aggregated_md5 = '';
-            Q.fcall(function() {
+            P.fcall(function() {
                 var template;
                 var access_key = extract_access_key(req);
                 //init multipart upload
@@ -961,7 +961,7 @@ module.exports = function(params) {
                         var part_md5 = clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[part_number].md5;
                         aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
                         aggregated_bin_md5 = aggregated_bin_md5 + toBinary(part_md5);
-                        dbg.log0('part', part_number, ' with md5', part_md5, 'aggregated:', aggregated_bin_md5);
+                        dbg.log0('part', part_number, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
                     });
                     var digester = crypto.createHash('md5');
                     digester.update(aggregated_bin_md5);
@@ -1002,7 +1002,7 @@ module.exports = function(params) {
             dbg.log0('Attempt to delete object "%s" in bucket "%s"', key, req.bucket);
             var access_key = extract_access_key(req);
             var template;
-            Q.fcall(function() {
+            P.fcall(function() {
                 return clients[access_key].client.object.delete_object({
                     bucket: req.bucket,
                     key: key
@@ -1030,11 +1030,11 @@ module.exports = function(params) {
             var access_key = extract_access_key(req);
             var errors = [];
             var deleted = [];
-            return Q.ninvoke(xml2js, 'parseString', req.body)
+            return P.ninvoke(xml2js, 'parseString', req.body)
                 .then(function(data) {
                     var objects_to_delete = data.Delete.Object;
                     dbg.log0('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.bucket);
-                    return Q.all(_.map(objects_to_delete,function(object_to_delete) {
+                    return P.all(_.map(objects_to_delete,function(object_to_delete) {
                         dbg.log2('About to delete ',object_to_delete.Key[0]);
                         return clients[access_key].client.object.delete_object({
                             bucket: req.bucket,

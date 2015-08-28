@@ -4,8 +4,8 @@
 var util = require('util');
 var Readable = require('stream').Readable;
 var _ = require('lodash');
-var Q = require('q');
-var Semaphore = require('noobaa-util/semaphore');
+var P = require('../util/promise');
+var Semaphore = require('../util/semaphore');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
 var CoalesceStream = require('../util/coalesce_stream');
@@ -15,7 +15,7 @@ var time_utils = require('../util/time_utils');
 var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 module.exports = ObjectDriver;
 
@@ -172,7 +172,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
 
     dbg.log0('upload_stream: start', params.key, 'part number', upload_part_number,
         'sequence number', part_sequence_number);
-    return Q.fcall(function() {
+    return P.fcall(function() {
         params.source_stream._readableState.highWaterMark = 1024 * 1024;
         var pipeline = new Pipeline(params.source_stream);
 
@@ -194,10 +194,10 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
             transform: function(data) {
                 dbg.log0('upload_stream_parts: chunking', size_utils.human_offset(this.offset));
                 this.offset += data.length;
-                return Q.ninvoke(this.chunker, 'push', data);
+                return P.ninvoke(this.chunker, 'push', data);
             },
             flush: function() {
-                return Q.ninvoke(this.chunker, 'flush');
+                return P.ninvoke(this.chunker, 'flush');
             }
         }));
 
@@ -227,7 +227,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 part_sequence_number += 1;
                 this.offset += data.length;
                 dbg.log0('upload_stream_parts: encode', range_utils.human_range(part));
-                return Q.ninvoke(object_coding, 'encode', data)
+                return P.ninvoke(object_coding, 'encode', data)
                     .then(function(chunk) {
                         part.chunk = chunk;
                         dbg.log0('upload_stream_parts: encode', range_utils.human_range(part),
@@ -300,7 +300,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
             transform_parallel: function(part) {
                 var millistamp = time_utils.millistamp();
                 dbg.log1('upload_stream_parts: write', range_utils.human_range(part));
-                return Q.when(self._write_fragments(part))
+                return P.when(self._write_fragments(part))
                     .then(function() {
                         dbg.log0('upload_stream_parts: write', range_utils.human_range(part),
                             'took', time_utils.millitook(millistamp));
@@ -399,9 +399,9 @@ ObjectDriver.prototype._write_fragments = function(part) {
     var frags_map = _.indexBy(part.chunk.frags, get_frag_key);
     dbg.log2('_write_fragments: part', part);
 
-    return Q.all(_.map(part.alloc_part.frags, function(fragment) {
+    return P.map(part.alloc_part.frags, function(fragment) {
         var frag_key = get_frag_key(fragment);
-        return Q.all(_.map(fragment.blocks, function(block) {
+        return P.map(fragment.blocks, function(block) {
             return self._attempt_write_block({
                 part: part,
                 block: block,
@@ -409,8 +409,8 @@ ObjectDriver.prototype._write_fragments = function(part) {
                 frag_desc: size_utils.human_offset(part.start) + '-' + frag_key,
                 remaining_attempts: 20,
             });
-        }));
-    }));
+        });
+    });
 };
 
 
@@ -551,7 +551,7 @@ ObjectDriver.prototype._init_object_md_cache = function() {
  */
 ObjectDriver.prototype.read_entire_object = function(params) {
     var self = this;
-    return Q.Promise(function(resolve, reject) {
+    return new P(function(resolve, reject) {
         var buffers = [];
         self.open_read_stream(params)
             .on('data', function(buffer) {
@@ -638,7 +638,7 @@ ObjectReader.prototype._read = function(requested_size) {
         console.error('reader closed');
         return;
     }
-    Q.fcall(function() {
+    P.fcall(function() {
             var end = Math.min(self._end, self._pos + requested_size);
             return self._client.read_object({
                 bucket: self._bucket,
@@ -703,7 +703,7 @@ ObjectDriver.prototype.read_object = function(params) {
         pos = range.end;
     }
 
-    return Q.all(promises).then(function(buffers) {
+    return P.all(promises).then(function(buffers) {
         return Buffer.concat(_.compact(buffers));
     });
 };
@@ -783,7 +783,9 @@ ObjectDriver.prototype._read_object_range = function(params) {
     return self._object_map_cache.get(params) // get meta data on object range we want to read
         .then(function(mappings) {
             obj_size = mappings.size;
-            return Q.all(_.map(mappings.parts, self._read_object_part, self)); // get actual data from nodes
+            return P.map(mappings.parts, function(part) {
+                return self._read_object_part(part);
+            });
         })
         .then(function(parts) {
             // once all parts finish we can construct the complete buffer.
@@ -850,9 +852,9 @@ ObjectDriver.prototype._read_object_part = function(part) {
     // read the data fragments of the chunk
     var frags_by_layer = _.groupBy(part.frags, 'layer');
     var data_frags = frags_by_layer.D;
-    return Q.all(_.map(data_frags, function(fragment) {
+    return P.map(data_frags, function(fragment) {
             return self._read_fragment(part, fragment);
-        }))
+        })
         .then(function() {
             var chunk = _.pick(part.chunk, CHUNK_ATTRS);
             chunk.frags = _.map(part.frags, function(fragment) {
@@ -861,7 +863,7 @@ ObjectDriver.prototype._read_object_part = function(part) {
                 return f;
             });
             dbg.log2('_read_object_part: decode chunk', chunk);
-            return Q.ninvoke(object_coding, 'decode', chunk)
+            return P.ninvoke(object_coding, 'decode', chunk)
                 .then(function(decoded_chunk) {
                     part.buffer = decoded_chunk.data;
                     return part;

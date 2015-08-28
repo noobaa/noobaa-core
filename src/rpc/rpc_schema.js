@@ -6,7 +6,7 @@ var _ = require('lodash');
 var assert = require('assert');
 var validator = require('is-my-json-valid');
 var genfun = require('generate-function');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  * a registry for api's

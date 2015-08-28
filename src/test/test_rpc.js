@@ -4,7 +4,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var assert = require('assert');
 var RPC = require('../rpc/rpc');
 var RpcSchema = require('../rpc/rpc_schema');
@@ -203,7 +203,7 @@ describe('RPC', function() {
                         if (reply_error) {
                             throw req.rpc_error(ERROR_CODE, ERROR_MESSAGE);
                         } else {
-                            return Q.resolve(REPLY);
+                            return P.resolve(REPLY);
                         }
                     };
                     rpc.register_service(test_api, methods, {

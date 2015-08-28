@@ -61,6 +61,8 @@ AgentCLI.prototype.init = function() {
         })
         .then(null, function(err) {
             dbg.log0('cannot find configuration file. Using defaults.', err);
+        })
+        .then(function() {
             _.defaults(self.params, {
                 root_path: './agent_storage/',
                 port: 0,
@@ -70,8 +72,6 @@ AgentCLI.prototype.init = function() {
                 tier: 'nodes',
                 bucket: 'files'
             });
-        })
-        .then(function() {
             if (self.params.address) {
                 self.client.options.address = self.params.address;
             }
@@ -127,6 +127,7 @@ AgentCLI.prototype.load = function() {
             // TODO really continue on error?
         })
         .then(function() {
+            dbg.log0('root_path', self.params.root_path);
             return P.nfcall(fs.readdir, self.params.root_path);
         })
         .then(function(names) {

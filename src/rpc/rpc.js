@@ -57,6 +57,7 @@ function RPC(options) {
     this._services = {};
     this._connection_by_id = {};
     this._connection_by_address = {};
+    this._address_to_url_cache = {};
 
     options = options || {};
 
@@ -430,7 +431,11 @@ RPC.prototype.map_address_to_connection = function(address, conn) {
  */
 RPC.prototype._assign_connection = function(req, options) {
     var address = options.address || this.base_address;
-    var addr_url = url.parse(address, true);
+    var addr_url = this._address_to_url_cache[address];
+    if (!addr_url) {
+        addr_url = url.parse(address, true);
+        this._address_to_url_cache[address] = addr_url;
+    }
     var conn = this._get_connection(addr_url, req.srv);
     var rseq = conn._rpc_req_seq;
     req.connection = conn;

@@ -27,14 +27,13 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var object_utils = require('./utils/object_mapper_utils');
 var block_allocator = require('./block_allocator');
-var range_utils = require('../util/range_utils');
 var config = require('../../config.js');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -57,10 +56,10 @@ function allocate_object_parts(bucket, obj, parts) {
         })
     };
 
-    return Q.all([
+    return P.join(
 
             // Check if some of the ObjectParts already exists from previous attempts
-            Q.when(db.ObjectPart.find({
+            P.when(db.ObjectPart.find({
                     system: obj.system,
                     obj: obj.id,
                     $or: query_parts_params,
@@ -71,7 +70,7 @@ function allocate_object_parts(bucket, obj, parts) {
 
             // dedup with existing chunks by lookup of the digest of the data
             process.env.DEDUP_DISABLED !== 'true' &&
-            Q.when(db.DataChunk.find({
+            P.when(db.DataChunk.find({
                     system: obj.system,
                     digest_b64: {
                         $in: _.map(parts, function(part) {
@@ -81,7 +80,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     deleted: null,
                 })
                 .exec())
-        ])
+        )
         .spread(function(existing_parts_arg, dup_chunks) {
             existing_parts = existing_parts_arg;
             digest_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
@@ -93,7 +92,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     _.map(existing_parts, function(part) {
                         return part.chunk._id;
                     })));
-            return chunks_ids.length && Q.when(
+            return chunks_ids.length && P.when(
                 db.DataBlock.find({
                     chunk: {
                         $in: chunks_ids
@@ -120,7 +119,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 chunk.chunk_status = object_utils.analyze_chunk_status(chunk, chunk.all_blocks);
             });
 
-            return Q.all(_.map(parts, function(part, i) {
+            return P.map(parts, function(part, i) {
                 var reply_part = reply.parts[i];
                 var existing_part = _.find(existing_parts, get_part_key(part));
                 var dup_chunk = digest_to_dup_chunk[part.chunk.digest_b64];
@@ -134,7 +133,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     part.db_chunk = existing_part.chunk;
                 } else {
                     // create a new part
-                    dbg.log3('allocate_object_parts: no existing part, aclcoating new',
+                    dbg.log3('allocate_object_parts: no existing part, allocating new',
                         part.start, part.end, part.part_sequence_number);
                     if (dup_chunk) {
                         part.db_chunk = dup_chunk;
@@ -174,9 +173,12 @@ function allocate_object_parts(bucket, obj, parts) {
                 var avoid_nodes = _.map(part.db_chunk.all_blocks, function(block) {
                     return block.node._id.toString();
                 });
-                return Q.all(_.map(part.frags, function(fragment) {
+                return P.map(part.frags, function(fragment) {
                         return block_allocator.allocate_block(part.db_chunk, avoid_nodes)
                             .then(function(block) {
+                                if (!block) {
+                                    throw new Error('allocate_object_parts: no nodes for allocation');
+                                }
                                 block.layer = fragment.layer;
                                 block.frag = fragment.frag;
                                 if (fragment.layer_n) {
@@ -188,7 +190,7 @@ function allocate_object_parts(bucket, obj, parts) {
                                 new_blocks.push(block);
                                 return block;
                             });
-                    }))
+                    })
                     .then(function(new_blocks_of_chunk) {
                         dbg.log2('allocate_object_parts: part info', part,
                             'chunk', part.db_chunk,
@@ -200,7 +202,7 @@ function allocate_object_parts(bucket, obj, parts) {
                             building: true
                         });
                     });
-            }));
+            });
         })
         .then(function() {
             _.each(new_blocks, function(x) {
@@ -228,11 +230,11 @@ function allocate_object_parts(bucket, obj, parts) {
             dbg.log2('allocate_object_parts: db create parts', new_parts);
             // we send blocks and chunks to DB in parallel,
             // even if we fail, it will be ignored until someday we reclaim it
-            return Q.all([
+            return P.join(
                 // new_blocks.length && db.DataBlock.create(new_blocks),
-                new_blocks.length && Q.when(db.DataBlock.collection.insertMany(new_blocks)),
+                new_blocks.length && P.when(db.DataBlock.collection.insertMany(new_blocks)),
                 // new_chunks.length && db.DataChunk.create(new_chunks),
-                new_chunks.length && Q.when(db.DataChunk.collection.insertMany(new_chunks)),
+                new_chunks.length && P.when(db.DataChunk.collection.insertMany(new_chunks)),
                 remove_parts.length && db.ObjectPart.update({
                     _id: {
                         $in: _.map(remove_parts, '_id')
@@ -243,11 +245,11 @@ function allocate_object_parts(bucket, obj, parts) {
                     multi: true
                 })
                 .exec()
-            ]);
+            );
         })
         .then(function() {
             // return new_parts.length && db.ObjectPart.create(new_parts);
-            return new_parts.length && Q.when(db.ObjectPart.collection.insertMany(new_parts));
+            return new_parts.length && P.when(db.ObjectPart.collection.insertMany(new_parts));
         })
         .then(function() {
             dbg.log2('allocate_object_parts: DONE. parts', parts.length);
@@ -271,7 +273,7 @@ function finalize_object_parts(bucket, obj, parts) {
     var block_ids = _.flatten(_.compact(_.map(parts, 'block_ids')));
     var query_parts_params = _.map(parts, get_part_key);
 
-    return Q.all([
+    return P.join(
 
             // find parts by start offset, deleted parts are handled later
             db.ObjectPart
@@ -293,7 +295,7 @@ function finalize_object_parts(bucket, obj, parts) {
                 deleted: null
             })
             .exec()
-        ])
+        )
         .spread(function(parts_res, blocks) {
             var parts_by_start = _.groupBy(parts_res, 'start');
             chunks = _.flatten(_.map(parts, function(part) {
@@ -345,7 +347,7 @@ function finalize_object_parts(bucket, obj, parts) {
             // in case of failure to build, we suppress the error for the
             // sake of user experienceand leave it to the background worker.
             // TODO dont suppress build errors, fix them.
-            return Q.fcall(function() {
+            return P.fcall(function() {
                     return object_utils.build_chunks(chunks);
                 })
                 .timeout(config.server_finalize_build_timeout, 'finalize build timeout')
@@ -357,7 +359,7 @@ function finalize_object_parts(bucket, obj, parts) {
         .then(function() {
             var end = parts[parts.length - 1].end;
             if (end > obj.upload_size) {
-                return Q.when(db.ObjectMD.collection.updateOne({
+                return P.when(db.ObjectMD.collection.updateOne({
                         _id: obj._id
                     }, {
                         $set: {
@@ -395,7 +397,7 @@ function read_object_mappings(params) {
     var start = rng.start;
     var end = rng.end;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
             // find parts intersecting the [start,end) range
             var find = db.ObjectPart
@@ -434,7 +436,7 @@ function read_node_mappings(params) {
     var objects = {};
     var parts_per_obj_id = {};
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             var find = db.DataBlock
                 .find({
                     node: params.node.id,
@@ -510,7 +512,7 @@ function read_parts_mappings(params) {
     var chunk_ids = _.pluck(chunks, 'id');
 
     // find all blocks of the resulting parts
-    return Q.when(db.DataBlock
+    return P.when(db.DataBlock
             .find({
                 chunk: {
                     $in: chunk_ids
@@ -547,7 +549,7 @@ function read_parts_mappings(params) {
 function list_multipart_parts(params) {
     var max_parts = Math.min(params.max_parts || 50, 50);
     var marker = params.part_number_marker || 0;
-    return Q.when(db.ObjectPart.find({
+    return P.when(db.ObjectPart.find({
                 obj: params.obj.id,
                 upload_part_number: {
                     $gte: marker,
@@ -594,8 +596,8 @@ function list_multipart_parts(params) {
  *
  */
 function fix_multipart_parts(obj) {
-    return Q.all([
-            Q.fcall(function() {
+    return P.join(
+            P.fcall(function() {
                 // find part that need update of start and end offsets
                 return db.ObjectPart.find({
                         obj: obj,
@@ -620,7 +622,7 @@ function fix_multipart_parts(obj) {
             })
             .limit(1)
             .exec()
-        ])
+        )
         .spread(function(remaining_parts, last_stable_part) {
             var last_end = 0;
             var last_upload_part_number = 0;
@@ -680,7 +682,7 @@ function fix_multipart_parts(obj) {
                 }
             });
             // calling execute on bulk and handling node callbacks
-            return Q.ninvoke(bulk_update, 'execute').thenResolve(last_end);
+            return P.ninvoke(bulk_update, 'execute').thenResolve(last_end);
         });
 }
 
@@ -691,7 +693,7 @@ function fix_multipart_parts(obj) {
  * calls the agent with the delete API
  */
 function agent_delete_call(node, del_blocks) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
         var block_md = object_utils.get_block_md(del_blocks[0]);
         return server_rpc.client.agent.delete_blocks({
             blocks: _.map(del_blocks, function(block) {
@@ -714,13 +716,13 @@ function agent_delete_call(node, del_blocks) {
  */
 function delete_objects_from_agents(deleted_chunk_ids) {
     //Find the deleted data blocks and their nodes
-    Q.when(db.DataBlock
+    P.when(db.DataBlock
             .find({
                 chunk: {
                     $in: deleted_chunk_ids
                 },
                 //For now, query deleted as well as this gets executed in
-                //delete_object_mappings with Q.all along with the DataBlocks
+                //delete_object_mappings with P.all along with the DataBlocks
                 //deletion update
             })
             .populate('node')
@@ -732,7 +734,7 @@ function delete_objects_from_agents(deleted_chunk_ids) {
                 return b.node._id;
             });
 
-            return Q.all(_.map(blocks_by_node, function(blocks, node) {
+            return P.all(_.map(blocks_by_node, function(blocks, node) {
                 return agent_delete_call(node, blocks);
             }));
         });
@@ -747,7 +749,7 @@ function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
     var deleted_parts;
     var all_chunk_ids;
-    return Q.when(db.ObjectPart
+    return P.when(db.ObjectPart
             .find({
                 obj: obj.id,
                 deleted: null,
@@ -810,11 +812,11 @@ function delete_object_mappings(obj) {
             var multi_opt = {
                 multi: true
             };
-            return Q.all([
+            return P.join(
                 db.DataChunk.update(chunk_query, deleted_update, multi_opt).exec(),
                 db.DataBlock.update(block_query, deleted_update, multi_opt).exec(),
-                delete_objects_from_agents(non_referred_chunks_ids),
-            ]);
+                delete_objects_from_agents(non_referred_chunks_ids)
+            );
         });
 }
 
@@ -828,7 +830,7 @@ function delete_object_mappings(obj) {
  *
  */
 function report_bad_block(params) {
-    return Q.all([
+    return P.join(
             db.DataBlock.findById(params.block_id).exec(),
             db.ObjectPart.findOne(_.extend({
                 system: params.obj.system,
@@ -839,8 +841,8 @@ function report_bad_block(params) {
                 'upload_part_number',
                 'part_sequence_number')))
             .populate('chunk')
-            .exec(),
-        ])
+            .exec()
+        )
         .spread(function(bad_block, part) {
             if (!bad_block) {
                 dbg.error('report_bad_block: block not found', params);
@@ -860,7 +862,7 @@ function report_bad_block(params) {
             if (params.is_write) {
                 var new_block;
 
-                return Q.when(
+                return P.when(
                         db.DataBlock.find({
                             chunk: chunk,
                             deleted: null,
@@ -917,7 +919,7 @@ function chunks_and_objects_count(systemid) {
         objects_num: 0,
     };
 
-    return Q.when(
+    return P.when(
             db.DataChunk.count({
                 system: systemid,
                 deleted: null,
@@ -925,7 +927,7 @@ function chunks_and_objects_count(systemid) {
             .exec())
         .then(function(chunks) {
             res.chunks_num = chunks;
-            return Q.when(
+            return P.when(
                     db.ObjectPart.count({
 
                     })

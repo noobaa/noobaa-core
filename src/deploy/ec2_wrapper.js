@@ -1,13 +1,12 @@
 "use strict";
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var fs = require('fs');
 var util = require('util');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
 var AWS = require('aws-sdk');
-Q.longStackSupport = true;
 
 
 /**
@@ -224,7 +223,7 @@ function print_instances(instances) {
  * @return new instance public IP
  */
 function create_instance_from_ami(ami_name, region, instance_type, name) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return ec2_region_call(region, 'describeImages', {
                     Filters: [{
                         Name: 'name',
@@ -268,7 +267,7 @@ function create_instance_from_ami(ami_name, region, instance_type, name) {
 
 function add_instance_name(instid, name, region) {
     console.log('TaggingInstance', instid, 'at', region, ' with\'', name, '\'');
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return ec2_region_call(region, 'createTags', {
                 Resources: [instid],
                 Tags: [{
@@ -283,7 +282,7 @@ function add_instance_name(instid, name, region) {
 }
 
 function get_ip_address(instid) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return describe_instance(instid);
         })
         .then(function(res) {
@@ -330,7 +329,7 @@ function verify_demo_system(ip) {
         sslEnabled: false,
     });
 
-    return Q.ninvoke(s3bucket, 'listObjects', {
+    return P.ninvoke(s3bucket, 'listObjects', {
             Bucket: 'files'
         })
         .then(function(data) {
@@ -360,7 +359,7 @@ function put_object(ip) {
         Body: fs.createReadStream('/var/log/authd.log'),
     };
 
-    return Q.ninvoke(s3bucket, 'upload', params)
+    return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
             console.log('put_object', res);
             load_aws_config_env(); //back to EC2/S3
@@ -372,7 +371,7 @@ function put_object(ip) {
             throw new Error('put_object' + err);
         });
 
-    /*return Q.fcall(function() {
+    /*return P.fcall(function() {
         return s3bucket.upload(params).
         on('httpUploadProgress', function(evt) {
             console.log(evt);
@@ -403,7 +402,7 @@ function get_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return s3bucket.getObject(params).createReadStream();
         })
         .then(function() {
@@ -472,7 +471,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
         console.log('Scale:', first_region_extra_count, 'extra in first region');
 
         var new_count = 0;
-        return Q.all(_.map(region_names, function(region_name) {
+        return P.all(_.map(region_names, function(region_name) {
             var instances = instances_per_region[region_name] || [];
             var region_count = 0;
             if (new_count < count) {
@@ -534,8 +533,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     }
 
 
-    return Q
-        .fcall(get_agent_ami_image_id, region_name, is_win)
+    return P.fcall(get_agent_ami_image_id, region_name, is_win)
         .then(function(ami_image_id) {
 
             console.log('AddInstance:', region_name, count, ami_image_id);
@@ -556,8 +554,8 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
                     UserData: new Buffer(run_script).toString('base64'),
                 })
                 .then(function(res) { //Tag Instances
-                    return Q.all(_.map(res.Instances, function(instance) {
-                        return Q.fcall(function() {
+                    return P.all(_.map(res.Instances, function(instance) {
+                        return P.fcall(function() {
                             return add_instance_name(instance.InstanceId, 'AgentInstance_For_' + app_name, region_name);
                         });
                     }));
@@ -616,7 +614,7 @@ function get_agent_ami_image_id(region_name, is_win) {
  *
  *************************************/
 function ec2_call(func_name, params) {
-    return Q.nfcall(_ec2[func_name].bind(_ec2), params);
+    return P.nfcall(_ec2[func_name].bind(_ec2), params);
 }
 
 
@@ -624,7 +622,7 @@ function ec2_region_call(region_name, func_name, params) {
     var ec2 = _ec2_per_region[region_name] = _ec2_per_region[region_name] || new AWS.EC2({
         region: region_name
     });
-    return Q.nfcall(ec2[func_name].bind(ec2), params);
+    return P.nfcall(ec2[func_name].bind(ec2), params);
 }
 
 //Set the app_name to use
@@ -637,7 +635,7 @@ function ec2_wait_for(region_name, state_name, params) {
         region: region_name
     });
 
-    return Q.ninvoke(ec2, 'waitFor', state_name, params).then(function(data) {
+    return P.ninvoke(ec2, 'waitFor', state_name, params).then(function(data) {
         if (data) {
             return data.Reservations[0].Instances[0];
         } else {
@@ -664,8 +662,7 @@ function ec2_wait_for(region_name, state_name, params) {
  */
 function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf) {
     // always make sure the region has the security group and key pair
-    return Q
-        .fcall(function() {
+    return P.fcall(function() {
             return create_security_group(region_name);
         })
         .then(function() {
@@ -800,7 +797,7 @@ function get_regions(func) {
 function foreach_region(func) {
     return get_regions()
         .then(function(res) {
-            return Q.all(_.map(res.Regions, func));
+            return P.all(_.map(res.Regions, func));
         });
 }
 

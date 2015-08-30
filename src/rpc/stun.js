@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var url = require('url');
 var fs = require('fs');
 // var util = require('util');
@@ -9,7 +9,7 @@ var dgram = require('dgram');
 var crypto = require('crypto');
 var ip_module = require('ip');
 var chance = require('chance').Chance();
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 // https://tools.ietf.org/html/rfc5389
 var STUN = {
@@ -121,7 +121,7 @@ function read_on_premise_stun_server() {
           dbg.log0('agent conf does not exist, using public server a stun');
           return;
       } else {
-          return Q.nfcall(fs.readFile, 'agent_conf.json')
+          return P.nfcall(fs.readFile, 'agent_conf.json')
               .then(function(data) {
                   var agent_conf = JSON.parse(data);
                   var host = url.parse(agent_conf.address);
@@ -174,7 +174,7 @@ function is_stun_packet(buffer) {
  */
 function send_request(socket, stun_host, stun_port) {
     var buffer = new_packet(STUN.METHODS.REQUEST);
-    return Q.ninvoke(socket, 'send',
+    return P.ninvoke(socket, 'send',
         buffer, 0, buffer.length,
         stun_port, stun_host);
 }
@@ -185,7 +185,7 @@ function send_request(socket, stun_host, stun_port) {
  */
 function send_indication(socket, stun_host, stun_port) {
     var buffer = new_packet(STUN.METHODS.INDICATION);
-    return Q.ninvoke(socket, 'send',
+    return P.ninvoke(socket, 'send',
         buffer, 0, buffer.length,
         stun_port || STUN.PORT, stun_host);
 }
@@ -370,7 +370,7 @@ function receive_stun_request(socket, buffer, rinfo) {
             address: rinfo.address
         }
     }], buffer);
-    return Q.ninvoke(socket, 'send',
+    return P.ninvoke(socket, 'send',
         reply, 0, reply.length,
         rinfo.port, rinfo.address);
 }
@@ -683,9 +683,9 @@ function test() {
         // socket.close();
     });
     */
-    return Q.fcall(function() {
+    return P.fcall(function() {
             if (argv.bind) {
-                return Q.ninvoke(socket, 'bind', argv.bind);
+                return P.ninvoke(socket, 'bind', argv.bind);
             }
         })
         .then(function() {
@@ -702,7 +702,7 @@ function test() {
             });
             return send_request(socket, stun_url.hostname, stun_url.port);
             /*
-            return Q.allSettled(_.map(STUN.PUBLIC_SERVERS, function(stun_url) {
+            return P.allSettled(_.map(STUN.PUBLIC_SERVERS, function(stun_url) {
                 console.log('REQUEST:', stun_url.hostname + ':' + stun_url.port);
                 return send_request(socket, stun_url.hostname, stun_url.port);
             }));

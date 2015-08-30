@@ -9,8 +9,8 @@ var http = require('http');
 var promise_utils = require('../util/promise_utils');
 var cloud_sync = require('./cloud_sync');
 var build_chunks = require('./build_chunks_worker');
-var dbg = require('noobaa-util/debug_module')(__filename);
-var mongoose_logger = require('noobaa-util/mongoose_logger');
+var dbg = require('../util/debug_module')(__filename);
+var mongoose_logger = require('../util/mongoose_logger');
 
 //Global Configuration and Initialization
 console.log('loading .env file ( no foreman ;)');

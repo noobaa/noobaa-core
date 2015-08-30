@@ -3,7 +3,7 @@
 
 var _ = require('lodash');
 var moment = require('moment');
-var Q = require('q');
+var P = require('../util/promise');
 var api = require('../api');
 
 var nb_api = angular.module('nb_api', [
@@ -136,7 +136,7 @@ nb_api.factory('nbClient', [
                         link.href = url;
                         $window.document.body.appendChild(link);
                         link.click();
-                        return Q.delay(2000);
+                        return P.delay(2000);
                     }
                 })
                 .then(function() {

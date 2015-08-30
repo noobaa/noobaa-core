@@ -2,10 +2,10 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('./db');
 var jwt = require('jsonwebtoken');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var s3_auth = require('aws-sdk/lib/signers/s3');
 var s3 = new s3_auth();
 
@@ -57,7 +57,7 @@ function create_auth(req) {
     var account;
     var system;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
         // if email is not provided we skip finding account by email
         // and use the current auth account as the authenticated_account
@@ -82,7 +82,7 @@ function create_auth(req) {
                 if (!password) return;
 
                 // use bcrypt to verify password
-                return Q.npost(account, 'verify_password', [password])
+                return P.npost(account, 'verify_password', [password])
                     .then(function(match) {
                         if (!match) throw req.unauthorized('password mismatch');
                         // authentication passed!
@@ -217,7 +217,7 @@ function create_access_key_auth(req) {
 
     dbg.log0('create_access_key_auth', access_key, string_to_sign, signature);
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
         // find system by name
         return db.System.findOne({
@@ -368,7 +368,7 @@ function _prepare_auth_request(req) {
     req.load_auth = function(options) {
         options = options || {};
 
-        return Q.fcall(function() {
+        return P.fcall(function() {
             dbg.log3('options:', options, req.auth);
             // check that auth has account_id
             var ignore_missing_account = (options.account === false || _.isEmpty(options.account));

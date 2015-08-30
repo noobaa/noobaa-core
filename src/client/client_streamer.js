@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var http = require('http');
 var moment = require('moment');
 var express = require('express');
@@ -178,7 +178,7 @@ function client_streamer(client, port) {
     app.use('/video.js/', express.static('./node_modules/video.js/dist/video-js/'));
 
 
-    var defer = Q.defer();
+    var defer = P.defer();
     var server = http.createServer(app);
     server.once('error', defer.reject);
     server.listen(port, function() {

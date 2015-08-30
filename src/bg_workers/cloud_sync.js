@@ -10,7 +10,7 @@ var _ = require('lodash');
 var Q = require('q');
 var AWS = require('aws-sdk');
 var db = require('../server/db');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 var CLOUD_SYNC = {
     //Policy was changed, list of policies should be refreshed

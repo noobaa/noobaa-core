@@ -107,8 +107,6 @@ else
                 curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
                 cp node.exe ../public/node.exe
                 cp openssl.exe ../public/openssl.exe
-                rm -rf ./node_modules/noobaa-util/node_modules/gulp*
-                rm -rf ./node_modules/noobaa-util/node_modules/node-gyp*
         fi
         #No need for atom for now. Keep it for future use?!
         #echo "Downloading atom-shell for windows"

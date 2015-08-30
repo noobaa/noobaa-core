@@ -2,16 +2,14 @@
 
 require('../util/panic');
 var _ = require('lodash');
-var Q = require('q');
-require('../util/bluebird_hijack_q');
+var P = require('../util/promise');
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
-var range_utils = require('../util/range_utils');
 var time_utils = require('../util/time_utils');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5, 'core');
 
 if (require.main === module) {
@@ -112,9 +110,6 @@ function test() {
                         size: fs.statSync(filename).size,
                         content_type: require('mime').lookup(filename),
                         source_stream: input
-                    })
-                    .then(null, null, function(progress_info) {
-                        console.log('upload progress', range_utils.human_range(progress_info.part));
                     });
             })
             .done(fin, fin);
@@ -144,10 +139,10 @@ function test() {
                 objectMode: true,
             },
             transform: function(data) {
-                return Q.ninvoke(dedup_chunker, 'push', data);
+                return P.ninvoke(dedup_chunker, 'push', data);
             },
             flush: function() {
-                return Q.ninvoke(dedup_chunker, 'flush');
+                return P.ninvoke(dedup_chunker, 'flush');
             }
         }));
         pipeline.pipe(transformer({
@@ -158,7 +153,7 @@ function test() {
             },
             transform_parallel: function(data) {
                 // console.log('encode chunk');
-                return Q.ninvoke(object_coding, 'encode', data);
+                return P.ninvoke(object_coding, 'encode', data);
             },
         }));
         if (process.argv[4]) {
@@ -175,7 +170,7 @@ function test() {
                     objectMode: true,
                 },
                 transform_parallel: function(chunk) {
-                    return Q.ninvoke(object_coding, 'decode', chunk).thenResolve(chunk);
+                    return P.ninvoke(object_coding, 'decode', chunk).thenResolve(chunk);
                 },
             }));
         }
@@ -212,12 +207,13 @@ function test() {
                         "parts per sec", (req_took_ms_sum / req_count).toFixed(1),
                         "ms/req", (req_took_ms_sum / part_count).toFixed(1), "ms/part");
                 }
-                return Q.all(_.times(concur, function loop() {
+                var i = 0;
+                return P.all(_.times(concur, function loop() {
                         var req_start_time = time_utils.millistamp();
                         return api.client.object.allocate_object_parts({
                             bucket: 'files',
                             key: path.basename(filename),
-                            parts: _.times(nparts, function(i) {
+                            parts: _.times(nparts, function() {
                                 var p = {
                                     'start': i * 1024 * 1024,
                                     'end': (i + 1) * 1024 * 1024,
@@ -244,6 +240,7 @@ function test() {
                                         'digest_b64': 'asdasdasdasdasdasdasdasdasdasdasdasd'
                                     };
                                 });
+                                i += 1;
                                 return p;
                             })
                         }).then(function() {
@@ -297,7 +294,7 @@ function test() {
                         "MB/s", (req_took_ms_sum / req_count).toFixed(1),
                         "ms/req", (req_took_ms_sum / mb_count).toFixed(1), "ms/MB");
                 }
-                return Q.all(_.times(concur, function loop(i) {
+                return P.all(_.times(concur, function loop(i) {
                         var req_start_time = time_utils.millistamp();
                         var next_node = nodes[next_node_rr];
                         next_node_rr = (next_node_rr + 1) % nodes.length;

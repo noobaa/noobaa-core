@@ -4,7 +4,7 @@
 'use strict';
 
 // var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var fs = require('fs');
 var path = require('path');
 var rabin = require('./rabin');
@@ -85,7 +85,7 @@ describe('rabin', function() {
     }
 
     function stream_promise(stream) {
-        var defer = Q.defer();
+        var defer = P.defer();
         var start_time = Date.now();
         var size = 0;
         var count = 0;

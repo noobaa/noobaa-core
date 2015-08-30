@@ -26,12 +26,14 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
 var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
-var dbg = require('noobaa-util/debug_module')(__filename);
+var promise_utils = require('../util/promise_utils');
+var dbg = require('../util/debug_module')(__filename);
+
 
 /**
  *
@@ -68,7 +70,7 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOne(get_bucket_query(req))
             .populate('tiering.tier')
             .exec())
@@ -122,7 +124,7 @@ function delete_bucket(req) {
         deleted: new Date()
     };
     var bucketid;
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOneAndUpdate(get_bucket_query(req), updates)
             .exec())
         .then(function(bucket_info) {
@@ -154,7 +156,7 @@ function delete_bucket(req) {
  *
  */
 function list_buckets(req) {
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .find({
                 system: req.system.id,
                 deleted: null,
@@ -178,7 +180,7 @@ function list_buckets(req) {
 function get_cloud_sync_policy(req) {
     dbg.log3('get_cloud_sync_policy');
     var reply = [];
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOne({
                 system: req.system.id,
                 name: req.rpc_params.name,
@@ -225,7 +227,7 @@ function get_cloud_sync_policy(req) {
 function get_all_cloud_sync_policies(req) {
     dbg.log3('get_all_cloud_sync_policies');
     var reply = [];
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .find({
                 system: req.system.id,
                 deleted: null,
@@ -272,7 +274,7 @@ function delete_cloud_sync(req) {
         cloud_sync: {}
     };
     var bucketid;
-    return Q.when(db.Bucket
+    return P.when(db.Bucket
             .findOne({
                 system: req.system.id,
                 name: req.rpc_params.name,
@@ -282,7 +284,7 @@ function delete_cloud_sync(req) {
         .then(function(bucket) {
             bucketid = bucket._id;
             dbg.log3('delete_cloud_sync: delete on bucket', bucket);
-            return Q.when(db.Bucket
+            return P.when(db.Bucket
                 .findOneAndUpdate(get_bucket_query(req), updates)
                 .exec());
         })
@@ -327,7 +329,8 @@ function set_cloud_sync(req) {
             additions_only: req.rpc_params.policy.additions_only
         }
     };
-    return Q.when(db.Bucket
+
+    return P.when(db.Bucket
             .findOne({
                 system: req.system.id,
                 name: req.rpc_params.name,
@@ -343,7 +346,7 @@ function set_cloud_sync(req) {
                 updates.cloud_sync.paused) {
                 force_stop = true;
             }
-            return Q.when(db.Bucket
+            return P.when(db.Bucket
                 .findOneAndUpdate(get_bucket_query(req), updates)
                 .exec());
         })
@@ -375,13 +378,13 @@ function set_cloud_sync(req) {
  */
 function get_cloud_buckets(req) {
     var buckets = [];
-    return Q.fcall(function() {
+    return P.fcall(function() {
         var s3 = new AWS.S3({
             accessKeyId: req.rpc_params.access_key,
             secretAccessKey: req.rpc_params.secret_key,
             sslEnabled: false
         });
-        return Q.ninvoke(s3, "listBuckets");
+        return P.ninvoke(s3, "listBuckets");
     }).then(function(data) {
         _.each(data.Buckets, function(bucket) {
             buckets.push(bucket.Name);
@@ -417,8 +420,8 @@ function get_bucket_info(bucket) {
 }
 
 function resolve_tiering(system_id, tiering) {
-    if (!tiering) return Q.resolve();
-    return Q.when(db.Tier
+    if (!tiering) return P.resolve();
+    return P.when(db.Tier
             .find({
                 system: system_id,
                 name: {

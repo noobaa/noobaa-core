@@ -1,12 +1,12 @@
 'use strict';
 
 var WebSocket = require('ws');
-var Q = require('q');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var P = require('../src/util/promise');
+var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var zlib = require('zlib');
 var _ = require('lodash');
-var Semaphore = require('noobaa-util/semaphore');
+var Semaphore = require('../util/semaphore');
 var buffer_utils = require('./buffer_utils');
 var promise_utils = require('./promise_utils');
 var wrtc = require('./wrtc');
@@ -70,7 +70,7 @@ var connect = function (socket) {
     dbg.log0('do CLIENT connect is agent: ' + socket.isAgent + " current id: " + socket.idInServer);
 
     if (!socket.isAgent) {
-        socket.conn_defer = Q.defer();
+        socket.conn_defer = P.defer();
     }
 
     try {
@@ -386,7 +386,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                 p2p_context.iceSockets[peerId].sem = new Semaphore(1);
             }
             if (!p2p_context.iceSockets[peerId].connect_defer) {
-                p2p_context.iceSockets[peerId].connect_defer = Q.defer();
+                p2p_context.iceSockets[peerId].connect_defer = P.defer();
                 if (p2p_context.iceSockets[peerId].status === 'start') {
                     p2p_context.iceSockets[peerId].status = 'new';
                 }
@@ -418,7 +418,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
                             channelObj.peerConn = p2p_context.iceSockets[peerId].peerConn;
                             p2p_context.iceSockets[peerId].lastUsed = (new Date()).getTime();
                             p2p_context.iceSockets[channelObj.peerId].usedBy[requestId] = 1;
-                            channelObj.connect_defer = Q.defer();
+                            channelObj.connect_defer = P.defer();
                             channelObj.connect_defer.resolve(channelObj.dataChannel);
                         } else if (p2p_context.iceSockets[peerId].status === 'start') {
                             dbg.log0('initiateIce: status start '+requestId);
@@ -435,7 +435,7 @@ function initiateIce(p2p_context, socket, peerId, isInitiator, requestId) {
 
                 });
             } else {
-                channelObj.connect_defer = Q.defer();
+                channelObj.connect_defer = P.defer();
                 dbg.log0('send accept to peer (no context) ' + peerId+ ' with req '+requestId+ ' from '+socket.idInServer);
                 socket.ws.send(JSON.stringify({sigType: 'accept', from: socket.idInServer, to: peerId, requestId: requestId}));
                 createPeerConnection(socket, requestId, configuration);

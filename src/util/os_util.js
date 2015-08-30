@@ -10,7 +10,7 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var os = require('os');
 var fs = require('fs');
 var child_process = require('child_process');
@@ -64,12 +64,12 @@ function get_main_drive_name() {
 
 function get_mount_of_path(path) {
     if (os.type() === 'Windows_NT') {
-        return Q.nfcall(fs.realpath, path)
+        return P.nfcall(fs.realpath, path)
             .then(function(fullpath) {
                 return fullpath[0] + fullpath[1];
             });
     } else {
-        return Q.nfcall(node_df, {
+        return P.nfcall(node_df, {
                 file: path
             })
             .then(function(drives) {
@@ -80,7 +80,7 @@ function get_mount_of_path(path) {
 }
 
 function read_mac_linux_drives() {
-    return Q.nfcall(node_df, {
+    return P.nfcall(node_df, {
             // this is a hack to make node_df append the -l flag to the df command
             // in order to get only local file systems.
             file: '-l'
@@ -126,7 +126,7 @@ function read_windows_drives() {
 }
 
 function wmic(topic) {
-    return Q.nfcall(child_process.exec, 'wmic ' + topic + ' get /value')
+    return P.nfcall(child_process.exec, 'wmic ' + topic + ' get /value')
         .then(function(res) {
             return wmic_parse_list(res[0]);
         });

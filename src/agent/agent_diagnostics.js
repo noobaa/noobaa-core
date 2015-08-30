@@ -7,13 +7,13 @@ module.exports = {
 
 var base_diagnostics = require('../util/base_diagnostics');
 var fs_utils = require('../util/fs_utils');
-var Q = require('q');
+var P = require('../util/promise');
 
 var TMP_WORK_DIR = '/tmp/diag';
 
 function collect_agent_diagnostics() {
     //mkdir c:\tmp ?
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return base_diagnostics.collect_basic_diagnostics();
         })
         .then(function() {

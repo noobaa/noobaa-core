@@ -1,7 +1,7 @@
 // module targets: nodejs & browserify
 'use strict';
 
-var Q = require('q');
+var P = require('../util/promise');
 var _ = require('lodash');
 var util = require('util');
 var stream = require('stream');
@@ -53,6 +53,7 @@ function define_transformer(params) {
 
     function Transformer(options) {
         var self = this;
+        options = options || {};
         stream.Transform.call(self, options);
         self._init(options);
         self._flatten = options.flatten;
@@ -109,7 +110,7 @@ function define_transformer(params) {
          */
         Transformer.prototype._push_parallel = function(data, encoding) {
             var self = this;
-            var promise = Q.fcall(function() {
+            var promise = P.fcall(function() {
                 return params.transform_parallel.call(self, data, encoding);
             });
             self._self_push(promise);
@@ -128,7 +129,7 @@ function define_transformer(params) {
                 .then(function(data_in) {
                     if (self._flatten && _.isArray(data_in)) {
                         return promise_utils.iterate(data_in, function(item) {
-                            return Q.when(params.transform.call(self, item, encoding))
+                            return P.when(params.transform.call(self, item, encoding))
                                 .then(self._self_push);
                         }).thenResolve();
                     } else if (data_in) {
@@ -167,13 +168,13 @@ function define_transformer(params) {
     }
 
     function wait_for_data_item_or_array(data) {
-        return _.isArray(data) ? Q.all(data) : Q.when(data);
+        return _.isArray(data) ? P.all(data) : P.when(data);
     }
 
     if (params.flush) {
         Transformer.prototype._flush = function(callback) {
             var self = this;
-            Q.fcall(function() {
+            P.fcall(function() {
                     return params.flush.call(self);
                 })
                 .done(function(data) {

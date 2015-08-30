@@ -2,7 +2,7 @@
 
 var _ = require('lodash');
 var Stats = require('fast-stats').Stats;
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 
 module.exports = RpcStats;

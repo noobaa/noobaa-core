@@ -1,7 +1,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../../util/promise');
 var mongoose = require('mongoose');
 
 var LRUCache = require('../../util/lru_cache');
@@ -17,7 +17,7 @@ var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+// var dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -57,7 +57,7 @@ module.exports = {
         name: 'AccountCache',
         load: function(account_id) {
             console.log('AccountCache: load', account_id);
-            return Q.when(Account.findById(account_id).exec())
+            return P.when(Account.findById(account_id).exec())
                 .then(function(account) {
                     if (!account || account.deleted) return;
                     return account;
@@ -69,7 +69,7 @@ module.exports = {
         name: 'SystemCache',
         load: function(system_id) {
             console.log('SystemCache: load', system_id);
-            return Q.when(System.findById(system_id).exec())
+            return P.when(System.findById(system_id).exec())
                 .then(function(system) {
                     if (!system || system.deleted) return;
                     return system;
@@ -84,7 +84,7 @@ module.exports = {
         },
         load: function(params) {
             console.log('BucketCache: load', params.name);
-            return Q.when(Bucket.findOne({
+            return P.when(Bucket.findOne({
                 system: params.system,
                 name: params.name,
                 deleted: null,
@@ -99,7 +99,7 @@ module.exports = {
         },
         load: function(params) {
             console.log('TierCache: load', params.name);
-            return Q.when(Tier.findOne({
+            return P.when(Tier.findOne({
                 system: params.system,
                 name: params.name,
                 deleted: null,
@@ -118,7 +118,7 @@ module.exports = {
         },
         load: function(params) {
             console.log('ObjectMDCache: load', params.name);
-            return Q.when(ObjectMD.findOne({
+            return P.when(ObjectMD.findOne({
                 system: params.system,
                 bucket: params.bucket,
                 key: params.key,

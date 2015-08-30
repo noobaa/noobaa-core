@@ -7,7 +7,7 @@ module.exports = {
 var Q = require('q');
 var db = require('../server/db');
 var object_mapper_utils = require('../server/utils/object_mapper_utils');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  *

@@ -2,7 +2,7 @@
 
 var ec2_wrap = require('./ec2_wrapper');
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var argv = require('minimist')(process.argv);
 
 module.exports = {
@@ -12,7 +12,7 @@ module.exports = {
 function deploy_agents(params) {
     ec2_wrap.set_app_name(params.app);
     // add a --term flag to allow removing nodes
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return ec2_wrap.scale_agent_instances(params.scale, params.term, params.is_docker_host, params.dockers, params.is_win, params.filter_region,params.agent_conf);
         })
         .then(function(res) {
@@ -93,7 +93,7 @@ function main() {
         }
 
         params.term = argv.term;
-        return Q.fcall(function() {
+        return P.fcall(function() {
                 return deploy_agents(params);
             })
             .then(null, function(err) {

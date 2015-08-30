@@ -2,14 +2,14 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
 var mkdirp = require('mkdirp');
 var fs_utils = require('../util/fs_utils');
-var Semaphore = require('noobaa-util/semaphore');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var Semaphore = require('../util/semaphore');
+var dbg = require('../util/debug_module')(__filename);
 
 module.exports = AgentStore;
 
@@ -46,10 +46,10 @@ AgentStore.MemoryStore = MemoryStore;
  */
 AgentStore.prototype.get_stats = function() {
     var self = this;
-    return Q.all([
+    return P.join(
         self.get_usage(),
         self.get_alloc()
-    ]).spread(function(usage, alloc) {
+    ).spread(function(usage, alloc) {
         return {
             alloc: alloc,
             used: usage.size,
@@ -113,14 +113,9 @@ AgentStore.prototype.read_block = function(block_md) {
     var block_path = self._get_block_data_path(block_md.id);
     var meta_path = self._get_block_meta_path(block_md.id);
     dbg.log1('fs read block', block_path);
-    return Q.all([
-            Q.nfcall(fs.readFile, block_path),
-            Q.nfcall(fs.readFile, meta_path)
-            .then(null, function(err) {
-                if (err.code === 'ENOENT') return;
-                throw err;
-            })
-        ])
+    return P.join(
+            fs.readFileAsync(block_path),
+            fs.readFileAsync(meta_path))
         .spread(function(data, meta) {
             var block_md_from_store = JSON.parse(meta);
             if (block_md_from_store.id !== block_md.id ||
@@ -163,16 +158,15 @@ AgentStore.prototype.write_block = function(block_md, data) {
         throw new Error('BLOCK DIGEST MISMATCH ON WRITE');
     }
 
-    return Q.when(self._stat_block_path(block_path, true))
+    return P.when(self._stat_block_path(block_path, true))
         .then(function(stats) {
             file_stats = stats;
             dbg.log1('fs write block', block_path, data.length, typeof(data), file_stats);
 
             // create/replace the block on fs
-            return Q.all([
-                Q.nfcall(fs.writeFile, block_path, data),
-                Q.nfcall(fs.writeFile, meta_path, JSON.stringify(block_md_to_store))
-            ]);
+            return P.join(
+                fs.writeFileAsync(block_path, data),
+                fs.writeFileAsync(meta_path, JSON.stringify(block_md_to_store)));
         })
         .then(function() {
             if (self._usage) {
@@ -208,7 +202,7 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
     });
 
     //TODO: use q.allSettled with 10 concurrency
-    return Q.allSettled(_.map(delete_funcs, function(call) {
+    return P.allSettled(_.map(delete_funcs, function(call) {
             return call();
         }))
         .then(function(results) {
@@ -262,11 +256,11 @@ AgentStore.prototype._delete_block = function(block_id) {
         .then(function(stats) {
             file_stats = stats;
             if (file_stats) {
-                return Q.nfcall(fs.unlink, block_path);
+                return fs.unlinkAsync(block_path);
             }
         })
         .then(function() {
-            return Q.nfcall(fs.unlink, meta_path);
+            return fs.unlinkAsync(meta_path);
         })
         .then(function() {
             return file_stats ? file_stats.size : 0;
@@ -298,7 +292,7 @@ AgentStore.prototype._get_block_meta_path = function(block_id) {
  *
  */
 AgentStore.prototype._stat_block_path = function(block_path, resolve_missing) {
-    return Q.nfcall(fs.stat, block_path)
+    return fs.statAsync(block_path)
         .then(null, function(err) {
             if (resolve_missing && err.code === 'ENOENT') return;
             throw err;
@@ -313,7 +307,7 @@ AgentStore.prototype._stat_block_path = function(block_path, resolve_missing) {
 AgentStore.prototype._read_config = function() {
     var self = this;
     var config_file = path.join(self.root_path, 'config');
-    return Q.nfcall(fs.readFile, config_file)
+    return fs.readFileAsync(config_file)
         .then(function(data) {
             return JSON.parse(data);
         }, function(err) {
@@ -331,7 +325,7 @@ AgentStore.prototype._write_config = function(config) {
     var self = this;
     var config_file = path.join(self.root_path, 'config');
     var data = JSON.stringify(config);
-    return Q.nfcall(fs.writeFile, config_file, data);
+    return fs.writeFileAsync(config_file, data);
 };
 
 

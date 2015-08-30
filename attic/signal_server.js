@@ -8,7 +8,7 @@ process.on('uncaughtException', function(err) {
 });
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var http = require('http');
 var url = require('url');
 var express = require('express');
@@ -17,7 +17,7 @@ var thenRedis = require('then-redis');
 var uuid = require('node-uuid');
 var redis = require('redis');
 var posix = require('posix');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 // constants
 var STATE_INIT = 'init';
@@ -127,7 +127,7 @@ function onIdentity(ws, msg) {
 
     ws.nb.state = STATE_IDENTIFYING;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
 
             // use the id if sent, otherwise generate
             return msg.id ? String(msg.id) : generateIdentity();
@@ -320,7 +320,7 @@ function unsubscribeIdentity(ws) {
  *
  */
 function wsSendQ(ws, msg) {
-    return Q.ninvoke(ws, 'send', msg)
+    return P.ninvoke(ws, 'send', msg)
         .then(null, function(err) {
             dbg.error('WS SEND ERROR', ws.nb, msg);
             onWsError(ws, err);
@@ -339,7 +339,7 @@ function onWsServerError(err) {
  */
 function onWsClose(ws) {
     dbg.log('WS CLOSE', ws.nb);
-    Q.fcall(function() {
+    P.fcall(function() {
         ws.nb.state = STATE_CLOSING;
         return unsubscribeIdentity(ws);
     }).fin(function() {

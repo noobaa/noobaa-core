@@ -14,8 +14,8 @@ var server_rpc = require('../server_rpc').server_rpc;
 var promise_utils = require('../../util/promise_utils');
 var js_utils = require('../../util/js_utils');
 var config = require('../../../config.js');
-var Semaphore = require('noobaa-util/semaphore');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var Semaphore = require('../../util/semaphore');
+var dbg = require('../../util/debug_module')(__filename);
 
 
 var replicate_block_sem = new Semaphore(config.REPLICATE_CONCURRENCY);

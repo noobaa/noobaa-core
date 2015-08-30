@@ -2,7 +2,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var fs = require('fs');
 var pem = require('pem');
 var path = require('path');
@@ -16,7 +16,7 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var ip_module = require('ip');
 var api = require('../api');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
@@ -136,7 +136,7 @@ Agent.prototype.start = function() {
 
     self.is_started = true;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return self._init_node();
         })
         .then(function() {
@@ -191,7 +191,7 @@ Agent.prototype.stop = function() {
 Agent.prototype._init_node = function() {
     var self = this;
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             if (self.storage_path) {
                 return os_util.get_mount_of_path(self.storage_path);
             }
@@ -205,7 +205,7 @@ Agent.prototype._init_node = function() {
 
             // load the token file
             var token_path = path.join(self.storage_path, 'token');
-            return Q.nfcall(fs.readFile, token_path);
+            return fs.readFileAsync(token_path);
         })
         .then(function(token) {
             // use the token as authorization and read the auth info
@@ -241,7 +241,7 @@ Agent.prototype._init_node = function() {
                     if (self.storage_path) {
                         dbg.log0('save node token', self.node_name, 'id', node.id);
                         var token_path = path.join(self.storage_path, 'token');
-                        return Q.nfcall(fs.writeFile, token_path, node.token);
+                        return fs.writeFileAsync(token_path, node.token);
                     }
                 });
             }
@@ -275,8 +275,8 @@ Agent.prototype._start_stop_http_server = function() {
         return;
     }
 
-    return Q.fcall(function() {
-            return Q.nfcall(pem.createCertificate, {
+    return P.fcall(function() {
+            return P.nfcall(pem.createCertificate, {
                 days: 365 * 100,
                 selfSigned: true
             });
@@ -295,7 +295,7 @@ Agent.prototype._start_stop_http_server = function() {
                         setTimeout(self._start_stop_http_server.bind(this), 1000);
                     });
                 promises.push(
-                    Q.ninvoke(self.http_server, 'listen', self.prefered_port));
+                    P.ninvoke(self.http_server, 'listen', self.prefered_port));
             }
 
             if (!self.https_server) {
@@ -312,13 +312,13 @@ Agent.prototype._start_stop_http_server = function() {
                         setTimeout(self._start_stop_http_server.bind(this), 1000);
                     });
                 promises.push(
-                    Q.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
+                    P.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
             }
 
             self.rpc.register_ws_transport(self.http_server);
             self.rpc.register_ws_transport(self.https_server);
 
-            return Q.all(promises);
+            return P.all(promises);
         });
 };
 
@@ -359,12 +359,12 @@ Agent.prototype.send_heartbeat = function() {
 
     dbg.log0('send heartbeat from node', self.node_name);
 
-    return Q.when(self.store.get_stats())
+    return P.when(self.store.get_stats())
         .then(function(store_stats_arg) {
             store_stats = store_stats_arg;
 
             if (extended_hb) {
-                return Q.fcall(os_util.read_drives)
+                return P.fcall(os_util.read_drives)
                     .then(function(drives_arg) {
                         self.drives = drives_arg;
                     }, function(err) {
@@ -522,7 +522,7 @@ Agent.prototype.write_block = function(req) {
     var block_md = req.rpc_params.block_md;
     var data = req.rpc_params.data;
     dbg.log1('write_block', block_md.id, data.length, 'node', self.node_name);
-    return Q.when(self.store.write_block(block_md, data))
+    return P.when(self.store.write_block(block_md, data))
         .then(function() {
             self.store_cache.put(block_md, {
                 block_md: block_md,
@@ -612,7 +612,7 @@ Agent.prototype.self_test_peer = function(req) {
 Agent.prototype.collect_diagnostics = function(req) {
     dbg.log1('Recieved diag req', req);
     var inner_path = '/tmp/agent_diag.tgz';
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return diag.collect_agent_diagnostics();
         })
         .then(function() {
@@ -620,7 +620,7 @@ Agent.prototype.collect_diagnostics = function(req) {
         })
         .then(function() {
             dbg.log1('Reading packed file');
-            return Q.nfcall(fs.readFile, inner_path)
+            return fs.readFileAsync(inner_path)
                 .then(function(data) {
                     return {
                         data: data,

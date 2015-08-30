@@ -1,14 +1,14 @@
 "use strict";
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../../util/promise');
 var argv = require('minimist')(process.argv);
 var request = require('request');
 var fs = require('fs');
 var ec2_wrap = require('../../deploy/ec2_wrapper');
 var ec2_deploy_agents = require('../../deploy/ec2_deploy_agents');
 var promise_utils = require('../../util/promise_utils');
-var formData = require('form-data');
+// var formData = require('form-data');
 
 var default_instance_type = 'm3.large';
 
@@ -53,7 +53,7 @@ function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
         }
     };
 
-    return Q.ninvoke(request, 'post', {
+    return P.ninvoke(request, 'post', {
             url: 'https://' + ip + '/upgrade',
             formData: formData,
             rejectUnauthorized: false,
@@ -69,7 +69,7 @@ function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
 }
 
 function get_agent_setup(ip) {
-    return Q.ninvoke(request, 'get', {
+    return P.ninvoke(request, 'get', {
             url: 'https://' + ip + '/public/noobaa-setup.exe',
             rejectUnauthorized: false,
         })
@@ -96,7 +96,7 @@ function create_new_agents(target_ip, target_region) {
         term: false,
     };
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             return ec2_deploy_agents.deploy_agents(params);
         })
         .then(function() {
@@ -111,13 +111,13 @@ function create_new_agents(target_ip, target_region) {
 }
 
 function upload_file(ip) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             //verify the 'demo' system exists on the instance
             return ec2_wrap.verify_demo_system(ip);
         })
         .then(function() {
             //upload the file
-            return Q.fcall(function() {
+            return P.fcall(function() {
                     return ec2_wrap.put_object(ip);
                 })
                 .then(function() {
@@ -135,13 +135,13 @@ function upload_file(ip) {
 }
 
 function download_file(ip) {
-    return Q.fcall(function() {
+    return P.fcall(function() {
             //verify the 'demo' system exists on the instance
             return ec2_wrap.verify_demo_system(ip);
         })
         .then(function() {
             //upload the file
-            return Q.fcall(function() {
+            return P.fcall(function() {
                     return ec2_wrap.get_object(ip);
                 })
                 .then(function() {
@@ -191,11 +191,11 @@ function main() {
     //Actual Test Logic
     if (!missing_params) {
         console.log("Starting test_upgrade.js, this can take some time...");
-        return Q.fcall(function() {
+        return P.fcall(function() {
                 return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
             })
             .then(function(res) {
-                Q.fcall(function() {
+                P.fcall(function() {
                         instance_id = res.instanceid;
                         return ec2_wrap.get_ip_address(instance_id);
                     })
@@ -205,7 +205,7 @@ function main() {
                     })
                     .then(function() {
                         var params = ['--address=wss://' + target_ip];
-                        return Q.fcall(function() {
+                        return P.fcall(function() {
                             return promise_utils.promised_spawn('src/deploy/build_dockers.sh', params, process.cwd());
                         });
                     })

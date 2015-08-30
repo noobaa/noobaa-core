@@ -2,11 +2,11 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('./db');
 var object_mapper = require('./object_mapper');
 var glob_to_regexp = require('glob-to-regexp');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 
 /**
@@ -335,7 +335,7 @@ function list_objects(req) {
             if (limit) {
                 find.limit(limit);
             }
-            return Q.all([
+            return P.all([
                 find.exec(),
                 req.rpc_params.pagination && db.ObjectMD.count(info)
             ]);
@@ -361,7 +361,7 @@ function list_objects(req) {
 function set_all_files_for_sync(sysid, bucketid) {
     dbg.log2('marking all objects on sys', sysid, 'bucket', bucketid, 'as sync needed');
     //Mark all "live" objects to be cloud synced
-    return Q.when(db.ObjectMD.update({
+    return P.when(db.ObjectMD.update({
             system: sysid,
             bucket: bucketid,
             cloud_synced: true,
@@ -373,7 +373,7 @@ function set_all_files_for_sync(sysid, bucketid) {
         }).exec())
         .then(function() {
             //Mark all "previous" deleted objects as not needed for cloud sync
-            return Q.when(db.ObjectMD.update({
+            return P.when(db.ObjectMD.update({
                 system: sysid,
                 bucket: bucketid,
                 cloud_synced: false,

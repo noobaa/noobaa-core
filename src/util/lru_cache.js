@@ -1,9 +1,9 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
-var LRU = require('noobaa-util/lru');
-// var dbg = require('noobaa-util/debug_module')(__filename);
+var P = require('../util/promise');
+var LRU = require('./lru');
+// var dbg = require('../util/debug_module')(__filename);
 
 module.exports = LRUCache;
 
@@ -39,7 +39,7 @@ function LRUCache(options) {
  */
 LRUCache.prototype.get = function(params, cache_miss) {
     var self = this;
-    return Q.fcall(function() {
+    return P.fcall(function() {
             var key = self.make_key(params);
             var item = self.lru.find_or_add_item(key);
 
@@ -54,7 +54,7 @@ LRUCache.prototype.get = function(params, cache_miss) {
             // keep the promise in the item to synchronize when getting
             // concurrent get requests that miss the cache
             if (!item.p) {
-                item.p = Q.when(self.load(params))
+                item.p = P.when(self.load(params))
                     .then(function(data) {
                         item.p = null;
                         item.d = data;

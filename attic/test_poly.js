@@ -4,7 +4,7 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 // var assert = require('assert');
 var Poly = require('./poly');
 
@@ -35,7 +35,7 @@ describe('poly', function() {
             console.log(' ');
             console.log('******', degree, '******');
 
-            Q.fcall(function() {
+            P.fcall(function() {
                     return run_steps(p);
                 })
                 .nodeify(done);
@@ -68,7 +68,7 @@ describe('poly', function() {
             }
         }
 
-        return done ? true : Q.fcall(run_steps, p, state);
+        return done ? true : P.fcall(run_steps, p, state);
     }
 
 

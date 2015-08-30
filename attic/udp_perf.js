@@ -1,9 +1,9 @@
 'use strict';
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../src/util/promise');
 var util = require('util');
-var dbg = require('noobaa-util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 var UdpConnection = require('./udp_connection');
 var argv = require('minimist')(process.argv);
 
@@ -53,7 +53,7 @@ function clientMain() {
         channel.RTT = RTT;
     }
 
-    return Q.fcall(function() {
+    return P.fcall(function() {
             // first message is the spec of the test to create the connection
             var remoteSpec = {
                 sendSize: receiveSize,
@@ -90,7 +90,7 @@ function clientMain() {
 function serverMain(channel) {
     // receive the test spec message
     var spec;
-    return Q.fcall(function() {
+    return P.fcall(function() {
             dbg.log('WAIT FOR SPEC');
             return channel.waitForMessage();
         })
@@ -122,7 +122,7 @@ function serverMain(channel) {
 function runSpec(channel, spec) {
     dbg.log('RUN SPEC', spec);
     channel.enableReporter();
-    return Q.all([
+    return P.all([
         waitForReceiveBytes(channel, spec.receiveSize),
         sendOnChannel(channel, spec.sendSize, spec.messageSize)
     ]);
@@ -133,7 +133,7 @@ function waitForReceiveBytes(channel, receiveSize) {
         dbg.log('RECEIVE DONE', channel.receiveBytes);
         return;
     }
-    return Q.delay(1).then(waitForReceiveBytes.bind(null, channel, receiveSize));
+    return P.delay(1).then(waitForReceiveBytes.bind(null, channel, receiveSize));
 }
 
 function sendOnChannel(channel, sendSize, messageSize) {

@@ -43,6 +43,7 @@ var AWS = require('aws-sdk');
 //var fs = require('fs');
 var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
+var bucket_server = require('./bucket_server');
 
 
 /**
@@ -247,66 +248,102 @@ function read_system(req) {
         var tiers_by_id = _.indexBy(tiers, '_id');
         var nodes_sys = nodes_aggregate[''] || {};
         var objects_sys = objects_aggregate[''] || {};
-        return {
-            name: req.system.name,
-            roles: _.map(roles, function(role) {
-                role = _.pick(role, 'role', 'account');
-                role.account = _.pick(role.account, 'name', 'email');
-                return role;
-            }),
-            tiers: _.map(tiers, function(tier) {
-                var t = _.pick(tier, 'name', 'kind');
-                var a = nodes_aggregate[tier.id];
-                t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
-                    alloc: 0,
-                    used: 0
+        return P.all(_.map(buckets, function(bucket) {
+            var b = _.pick(bucket, 'name');
+            var a = objects_aggregate[bucket.id] || {};
+            b.storage = {
+                used: a.size || 0,
+            };
+            b.num_objects = a.count || 0;
+            b.tiering = _.map(bucket.tiering, function(tier_id) {
+                var tier = tiers_by_id[tier_id];
+                if (!tier) return '';
+                var replicas = tier.edge_details && tier.edge_details.replicas || 3;
+                var t = nodes_aggregate[tier.id];
+                // TODO how to account bucket total storage with multiple tiers?
+                b.storage.total = (t.total || 0) / replicas;
+                b.storage.free = (t.free || 0) / replicas;
+                return tier.name;
+            });
+            if (_.isUndefined(b.storage.total)) {
+                b.storage.total = (nodes_sys.total || 0) / 3;
+                b.storage.free = (nodes_sys.free || 0) / 3;
+            }
+            return P.fcall(function() {
+                return bucket_server.get_cloud_sync_policy({
+                    system: {
+                        id: req.system.id
+                    },
+                    rpc_params: {
+                        name: b.name
+                    }
                 });
-                t.nodes = _.defaults(_.pick(a, 'count', 'online'), {
-                    count: 0,
-                    online: 0
-                });
-                return t;
-            }),
-            storage: {
-                total: nodes_sys.total || 0,
-                free: nodes_sys.free || 0,
-                alloc: nodes_sys.alloc || 0,
-                used: objects_sys.size || 0,
-                real: blocks.size || 0,
-            },
-            nodes: {
-                count: nodes_sys.count || 0,
-                online: nodes_sys.online || 0,
-            },
-            buckets: _.map(buckets, function(bucket) {
-                var b = _.pick(bucket, 'name');
-                var a = objects_aggregate[bucket.id] || {};
-                b.storage = {
-                    used: a.size || 0,
-                };
-                b.num_objects = a.count || 0;
-                b.tiering = _.map(bucket.tiering, function(tier_id) {
-                    var tier = tiers_by_id[tier_id];
-                    if (!tier) return '';
-                    var replicas = tier.edge_details && tier.edge_details.replicas || 3;
-                    var t = nodes_aggregate[tier.id];
-                    // TODO how to account bucket total storage with multiple tiers?
-                    b.storage.total = (t.total || 0) / replicas;
-                    b.storage.free = (t.free || 0) / replicas;
-                    return tier.name;
-                });
-                if (_.isUndefined(b.storage.total)) {
-                    b.storage.total = (nodes_sys.total || 0) / 3;
-                    b.storage.free = (nodes_sys.free || 0) / 3;
-                }
-                return b;
+            }).then(function(sync_policy) {
+                dbg.log2('bucket sync_policy is:', sync_policy);
+                if (!_.isEmpty(sync_policy)) {
+                    var last_sync = new Date();
+                    last_sync.setTime(sync_policy.policy.last_sync);
 
-            }),
-            objects: objects_sys.count || 0,
-            access_keys: req.system.access_keys,
-            ssl_port: process.env.SSL_PORT,
-            web_port: process.env.PORT,
-        };
+                    var interval_text = 0;
+                    if (sync_policy.policy.schedule < 60) {
+                        interval_text = sync_policy.policy.schedule + ' minutes';
+                    } else {
+                        if (sync_policy.policy.schedule < 60 * 24) {
+                            interval_text = sync_policy.policy.schedule / 60 + ' hours';
+                        } else {
+                            interval_text = sync_policy.policy.schedule / (60 * 24) + ' days';
+                        }
+                    }
+                    b.synch_details = '<br />Last sync time:' + last_sync.toUTCString() + '.<br />scheduled to run every ' + interval_text;
+                    b.policy_schedule_in_min = sync_policy.policy.schedule;
+                    b.last_sync = sync_policy.policy.last_sync;
+                }
+                dbg.log2('bucket is:', b);
+                return b;
+            }).then(null, function(err) {
+                dbg.error('failed reading bucket information');
+            });
+
+        })).then(function(updated_buckets) {
+            dbg.log2('updated_buckets:',updated_buckets);
+            return {
+                name: req.system.name,
+                roles: _.map(roles, function(role) {
+                    role = _.pick(role, 'role', 'account');
+                    role.account = _.pick(role.account, 'name', 'email');
+                    return role;
+                }),
+                tiers: _.map(tiers, function(tier) {
+                    var t = _.pick(tier, 'name', 'kind');
+                    var a = nodes_aggregate[tier.id];
+                    t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
+                        alloc: 0,
+                        used: 0
+                    });
+                    t.nodes = _.defaults(_.pick(a, 'count', 'online'), {
+                        count: 0,
+                        online: 0
+                    });
+                    return t;
+                }),
+                storage: {
+                    total: nodes_sys.total || 0,
+                    free: nodes_sys.free || 0,
+                    alloc: nodes_sys.alloc || 0,
+                    used: objects_sys.size || 0,
+                    real: blocks.size || 0,
+                },
+                nodes: {
+                    count: nodes_sys.count || 0,
+                    online: nodes_sys.online || 0,
+                },
+                buckets: updated_buckets,
+                objects: objects_sys.count || 0,
+                access_keys: req.system.access_keys,
+                ssl_port: process.env.SSL_PORT,
+                web_port: process.env.PORT,
+            };
+        });
     });
 }
 
@@ -340,7 +377,7 @@ function delete_system(req) {
  *
  */
 function list_systems(req) {
-    console.log('List systems:',req.account);
+    console.log('List systems:', req.account);
     if (!req.account.is_support) {
         return list_systems_int(false, false, req.account.id);
     }

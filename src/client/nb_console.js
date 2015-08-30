@@ -522,6 +522,11 @@ nb_console.controller('SystemDataCtrl', [
                         scope.aws_target = "None";
                         scope.has_policy = false;
                         scope.arrow_type = 'arrow-inverse';
+                        scope.interval_options = [15, 30, 45];
+                        scope.unit_options = ['Minutes', 'Hours', 'Days'];
+                        scope.selected_scheduling_interval = scope.interval_options[0];
+                        scope.selected_scheduling_unit = scope.unit_options[0];
+
                     } else {
                         scope.status = cloud_sync_policy.status;
                         if (cloud_sync_policy.policy.endpoint.length > 10) {
@@ -588,7 +593,7 @@ nb_console.controller('SystemDataCtrl', [
                         scope.has_policy = false;
                         scope.aws_target = '';
                         scope.modal.modal('hide');
-                        nbAlertify.success('Sync policy for '+bucket_name+' has been removed');
+                        nbAlertify.success('Sync policy for ' + bucket_name + ' has been removed');
                         reload_view();
                     })
                     .then(null, function(err) {
@@ -637,7 +642,17 @@ nb_console.controller('SystemDataCtrl', [
             };
 
             scope.done = function() {
-                console.log('done done');
+                var scheduling_in_minutes = 0;
+                if (scope.selected_scheduling_unit === 'Minutes') {
+                    scheduling_in_minutes = scope.selected_scheduling_interval;
+                } else {
+                    if (scope.selected_scheduling_unit === 'Hours') {
+                        scheduling_in_minutes = scope.selected_scheduling_interval * 60;
+                    } else { //Days
+                        scheduling_in_minutes = scope.selected_scheduling_interval * 60 * 24;
+                    }
+                }
+                console.log('done scheduling_in_minutes:' + scheduling_in_minutes);
                 $q.when(nbClient.client.bucket.set_cloud_sync({
                     name: bucket_name,
                     policy: {
@@ -646,7 +661,7 @@ nb_console.controller('SystemDataCtrl', [
                             access_key: scope.selected_key.access_key,
                             secret_key: scope.selected_key.secret_key
                         }],
-                        schedule: 360,
+                        schedule: scheduling_in_minutes,
                         paused: false,
                         c2n_enabled: true,
                         n2c_enabled: true,
@@ -721,6 +736,19 @@ nb_console.controller('SystemDataCtrl', [
                     scope.has_error = true;
                 }
 
+            };
+            scope.select_scheduling_unit = function() {
+                if (scope.selected_scheduling_unit === 'Minutes') {
+                    scope.interval_options = [15, 30, 45];
+                } else {
+
+                    if (scope.selected_scheduling_unit === 'Hours') {
+                        scope.interval_options = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+                    } else { //Days
+                        scope.interval_options = [1, 7, 30];
+                    }
+                }
+                scope.selected_scheduling_interval = scope.interval_options[0];
             };
         }
 

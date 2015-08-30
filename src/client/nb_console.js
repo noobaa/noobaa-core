@@ -587,6 +587,9 @@ nb_console.controller('SystemDataCtrl', [
                         scope.arrow_type = 'arrow-inverse';
                         scope.has_policy = false;
                         scope.aws_target = '';
+                        scope.modal.modal('hide');
+                        nbAlertify.success('Sync policy for '+bucket_name+' has been removed');
+                        reload_view();
                     })
                     .then(null, function(err) {
                         console.log('err:' + err.message);
@@ -705,7 +708,7 @@ nb_console.controller('SystemDataCtrl', [
                             console.log('done save');
                             scope.enable_new_key = false;
                             nbAlertify.success('Added AWS credentials to the cache!');
-                            scope.selected_key = scope.accessKeys[scope.accessKeys.length-1];
+                            scope.selected_key = scope.accessKeys[scope.accessKeys.length - 1];
                             scope.select_key();
                         }).then(null, function(err) {
                             scope.error_message = err.message;

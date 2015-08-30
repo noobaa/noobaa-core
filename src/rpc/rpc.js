@@ -756,3 +756,7 @@ RPC.prototype.register_n2n_transport = function() {
 RPC.prototype.n2n_signal = function(params) {
     return this.n2n_agent.signal(params);
 };
+
+RPC.prototype.get_default_base_address = function() {
+    return DEFAULT_BASE_ADDRESS;
+};

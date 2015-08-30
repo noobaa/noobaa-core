@@ -5,6 +5,7 @@ module.exports = RpcFcallConnection;
 var _ = require('lodash');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
+require('setimmediate');
 
 util.inherits(RpcFcallConnection, EventEmitter);
 

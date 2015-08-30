@@ -28,7 +28,7 @@
                         Copy the following text and send it to the user
                         <pre style="font-size: 11px; color: hsl(0,0%,50%)"  class="block" nb-clipboard="$parent.email_message" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom">{{$parent.email_message}}</pre>
                     </div>
-                    <button class="btn btn-default" style="width: 30%;padding: 10px" nb-clipboard="email_message">
+                    <button  ng-if="!nbClient.account.is_support && !register" class="btn btn-default" style="width: 30%;padding: 10px" nb-clipboard="$parent.email_message">
                         Copy To Clipboard
                     </button>
                     <div class="form-control-wrapper text-center">

@@ -692,11 +692,11 @@ nb_console.controller('SystemDataCtrl', [
                             scope.selected_bucket = scope.buckets[0];
 
                         }).then(function() {
+
                             scope.accessKeys.push({
                                 access_key: scope.access_key,
                                 secret_key: scope.secret_key
                             });
-                            scope.selected_key = scope.accessKeys[0];
                             return $q.when(nbClient.client.account.add_account_sync_credentials_cache({
                                 access_key: scope.access_key,
                                 secret_key: scope.secret_key
@@ -705,6 +705,8 @@ nb_console.controller('SystemDataCtrl', [
                             console.log('done save');
                             scope.enable_new_key = false;
                             nbAlertify.success('Added AWS credentials to the cache!');
+                            scope.selected_key = scope.accessKeys[scope.accessKeys.length-1];
+                            scope.select_key();
                         }).then(null, function(err) {
                             scope.error_message = err.message;
                             scope.has_error = true;

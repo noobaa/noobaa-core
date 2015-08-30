@@ -7,7 +7,8 @@ var Q = require('q');
 var mongoose = require('mongoose');
 var http = require('http');
 var promise_utils = require('../util/promise_utils');
-var cloud_sync = require('./cloud_sync.js');
+var cloud_sync = require('./cloud_sync');
+var build_chunks = require('./build_chunks_worker');
 var dbg = require('noobaa-util/debug_module')(__filename);
 var mongoose_logger = require('noobaa-util/mongoose_logger');
 
@@ -73,17 +74,26 @@ function register_rpc() {
 
 register_rpc();
 
-function register_bg_worker(name, run_batch_function) {
-    if (!name || !_.isFunction(run_batch_function)) {
-        console.error('Name and run function must be supplied for registering bg worker', name);
-        throw new Error('Name and run function must be supplied for registering bg worker ' + name);
+function register_bg_worker(options, run_batch_function) {
+    if (!options.name || !_.isFunction(run_batch_function)) {
+        console.error('Name and run function must be supplied for registering bg worker', options.name);
+        throw new Error('Name and run function must be supplied for registering bg worker ' + options.name);
     }
 
-    dbg.log0('Registering', name, 'bg worker');
-    promise_utils.run_background_worker({
-        name: name,
-        run_batch: run_batch_function
-    });
+    dbg.log0('Registering', options.name, 'bg worker');
+    options.run_batch = run_batch_function;
+    promise_utils.run_background_worker(options);
 }
 
-register_bg_worker('cloud_sync_refresher', cloud_sync.background_worker);
+register_bg_worker({
+    name: 'cloud_sync_refresher'
+}, cloud_sync.background_worker);
+
+if (process.env.BUILD_WORKER_DISABLED !== 'true') {
+    register_bg_worker({
+        name: 'build_chunks_worker',
+        batch_size: 50,
+        time_since_last_build: 60000 /* TODO increase...*/ ,
+        building_timeout: 300000 /* TODO increase...*/ ,
+    }, build_chunks.background_worker);
+}

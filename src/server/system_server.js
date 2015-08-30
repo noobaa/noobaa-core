@@ -40,7 +40,7 @@ var diag = require('./utils/server_diagnostics');
 var db = require('./db');
 var server_rpc = require('./server_rpc');
 var AWS = require('aws-sdk');
-var fs = require('fs');
+//var fs = require('fs');
 var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 
@@ -118,19 +118,19 @@ function create_system(req) {
                 auth_token: system_token
             });
         })
-        .then(function() {
-            var config = {
-                "dbg_log_level": 2,
-                "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
-                "port": "80",
-                "ssl_port": "443",
-                "access_key": info.access_keys[0].access_key,
-                "secret_key": info.access_keys[0].secret_key
-            };
-            if (process.env.ON_PREMISE === 'true') {
-                return P.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
-            }
-        })
+        // .then(function() {
+        //     var config = {
+        //         "dbg_log_level": 2,
+        //         "address": "wss://127.0.0.1:" + process.env.SSL_PORT,
+        //         "port": "80",
+        //         "ssl_port": "443",
+        //         "access_key": info.access_keys[0].access_key,
+        //         "secret_key": info.access_keys[0].secret_key
+        //     };
+        //     if (process.env.ON_PREMISE === 'true') {
+        //         return P.nfcall(fs.writeFile, process.cwd() + '/agent_conf.json', JSON.stringify(config));
+        //     }
+        // })
         .then(function() {
             if (process.env.ON_PREMISE === 'true') {
                 return P.fcall(function() {

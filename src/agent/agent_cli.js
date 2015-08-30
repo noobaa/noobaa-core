@@ -20,6 +20,7 @@ var promise_utils = require('../util/promise_utils');
 var dbg = require('../util/debug_module')(__filename);
 var child_process = require('child_process');
 var s3_auth = require('aws-sdk/lib/signers/s3');
+var uuid = require('node-uuid');
 
 setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
@@ -185,7 +186,7 @@ AgentCLI.prototype.load.helper = function() {
 AgentCLI.prototype.create = function() {
     var self = this;
 
-    var node_name = os.hostname() + '-' + Date.now();
+    var node_name = os.hostname() + '-' + uuid();
     var node_path = path.join(self.params.root_path, node_name);
     var token_path = path.join(node_path, 'token');
     dbg.log0('create new node');
@@ -222,8 +223,6 @@ AgentCLI.prototype.create = function() {
             } else {
                 dbg.log0('has token', self.create_node_token);
             }
-        })
-        .then(function() {
             return P.nfcall(mkdirp, node_path);
         }).then(function() {
             return P.nfcall(fs.writeFile, token_path, self.create_node_token);

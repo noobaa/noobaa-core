@@ -2,6 +2,7 @@
 
 var P = require('bluebird');
 var _ = require('lodash');
+require('setimmediate');
 
 /**
  *

@@ -294,9 +294,8 @@ function read_system(req) {
                             interval_text = sync_policy.policy.schedule / (60 * 24) + ' days';
                         }
                     }
-                    b.synch_details = '<br />Last sync time:' + last_sync.toUTCString() + '.<br />scheduled to run every ' + interval_text;
-                    b.policy_schedule_in_min = sync_policy.policy.schedule;
-                    b.last_sync = sync_policy.policy.last_sync;
+                    b.policy_schedule_in_min = interval_text; 
+                    b.last_sync = last_sync.toUTCString();
                 }
                 dbg.log2('bucket is:', b);
                 return b;

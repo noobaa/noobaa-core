@@ -3,7 +3,7 @@ require('../util/panic');
 
 var dotenv = require('dotenv');
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var mongoose = require('mongoose');
 var http = require('http');
 var promise_utils = require('../util/promise_utils');
@@ -30,8 +30,8 @@ if (debug_mode) {
 mongoose.connection.once('open', function() {
     // call ensureIndexes explicitly for each model
     mongoose_connected = true;
-    return Q.all(_.map(mongoose.modelNames(), function(model_name) {
-        return Q.npost(mongoose.model(model_name), 'ensureIndexes');
+    return P.all(_.map(mongoose.modelNames(), function(model_name) {
+        return P.npost(mongoose.model(model_name), 'ensureIndexes');
     }));
 });
 
@@ -64,8 +64,8 @@ function register_rpc() {
     server_rpc = require('./bg_workers_rpc');
 
     http_server = http.createServer();
-    Q.fcall(function() {
-            return Q.ninvoke(http_server, 'listen', 5002);
+    P.fcall(function() {
+            return P.ninvoke(http_server, 'listen', 5002);
         })
         .then(function() {
             server_rpc.register_ws_transport(http_server);

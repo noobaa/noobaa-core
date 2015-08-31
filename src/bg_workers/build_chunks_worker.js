@@ -4,7 +4,7 @@ module.exports = {
     background_worker: background_worker,
 };
 
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('../server/db');
 var object_mapper_utils = require('../server/utils/object_mapper_utils');
 var dbg = require('../util/debug_module')(__filename);
@@ -18,7 +18,7 @@ var dbg = require('../util/debug_module')(__filename);
  */
 function background_worker() {
     var self = this;
-    return Q.fcall(function() {
+    return P.fcall(function() {
             var now = Date.now();
             var query = {
                 $and: [{

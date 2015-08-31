@@ -58,19 +58,25 @@
                         </div>
                         <br>
                         <h3>Additional Settings</h3>
-                        <div rel="tooltip" title="This option, when set, allows deletion of objects." class="checkbox">
-                            <label>
-                                <input ng-model="$parent.sync_deleted" type="checkbox"/>
-                                <small>Sync Deleted Objects</small>
-                            </label>
+                        <br>
+                        <div class="controls form-inline">
+                            <label>Sync Type</label>
+                            <select class="form-control" required ng-model="$parent.selected_sync_type" ng-change="select_sync_type()" ng-options='option as option for option in sync_types'>
+                            </select>
                         </div>
                         <div class="controls form-inline">
-                            <label style="width:100px;">Bucket</label>
+                            <label>Sync bucket every</label>
                             <select class="form-control" required ng-model="$parent.selected_scheduling_interval" ng-change="select_scheduling_interval()" ng-options='option as option for option in interval_options'>
                             </select>
                             <select class="form-control" required ng-model="$parent.selected_scheduling_unit" ng-change="select_scheduling_unit()" ng-options='option as option for option in unit_options'>
                             </select>
 
+                        </div>
+                        <div ng-if="show_additions_only" rel="tooltip" title="This option, when set, allows deletion of objects." class="checkbox">
+                            <label>
+                                <input ng-model="$parent.sync_deleted" type="checkbox"/>
+                                <small>Sync Deleted Objects</small>
+                            </label>
                         </div>
                         <br>
                         <br>

@@ -509,6 +509,8 @@ nb_console.controller('SystemDataCtrl', [
             scope.full_bucket_name = bucket_name;
             scope.$location = $location;
             scope.accessKeys = [];
+            scope.sync_deleted = false;
+            scope.show_additions_only = false;
 
             console.log('Account:::' + JSON.stringify(nbClient.account));
 
@@ -526,6 +528,10 @@ nb_console.controller('SystemDataCtrl', [
                         scope.unit_options = ['Minutes', 'Hours', 'Days'];
                         scope.selected_scheduling_interval = scope.interval_options[0];
                         scope.selected_scheduling_unit = scope.unit_options[0];
+                        scope.sync_types  = ['BI-Directional','NooBaa to AWS', 'AWS to NooBaa'];
+                        scope.selected_sync_type = scope.sync_types[0];
+                        scope.sync_deleted = true;
+                        scope.show_additions_only = false;
 
                     } else {
                         scope.status = cloud_sync_policy.status;
@@ -578,6 +584,23 @@ nb_console.controller('SystemDataCtrl', [
             };
             scope.set_cloud_sync_policy = function() {
                 scope.has_policy = false;
+                scope.interval_options = [15, 30, 45];
+                scope.unit_options = ['Minutes', 'Hours', 'Days'];
+                scope.selected_scheduling_interval = scope.interval_options[0];
+                scope.selected_scheduling_unit = scope.unit_options[0];
+                scope.sync_types  = ['BI-Directional','NooBaa to AWS', 'AWS to NooBaa'];
+                scope.selected_sync_type = scope.sync_types[0];
+                scope.sync_deleted = true;
+                scope.show_additions_only = false;
+            };
+            scope.select_sync_type = function(){
+                console.log('select sync type'+scope.selected_sync_type);
+                if (scope.selected_sync_type!==scope.sync_types[0]){
+                    scope.show_additions_only = true;
+                    scope.sync_deleted = true;
+                }else{
+                    scope.show_additions_only = false;
+                }
             };
             scope.delete_cloud_sync_policy = function() {
                 nbAlertify.confirm('Are you sure that you want to delete the sync policy?')
@@ -642,40 +665,46 @@ nb_console.controller('SystemDataCtrl', [
             };
 
             scope.done = function() {
-                var scheduling_in_minutes = 0;
-                if (scope.selected_scheduling_unit === 'Minutes') {
-                    scheduling_in_minutes = scope.selected_scheduling_interval;
-                } else {
-                    if (scope.selected_scheduling_unit === 'Hours') {
-                        scheduling_in_minutes = scope.selected_scheduling_interval * 60;
-                    } else { //Days
-                        scheduling_in_minutes = scope.selected_scheduling_interval * 60 * 24;
+                if (!scope.done_disabled) {
+
+                    var scheduling_in_minutes = 0;
+                    if (scope.selected_scheduling_unit === 'Minutes') {
+                        scheduling_in_minutes = scope.selected_scheduling_interval;
+                    } else {
+                        if (scope.selected_scheduling_unit === 'Hours') {
+                            scheduling_in_minutes = scope.selected_scheduling_interval * 60;
+                        } else { //Days
+                            scheduling_in_minutes = scope.selected_scheduling_interval * 60 * 24;
+                        }
                     }
+                    console.log('done scheduling_in_minutes:' + scheduling_in_minutes);
+                    $q.when(nbClient.client.bucket.set_cloud_sync({
+                        name: bucket_name,
+                        policy: {
+                            endpoint: scope.selected_bucket,
+                            access_keys: [{
+                                access_key: scope.selected_key.access_key,
+                                secret_key: scope.selected_key.secret_key
+                            }],
+                            schedule: scheduling_in_minutes,
+                            paused: false,
+                            c2n_enabled: scope.selected_sync_type === scope.sync_types[0] ||
+                                            scope.selected_sync_type === scope.sync_types[2] ,
+                            n2c_enabled: scope.selected_sync_type === scope.sync_types[0] ||
+                                            scope.selected_sync_type === scope.sync_types[1] ,
+                            //TODO:: Change to this once direction can be chosen additions_only: scope.sync_deleted,
+                            additions_only: !scope.sync_deleted
+                        }
+                    })).then(function() {
+                        scope.modal.modal('hide');
+                        nbAlertify.success('Congrats! ' + bucket_name + ' sync set');
+                        reload_view();
+                    }).then(null, function(err) {
+                        scope.error_message = err.message;
+                        scope.has_error = true;
+                    });
                 }
-                console.log('done scheduling_in_minutes:' + scheduling_in_minutes);
-                $q.when(nbClient.client.bucket.set_cloud_sync({
-                    name: bucket_name,
-                    policy: {
-                        endpoint: scope.selected_bucket,
-                        access_keys: [{
-                            access_key: scope.selected_key.access_key,
-                            secret_key: scope.selected_key.secret_key
-                        }],
-                        schedule: scheduling_in_minutes,
-                        paused: false,
-                        c2n_enabled: true,
-                        n2c_enabled: true,
-                        //TODO:: Change to this once direction can be chosen additions_only: scope.sync_deleted,
-                        additions_only: false
-                    }
-                })).then(function() {
-                    scope.modal.modal('hide');
-                    nbAlertify.success('Congrats! ' + bucket_name + ' sync set');
-                    reload_view();
-                }).then(null, function(err) {
-                    scope.error_message = err.message;
-                    scope.has_error = true;
-                });
+
             };
             scope.cancel_new_key = function() {
                 console.log('cancel done key:', scope.access_key, ' secret: ', scope.secret_key);

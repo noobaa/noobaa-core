@@ -44,7 +44,7 @@ var AWS = require('aws-sdk');
 var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 var bucket_server = require('./bucket_server');
-
+var moment = require('moment');
 
 /**
  *
@@ -281,9 +281,6 @@ function read_system(req) {
             }).then(function(sync_policy) {
                 dbg.log2('bucket sync_policy is:', sync_policy);
                 if (!_.isEmpty(sync_policy)) {
-                    var last_sync = new Date();
-                    last_sync.setTime(sync_policy.policy.last_sync);
-
                     var interval_text = 0;
                     if (sync_policy.policy.schedule < 60) {
                         interval_text = sync_policy.policy.schedule + ' minutes';
@@ -294,8 +291,8 @@ function read_system(req) {
                             interval_text = sync_policy.policy.schedule / (60 * 24) + ' days';
                         }
                     }
-                    b.policy_schedule_in_min = interval_text; 
-                    b.last_sync = last_sync.toUTCString();
+                    b.policy_schedule_in_min = interval_text;
+                    b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
                 }
                 dbg.log2('bucket is:', b);
                 return b;

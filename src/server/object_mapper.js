@@ -32,8 +32,9 @@ var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var object_utils = require('./utils/object_mapper_utils');
 var block_allocator = require('./block_allocator');
-var config = require('../../config.js');
+var range_utils = require('../util/range_utils');
 var dbg = require('../util/debug_module')(__filename);
+var config = require('../../config.js');
 
 /**
  *

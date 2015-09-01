@@ -11,6 +11,7 @@
     "prepublish": "./node_modules/.bin/gulp install",
     "test": "./node_modules/.bin/gulp test",
     "start": "./node_modules/.bin/gulp start",
+    "start_bg": "./node_modules/.bin/gulp start_bg",
     "install": "node-gyp rebuild"
   },
   "repository": {

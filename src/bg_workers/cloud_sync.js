@@ -162,8 +162,11 @@ function refresh_policy(req) {
  *************** General Cloud Sync Utils
  */
 function is_empty_sync_worklist(work_list) {
-    if (!work_list ||
-        work_list.n2c_added.length || work_list.n2c_deleted.length ||
+    if (typeof(work_list) === 'undefined') {
+        return true;
+    }
+
+    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
         work_list.c2n_added.length || work_list.c2n_deleted.length) {
         return false;
     } else {
@@ -354,7 +357,7 @@ function load_configured_policies() {
         .then(function(buckets) {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
-                    dbg.log4('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
+                    dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
                     //Cache Configuration, S3 Objects and empty work lists
                     var policy = {
                         bucket: {
@@ -413,6 +416,7 @@ function load_configured_policies() {
 function update_work_list(policy) {
     //order is important, in order to query needed sync objects only once form DB
     //fill the n2c list first
+    dbg.log3('update_work_list for', pretty_policy(policy));
     return P.when(update_n2c_worklist(policy))
         .then(function() {
             return update_c2n_worklist(policy);
@@ -565,6 +569,7 @@ function sync_single_file_to_cloud(policy, object, target) {
 function sync_single_file_to_noobaa(policy, object) {
     dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
 
+    //TODO:: NBNB work in stream mode
     return P.ninvoke(policy.s3cloud, 'getObject', {
             Bucket: policy.endpoint,
             Key: object.key,
@@ -704,7 +709,11 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
             dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
         })
         .then(function() {
-            dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
+          //TODO:: pop per file
+          while (bucket_work_lists.c2n_added.length > 0) {
+              bucket_work_lists.c2n_added.pop();
+          }
+          dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
         })
         .thenResolve();
 }

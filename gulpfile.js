@@ -45,6 +45,7 @@ if (!process.env.PORT) {
 }
 
 var active_server;
+var bg_workers_server;
 var build_on_premise = false;
 var skip_install = false;
 var use_local_executable = false;
@@ -108,6 +109,7 @@ var PATHS = {
     ],
 
     server_main: 'src/server/web_server.js',
+    bg_workers_main: 'src/bg_workers/bg_workers_starter.js',
     client_bundle: 'src/client/index.js',
     // agent_bundle: 'src/agent/index.js',
     client_externals: [
@@ -140,7 +142,7 @@ var PATHS = {
         'src/ngview/**/*.*',
         'src/rpc/**/*.*',
         'src/s3/**/*.*',
-        'src/server/**/*.*',
+        'src/ar/**/*.*',
         'src/util/**/*.*',
         'src/views/**/*.*',
         'src/native/**/*.*',
@@ -677,8 +679,49 @@ function serve() {
     gulp_notify('noobaa serving...').end('stam');
 }
 
+function serve_bg() {
+    if (bg_workers_server) {
+        console.log(' ');
+        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+        console.log('~~~      KILL BG WORKERS   ~~~ (pid=' + bg_workers_server.pid + ')');
+        console.log('~~~ (wait exit to respawn) ~~~');
+        console.log('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+        console.log(' ');
+        bg_workers_server.kill();
+        return;
+    }
+    console.log(' ');
+    console.log('~~~~~~~~~~~~~~~~~~~~~~~');
+    console.log('~~~ START BG WORKERS ~~~');
+    console.log('~~~~~~~~~~~~~~~~~~~~~~~');
+    console.log(' ');
+    bg_workers_server = child_process.fork(
+        PATHS.bg_workers_main, []
+    );
+    bg_workers_server.on('error', function(err) {
+        console.error(' ');
+        console.error('~~~~~~~~~~~~~~~~~~~~~~~');
+        console.error('~~~ BG WORKERS ERROR ~~~', err);
+        console.error('~~~~~~~~~~~~~~~~~~~~~~~');
+        console.error(' ');
+        gutil.beep();
+    });
+    bg_workers_server.on('exit', function(code, signal) {
+        console.error(' ');
+        console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+        console.error('~~~       SERVER EXIT       ~~~ (rc=' + code + ')');
+        console.error('~~~  (respawn in 1 second)  ~~~');
+        console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
+        console.error(' ');
+        bg_workers_server = null;
+        setTimeout(serve, 1);
+    });
+    gulp_notify('noobaa bg serving...').end('stam');
+}
+
 gulp.task('install', ['bower', 'assets', 'css', 'ng', 'lint', 'client', 'agent']);
 gulp.task('serve', [], serve);
+gulp.task('serve_bg', [], serve_bg);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
 gulp.task('install_client_and_serve', ['client'], serve);
@@ -700,6 +743,17 @@ gulp.task('start_dev', ['install_and_serve'], function() {
         'src/server/**/*',
         'src/views/**/*',
     ], ['serve']);
+});
+
+gulp.task('start_bg', ['lint'], function() {
+    gulp.watch([
+        'src/server/**/*',
+        'src/api/**/*',
+        'src/rpc/**/*',
+        'src/util/**/*',
+        'src/bg_workers/**/*',
+    ], ['serve_bg']);
+    serve_bg();
 });
 
 gulp.task('start_prod', function() {

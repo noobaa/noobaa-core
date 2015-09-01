@@ -160,6 +160,7 @@ function use_exclude(path, middleware) {
 // register RPC services and transports
 require('./server_rpc').register_servers();
 var server_rpc = require('./server_rpc').server_rpc;
+var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
 server_rpc.register_http_transport(app);
 // server_rpc.register_n2n_transport();
 var http_port = process.env.PORT = process.env.PORT || 5001;
@@ -302,7 +303,13 @@ app.post('/set_log_level*', function(req, res) {
 
     dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
     dbg.set_level(req.param('level'), req.param('module'));
-    res.status(200).send({});
+    return P.when(bg_workers_rpc.client.bg_workers.set_debug_level({
+        level: req.param('level'),
+        module: req.param('module')
+    })).
+    then(function() {
+        res.status(200).send({});
+    });
 });
 
 //Log level getter

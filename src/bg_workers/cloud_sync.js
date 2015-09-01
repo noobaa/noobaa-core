@@ -141,7 +141,8 @@ function refresh_policy(req) {
  *************** General Cloud Sync Utils
  */
 function is_empty_sync_worklist(work_list) {
-    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
+    if (!work_list ||
+        work_list.n2c_added.length || work_list.n2c_deleted.length ||
         work_list.c2n_added.length || work_list.c2n_deleted.length) {
         return false;
     } else {

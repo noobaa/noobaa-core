@@ -18,18 +18,16 @@
 
                             <span style=" float: left; width: 40%; " rel="tooltip" title="{{full_bucket_name}}" class="modal-title"> NooBaa: {{bucket_name}}</span>
 
-                            <span style="display: inline-block; margin:0 0 0 10px" class="{{arrow_type}} arrow-right"></span>
-
+                             <span rel="tooltip" title="{{arrow_tooltip}}" style="display: inline-block; margin:0 0 0 10px" class="{{arrow_type}}"></span>
                             <span style="float: right; width: 40%;" rel="tooltip" title="{{full_target_name}}" class="modal-title">AWS: {{aws_target}}</span>
 
-                            <div style="padding: 0 0 0 30px" class="text-right">
+                            <div style="margin:30px 0 0 10px;padding: 0 0 0 10px" class="text-right">
                                 <button ng-if="has_policy" nb-click-ladda="set_cloud_sync_policy();" class="btn btn-default" style="display:inline-block;margin: 0 0 0 10px">Replace</button>
                                 <button ng-if="has_policy" nb-click-ladda="delete_cloud_sync_policy();" class="btn btn-default" style="display:inline-block;margin: 0 0 0 10px">Remove</button>
                             </div>
                         </div>
 
                     </div>
-                    <br>
                     <br>
 
                     <div class="form-group" ng-if="has_policy!=true">
@@ -57,20 +55,36 @@
                             </select>
                         </div>
                         <br>
-                        <div class="checkbox">
-                            <label>
+                        <h3>Additional Settings</h3>
+                        <br>
+                        <div class="controls form-inline">
+                            <label>Sync Type</label>
+                            <select class="form-control" required ng-model="$parent.selected_sync_type" ng-change="select_sync_type()" ng-options='option as option for option in sync_types'>
+                            </select>
+                        </div>
+                        <div class="controls form-inline">
+                            <br>
+                            <label>Sync bucket every</label>
+                            <select class="form-control" required ng-model="$parent.selected_scheduling_interval" ng-change="select_scheduling_interval()" ng-options='option as option for option in interval_options'>
+                            </select>
+                            <select class="form-control" required ng-model="$parent.selected_scheduling_unit" ng-change="select_scheduling_unit()" ng-options='option as option for option in unit_options'>
+                            </select>
+
+                        </div>
+                        <div ng-if="show_additions_only" class="checkbox">
+                            <br>
+                            <label rel="tooltip" title="This option, when set, allows deletion of objects.">
                                 <input ng-model="$parent.sync_deleted" type="checkbox"/>
                                 <small>Sync Deleted Objects</small>
                             </label>
                         </div>
-                        <br>
                         <br>
                         <div class="form-control-wrapper alert {{alert_class || 'alert-warning'}}" role="alert" ng-show="has_error">
                             {{error_message}}
                         </div>
                     </div>
                 </div>
-                <div style="padding: 30px" class="text-right">
+                <div style="padding: 10px" class="text-right">
                     <button class="btn btn-primary text-left {{done_disabled}}" ng-click="done()">
                         Done
                     </button>

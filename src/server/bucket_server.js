@@ -442,6 +442,10 @@ function get_policy_status(bucketid, sysid) {
 }
 
 function is_empty_sync_worklist(work_list) {
+    if (typeof(work_list) === 'undefined' ||
+        typeof(work_list.n2c_added) === 'undefined') {
+        return true;
+    }
     if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
         work_list.c2n_added.length || work_list.c2n_deleted.length) {
         return false;

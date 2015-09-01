@@ -542,26 +542,25 @@ function update_c2n_worklist(policy) {
 function sync_single_file_to_cloud(policy, object, target) {
     dbg.log3('sync_single_file_to_cloud', object.key, '->', target + '/' + object.key);
 
-    return P.ninvoke(policy.s3rver, 'getObject', {
-            Bucket: policy.bucket.name,
-            Key: object.key,
-        })
-        .then(function(res) {
-            var params = {
-                Bucket: target,
-                Key: object.key,
-                Body: res.Body
-            };
+    var body = policy.s3rver.getObject({
+        Bucket: policy.bucket.name,
+        Key: object.key,
+    }).createReadStream();
 
-            return P.ninvoke(policy.s3cloud, 'upload', params)
-                .fail(function(err) {
-                    dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
-                        err, err.stack);
-                    throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
-                })
-                .then(function() {
-                    return mark_cloud_synced(object);
-                });
+    var params = {
+        Bucket: target,
+        Key: object.key,
+        Body: body
+    };
+
+    return P.ninvoke(policy.s3cloud, 'upload', params)
+        .fail(function(err) {
+            dbg.error('Error sync_single_file_to_cloud', object.key, '->', target + '/' + object.key,
+                err, err.stack);
+            throw new Error('Error sync_single_file_to_cloud ' + object.key + ' -> ' + target);
+        })
+        .then(function() {
+            return mark_cloud_synced(object);
         });
 }
 
@@ -569,28 +568,26 @@ function sync_single_file_to_cloud(policy, object, target) {
 function sync_single_file_to_noobaa(policy, object) {
     dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
 
-    //TODO:: NBNB work in stream mode
-    return P.ninvoke(policy.s3cloud, 'getObject', {
-            Bucket: policy.endpoint,
-            Key: object.key,
-        })
-        .then(function(res) {
-            var params = {
-                Bucket: policy.bucket.name,
-                Key: object.key,
-                ContentType: object.content_type,
-                Body: res.Body
-            };
+    var body = policy.s3cloud.getObject({
+        Bucket: policy.endpoint,
+        Key: object.key,
+    }).createReadStream();
 
-            return P.ninvoke(policy.s3rver, 'upload', params)
-                .fail(function(err) {
-                    dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
-                        err, err.stack);
-                    throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
-                })
-                .then(function() {
-                    return;
-                });
+    var params = {
+        Bucket: policy.bucket.name,
+        Key: object.key,
+        ContentType: object.content_type,
+        Body: body
+    };
+
+    return P.ninvoke(policy.s3rver, 'upload', params)
+        .fail(function(err) {
+            dbg.error('Error sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key,
+                err, err.stack);
+            throw new Error('Error sync_single_file_to_noobaa ' + object.key, '->', policy.bucket.name);
+        })
+        .then(function() {
+            return;
         });
 }
 
@@ -709,11 +706,11 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
             dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
         })
         .then(function() {
-          //TODO:: pop per file
-          while (bucket_work_lists.c2n_added.length > 0) {
-              bucket_work_lists.c2n_added.pop();
-          }
-          dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
+            //TODO:: pop per file
+            while (bucket_work_lists.c2n_added.length > 0) {
+                bucket_work_lists.c2n_added.pop();
+            }
+            dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
         })
         .thenResolve();
 }

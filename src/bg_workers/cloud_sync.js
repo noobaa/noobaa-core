@@ -569,6 +569,7 @@ function sync_single_file_to_cloud(policy, object, target) {
 function sync_single_file_to_noobaa(policy, object) {
     dbg.log3('sync_single_file_to_noobaa', object.key, '->', policy.bucket.name + '/' + object.key);
 
+    //TODO:: NBNB work in stream mode
     return P.ninvoke(policy.s3cloud, 'getObject', {
             Bucket: policy.endpoint,
             Key: object.key,
@@ -708,7 +709,11 @@ function sync_from_cloud_single_bucket(bucket_work_lists, policy) {
             dbg.error('sync_from_cloud_single_bucket Failed syncing added objects c2n', error, error.stack);
         })
         .then(function() {
-            dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
+          //TODO:: pop per file
+          while (bucket_work_lists.c2n_added.length > 0) {
+              bucket_work_lists.c2n_added.pop();
+          }
+          dbg.log1('Done sync_from_cloud_single_bucket on {', policy.bucket.name, policy.system._id, policy.endpoint, '}');
         })
         .thenResolve();
 }

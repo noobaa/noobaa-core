@@ -709,7 +709,7 @@ function serve_bg() {
     bg_workers_server.on('exit', function(code, signal) {
         console.error(' ');
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
-        console.error('~~~       SERVER EXIT       ~~~ (rc=' + code + ')');
+        console.error('~~~     BG WORKERS EXIT     ~~~ (rc=' + code + ')');
         console.error('~~~  (respawn in 1 second)  ~~~');
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
         console.error(' ');

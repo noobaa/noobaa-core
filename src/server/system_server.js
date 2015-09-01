@@ -292,7 +292,13 @@ function read_system(req) {
                         }
                     }
                     b.policy_schedule_in_min = interval_text;
-                    b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
+                    //If sync time is epoch (never synced) change to never synced
+                    if (sync_policy.policy.last_sync === 0) {
+                        b.last_sync = 'Waiting for first sync';
+                    } else {
+                        b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
+                    }
+
                 }
                 dbg.log2('bucket is:', b);
                 return b;
@@ -301,7 +307,7 @@ function read_system(req) {
             });
 
         })).then(function(updated_buckets) {
-            dbg.log2('updated_buckets:',updated_buckets);
+            dbg.log2('updated_buckets:', updated_buckets);
             return {
                 name: req.system.name,
                 roles: _.map(roles, function(role) {

@@ -27,6 +27,7 @@ var CLOUD_SYNC = {
  *************** Cloud Sync Background Worker & Other Eports
  */
 function background_worker() {
+    var should_update_time = false;
     return P.fcall(function() {
             dbg.log0('CLOUD_SYNC_REFRESHER:', 'BEGIN');
             ///if policies not loaded, load them now
@@ -37,8 +38,19 @@ function background_worker() {
         .then(function() {
             var now = Date.now();
             return P.all(_.map(CLOUD_SYNC.configured_policies, function(policy) {
+                //If refresh time
                 if (((now - policy.last_sync) / 1000 / 60) > policy.schedule_min &&
                     !policy.paused) {
+                    var cur_work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
+                        return wl.sysid === policy.system.id &&
+                            wl.bucketid === policy.bucket.id;
+                    });
+                    //If currently still in sync from lasy refresh, skip
+                    if (!is_empty_sync_worklist(cur_work_list)) {
+                        dbg.log0('Last sync was not finished for', policy.system.id, policy.bucket.id, 'skipping current cycle');
+                        return;
+                    }
+                    should_update_time = true;
                     return update_work_list(policy);
                 }
             }));
@@ -49,12 +61,6 @@ function background_worker() {
                     return p.system._id === single_bucket.sysid &&
                         p.bucket.id === single_bucket.bucketid;
                 });
-
-                var should_update_time = false;
-                if (!is_empty_sync_worklist(single_bucket)) {
-                    should_update_time = true;
-                    //TODO:: return here, means previous sync was not done, always set last_sync
-                }
                 //Sync n2c
                 return P.when(sync_to_cloud_single_bucket(single_bucket, current_policy))
                     .then(function() {
@@ -135,7 +141,8 @@ function refresh_policy(req) {
  *************** General Cloud Sync Utils
  */
 function is_empty_sync_worklist(work_list) {
-    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
+    if (!work_list ||
+        work_list.n2c_added.length || work_list.n2c_deleted.length ||
         work_list.c2n_added.length || work_list.c2n_deleted.length) {
         return false;
     } else {

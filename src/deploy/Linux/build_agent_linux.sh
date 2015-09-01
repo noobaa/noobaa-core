@@ -81,8 +81,7 @@ else
         chmod 777 makeself.sh
         #replace -- with /S in order to use exactly the same flags like windows.
         sed -i s/'\--)'/'\/S)'/ makeself-header.sh
-        rm -rf ./node_modules/noobaa-util/node_modules/gulp*
-        rm -rf ./node_modules/noobaa-util/node_modules/node-gyp*/src ./config.js ./package.json ./agent_conf.json
+        rm -rf ./config.js ./package.json ./agent_conf.json
     else
       cd build/linux
     fi

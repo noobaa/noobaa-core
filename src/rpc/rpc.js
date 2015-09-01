@@ -32,6 +32,7 @@ var browser_ws = global.window && global.window.WebSocket;
 // just like any ajax request. for development we take localhost.
 // for any other case the RPC objects can set the base_address property.
 var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:5001';
+var DEFAULT_BACKGROUND_ADDRESS = 'ws://127.0.0.1:5002';
 if (browser_location) {
     if (browser_ws) {
         // use ws/s address
@@ -760,4 +761,11 @@ RPC.prototype.register_n2n_transport = function() {
  */
 RPC.prototype.n2n_signal = function(params) {
     return this.n2n_agent.signal(params);
+};
+
+RPC.prototype.get_default_base_address = function(server) {
+    if (server === 'background') {
+      return DEFAULT_BACKGROUND_ADDRESS;
+    }
+    return DEFAULT_BASE_ADDRESS;
 };

@@ -523,12 +523,12 @@ nb_console.controller('SystemDataCtrl', [
                         scope.status = "No policy defined";
                         scope.aws_target = "None";
                         scope.has_policy = false;
-                        scope.arrow_type = 'arrow-inverse';
+                        scope.arrow_type = '';
                         scope.interval_options = [15, 30, 45];
                         scope.unit_options = ['Minutes', 'Hours', 'Days'];
                         scope.selected_scheduling_interval = scope.interval_options[0];
                         scope.selected_scheduling_unit = scope.unit_options[0];
-                        scope.sync_types  = ['BI-Directional','NooBaa to AWS', 'AWS to NooBaa'];
+                        scope.sync_types = ['BI-Directional', 'NooBaa to AWS', 'AWS to NooBaa'];
                         scope.selected_sync_type = scope.sync_types[0];
                         scope.sync_deleted = true;
                         scope.show_additions_only = false;
@@ -542,8 +542,21 @@ nb_console.controller('SystemDataCtrl', [
                         }
                         scope.full_target_name = cloud_sync_policy.policy.endpoint;
                         scope.has_policy = true;
-                        console.log('cloud policy' + JSON.stringify(cloud_sync_policy));
-                        scope.arrow_type = 'arrow-success';
+                        console.log('cloud policy c2n:' + cloud_sync_policy.policy.c2n_enabled + ' n2c:' + cloud_sync_policy.policy.n2c_enabled + ' ' + JSON.stringify(cloud_sync_policy));
+                        if (cloud_sync_policy.policy.c2n_enabled &&
+                            cloud_sync_policy.policy.n2c_enabled) {
+                            scope.arrow_type = 'bi-arrow';
+                            scope.arrow_tooltip = 'Bi-directional synchornization';
+                        } else {
+                            if (cloud_sync_policy.policy.c2n_enabled) {
+                                scope.arrow_type = 'arrow-left';
+                                scope.arrow_tooltip = 'Synchornization from AWS to NooBaa';
+                            } else {
+                                scope.arrow_type = 'arrow';
+                                scope.arrow_tooltip = 'Synchornization from NooBaa to AWS';
+                            }
+                        }
+                        console.log('arrow_type:'+scope.arrow_type);
                     }
 
                 });
@@ -588,17 +601,17 @@ nb_console.controller('SystemDataCtrl', [
                 scope.unit_options = ['Minutes', 'Hours', 'Days'];
                 scope.selected_scheduling_interval = scope.interval_options[0];
                 scope.selected_scheduling_unit = scope.unit_options[0];
-                scope.sync_types  = ['BI-Directional','NooBaa to AWS', 'AWS to NooBaa'];
+                scope.sync_types = ['BI-Directional', 'NooBaa to AWS', 'AWS to NooBaa'];
                 scope.selected_sync_type = scope.sync_types[0];
                 scope.sync_deleted = true;
                 scope.show_additions_only = false;
             };
-            scope.select_sync_type = function(){
-                console.log('select sync type'+scope.selected_sync_type);
-                if (scope.selected_sync_type!==scope.sync_types[0]){
+            scope.select_sync_type = function() {
+                console.log('select sync type' + scope.selected_sync_type);
+                if (scope.selected_sync_type !== scope.sync_types[0]) {
                     scope.show_additions_only = true;
                     scope.sync_deleted = true;
-                }else{
+                } else {
                     scope.show_additions_only = false;
                 }
             };
@@ -689,9 +702,9 @@ nb_console.controller('SystemDataCtrl', [
                             schedule: scheduling_in_minutes,
                             paused: false,
                             c2n_enabled: scope.selected_sync_type === scope.sync_types[0] ||
-                                            scope.selected_sync_type === scope.sync_types[2] ,
+                                scope.selected_sync_type === scope.sync_types[2],
                             n2c_enabled: scope.selected_sync_type === scope.sync_types[0] ||
-                                            scope.selected_sync_type === scope.sync_types[1] ,
+                                scope.selected_sync_type === scope.sync_types[1],
                             //TODO:: Change to this once direction can be chosen additions_only: scope.sync_deleted,
                             additions_only: !scope.sync_deleted
                         }

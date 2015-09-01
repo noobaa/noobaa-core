@@ -59,7 +59,7 @@
                         <!-- <td>{{bucket.tiering}}</td> -->
                         <td  style="padding:0 0 0 0;border:1px;">
                             <div>
-                            <i style="padding:5 0 0 10;" class="fa fa-cloud fa-lg btn btn-default" rel="tooltip" data-html="true" title="<b>Sync bucket</b> {{(bucket.policy_schedule_in_min) ? '<br />Last sync time is ' +bucket.last_sync +'.<br />scheduled to run every ' +bucket.policy_schedule_in_min  : ''}}"  nb-click-ladda="sync_bucket('{{bucket.name}}')"></i>
+                            <i style="padding:5 0 0 10;" class="fa fa-cloud fa-lg btn btn-default" rel="tooltip" data-html="true" title="{{(bucket.policy_schedule_in_min) ? '<b>Cloud sync every ' +bucket.policy_schedule_in_min +'</b><br />Last sync ' + bucket.last_sync : '<b>Sync bucket</b>'}}"  nb-click-ladda="sync_bucket('{{bucket.name}}')"></i>
                             <i style="padding:5 0 0 0;" class="fa fa-trash-o fa-lg btn btn-default" rel="tooltip" title="Delete bucket"  nb-click-ladda="delete_bucket('{{bucket.name}}')"></i>
                             </div>
 

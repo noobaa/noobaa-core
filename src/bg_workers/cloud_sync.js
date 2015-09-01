@@ -162,8 +162,11 @@ function refresh_policy(req) {
  *************** General Cloud Sync Utils
  */
 function is_empty_sync_worklist(work_list) {
-    if (!work_list ||
-        work_list.n2c_added.length || work_list.n2c_deleted.length ||
+    if (typeof(work_list) === 'undefined') {
+        return true;
+    }
+
+    if (work_list.n2c_added.length || work_list.n2c_deleted.length ||
         work_list.c2n_added.length || work_list.c2n_deleted.length) {
         return false;
     } else {
@@ -354,7 +357,7 @@ function load_configured_policies() {
         .then(function(buckets) {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
-                    dbg.log4('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
+                    dbg.log3('adding sysid', bucket.system._id, 'bucket', bucket.name, bucket._id, 'bucket', bucket, 'to configured policies');
                     //Cache Configuration, S3 Objects and empty work lists
                     var policy = {
                         bucket: {
@@ -413,6 +416,7 @@ function load_configured_policies() {
 function update_work_list(policy) {
     //order is important, in order to query needed sync objects only once form DB
     //fill the n2c list first
+    dbg.log3('update_work_list for', pretty_policy(policy));
     return P.when(update_n2c_worklist(policy))
         .then(function() {
             return update_c2n_worklist(policy);

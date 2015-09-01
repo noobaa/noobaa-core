@@ -18,6 +18,7 @@ api_schema.register_api(require('./bucket_api'));
 api_schema.register_api(require('./object_api'));
 api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./stats_api'));
+api_schema.register_api(require('./cloud_sync_api'));
 
 function new_rpc(options) {
     options = options || {};

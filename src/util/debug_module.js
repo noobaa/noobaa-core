@@ -78,7 +78,6 @@ function formatted_time() {
 function extract_module(mod, ignore_extension) {
     var stems = {
         "noobaa-core/src/": "core.",
-        "noobaa-util/": "util.",
         "noobaa-signaling/": "signaling.",
         "Program Files\\NooBaa": "core."
     };

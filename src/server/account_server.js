@@ -4,8 +4,9 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
-var server_rpc = require('./server_rpc');
+var server_rpc = require('./server_rpc').server_rpc;
 // var dbg = require('../util/debug_module')(__filename);
+
 
 
 /**

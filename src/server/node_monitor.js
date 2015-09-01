@@ -14,7 +14,7 @@ var P = require('../util/promise');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
-var server_rpc = require('../server/server_rpc');
+var server_rpc = require('./server_rpc').server_rpc;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
 

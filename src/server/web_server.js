@@ -158,6 +158,7 @@ function use_exclude(path, middleware) {
 /////////
 
 // register RPC services and transports
+require('./server_rpc').register_servers();
 var server_rpc = require('./server_rpc').server_rpc;
 server_rpc.register_http_transport(app);
 // server_rpc.register_n2n_transport();

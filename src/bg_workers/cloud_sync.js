@@ -134,7 +134,28 @@ function refresh_policy(req) {
         return;
     }
 
-    //TODO:: NBNB fill out
+    if (req.rpc_params.force_stop) {
+        var cur_work_list = _.find(CLOUD_SYNC.work_lists, function(wl) {
+            return wl.sysid.toString() === req.rpc_params.sysid &&
+                wl.bucketid.toString() === req.rpc_params.bucketid;
+        });
+        if (!is_empty_sync_worklist(cur_work_list)) {
+            while (cur_work_list.n2c_deleted.length > 0) {
+                cur_work_list.n2c_deleted.pop();
+            }
+            while (cur_work_list.n2c_added.length > 0) {
+                cur_work_list.n2c_added.pop();
+            }
+            while (cur_work_list.c2n_deleted.length > 0) {
+                cur_work_list.c2n_deleted.pop();
+            }
+            while (cur_work_list.c2n_added.length > 0) {
+                cur_work_list.c2n_added.pop();
+            }
+        }
+    }
+
+    CLOUD_SYNC.refresh_list = true;
 }
 
 /*

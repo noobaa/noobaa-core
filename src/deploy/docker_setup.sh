@@ -21,7 +21,13 @@ if [ ! -d "/noobaa" ]; then
 	sudo usermod -aG docker "root"
 
 	network=$(curl http://metadata/computeMetadata/v1/instance/attributes/network -H "Metadata-Flavor: Google")
+	if [ $? -ne 0 ]; then
+			network=1
+	fi
 	router=$(curl http://metadata/computeMetadata/v1/instance/attributes/router -H "Metadata-Flavor: Google")
+	if [ $? -ne 0 ]; then
+			router="0.0.0.0"
+	fi
 	agent_conf=$(curl http://metadata/computeMetadata/v1/instance/attributes/agent_conf -H "Metadata-Flavor: Google")
 
 	sudo curl -L git.io/weave -o /usr/local/bin/weave

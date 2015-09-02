@@ -105,6 +105,12 @@ function do_upgrade {
   cp -rf /backup/node_modules/heapdump  /root/node_modules/noobaa-core/node_modules/
   cp -rf /backup/node_modules/bcrypt  /root/node_modules/noobaa-core/node_modules/
 
+  #temp! build native on target machine
+  #TODO: build on centos and use prebuild
+
+  npm install -g node-gyp
+  node-gyp rebuild
+
   # Re-setup Repos
   setup_repos
 

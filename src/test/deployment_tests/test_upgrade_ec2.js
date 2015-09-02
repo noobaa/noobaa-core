@@ -85,19 +85,21 @@ function get_agent_setup(ip) {
 }
 
 function create_new_agents(target_ip, target_region) {
-    var new_conf = {
+    var new_conf = JSON.stringify({
         "dbg_log_level": 2,
         "tier": "nodes",
         "prod": true,
         "bucket": "files",
         "root_path": "./agent_storage/",
-        "address": "wss://127.0.0.1:5443",
+        "address": "wss://127.0.0.1:8443",
         "system": "demo",
         "access_key": "123",
         "secret_key": "abc"
-    };
-
+    });
+    new_conf = new_conf.replace('127.0.0.1',target_ip);
     var base_conf = new Buffer(new_conf).toString('base64');
+    //console.log('base_conf',base_conf,'new_conf',new_conf);
+    //return;
 
     var params = {
         access_key: process.env.AWS_ACCESS_KEY_ID,
@@ -184,12 +186,21 @@ function main() {
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
         missing_params = true;
     }
+ if (missing_params) {
+   console.log('missing aws');
+}
     if (_.isUndefined(argv.base_ami) && _.isUndefined(argv.use_instance)) {
         missing_params = true;
     }
+if (missing_params) {
+   console.log('missing base');
+}
     if (_.isUndefined(argv.upgrade_pack)) {
         missing_params = true;
     }
+if (missing_params) {
+   console.log('missing upgrade_pack');
+}
     if (!_.isUndefined(argv.region)) {
         target_region = argv.region;
     } else if (!_.isUndefined(process.env.AWS_REGION)) {
@@ -197,6 +208,9 @@ function main() {
     } else {
         missing_params = true;
     }
+if (missing_params) {
+   console.log('missing region');
+}
     if (!_.isUndefined(argv.name)) {
         name = argv.name;
     } else {

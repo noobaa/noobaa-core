@@ -65,7 +65,7 @@ function register_rpc() {
 
     http_server = http.createServer();
     P.fcall(function() {
-            return P.ninvoke(http_server, 'listen', 5002);
+            return P.ninvoke(http_server, 'listen', (parseInt(process.env.PORT)+1));
         })
         .then(function() {
             server_rpc.register_ws_transport(http_server);

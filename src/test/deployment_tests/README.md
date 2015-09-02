@@ -2,7 +2,8 @@
 ===========
 ###Core Tests Table of Contents:
 * [Introduction](#introduction) - introduction
-* [test_upgrade_ec2](#test_upgrade) - Test Upgrade Flow on EC2
+* [test_upgrade_ec2](#test_upgrade_ec2) - Test Upgrade Flow on EC2
+* [test_upgrade_gcloud](#test_upgrade_gcloud) - Test Upgrade Flow on GCloud
 
 
 * ###introduction
@@ -17,3 +18,6 @@
     2) Launching a new instance based on this AMI.
     3) Using the HTTP API to upgrade from a specific upgrade package.
     4) Perform basic sanity : list buckets, download agent distro package, u/l file, d/l file.
+
+* ###test_upgrade_gcloud
+  Same as test_upgrade_ec2, but for gcloud.

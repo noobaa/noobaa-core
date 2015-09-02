@@ -33,4 +33,5 @@ function register_servers() {
     server_rpc.register_service(api.schema.bucket_api, require('./bucket_server'), options);
     server_rpc.register_service(api.schema.object_api, require('./object_server'), options);
     server_rpc.register_service(api.schema.stats_api, require('./stats_aggregator'), options);
+    server_rpc.register_service(api.schema.debug_api, require('./debug_server'));
 }

@@ -26,7 +26,7 @@ var system_server = {
 
     diagnose: diagnose,
     diagnose_with_agent: diagnose_with_agent,
-    start_debug: start_debug,
+    start_debug: start_debug
 };
 
 module.exports = system_server;
@@ -630,18 +630,28 @@ function diagnose_with_agent(data) {
         });
 }
 
-function start_debug() {
-    dbg.log0('Recieved start_debug req');
-    dbg.set_level(5, 'core');
-    return P.when(bg_workers_rpc.client.bg_workers.set_debug_level({
+function start_debug(req) {
+    dbg.log0('Recieved start_debug req', server_rpc.client.debug);
+    return P.when(server_rpc.client.debug.set_debug_level({
             level: 5,
             module: 'core'
         }))
         .then(function() {
+            return P.when(bg_workers_rpc.client.debug.set_debug_level({
+                level: 5,
+                module: 'core'
+            }));
+        })
+        .then(function() {
             promise_utils.delay_unblocking(1000 * 60 * 10) //10m
                 .then(function() {
-                    dbg.set_level(0, 'core');
-                    return P.when(bg_workers_rpc.client.bg_workers.set_debug_level({
+                    return P.when(server_rpc.client.debug.set_debug_level({
+                        level: 0,
+                        module: 'core'
+                    }));
+                })
+                .then(function() {
+                    return P.when(bg_workers_rpc.client.debug.set_debug_level({
                         level: 0,
                         module: 'core'
                     }));

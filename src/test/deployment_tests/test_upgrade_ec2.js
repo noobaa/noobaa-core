@@ -11,21 +11,21 @@ var promise_utils = require('../../util/promise_utils');
 // var formData = require('form-data');
 
 var default_instance_type = 'm3.large';
+//var default_instance_type = 't2.micro'; //TODO:: NBNB change back
 
-//TODO: add the --use_instace option
 //TODO: on upload file, wait for systemOk ? (see next todo, maybe sleep too)
 //TODO: sleep after agents creation until ready
 
 function show_usage() {
-    console.error('\nusage: node test_upgrade.js <--base_ami AMI_Image_name  | --use_instance instanceid> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
-    console.error('   example: node test_upgrade.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
-    console.error('   example: node test_upgrade.js --user_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
+    console.error('\nusage: node test_upgrade_ec2.js <--base_ami AMI_Image_name  | --use_instance instanceid> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
+    console.error('   example: node test_upgrade_ec2.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
+    console.error('   example: node test_upgrade_ec2.js --use_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
 
     console.error('\n base_ami -\t\tThe AMI image name to use');
     console.error(' use_instance -\t\tThe already existing instance id to use');
     console.error(' upgrade_pack -\t\tPath to upgrade pack to use in the upgrade process');
     console.error(' region -\t\tRegion to look for the AMI and create the new instance. If not supplied taken from the .env');
-    console.error(' name -\t\t\tName for the new instance. If not provided will be \'test_upgrade.js generated instance (AMI name)\'. Applicable only for new instances');
+    console.error(' name -\t\t\tName for the new instance. If not provided will be \'test_upgrade_ec2.js generated instance (AMI name)\'. Applicable only for new instances');
 
     console.error('\nMake sure .env contains the following values:');
     console.error('   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY');
@@ -54,7 +54,7 @@ function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
     };
 
     return P.ninvoke(request, 'post', {
-            url: 'https://' + ip + '/upgrade',
+            url: 'https://' + ip + ':8443/upgrade',
             formData: formData,
             rejectUnauthorized: false,
         })
@@ -70,7 +70,7 @@ function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
 
 function get_agent_setup(ip) {
     return P.ninvoke(request, 'get', {
-            url: 'https://' + ip + '/public/noobaa-setup.exe',
+            url: 'https://' + ip + ':8443/public/noobaa-setup.exe',
             rejectUnauthorized: false,
         })
         .then(function(response) {
@@ -85,6 +85,20 @@ function get_agent_setup(ip) {
 }
 
 function create_new_agents(target_ip, target_region) {
+    var new_conf = {
+        "dbg_log_level": 2,
+        "tier": "nodes",
+        "prod": true,
+        "bucket": "files",
+        "root_path": "./agent_storage/",
+        "address": "wss://127.0.0.1:5443",
+        "system": "demo",
+        "access_key": "123",
+        "secret_key": "abc"
+    };
+
+    var base_conf = new Buffer(new_conf).toString('base64');
+
     var params = {
         access_key: process.env.AWS_ACCESS_KEY_ID,
         scale: 1,
@@ -94,6 +108,7 @@ function create_new_agents(target_ip, target_region) {
         app: target_ip,
         dockers: 10,
         term: false,
+        agent_conf: base_conf
     };
 
     return P.fcall(function() {
@@ -169,7 +184,7 @@ function main() {
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
         missing_params = true;
     }
-    if (_.isUndefined(argv.base_ami)) {
+    if (_.isUndefined(argv.base_ami) && _.isUndefined(argv.use_instance)) {
         missing_params = true;
     }
     if (_.isUndefined(argv.upgrade_pack)) {
@@ -185,14 +200,20 @@ function main() {
     if (!_.isUndefined(argv.name)) {
         name = argv.name;
     } else {
-        name = 'test_upgrade.js generated instance (' + argv.base_ami + ')';
+        name = 'test_upgrade_ec2.js generated instance (' + argv.base_ami + ')';
     }
 
     //Actual Test Logic
     if (!missing_params) {
-        console.log("Starting test_upgrade.js, this can take some time...");
+        console.log("Starting test_upgrade_ec2.js, this can take some time...");
         return P.fcall(function() {
-                return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
+                if (!_.isUndefined(argv.base_ami)) {
+                    return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
+                } else {
+                    return {
+                        instanceid: argv.use_instance
+                    };
+                }
             })
             .then(function(res) {
                 P.fcall(function() {
@@ -201,13 +222,8 @@ function main() {
                     })
                     .then(function(ip) {
                         target_ip = ip;
+                        return;
                         return upload_and_upgrade(target_ip, argv.upgrade_pack, instance_id, target_region);
-                    })
-                    .then(function() {
-                        var params = ['--address=wss://' + target_ip];
-                        return P.fcall(function() {
-                            return promise_utils.promised_spawn('src/deploy/build_dockers.sh', params, process.cwd());
-                        });
                     })
                     .then(function() {
                         return get_agent_setup(target_ip);

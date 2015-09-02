@@ -142,6 +142,7 @@ var PATHS = {
         'src/ngview/**/*.*',
         'src/rpc/**/*.*',
         'src/s3/**/*.*',
+        'src/server/**/*.*',
         'src/ar/**/*.*',
         'src/util/**/*.*',
         'src/views/**/*.*',

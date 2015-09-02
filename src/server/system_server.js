@@ -26,7 +26,7 @@ var system_server = {
 
     diagnose: diagnose,
     diagnose_with_agent: diagnose_with_agent,
-    start_debug: start_debug,
+    start_debug: start_debug
 };
 
 module.exports = system_server;
@@ -39,6 +39,7 @@ var promise_utils = require('../util/promise_utils');
 var diag = require('./utils/server_diagnostics');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
+var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
 var AWS = require('aws-sdk');
 //var fs = require('fs');
 var dbg = require('../util/debug_module')(__filename);
@@ -629,14 +630,34 @@ function diagnose_with_agent(data) {
         });
 }
 
-function start_debug() {
-    dbg.log0('Recieved start_debug req');
-    dbg.set_level(5, 'core');
-    promise_utils.delay_unblocking(1000 * 60 * 10) //10m
+function start_debug(req) {
+    dbg.log0('Recieved start_debug req', server_rpc.client.debug);
+    return P.when(server_rpc.client.debug.set_debug_level({
+            level: 5,
+            module: 'core'
+        }))
         .then(function() {
-            dbg.set_level(0, 'core');
+            return P.when(bg_workers_rpc.client.debug.set_debug_level({
+                level: 5,
+                module: 'core'
+            }));
+        })
+        .then(function() {
+            promise_utils.delay_unblocking(1000 * 60 * 10) //10m
+                .then(function() {
+                    return P.when(server_rpc.client.debug.set_debug_level({
+                        level: 0,
+                        module: 'core'
+                    }));
+                })
+                .then(function() {
+                    return P.when(bg_workers_rpc.client.debug.set_debug_level({
+                        level: 0,
+                        module: 'core'
+                    }));
+                });
+            return;
         });
-    return;
 }
 
 

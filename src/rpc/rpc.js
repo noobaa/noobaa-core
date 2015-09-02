@@ -32,7 +32,7 @@ var browser_ws = global.window && global.window.WebSocket;
 // just like any ajax request. for development we take localhost.
 // for any other case the RPC objects can set the base_address property.
 var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:'+process.env.PORT;
-var DEFAULT_BACKGROUND_ADDRESS = 'ws://127.0.0.1:'+(process.env.PORT+1);
+var DEFAULT_BACKGROUND_ADDRESS = 'ws://127.0.0.1:'+(parseInt(process.env.PORT)+1);
 if (browser_location) {
     if (browser_ws) {
         // use ws/s address

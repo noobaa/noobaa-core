@@ -29,7 +29,9 @@ if [ ! -d "/noobaa" ]; then
 			router="0.0.0.0"
 	fi
 	agent_conf=$(curl http://metadata/computeMetadata/v1/instance/attributes/agent_conf -H "Metadata-Flavor: Google")
-
+	if [ $? -ne 0 ]; then
+			agent_conf="<agent_conf>"
+	fi
 	sudo curl -L git.io/weave -o /usr/local/bin/weave
 	sudo chmod a+x /usr/local/bin/weave
 	sudo weave create-bridge

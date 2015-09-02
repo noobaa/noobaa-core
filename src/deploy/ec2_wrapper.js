@@ -324,7 +324,7 @@ function get_ip_address(instid) {
 function verify_demo_system(ip) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var rest_endpoint = 'http://' + ip + ':80/';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
@@ -511,6 +511,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
         if (test_instances_counter !== 1 || dockers_instances_counter !== 1) {
             throw new Error('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
         }
+        run_script = run_script.replace('<agent_conf>',agent_conf);
         run_script = run_script.replace('test', app_name);
         run_script = run_script.replace('200', number_of_dockers);
     } else {
@@ -540,7 +541,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     return P.fcall(get_agent_ami_image_id, region_name, is_win)
         .then(function(ami_image_id) {
 
-            console.log('AddInstance:', region_name, count, ami_image_id);
+            console.log('AddInstance:', region_name, count, ami_image_id,'script',run_script);
             return ec2_region_call(region_name, 'runInstances', {
                     ImageId: ami_image_id,
                     MaxCount: count,

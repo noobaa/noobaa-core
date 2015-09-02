@@ -12,14 +12,13 @@ var promise_utils = require('../../util/promise_utils');
 
 var default_instance_type = 'm3.large';
 
-//TODO: add the --use_instace option
 //TODO: on upload file, wait for systemOk ? (see next todo, maybe sleep too)
 //TODO: sleep after agents creation until ready
 
 function show_usage() {
     console.error('\nusage: node test_upgrade_ec2.js <--base_ami AMI_Image_name  | --use_instance instanceid> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
     console.error('   example: node test_upgrade_ec2.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
-    console.error('   example: node test_upgrade_ec2.js --user_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
+    console.error('   example: node test_upgrade_ec2.js --use_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
 
     console.error('\n base_ami -\t\tThe AMI image name to use');
     console.error(' use_instance -\t\tThe already existing instance id to use');
@@ -169,7 +168,7 @@ function main() {
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
         missing_params = true;
     }
-    if (_.isUndefined(argv.base_ami)) {
+    if (_.isUndefined(argv.base_ami) && _.isUndefined(argv.use_instance)) {
         missing_params = true;
     }
     if (_.isUndefined(argv.upgrade_pack)) {
@@ -192,7 +191,13 @@ function main() {
     if (!missing_params) {
         console.log("Starting test_upgrade_ec2.js, this can take some time...");
         return P.fcall(function() {
-                return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
+                if (!_.isUndefined(argv.base_ami)) {
+                    return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
+                } else {
+                    return {
+                        instanceid: argv.use_instance
+                    };
+                }
             })
             .then(function(res) {
                 P.fcall(function() {

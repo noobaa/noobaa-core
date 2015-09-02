@@ -292,14 +292,16 @@ function get_ip_address(instid) {
                     InstanceIds: [instid],
                 };
 
-                return ec2_wait_for(res.region_name, 'instanceRunning', params)
-                    .then(function(data) {
-                        if (data) {
-                            console.log('Recieved IP', data.NetworkInterfaces[0].Association.PublicIp);
-                            return data.NetworkInterfaces[0].Association.PublicIp;
-                        } else {
-                            throw new Error('ec2_Wait_for InstanceID ' + instid + ' No data returned');
-                        }
+                console.log('Machine in', res.State, 'state, waiting for instanceStatusOk');
+                return ec2_wait_for(res.region_name, 'instanceStatusOk', params)
+                    .then(function() {
+                        return P.fcall(function() {
+                                return describe_instance(instid);
+                            })
+                            .then(function(res) {
+                                console.log('Recieved IP', res.PublicIpAddress);
+                                return res.PublicIpAddress;
+                            });
                     })
                     .then(null, function(error) {
                         throw new Error('Error in get_ip_address ' + instid + ' on ec2_wait_for ' + error);
@@ -308,7 +310,7 @@ function get_ip_address(instid) {
                 console.log('Error in get_ip_address InstanceID', instid, 'Not in pending/running state, unexpected');
                 throw new Error('InstanceID ' + instid + ' Not in pending/running state');
             }
-            return res.NetworkInterfaces[0].Association.PublicIp;
+            return res.PublicIpAddress;
         });
 }
 
@@ -426,7 +428,7 @@ function get_object(ip) {
  * scale_agent_instances
  *
  */
-function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region,agent_conf) {
+function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
     return describe_instances({
         Filters: [{
             Name: 'instance-state-name',
@@ -514,7 +516,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     } else {
         if (is_win) {
             run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
-            run_script = "<script>"+run_script+"</script>";
+            run_script = "<script>" + run_script + "</script>";
             run_script = run_script.replace('${env_name}', app_name);
             run_script = run_script.replace('$agent_conf', agent_conf);
             instance_type = 't2.micro';
@@ -637,7 +639,7 @@ function ec2_wait_for(region_name, state_name, params) {
 
     return P.ninvoke(ec2, 'waitFor', state_name, params).then(function(data) {
         if (data) {
-            return data.Reservations[0].Instances[0];
+            return;
         } else {
             console.error('Error while waiting for state', state_name, 'at', region_name, 'with', params);
             return '';
@@ -660,7 +662,7 @@ function ec2_wait_for(region_name, state_name, params) {
  * @param instances - array of existing instances
  *
  */
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf) {
     // always make sure the region has the security group and key pair
     return P.fcall(function() {
             return create_security_group(region_name);
@@ -674,7 +676,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
             if (count > instances.length) {
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
-                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win,agent_conf);
+                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf);
             }
 
             // need to terminate

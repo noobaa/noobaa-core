@@ -143,12 +143,12 @@ var PATHS = {
         'src/rpc/**/*.*',
         'src/s3/**/*.*',
         'src/server/**/*.*',
-        'src/ar/**/*.*',
+        'src/bg_workers/**/*.*',
         'src/util/**/*.*',
         'src/views/**/*.*',
         'src/native/**/*.*',
-        'binding.gyp'
-
+        'binding.gyp',
+        'common.gypi'
     ],
 };
 

@@ -17,15 +17,15 @@ var default_instance_type = 'm3.large';
 //TODO: sleep after agents creation until ready
 
 function show_usage() {
-    console.error('\nusage: node test_upgrade.js <--base_ami AMI_Image_name  | --use_instance instanceid> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
-    console.error('   example: node test_upgrade.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
-    console.error('   example: node test_upgrade.js --user_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
+    console.error('\nusage: node test_upgrade_ec2.js <--base_ami AMI_Image_name  | --use_instance instanceid> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
+    console.error('   example: node test_upgrade_ec2.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
+    console.error('   example: node test_upgrade_ec2.js --user_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
 
     console.error('\n base_ami -\t\tThe AMI image name to use');
     console.error(' use_instance -\t\tThe already existing instance id to use');
     console.error(' upgrade_pack -\t\tPath to upgrade pack to use in the upgrade process');
     console.error(' region -\t\tRegion to look for the AMI and create the new instance. If not supplied taken from the .env');
-    console.error(' name -\t\t\tName for the new instance. If not provided will be \'test_upgrade.js generated instance (AMI name)\'. Applicable only for new instances');
+    console.error(' name -\t\t\tName for the new instance. If not provided will be \'test_upgrade_ec2.js generated instance (AMI name)\'. Applicable only for new instances');
 
     console.error('\nMake sure .env contains the following values:');
     console.error('   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY');
@@ -185,12 +185,12 @@ function main() {
     if (!_.isUndefined(argv.name)) {
         name = argv.name;
     } else {
-        name = 'test_upgrade.js generated instance (' + argv.base_ami + ')';
+        name = 'test_upgrade_ec2.js generated instance (' + argv.base_ami + ')';
     }
 
     //Actual Test Logic
     if (!missing_params) {
-        console.log("Starting test_upgrade.js, this can take some time...");
+        console.log("Starting test_upgrade_ec2.js, this can take some time...");
         return P.fcall(function() {
                 return ec2_wrap.create_instance_from_ami(argv.base_ami, target_region, default_instance_type, name);
             })

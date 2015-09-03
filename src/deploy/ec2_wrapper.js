@@ -7,7 +7,8 @@ var util = require('util');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
 var AWS = require('aws-sdk');
-
+var promise_utils = require('../util/promise_utils');
+var moment = require('moment');
 
 /**
  *
@@ -360,33 +361,67 @@ function put_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
         Body: fs.createReadStream('/var/log/authd.log'),
     };
-    console.log('about to upload object',params);
+    console.log('about to upload object');
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
-            console.log('Uploaded object');
-            load_aws_config_env(); //back to EC2/S3
-            return;
-        })
-        .then(null, function(err) {
-            console.error('put_object', err);
-            load_aws_config_env(); //back to EC2/S3
-            throw new Error('put_object' + err);
-        });
-
-    /*return P.fcall(function() {
-        return s3bucket.upload(params).
-        on('httpUploadProgress', function(evt) {
-            console.log(evt);
-        }).send(function(err, data) {
-            if (err) {
-                load_aws_config_env(); //back to EC2/S3
-                throw new Error('Error in upload err:' + err + 'data: ' + data);
-            } else {
+                console.log('Uploaded object');
                 load_aws_config_env(); //back to EC2/S3
                 return;
-            }
+            }, function(err) {
+                var wait_limit_in_sec = 600;
+                var start_moment = moment();
+                var wait_for_agents = (err.statusCode === 500);
+                console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
+                return promise_utils.pwhile(
+                    function() {
+                        return wait_for_agents;
+                    },
+                    function() {
+                        console.log('body of retry');
+                        return P.fcall(function() {
+                            console.log('load_demo_config_env');
+                            //switch to Demo system
+                            return load_demo_config_env();
+                        }).then(function() {
+                            console.log('before upload');
+                            params.Body = fs.createReadStream('/var/log/authd.log');
+
+                            return P.ninvoke(s3bucket, 'upload', params)
+                            .then(function(res) {
+                                    console.log('Inner uploaded object');
+                                    load_aws_config_env(); //back to EC2/S3
+                                    wait_for_agents = false;
+                                    return;
+                                }, function(err) {
+                                    console.error('failed to upload. err', err.statusCode);
+                                    var curr_time = moment();
+                                    if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
+                                        console.error('failed to upload. cannot wait any more', err.statusCode);
+                                        load_aws_config_env(); //back to EC2/S3
+                                        wait_for_agents = false;
+                                    } else {
+                                        console.log('waiting');
+                                        return P.delay(5000);
+                                    }
+                                });
+                        });
+                });
         });
-    });*/
+
+/*return P.fcall(function() {
+    return s3bucket.upload(params).
+    on('httpUploadProgress', function(evt) {
+        console.log(evt);
+    }).send(function(err, data) {
+        if (err) {
+            load_aws_config_env(); //back to EC2/S3
+            throw new Error('Error in upload err:' + err + 'data: ' + data);
+        } else {
+            load_aws_config_env(); //back to EC2/S3
+            return;
+        }
+    });
+});*/
 }
 
 function get_object(ip) {

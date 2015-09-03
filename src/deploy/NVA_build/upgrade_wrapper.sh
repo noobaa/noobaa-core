@@ -147,6 +147,17 @@ function post_upgrade {
   /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   unset AGENT_VERSION
 
+  #node-gyp install & building
+  export PATH=$PATH:/usr/local/bin
+  
+  npm install -g node-gyp
+  cd ${CORE_DIR}
+  node-gyp rebuild
+  if [ $? -ne 0 ];
+      deploy_log "node-gyp rebuild failed with $?"
+      exit 1
+  fi
+
   /etc/rc.d/init.d/supervisord restart
 
   rm -f /tmp/*.tar.gz

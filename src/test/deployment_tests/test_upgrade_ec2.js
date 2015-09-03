@@ -96,7 +96,7 @@ function create_new_agents(target_ip, target_region) {
         "access_key": "123",
         "secret_key": "abc"
     });
-    new_conf = new_conf.replace('127.0.0.1',target_ip);
+    new_conf = new_conf.replace('127.0.0.1', target_ip);
     var base_conf = new Buffer(new_conf).toString('base64');
     //console.log('base_conf',base_conf,'new_conf',new_conf);
     //return;
@@ -146,7 +146,7 @@ function upload_file(ip) {
                 });
         })
         .then(null, function(err) {
-            console.error('Error in verify_demo_system', err);
+            console.error('Error in verify_demo_system', err,err.stack);
             throw new Error('Error in verify_demo_system ' + err);
         });
 }
@@ -163,6 +163,7 @@ function download_file(ip) {
                 })
                 .then(function() {
                     console.log('Download file successfully');
+                    return;
                 })
                 .then(null, function(err) {
                     console.error('Error in download_file', err);
@@ -185,32 +186,21 @@ function main() {
     //Verify Input Parameters
     if (_.isUndefined(process.env.AWS_ACCESS_KEY_ID)) {
         missing_params = true;
-    }
- if (missing_params) {
-   console.log('missing aws');
-}
-    if (_.isUndefined(argv.base_ami) && _.isUndefined(argv.use_instance)) {
+        console.error('missing aws');
+    } else if (_.isUndefined(argv.base_ami) && _.isUndefined(argv.use_instance)) {
         missing_params = true;
-    }
-if (missing_params) {
-   console.log('missing base');
-}
-    if (_.isUndefined(argv.upgrade_pack)) {
+        console.error('missing base');
+    } else if (_.isUndefined(argv.upgrade_pack)) {
         missing_params = true;
-    }
-if (missing_params) {
-   console.log('missing upgrade_pack');
-}
-    if (!_.isUndefined(argv.region)) {
+        console.error('missing upgrade_pack');
+    }else if (!_.isUndefined(argv.region)) {
         target_region = argv.region;
     } else if (!_.isUndefined(process.env.AWS_REGION)) {
         target_region = process.env.AWS_REGION;
     } else {
         missing_params = true;
+        console.error('missing region');
     }
-if (missing_params) {
-   console.log('missing region');
-}
     if (!_.isUndefined(argv.name)) {
         name = argv.name;
     } else {
@@ -230,7 +220,7 @@ if (missing_params) {
                 }
             })
             .then(function(res) {
-                P.fcall(function() {
+                return P.fcall(function() {
                         instance_id = res.instanceid;
                         return ec2_wrap.get_ip_address(instance_id);
                     })
@@ -250,6 +240,10 @@ if (missing_params) {
                     })
                     .then(function() {
                         return download_file(target_ip);
+                    })
+                    .then(function() {
+                        console.log('Test Done');
+                        return;
                     })
                     .then(null, function(error) {
                         console.error('ERROR: test_upgrade FAILED', error);

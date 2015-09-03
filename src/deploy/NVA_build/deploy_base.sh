@@ -19,8 +19,8 @@ function deploy_log {
 function build_node {
 	deploy_log "build_node start"
 	yum -y groupinstall "Development Tools"
-`	export PATH=$PATH:/usr/local/bin
-`	#Install Node.js / NPM
+	export PATH=$PATH:/usr/local/bin
+	#Install Node.js / NPM
 	cd /usr/src
 	curl ${NODE_DL} > node-v0.10.33.tar.gz || true
 	tar zxf node-v0.10.33.tar.gz

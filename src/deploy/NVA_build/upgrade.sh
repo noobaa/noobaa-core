@@ -112,6 +112,10 @@ function do_upgrade {
   npm install -g node-gyp
   cd ${CORE_DIR}
   node-gyp rebuild
+  if [ $? -ne 0 ];
+      deploy_log "node-gyp rebuild failed with $?"
+      exit 1
+  fi
 
   # Re-setup Repos
   setup_repos

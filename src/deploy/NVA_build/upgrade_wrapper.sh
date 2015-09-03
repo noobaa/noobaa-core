@@ -149,14 +149,16 @@ function post_upgrade {
 
   #node-gyp install & building
   export PATH=$PATH:/usr/local/bin
-  
+  deploy_log "before node-gyp rebuild"
   npm install -g node-gyp
   cd ${CORE_DIR}
+  deploy_log "node-gyp rebuild from $(pwd), $(node-gyp --help)"
   node-gyp rebuild
   if [ $? -ne 0 ];
       deploy_log "node-gyp rebuild failed with $?"
       exit 1
   fi
+  deploy_log "node-gyp rebuild done"
 
   /etc/rc.d/init.d/supervisord restart
 

@@ -341,14 +341,14 @@ function verify_demo_system(ip) {
         })
         .then(null, function(error) {
             load_aws_config_env(); //back to EC2/S3
-            throw new Error('No Demo System, please create one ' + error);
+            throw new Error('No Demo System, please create one for ' + rest_endpoint + ' bucket:' + s3bucket + ',error:' + error);
         });
 }
 
 function put_object(ip) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
@@ -360,10 +360,10 @@ function put_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
         Body: fs.createReadStream('/var/log/authd.log'),
     };
-
+    console.log('about to upload object',params);
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
-            console.log('put_object', res);
+            console.log('Uploaded object');
             load_aws_config_env(); //back to EC2/S3
             return;
         })
@@ -392,7 +392,7 @@ function put_object(ip) {
 function get_object(ip) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var rest_endpoint = 'http://' + ip + ':80/';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
@@ -450,7 +450,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
         console.log('region_names:', region_names, 'count:', count);
 
         if (count < region_names.length) {
-            // if number of instances is smaller than the number of regions,
+            // if number of instances is smallser than the number of regions,
             // we will add one instance per region until we have enough instances.
             if (count === 0) {
                 target_region_count = 0;
@@ -511,7 +511,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
         if (test_instances_counter !== 1 || dockers_instances_counter !== 1) {
             throw new Error('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
         }
-        run_script = run_script.replace('<agent_conf>',agent_conf);
+        run_script = run_script.replace('<agent_conf>', agent_conf);
         run_script = run_script.replace('test', app_name);
         run_script = run_script.replace('200', number_of_dockers);
     } else {
@@ -541,7 +541,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     return P.fcall(get_agent_ami_image_id, region_name, is_win)
         .then(function(ami_image_id) {
 
-            console.log('AddInstance:', region_name, count, ami_image_id,'script',run_script);
+            console.log('AddInstance:', region_name, count, ami_image_id, 'script', run_script);
             return ec2_region_call(region_name, 'runInstances', {
                     ImageId: ami_image_id,
                     MaxCount: count,

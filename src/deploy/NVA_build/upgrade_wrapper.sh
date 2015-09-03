@@ -3,6 +3,15 @@
 EXTRACTION_PATH="/tmp/test/"
 . ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
+LOG_FILE="/var/log/noobaa_deploy.log"
+
+function deploy_log {
+	if [ "$1" != "" ]; then
+			local now=$(date)
+			echo "${now} ${1}" >> ${LOG_FILE}
+	fi
+}
+
 function fix_iptables {
   deploy_log "fixing IPtables"
   #fix iptables
@@ -149,7 +158,7 @@ function post_upgrade {
 
   #node-gyp install & building
   export PATH=$PATH:/usr/local/bin
-  
+
   npm install -g node-gyp
   cd ${CORE_DIR}
   node-gyp rebuild

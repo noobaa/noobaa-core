@@ -109,6 +109,7 @@ function do_upgrade {
   #TODO: build on centos and use prebuild
 
   npm install -g node-gyp
+  cd ${CORE_DIR}
   node-gyp rebuild
 
   # Re-setup Repos

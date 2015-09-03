@@ -86,6 +86,7 @@ function extract_package {
 }
 
 function do_upgrade {
+  export PATH=$PATH:/usr/local/bin
   disable_supervisord
 
   deploy_log "Tar extracted successfully, Running pre upgrade"

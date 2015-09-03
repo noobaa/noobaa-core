@@ -86,7 +86,6 @@ function extract_package {
 }
 
 function do_upgrade {
-  export PATH=$PATH:/usr/local/bin
   disable_supervisord
 
   deploy_log "Tar extracted successfully, Running pre upgrade"
@@ -108,14 +107,6 @@ function do_upgrade {
 
   #temp! build native on target machine
   #TODO: build on centos and use prebuild
-
-  npm install -g node-gyp
-  cd ${CORE_DIR}
-  node-gyp rebuild
-  if [ $? -ne 0 ];
-      deploy_log "node-gyp rebuild failed with $?"
-      exit 1
-  fi
 
   # Re-setup Repos
   setup_repos

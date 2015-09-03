@@ -1,6 +1,6 @@
 #include "compression.h"
-#include "../snappy/snappy.h"
-#include "../snappy/snappy-sinksource.h"
+#include "../third_party/snappy/snappy.h"
+#include "../third_party/snappy/snappy-sinksource.h"
 #include <zlib.h>
 
 /**

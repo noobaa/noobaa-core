@@ -32,7 +32,7 @@
     "node-libnice": false,
     "libnice": false,
     "bindings": false,
-    "native_util": false
+    "native_core": false
   },
   "dependencies": {
     "animate.css": "~3.2.5",

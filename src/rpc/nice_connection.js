@@ -12,7 +12,7 @@ var dbg = require('../util/debug_module')(__filename);
 try {
     var libnice = require('node-libnice');
 } catch (err) {
-    dbg.warn('libnice is unavailble');
+    // dbg.warn('libnice is unavailble');
 }
 
 util.inherits(NiceConnection, EventEmitter);

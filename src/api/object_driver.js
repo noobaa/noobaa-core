@@ -16,6 +16,7 @@ var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var config = require('../../config.js');
 var dbg = require('../util/debug_module')(__filename);
+var native_core = require('../util/native_core');
 
 module.exports = ObjectDriver;
 
@@ -67,10 +68,6 @@ function ObjectDriver(client) {
     self._init_blocks_cache();
 }
 
-var native_util;
-var dedup_chunker_tpool;
-var object_coding_tpool;
-var object_coding;
 var PART_ATTRS = [
     'start',
     'end',
@@ -98,24 +95,27 @@ var FRAG_ATTRS = [
     'digest_b64'
 ];
 
-function lazy_init_natives() {
-    var bindings = require('bindings');
-    if (typeof(bindings) !== 'function') {
-        return;
-    }
-    native_util = bindings('native_util.node');
+var dedup_chunker_tpool;
+var object_coding_tpool;
+var object_coding;
+var DedupChunker;
 
+function lazy_init_natives() {
+    var nutil = native_core('MUST LOAD');
+    if (!DedupChunker) {
+        DedupChunker = nutil.DedupChunker;
+    }
     // these threadpools are global OS threads used to offload heavy CPU work
     // from the node.js thread so that it will keep processing incoming IO while
     // encoding/decoding the object chunks in high performance native code.
     if (!dedup_chunker_tpool) {
-        dedup_chunker_tpool = new native_util.ThreadPool(1);
+        dedup_chunker_tpool = new nutil.ThreadPool(1);
     }
     if (!object_coding_tpool) {
-        object_coding_tpool = new native_util.ThreadPool(2);
+        object_coding_tpool = new nutil.ThreadPool(2);
     }
     if (!object_coding) {
-        object_coding = new native_util.ObjectCoding({
+        object_coding = new nutil.ObjectCoding({
             tpool: object_coding_tpool,
             digest_type: 'sha384',
             compress_type: 'snappy',
@@ -187,7 +187,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
             },
             init: function() {
                 this.offset = start;
-                this.chunker = new native_util.DedupChunker({
+                this.chunker = new DedupChunker({
                     tpool: dedup_chunker_tpool
                 });
             },

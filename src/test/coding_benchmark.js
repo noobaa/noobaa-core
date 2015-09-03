@@ -117,12 +117,12 @@ function test() {
 
     function test_coding() {
         var CoalesceStream = require("../util/coalesce_stream");
-        var native_util = require("bindings")("native_util.node");
-        var dedup_chunker = new native_util.DedupChunker({
-            tpool: new native_util.ThreadPool(1)
+        var native_core = require("../util/native_core")("MUST LOAD");
+        var dedup_chunker = new native_core.DedupChunker({
+            tpool: new native_core.ThreadPool(1)
         });
-        var object_coding = new native_util.ObjectCoding({
-            tpool: new native_util.ThreadPool(2),
+        var object_coding = new native_core.ObjectCoding({
+            tpool: new native_core.ThreadPool(2),
             digest_type: 'sha384',
             compress_type: 'snappy',
             cipher_type: 'aes-256-gcm',

@@ -13,6 +13,7 @@ var dbg = require('../util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
 var RpcHttpConnection = require('./rpc_http');
+var RpcTcpConnection = require('./rpc_tcp');
 var RpcN2NConnection = require('./rpc_n2n');
 var RpcFcallConnection = require('./rpc_fcall');
 var EventEmitter = require('events').EventEmitter;
@@ -507,6 +508,10 @@ RPC.prototype._new_connection = function(addr_url) {
         case 'wss:':
             conn = new RpcWsConnection(addr_url);
             break;
+        case 'tls:':
+        case 'tcp:':
+            conn = new RpcTcpConnection(addr_url);
+            break;
         case 'http:':
         case 'https:':
             conn = new RpcHttpConnection(addr_url);
@@ -735,6 +740,19 @@ RPC.prototype.register_ws_transport = function(http_server) {
     var ws_server = new RpcWsConnection.Server(http_server);
     ws_server.on('connection', this._accept_new_connection.bind(this));
     return ws_server;
+};
+
+
+/**
+ *
+ * register_tcp_transport
+ *
+ */
+RPC.prototype.register_tcp_transport = function(port, tls_options) {
+    dbg.log0('RPC register_tcp_transport');
+    var tcp_server = new RpcTcpConnection.Server(port, tls_options);
+    tcp_server.on('connection', this._accept_new_connection.bind(this));
+    return tcp_server;
 };
 
 

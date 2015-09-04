@@ -56,7 +56,9 @@ RpcWsConnection.prototype.connect = function() {
     self.ws = ws;
     self._init();
 
-    ws.onopen = this._on_open.bind(this);
+    ws.onopen = function() {
+        self._on_open();
+    };
 
     return self.connect_defer.promise;
 };

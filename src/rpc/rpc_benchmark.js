@@ -136,6 +136,26 @@ function start() {
                 'wss:': 1,
             };
 
+            var tcp = argv.addr.protocol in {
+                'tcp:': 1,
+                'tls:': 1,
+            };
+
+            if (tcp) {
+                var pem = require('../util/pem');
+                return P.nfcall(pem.createCertificate, {
+                        days: 365 * 100,
+                        selfSigned: true
+                    })
+                    .then(function(cert) {
+                        return rpc.register_tcp_transport(argv.addr.port,
+                            argv.addr.protocol === 'tls:' && {
+                                key: cert.serviceKey,
+                                cert: cert.certificate
+                            });
+                    });
+            }
+
             // open http listening port for http based protocols
             return rpc.start_http_server(argv.addr.port, secure)
                 .then(function(server) {

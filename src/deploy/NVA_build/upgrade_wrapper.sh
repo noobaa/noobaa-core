@@ -3,7 +3,7 @@
 EXTRACTION_PATH="/tmp/test/"
 . ${EXTRACTION_PATH}/noobaa-core/src/deploy/NVA_build/deploy_base.sh
 
-LOG_FILE="/var/log/noobaa_deploy.log"
+LOG_FILE="/var/log/noobaa_deploy_wrapper.log"
 
 function deploy_log {
 	if [ "$1" != "" ]; then
@@ -105,7 +105,7 @@ function post_upgrade {
   local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup.exe | cut -f 1 -d' ')
   local prevmd=$(md5sum /backup/build/public/noobaa-setup.exe | cut -f 1 -d' ')
 
-  deploy_log "Installed MD5 was ${prevmd}, new is ${curmd}"
+  deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"
 
   cp -f ${CORE_DIR}/src/deploy/NVA_build/noobaa_supervisor.conf /etc/noobaa_supervisor.conf
   if [ -f /tmp/agent_conf.json ]; then
@@ -126,23 +126,25 @@ function post_upgrade {
       AGENT_VERSION_VAR='AGENT_VERSION=1'
     fi
   else
-      deploy_log "MDs are the same, not updating agent version"
+      deploy_log "Note: MDs are the same, not updating agent version"
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
   echo -e "Welcome to your \x1b[0;35;40mNooBaa\x1b[0m server,\n" > /etc/issue
   echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >>/etc/issue
-
+  deploy_log "NooBaa supervisor services configuration changes"
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
   sed -i 's:;childlogdir=.*:childlogdir=/tmp/supervisor/:' /etc/supervisord.conf
   cp -f ${CORE_DIR}/src/deploy/NVA_build/supervisord.orig /etc/rc.d/init.d/supervisord
   chmod 777 /etc/rc.d/init.d/supervisord
-
+  deploy_log "first install wizard"
   #First Install Wizard
   cp -f ${CORE_DIR}/src/deploy/NVA_build/first_install_diaglog.sh /etc/profile.d/
   chown root:root /etc/profile.d/first_install_diaglog.sh
   chmod 4755 /etc/profile.d/first_install_diaglog.sh
+
+  deploy_log "Installation ID generation if needed"
 
   #Installation ID generation if needed
   #TODO: Move this into the mongo_upgrade.js
@@ -159,15 +161,27 @@ function post_upgrade {
   #node-gyp install & building
   export PATH=$PATH:/usr/local/bin
   deploy_log "before node-gyp rebuild"
-  npm install -g node-gyp
   cd ${CORE_DIR}
-  deploy_log "node-gyp rebuild from $(pwd), $(node-gyp --help)"
-  node-gyp rebuild
-  if [ $? -ne 0 ];
-      deploy_log "node-gyp rebuild failed with $?"
-      exit 1
+  which node-gyp
+  if [ $? -ne 0 ]; then
+      deploy_log "installing node-gyp"
+      npm install -g node-gyp
   fi
-  deploy_log "node-gyp rebuild done"
+  export HOME=/root
+  deploy_log "node-gyp rebuild from $(pwd)"
+  node-gyp configure
+  if [ $? -ne 0 ]; then
+      deploy_log "node-gyp configure failed with $?"
+  fi
+  node-gyp build
+  if [ $? -ne 0 ]; then
+      deploy_log "node-gyp build failed with $?"
+  fi
+  deploy_log "$(find . -name *.node)"
+  deploy_log "node-gyp rebuild done ${CORE_DIR}"
+
+  deploy_log "list core dir"
+  deploy_log "$(ls -R ${CORE_DIR}/build/)"
 
   /etc/rc.d/init.d/supervisord restart
 

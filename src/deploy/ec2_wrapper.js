@@ -359,7 +359,7 @@ function put_object(ip) {
     var params = {
         Bucket: 'files',
         Key: 'ec2_wrapper_test_upgrade.dat',
-        Body: fs.createReadStream('/var/log/authd.log'),
+        Body: fs.createReadStream('/var/log/appstore.log'),
     };
     console.log('about to upload object');
     return P.ninvoke(s3bucket, 'upload', params)
@@ -384,7 +384,7 @@ function put_object(ip) {
                             return load_demo_config_env();
                         }).then(function() {
                             console.log('before upload');
-                            params.Body = fs.createReadStream('/var/log/authd.log');
+                            params.Body = fs.createReadStream('/var/log/appstore.log');
 
                             return P.ninvoke(s3bucket, 'upload', params)
                             .then(function(res) {

@@ -7,6 +7,15 @@
 class ThreadPool : public Nan::ObjectWrap
 {
 public:
+    static NAN_MODULE_INIT(setup);
+
+private:
+    static Nan::Persistent<v8::Function> _ctor;
+    static NAN_METHOD(new_instance);
+    static NAN_GETTER(nthreads_getter);
+    static NAN_SETTER(nthreads_setter);
+
+public:
 
     /**
      * nthreads <= -1: use uv threadpool
@@ -53,14 +62,6 @@ private:
     std::list<Worker*> _pending_workers;
     std::list<Worker*> _completed_workers;
     int _refs;
-
-public:
-    static NAN_MODULE_INIT(setup);
-private:
-    static Nan::Persistent<v8::Function> _ctor;
-    static NAN_METHOD(new_instance);
-    static NAN_GETTER(nthreads_getter);
-    static NAN_SETTER(nthreads_setter);
 };
 
 #endif // TPOOL_H_

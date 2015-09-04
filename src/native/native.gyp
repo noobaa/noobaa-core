@@ -5,8 +5,9 @@
         'dependencies': [
             'third_party/base64/base64.gyp:*',
             'third_party/snappy/snappy.gyp:*',
-            'third_party/udt4/udt4.gyp:*',
-            'third_party/usrsctp/usrsctp.gyp:*',
+            'third_party/libutp/libutp.gyp:*',
+            # 'third_party/udt4/udt4.gyp:*',
+            # 'third_party/usrsctp/usrsctp.gyp:*',
         ],
         'sources': [
             'module.cpp',

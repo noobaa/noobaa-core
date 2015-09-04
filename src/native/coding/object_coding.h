@@ -19,6 +19,15 @@
 
 class ObjectCoding : public Nan::ObjectWrap
 {
+public:
+    static NAN_MODULE_INIT(setup);
+
+private:
+    static Nan::Persistent<v8::Function> _ctor;
+    static NAN_METHOD(new_instance);
+    static NAN_METHOD(encode);
+    static NAN_METHOD(decode);
+
 private:
     explicit ObjectCoding()
     {
@@ -39,14 +48,6 @@ private:
     int _parity_frags;
     int _lrc_frags;
     int _lrc_parity;
-
-public:
-    static NAN_MODULE_INIT(setup);
-private:
-    static Nan::Persistent<v8::Function> _ctor;
-    static NAN_METHOD(new_instance);
-    static NAN_METHOD(encode);
-    static NAN_METHOD(decode);
 };
 
 #endif // OBJECT_CODING_H_

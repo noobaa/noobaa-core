@@ -3,6 +3,11 @@
     'targets': [{
         'target_name': 'libutp',
         'type': 'static_library',
+        'conditions' : [
+            [ 'OS=="mac"', {
+                'defines': ['POSIX']
+            }]
+        ],
         'sources': [
             'utp.h',
             'utp_api.cpp',

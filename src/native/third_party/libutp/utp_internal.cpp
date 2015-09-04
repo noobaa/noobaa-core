@@ -1163,7 +1163,7 @@ void UTPSocket::check_timeouts()
 			// Increase RTO
 			const uint new_timeout = ignore_loss ? retransmit_timeout : retransmit_timeout * 2;
 
-			// They initiated the connection but failed to respond before the rto. 
+			// They initiated the connection but failed to respond before the rto.
 			// A malicious client can also spoof the destination address of a ST_SYN bringing us to this state.
 			// Kill the connection and do not notify the upper layer
 			if (state == CS_SYN_RECV) {
@@ -1707,11 +1707,11 @@ void UTPSocket::apply_ccontrol(size_t bytes_acked, uint32 actual_delay, int64 mi
 	// used in parse_log.py
 	log(UTP_LOG_NORMAL, "actual_delay:%u our_delay:%d their_delay:%u off_target:%d max_window:%u "
 			"delay_base:%u delay_sum:%d target_delay:%d acked_bytes:%u cur_window:%u "
-			"scaled_gain:%f rtt:%u rate:%u wnduser:%u rto:%u timeout:%d get_microseconds:"I64u" "
+			"scaled_gain:%f rtt:%u rate:%u wnduser:%u rto:%u timeout:%d get_microseconds:" I64u " "
 			"cur_window_packets:%u packet_size:%u their_delay_base:%u their_actual_delay:%u "
-			"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:"I64u
-			"current_delay_samples:%d average_delay_base:%d last_maxed_out_window:"I64u" opt_sndbuf:%d "
-			"current_ms:"I64u"",
+			"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:" I64u
+			"current_delay_samples:%d average_delay_base:%d last_maxed_out_window:" I64u " opt_sndbuf:%d "
+			"current_ms:" I64u "",
 			actual_delay, our_delay / 1000, their_hist.get_value() / 1000,
 			int(off_target / 1000), uint(max_window), uint32(our_hist.delay_base),
 			int((our_delay + their_hist.get_value()) / 1000), int(target / 1000), uint(bytes_acked),
@@ -1792,7 +1792,7 @@ size_t utp_process_incoming(UTPSocket *conn, const byte *packet, size_t len, boo
 	// or a malicious attempt to attach the uTP implementation.
 	// acking a packet that hasn't been sent yet!
 	// SYN packets have an exception, since there are no previous packets
-	if ((pk_flags != ST_SYN || conn->state != CS_SYN_RECV) && 
+	if ((pk_flags != ST_SYN || conn->state != CS_SYN_RECV) &&
 		(wrapping_compare_less(conn->seq_nr - 1, pk_ack_nr, ACK_NR_MASK)
 		|| wrapping_compare_less(pk_ack_nr, conn->seq_nr - 1 - curr_window, ACK_NR_MASK))) {
 #if UTP_DEBUG_LOGGING
@@ -2148,7 +2148,7 @@ size_t utp_process_incoming(UTPSocket *conn, const byte *packet, size_t len, boo
 		// Outgoing connection completion
 		if (pk_flags == ST_STATE && conn->state == CS_SYN_SENT)	{
 			conn->state = CS_CONNECTED;
-		
+
 			// If the user has defined the ON_CONNECT callback, use that to
 			// notify the user that the socket is now connected.  If ON_CONNECT
 			// has not been defined, notify the user via ON_STATE_CHANGE.
@@ -3057,7 +3057,7 @@ static UTPSocket* parse_icmp_payload(utp_context *ctx, const byte *buffer, size_
 // @len: buffer length
 // @to: destination address of the original UDP pakcet
 // @tolen: address length
-// @next_hop_mtu: 
+// @next_hop_mtu:
 int utp_process_icmp_fragmentation(utp_context *ctx, const byte* buffer, size_t len, const struct sockaddr *to, socklen_t tolen, uint16 next_hop_mtu)
 {
 	UTPSocket* conn = parse_icmp_payload(ctx, buffer, len, to, tolen);

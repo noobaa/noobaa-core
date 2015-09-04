@@ -15,6 +15,15 @@
  */
 class DedupChunker : public Nan::ObjectWrap
 {
+public:
+    static NAN_MODULE_INIT(setup);
+
+private:
+    static Nan::Persistent<v8::Function> _ctor;
+    static NAN_METHOD(new_instance);
+    static NAN_METHOD(push);
+    static NAN_METHOD(flush);
+
 private:
     explicit DedupChunker()
         : _dedup_window(_deduper)
@@ -45,14 +54,6 @@ private:
     Deduper::Window _dedup_window;
     std::list<Buf> _chunk_slices;
     int _chunk_len;
-
-public:
-    static NAN_MODULE_INIT(setup);
-private:
-    static Nan::Persistent<v8::Function> _ctor;
-    static NAN_METHOD(new_instance);
-    static NAN_METHOD(push);
-    static NAN_METHOD(flush);
 };
 
 #endif // DEDUP_CHUNKER_H_

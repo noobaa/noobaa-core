@@ -24,8 +24,8 @@ then
     exit 1
 fi
 
-echo -n "4. You have 5 seconds to abort ... "
-for i in `seq 5`
+echo -n "4. You have 3 seconds to abort ... "
+for i in `seq 3`
 do
     echo -n "$i "
     sleep 1

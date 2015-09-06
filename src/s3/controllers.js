@@ -11,12 +11,153 @@ var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
 var crypto = require('crypto');
 var xml2js = require('xml2js');
+var FileStore = require('./file-store');
+var fileStore = new FileStore('/tmp');
+var indexDocument = '';
+var errorDocument = '';
+var path = require('path');
+var time_utils = require('../util/time_utils');
+
 
 module.exports = function(params) {
     var templateBuilder = require('./xml-template-builder');
     var objects_avarage_part_size = {};
     var clients = {};
+    var store_locally = false;
+    var calculate_md5 = false;
+    var buckets_cache;
+    var getBucketLocally = function(req, res) {
+        var options = {
+            marker: req.query.marker || null,
+            prefix: req.query.prefix || null,
+            maxKeys: parseInt(req.query['max-keys']) || 1000,
+            delimiter: req.query.delimiter || null
+        };
 
+        if (indexDocument) {
+            fileStore.getObject(req.bucket, indexDocument, function(err, object, data) {
+                if (err) {
+                    return errorResponse(req, res, indexDocument);
+                } else {
+                    dbg.log0('Serving Page: %s', object.key);
+                    return buildResponse(req, res, 200, object, data);
+                }
+            });
+        } else {
+            dbg.log0('Fetched bucket "%s" with options %s', req.bucket, options);
+            fileStore.getObjects(req.bucket, options, function(err, results) {
+                dbg.log0('Found %d objects for bucket "%s"', results.length, req.bucket);
+
+                var template = templateBuilder.buildBucketQuery(options, results);
+                return buildXmlResponse(res, 200, template);
+            });
+        }
+    };
+    var putObjectLocally = function(req, res, file_key_name) {
+        req.params.key = file_key_name;
+        P.ninvoke(fileStore, "putObject", req.params.bucket, req)
+            .then(function(key) {
+                dbg.log0('Stored object "%s" in bucket "%s" successfully', req.params.key, req.params.bucket);
+                res.header('ETag', key.md5);
+                return res.status(200).end();
+            }).then(null, function(err) {
+                dbg.error('Error uploading object "%s" to bucket "%s"',
+                    file_key_name, req.params.bucket, err, err.stack);
+                var template = templateBuilder.buildError('InternalError',
+                    'We encountered an internal error. Please try again.');
+                return buildXmlResponse(res, 500, template);
+
+            });
+    };
+    var getObjectLocally = function(req, res) {
+        var keyName = req.params.key;
+        var acl = req.query.acl;
+        if (acl !== undefined) {
+            var template = templateBuilder.buildAcl();
+            return buildXmlResponse(res, 200, template);
+        }
+        P.ninvoke(fileStore, "getObject", req.bucket, keyName)
+            .then(function(object, data) {
+                var noneMatch = req.headers['if-none-match'];
+                if (noneMatch && (noneMatch === object.md5 || noneMatch === '*')) {
+                    return res.status(304).end();
+                }
+                var modifiedSince = req.headers['if-modified-since'];
+                if (modifiedSince) {
+                    var time = new Date(modifiedSince);
+                    var modifiedDate = new Date(object.modifiedDate);
+                    if (time >= modifiedDate) {
+                        return res.status(304).end();
+                    }
+                }
+                return buildResponse(req, res, 200, object, data);
+            }).then(null, function(err) {
+                if (indexDocument) {
+                    keyName = path.join(keyName, indexDocument);
+                    return fileStore.getObject(req.bucket, keyName, function(err, object, data) {
+                        if (err) {
+                            return errorResponse(req, res, keyName);
+                        } else {
+                            return buildResponse(req, res, 200, object, data);
+                        }
+                    });
+                } else {
+                    return errorResponse(req, res, keyName);
+                }
+            });
+
+    };
+    var buildResponse = function(req, res, status, object, data) {
+        res.header('Etag', object.md5);
+        res.header('Last-Modified', new Date(object.modifiedDate).toUTCString());
+        res.header('Content-Type', object.contentType);
+
+        if (object.contentEncoding)
+            res.header('Content-Encoding', object.contentEncoding);
+
+        res.header('Content-Length', object.size);
+        if (object.customMetaData.length > 0) {
+            object.customMetaData.forEach(function(metaData) {
+                res.header(metaData.key, metaData.value);
+            });
+        }
+        res.status(status);
+        if (req.method === 'HEAD') {
+            return res.end();
+        }
+        return res.end(data);
+    };
+    var errorResponse = function(req, res, keyName) {
+        dbg.error('Object "%s" in bucket "%s" does not exist', keyName, req.bucket.name);
+
+        if (indexDocument) {
+            if (errorDocument) {
+                fileStore.getObject(req.bucket, errorDocument, function(err, object, data) {
+                    if (err) {
+                        console.error('Custom Error Document not found: ' + errorDocument);
+                        return notFoundResponse(req, res);
+                    } else {
+                        return buildResponse(req, res, 404, object, data);
+                    }
+                });
+            } else {
+                return notFoundResponse(req, res);
+            }
+        } else {
+            var template = templateBuilder.buildKeyNotFound(keyName);
+            return buildXmlResponse(res, 404, template);
+        }
+    };
+    var notFoundResponse = function(req, res) {
+        var ErrorDoc = '<!DOCTYPE html>\n<html><head><title>404 - Resource Not Found</title></head><body><h1>404 - Resource Not Found</h1></body></html>';
+
+        return buildResponse(req, res, 404, {
+            modifiedDate: new Date(),
+            contentType: 'text/html',
+            customMetaData: [],
+            size: ErrorDoc.length
+        }, ErrorDoc);
+    };
     var extract_access_key = function(req) {
         var req_access_key;
         if (req.headers.authorization) {
@@ -66,22 +207,27 @@ module.exports = function(params) {
     };
 
     var uploadPart = function(req, res) {
+
+        if (store_locally) {
+            return putObjectLocally(req, res, req.query.uploadId + '___' + req.query.partNumber);
+        }
         var md5_calc = new md5_stream();
         var part_md5 = '0';
+        var access_key = extract_access_key(req);
+        var upload_part_number = parseInt(req.query.partNumber, 10);
 
         P.fcall(function() {
-                var upload_part_number = parseInt(req.query.partNumber, 10);
                 var bucket_name = req.bucket;
                 var upload_id = req.query.uploadId;
 
-                req.pipe(md5_calc);
 
+                if (calculate_md5){
+                    req.pipe(md5_calc);
+                }
                 md5_calc.on('finish', function() {
                     part_md5 = md5_calc.toString();
                     dbg.log0('uploadObject: MD5 data (end)', part_md5, 'part:', upload_part_number);
-                    clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1] = {
-                        md5: part_md5
-                    };
+                    clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1].md5 = part_md5;
                     dbg.log0('updated of md5 ', clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1]);
                     return part_md5;
                 });
@@ -89,14 +235,13 @@ module.exports = function(params) {
 
 
                 var content_length = req.headers['content-length'];
-                var access_key = extract_access_key(req);
                 // tranform stream that calculates md5 on-the-fly
                 var upload_part_info = {
                     bucket: bucket_name,
                     key: (req.query.uploadId),
                     size: content_length,
                     content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
-                    source_stream: md5_calc,
+                    source_stream: calculate_md5 ? md5_calc : req,
                     upload_part_number: upload_part_number
 
                 };
@@ -104,12 +249,16 @@ module.exports = function(params) {
                     req.query.uploadId, ' VS ', req.query.uploadId, 'content length:', req.headers['content-length']);
                 dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                     'content_type', 'upload_part_number', 'md5'));
+                clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1] = {
+                        start: time_utils.millistamp()
+                    };
 
                 return clients[access_key].client.object_driver_lazy().upload_stream_parts(upload_part_info);
             })
             .then(function() {
                 try {
                     dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber);
+                    dbg.log3('TIMING: upload part ', req.query.partNumber,' took ', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[upload_part_number - 1].start));
 
                     res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
@@ -345,45 +494,62 @@ module.exports = function(params) {
 
     var uploadObject = function(req, res, file_key_name) {
 
-        var md5 = 0;
+        var md5 = '0';
         P.fcall(function() {
-                var access_key = extract_access_key(req);
-                dbg.log0('uploadObject: upload', file_key_name);
+                if (store_locally) {
+                    putObjectLocally(req, res, file_key_name);
+                } else {
+                    var access_key = extract_access_key(req);
+                    dbg.log0('uploadObject: upload', file_key_name);
 
+                    // tranform stream that calculates md5 on-the-fly
+                    var md5_calc = new md5_stream();
+                    if (calculate_md5){
+                        req.pipe(md5_calc);
+                    }
 
-                // tranform stream that calculates md5 on-the-fly
-                var md5_calc = new md5_stream();
-                req.pipe(md5_calc);
-
-                md5_calc.on('finish', function() {
-                    md5 = md5_calc.toString();
-                    dbg.log0('uploadObject: MD5 data (end)', md5);
-                });
-
-                var upload_params = {
-                    bucket: req.bucket,
-                    key: file_key_name,
-                    size: parseInt(req.headers['content-length'], 10),
-                    content_type: req.headers['content-type'] || mime.lookup(file_key_name),
-                    source_stream: md5_calc
-                };
-
-                var create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
-                var bucket_key_params = _.pick(upload_params, 'bucket', 'key');
-
-                dbg.log0('upload_stream: start upload', upload_params.key);
-                return clients[access_key].client.object.create_multipart_upload(create_params)
-                    .then(function() {
-                        return clients[access_key].client.object_driver_lazy().upload_stream_parts(upload_params);
-                    })
-                    .then(function() {
-                        bucket_key_params.etag = md5;
-                        dbg.log0('upload_stream: complete upload', upload_params.key, 'with md5', bucket_key_params);
-                        return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
-                    }, function(err) {
-                        dbg.log0('upload_stream: error write stream', upload_params.key, err);
-                        throw err;
+                    md5_calc.on('finish', function() {
+                        md5 = md5_calc.toString();
+                        dbg.log0('uploadObject: MD5 data (end)', md5);
                     });
+
+                    var upload_params = {
+                        bucket: req.bucket,
+                        key: file_key_name,
+                        size: parseInt(req.headers['content-length'], 10),
+                        content_type: req.headers['content-type'] || mime.lookup(file_key_name),
+                        source_stream: calculate_md5? md5_calc: req
+                    };
+
+                    var create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
+                    var bucket_key_params = _.pick(upload_params, 'bucket', 'key');
+
+                    dbg.log0('upload_stream: start upload', upload_params.key);
+                    if (_.isUndefined(clients[access_key].buckets[req.bucket])){
+                        clients[access_key].buckets =  [req.bucket];
+                        clients[access_key].buckets[req.bucket] = {
+                            upload_ids: []
+                        };
+                    }
+
+                    clients[access_key].buckets[req.bucket].upload_ids[file_key_name] = {
+                            start: time_utils.millistamp()
+                    };
+
+                    return clients[access_key].client.object.create_multipart_upload(create_params)
+                        .then(function() {
+                            return clients[access_key].client.object_driver_lazy().upload_stream_parts(upload_params);
+                        })
+                        .then(function() {
+                            bucket_key_params.etag = md5;
+                            dbg.log0('upload_stream: complete upload', upload_params.key, 'with md5', bucket_key_params,' took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[file_key_name].start));
+                            return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
+                        }, function(err) {
+                            dbg.log0('upload_stream: error write stream', upload_params.key, err);
+                            throw err;
+                        });
+
+                }
 
             })
             .then(function() {
@@ -408,6 +574,7 @@ module.exports = function(params) {
         return clients[s3_info.access_key].client.bucket.list_buckets({}, options)
             .then(function(reply) {
                 dbg.log3('trying to find', bucketName, 'in', reply.buckets);
+                buckets_cache = reply.buckets;
                 if (_.findIndex(reply.buckets, {
                         'name': bucketName
                     }) < 0) {
@@ -516,6 +683,32 @@ module.exports = function(params) {
                     return buildXmlResponse(res, 401, template);
                 });
         },
+        bucketExistsInCache: function(req, res, next) {
+            var bucketName = req.params.bucket;
+            var bucket_exists = false;
+            if (_.isEmpty(buckets_cache)) {
+                dbg.log0('buckets cache empty');
+                isBucketExists(bucketName, extract_s3_info(req))
+                    .then(function(exists) {
+                        bucket_exists = exists;
+                    });
+            } else {
+                dbg.log0('has buckets cache ');
+                bucket_exists = (_.findIndex(buckets_cache, {
+                    'name': bucketName
+                }) < 0);
+            }
+            if (bucket_exists) {
+                dbg.error('(1) No bucket found for "%s"', bucketName);
+                var template = templateBuilder.buildBucketNotFound(bucketName);
+                return buildXmlResponse(res, 404, template);
+
+            } else {
+                dbg.log0('got bucket name ' + bucketName);
+                req.bucket = bucketName;
+                return next();
+            }
+        },
 
         getBuckets: function(req, res) {
             dbg.log0('getBuckets', req.params.bucket);
@@ -562,6 +755,10 @@ module.exports = function(params) {
                 });
         },
         getBucket: function(req, res) {
+
+            if (store_locally) {
+                return getBucketLocally(req, res);
+            }
             var options = {
                 marker: req.query.marker || null,
                 prefix: req.query.prefix || '',
@@ -686,6 +883,10 @@ module.exports = function(params) {
 
 
         getObject: function(req, res) {
+            if (store_locally) {
+                return getObjectLocally(req, res);
+            }
+
             //if ListMultipartUploads
             if (!_.isUndefined(req.query.uploadId)) {
                 return listPartsResult(req, res);
@@ -786,6 +987,7 @@ module.exports = function(params) {
         },
         putObject: function(req, res) {
             dbg.log0('put object');
+
             var template;
             var acl = req.query.acl;
             var access_key = extract_access_key(req);
@@ -847,7 +1049,9 @@ module.exports = function(params) {
             } else {
 
                 var file_key_name = req.params.key;
-
+                if (store_locally) {
+                    return putObjectLocally(req, res, file_key_name);
+                }
                 return P.fcall(function() {
                     dbg.log0('listing ', req.params.key, ' in bucket:', req.bucket);
                     return clients[access_key].client.object_driver_lazy().get_object_md({
@@ -902,6 +1106,7 @@ module.exports = function(params) {
                 //init multipart upload
                 if (req.query.uploads === '') {
                     dbg.log0('Init Multipart', req.originalUrl);
+
                     var key = (req.originalUrl).replace('/' + req.bucket + '/', '');
                     //TODO:Replace with s3 rest param, initiated from the constructor
                     //key = key.replace('/s3', '');
@@ -928,7 +1133,8 @@ module.exports = function(params) {
                     }
                     try {
                         clients[access_key].buckets[req.bucket].upload_ids[key] = {
-                            parts: []
+                            parts: [],
+                            start: time_utils.millistamp()
                         };
 
                         dbg.log0('Init Multipart 2', clients[access_key].buckets[req.bucket]);
@@ -956,18 +1162,27 @@ module.exports = function(params) {
                 else if (!_.isUndefined(req.query.uploadId)) {
                     var aggregated_bin_md5 = '';
                     var aggregated_nobin_md5 = '';
-                    dbg.log0('request to complete ', req.query.uploadId, clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts);
+                    dbg.log0('request to complete ', req.query.uploadId, clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts, ' took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].start));
+
+                    if (store_locally) {
+                        dbg.log0('Complete multipart', template);
+                        return buildXmlResponse(res, 200, template);
+                    }
                     _.each(_.keys(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts), function(part_number) {
                         var part_md5 = clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[part_number].md5;
-                        aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
-                        aggregated_bin_md5 = aggregated_bin_md5 + toBinary(part_md5);
-                        dbg.log0('part', part_number, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
+                        if (calculate_md5){
+                            aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
+                            aggregated_bin_md5 = aggregated_bin_md5 + toBinary(part_md5);
+                            dbg.log0('part', part_number, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
+                        }
                     });
-                    var digester = crypto.createHash('md5');
-                    digester.update(aggregated_bin_md5);
-                    aggregated_md5 = digester.digest('hex') + '-' + clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts.length;
-                    dbg.log0('aggregated:', aggregated_md5);
-
+                    if (calculate_md5){
+                        var digester_time = time_utils.millistamp();
+                        var digester = crypto.createHash('md5');
+                        digester.update(aggregated_bin_md5);
+                        aggregated_md5 = digester.digest('hex') + '-' + clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts.length;
+                        dbg.log0('aggregated:', aggregated_md5,' for ' ,clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId], 'took',time_utils.millitook(digester_time) );
+                    }
 
                     return clients[access_key].client.object.complete_multipart_upload({
                         bucket: req.bucket,
@@ -985,7 +1200,8 @@ module.exports = function(params) {
                         };
 
                         template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
-                        dbg.log0('Complete multipart', template);
+                        dbg.log0('Complete multipart', template,'for',clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId], 'took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].start));
+
                         return buildXmlResponse(res, 200, template);
                     }).then(null, function(err) {
                         dbg.error('Err Complete multipart', err, err.stack);
@@ -1034,18 +1250,18 @@ module.exports = function(params) {
                 .then(function(data) {
                     var objects_to_delete = data.Delete.Object;
                     dbg.log0('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.bucket);
-                    return P.all(_.map(objects_to_delete,function(object_to_delete) {
-                        dbg.log2('About to delete ',object_to_delete.Key[0]);
+                    return P.all(_.map(objects_to_delete, function(object_to_delete) {
+                        dbg.log2('About to delete ', object_to_delete.Key[0]);
                         return clients[access_key].client.object.delete_object({
                             bucket: req.bucket,
                             key: object_to_delete.Key[0]
                         }).then(function() {
-                            dbg.log2('deleted',object_to_delete.Key[0]);
+                            dbg.log2('deleted', object_to_delete.Key[0]);
                             deleted.push({
                                 'Key': object_to_delete.Key[0]
                             });
                         }).then(null, function(err) {
-                            dbg.log2('cannot delete:',object_to_delete.Key[0],err.message);
+                            dbg.log2('cannot delete:', object_to_delete.Key[0], err.message);
                             errors.push({
                                 'Key': object_to_delete.Key[0],
                                 'Code': 'InternalError', //only options are AccessDenied, InternalError

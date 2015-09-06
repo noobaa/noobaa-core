@@ -127,12 +127,12 @@ function s3app(params) {
     app.get('/:bucket', controllers.bucketExists, controllers.getBucket);
     app.delete('/:bucket', controllers.bucketExists, controllers.deleteBucket);
     app.put('/:bucket', controllers.putBucket);
-    app.put('/:bucket/:key(*)', controllers.bucketExists, controllers.putObject);
+    app.put('/:bucket/:key(*)', controllers.bucketExistsInCache, controllers.putObject);
     app.get('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.head('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.delete('/:bucket/:key(*)', controllers.bucketExists, controllers.deleteObject);
     app.post('/:bucket', controllers.bucketExists, controllers.deleteObjects);
-    app.post('/:bucket/:key(*)', controllers.bucketExists, controllers.postMultipartObject);
+    app.post('/:bucket/:key(*)', controllers.bucketExistsInCache, controllers.postMultipartObject);
 
     return app;
 }

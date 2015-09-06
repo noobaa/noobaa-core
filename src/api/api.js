@@ -20,6 +20,7 @@ api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./stats_api'));
 api_schema.register_api(require('./cloud_sync_api'));
 api_schema.register_api(require('./debug_api'));
+api_schema.register_api(require('./signaller_api'));
 
 function new_rpc(options) {
     options = options || {};

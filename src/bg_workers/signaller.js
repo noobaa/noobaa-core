@@ -18,7 +18,7 @@ var REGISTERED_AGENTS = {
 
 
 /* TODO
-   1) Create the API and register service in the bg workers rpc
+   1) Register service in the bg workers rpc
    2) Use actual RPC for api
    3) Call RPC on signal and return data to the caller
    4) Notify Change Implementation, with retries

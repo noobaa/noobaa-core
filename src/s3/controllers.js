@@ -9,7 +9,8 @@ var mime = require('mime');
 var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
 var string_utils = require('../util/string_utils');
-var crypto = require('crypto');
+var promise_utils = require('../util/promise_utils');
+
 var xml2js = require('xml2js');
 var FileStore = require('./file-store');
 var fileStore = new FileStore('/tmp');
@@ -24,7 +25,7 @@ module.exports = function(params) {
     var objects_avarage_part_size = {};
     var clients = {};
     var store_locally = false;
-    var calculate_md5 = false;
+    var calculate_md5 = true;
     var buckets_cache;
     var getBucketLocally = function(req, res) {
         var options = {
@@ -198,13 +199,6 @@ module.exports = function(params) {
         }
     };
 
-    var toBinary = function(str) {
-        var result = '';
-        for (var i = 0, l = str.length; i < l; i += 2) {
-            result += String.fromCharCode(parseInt(str.substr(i, 2), 16));
-        }
-        return result;
-    };
 
     var uploadPart = function(req, res) {
 
@@ -221,7 +215,7 @@ module.exports = function(params) {
                 var upload_id = req.query.uploadId;
 
 
-                if (calculate_md5){
+                if (calculate_md5) {
                     req.pipe(md5_calc);
                 }
                 md5_calc.on('finish', function() {
@@ -231,8 +225,6 @@ module.exports = function(params) {
                     dbg.log0('updated of md5 ', clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1]);
                     return part_md5;
                 });
-
-
 
                 var content_length = req.headers['content-length'];
                 // tranform stream that calculates md5 on-the-fly
@@ -250,15 +242,32 @@ module.exports = function(params) {
                 dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                     'content_type', 'upload_part_number', 'md5'));
                 clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1] = {
-                        start: time_utils.millistamp()
-                    };
+                    start: time_utils.millistamp()
+                };
 
                 return clients[access_key].client.object_driver_lazy().upload_stream_parts(upload_part_info);
             })
             .then(function() {
+                return promise_utils.pwhile(
+                    function() {
+                        return part_md5 === '0';
+                    },
+                    function() {
+                        dbg.log0('waiting for md5 for ', req.query.uploadId, ' with part', req.query.partNumber);
+                        return P.delay(5);
+                    });
+            }).then(function() {
+                return clients[access_key].client.object.complete_part_upload({
+                    bucket: req.bucket,
+                    key: req.query.uploadId,
+                    upload_part_number: upload_part_number,
+                    etag: part_md5
+                });
+
+            }).then(function() {
                 try {
-                    dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber);
-                    dbg.log3('TIMING: upload part ', req.query.partNumber,' took ', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[upload_part_number - 1].start));
+
+                    dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber, 'md5:', part_md5, ' took ', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[upload_part_number - 1].start));
 
                     res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
@@ -266,7 +275,8 @@ module.exports = function(params) {
 
                 }
                 return res.status(200).end();
-            }, function(err) {
+
+            }).then(null, function(err) {
                 dbg.error('ERROR: upload:' + req.query.uploadId + ' err:' + util.inspect(err.stack));
                 return res.status(500).end();
             });
@@ -504,7 +514,7 @@ module.exports = function(params) {
 
                     // tranform stream that calculates md5 on-the-fly
                     var md5_calc = new md5_stream();
-                    if (calculate_md5){
+                    if (calculate_md5) {
                         req.pipe(md5_calc);
                     }
 
@@ -518,22 +528,22 @@ module.exports = function(params) {
                         key: file_key_name,
                         size: parseInt(req.headers['content-length'], 10),
                         content_type: req.headers['content-type'] || mime.lookup(file_key_name),
-                        source_stream: calculate_md5? md5_calc: req
+                        source_stream: calculate_md5 ? md5_calc : req
                     };
 
                     var create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
                     var bucket_key_params = _.pick(upload_params, 'bucket', 'key');
 
                     dbg.log0('upload_stream: start upload', upload_params.key);
-                    if (_.isUndefined(clients[access_key].buckets[req.bucket])){
-                        clients[access_key].buckets =  [req.bucket];
+                    if (_.isUndefined(clients[access_key].buckets[req.bucket])) {
+                        clients[access_key].buckets = [req.bucket];
                         clients[access_key].buckets[req.bucket] = {
                             upload_ids: []
                         };
                     }
 
                     clients[access_key].buckets[req.bucket].upload_ids[file_key_name] = {
-                            start: time_utils.millistamp()
+                        start: time_utils.millistamp()
                     };
 
                     return clients[access_key].client.object.create_multipart_upload(create_params)
@@ -542,7 +552,7 @@ module.exports = function(params) {
                         })
                         .then(function() {
                             bucket_key_params.etag = md5;
-                            dbg.log0('upload_stream: complete upload', upload_params.key, 'with md5', bucket_key_params,' took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[file_key_name].start));
+                            dbg.log0('upload_stream: complete upload', upload_params.key, 'with md5', bucket_key_params, ' took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[file_key_name].start));
                             return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
                         }, function(err) {
                             dbg.log0('upload_stream: error write stream', upload_params.key, err);
@@ -594,35 +604,7 @@ module.exports = function(params) {
             var template = templateBuilder.buildSignatureDoesNotMatch(string_to_sign);
             return buildXmlResponse(res, 401, template);
         },
-        update_system_auth: function(req) {
-            // return P.fcall(function() {
-            //     if (clients[req.access_key].client.options.auth_token.indexOf('auth_token') > 0) {
-            //         //update signature and string_to_sign
-            //         //TODO: optimize this part. two converstions per request is a bit too much.
-            //
-            //         var auth_token_obj = JSON.parse(clients[req.access_key].client.options.auth_token);
-            //         auth_token_obj.signature = req.signature;
-            //         auth_token_obj.string_to_sign = req.string_to_sign;
-            //         auth_token_obj.access_key = req.access_key;
-            //         clients[req.access_key].client.options.auth_token = JSON.stringify(auth_token_obj);
-            //
-            //     } else {
-            //         //TODO:
-            //         //Quick patch.
-            //         //Need to find a better way to use client objects in parallel and pass the request information
-            //         var new_params = {
-            //             'auth_token' : clients[req.access_key].options.auth_token,
-            //             'signature' : req.signature,
-            //             'string_to_sign' : req.string_to_sign,
-            //             'access_key' : req.access_key
-            //         };
-            //
-            //         clients[req.access_key].options.auth_token = JSON.stringify(new_params);
-            //     }
-            //
-            //     dbg.log0('Update system auth',req.access_key, clients[req.access_key].options.auth_token);
-            // });
-        },
+        update_system_auth: function(req) {},
         is_system_client_exists: function(access_key) {
             return P.fcall(function() {
                 dbg.log0('check if system exists for key:', access_key, _.has(clients, access_key));
@@ -1160,28 +1142,11 @@ module.exports = function(params) {
                 }
                 //CompleteMultipartUpload
                 else if (!_.isUndefined(req.query.uploadId)) {
-                    var aggregated_bin_md5 = '';
-                    var aggregated_nobin_md5 = '';
                     dbg.log0('request to complete ', req.query.uploadId, clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts, ' took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].start));
 
                     if (store_locally) {
                         dbg.log0('Complete multipart', template);
                         return buildXmlResponse(res, 200, template);
-                    }
-                    _.each(_.keys(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts), function(part_number) {
-                        var part_md5 = clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[part_number].md5;
-                        if (calculate_md5){
-                            aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
-                            aggregated_bin_md5 = aggregated_bin_md5 + toBinary(part_md5);
-                            dbg.log0('part', part_number, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
-                        }
-                    });
-                    if (calculate_md5){
-                        var digester_time = time_utils.millistamp();
-                        var digester = crypto.createHash('md5');
-                        digester.update(aggregated_bin_md5);
-                        aggregated_md5 = digester.digest('hex') + '-' + clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts.length;
-                        dbg.log0('aggregated:', aggregated_md5,' for ' ,clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId], 'took',time_utils.millitook(digester_time) );
                     }
 
                     return clients[access_key].client.object.complete_multipart_upload({
@@ -1200,7 +1165,7 @@ module.exports = function(params) {
                         };
 
                         template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
-                        dbg.log0('Complete multipart', template,'for',clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId], 'took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].start));
+                        dbg.log0('Complete multipart', template, 'for', clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId], 'took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].start));
 
                         return buildXmlResponse(res, 200, template);
                     }).then(null, function(err) {

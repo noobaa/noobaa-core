@@ -24,7 +24,7 @@ var object_server = {
     allocate_object_parts: allocate_object_parts,
     finalize_object_parts: finalize_object_parts,
     report_bad_block: report_bad_block,
-
+    complete_part_upload: complete_part_upload,
     // read
     read_object_mappings: read_object_mappings,
 
@@ -83,6 +83,23 @@ function list_multipart_parts(req) {
 }
 
 
+/**
+ *
+ * COMPLETE_PART_UPLOAD
+ *
+ * Set md5 for part (which is part of multipart upload)
+ */
+function complete_part_upload(req) {
+    dbg.log1('complete_part_upload - etag', req.rpc_params.etag, 'req:', req);
+    return find_object_md(req)
+        .then(function(obj) {
+            fail_obj_not_in_upload_mode(req, obj);
+            var params = _.pick(req.rpc_params,
+                'upload_part_number','etag');
+            params.obj = obj;
+            return object_mapper.set_multipart_part_md5(params);
+        });
+}
 
 /**
  *
@@ -91,14 +108,21 @@ function list_multipart_parts(req) {
  */
 function complete_multipart_upload(req) {
     var obj;
-    dbg.log1('complete_multipart_upload - etag', req.rpc_params.etag, 'req:', req);
+    var obj_etag = req.rpc_params.etag;
+
     return find_object_md(req)
         .then(function(obj_arg) {
             obj = obj_arg;
             fail_obj_not_in_upload_mode(req, obj);
-
             if (req.rpc_params.fix_parts_size) {
-                return object_mapper.fix_multipart_parts(obj);
+                return object_mapper.calc_multipart_md5(obj)
+                .then(function(aggregated_md5){
+                    obj_etag = aggregated_md5;
+                    dbg.log0('aggregated_md5',obj_etag);
+                    if (req.rpc_params.fix_parts_size) {
+                        return object_mapper.fix_multipart_parts(obj);
+                    }
+                });
             }
         })
         .then(function(object_size) {
@@ -111,12 +135,14 @@ function complete_multipart_upload(req) {
 
             return obj.update({
                     size: object_size || obj.size,
-                    etag: req.rpc_params.etag,
+                    etag: obj_etag,
                     $unset: {
                         upload_size: 1
                     }
                 })
                 .exec();
+        }).then(null,function(err){
+            dbg.error('complete_multipart_upload_err ',err,err.stack);
         })
         .thenResolve();
 }
@@ -411,6 +437,8 @@ function load_bucket(req) {
         .then(db.check_not_deleted(req, 'bucket'))
         .then(function(bucket) {
             req.bucket = bucket;
+        }).then(null,function(err){
+            dbg.error('load bucket error:',err);
         });
 }
 

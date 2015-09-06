@@ -101,7 +101,7 @@ var object_coding;
 var DedupChunker;
 
 function lazy_init_natives() {
-    var nutil = native_core('MUST LOAD');
+    var nutil = native_core();
     if (!DedupChunker) {
         DedupChunker = nutil.DedupChunker;
     }

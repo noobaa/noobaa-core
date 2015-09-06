@@ -6,7 +6,7 @@ var _ = require('lodash');
 var events = require('events');
 var native_core;
 
-function lazy_init_native_core(must_load) {
+function lazy_init_native_core(dont_fail) {
     if (!native_core) {
         try {
             native_core = require('bindings')('native_core.node');
@@ -15,7 +15,7 @@ function lazy_init_native_core(must_load) {
             inherits(native_core.Nudp, events.EventEmitter);
 
         } catch (err) {
-            if (must_load) {
+            if (!dont_fail) {
                 throw err;
             }
         }

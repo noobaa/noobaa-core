@@ -117,7 +117,7 @@ function test() {
 
     function test_coding() {
         var CoalesceStream = require("../util/coalesce_stream");
-        var native_core = require("../util/native_core")("MUST LOAD");
+        var native_core = require("../util/native_core")();
         var dedup_chunker = new native_core.DedupChunker({
             tpool: new native_core.ThreadPool(1)
         });

@@ -379,6 +379,7 @@ Agent.prototype.send_heartbeat = function() {
             // var http_port = self.http_server && self.http_server.address().port;
 
             var params = {
+                name: self.node_name,
                 id: self.node_id,
                 geolocation: self.geolocation,
                 ip: ip,

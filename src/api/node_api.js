@@ -263,6 +263,9 @@ module.exports = {
                     'storage',
                 ],
                 properties: {
+                    name: {
+                        type: 'string',
+                    },
                     id: {
                         type: 'string'
                     },

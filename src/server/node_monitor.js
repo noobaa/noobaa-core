@@ -15,6 +15,7 @@ var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
 var server_rpc = require('./server_rpc').server_rpc;
+var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -122,6 +123,7 @@ function heartbeat(req) {
     }
 
     var params = _.pick(req.rpc_params,
+        'name',
         'id',
         'geolocation',
         'ip',
@@ -137,6 +139,7 @@ function heartbeat(req) {
     params.system = req.system;
 
     var node;
+    var notify_signaller;
 
     dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION);
 
@@ -181,7 +184,7 @@ function heartbeat(req) {
 
             var node_listen_addr = 'n2n://' + node.peer_id;
             dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
-            server_rpc.map_address_to_connection(node_listen_addr, req.connection);
+            notify_signaller = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
@@ -239,7 +242,16 @@ function heartbeat(req) {
                 updates.heartbeat = new Date();
                 return node.update(updates).exec();
             }
-
+        }).then(function() {
+            if (notify_signaller) {
+                return P.when(bg_workers_rpc.client.signaller.register_agent({
+                    agent: params.name,
+                    server: '127.0.0.1',
+                    port: 5001
+                }));
+            } else {
+                return;
+            }
         }).then(function() {
             reply.storage = {
                 alloc: node.storage.alloc || 0,

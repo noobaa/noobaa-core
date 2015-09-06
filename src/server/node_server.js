@@ -7,6 +7,7 @@ var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
+var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
 var db = require('./db');
 // var dbg = require('../util/debug_module')(__filename);
 
@@ -83,7 +84,6 @@ function create_node(req) {
         })
         .then(null, db.check_already_exists(req, 'node'))
         .then(function(node) {
-
             // create async
             db.ActivityLog.create({
                 system: req.system,
@@ -105,12 +105,18 @@ function create_node(req) {
                     peer_id: node.peer_id,
                 }
             });
-
-            return {
-                id: node.id,
-                peer_id: node.peer_id,
-                token: token
-            };
+            return P.when(bg_workers_rpc.client.signaller.register_agent({
+                    agent: info.name,
+                    server: '127.0.0.1',
+                    port: 5001
+                }))
+                .then(function() {
+                    return {
+                        id: node.id,
+                        peer_id: node.peer_id,
+                        token: token
+                    };
+                });
         });
 }
 

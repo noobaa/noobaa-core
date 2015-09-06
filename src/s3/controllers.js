@@ -212,7 +212,6 @@ module.exports = function(params) {
 
         P.fcall(function() {
                 var bucket_name = req.bucket;
-                var upload_id = req.query.uploadId;
 
 
                 if (calculate_md5) {
@@ -221,8 +220,6 @@ module.exports = function(params) {
                 md5_calc.on('finish', function() {
                     part_md5 = md5_calc.toString();
                     dbg.log0('uploadObject: MD5 data (end)', part_md5, 'part:', upload_part_number);
-                    clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1].md5 = part_md5;
-                    dbg.log0('updated of md5 ', clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1]);
                     return part_md5;
                 });
 
@@ -241,9 +238,6 @@ module.exports = function(params) {
                     req.query.uploadId, ' VS ', req.query.uploadId, 'content length:', req.headers['content-length']);
                 dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                     'content_type', 'upload_part_number', 'md5'));
-                clients[access_key].buckets[req.bucket].upload_ids[upload_id].parts[upload_part_number - 1] = {
-                    start: time_utils.millistamp()
-                };
 
                 return clients[access_key].client.object_driver_lazy().upload_stream_parts(upload_part_info);
             })
@@ -267,7 +261,7 @@ module.exports = function(params) {
             }).then(function() {
                 try {
 
-                    dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber, 'md5:', part_md5, ' took ', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts[upload_part_number - 1].start));
+                    dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber, 'md5:', part_md5);
 
                     res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
@@ -1142,7 +1136,7 @@ module.exports = function(params) {
                 }
                 //CompleteMultipartUpload
                 else if (!_.isUndefined(req.query.uploadId)) {
-                    dbg.log0('request to complete ', req.query.uploadId, clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].parts, ' took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].start));
+                    dbg.log0('request to complete ', req.query.uploadId);
 
                     if (store_locally) {
                         dbg.log0('Complete multipart', template);

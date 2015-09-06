@@ -1154,14 +1154,14 @@ module.exports = function(params) {
                         key: (req.query.uploadId),
                         fix_parts_size: true,
                         etag: aggregated_md5
-                    }).then(function(info) {
-                        dbg.log0('done complete', info, 'https://' + req.hostname + '/' + req.bucket + '/' + req.query.uploadId);
+                    }).then(function(calculated_etag) {
+                        dbg.log0('done complete', calculated_etag, 'https://' + req.hostname + '/' + req.bucket + '/' + req.query.uploadId);
                         delete objects_avarage_part_size[req.query.uploadId];
                         var completeMultipartInformation = {
                             Bucket: req.bucket,
                             Key: (req.query.uploadId),
                             Location: 'https://' + req.hostname + '/' + req.bucket + '/' + encodeURI(req.query.uploadId),
-                            ETag: aggregated_md5
+                            ETag: calculated_etag
                         };
 
                         template = templateBuilder.completeMultipleUpload(completeMultipartInformation);

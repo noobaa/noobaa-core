@@ -106,7 +106,7 @@ function complete_part_upload(req) {
  * COMPLETE_MULTIPART_UPLOAD
  *
  */
-function complete_multipart_upload(req) {
+    function complete_multipart_upload(req) {
     var obj;
     var obj_etag = req.rpc_params.etag;
 
@@ -144,7 +144,9 @@ function complete_multipart_upload(req) {
         }).then(null,function(err){
             dbg.error('complete_multipart_upload_err ',err,err.stack);
         })
-        .thenResolve();
+        .then(function(){
+            return obj_etag;
+        });
 }
 
 

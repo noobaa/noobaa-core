@@ -25,5 +25,16 @@
             'utp_utils.cpp',
             'utp_utils.h',
         ],
+    }, {
+        'target_name': 'ucat',
+        'type': 'executable',
+        'defines': ['UTP_DEBUG_LOGGING'],
+        'conditions' : [
+            [ 'OS=="mac"', {
+                'defines': ['POSIX']
+            }]
+        ],
+        'dependencies': ['libutp'],
+        'sources': ['ucat.c']
     }]
 }

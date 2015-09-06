@@ -2,23 +2,9 @@
 
 Nan::Persistent<v8::Function> Nudp::_ctor;
 
-static
-std::string
-addrinfo2str(const struct addrinfo* ai)
-{
-    if (!ai) return std::string("?:?");
-    const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(ai->ai_addr);
-    return std::string(inet_ntoa(sin->sin_addr)) + ":" + std::to_string(ntohs(sin->sin_port));
-}
-
-static
-std::string
-sockaddr2str(const struct sockaddr* sa)
-{
-    if (!sa) return std::string("?:?");
-    const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(sa);
-    return std::string(inet_ntoa(sin->sin_addr)) + ":" + std::to_string(ntohs(sin->sin_port));
-}
+static std::string addrinfo2str(const struct addrinfo* ai);
+static std::string sockaddr2str(const struct sockaddr* sa);
+static void hexdump(const void *p, size_t len);
 
 NAN_MODULE_INIT(Nudp::setup)
 {
@@ -222,6 +208,7 @@ NAN_METHOD(Nudp::send)
     m->len = node::Buffer::Length(buffer);
     m->handled_len = false;
     self._messages.push_back(m);
+    LOG("Nudp::send: buffer length " << m->len);
     self.try_write_data();
     NAN_RETURN(Nan::Undefined());
 }
@@ -268,18 +255,20 @@ Nudp::try_write_data()
 void
 Nudp::put_read_data(const uint8_t *buf, int len)
 {
-    LOG("Nudp::put_read_data");
+    LOG("Nudp::put_read_data: put buffer of length " << len);
     Nan::HandleScope scope;
     while (len > 0) {
-        if (_incoming_msg.handled_len) {
+        if (!_incoming_msg.handled_len) {
             if (len < 4) {
                 PANIC("SHORT UTP READ OF MSG LEN");
             }
             uint32_t msg_len = ntohl(reinterpret_cast<const uint32_t*>(buf)[0]);
-            auto node_buf = Nan::NewBuffer(msg_len).ToLocalChecked();
+            LOG("Nudp::put_read_data: new incoming message of length " << msg_len);
+            v8::Local<v8::Object> node_buf = Nan::NewBuffer(msg_len).ToLocalChecked();
             _incoming_msg.len = msg_len;
             _incoming_msg.data = node::Buffer::Data(node_buf);
             _incoming_msg.persistent.Reset(node_buf);
+            _incoming_msg.handled_len = true;
             buf += 4;
             len -= 4;
         }
@@ -290,11 +279,14 @@ Nudp::put_read_data(const uint8_t *buf, int len)
         _incoming_msg.data += copy_len;
         _incoming_msg.len -= copy_len;
         if (_incoming_msg.len <= 0) {
-            auto node_buf = Nan::New(_incoming_msg.persistent);
+            v8::Local<v8::Object> node_buf = Nan::New(_incoming_msg.persistent);
             _incoming_msg.persistent.Reset();
             _incoming_msg.data = 0;
+            _incoming_msg.handled_len = false;
+            LOG("Nudp::put_read_data: incoming message completed of length "
+                << node::Buffer::Length(node_buf));
             v8::Local<v8::Value> argv[2] = { NAN_STR("message"), node_buf };
-            Nan::MakeCallback(handle(), "emit", 2, argv);
+            Nan::MakeCallback(Nan::New(handle()), "emit", 2, argv);
         }
     }
 }
@@ -326,10 +318,7 @@ uv_buf_t
 Nudp::uv_callback_alloc(uv_handle_t* handle, size_t suggested_size)
 {
     LOG("Nudp::uv_callback_alloc: suggested_size " << suggested_size);
-    uv_buf_t buf;
-    buf.base = reinterpret_cast<char*>(malloc(suggested_size));
-    buf.len = suggested_size;
-    return buf;
+    return uv_buf_init(reinterpret_cast<char*>(malloc(suggested_size)), suggested_size);
 }
 
 void
@@ -344,6 +333,8 @@ Nudp::uv_callback_receive(
         << " addr " << sockaddr2str(addr)
         << " flags " << flags);
     Nudp& self = *reinterpret_cast<Nudp*>(handle->data);
+    const byte* data = reinterpret_cast<const byte*>(buf.base);
+    hexdump(data, nread);
     if (flags & UV_UDP_PARTIAL) {
         LOG("Nudp::uv_callback_receive: Ignore truncated packet");
         return;
@@ -352,7 +343,6 @@ Nudp::uv_callback_receive(
         LOG("Nudp::uv_callback_receive: Ignore packet without address");
         return;
     }
-    const byte* data = reinterpret_cast<const byte*>(buf.base);
     if (!utp_process_udp(self._utp_ctx, data, nread, addr, sizeof(struct sockaddr))) {
         LOG("UDP packet not handled by UTP. Ignoring.");
     }
@@ -367,7 +357,6 @@ struct SendData
 uint64_t
 Nudp::utp_callback_sendto(utp_callback_arguments *a)
 {
-    // TODO should we copy the buffer for the uv async call?
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
     uv_udp_send_t* req = new uv_udp_send_t;
     SendData* data = new SendData;
@@ -377,6 +366,7 @@ Nudp::utp_callback_sendto(utp_callback_arguments *a)
     uv_buf_t buf = uv_buf_init(data->buf, a->len);
     data->sin = *reinterpret_cast<const struct sockaddr_in*>(a->address);
     LOG("Nudp::utp_callback_sendto: packet length " << a->len << " addr " << sockaddr2str(a->address));
+    hexdump(a->buf, a->len);
     if (uv_udp_send(req, &self._uv_udp_handle, &buf, 1, data->sin, Nudp::uv_callback_send)) {
         PANIC("Nudp::utp_callback_sendto: uv_udp_send failed - "
             << uv_strerror(uv_last_error(uv_default_loop())));
@@ -457,6 +447,7 @@ Nudp::utp_callback_on_firewall(utp_callback_arguments *a)
 uint64_t
 Nudp::utp_callback_on_accept(utp_callback_arguments *a)
 {
+    LOG("Nudp::utp_callback_on_accept");
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
     if (self._utp_socket) {
         PANIC("Nudp::utp_callback_on_accept: alredy connected or accepted");
@@ -480,4 +471,46 @@ Nudp::utp_callback_log(utp_callback_arguments *a)
 {
     LOG("Nudp::utp_callback_log: " << a->buf);
     return 0;
+}
+
+
+static
+std::string
+addrinfo2str(const struct addrinfo* ai)
+{
+    if (!ai) return std::string("?:?");
+    const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(ai->ai_addr);
+    return std::string(inet_ntoa(sin->sin_addr)) + ":" + std::to_string(ntohs(sin->sin_port));
+}
+
+static
+std::string
+sockaddr2str(const struct sockaddr* sa)
+{
+    if (!sa) return std::string("?:?");
+    const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(sa);
+    return std::string(inet_ntoa(sin->sin_addr)) + ":" + std::to_string(ntohs(sin->sin_port));
+}
+
+static
+void
+hexdump(const void *p, size_t len)
+{
+    int count = 1;
+    const char* pc = reinterpret_cast<const char*>(p);
+
+    while (len--) {
+        if (count == 1)
+            fprintf(stderr, "    %p: ", pc);
+
+        fprintf(stderr, " %02x", *pc++ & 0xff);
+
+        if (count++ == 16) {
+            fprintf(stderr, "\n");
+            count = 1;
+        }
+    }
+
+    if (count != 1)
+        fprintf(stderr, "\n");
 }

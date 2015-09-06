@@ -105,6 +105,7 @@
         'configurations': {
 
             'Debug': {
+                'defines!': ['NDEBUG'],
                 'cflags!': ['-Os', '-O1', '-O2', '-O3'],
                 'cflags_cc!': ['-Os', '-O1', '-O2', '-O3'],
                 'cflags': ['-O0', '-g'],
@@ -122,9 +123,7 @@
             },
 
             'Release': {
-                'defines': [
-                    # 'NDEBUG' TODO uncomment
-                ],
+                'defines': ['NDEBUG'],
                 'cflags!': ['-Os', '-O0', '-O1', '-O2'],
                 'cflags_cc!': ['-Os', '-O0', '-O1', '-O2'],
                 'cflags': ['-O3'],

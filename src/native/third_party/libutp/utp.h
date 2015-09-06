@@ -96,7 +96,7 @@ enum {
 
 extern const char *utp_callback_names[];
 
-typedef struct {
+typedef struct struct_utp_callback_arguments {
 	utp_context *context;
 	utp_socket *socket;
 	size_t len;

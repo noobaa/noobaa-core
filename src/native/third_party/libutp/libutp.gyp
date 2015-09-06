@@ -1,11 +1,16 @@
 {
     'includes': ['../../common.gypi'],
+    'configurations': {
+        'Debug': {
+            'defines': ['_DEBUG', 'UTP_DEBUG_LOGGING'],
+        },
+        'Release': {
+            'defines!': ['_DEBUG', 'UTP_DEBUG_LOGGING'],
+        }
+    },
     'targets': [{
         'target_name': 'libutp',
         'type': 'static_library',
-        'defines': [
-            # 'UTP_DEBUG_LOGGING'
-        ],
         'conditions' : [
             [ 'OS=="mac"', {
                 'defines': ['POSIX']
@@ -30,9 +35,6 @@
     }, {
         'target_name': 'ucat',
         'type': 'executable',
-        'defines': [
-            'UTP_DEBUG_LOGGING'
-        ],
         'conditions' : [
             [ 'OS=="mac"', {
                 'defines': ['POSIX']

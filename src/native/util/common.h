@@ -144,6 +144,7 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 #define NAN_SET(obj, key, val) (Nan::Set(obj, NanKey(key), val))
 #define NAN_SET_STR(obj, key, val) (NAN_SET(obj, key, NAN_STR(val)))
 #define NAN_SET_INT(obj, key, val) (NAN_SET(obj, key, Nan::New(val)))
+#define NAN_SET_NUM(obj, key, val) (NAN_SET(obj, key, Nan::New<v8::Number>(val)))
 #define NAN_SET_BUF_COPY(obj, key, buf) \
     (NAN_SET(obj, key, Nan::CopyBuffer(buf.cdata(), buf.length()).ToLocalChecked()))
 #define NAN_SET_BUF_DETACH(obj, key, buf) \

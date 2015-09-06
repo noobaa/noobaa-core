@@ -25,8 +25,6 @@ private:
     static uint64 utp_callback_log(utp_callback_arguments *a);
     // uv callbacks
     static void uv_callback_timer(uv_timer_t* handle, int status);
-    static void uv_callback_addrinfo_to_connect(uv_getaddrinfo_t* req, int status, struct addrinfo* res);
-    static void uv_callback_addrinfo_to_bind(uv_getaddrinfo_t* req, int status, struct addrinfo* res);
     static void uv_callback_send(uv_udp_send_t* req, int status);
     static uv_buf_t uv_callback_alloc(uv_handle_t* handle, size_t suggested_size);
     static void uv_callback_receive(
@@ -40,10 +38,6 @@ private:
     explicit Nudp();
     ~Nudp();
     void close();
-    void bind_by_name(std::string host, std::string port);
-    void bind_by_addr(struct addrinfo* res);
-    void connect_by_name(std::string host, std::string port);
-    void connect_by_addr(struct addrinfo* res);
     void try_write_data();
     void put_read_data(const uint8_t *buf, int len);
     void start_receiving();

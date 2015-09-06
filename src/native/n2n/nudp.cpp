@@ -1,5 +1,7 @@
 #include "nudp.h"
 
+DBG_INIT(0);
+
 Nan::Persistent<v8::Function> Nudp::_ctor;
 
 static std::string addrinfo2str(const struct addrinfo* ai);
@@ -8,6 +10,7 @@ static void hexdump(const void *p, size_t len);
 
 NAN_MODULE_INIT(Nudp::setup)
 {
+    DBG2("Nudp::setup");
     auto name = "Nudp";
     auto tpl = Nan::New<v8::FunctionTemplate>(Nudp::new_instance);
     tpl->SetClassName(NAN_STR(name));
@@ -33,11 +36,13 @@ Nudp::Nudp()
     : _utp_socket(NULL)
     , _receiving(false)
 {
+    DBG2("Nudp::Nudp");
     _incoming_msg.data = 0;
     _incoming_msg.len = 0;
     _incoming_msg.handled_len = false;
 
     _utp_ctx = utp_init(2); // version=2
+    utp_context_set_userdata(_utp_ctx, this);
     utp_set_callback(_utp_ctx, UTP_SENDTO,           &Nudp::utp_callback_sendto);
     utp_set_callback(_utp_ctx, UTP_ON_READ,          &Nudp::utp_callback_on_read);
     utp_set_callback(_utp_ctx, UTP_ON_STATE_CHANGE,  &Nudp::utp_callback_on_state_change);
@@ -45,10 +50,15 @@ Nudp::Nudp()
     utp_set_callback(_utp_ctx, UTP_ON_ACCEPT,        &Nudp::utp_callback_on_accept);
     utp_set_callback(_utp_ctx, UTP_ON_ERROR,         &Nudp::utp_callback_on_error);
     utp_set_callback(_utp_ctx, UTP_LOG,              &Nudp::utp_callback_log);
-    utp_context_set_option(_utp_ctx, UTP_LOG_NORMAL, 1);
-    utp_context_set_option(_utp_ctx, UTP_LOG_MTU,    1);
-    utp_context_set_option(_utp_ctx, UTP_LOG_DEBUG,  1);
-    utp_context_set_userdata(_utp_ctx, this);
+    if (DBG_VISIBLE(0)) {
+        utp_context_set_option(_utp_ctx, UTP_LOG_NORMAL, 1);
+    }
+    if (DBG_VISIBLE(0)) {
+        utp_context_set_option(_utp_ctx, UTP_LOG_MTU,    1);
+    }
+    if (DBG_VISIBLE(2)) {
+        utp_context_set_option(_utp_ctx, UTP_LOG_DEBUG,  1);
+    }
 
     if (uv_udp_init(uv_default_loop(), &_uv_udp_handle)) {
         PANIC("Nudp::Nudp: uv_udp_init failed - "
@@ -68,7 +78,7 @@ Nudp::Nudp()
 
 Nudp::~Nudp()
 {
-    LOG("Nudp::~Nudp");
+    DBG2("Nudp::~Nudp");
     close();
 }
 
@@ -94,104 +104,29 @@ Nudp::close()
 NAN_METHOD(Nudp::bind)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
-    std::string host = *Nan::Utf8String(info[0]);
-    std::string port = *Nan::Utf8String(info[1]);
-    self.bind_by_name(host, port);
-    NAN_RETURN(Nan::Undefined());
-}
-
-void
-Nudp::bind_by_name(std::string host, std::string port)
-{
-    LOG("Nudp::bind_by_name: bind to " << host << ":" + port);
-    uv_getaddrinfo_t* req = new uv_getaddrinfo_t;
-    req->data = this;
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_protocol = IPPROTO_UDP;
-    if (uv_getaddrinfo(uv_default_loop(), req, &Nudp::uv_callback_addrinfo_to_bind,
-        host.c_str(), port.c_str(), &hints)) {
-        PANIC("Nudp::bind_by_name: uv_getaddrinfo failed - "
-            << uv_strerror(uv_last_error(uv_default_loop())));
-    }
-}
-
-void
-Nudp::uv_callback_addrinfo_to_bind(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
-{
-    if (status == 0) {
-        Nudp& self = *static_cast<Nudp*>(req->data);
-        self.bind_by_addr(res);
-    } else {
-        LOG("Nudp::uv_callback_addrinfo_to_bind: getaddrinfo failed " << status);
-    }
-    uv_freeaddrinfo(res);
-    delete req;
-}
-
-void
-Nudp::bind_by_addr(struct addrinfo* res)
-{
-    LOG("Nudp::bind_by_addr: bind to " << addrinfo2str(res));
-    const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(res->ai_addr);
-    if (uv_udp_bind(&_uv_udp_handle, *sin, 0)) {
+    Nan::Utf8String address(info[0]);
+    int port = info[1]->Int32Value();
+    struct sockaddr_in sin = uv_ip4_addr(*address, port);
+    if (uv_udp_bind(&self._uv_udp_handle, sin, 0)) {
         PANIC("Nudp::bind_by_addr: uv_udp_bind failed - "
             << uv_strerror(uv_last_error(uv_default_loop())));
     }
-    start_receiving();
+    self.start_receiving();
+    NAN_RETURN(Nan::Undefined());
 }
 
 NAN_METHOD(Nudp::connect)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
-    std::string host = *Nan::Utf8String(info[0]);
-    std::string port = *Nan::Utf8String(info[1]);
-    // int port = info[1]->Int32Value();
-    self.connect_by_name(host, port);
+    Nan::Utf8String address(info[0]);
+    int port = info[1]->Int32Value();
+    struct sockaddr_in sin = uv_ip4_addr(*address, port);
+    self._utp_socket = utp_create_socket(self._utp_ctx);
+    utp_setsockopt(self._utp_socket, UTP_SNDBUF, 8 * 1024 * 1024);
+    utp_setsockopt(self._utp_socket, UTP_RCVBUF, 8 * 1024 * 1024);
+    utp_connect(self._utp_socket, reinterpret_cast<struct sockaddr*>(&sin), sizeof(sin));
+    self.start_receiving();
     NAN_RETURN(Nan::Undefined());
-}
-
-void
-Nudp::connect_by_name(std::string host, std::string port)
-{
-    LOG("Nudp::connect_by_name: connecting to " << host << ":" + port);
-    uv_getaddrinfo_t* req = new uv_getaddrinfo_t;
-    req->data = this;
-    struct addrinfo hints;
-    memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_DGRAM;
-	hints.ai_protocol = IPPROTO_UDP;
-    if (uv_getaddrinfo(uv_default_loop(), req, &Nudp::uv_callback_addrinfo_to_connect,
-        host.c_str(), port.c_str(), &hints)) {
-        PANIC("Nudp::connect_by_name: uv_getaddrinfo failed - "
-            << uv_strerror(uv_last_error(uv_default_loop())));
-    }
-}
-
-void
-Nudp::uv_callback_addrinfo_to_connect(uv_getaddrinfo_t* req, int status, struct addrinfo* res)
-{
-    if (status == 0) {
-        Nudp& self = *static_cast<Nudp*>(req->data);
-        self.connect_by_addr(res);
-    } else {
-        LOG("Nudp::uv_callback_addrinfo_to_connect: getaddrinfo failed " << status);
-    }
-    uv_freeaddrinfo(res);
-    delete req;
-}
-
-void
-Nudp::connect_by_addr(struct addrinfo* res)
-{
-    LOG("Nudp::connect_by_addr: connecting to " << addrinfo2str(res));
-    _utp_socket = utp_create_socket(Nudp::_utp_ctx);
-    // utp_set_userdata(_utp_socket, this);
-    utp_connect(_utp_socket, res->ai_addr, res->ai_addrlen);
-    start_receiving();
 }
 
 NAN_METHOD(Nudp::send)
@@ -208,7 +143,7 @@ NAN_METHOD(Nudp::send)
     m->len = node::Buffer::Length(buffer);
     m->handled_len = false;
     self._messages.push_back(m);
-    LOG("Nudp::send: buffer length " << m->len);
+    DBG2("Nudp::send: buffer length " << m->len);
     self.try_write_data();
     NAN_RETURN(Nan::Undefined());
 }
@@ -216,32 +151,32 @@ NAN_METHOD(Nudp::send)
 void
 Nudp::try_write_data()
 {
-    LOG("Nudp::try_write_data");
+    DBG3("Nudp::try_write_data");
     while (!_messages.empty()) {
         Msg* m = _messages.front();
         if (!m->handled_len) {
             uint32_t msg_len = htonl(m->len);
             size_t sent = utp_write(_utp_socket, &msg_len, sizeof(uint32));
-            LOG("Nudp::try_write_data: write message len " << m->len << " sent " << sent);
+            DBG3("Nudp::try_write_data: write message len " << m->len << " sent " << sent);
             if (sent == 4) {
                 m->handled_len = true;
             } else if (sent == 0) {
-                break;
+                return;
             } else {
                 PANIC("SHORT UTP WRITE OF MSG LEN");
             }
         }
         while (m->len > 0) {
             size_t sent = utp_write(_utp_socket, m->data, m->len);
-            LOG("Nudp::try_write_data: write message data " << m->len << " sent " << sent);
+            DBG3("Nudp::try_write_data: write message data " << m->len << " sent " << sent);
             if (sent <= 0) {
-                break;
+                return;
             }
             m->data += sent;
             m->len -= sent;
         }
         if (m->len <= 0) {
-            LOG("Nudp::try_write_data: write message done");
+            DBG3("Nudp::try_write_data: write message done");
             _messages.pop_front();
             v8::Local<v8::Value> argv[] = { Nan::Undefined() };
             m->persistent.Reset();
@@ -255,7 +190,7 @@ Nudp::try_write_data()
 void
 Nudp::put_read_data(const uint8_t *buf, int len)
 {
-    LOG("Nudp::put_read_data: put buffer of length " << len);
+    DBG2("Nudp::put_read_data: put buffer of length " << len);
     Nan::HandleScope scope;
     while (len > 0) {
         if (!_incoming_msg.handled_len) {
@@ -263,7 +198,7 @@ Nudp::put_read_data(const uint8_t *buf, int len)
                 PANIC("SHORT UTP READ OF MSG LEN");
             }
             uint32_t msg_len = ntohl(reinterpret_cast<const uint32_t*>(buf)[0]);
-            LOG("Nudp::put_read_data: new incoming message of length " << msg_len);
+            DBG3("Nudp::put_read_data: new incoming message of length " << msg_len);
             v8::Local<v8::Object> node_buf = Nan::NewBuffer(msg_len).ToLocalChecked();
             _incoming_msg.len = msg_len;
             _incoming_msg.data = node::Buffer::Data(node_buf);
@@ -283,7 +218,7 @@ Nudp::put_read_data(const uint8_t *buf, int len)
             _incoming_msg.persistent.Reset();
             _incoming_msg.data = 0;
             _incoming_msg.handled_len = false;
-            LOG("Nudp::put_read_data: incoming message completed of length "
+            DBG3("Nudp::put_read_data: incoming message completed of length "
                 << node::Buffer::Length(node_buf));
             v8::Local<v8::Value> argv[2] = { NAN_STR("message"), node_buf };
             Nan::MakeCallback(Nan::New(handle()), "emit", 2, argv);
@@ -308,7 +243,7 @@ Nudp::start_receiving()
 void
 Nudp::uv_callback_timer(uv_timer_t* handle, int status)
 {
-    // LOG("Nudp::uv_callback_timer");
+    DBG9("Nudp::uv_callback_timer");
     Nudp& self = *reinterpret_cast<Nudp*>(handle->data);
     utp_issue_deferred_acks(self._utp_ctx);
     utp_check_timeouts(self._utp_ctx);
@@ -317,7 +252,7 @@ Nudp::uv_callback_timer(uv_timer_t* handle, int status)
 uv_buf_t
 Nudp::uv_callback_alloc(uv_handle_t* handle, size_t suggested_size)
 {
-    LOG("Nudp::uv_callback_alloc: suggested_size " << suggested_size);
+    DBG9("Nudp::uv_callback_alloc: suggested_size " << suggested_size);
     return uv_buf_init(reinterpret_cast<char*>(malloc(suggested_size)), suggested_size);
 }
 
@@ -329,22 +264,24 @@ Nudp::uv_callback_receive(
     struct sockaddr* addr,
     unsigned flags)
 {
-    LOG("Nudp::uv_callback_receive: packet nread " << nread
+    DBG3("Nudp::uv_callback_receive: packet nread " << nread
         << " addr " << sockaddr2str(addr)
         << " flags " << flags);
     Nudp& self = *reinterpret_cast<Nudp*>(handle->data);
     const byte* data = reinterpret_cast<const byte*>(buf.base);
-    hexdump(data, nread);
+    if (DBG_VISIBLE(3)) {
+        hexdump(data, nread);
+    }
     if (flags & UV_UDP_PARTIAL) {
-        LOG("Nudp::uv_callback_receive: Ignore truncated packet");
+        DBG3("Nudp::uv_callback_receive: Ignore truncated packet");
         return;
     }
     if (!addr) {
-        LOG("Nudp::uv_callback_receive: Ignore packet without address");
+        DBG3("Nudp::uv_callback_receive: Ignore packet without address");
         return;
     }
     if (!utp_process_udp(self._utp_ctx, data, nread, addr, sizeof(struct sockaddr))) {
-        LOG("UDP packet not handled by UTP. Ignoring.");
+        DBG3("UDP packet not handled by UTP. Ignoring.");
     }
 }
 
@@ -365,8 +302,10 @@ Nudp::utp_callback_sendto(utp_callback_arguments *a)
     memcpy(data->buf, a->buf, a->len);
     uv_buf_t buf = uv_buf_init(data->buf, a->len);
     data->sin = *reinterpret_cast<const struct sockaddr_in*>(a->address);
-    LOG("Nudp::utp_callback_sendto: packet length " << a->len << " addr " << sockaddr2str(a->address));
-    hexdump(a->buf, a->len);
+    DBG3("Nudp::utp_callback_sendto: packet length " << a->len << " addr " << sockaddr2str(a->address));
+    if (DBG_VISIBLE(3)) {
+        hexdump(a->buf, a->len);
+    }
     if (uv_udp_send(req, &self._uv_udp_handle, &buf, 1, data->sin, Nudp::uv_callback_send)) {
         PANIC("Nudp::utp_callback_sendto: uv_udp_send failed - "
             << uv_strerror(uv_last_error(uv_default_loop())));
@@ -377,7 +316,7 @@ Nudp::utp_callback_sendto(utp_callback_arguments *a)
 void
 Nudp::uv_callback_send(uv_udp_send_t* req, int status)
 {
-    LOG("Nudp::uv_callback_send: status " << status);
+    DBG3("Nudp::uv_callback_send: status " << status);
     SendData* data = reinterpret_cast<SendData*>(req->data);
     delete[] data->buf;
     delete data;
@@ -388,7 +327,7 @@ Nudp::uv_callback_send(uv_udp_send_t* req, int status)
 uint64_t
 Nudp::utp_callback_on_read(utp_callback_arguments *a)
 {
-    LOG("Nudp::utp_callback_on_read: buffer length " << a->len);
+    DBG3("Nudp::utp_callback_on_read: buffer length " << a->len);
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
     self.put_read_data(a->buf, a->len);
     utp_read_drained(a->socket);
@@ -398,7 +337,7 @@ Nudp::utp_callback_on_read(utp_callback_arguments *a)
 uint64_t
 Nudp::utp_callback_on_state_change(utp_callback_arguments *a)
 {
-    LOG("Nudp::utp_callback_on_state_change: state " <<
+    DBG1("Nudp::utp_callback_on_state_change: state " <<
         utp_state_names[a->state] << " (" << a->state << ")");
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
     utp_socket_stats *stats;
@@ -439,7 +378,7 @@ Nudp::utp_callback_on_state_change(utp_callback_arguments *a)
 uint64_t
 Nudp::utp_callback_on_firewall(utp_callback_arguments *a)
 {
-    LOG("Nudp::utp_callback_on_firewall");
+    DBG1("Nudp::utp_callback_on_firewall");
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
     return 0;
 }
@@ -453,7 +392,8 @@ Nudp::utp_callback_on_accept(utp_callback_arguments *a)
         PANIC("Nudp::utp_callback_on_accept: alredy connected or accepted");
     }
     self._utp_socket = a->socket;
-    // utp_set_userdata(self._utp_socket, this);
+    utp_setsockopt(self._utp_socket, UTP_SNDBUF, 8 * 1024 * 1024);
+    utp_setsockopt(self._utp_socket, UTP_RCVBUF, 8 * 1024 * 1024);
     return 0;
 }
 

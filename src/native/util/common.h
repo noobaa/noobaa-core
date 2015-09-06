@@ -31,7 +31,30 @@
 
 #define DVAL(x) #x "=" << x << " "
 
-#define LOG(x) std::cout << x << std::endl;
+#define LOG(x) std::cout << x << std::endl
+
+// to use DBG the module/file should use either DBG_INIT or DBG_INIT_VAR.
+#define DBG_INIT(level) static int __module_debug_var__ = level
+#define DBG_INIT_VAR(debug_var) static int& __module_debug_var__ = debug_var
+#define DBG_SET_LEVEL(level) __module_debug_var__ = level
+#define DBG_GET_LEVEL() (__module_debug_var__)
+#define DBG_VISIBLE(level) (level <= __module_debug_var__)
+#define DBG(level, x) \
+    do { \
+        if (DBG_VISIBLE(level)) { \
+            LOG(x); \
+        } \
+    } while(0)
+#define DBG0(x) DBG(0, x)
+#define DBG1(x) DBG(1, x)
+#define DBG2(x) DBG(2, x)
+#define DBG3(x) DBG(3, x)
+#define DBG4(x) DBG(4, x)
+#define DBG5(x) DBG(5, x)
+#define DBG6(x) DBG(6, x)
+#define DBG7(x) DBG(7, x)
+#define DBG8(x) DBG(8, x)
+#define DBG9(x) DBG(9, x)
 
 #define PANIC(info) \
     do { \

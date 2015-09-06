@@ -13,6 +13,9 @@ var argv = require('minimist')(process.argv);
 var pem = require('../util/pem');
 var api = require('../api');
 var s3app = require('./app');
+var cluster = require('cluster');
+var numCPUs = require('os').cpus().length;
+
 
 var params = argv;
 var certificate;
@@ -60,43 +63,57 @@ P.nfcall(fs.readFile, 'agent_conf.json')
         // app.use('/', function(req, res) {
         //     res.redirect('/s3');
         // });
+        if (cluster.isMaster) {
+            // Fork workers.
+            for (var i = 0; i < numCPUs; i++) {
+                cluster.fork();
+            }
 
-        return new P(function(resolve, reject) {
-            dbg.log0('Starting HTTP', params.port);
-            http.createServer(app)
-                .on('connection', connection_setup)
-                .listen(params.port, function(err) {
-                    if (err) {
-                        dbg.error('HTTP listen', err);
-                        reject(err);
-                    } else {
-                        resolve();
-                    }
-                });
-        });
-    })
-    .then(function() {
-        return new P(function(resolve, reject) {
-            dbg.log0('Starting HTTPS', params.ssl_port);
-            https.createServer({
-                    key: certificate.serviceKey,
-                    cert: certificate.certificate
-                }, app)
-                .on('connection', connection_setup)
-                .listen(params.ssl_port, function(err) {
-                    if (err) {
-                        dbg.error('HTTPS listen', err);
-                        reject(err);
-                    } else {
-                        resolve();
-                    }
-                });
-        });
-    })
-    .then(null, function(err) {
-        dbg.log0('S3RVER ERROR', err.stack || err);
+            cluster.on('exit', function(worker, code, signal) {
+                console.log('worker ' + worker.process.pid + ' died');
+            });
+        } else {
+            // Workers can share any TCP connection
+            // In this case its a HTTP server
+
+
+            return new P(function(resolve, reject) {
+                    dbg.log0('Starting HTTP', params.port);
+                    http.createServer(app)
+                        .on('connection', connection_setup)
+                        .listen(params.port, function(err) {
+                            if (err) {
+                                dbg.error('HTTP listen', err);
+                                reject(err);
+                            } else {
+                                resolve();
+                            }
+                        });
+                }).then(function() {
+                    return new P(function(resolve, reject) {
+                        dbg.log0('Starting HTTPS', params.ssl_port);
+                        https.createServer({
+                                key: certificate.serviceKey,
+                                cert: certificate.certificate
+                            }, app)
+                            .on('connection', connection_setup)
+                            .listen(params.ssl_port, function(err) {
+                                if (err) {
+                                    dbg.error('HTTPS listen', err);
+                                    reject(err);
+                                } else {
+                                    resolve();
+                                }
+                            });
+                    });
+                }),
+                function(err) {
+                    dbg.log0('S3RVER ERROR (1)', err.stack || err);
+                };
+        }
+    }).then(null, function(err) {
+        dbg.log0('S3RVER ERROR (2)', err.stack || err);
     });
-
 
 function connection_setup(socket) {
     // this is an attempt to read from the socket in large chunks,

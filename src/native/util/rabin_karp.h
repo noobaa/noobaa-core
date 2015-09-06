@@ -1,5 +1,5 @@
-#ifndef RABIN_H_
-#define RABIN_H_
+#ifndef NB__RABIN_KARP__H
+#define NB__RABIN_KARP__H
 
 template <typename _T>
 class RabinKarp
@@ -40,4 +40,4 @@ private:
     T window_mult_table[256];
 };
 
-#endif // RABIN_H_
+#endif // NB__RABIN_KARP__H

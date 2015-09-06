@@ -1,5 +1,5 @@
-#ifndef BACKTRACE_H_
-#define BACKTRACE_H_
+#ifndef NB__BACKTRACE__H
+#define NB__BACKTRACE__H
 
 #ifdef _WIN32
 #else
@@ -74,4 +74,4 @@ private:
     std::vector<Entry> _stack;
 };
 
-#endif // BACKTRACE_H_
+#endif // NB__BACKTRACE__H

@@ -1,5 +1,5 @@
-#ifndef BUZHASH_H_
-#define BUZHASH_H_
+#ifndef NB__BUZHASH__H
+#define NB__BUZHASH__H
 
 #include "common.h"
 
@@ -61,4 +61,4 @@ private:
     static const T byte_const_hash[256];
 };
 
-#endif // BUZHASH_H_
+#endif // NB__BUZHASH__H

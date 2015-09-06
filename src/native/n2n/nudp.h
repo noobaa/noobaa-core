@@ -1,3 +1,6 @@
+#ifndef NB__NUDP__H
+#define NB__NUDP__H
+
 #include "../util/common.h"
 
 // utp.h forward declerations
@@ -67,3 +70,5 @@ private:
     Msg _incoming_msg;
     bool _receiving;
 };
+
+#endif // NB__NUDP__H

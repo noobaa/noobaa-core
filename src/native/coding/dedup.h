@@ -1,5 +1,5 @@
-#ifndef DEDUP_H_
-#define DEDUP_H_
+#ifndef NB__DEDUP__H
+#define NB__DEDUP__H
 
 #include "../util/common.h"
 #include "../util/buf.h"
@@ -100,4 +100,4 @@ private:
 
 #include "dedup.hpp"
 
-#endif // DEDUP_H_
+#endif // NB__DEDUP__H

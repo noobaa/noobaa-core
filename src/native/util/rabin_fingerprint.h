@@ -1,5 +1,5 @@
-#ifndef RABIN_H_
-#define RABIN_H_
+#ifndef NB__RABIN_FINGERPRINT__H
+#define NB__RABIN_FINGERPRINT__H
 
 #include "gf2.h"
 
@@ -36,4 +36,4 @@ private:
     T window_shift_table[256];
 };
 
-#endif // RABIN_H_
+#endif // NB__RABIN_FINGERPRINT__H

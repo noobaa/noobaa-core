@@ -1,5 +1,5 @@
-#ifndef GF2_H_
-#define GF2_H_
+#ifndef NB__GF2__H
+#define NB__GF2__H
 
 #include "common.h"
 #include <math.h>
@@ -137,4 +137,4 @@ private:
     T carry_byte_shift_table[256];
 };
 
-#endif // GF2_H_
+#endif // NB__GF2__H

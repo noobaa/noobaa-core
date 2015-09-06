@@ -1,5 +1,5 @@
-#ifndef CRYPTO_H_
-#define CRYPTO_H_
+#ifndef NB__CRYPTO__H
+#define NB__CRYPTO__H
 
 #include "common.h"
 #include "buf.h"
@@ -124,4 +124,4 @@ public:
 
 };
 
-#endif // CRYPTO_H_
+#endif // NB__CRYPTO__H

@@ -1,5 +1,5 @@
-#ifndef MUTEX_H_
-#define MUTEX_H_
+#ifndef NB__MUTEX__H
+#define NB__MUTEX__H
 
 #include <uv.h>
 
@@ -100,4 +100,4 @@ protected:
     uv_cond_t _cond;
 };
 
-#endif // MUTEX_H_
+#endif // NB__MUTEX__H

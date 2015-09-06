@@ -1,5 +1,5 @@
-#ifndef COMMON_H_
-#define COMMON_H_
+#ifndef NB__COMMON__H
+#define NB__COMMON__H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -184,4 +184,4 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         } \
     } while (0)
 
-#endif // COMMON_H_
+#endif // NB__COMMON__H

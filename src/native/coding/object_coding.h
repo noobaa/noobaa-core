@@ -1,5 +1,5 @@
-#ifndef OBJECT_CODING_H_
-#define OBJECT_CODING_H_
+#ifndef NB__OBJECT_CODING__H
+#define NB__OBJECT_CODING__H
 
 #include "../util/common.h"
 #include "../util/rabin_fingerprint.h"
@@ -50,4 +50,4 @@ private:
     int _lrc_parity;
 };
 
-#endif // OBJECT_CODING_H_
+#endif // NB__OBJECT_CODING__H

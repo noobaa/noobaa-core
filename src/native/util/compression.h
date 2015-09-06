@@ -1,5 +1,5 @@
-#ifndef COMPRESS_H_
-#define COMPRESS_H_
+#ifndef NB__COMPRESSION__H
+#define NB__COMPRESSION__H
 
 #include "common.h"
 #include "buf.h"
@@ -14,4 +14,4 @@ public:
     static Buf decompress(Buf buf, int decompressed_len, std::string type);
 };
 
-#endif // COMPRESS_H_
+#endif // NB__COMPRESSION__H

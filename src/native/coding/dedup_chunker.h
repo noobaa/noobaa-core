@@ -1,5 +1,5 @@
-#ifndef DEDUP_CHUNKER_H_
-#define DEDUP_CHUNKER_H_
+#ifndef NB__DEDUP_CHUNKER__H
+#define NB__DEDUP_CHUNKER__H
 
 #include "../util/common.h"
 #include "../util/rabin_fingerprint.h"
@@ -56,4 +56,4 @@ private:
     int _chunk_len;
 };
 
-#endif // DEDUP_CHUNKER_H_
+#endif // NB__DEDUP_CHUNKER__H

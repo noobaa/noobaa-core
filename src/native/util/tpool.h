@@ -1,5 +1,5 @@
-#ifndef TPOOL_H_
-#define TPOOL_H_
+#ifndef NB__TPOOL__H
+#define NB__TPOOL__H
 
 #include "common.h"
 #include "mutex.h"
@@ -64,4 +64,4 @@ private:
     int _refs;
 };
 
-#endif // TPOOL_H_
+#endif // NB__TPOOL__H

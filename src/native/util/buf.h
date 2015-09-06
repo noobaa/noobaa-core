@@ -1,5 +1,5 @@
-#ifndef MEM_H_
-#define MEM_H_
+#ifndef NB__BUF__H
+#define NB__BUF__H
 
 #include "common.h"
 #include "../third_party/base64/cencode.h"
@@ -312,4 +312,4 @@ public:
     int _len;
 };
 
-#endif // MEM_H_
+#endif // NB__BUF__H

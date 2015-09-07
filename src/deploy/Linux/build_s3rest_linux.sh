@@ -78,6 +78,8 @@ else
         npm install -g node-gyp
         node-gyp configure
         node-gyp build
+        cp -R ../../build ./package/build
+
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself.sh

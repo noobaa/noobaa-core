@@ -24,25 +24,23 @@ var REGISTERED_AGENTS = {
    3) Notify Change Implementation, with retries
    4) Register agents in batches
    5) When signaller starts, send 'request registration' to all the webservers
+   6) when web server fails, invalidate all the associated nodes (use connection for indicator ?)
 */
 
 /*
  * SIGNALLER API
  */
 function signal(req) {
-    dbg.log4('Signal request for', req.rpc_params.agent);
+    dbg.log4('Signal request for', req.rpc_params.target);
 
-    var agent = req.rpc_params.agent;
+    var agent = req.rpc_params.target.slice(6);
     if (_.has(REGISTERED_AGENTS.agents2srvs, agent)) {
-        return P.when(server_rpc.client.node.n2n_signal({
-                target: req.rpc_params.agent
-            }))
+        return P.when(server_rpc.client.node.n2n_signal_internal(req.rpc_params))
             .then(function(reply) {
-                console.warn('NBNB:: got reply from signal', reply);
                 return reply;
             });
     } else {
-        return 'none';
+        throw new Error('Agent not registered' + agent);
     }
 }
 

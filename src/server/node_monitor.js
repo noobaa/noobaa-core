@@ -4,6 +4,7 @@
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
+    n2n_signal_internal: n2n_signal_internal,
     self_test_to_node_via_web: self_test_to_node_via_web,
     collect_agent_diagnostics: collect_agent_diagnostics,
     set_debug_node: set_debug_node,
@@ -106,7 +107,6 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
             .thenResolve();
     }
 });
-
 
 
 /**
@@ -245,7 +245,7 @@ function heartbeat(req) {
         }).then(function() {
             if (notify_signaller) {
                 return P.when(bg_workers_rpc.client.signaller.register_agent({
-                    agent: params.name,
+                    agent: node.peer_id,
                     server: '127.0.0.1',
                     port: 5001
                 }));
@@ -268,7 +268,6 @@ function heartbeat(req) {
 }
 
 
-
 /**
  *
  * n2n_signal
@@ -276,12 +275,20 @@ function heartbeat(req) {
  */
 function n2n_signal(req) {
     var target = req.rpc_params.target;
-    console.log('n2n_signal', target);
+    dbg.log1('n2n_signal', target);
+    return P.when(bg_workers_rpc.client.signaller.signal(req.rpc_params))
+        .then(function(res) {
+            return res;
+        });
+}
+
+function n2n_signal_internal(req) {
+    var target = req.rpc_params.target;
+    dbg.log1('n2n_signal_internal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
         address: target,
     });
 }
-
 
 
 /**

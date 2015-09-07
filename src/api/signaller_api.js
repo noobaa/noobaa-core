@@ -13,22 +13,13 @@ module.exports = {
         signal: {
             method: 'POST',
             params: {
-                $ref: '/signaller_api/definitions/basic_signal_info'
+                $ref: '/node_api/definitions/signal_request'
             },
             reply: {
-                type: 'object',
-                required: ['server', 'port'],
-                properties: {
-                    server: {
-                        type: 'string',
-                    },
-                    port: {
-                        type: 'integer'
-                    },
-                }
+                $ref: '/node_api/definitions/signal_response'
             },
             auth: {
-                system: 'admin'
+                system: false
             }
         },
 

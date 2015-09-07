@@ -97,20 +97,10 @@ module.exports = {
         n2n_signal: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['target'],
-                additionalProperties: true,
-                properties: {
-                    target: {
-                        type: 'string'
-                    }
-                }
+                $ref: '/node_api/definitions/signal_request'
             },
             reply: {
-                type: 'object',
-                required: [],
-                additionalProperties: true,
-                properties: {}
+                $ref: '/node_api/definitions/signal_response'
             },
         },
 

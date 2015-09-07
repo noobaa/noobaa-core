@@ -318,20 +318,10 @@ module.exports = {
         n2n_signal: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['target'],
-                additionalProperties: true,
-                properties: {
-                    target: {
-                        type: 'string'
-                    },
-                }
+                $ref: '/node_api/definitions/signal_request'
             },
             reply: {
-                type: 'object',
-                required: [],
-                additionalProperties: true,
-                properties: {}
+                $ref: '/node_api/definitions/signal_response'
             },
             auth: {
                 system: false
@@ -341,20 +331,10 @@ module.exports = {
         n2n_signal_internal: {
             method: 'POST',
             params: {
-                type: 'object',
-                required: ['target'],
-                additionalProperties: true,
-                properties: {
-                    target: {
-                        type: 'string'
-                    },
-                }
+                $ref: '/node_api/definitions/signal_request'
             },
             reply: {
-                type: 'object',
-                required: [],
-                additionalProperties: true,
-                properties: {}
+                $ref: '/node_api/definitions/signal_response'
             },
             auth: {
                 system: false
@@ -439,7 +419,6 @@ module.exports = {
             }
         },
 
-
         srvmode: {
             type: 'string',
             enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
@@ -512,6 +491,24 @@ module.exports = {
                     $ref: '/common_api/definitions/os_info'
                 },
             }
+        },
+
+        signal_request: {
+            type: 'object',
+            required: ['target'],
+            additionalProperties: true,
+            properties: {
+                target: {
+                    type: 'string'
+                },
+            }
+        },
+
+        signal_response: {
+            type: 'object',
+            required: [],
+            additionalProperties: true,
+            properties: {}
         }
 
     }

@@ -61,7 +61,7 @@ var server_rpc;
 var http_server;
 
 function register_rpc() {
-    server_rpc = require('./bg_workers_rpc');
+    server_rpc = require('./bg_workers_rpc').server_rpc;
 
     http_server = http.createServer();
     P.fcall(function() {

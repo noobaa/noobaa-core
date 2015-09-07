@@ -63,6 +63,10 @@ else
         cp -R ../../src/util ./package/src/
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
+        npm install -g node-gyp
+        node-gyp configure
+        node-gyp build
+        cp -R ../../build ./package/build
         #remove irrelevant packages
         #TODO: create new package for that matter
         cd package
@@ -75,6 +79,7 @@ else
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
         npm install -dd
+
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself.sh

@@ -7,7 +7,6 @@ var size_utils = require('../util/size_utils');
 var string_utils = require('../util/string_utils');
 var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
-var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
 var db = require('./db');
 // var dbg = require('../util/debug_module')(__filename);
 
@@ -29,6 +28,7 @@ var node_server = {
 
     heartbeat: node_monitor.heartbeat,
     n2n_signal: node_monitor.n2n_signal,
+    n2n_signal_internal: node_monitor.n2n_signal_internal,
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
     set_debug_node: node_monitor.set_debug_node,
@@ -105,18 +105,11 @@ function create_node(req) {
                     peer_id: node.peer_id,
                 }
             });
-            return P.when(bg_workers_rpc.client.signaller.register_agent({
-                    agent: info.name,
-                    server: '127.0.0.1',
-                    port: 5001
-                }))
-                .then(function() {
-                    return {
-                        id: node.id,
-                        peer_id: node.peer_id,
-                        token: token
-                    };
-                });
+            return {
+                id: node.id,
+                peer_id: node.peer_id,
+                token: token
+            };
         });
 }
 

@@ -338,6 +338,29 @@ module.exports = {
             }
         },
 
+        n2n_signal_internal: {
+            method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target'],
+                additionalProperties: true,
+                properties: {
+                    target: {
+                        type: 'string'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [],
+                additionalProperties: true,
+                properties: {}
+            },
+            auth: {
+                system: false
+            }
+        },
+
         self_test_to_node_via_web: {
             method: 'POST',
             params: {

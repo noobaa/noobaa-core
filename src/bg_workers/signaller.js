@@ -9,7 +9,8 @@ module.exports = {
 };
 
 var _ = require('lodash');
-//var P = require('../util/promise');
+var P = require('../util/promise');
+var server_rpc = require('./bg_workers_rpc').server_rpc;
 var dbg = require('../util/debug_module')(__filename);
 
 var REGISTERED_AGENTS = {
@@ -18,12 +19,11 @@ var REGISTERED_AGENTS = {
 
 
 /* TODO
-   1) Register service in the bg workers rpc
-   2) Use actual RPC for api
-   3) Call RPC on signal and return data to the caller
-   4) Notify Change Implementation, with retries
-   5) Register agents in batches
-   6) When signaller starts, send 'request registration' to all the webservers
+   1) Use actual RPC for api
+   2) Call RPC on signal and return data to the caller
+   3) Notify Change Implementation, with retries
+   4) Register agents in batches
+   5) When signaller starts, send 'request registration' to all the webservers
 */
 
 /*
@@ -34,8 +34,13 @@ function signal(req) {
 
     var agent = req.rpc_params.agent;
     if (_.has(REGISTERED_AGENTS.agents2srvs, agent)) {
-        var reg = REGISTERED_AGENTS.agents2srvs[agent];
-        return print_server(reg.server, reg.port) + ', registration:' + reg.registrations;
+        return P.when(server_rpc.client.node.n2n_signal({
+                target: req.rpc_params.agent
+            }))
+            .then(function(reply) {
+                console.warn('NBNB:: got reply from signal', reply);
+                return reply;
+            });
     } else {
         return 'none';
     }

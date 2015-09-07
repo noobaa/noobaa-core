@@ -1,8 +1,8 @@
 'use strict';
 
 var api = require('../api');
-var server_rpc = api.rpc;
-var bg_workers_rpc = api.new_rpc();
+var bg_workers_rpc = api.rpc;
+var server_rpc = api.new_rpc();
 
 module.exports = {
     server_rpc: server_rpc,

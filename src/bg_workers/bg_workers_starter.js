@@ -57,18 +57,18 @@ function mongoose_conenct() {
 
 mongoose_conenct();
 
-var server_rpc;
+var bg_workers_rpc;
 var http_server;
 
 function register_rpc() {
-    server_rpc = require('./bg_workers_rpc').server_rpc;
+    bg_workers_rpc = require('./bg_workers_rpc').bg_workers_rpc;
 
     http_server = http.createServer();
     P.fcall(function() {
             return P.ninvoke(http_server, 'listen', (parseInt(process.env.PORT)+1));
         })
         .then(function() {
-            server_rpc.register_ws_transport(http_server);
+            bg_workers_rpc.register_ws_transport(http_server);
         });
 }
 

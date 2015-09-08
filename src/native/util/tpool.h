@@ -1,8 +1,10 @@
-#ifndef NB__TPOOL__H
-#define NB__TPOOL__H
+#ifndef NOOBAA__TPOOL__H
+#define NOOBAA__TPOOL__H
 
 #include "common.h"
 #include "mutex.h"
+
+namespace noobaa {
 
 class ThreadPool : public Nan::ObjectWrap
 {
@@ -64,4 +66,6 @@ private:
     int _refs;
 };
 
-#endif // NB__TPOOL__H
+} // namespace noobaa
+
+#endif // NOOBAA__TPOOL__H

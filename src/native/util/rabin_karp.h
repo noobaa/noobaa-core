@@ -1,5 +1,7 @@
-#ifndef NB__RABIN_KARP__H
-#define NB__RABIN_KARP__H
+#ifndef NOOBAA__RABIN_KARP__H
+#define NOOBAA__RABIN_KARP__H
+
+namespace noobaa {
 
 template <typename _T>
 class RabinKarp
@@ -40,4 +42,6 @@ private:
     T window_mult_table[256];
 };
 
-#endif // NB__RABIN_KARP__H
+} // namespace noobaa
+
+#endif // NOOBAA__RABIN_KARP__H

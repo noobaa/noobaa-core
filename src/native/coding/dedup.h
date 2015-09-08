@@ -1,8 +1,10 @@
-#ifndef NB__DEDUP__H
-#define NB__DEDUP__H
+#ifndef NOOBAA__DEDUP__H
+#define NOOBAA__DEDUP__H
 
 #include "../util/common.h"
 #include "../util/buf.h"
+
+namespace noobaa {
 
 /**
  *
@@ -98,6 +100,8 @@ private:
 
 };
 
+} // namespace noobaa
+
 #include "dedup.hpp"
 
-#endif // NB__DEDUP__H
+#endif // NOOBAA__DEDUP__H

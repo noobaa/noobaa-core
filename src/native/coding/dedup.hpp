@@ -1,5 +1,7 @@
 // template hpp
 
+namespace noobaa {
+
 template <typename _Hasher>
 int
 Dedup<_Hasher>::Window::push(const uint8_t* data, int len)
@@ -71,3 +73,5 @@ Dedup<_Hasher>::Window::push(const uint8_t* data, int len)
         return 0;
     }
 }
+
+} // namespace noobaa

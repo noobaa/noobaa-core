@@ -1,7 +1,9 @@
-#ifndef NB__RABIN_FINGERPRINT__H
-#define NB__RABIN_FINGERPRINT__H
+#ifndef NOOBAA__RABIN_FINGERPRINT__H
+#define NOOBAA__RABIN_FINGERPRINT__H
 
 #include "gf2.h"
+
+namespace noobaa {
 
 template <typename _GF>
 class RabinFingerprint
@@ -36,4 +38,6 @@ private:
     T window_shift_table[256];
 };
 
-#endif // NB__RABIN_FINGERPRINT__H
+} // namespace noobaa
+
+#endif // NOOBAA__RABIN_FINGERPRINT__H

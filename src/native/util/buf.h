@@ -1,9 +1,11 @@
-#ifndef NB__BUF__H
-#define NB__BUF__H
+#ifndef NOOBAA__BUF__H
+#define NOOBAA__BUF__H
 
 #include "common.h"
 #include "../third_party/base64/cencode.h"
 #include "../third_party/base64/cdecode.h"
+
+namespace noobaa {
 
 /**
  * Like a nodejs buffer, but thread safe
@@ -312,4 +314,6 @@ public:
     int _len;
 };
 
-#endif // NB__BUF__H
+} // namespace noobaa
+
+#endif // NOOBAA__BUF__H

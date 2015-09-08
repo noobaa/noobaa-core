@@ -3,6 +3,8 @@
 #include "../third_party/snappy/snappy-sinksource.h"
 #include <zlib.h>
 
+namespace noobaa {
+
 /**
  *
  * A Sink implementation that appends buffers as much as needed.
@@ -200,3 +202,5 @@ Compression::decompress(Buf buf, int decompressed_len, std::string type)
         throw Exception(std::string("Compression not supported ") + type);
     }
 }
+
+} // namespace noobaa

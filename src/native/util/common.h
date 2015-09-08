@@ -1,5 +1,5 @@
-#ifndef NB__COMMON__H
-#define NB__COMMON__H
+#ifndef NOOBAA__COMMON__H
+#define NOOBAA__COMMON__H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -24,6 +24,8 @@
 #include <nan.h>
 
 #include "backtrace.h"
+
+namespace noobaa {
 
 #ifndef __func__
 #define __func__ __FUNCTION__
@@ -184,4 +186,6 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         } \
     } while (0)
 
-#endif // NB__COMMON__H
+} // namespace noobaa
+
+#endif // NOOBAA__COMMON__H

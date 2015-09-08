@@ -2,6 +2,8 @@
 #include "../util/buf.h"
 #include "../util/crypto.h"
 
+namespace noobaa {
+
 Nan::Persistent<v8::Function> DedupChunker::_ctor;
 
 NAN_MODULE_INIT(DedupChunker::setup)
@@ -210,3 +212,5 @@ NAN_METHOD(DedupChunker::flush)
     tpool.submit(worker);
     NAN_RETURN(Nan::Undefined());
 }
+
+} // namespace noobaa

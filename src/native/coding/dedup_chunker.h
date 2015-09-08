@@ -1,10 +1,12 @@
-#ifndef NB__DEDUP_CHUNKER__H
-#define NB__DEDUP_CHUNKER__H
+#ifndef NOOBAA__DEDUP_CHUNKER__H
+#define NOOBAA__DEDUP_CHUNKER__H
 
 #include "../util/common.h"
 #include "../util/rabin_fingerprint.h"
 #include "../util/tpool.h"
 #include "dedup.h"
+
+namespace noobaa {
 
 /**
  *
@@ -56,4 +58,6 @@ private:
     int _chunk_len;
 };
 
-#endif // NB__DEDUP_CHUNKER__H
+} // namespace noobaa
+
+#endif // NOOBAA__DEDUP_CHUNKER__H

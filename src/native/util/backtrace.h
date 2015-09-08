@@ -1,5 +1,5 @@
-#ifndef NB__BACKTRACE__H
-#define NB__BACKTRACE__H
+#ifndef NOOBAA__BACKTRACE__H
+#define NOOBAA__BACKTRACE__H
 
 #ifdef _WIN32
 #else
@@ -8,6 +8,8 @@
 # include <dlfcn.h>
 #endif
 #include <stdlib.h>
+
+namespace noobaa {
 
 class Backtrace
 {
@@ -74,4 +76,6 @@ private:
     std::vector<Entry> _stack;
 };
 
-#endif // NB__BACKTRACE__H
+} // namespace noobaa
+
+#endif // NOOBAA__BACKTRACE__H

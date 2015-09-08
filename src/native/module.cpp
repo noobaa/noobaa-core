@@ -4,6 +4,8 @@
 #include "coding/object_coding.h"
 #include "n2n/nudp.h"
 
+namespace noobaa {
+
 NAN_MODULE_INIT(setup)
 {
     Crypto::init();
@@ -14,3 +16,5 @@ NAN_MODULE_INIT(setup)
 }
 
 NODE_MODULE(native_core, setup)
+
+} // namespace noobaa

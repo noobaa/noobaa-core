@@ -1,10 +1,12 @@
-#ifndef NB__OBJECT_CODING__H
-#define NB__OBJECT_CODING__H
+#ifndef NOOBAA__OBJECT_CODING__H
+#define NOOBAA__OBJECT_CODING__H
 
 #include "../util/common.h"
 #include "../util/rabin_fingerprint.h"
 #include "../util/tpool.h"
 #include "dedup.h"
+
+namespace noobaa {
 
 /**
  *
@@ -50,4 +52,6 @@ private:
     int _lrc_parity;
 };
 
-#endif // NB__OBJECT_CODING__H
+} // namespace noobaa
+
+#endif // NOOBAA__OBJECT_CODING__H

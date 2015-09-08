@@ -1,7 +1,9 @@
-#ifndef NB__MUTEX__H
-#define NB__MUTEX__H
+#ifndef NOOBAA__MUTEX__H
+#define NOOBAA__MUTEX__H
 
 #include <uv.h>
+
+namespace noobaa {
 
 /**
  *
@@ -100,4 +102,6 @@ protected:
     uv_cond_t _cond;
 };
 
-#endif // NB__MUTEX__H
+} // namespace noobaa
+
+#endif // NOOBAA__MUTEX__H

@@ -1,5 +1,7 @@
 #include "tpool.h"
 
+namespace noobaa {
+
 Nan::Persistent<v8::Function> ThreadPool::_ctor;
 
 NAN_MODULE_INIT(ThreadPool::setup)
@@ -206,3 +208,5 @@ NAUV_WORK_CB(ThreadPool::work_completed_uv)
     ThreadPool* tpool = static_cast<ThreadPool*>(async->data);
     tpool->completion_cb();
 }
+
+} // namespace noobaa

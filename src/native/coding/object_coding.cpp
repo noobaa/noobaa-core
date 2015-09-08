@@ -3,6 +3,8 @@
 #include "../util/crypto.h"
 #include "../util/compression.h"
 
+namespace noobaa {
+
 Nan::Persistent<v8::Function> ObjectCoding::_ctor;
 
 NAN_MODULE_INIT(ObjectCoding::setup)
@@ -460,3 +462,5 @@ NAN_METHOD(ObjectCoding::decode)
     tpool.submit(worker);
     NAN_RETURN(Nan::Undefined());
 }
+
+} // namespace noobaa

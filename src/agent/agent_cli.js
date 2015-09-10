@@ -26,6 +26,7 @@ setInterval(function() {
     dbg.log0('memory usage', process.memoryUsage());
 }, 30000);
 
+dbg.set_process_name('Agent');
 /**
  *
  * AgentCLI

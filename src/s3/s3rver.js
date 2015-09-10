@@ -18,6 +18,8 @@ var params = argv;
 var certificate;
 var app = express();
 
+dbg.set_process_name('S3rver');
+
 // copied from s3rver. not sure why. but copy.
 app.disable('x-powered-by');
 

@@ -114,7 +114,7 @@ _.each(STUN.PUBLIC_SERVERS, function(stun_url) {
 });
 
 function read_on_premise_stun_server() {
-    if (global && global.fs && _.isFunction(global.fs.existsSync)) {
+    if (global && fs && _.isFunction(fs.existsSync)) {
       var exists = fs.existsSync('agent_conf.json');
       if (!exists) {
           STUN.DEFAULT_SERVER = STUN.PUBLIC_SERVERS[0];

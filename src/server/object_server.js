@@ -59,8 +59,10 @@ function create_multipart_upload(req) {
                 upload_size: 0,
                 cloud_synced: false,
             };
-            return db.ObjectMD.create(info);
-        }).thenResolve();
+            return P.when(db.ObjectMD.create(info));
+        }).then(function(data) {
+            dbg.log0('after create_multipart_upload', data);
+        });
 }
 
 
@@ -95,7 +97,7 @@ function complete_part_upload(req) {
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
             var params = _.pick(req.rpc_params,
-                'upload_part_number','etag');
+                'upload_part_number', 'etag');
             params.obj = obj;
             return object_mapper.set_multipart_part_md5(params);
         });
@@ -106,7 +108,7 @@ function complete_part_upload(req) {
  * COMPLETE_MULTIPART_UPLOAD
  *
  */
-    function complete_multipart_upload(req) {
+function complete_multipart_upload(req) {
     var obj;
     var obj_etag = req.rpc_params.etag;
 
@@ -116,13 +118,13 @@ function complete_part_upload(req) {
             fail_obj_not_in_upload_mode(req, obj);
             if (req.rpc_params.fix_parts_size) {
                 return object_mapper.calc_multipart_md5(obj)
-                .then(function(aggregated_md5){
-                    obj_etag = aggregated_md5;
-                    dbg.log0('aggregated_md5',obj_etag);
-                    if (req.rpc_params.fix_parts_size) {
-                        return object_mapper.fix_multipart_parts(obj);
-                    }
-                });
+                    .then(function(aggregated_md5) {
+                        obj_etag = aggregated_md5;
+                        dbg.log0('aggregated_md5', obj_etag);
+                        if (req.rpc_params.fix_parts_size) {
+                            return object_mapper.fix_multipart_parts(obj);
+                        }
+                    });
             }
         })
         .then(function(object_size) {
@@ -141,10 +143,10 @@ function complete_part_upload(req) {
                     }
                 })
                 .exec();
-        }).then(null,function(err){
-            dbg.error('complete_multipart_upload_err ',err,err.stack);
+        }).then(null, function(err) {
+            dbg.error('complete_multipart_upload_err ', err, err.stack);
         })
-        .then(function(){
+        .then(function() {
             return obj_etag;
         });
 }
@@ -256,8 +258,10 @@ function read_object_mappings(req) {
  *
  */
 function read_object_md(req) {
+    dbg.log0('read_obj(1):', req.rpc_params);
     return find_object_md(req)
         .then(function(obj) {
+            dbg.log0('read_obj:', obj);
             return get_object_info(obj);
         });
 }
@@ -439,8 +443,8 @@ function load_bucket(req) {
         .then(db.check_not_deleted(req, 'bucket'))
         .then(function(bucket) {
             req.bucket = bucket;
-        }).then(null,function(err){
-            dbg.error('load bucket error:',err);
+        }).then(null, function(err) {
+            dbg.error('load bucket error:', err);
         });
 }
 
@@ -456,17 +460,20 @@ function object_md_query(req) {
 function find_object_md(req) {
     return load_bucket(req)
         .then(function() {
-            return db.ObjectMDCache.get({
-                system: req.system.id,
-                bucket: req.bucket.id,
-                key: req.rpc_params.key,
-            });
+            var query = _.omit(object_md_query(req), 'deleted');
+            query.deleted = null;
+            dbg.log0('find object:', query);
+            return db.ObjectMD.findOne(query).exec();
         })
-        .then(db.check_not_deleted(req, 'object'));
+        .then(db.check_not_found(req, 'object'))
+        .then(function(obj) {
+            dbg.log0('find object(2):', obj);
+            return obj;
+        });
 }
 
 function fail_obj_not_in_upload_mode(req, obj) {
     if (!_.isNumber(obj.upload_size)) {
-        throw req.rpc_error('BAD_STATE', 'object not in upload mode ' + obj.key);
+        throw req.rpc_error('BAD_STATE', 'object not in upload mode ' + obj.key + ' size:' + obj.upload_size);
     }
 }

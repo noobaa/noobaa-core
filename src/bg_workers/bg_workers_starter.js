@@ -16,6 +16,8 @@ var mongoose_logger = require('../util/mongoose_logger');
 console.log('loading .env file ( no foreman ;)');
 dotenv.load();
 
+dbg.set_process_name('BGWorkers');
+
 
 //TODO:: move all this to db index (function and direct call)
 var debug_mode = (process.env.DEBUG_MODE === 'true');
@@ -65,7 +67,7 @@ function register_rpc() {
 
     http_server = http.createServer();
     P.fcall(function() {
-            return P.ninvoke(http_server, 'listen', (parseInt(process.env.PORT)+1));
+            return P.ninvoke(http_server, 'listen', (parseInt(process.env.PORT) + 1));
         })
         .then(function() {
             server_rpc.register_ws_transport(http_server);
@@ -97,3 +99,5 @@ if (process.env.BUILD_WORKER_DISABLED !== 'true') {
         building_timeout: 300000 /* TODO increase...*/ ,
     }, build_chunks.background_worker);
 }
+
+dbg.log('BG Workers Server started');

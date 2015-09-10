@@ -109,13 +109,15 @@ char addrbuf[65];
 #define PACKET_SIZE_HUGE_BUCKET 4
 
 struct PACKED_ATTRIBUTE PacketFormatV1 {
-	// packet_type (4 high bits)
-	// protocol version (4 low bits)
+	// GUYM: ver_type changed from original:
+	// highest bit is always 1 to help identify from STUN packets.
+	// then 3 next bits is protocol version
+	// then 4 next bits is packet_type
 	byte ver_type;
-	byte version() const { return ver_type & 0xf; }
-	byte type() const { return ver_type >> 4; }
-	void set_version(byte v) { ver_type = (ver_type & 0xf0) | (v & 0xf); }
-	void set_type(byte t) { ver_type = (ver_type & 0xf) | (t << 4); }
+	byte version() const { return (ver_type >> 4) & 0x7; }
+	byte type() const { return ver_type & 0xf; }
+	void set_version(byte v) { ver_type = 0x80 | (v << 4) | (ver_type & 0xf); }
+	void set_type(byte t) { ver_type = 0x80 | (ver_type & 0x70) | (t & 0xf); }
 
 	// Type of the first extension header
 	byte ext;
@@ -1715,7 +1717,7 @@ void UTPSocket::apply_ccontrol(size_t bytes_acked, uint32 actual_delay, int64 mi
 			"delay_base:%u delay_sum:%d target_delay:%d acked_bytes:%u cur_window:%u "
 			"scaled_gain:%f rtt:%u rate:%u wnduser:%u rto:%u timeout:%d get_microseconds:"  I64u  " "
 			"cur_window_packets:%u packet_size:%u their_delay_base:%u their_actual_delay:%u "
-			"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:"  I64u 
+			"average_delay:%d clock_drift:%d clock_drift_raw:%d delay_penalty:%d current_delay_sum:"  I64u
 			"current_delay_samples:%d average_delay_base:%d last_maxed_out_window:"  I64u  " opt_sndbuf:%d "
 			"current_ms:"  I64u  "",
 			actual_delay, our_delay / 1000, their_hist.get_value() / 1000,

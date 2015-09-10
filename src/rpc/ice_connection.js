@@ -12,7 +12,7 @@ var ip_module = require('ip');
 var stun = require('./stun');
 var chance = new(require('chance').Chance)();
 var dbg = require('../util/debug_module')(__filename);
-
+dbg.set_level(5);
 var CAND_TYPE_HOST = 'host';
 var CAND_TYPE_SERVER_REFLEX = 'server';
 var CAND_TYPE_PEER_REFLEX = 'peer';
@@ -130,7 +130,7 @@ IceConnection.prototype.connect = function() {
             throw err;
         })
         .fin(function() {
-            self.connect_promise = null;
+            // self.connect_promise = null;
         });
 
     return self.connect_promise;
@@ -172,7 +172,7 @@ IceConnection.prototype.accept = function(remote_info) {
             throw err;
         })
         .fin(function() {
-            self.accept_promise = null;
+            // self.accept_promise = null;
         });
 
     return self.accept_promise;
@@ -224,9 +224,11 @@ IceConnection.prototype.close = function() {
  */
 IceConnection.prototype._bind = function() {
     var self = this;
-
     // bind the udp socket to requested port (can be 0 to allocate random)
-    return P.ninvoke(self.socket, 'bind', self.port)
+    return P.fcall(function() {
+            if (self.socket.fd) return;
+            return P.ninvoke(self.socket, 'bind', self.port);
+        })
         .then(function() {
 
             // update port in case it was 0 to bind to any port

@@ -93,7 +93,8 @@ public:
         , _bt(new Backtrace())
     {
     }
-    virtual ~Exception() throw() {}
+    virtual ~Exception() throw() {
+    }
     virtual const char* what() const throw()
     {
         return (std::string("Exception: ") + _msg).c_str();
@@ -185,6 +186,69 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
             Nan::Set(obj, key, val); \
         } \
     } while (0)
+
+#if NAUV_UVVERSION < 0x000b17
+
+# define NAUV_CALLBACK(func_name, handle_def) \
+    void func_name(handle_def, int)
+# define NAUV_IP4_ADDR(address, port, sinp) \
+    *sinp = uv_ip4_addr(address, port)
+# define NAUV_UDP_ADDR(sinp) *sinp
+# define NAUV_CALL(fcall) \
+    do { \
+        if (fcall) { \
+            PANIC(__FUNCTION__ << ": " << #fcall << " - " \
+                               << uv_strerror(uv_last_error(uv_default_loop()))); \
+        } \
+    } while(0)
+# define NAUV_ALLOC_CB_WRAP(func_name, alloc_func) \
+    uv_buf_t func_name(uv_handle_t* handle, size_t suggested_size) \
+    { \
+        uv_buf_t buf; \
+        alloc_func(handle, suggested_size, buf); \
+        return buf; \
+    }
+# define NAUV_UDP_RECEIVE_CB_WRAP(func_name, receive_func) \
+    void uv_callback_receive_wrap( \
+        uv_udp_t* handle, \
+        ssize_t nread, \
+        uv_buf_t buf, \
+        struct sockaddr* addr, \
+        unsigned flags) \
+    { \
+        receive_func(handle, nread, &buf, addr, flags); \
+    }
+
+#else
+
+# define NAUV_CALLBACK(func_name, handle_def) \
+    void func_name(handle_def)
+# define NAUV_IP4_ADDR(address, port, sinp) \
+    uv_ip4_addr(address, port, sinp)
+# define NAUV_UDP_ADDR(sinp) reinterpret_cast<struct sockaddr*>(sinp)
+# define NAUV_CALL(fcall) \
+    do { \
+        if (int rc = fcall) { \
+            PANIC(__FUNCTION__ << ": " << #fcall << " - " << uv_strerror(rc)); \
+        } \
+    } while(0)
+# define NAUV_ALLOC_CB_WRAP(func_name, alloc_func) \
+    void func_name(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) \
+    { \
+        alloc_func(handle, suggested_size, buf); \
+    }
+# define NAUV_UDP_RECEIVE_CB_WRAP(func_name, receive_func) \
+    void uv_callback_receive_wrap( \
+        uv_udp_t* handle, \
+        ssize_t nread, \
+        const uv_buf_t* buf, \
+        const struct sockaddr* addr, \
+        unsigned flags) \
+    { \
+        receive_func(handle, nread, buf, addr, flags); \
+    }
+
+#endif
 
 } // namespace noobaa
 

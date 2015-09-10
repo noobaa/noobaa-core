@@ -4,31 +4,35 @@ module.exports = RpcN2NConnection;
 RpcN2NConnection.Agent = RpcN2NAgent;
 
 var _ = require('lodash');
-// var P = require('../util/promise');
+var P = require('../util/promise');
 var util = require('util');
 var url = require('url');
 var js_utils = require('../util/js_utils');
 var time_utils = require('../util/time_utils');
+var native_core = require('../util/native_core');
 var EventEmitter = require('events').EventEmitter;
 var dbg = require('../util/debug_module')(__filename);
 var IceConnection = require('./ice_connection');
-var NiceConnection = require('./nice_connection');
 var NudpFlow = require('./nudp');
+// var NiceConnection = require('./nice_connection');
 
 var CONNECTORS = {
-    ice: IceConnection,
-    nice: NiceConnection,
+    ice: function(params) {
+        return new IceConnection(params);
+    },
+    // nice: NiceConnection,
     // jingle: jingle,
     // webrtc: webrtc,
 };
 
-var SECURITY = {
-    no: NoSecurity,
-    // dtls: DtlsSecurity,
-};
-
 var FLOW_CONTROL = {
-    nudp: NudpFlow,
+    nudpjs: function(params) {
+        return new NudpFlow(params);
+    },
+    nudp: function(params) {
+        var nutil = native_core();
+        return new nutil.Nudp(params);
+    },
     // udt: udt,
     // utp: utp,
     // sctp: sctp,
@@ -38,9 +42,7 @@ var FLOW_CONTROL = {
 
 var DEFAULT_N2N_CONF = {
     // connector
-    con: 'ice',
-    // security
-    sec: 'no',
+    conn: 'ice',
     // flow-control
     flow: 'nudp'
 };
@@ -69,45 +71,76 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     // generate connection id only used for identifying in debug prints
     self.connid = 'N2N-' + time_utils.nanostamp().toString(36);
 
+    var Nudp = native_core().Nudp;
+    self.nudp = new Nudp();
+    self.nudp.on('message', function(msg) {
+        // console.log('******* N2N RECEIVE', msg.length);
+        self.emit('message', msg);
+    });
+
+    setInterval(function() {
+        console.log('N2N STATS', self.nudp.stats());
+    }, 5000);
+
+    /*
     // use the configuration from the url query (parsed before)
     var conf = self.conf = _.defaults(self.url.query, DEFAULT_N2N_CONF);
-    dbg.log0('N2N', 'con=' + conf.con, 'sec=' + conf.sec, 'flow=' + conf.flow);
-    self.connector = new CONNECTORS[conf.con]({
+    dbg.log0('N2N', 'conn=' + conf.conn, 'flow=' + conf.flow);
+
+    self.flow = FLOW_CONTROL[conf.flow](self.connid);
+    self.connector = CONNECTORS[conf.conn]({
         addr_url: addr_url,
-        signaller: js_utils.self_bind(self, 'signaller')
+        signaller: function(info) {
+            return self.n2n_agent.signaller({
+                target: self.url.href,
+                info: info
+            });
+        }
     });
-    self.security = new SECURITY[conf.sec]();
-    self.flow = new FLOW_CONTROL[conf.flow](self.connid);
 
     js_utils.self_bind(self, 'close');
-    js_utils.self_bind(self.security, 'sendmsg');
-    js_utils.self_bind(self.security, 'recvmsg');
     js_utils.self_bind(self.flow, 'recvmsg');
     js_utils.self_bind(self.connector, 'send');
 
     // handle close and error
     self.connector.on('error', self.close);
     self.connector.on('close', self.close);
-    self.security.on('close', self.close);
-    self.security.on('close', self.close);
     self.flow.on('error', self.close);
     self.flow.on('close', self.close);
 
-    // packets redirection - connector <-> security <-> flow
-    self.connector.on('message', self.security.recvmsg);
-    self.security.on('sendmsg', self.connector.send);
-    self.security.on('recvmsg', self.flow.recvmsg);
-    self.flow.on('sendmsg', self.security.sendmsg);
+    // redirect packets - connector <-> flow
+    self.connector.on('message', self.flow.recvmsg);
+    self.flow.on('sendmsg', self.connector.send);
+
+    // once a complete message is assembled it is emitted from the connection
     self.flow.on('message', function(msg) {
-        // once a complete message is assembled it is emitted from the connection
         self.emit('message', msg);
     });
+    */
 }
 
 util.inherits(RpcN2NConnection, EventEmitter);
 
 RpcN2NConnection.prototype.connect = function() {
-    return this.connector.connect();
+    var self = this;
+    if (self.connect_promise) {
+        return self.connect_promise;
+    }
+    self.connect_promise = self.n2n_agent.signaller({
+            target: self.url.href,
+            info: {}
+        })
+        .then(function() {
+            self.nudp.connect(self.url.port, self.url.hostname);
+        });
+    return self.connect_promise;
+
+    // return this.connector.connect();
+};
+
+RpcN2NConnection.prototype.accept = function(info) {
+    this.nudp.bind(this.url.port, this.url.hostname);
+    // return this.connector.accept(info);
 };
 
 RpcN2NConnection.prototype.close = function(err) {
@@ -118,31 +151,21 @@ RpcN2NConnection.prototype.close = function(err) {
         return;
     }
     this.closed = true;
+    this.nudp.close();
+    /*
     this.connector.close();
-    this.security.close();
     this.flow.close();
+    */
     this.emit('close');
 };
 
 RpcN2NConnection.prototype.send = function(msg) {
-    return this.flow.send(msg);
+    msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
+    // console.log('******* N2N SEND', msg.length);
+    return P.ninvoke(this.nudp, 'send', msg);
+    // return this.flow.send(msg);
 };
 
-RpcN2NConnection.prototype.accept = function(info) {
-    return this.connector.accept(info);
-};
-
-// forward signals
-RpcN2NConnection.prototype.signaller = function(info) {
-    return this.n2n_agent.signaller({
-        target: this.url.href,
-        info: info
-    });
-};
-
-
-
-util.inherits(RpcN2NAgent, EventEmitter);
 
 /**
  *
@@ -159,6 +182,7 @@ function RpcN2NAgent(options) {
     this.signaller = options.signaller;
 }
 
+util.inherits(RpcN2NAgent, EventEmitter);
 
 RpcN2NAgent.prototype.signal = function(params) {
     dbg.log0('N2N AGENT signal:', params);
@@ -170,25 +194,3 @@ RpcN2NAgent.prototype.signal = function(params) {
     this.emit('connection', conn);
     return conn.accept(params.info);
 };
-
-
-util.inherits(NoSecurity, EventEmitter);
-
-/**
- *
- * NoSecurity
- *
- * simply propagate the packets as plaintext
- *
- */
-function NoSecurity() {
-    var self = this;
-    EventEmitter.call(self);
-    self.recvmsg = function(msg) {
-        self.emit('recvmsg', msg);
-    };
-    self.sendmsg = function(msg) {
-        self.emit('sendmsg', msg);
-    };
-    self.close = function() {};
-}

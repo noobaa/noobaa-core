@@ -174,6 +174,9 @@ module.exports = function(params) {
 
     var extract_s3_info = function(req) {
 
+        if (_.isUndefined(clients[req.access_key].client.options)) {
+            dbg.error('extract_s3_info problem');
+        }
         if (clients[req.access_key].client.options.auth_token.indexOf('auth_token') > 0) {
             //update signature and string_to_sign
             //TODO: optimize this part. two converstions per request is a bit too much.
@@ -309,7 +312,7 @@ module.exports = function(params) {
         //dbg.log("build",res);
         res.header('Content-Type', 'application/xml');
         res.status(status);
-        dbg.log0('template:', template);
+        dbg.log2('template:', template);
         return res.send(template);
     };
 
@@ -528,7 +531,7 @@ module.exports = function(params) {
                     var create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
                     var bucket_key_params = _.pick(upload_params, 'bucket', 'key');
 
-                    dbg.log0('upload_stream: start upload', upload_params.key);
+                    dbg.log0('upload_stream: start upload', upload_params.key,upload_params.size);
                     if (_.isUndefined(clients[access_key].buckets[req.bucket])) {
                         clients[access_key].buckets = [req.bucket];
                         clients[access_key].buckets[req.bucket] = {
@@ -1088,51 +1091,58 @@ module.exports = function(params) {
                     //key = key.replace('/s3', '');
                     key = key.substring(0, key.indexOf('?uploads'));
                     key = decodeURIComponent(key);
+                    dbg.log0('Init Multipart key', key);
+                    //Always try to delete existing object
+                    return delete_if_exists({
+                        'key': key,
+                        'bucket': req.bucket
+                    }, access_key).then(function() {
 
-                    var create_params = {
-                        bucket: req.bucket,
-                        key: key,
-                        size: 0,
-                        content_type: req.headers['content-type']
-                    };
-
-                    dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', _.where(clients[access_key].buckets, {
-                        bucket: req.bucket
-                    }));
-                    if (!_.has(clients[access_key].buckets, req.bucket)) {
-
-                        clients[access_key].buckets[req.bucket] = {
-                            upload_ids: []
-                        };
-                        dbg.log0('Init Multipart, buckets (pushed)', clients[access_key].buckets);
-
-                    }
-                    try {
-                        clients[access_key].buckets[req.bucket].upload_ids[key] = {
-                            parts: [],
-                            start: time_utils.millistamp()
+                        var create_params = {
+                            bucket: req.bucket,
+                            key: key,
+                            size: 0,
+                            content_type: req.headers['content-type']
                         };
 
-                        dbg.log0('Init Multipart 2', clients[access_key].buckets[req.bucket]);
+                        dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', _.where(clients[access_key].buckets, {
+                            bucket: req.bucket
+                        }));
+                        if (!_.has(clients[access_key].buckets, req.bucket)) {
 
-                    } catch (err) {
-                        dbg.error('init error:', err);
-                    }
-                    dbg.log0('Init Multipart - create_multipart_upload ', create_params);
-                    //TODO: better override. from some reason, sometimes movies are octet.
-                    if (create_params.content_type === 'application/octet-stream') {
-                        create_params.content_type = mime.lookup(key) || create_params.content_type;
-                        dbg.log0('Init Multipart - create_multipart_upload - override mime ', create_params);
-                    }
-                    return clients[access_key].client.object.create_multipart_upload(create_params)
-                        .then(function(info) {
-                            template = templateBuilder.buildInitiateMultipartUploadResult(string_utils.encodeXML(req.params.key), req.bucket);
-                            return buildXmlResponse(res, 200, template);
-                        }).then(null, function(err) {
-                            template = templateBuilder.buildKeyNotFound(req.query.uploadId);
-                            dbg.error('Error init multipart', template);
-                            return buildXmlResponse(res, 500, template);
-                        });
+                            clients[access_key].buckets[req.bucket] = {
+                                upload_ids: []
+                            };
+                            dbg.log0('Init Multipart, buckets (pushed)', clients[access_key].buckets);
+
+                        }
+                        try {
+                            clients[access_key].buckets[req.bucket].upload_ids[key] = {
+                                start: time_utils.millistamp()
+                            };
+
+                            dbg.log0('Init Multipart 2', clients[access_key].buckets[req.bucket]);
+
+                        } catch (err) {
+                            dbg.error('init error:', err);
+                        }
+                        dbg.log0('Init Multipart - create_multipart_upload ', create_params);
+                        //TODO: better override. from some reason, sometimes movies are octet.
+                        if (create_params.content_type === 'application/octet-stream') {
+                            create_params.content_type = mime.lookup(key) || create_params.content_type;
+                            dbg.log0('Init Multipart - create_multipart_upload - override mime ', create_params);
+                        }
+                        return clients[access_key].client.object.create_multipart_upload(create_params)
+                            .then(function(info) {
+                                template = templateBuilder.buildInitiateMultipartUploadResult(string_utils.encodeXML(req.params.key), req.bucket);
+                                return buildXmlResponse(res, 200, template);
+                            }).then(null, function(err) {
+                                template = templateBuilder.buildKeyNotFound(req.query.uploadId);
+                                dbg.error('Error init multipart', template);
+                                return buildXmlResponse(res, 500, template);
+                            });
+                    });
+
                 }
                 //CompleteMultipartUpload
                 else if (!_.isUndefined(req.query.uploadId)) {
@@ -1159,7 +1169,7 @@ module.exports = function(params) {
                         };
 
                         template = templateBuilder.completeMultipleUpload(completeMultipartInformation);
-                        dbg.log0('Complete multipart', template, 'for', clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId], 'took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[req.query.uploadId].start));
+                        dbg.log0('Complete multipart', template);
 
                         return buildXmlResponse(res, 200, template);
                     }).then(null, function(err) {

@@ -34,7 +34,7 @@ if (cluster.isMaster) {
         console.log('worker ' + worker.process.pid + ' died');
     });
 } else {
-
+    dbg.set_process_name('S3rver');
     P.nfcall(fs.readFile, 'agent_conf.json')
         .then(function(data) {
             var agent_conf = JSON.parse(data);

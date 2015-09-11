@@ -7,7 +7,7 @@
             'third_party/snappy/snappy.gyp:snappy',
             'third_party/libutp/libutp.gyp:libutp',
             'third_party/libutp/libutp.gyp:ucat',
-            # 'third_party/webrtc/webrtc_stun.gyp:*',
+            # 'third_party/webrtc/webrtc_stun.gyp:webrtc_stun',
             # 'third_party/udt4/udt4.gyp:udt4',
             # 'third_party/usrsctp/usrsctp.gyp:usrsctp',
         ],

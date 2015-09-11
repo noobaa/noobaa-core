@@ -28,6 +28,8 @@
         "consistent-return": 0,
         "comma-dangle": 0,
         "no-constant-condition": 0,
+        "requireVarDeclFirst": 0,
+        "requireMultipleVarDecl": 0,
 
 
         "no-shadow": 0,

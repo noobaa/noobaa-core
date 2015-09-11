@@ -192,10 +192,11 @@ node_schema.statics.get_minimum_online_heartbeat = get_minimum_online_heartbeat;
 node_schema.statics.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
 
 node_schema.methods.get_rpc_address = function() {
-    if (process.env.AGENTS_OVER_WS === 'true' && this.ip && this.port) {
-        return 'wss://' + this.ip + ':' + this.port;
-    } else {
+    var proto = process.env.AGENTS_PROTOCOL || 'n2n';
+    if (proto === 'n2n') {
         return 'n2n://' + this.peer_id;
+    } else {
+        return proto + '://' + this.ip + ':' + this.port;
     }
 };
 

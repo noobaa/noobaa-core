@@ -184,6 +184,17 @@ function post_upgrade {
   deploy_log "$(ls -R ${CORE_DIR}/build/)"
 
   /etc/rc.d/init.d/supervisord restart
+  sudo grep noobaa /etc/sudoers
+  if [ $? -ne 0 ]; then
+      deploy_log "adding noobaa to sudoers"
+	  sudo echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+	  sudo grep noobaa /etc/sudoers
+	  if [ $? -ne 0 ]; then
+	      deploy_log "failed to add noobaa to sudoers"
+   	  fi
+
+  fi
+
 
   rm -f /tmp/*.tar.gz
 }

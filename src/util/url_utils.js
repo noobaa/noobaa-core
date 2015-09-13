@@ -9,10 +9,14 @@ module.exports = {
 var QUICK_PARSE_REGEXP = /^(\w+\:)(\/\/)?([^\:\/\[\]]+|\[[a-fA-F0-9\:\.]+\])(\:\d+)?(\/[^?#]*)?(\?[^\#]*)?(\#.*)?$/;
 
 /**
- * parse url string faster than url.parse - reduce the time to 1/6
+ * parse url string much faster than url.parse() - reduce the time to 1/10.
  * this is handy when url parsing is part of incoming request handling and called many times per second.
- * on MacAir url.parse runs 120,000 times per second while consuming 100% cpu,
- * so can be heavy for high RPM server
+ *
+ * on MacAir url.parse() runs ~110,000 times per second while consuming 100% cpu,
+ * so url.parse() can be heavy for high RPM server.
+ * quick_parse() runs ~1,000,000 times per second.
+ * see benchmark() function below.
+ *
  */
 function quick_parse(url_string, parse_query_string) {
     var match = url_string.match(QUICK_PARSE_REGEXP);
@@ -38,16 +42,18 @@ function quick_parse(url_string, parse_query_string) {
 }
 
 
-function test_quick_parse() {
+function benchmark() {
     var url = require('url');
     var assert = require('assert');
     var testing_url = "http://127.0.0.1:4545/";
+    assert(testing_url === url.format(url.parse(testing_url, true)));
+    assert(testing_url === url.format(quick_parse(testing_url, true)));
     var tests = [
         function test_url_parse() {
-            assert(testing_url === url.format(url.parse(testing_url, true)));
+            return url.parse(testing_url, true);
         },
         function test_quick_parse() {
-            assert(testing_url === url.format(quick_parse(testing_url, true)));
+            return quick_parse(testing_url, true);
         }
     ];
     for (var t = 0; t < tests.length; ++t) {
@@ -60,8 +66,8 @@ function test_quick_parse() {
         var last_count = 0;
         var speed;
         do {
-            for (var i = 0; i < 1000; ++i) test();
-            count += 1000;
+            for (var i = 0; i < 5000; ++i) test();
+            count += 5000;
             now = Date.now();
             if (now - last_print > 1000) {
                 speed = ((count - last_count) * 1000 / (now - last_print)).toFixed(0);
@@ -77,5 +83,5 @@ function test_quick_parse() {
 }
 
 if (require.main === module) {
-    test_quick_parse();
+    benchmark();
 }

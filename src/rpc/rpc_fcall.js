@@ -4,16 +4,14 @@ module.exports = RpcFcallConnection;
 
 var _ = require('lodash');
 var util = require('util');
-var EventEmitter = require('events').EventEmitter;
+var RpcBaseConnection = require('./rpc_base_conn');
 require('setimmediate');
 
-util.inherits(RpcFcallConnection, EventEmitter);
+util.inherits(RpcFcallConnection, RpcBaseConnection);
 
 function RpcFcallConnection(addr_url) {
     var self = this;
-    self.connid = addr_url.host;
-    self.url = addr_url;
-    EventEmitter.call(self);
+    RpcBaseConnection.call(self, addr_url);
 
     self.close = function() {};
     self.connect = function() {};

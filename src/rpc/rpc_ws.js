@@ -7,11 +7,12 @@ var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
+var RpcBaseConnection = require('./rpc_base_conn');
 var buffer_utils = require('../util/buffer_utils');
 var dbg = require('../util/debug_module')(__filename);
 var WS = require('ws');
 
-util.inherits(RpcWsConnection, EventEmitter);
+util.inherits(RpcWsConnection, RpcBaseConnection);
 
 /**
  *
@@ -19,12 +20,7 @@ util.inherits(RpcWsConnection, EventEmitter);
  *
  */
 function RpcWsConnection(addr_url) {
-    EventEmitter.call(this);
-    this.url = addr_url;
-
-    // generate connection id only used for identifying in debug prints
-    var t = Date.now();
-    this.connid = 'WS-' + t.toString(36);
+    RpcBaseConnection.call(this, addr_url);
 }
 
 var KEEPALIVE_OP = 'keepalive';
@@ -45,7 +41,7 @@ RpcWsConnection.prototype.connect = function() {
             return self.connect_defer.promise;
         }
         if (self.closed) {
-            throw new Error('WS DISCONNECTED ' + self.connid + ' ' + self.url.href);
+            throw new Error('WS DISCONNECTED ' + self.connid);
         }
         return;
     }
@@ -86,7 +82,7 @@ RpcWsConnection.prototype.close = function() {
     }
 
     if (this.connect_defer) {
-        this.connect_defer.reject('WS DISCONNECTED ' + this.connid + ' ' + this.url.href);
+        this.connect_defer.reject('WS DISCONNECTED ' + this.connid);
         this.connect_defer = null;
     }
 
@@ -111,7 +107,7 @@ var WS_SEND_OPTIONS = {
  */
 RpcWsConnection.prototype.send = function(msg) {
     if (!this.ws || this.closed) {
-        throw new Error('WS NOT OPEN ' + this.connid + ' ' + this.url.href);
+        throw new Error('WS NOT OPEN ' + this.connid);
     }
     msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     this.ws.send(msg, WS_SEND_OPTIONS);
@@ -138,11 +134,16 @@ function RpcWsServer(http_server) {
     ws_server.on('connection', function(ws) {
         var conn;
         try {
-            // TODO how to find out if ws is secure and use wss:// address instead
-            var address = 'ws://' + ws._socket.remoteAddress + ':' + ws._socket.remotePort;
+            // using url.format and then url.parse in order to handle ipv4/ipv6 correctly
+            var address = url.format({
+                // TODO how to find out if ws is secure and use wss:// address instead
+                protocol: 'ws:',
+                hostname: ws._socket.remoteAddress,
+                port: ws._socket.remotePort
+            });
             var addr_url = url.parse(address);
             conn = new RpcWsConnection(addr_url);
-            dbg.log0('WS ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);
+            dbg.log0('WS ACCEPT CONNECTION', conn.connid);
             conn.ws = ws;
             conn._init();
             self.emit('connection', conn);
@@ -180,7 +181,7 @@ RpcWsConnection.prototype._on_open = function() {
         try {
             ws.send(command_string);
         } catch (err) {
-            dbg.error('WS SEND COMMAND ERROR', self.connid, self.url.href, err.stack || err);
+            dbg.error('WS SEND COMMAND ERROR', self.connid, err.stack || err);
             self.close();
         }
     }
@@ -192,12 +193,12 @@ RpcWsConnection.prototype._init = function() {
     var ws = self.ws;
 
     ws.onclose = function() {
-        dbg.warn('WS CLOSED', self.connid, self.url.href);
+        dbg.warn('WS CLOSED', self.connid);
         self.close();
     };
 
     ws.onerror = function(err) {
-        dbg.error('WS ERROR', self.connid, self.url.href, err.stack || err);
+        dbg.error('WS ERROR', self.connid, err.stack || err);
         self.close();
     };
 
@@ -209,7 +210,7 @@ RpcWsConnection.prototype._init = function() {
                 handle_command_message(msg);
             }
         } catch (err) {
-            dbg.error('WS MESSAGE ERROR', self.connid, self.url.href, err.stack || err);
+            dbg.error('WS MESSAGE ERROR', self.connid, err.stack || err);
             self.close();
         }
 
@@ -225,7 +226,7 @@ RpcWsConnection.prototype._init = function() {
                     // noop
                     break;
                 default:
-                    throw new Error('BAD COMMAND ' + self.connid + ' ' + self.url.href);
+                    throw new Error('BAD COMMAND ' + self.connid);
             }
         }
     };

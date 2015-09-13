@@ -4,11 +4,12 @@ module.exports = RPC;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var url = require('url');
+// var url = require('url');
 var util = require('util');
 var assert = require('assert');
 // var ip_module = require('ip');
 // var time_utils = require('../util/time_utils');
+var url_utils = require('../util/url_utils');
 var dbg = require('../util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
@@ -435,7 +436,7 @@ RPC.prototype._assign_connection = function(req, options) {
     var address = options.address || this.base_address;
     var addr_url = this._address_to_url_cache[address];
     if (!addr_url) {
-        addr_url = url.parse(address, true);
+        addr_url = url_utils.quick_parse(address, true);
         this._address_to_url_cache[address] = addr_url;
     }
     var conn = this._get_connection(addr_url, req.srv);

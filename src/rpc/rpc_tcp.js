@@ -9,9 +9,10 @@ var tls = require('tls');
 var url = require('url');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
+var RpcBaseConnection = require('./rpc_base_conn');
 var dbg = require('../util/debug_module')(__filename);
 
-util.inherits(RpcTcpConnection, EventEmitter);
+util.inherits(RpcTcpConnection, RpcBaseConnection);
 
 var MSG_HEADER_LEN = 4;
 
@@ -21,12 +22,7 @@ var MSG_HEADER_LEN = 4;
  *
  */
 function RpcTcpConnection(addr_url) {
-    EventEmitter.call(this);
-    this.url = addr_url;
-
-    // generate connection id only used for identifying in debug prints
-    var t = Date.now();
-    this.connid = 'TCP-' + t.toString(36);
+    RpcBaseConnection.call(this, addr_url);
 }
 
 
@@ -37,16 +33,12 @@ function RpcTcpConnection(addr_url) {
  */
 RpcTcpConnection.prototype.connect = function() {
     var self = this;
-    if (self.tcp_conn) {
-        if (self.connect_promise) {
-            return self.connect_promise;
-        }
-        if (self.closed) {
-            throw new Error('TCP DISCONNECTED ' + self.connid + ' ' + self.url.href);
-        }
-        return;
+    if (self.closed) {
+        throw new Error('TCP DISCONNECTED ' + self.connid + ' ' + self.url.href);
     }
-
+    if (self.connect_promise) {
+        return self.connect_promise;
+    }
     self.connect_promise = new P(function(resolve, reject) {
         var connector = (self.url.protocol === 'tls:' ? tls : net);
         self.tcp_conn = connector.connect({
@@ -55,7 +47,6 @@ RpcTcpConnection.prototype.connect = function() {
         }, resolve);
         self._init();
     });
-
     return self.connect_promise;
 };
 
@@ -87,6 +78,10 @@ RpcTcpConnection.prototype.send = function(msg) {
     if (!this.tcp_conn || this.closed) {
         throw new Error('TCP NOT OPEN ' + this.connid + ' ' + this.url.href);
     }
+
+    // TODO rewrite this flow, need to wait for write callbacks,
+    // respect the 'drain' event, and return promise.
+    // return new P(function(resolve, reject) {});
 
     var msg_len = _.sum(msg, 'length');
     dbg.log2('TCP SEND', msg_len);
@@ -162,7 +157,7 @@ util.inherits(RpcTcpServer, EventEmitter);
 function RpcTcpServer(port, tls_options) {
     var self = this;
     EventEmitter.call(self);
-    var proto_prefix = (tls_options ? 'tls://' : 'tcp://');
+    var protocol = (tls_options ? 'tls:' : 'tcp:');
 
     self.server = tls_options ?
         tls.createServer(tls_options, conn_handler) :
@@ -179,7 +174,12 @@ function RpcTcpServer(port, tls_options) {
 
     function conn_handler(tcp_conn) {
         try {
-            var address = proto_prefix + tcp_conn.remoteAddress + ':' + tcp_conn.remotePort;
+            // using url.format and then url.parse in order to handle ipv4/ipv6 correctly
+            var address = url.format({
+                protocol: protocol,
+                hostname: tcp_conn.remoteAddress,
+                port: tcp_conn.remotePort
+            });
             var addr_url = url.parse(address);
             var conn = new RpcTcpConnection(addr_url);
             dbg.log0('TCP ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);

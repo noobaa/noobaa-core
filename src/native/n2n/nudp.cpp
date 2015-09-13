@@ -326,10 +326,15 @@ Nudp::uv_callback_receive(
     if (NAT::is_stun_packet(data, nread)) {
         LOG("Nudp::uv_callback_receive: got STUN packet");
         Nan::HandleScope scope;
-        // the node buffer takes ownership on the memory
-        v8::Local<v8::Object> node_buf = Nan::NewBuffer(buf->base, buf->len).ToLocalChecked();
-        v8::Local<v8::Value> argv[2] = { NAN_STR("stun"), node_buf };
-        Nan::MakeCallback(self.handle(), "emit", 2, argv);
+        // the node buffer takes ownership on the memory, so not deleting the data in this path
+        const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(addr);
+        v8::Local<v8::Value> argv[4] = {
+            NAN_STR("stun"),
+            Nan::NewBuffer(buf->base, buf->len).ToLocalChecked(),
+            NAN_INT(ntohs(sin->sin_port)),
+            NAN_STR(inet_ntoa(sin->sin_addr))
+        };
+        Nan::MakeCallback(self.handle(), "emit", 4, argv);
     } else {
         if (!utp_process_udp(self._utp_ctx, data, nread, addr, sizeof(struct sockaddr))) {
             DBG3("Nudp::uv_callback_receive: UDP packet not handled by UTP. Ignoring.");
@@ -431,7 +436,7 @@ Nudp::utp_callback_on_state_change(utp_callback_arguments *a)
     return 0;
 }
 
-NAN_METHOD(Nudp::send_stun)
+NAN_METHOD(Nudp::send_outbound)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
     v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[0]).ToLocalChecked();
@@ -452,19 +457,19 @@ NAN_METHOD(Nudp::send_stun)
     NAUV_IP4_ADDR(*address, port, &sin);
     uv_buf_t buf = uv_buf_init(m->data, m->len);
 
-    DBG3("Nudp::send_stun: packet length " << m->len << " addr " << *address << ":" << port);
+    DBG3("Nudp::send_outbound: packet length " << m->len << " addr " << *address << ":" << port);
     NAUV_CALL(uv_udp_send(
         req, &self._uv_udp_handle,
         &buf, 1,
         NAUV_UDP_ADDR(&sin),
-        &Nudp::uv_callback_send_stun));
+        &Nudp::uv_callback_send_outbound));
     NAN_RETURN(Nan::Undefined());
 }
 
 void
-Nudp::uv_callback_send_stun(uv_udp_send_t* req, int status)
+Nudp::uv_callback_send_outbound(uv_udp_send_t* req, int status)
 {
-    DBG3("Nudp::uv_callback_send_stun: status " << status);
+    DBG3("Nudp::uv_callback_send_outbound: status " << status);
     Msg* m = reinterpret_cast<Msg*>(req->data);
     m->persistent.Reset();
     if (status) {

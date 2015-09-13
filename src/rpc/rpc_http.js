@@ -6,7 +6,6 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
-var EventEmitter = require('events').EventEmitter;
 var http = require('http');
 var https = require('https');
 var express = require('express');
@@ -16,9 +15,11 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var pem = require('../util/pem');
 var dbg = require('../util/debug_module')(__filename);
+var EventEmitter = require('events').EventEmitter;
+var RpcBaseConnection = require('./rpc_base_conn');
 
 
-util.inherits(RpcHttpConnection, EventEmitter);
+util.inherits(RpcHttpConnection, RpcBaseConnection);
 
 /**
  *
@@ -26,9 +27,7 @@ util.inherits(RpcHttpConnection, EventEmitter);
  *
  */
 function RpcHttpConnection(addr_url) {
-    EventEmitter.call(this);
-    this.url = addr_url;
-    this.connid = addr_url.href;
+    RpcBaseConnection.call(this, addr_url);
 }
 
 /**

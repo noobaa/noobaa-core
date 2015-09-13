@@ -1,6 +1,6 @@
 'use strict';
 
-module.exports = IceConnection;
+module.exports = Ice;
 
 var _ = require('lodash');
 var P = require('../util/promise');
@@ -12,7 +12,9 @@ var ip_module = require('ip');
 var stun = require('./stun');
 var chance = new(require('chance').Chance)();
 var dbg = require('../util/debug_module')(__filename);
+
 dbg.set_level(5);
+
 var CAND_TYPE_HOST = 'host';
 var CAND_TYPE_SERVER_REFLEX = 'server';
 var CAND_TYPE_PEER_REFLEX = 'peer';
@@ -30,28 +32,25 @@ var RAND_ICE_PWD = {
     pool: RAND_ICE_CHAR_POOL
 };
 
-util.inherits(IceConnection, EventEmitter);
+util.inherits(Ice, EventEmitter);
 
 /**
  *
- * IceConnection
+ * Ice
  *
  * minimalistic implementation of ICE - https://tools.ietf.org/html/rfc5245
  * we chose a small subset of the spec to keep it simple,
  * but this module will continue to develop as we encounter more complicated networks.
  *
  */
-function IceConnection(options) {
+function Ice(options) {
     var self = this;
     EventEmitter.call(self);
 
-    self.signaller = options.signaller;
-    self.addr_url = options.addr_url;
-
-    var socket = dgram.createSocket('udp4');
-    self.socket = socket;
     self.ip = ip_module.address();
     self.port = 0;
+    self.selected_candidate = null;
+    self.stun_candidate_defer = P.defer();
 
     self.local = {
         credentials: {
@@ -60,40 +59,10 @@ function IceConnection(options) {
         },
         candidates: {}
     };
+
     self.remote = {
         credentials: {},
         candidates: {}
-    };
-
-    self.selected_candidate = null;
-    self.stun_candidate_defer = P.defer();
-
-    // the socket multiplexes with stun so we receive also
-    // stun messages by our listener, but the stun listener already handled
-    // them so we just need to ignore it here.
-    socket.on('message', function(buffer, rinfo) {
-        if (stun.is_stun_packet(buffer)) {
-            self._handle_stun_packet(buffer, rinfo);
-        } else {
-            self.emit('message', buffer, rinfo);
-        }
-    });
-
-    socket.on('close', function() {
-        dbg.error('ICE SOCKET CLOSED my port', self.port);
-        self.close();
-    });
-
-    // this might occur on ESRCH error from getaddrinfo() for dns resolve.
-    socket.on('error', function(err) {
-        dbg.error('ICE SOCKET ERROR my port', self.port, err.stack || err);
-        self.emit('error', new Error('ICE SOCKET ERROR'));
-    });
-
-    self.error_handler = function(err) {
-        if (err) {
-            self.emit('error', err);
-        }
     };
 }
 
@@ -102,7 +71,7 @@ function IceConnection(options) {
  * connect
  *
  */
-IceConnection.prototype.connect = function() {
+Ice.prototype.connect = function() {
     var self = this;
     if (this.selected_candidate) {
         return;
@@ -142,7 +111,7 @@ IceConnection.prototype.connect = function() {
  * accept
  *
  */
-IceConnection.prototype.accept = function(remote_info) {
+Ice.prototype.accept = function(remote_info) {
     var self = this;
 
     // merge the remote info - to set credentials and add new candidates
@@ -184,7 +153,7 @@ IceConnection.prototype.accept = function(remote_info) {
  * send
  *
  */
-IceConnection.prototype.send = function(buffer, offset, length) {
+Ice.prototype.send = function(buffer, offset, length) {
     if (!this.selected_candidate) {
         dbg.log0('ICE send: SOCKET NOT READY port', this.port);
         return;
@@ -204,7 +173,7 @@ IceConnection.prototype.send = function(buffer, offset, length) {
  * close
  *
  */
-IceConnection.prototype.close = function() {
+Ice.prototype.close = function() {
     this.selected_candidate = null;
     if (this.closed) {
         return;
@@ -222,7 +191,7 @@ IceConnection.prototype.close = function() {
  * _bind
  *
  */
-IceConnection.prototype._bind = function() {
+Ice.prototype._bind = function() {
     var self = this;
     // bind the udp socket to requested port (can be 0 to allocate random)
     return P.fcall(function() {
@@ -244,7 +213,7 @@ IceConnection.prototype._bind = function() {
  * _gather_local_candidates
  *
  */
-IceConnection.prototype._gather_local_candidates = function() {
+Ice.prototype._gather_local_candidates = function() {
     var self = this;
     var stun_url = stun.STUN.DEFAULT_SERVER;
 
@@ -285,7 +254,7 @@ IceConnection.prototype._gather_local_candidates = function() {
  * _punch_hole
  *
  */
-IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
+Ice.prototype._punch_hole = function(credentials, addr, attempts) {
     var self = this;
     attempts = attempts || 0;
 
@@ -342,7 +311,7 @@ IceConnection.prototype._punch_hole = function(credentials, addr, attempts) {
  * _punch_holes
  *
  */
-IceConnection.prototype._punch_holes = function() {
+Ice.prototype._punch_holes = function() {
     var self = this;
     return P.fcall(function() {
             dbg.log0('ICE _punch_holes: remote info', self.remote,
@@ -366,20 +335,20 @@ IceConnection.prototype._punch_holes = function() {
 
 /**
  *
- * _handle_stun_packet
+ * handle_stun_packet
  *
  */
-IceConnection.prototype._handle_stun_packet = function(buffer, rinfo) {
+Ice.prototype.handle_stun_packet = function(buffer, rinfo) {
     var method = stun.get_method_field(buffer);
     switch (method) {
         case stun.STUN.METHODS.INDICATION:
             // indication = keepalives
-            dbg.log3('ICE _handle_stun_packet: stun indication',
+            dbg.log3('ICE handle_stun_packet: stun indication',
                 rinfo.address + ':' + rinfo.port, 'my port', this.port);
             break;
         case stun.STUN.METHODS.ERROR:
             // most likely a problem in the request we sent.
-            dbg.warn('ICE _handle_stun_packet: STUN ERROR',
+            dbg.warn('ICE handle_stun_packet: STUN ERROR',
                 rinfo.address + ':' + rinfo.port, 'my port', this.port);
             break;
         case stun.STUN.METHODS.REQUEST:
@@ -399,7 +368,7 @@ IceConnection.prototype._handle_stun_packet = function(buffer, rinfo) {
  * _handle_stun_request
  *
  */
-IceConnection.prototype._handle_stun_request = function(buffer, rinfo) {
+Ice.prototype._handle_stun_request = function(buffer, rinfo) {
     var attr_map = stun.get_attrs_map(buffer);
     if (!this._check_stun_credentials(attr_map)) {
         return;
@@ -448,7 +417,7 @@ IceConnection.prototype._handle_stun_request = function(buffer, rinfo) {
  * so they can be used later for contacting us from other peers.
  *
  */
-IceConnection.prototype._handle_stun_response = function(buffer, rinfo) {
+Ice.prototype._handle_stun_response = function(buffer, rinfo) {
     var attr_map = stun.get_attrs_map(buffer);
     var cand_type;
 
@@ -481,7 +450,7 @@ IceConnection.prototype._handle_stun_response = function(buffer, rinfo) {
  * _check_stun_credentials
  *
  */
-IceConnection.prototype._check_stun_credentials = function(attr_map) {
+Ice.prototype._check_stun_credentials = function(attr_map) {
     if (!attr_map.username) {
         return false;
     }
@@ -503,7 +472,7 @@ IceConnection.prototype._check_stun_credentials = function(attr_map) {
  * _add_local_candidate
  *
  */
-IceConnection.prototype._add_local_candidate = function(candidate) {
+Ice.prototype._add_local_candidate = function(candidate) {
     var addr = candidate.address + ':' + candidate.port;
 
     dbg.log0('ICE LOCAL CANDIDATE', addr,
@@ -524,7 +493,7 @@ IceConnection.prototype._add_local_candidate = function(candidate) {
  * _add_remote_candidate
  *
  */
-IceConnection.prototype._add_remote_candidate = function(candidate) {
+Ice.prototype._add_remote_candidate = function(candidate) {
     var addr = candidate.address + ':' + candidate.port;
 
     dbg.log0('ICE REMOTE CANDIDATE', addr,
@@ -548,7 +517,7 @@ IceConnection.prototype._add_remote_candidate = function(candidate) {
  * _select_remote_candidate
  *
  */
-IceConnection.prototype._select_remote_candidate = function(candidate) {
+Ice.prototype._select_remote_candidate = function(candidate) {
     this.selected_candidate = candidate;
 
     // stop previous indication loop if reselecting a candidate

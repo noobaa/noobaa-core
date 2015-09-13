@@ -95,38 +95,33 @@ var FRAG_ATTRS = [
     'digest_b64'
 ];
 
+var natives_inited;
+var DedupChunker;
 var dedup_chunker_tpool;
 var object_coding_tpool;
 var object_coding;
-var DedupChunker;
 
 function lazy_init_natives() {
-    var nutil = native_core();
-    if (!DedupChunker) {
-        DedupChunker = nutil.DedupChunker;
-    }
+    if (natives_inited) return;
+    var nc = native_core();
+    DedupChunker = nc.DedupChunker;
     // these threadpools are global OS threads used to offload heavy CPU work
     // from the node.js thread so that it will keep processing incoming IO while
     // encoding/decoding the object chunks in high performance native code.
-    if (!dedup_chunker_tpool) {
-        dedup_chunker_tpool = new nutil.ThreadPool(1);
-    }
-    if (!object_coding_tpool) {
-        object_coding_tpool = new nutil.ThreadPool(2);
-    }
-    if (!object_coding) {
-        object_coding = new nutil.ObjectCoding({
-            tpool: object_coding_tpool,
-            digest_type: 'sha384',
-            compress_type: 'snappy',
-            cipher_type: 'aes-256-gcm',
-            frag_digest_type: 'sha1',
-            data_frags: 1,
-            parity_frags: 0,
-            lrc_frags: 0,
-            lrc_parity: 0,
-        });
-    }
+    dedup_chunker_tpool = new nc.ThreadPool(1);
+    object_coding_tpool = new nc.ThreadPool(2);
+    object_coding = new nc.ObjectCoding({
+        tpool: object_coding_tpool,
+        digest_type: 'sha384',
+        compress_type: 'snappy',
+        cipher_type: 'aes-256-gcm',
+        frag_digest_type: 'sha1',
+        data_frags: 1,
+        parity_frags: 0,
+        lrc_frags: 0,
+        lrc_parity: 0,
+    });
+    natives_inited = true;
 }
 
 

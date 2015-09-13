@@ -24,7 +24,7 @@ private:
     static NAN_METHOD(connect);
     static NAN_METHOD(send);
     static NAN_METHOD(stats);
-    static NAN_METHOD(send_stun);
+    static NAN_METHOD(send_outbound);
 
 private:
     // utp callbacks
@@ -39,7 +39,7 @@ private:
     static NAUV_CALLBACK(uv_callback_timer, uv_timer_t* handle);
     static NAUV_CALLBACK(uv_callback_prepare, uv_prepare_t* handle);
     static void uv_callback_send_utp(uv_udp_send_t* req, int status);
-    static void uv_callback_send_stun(uv_udp_send_t* req, int status);
+    static void uv_callback_send_outbound(uv_udp_send_t* req, int status);
     static void uv_callback_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
     static void uv_callback_receive(
         uv_udp_t* handle,

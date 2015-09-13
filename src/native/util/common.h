@@ -129,6 +129,7 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 }
 
 #define NAN_STR(str) (Nan::New(str).ToLocalChecked())
+#define NAN_INT(i) (Nan::New<v8::Integer>(i))
 #define NAN_NEW_OBJ() (Nan::New<v8::Object>())
 #define NAN_NEW_ARR(len) (Nan::New<v8::Array>(len))
 #define NAN_GET(obj, key) (Nan::Get(obj, NanKey(key)).ToLocalChecked())

@@ -36,10 +36,7 @@ RpcTcpConnection.prototype.connect = function() {
     if (self.closed) {
         throw new Error('TCP DISCONNECTED ' + self.connid + ' ' + self.url.href);
     }
-    if (self.connect_promise) {
-        return self.connect_promise;
-    }
-    self.connect_promise = new P(function(resolve, reject) {
+    return new P(function(resolve, reject) {
         var connector = (self.url.protocol === 'tls:' ? tls : net);
         self.tcp_conn = connector.connect({
             port: self.url.port,
@@ -47,7 +44,6 @@ RpcTcpConnection.prototype.connect = function() {
         }, resolve);
         self._init();
     });
-    return self.connect_promise;
 };
 
 
@@ -59,12 +55,9 @@ RpcTcpConnection.prototype.connect = function() {
 RpcTcpConnection.prototype.close = function() {
     this.closed = true;
     this.emit('close');
-
-    if (!this.tcp_conn) {
-        return;
+    if (this.tcp_conn) {
+        this.tcp_conn.destroy();
     }
-
-    this.tcp_conn.destroy();
 };
 
 

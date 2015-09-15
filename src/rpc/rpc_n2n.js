@@ -7,15 +7,15 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var util = require('util');
 var url = require('url');
-var js_utils = require('../util/js_utils');
-var time_utils = require('../util/time_utils');
+var dbg = require('../util/debug_module')(__filename);
+// var js_utils = require('../util/js_utils');
+// var time_utils = require('../util/time_utils');
 var native_core = require('../util/native_core');
 var EventEmitter = require('events').EventEmitter;
 var RpcBaseConnection = require('./rpc_base_conn');
-var dbg = require('../util/debug_module')(__filename);
 var Ice = require('./ice');
-// var NudpFlow = require('./nudp');
-// var NiceConnection = require('./nice_connection');
+
+// dbg.set_level(5, 'core.rpc');
 
 util.inherits(RpcN2NConnection, RpcBaseConnection);
 
@@ -25,12 +25,6 @@ util.inherits(RpcN2NConnection, RpcBaseConnection);
  *
  * n2n - node-to-node or noobaa-to-noobaa, essentially p2p, but noobaa branded.
  *
- * NOTE: this connection class is meant to be as flexible as possible
- * because at this point we do not know which of the stacks would prove best,
- * so we want to be able to experiment with as many as possible.
- * this generalization will requires extra resources (memory, cpu)
- * and once we have our pick we can discard the flexibility in favor of performance.
- *
  */
 function RpcN2NConnection(addr_url, n2n_agent) {
     var self = this;
@@ -39,11 +33,16 @@ function RpcN2NConnection(addr_url, n2n_agent) {
 
     var Nudp = native_core().Nudp;
     self.nudp = new Nudp();
+    self.nudp.on('close', function() {
+        self.close();
+    });
     self.nudp.on('message', function(msg) {
-        // console.log('******* N2N RECEIVE', msg.length);
+        dbg.log1('N2N RECEIVE', msg.length);
         self.emit('message', msg);
     });
     self.nudp.on('stun', function(buffer, port, address) {
+        // when received stun message (detected by packet type in native nudp module)
+        // we let the ice module handle it
         self.ice.handle_stun_packet(buffer, {
             port: port,
             address: address
@@ -51,101 +50,66 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     });
 
     self.ice = new Ice();
-    self.ice.addr_url = addr_url;
-    self.ice.sender = function(buffer, port, address, callback) {
+    self.ice.sender = function(buffer, port, address) {
+        // ice messages are sent outbound so they can bypass dtls and utp
         return P.ninvoke(self.nudp, 'send_outbound', buffer, port, address);
     };
     self.ice.signaller = function(info) {
+        // ice requires a signaller callback that can transmit a short message to the peer
+        // in order to decide how to traverse NAT.
         return self.n2n_agent.signaller({
             target: self.url.href,
             info: info
         });
     };
 
-    setInterval(function() {
-        console.log('N2N STATS', self.nudp.stats());
-    }, 5000);
-
-    /*
-    // use the configuration from the url query (parsed before)
-    var conf = self.conf = _.defaults(self.url.query, DEFAULT_N2N_CONF);
-    dbg.log0('N2N', 'conn=' + conf.conn, 'flow=' + conf.flow);
-
-    self.flow = FLOW_CONTROL[conf.flow](self.connid);
-    self.connector = CONNECTORS[conf.conn]({
-        addr_url: addr_url,
-        signaller: function(info) {
-            return self.n2n_agent.signaller({
-                target: self.url.href,
-                info: info
-            });
-        }
-    });
-
-    js_utils.self_bind(self, 'close');
-    js_utils.self_bind(self.flow, 'recvmsg');
-    js_utils.self_bind(self.connector, 'send');
-
-    // handle close and error
-    self.connector.on('error', self.close);
-    self.connector.on('close', self.close);
-    self.flow.on('error', self.close);
-    self.flow.on('close', self.close);
-
-    // redirect packets - connector <-> flow
-    self.connector.on('message', self.flow.recvmsg);
-    self.flow.on('sendmsg', self.connector.send);
-
-    // once a complete message is assembled it is emitted from the connection
-    self.flow.on('message', function(msg) {
-        self.emit('message', msg);
-    });
-    */
+    // setInterval(function() { dbg.log2('N2N STATS', self.nudp.stats()); }, 5000);
 }
 
 RpcN2NConnection.prototype.connect = function() {
     var self = this;
-    if (self.connect_promise) {
-        return self.connect_promise;
-    }
-    self.connect_promise = self.n2n_agent.signaller({
-            target: self.url.href,
-            info: {}
+    dbg.log1('N2N connect', self.url.href);
+    return P.fcall(function() {
+            return P.ninvoke(self.nudp, 'bind', 0, '0.0.0.0');
         })
-        .then(function() {
-            self.nudp.connect(self.url.port, self.url.hostname);
+        .then(function(port) {
+            return self.ice.connect(port);
+        })
+        .then(function(target) {
+            return P.ninvoke(self.nudp, 'connect', target.port, target.address);
         });
-    return self.connect_promise;
-
-    // return this.connector.connect();
 };
 
 RpcN2NConnection.prototype.accept = function(info) {
-    this.nudp.bind(this.url.port, this.url.hostname);
-    // return this.connector.accept(info);
+    var self = this;
+    return P.fcall(function() {
+            return P.ninvoke(self.nudp, 'bind', 0, '0.0.0.0');
+        })
+        .then(function(port) {
+            return self.ice.accept(port, info);
+        });
 };
 
 RpcN2NConnection.prototype.close = function(err) {
     if (err) {
-        dbg.error('N2N CONNECTION ERROR', err.stack || err);
+        dbg.error('N2N CONNECTION ERROR', this.connid, err.stack || err);
+    } else {
+        dbg.warn('N2N CONNECTION CLOSED', this.connid);
     }
     if (this.closed) {
         return;
     }
     this.closed = true;
     this.nudp.close();
-    /*
-    this.connector.close();
-    this.flow.close();
-    */
+    this.ice.close();
     this.emit('close');
 };
 
 RpcN2NConnection.prototype.send = function(msg) {
+    // TODO Nudp sendv !!!
     msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     // console.log('******* N2N SEND', msg.length);
     return P.ninvoke(this.nudp, 'send', msg);
-    // return this.flow.send(msg);
 };
 
 
@@ -167,12 +131,16 @@ function RpcN2NAgent(options) {
 util.inherits(RpcN2NAgent, EventEmitter);
 
 RpcN2NAgent.prototype.signal = function(params) {
+    var self = this;
     dbg.log0('N2N AGENT signal:', params);
 
     // TODO target address is me, should use the source address but we don't send it ...
 
     var addr_url = url.parse(params.target, true);
-    var conn = new RpcN2NConnection(addr_url, this);
-    this.emit('connection', conn);
-    return conn.accept(params.info);
+    var conn = new RpcN2NConnection(addr_url, self);
+    return conn.accept(params.info)
+        .tap(function() {
+            conn.connect_promise = P.resolve();
+            self.emit('connection', conn);
+        });
 };

@@ -35,27 +35,15 @@ var KEEPALIVE_COMMAND = JSON.stringify({
  */
 RpcWsConnection.prototype.connect = function() {
     var self = this;
-    var ws = self.ws;
-    if (ws) {
-        if (self.connect_defer) {
-            return self.connect_defer.promise;
-        }
-        if (self.closed) {
-            throw new Error('WS DISCONNECTED ' + self.connid);
-        }
-        return;
+    if (self.ws) {
+        return self.connect_defer.promise;
     }
-
-    ws = new WS(self.url.href);
-    self.connect_defer = P.defer();
+    var ws = new WS(self.url.href);
     ws.binaryType = 'arraybuffer';
-    self.ws = ws;
-    self._init();
-
+    self._init(ws);
     ws.onopen = function() {
         self._on_open();
     };
-
     return self.connect_defer.promise;
 };
 
@@ -83,7 +71,6 @@ RpcWsConnection.prototype.close = function() {
 
     if (this.connect_defer) {
         this.connect_defer.reject('WS DISCONNECTED ' + this.connid);
-        this.connect_defer = null;
     }
 
     if (ws.readyState !== WS.CLOSED &&
@@ -138,14 +125,15 @@ function RpcWsServer(http_server) {
             var address = url.format({
                 // TODO how to find out if ws is secure and use wss:// address instead
                 protocol: 'ws:',
+                slashes: true,
                 hostname: ws._socket.remoteAddress,
                 port: ws._socket.remotePort
             });
             var addr_url = url.parse(address);
             conn = new RpcWsConnection(addr_url);
             dbg.log0('WS ACCEPT CONNECTION', conn.connid);
-            conn.ws = ws;
-            conn._init();
+            conn._init(ws);
+            conn._on_open();
             self.emit('connection', conn);
         } catch (err) {
             dbg.log0('WS ACCEPT ERROR', address, err.stack || err);
@@ -174,7 +162,6 @@ RpcWsConnection.prototype._on_open = function() {
 
     if (self.connect_defer) {
         self.connect_defer.resolve();
-        self.connect_defer = null;
     }
 
     function send_command(command_string) {
@@ -188,9 +175,10 @@ RpcWsConnection.prototype._on_open = function() {
 };
 
 
-RpcWsConnection.prototype._init = function() {
+RpcWsConnection.prototype._init = function(ws) {
     var self = this;
-    var ws = self.ws;
+    self.connect_defer = P.defer();
+    self.ws = ws;
 
     ws.onclose = function() {
         dbg.warn('WS CLOSED', self.connid);

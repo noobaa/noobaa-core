@@ -56,6 +56,7 @@ private:
     void close();
     void on_write_data();
     void on_read_data(const uint8_t *buf, int len);
+    void do_bind(const char* address, int port);
     void setup_socket(utp_socket* socket);
     void start_receiving();
 
@@ -76,7 +77,9 @@ private:
     };
     std::list<Msg*> _messages;
     Msg _incoming_msg;
+    bool _closed;
     bool _receiving;
+    int _local_port;
 };
 
 } // namespace noobaa

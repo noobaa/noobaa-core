@@ -198,7 +198,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             self.emit_stats('stats.client_request.start', req);
 
             // connect the connection
-            return P.invoke(req.connection, 'connect');
+            return req.connection.connect_once();
 
         })
         .then(function() {
@@ -579,7 +579,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
             conn._reconn_backoff = Math.min(
                 reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
 
-            return P.invoke(conn, 'connect');
+            return conn.connect_once();
 
         })
         .then(function() {

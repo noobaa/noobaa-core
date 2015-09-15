@@ -4,16 +4,14 @@ module.exports = Ice;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-// var url = require('url');
+var url = require('url');
 var util = require('util');
-var dgram = require('dgram');
 var EventEmitter = require('events').EventEmitter;
 var ip_module = require('ip');
 var stun = require('./stun');
 var chance = new(require('chance').Chance)();
 var dbg = require('../util/debug_module')(__filename);
 
-dbg.set_level(5);
 
 var CAND_TYPE_HOST = 'host';
 var CAND_TYPE_SERVER_REFLEX = 'server';
@@ -48,7 +46,6 @@ function Ice(options) {
     EventEmitter.call(self);
 
     self.ip = ip_module.address();
-    self.port = 0;
     self.selected_candidate = null;
     self.stun_candidate_defer = P.defer();
 
@@ -66,21 +63,72 @@ function Ice(options) {
     };
 }
 
+Ice.STUN_SERVERS = [];
+Ice.SIMPLE_STUN_REQUEST = stun.new_packet(stun.METHODS.REQUEST);
+Ice.SIMPLE_STUN_INDICATION = stun.new_packet(stun.METHODS.INDICATION);
+
+/**
+ * static function to add a stun server to be used (picked at random)
+ */
+Ice.add_stun_server = function(stun_url) {
+    if (!(stun_url instanceof url.Url)) {
+        stun_url = url.parse(stun_url);
+    }
+    Ice.STUN_SERVERS.push(stun_url);
+};
+
+/**
+ * static function to get the stun server to use
+ */
+Ice.get_stun_server = function() {
+    switch (Ice.STUN_SERVERS.length) {
+        case 0:
+            return;
+        case 1:
+            return Ice.STUN_SERVERS[0];
+        default:
+            return chance.pick(Ice.STUN_SERVERS);
+    }
+};
+
+// TODO take this away from here to the agent heartbeat
+read_on_premise_stun_server();
+
+function read_on_premise_stun_server() {
+    try {
+        var fs = require('fs');
+        var agent_conf = JSON.parse(fs.readFileSync('agent_conf.json'));
+        var on_premise_server = url.parse(agent_conf.address);
+        var stun_url = url.parse('stun://' + on_premise_server.hostname + ':' + stun.PORT);
+        Ice.add_stun_server(stun_url);
+        dbg.log0('using on-premise ICE/STUN server from agent_conf.json', stun_url);
+    } catch (err) {
+        dbg.warn('agent_conf.json does not exist/valid, no stun server to use !!!');
+    }
+}
+
+Ice.prototype.close = function() {
+    this.closed = true;
+};
+
+Ice.prototype.throw_if_close = function(from) {
+    if (this.closed) {
+        throw new Error("ICE CLOSED " + (from || ''));
+    }
+};
+
 /**
  *
  * connect
  *
  */
-Ice.prototype.connect = function() {
+Ice.prototype.connect = function(local_port) {
     var self = this;
-    if (this.selected_candidate) {
-        return;
-    }
-    if (self.connect_promise) {
-        return self.connect_promise;
-    }
-
-    self.connect_promise = self._bind()
+    self.local_port = local_port;
+    dbg.log1('ICE connect: local_port', local_port);
+    return P.fcall(function() {
+            return self._collect_local_candidates();
+        })
         .then(function() {
 
             // send local info using the signaller
@@ -92,17 +140,8 @@ Ice.prototype.connect = function() {
             _.merge(self.remote, remote_info);
 
             // punch hole using the remote info returned from the signal call
-            return self._punch_holes();
-
-        }, function(err) {
-            self.emit('error', err);
-            throw err;
-        })
-        .fin(function() {
-            // self.connect_promise = null;
+            return self._connect_remote_candidates();
         });
-
-    return self.connect_promise;
 };
 
 
@@ -111,224 +150,138 @@ Ice.prototype.connect = function() {
  * accept
  *
  */
-Ice.prototype.accept = function(remote_info) {
+Ice.prototype.accept = function(local_port, remote_info) {
     var self = this;
+    self.local_port = local_port;
+    dbg.log1('ICE accept: local_port', local_port);
 
     // merge the remote info - to set credentials and add new candidates
     _.merge(self.remote, remote_info);
 
-    if (this.selected_candidate) {
-        return;
-    }
-    if (self.accept_promise) {
-        return self.accept_promise;
-    }
-
-    self.accept_promise = self._bind()
+    return P.fcall(function() {
+            return self._collect_local_candidates();
+        })
         .then(function() {
 
             // don't wait for the address selection
             // because we need to return the candidates first
             // to the sender of the signal so that it will send us
             // stun requests.
-            self._punch_holes();
+            self._connect_remote_candidates();
 
             // return my local info over the signal
             return self.local;
-        })
-        .then(null, function(err) {
-            self.emit('error', err);
-            throw err;
-        })
-        .fin(function() {
-            // self.accept_promise = null;
-        });
-
-    return self.accept_promise;
-};
-
-
-/**
- *
- * send
- *
- */
-Ice.prototype.send = function(buffer, offset, length) {
-    if (!this.selected_candidate) {
-        dbg.log0('ICE send: SOCKET NOT READY port', this.port);
-        return;
-    }
-    this.socket.send(
-        buffer,
-        offset || 0,
-        length || buffer.length,
-        this.selected_candidate.port,
-        this.selected_candidate.address,
-        this.error_handler);
-};
-
-
-/**
- *
- * close
- *
- */
-Ice.prototype.close = function() {
-    this.selected_candidate = null;
-    if (this.closed) {
-        return;
-    }
-    this.closed = true;
-    this.socket.close();
-    this.emit('close');
-};
-
-
-
-
-/**
- *
- * _bind
- *
- */
-Ice.prototype._bind = function() {
-    var self = this;
-    // bind the udp socket to requested port (can be 0 to allocate random)
-    return P.fcall(function() {
-            if (self.socket.fd) return;
-            return P.ninvoke(self.socket, 'bind', self.port);
-        })
-        .then(function() {
-
-            // update port in case it was 0 to bind to any port
-            self.port = self.socket.address().port;
-
-            return self._gather_local_candidates();
         });
 };
 
 
 /**
  *
- * _gather_local_candidates
+ * _collect_local_candidates
  *
  */
-Ice.prototype._gather_local_candidates = function() {
+Ice.prototype._collect_local_candidates = function() {
     var self = this;
-    var stun_url = stun.STUN.DEFAULT_SERVER;
+    var stun_url = Ice.get_stun_server();
+    var attempts = 0;
 
-    return P.fcall(function() {
+    // add my host address
+    self._add_local_candidate({
+        type: CAND_TYPE_HOST,
+        family: 'IPv4',
+        address: self.ip,
+        port: self.local_port
+    });
 
-            // add my host address
-            self._add_local_candidate({
-                type: CAND_TYPE_HOST,
-                family: 'IPv4',
-                address: self.ip,
-                port: self.port
-            });
+    if (!stun_url) {
+        return;
+    }
 
-            // connet the socket to stun server by sending stun request
-            // and keep the stun mapping open after by sending indications
-            // periodically.
-            return stun.send_request(
-                self.socket,
-                stun_url.hostname,
-                stun_url.port);
-        })
-        .then(function() {
-            stun.indication_loop(
-                self.socket,
-                stun_url.hostname,
-                stun_url.port);
+    // sending stun request to discover my address outside of the NAT
+    // and keep the stun mapping open after by sending indications
+    // periodically.
+    return send_stun_request_and_wait()
+        .then(run_indication_loop);
 
-            return self.stun_candidate_defer.promise
-                .timeout(3000, 'STUN SERVER RESPONSE EXHAUSTED');
-        }).then(null, function(err) {
-            stun.STUN.DEFAULT_SERVER = stun.STUN.PUBLIC_SERVERS[Math.floor(Math.random() * stun.STUN.PUBLIC_SERVERS.length)];
-            dbg.log0('Changed default STUN server to ', stun.STUN.DEFAULT_SERVER);
-        });
+    function send_stun_request_and_wait() {
+        self.throw_if_close('_collect_local_candidates (request)');
+        if (attempts++ >= 20) {
+            throw new Error('ICE _collect_local_candidates: NO RESPONSE FROM STUN SERVER ' +
+                stun_url.hostname + ':' + stun_url.port);
+        }
+        // send the request
+        P.fcall(self.sender, Ice.SIMPLE_STUN_REQUEST, stun_url.port, stun_url.hostname);
+        // in parallel to the send start waiting for a response
+        // if it arrived then we are done, if timedout then send again
+        return self.stun_candidate_defer.promise
+            .timeout(200)
+            .catch(send_stun_request_and_wait);
+    }
+
+    function run_indication_loop() {
+        self.throw_if_close('_collect_local_candidates (indication)');
+        P.fcall(self.sender, Ice.SIMPLE_STUN_INDICATION, stun_url.port, stun_url.hostname);
+        return P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
+            .then(run_indication_loop);
+    }
 };
 
 /**
  *
- * _punch_hole
+ * _connect_remote_candidate
  *
  */
-Ice.prototype._punch_hole = function(credentials, addr, attempts) {
+Ice.prototype._connect_remote_candidate = function(credentials, addr) {
     var self = this;
-    attempts = attempts || 0;
-
-    // we are done if address was selected
-    if (self.selected_candidate) {
-        return;
-    }
-
-    // stop fast if socket is closed
-    if (self.closed) {
-        return;
-    }
-
-    // dont throw on attempts exhausted,
-    // because some other candidate might succeed
-    if (attempts >= 300) {
-        dbg.warn('ICE _punch_hole: ATTEMPTS EXHAUSTED for address', addr,
-            'my port', self.port);
-        return;
-    }
-
-    var buffer = stun.new_packet(stun.STUN.METHODS.REQUEST, [{
-        type: stun.STUN.ATTRS.USERNAME,
+    var attempts = 0;
+    var buffer = stun.new_packet(stun.METHODS.REQUEST, [{
+        type: stun.ATTRS.USERNAME,
         value: credentials.ufrag + ':' + self.local.credentials.ufrag
     }, {
-        type: stun.STUN.ATTRS.PASSWORD_OLD,
+        type: stun.ATTRS.PASSWORD_OLD,
         value: credentials.pwd
     }]);
 
-    return P.ninvoke(self.socket, 'send',
-            buffer, 0, buffer.length,
-            addr.port, addr.address)
-        .then(null, function(err) {
+    return send_stun_connect_and_wait();
 
-            // on send error it probably means that the socket is faulty
-            // so propagate the error to the caller to close.
-            dbg.warn('ICE _punch_hole: SEND STUN FAILED to address', addr,
-                'my port', self.port, err.stack || err);
-            throw err;
-
-        })
-        .then(function() {
-            // TODO implement ICE scheduling https://tools.ietf.org/html/rfc5245#page-37
-            return P.delay(100);
-        })
-        .then(function() {
-            return self._punch_hole(credentials, addr, attempts + 1);
-        });
+    function send_stun_connect_and_wait() {
+        self.throw_if_close('_connect_remote_candidate');
+        // we are done if address was selected
+        if (self.selected_candidate) return;
+        if (attempts++ >= 50) {
+            // dont throw on attempts exhausted,
+            // because some other candidate might succeed
+            dbg.warn('ICE _connect_remote_candidate: ATTEMPTS EXHAUSTED for address', addr,
+                'local_port', self.local_port);
+            return;
+        }
+        P.fcall(self.sender, buffer, addr.port, addr.address);
+        // TODO implement ICE scheduling https://tools.ietf.org/html/rfc5245#page-37
+        return P.delay(200).then(send_stun_connect_and_wait);
+    }
 };
 
 
 /**
  *
- * _punch_holes
+ * _connect_remote_candidates
  *
  */
-Ice.prototype._punch_holes = function() {
+Ice.prototype._connect_remote_candidates = function() {
     var self = this;
     return P.fcall(function() {
-            dbg.log0('ICE _punch_holes: remote info', self.remote,
-                'my port', self.port);
+            dbg.log0('ICE _connect_remote_candidates: remote info', self.remote,
+                'local_port', self.local_port);
             // send stun request to each of the remote candidates
             return P.all(_.map(self.remote.candidates, function(candidate) {
-                return self._punch_hole(self.remote.credentials, candidate);
+                return self._connect_remote_candidate(self.remote.credentials, candidate);
             }));
         })
         .then(function() {
-            if (!self.selected_candidate) {
-                throw new Error('ICE _punch_holes: EXHAUSTED');
+            if (self.selected_candidate) {
+                return self.selected_candidate;
             }
-        })
-        .then(null, function(err) {
-            self.emit('error', err);
-            throw err;
+            throw new Error('ICE _connect_remote_candidates: CONNECT TIMEOUT');
         });
 };
 
@@ -341,20 +294,20 @@ Ice.prototype._punch_holes = function() {
 Ice.prototype.handle_stun_packet = function(buffer, rinfo) {
     var method = stun.get_method_field(buffer);
     switch (method) {
-        case stun.STUN.METHODS.INDICATION:
+        case stun.METHODS.INDICATION:
             // indication = keepalives
             dbg.log3('ICE handle_stun_packet: stun indication',
-                rinfo.address + ':' + rinfo.port, 'my port', this.port);
+                rinfo.address + ':' + rinfo.port, 'local_port', this.local_port);
             break;
-        case stun.STUN.METHODS.ERROR:
+        case stun.METHODS.ERROR:
             // most likely a problem in the request we sent.
             dbg.warn('ICE handle_stun_packet: STUN ERROR',
-                rinfo.address + ':' + rinfo.port, 'my port', this.port);
+                rinfo.address + ':' + rinfo.port, 'local_port', this.local_port);
             break;
-        case stun.STUN.METHODS.REQUEST:
+        case stun.METHODS.REQUEST:
             this._handle_stun_request(buffer, rinfo);
             break;
-        case stun.STUN.METHODS.SUCCESS:
+        case stun.METHODS.SUCCESS:
             this._handle_stun_response(buffer, rinfo);
             break;
         default:
@@ -382,24 +335,22 @@ Ice.prototype._handle_stun_request = function(buffer, rinfo) {
     });
 
     // send response
-    var reply = stun.new_packet(stun.STUN.METHODS.SUCCESS, [{
-        type: stun.STUN.ATTRS.XOR_MAPPED_ADDRESS,
+    var reply = stun.new_packet(stun.METHODS.SUCCESS, [{
+        type: stun.ATTRS.XOR_MAPPED_ADDRESS,
         value: {
             family: 'IPv4',
             port: rinfo.port,
             address: rinfo.address
         }
     }, {
-        type: stun.STUN.ATTRS.USERNAME,
+        type: stun.ATTRS.USERNAME,
         value: this.remote.credentials.ufrag + ':' + this.local.credentials.ufrag
     }, {
-        type: stun.STUN.ATTRS.PASSWORD_OLD,
+        type: stun.ATTRS.PASSWORD_OLD,
         value: this.remote.credentials.pwd
     }], buffer);
 
-    return P.ninvoke(this.socket, 'send',
-            reply, 0, reply.length,
-            rinfo.port, rinfo.address)
+    return this.sender(reply, rinfo.port, rinfo.address)
         .then(null, function(err) {
             dbg.warn('ICE _handle_stun_request: SEND RESPONSE FAILED',
                 rinfo, err.stack || err);
@@ -475,9 +426,9 @@ Ice.prototype._check_stun_credentials = function(attr_map) {
 Ice.prototype._add_local_candidate = function(candidate) {
     var addr = candidate.address + ':' + candidate.port;
 
-    dbg.log0('ICE LOCAL CANDIDATE', addr,
+    dbg.log1('ICE LOCAL CANDIDATE', addr,
         'type', candidate.type,
-        'my port', this.port);
+        'local_port', this.local_port);
 
     this.local.candidates[addr] = candidate;
 
@@ -496,18 +447,18 @@ Ice.prototype._add_local_candidate = function(candidate) {
 Ice.prototype._add_remote_candidate = function(candidate) {
     var addr = candidate.address + ':' + candidate.port;
 
-    dbg.log0('ICE REMOTE CANDIDATE', addr,
+    dbg.log1('ICE REMOTE CANDIDATE', addr,
         'type', candidate.type,
-        'my port', this.port);
+        'local_port', this.local_port);
 
     this.remote.candidates[addr] = candidate;
 
     if (!this.selected_candidate) {
-        dbg.log0('ICE READY ~~~ SELECTED CANDIDATE', addr, 'my port', this.port);
+        dbg.log0('ICE READY ~~~ SELECTED CANDIDATE', addr, 'local_port', this.local_port);
         this._select_remote_candidate(candidate);
     } else if (ip_module.isPrivate(candidate.address) &&
         !ip_module.isPrivate(this.selected_candidate.address)) {
-        dbg.log0('ICE READY ~~~ RE-SELECTED CANDIDATE', addr, 'my port', this.port);
+        dbg.log0('ICE READY ~~~ RE-SELECTED CANDIDATE', addr, 'local_port', this.local_port);
         this._select_remote_candidate(candidate);
     }
 };
@@ -519,13 +470,26 @@ Ice.prototype._add_remote_candidate = function(candidate) {
  */
 Ice.prototype._select_remote_candidate = function(candidate) {
     this.selected_candidate = candidate;
+    this._selected_candidate_keepalive();
+};
 
-    // stop previous indication loop if reselecting a candidate
-    if (this.selected_candidate_loop) {
-        this.selected_candidate_loop.stop = true;
+Ice.prototype._selected_candidate_keepalive = function() {
+    var self = this;
+    if (self._selected_candidate_keepalive_running) return;
+    self._selected_candidate_keepalive_running = true;
+    send_keepalive_and_delay();
+
+    function send_keepalive_and_delay() {
+        self.throw_if_close('_selected_candidate_keepalive');
+        var buffer = stun.new_packet(stun.METHODS.REQUEST, [{
+            type: stun.ATTRS.USERNAME,
+            value: self.remote.credentials.ufrag + ':' + self.local.credentials.ufrag
+        }, {
+            type: stun.ATTRS.PASSWORD_OLD,
+            value: self.remote.credentials.pwd
+        }]);
+        P.fcall(self.sender, buffer, self.selected_candidate.port, self.selected_candidate.address);
+        return P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
+            .then(send_keepalive_and_delay);
     }
-
-    // start indication loop for candidate
-    this.selected_candidate_loop = stun.indication_loop(
-        this.socket, candidate.address, candidate.port);
 };

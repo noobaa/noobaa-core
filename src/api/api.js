@@ -28,6 +28,8 @@ function new_rpc(options) {
     var rpc = new RPC(options);
     // abusing the default rpc client as the n2n_signaller for the rpc
     rpc.n2n_signaller = rpc.client.node.n2n_signal;
+    // also abusing the default rpc client for the redirection
+    rpc.redirection = rpc.client.signaller.redirect;
     return rpc;
 }
 

@@ -27,8 +27,8 @@ var node_server = {
     group_nodes: group_nodes,
 
     heartbeat: node_monitor.heartbeat,
+    redirect: node_monitor.redirect,
     n2n_signal: node_monitor.n2n_signal,
-    n2n_signal_internal: node_monitor.n2n_signal_internal,
     self_test_to_node_via_web: node_monitor.self_test_to_node_via_web,
     collect_agent_diagnostics: node_monitor.collect_agent_diagnostics,
     set_debug_node: node_monitor.set_debug_node,

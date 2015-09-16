@@ -23,6 +23,30 @@ module.exports = {
             }
         },
 
+        n2n_signal: {
+          method: 'POST',
+            params: {
+                type: 'object',
+                required: ['target'],
+                additionalProperties: true,
+                properties: {
+                    target: {
+                        type: 'string'
+                    },
+                }
+            },
+            reply: {
+                type: 'object',
+                required: [],
+                additionalProperties: true,
+                properties: {}
+            },
+            auth: {
+                system: false
+            }
+        },
+
+
         register_agent: {
             method: 'POST',
             params: {

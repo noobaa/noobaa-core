@@ -316,19 +316,29 @@ module.exports = {
         },
 
         n2n_signal: {
-            method: 'POST',
+          method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_request'
+                type: 'object',
+                required: ['target'],
+                additionalProperties: true,
+                properties: {
+                    target: {
+                        type: 'string'
+                    },
+                }
             },
             reply: {
-                $ref: '/node_api/definitions/signal_response'
+                type: 'object',
+                required: [],
+                additionalProperties: true,
+                properties: {}
             },
             auth: {
                 system: false
             }
         },
 
-        n2n_signal_internal: {
+        redirect: {
             method: 'POST',
             params: {
                 $ref: '/node_api/definitions/signal_request'
@@ -495,13 +505,22 @@ module.exports = {
 
         signal_request: {
             type: 'object',
-            required: ['target'],
-            additionalProperties: true,
+            required: ['target', 'method_api', 'method_name'],
             properties: {
                 target: {
                     type: 'string'
                 },
-            }
+                method_api: {
+                    type: 'string'
+                },
+                method_name: {
+                    type: 'string'
+                },
+                request_params: {
+                    type: 'object',
+                    additionalProperties: true,
+                },
+            },
         },
 
         signal_response: {

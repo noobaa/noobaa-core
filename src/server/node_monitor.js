@@ -4,7 +4,7 @@
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
-    n2n_signal_internal: n2n_signal_internal,
+    redirect: redirect,
     self_test_to_node_via_web: self_test_to_node_via_web,
     collect_agent_diagnostics: collect_agent_diagnostics,
     set_debug_node: set_debug_node,
@@ -108,7 +108,6 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     }
 });
 
-
 /**
  *
  * HEARTBEAT
@@ -184,6 +183,7 @@ function heartbeat(req) {
 
             var node_listen_addr = 'n2n://' + node.peer_id;
             dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
+
             notify_signaller = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
 
             // TODO detect nodes that try to change ip, port too rapidly
@@ -246,8 +246,7 @@ function heartbeat(req) {
             if (notify_signaller) {
                 return P.when(bg_workers_rpc.client.signaller.register_agent({
                     agent: node.peer_id,
-                    server: '127.0.0.1',
-                    port: 5001
+                    server: '127.0.0.1:5001',
                 }));
             } else {
                 return;
@@ -267,7 +266,6 @@ function heartbeat(req) {
     }
 }
 
-
 /**
  *
  * n2n_signal
@@ -275,21 +273,25 @@ function heartbeat(req) {
  */
 function n2n_signal(req) {
     var target = req.rpc_params.target;
-    dbg.log1('n2n_signal', target);
-    return P.when(bg_workers_rpc.client.signaller.signal(req.rpc_params))
-        .then(function(res) {
-            return res;
-        });
-}
-
-function n2n_signal_internal(req) {
-    var target = req.rpc_params.target;
     dbg.log1('n2n_signal_internal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
         address: target,
     });
 }
 
+/**
+ *
+ * redirect
+ *
+ */
+function redirect(req) {
+    var target = req.rpc_params.target;
+    var api = req.rpc_params.api;
+    var method = req.rpc_params.method; //TODO same names as RPC
+    return server_rpc.client[api][method](req.rpc_params, {
+        address: target,
+    });
+}
 
 /**
  *

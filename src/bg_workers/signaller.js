@@ -1,8 +1,7 @@
 'use strict';
 
 module.exports = {
-    signal: signal,
-    n2n_signal: n2n_signal,
+    redirect: redirect,
     register_agent: register_agent,
     subscribe: subscribe,
     unsubscribe: unsubscribe,
@@ -21,39 +20,25 @@ var REGISTERED_AGENTS = {
 /*
  * SIGNALLER API
  */
-function signal(req) {
-    dbg.log4('Signal request for', req.rpc_params.target);
+function redirect(req) {
+    dbg.log2('redirect request for', req.rpc_params);
 
-    console.warn('NBNB:: signal in signaller for', req.rpc_params.target);
-    var agent = req.rpc_params.target.slice(6);
-    var entry = REGISTERED_AGENTS.agents2srvs[agent];
+    var target_agent = req.rpc_params.target.slice(6);
+    var entry = REGISTERED_AGENTS.agents2srvs[target_agent];
     if (entry) {
-        return server_rpc.client.node.redirect(req.rpc_params, {
-            address: entry,
-            redirection: req.rpc_params.target
-        });
+        return P.when(server_rpc.client.node.redirect(req.rpc_params, {
+                address: entry.server,
+            }))
+            .then(function(res) {
+                return res;
+            });
     } else {
-        throw new Error('Agent not registered' + agent);
-    }
-}
-
-function n2n_signal(req) {
-    dbg.log4('Signal request for', req.rpc_params.target);
-
-    console.warn('NBNB:: n2n_signal in signaller for', req.rpc_params.target);
-    var agent = req.rpc_params.target.slice(6);
-    var entry = REGISTERED_AGENTS.agents2srvs[agent];
-    if (entry) {
-        return server_rpc.client.node.n2n_signal(req.rpc_params, {
-            address: entry,
-        });
-    } else {
-        throw new Error('Agent not registered' + agent);
+        throw new Error('Agent not registered' + target_agent);
     }
 }
 
 function register_agent(req) {
-    dbg.log0('Registering agent', req.rpc_params.agent, 'with server', req.rpc_params.server);
+    dbg.log2('Registering agent', req.rpc_params.agent, 'with server', req.rpc_params.server);
 
     var agent = req.rpc_params.agent;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
@@ -88,7 +73,7 @@ function register_agent(req) {
 }
 
 function subscribe(req) {
-    dbg.log0('Subscribe for agent', req.rpc_params.agent, 'by server', req.rpc_params.server);
+    dbg.log2('Subscribe for agent', req.rpc_params.agent, 'by server', req.rpc_params.server);
 
     var agent = req.rpc_params.agent;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
@@ -108,7 +93,7 @@ function subscribe(req) {
 }
 
 function unsubscribe(req) {
-    dbg.log0('Unsubscribe for agent', req.rpc_params.agent, 'by server', req.rpc_params.server);
+    dbg.log2('Unsubscribe for agent', req.rpc_params.agent, 'by server', req.rpc_params.server);
 
     var agent = req.rpc_params.agent;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
@@ -122,7 +107,7 @@ function unsubscribe(req) {
 }
 
 function unsubscribe_all(req) {
-    dbg.log0('Unsubscribe ALL by server', req.rpc_params.server);
+    dbg.log2('Unsubscribe ALL by server', req.rpc_params.server);
     _.each(REGISTERED_AGENTS.agents2srvs, function(single_agent) {
         var reg = REGISTERED_AGENTS.agents2srvs[single_agent].registrations;
         if (_.has(reg, req.rpc_params.server)) {

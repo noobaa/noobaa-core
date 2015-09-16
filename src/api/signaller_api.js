@@ -10,7 +10,7 @@ module.exports = {
     name: 'signaller_api',
 
     methods: {
-        signal: {
+        redirect: {
             method: 'POST',
             params: {
                 $ref: '/node_api/definitions/signal_request'
@@ -22,30 +22,6 @@ module.exports = {
                 system: false
             }
         },
-
-        n2n_signal: {
-          method: 'POST',
-            params: {
-                type: 'object',
-                required: ['target'],
-                additionalProperties: true,
-                properties: {
-                    target: {
-                        type: 'string'
-                    },
-                }
-            },
-            reply: {
-                type: 'object',
-                required: [],
-                additionalProperties: true,
-                properties: {}
-            },
-            auth: {
-                system: false
-            }
-        },
-
 
         register_agent: {
             method: 'POST',

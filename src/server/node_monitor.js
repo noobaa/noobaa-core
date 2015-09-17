@@ -246,7 +246,7 @@ function heartbeat(req) {
             if (notify_signaller) {
                 return P.when(bg_workers_rpc.client.signaller.register_agent({
                     agent: node.peer_id,
-                    server: '127.0.0.1:5001',
+                    server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
                 }));
             } else {
                 return;
@@ -273,7 +273,7 @@ function heartbeat(req) {
  */
 function n2n_signal(req) {
     var target = req.rpc_params.target;
-    dbg.log1('n2n_signal_internal', target);
+    dbg.log1('n2n_signal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
         address: target,
     });
@@ -286,9 +286,11 @@ function n2n_signal(req) {
  */
 function redirect(req) {
     var target = req.rpc_params.target;
-    var api = req.rpc_params.api;
-    var method = req.rpc_params.method; //TODO same names as RPC
-    return server_rpc.client[api][method](req.rpc_params, {
+    var api = req.rpc_params.method_api.slice(0, -4);
+    var method = req.rpc_params.method_name;
+    dbg.log3('node_monitor redirect', api + '.' + method, 'to', target,
+        'with params', req.rpc_params.request_params);
+    return server_rpc.client[api][method](req.rpc_params.request_params, {
         address: target,
     });
 }

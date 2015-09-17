@@ -184,11 +184,13 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     req.new_request(api, method_api, params, options.auth_token);
     req.response_defer = P.defer();
 
+    // assign a connection to the request
+    var conn = self._assign_connection(req, options);
+    if (conn === null) { //redirection
+        return self._redirect(api, method_api, params, options);
+    }
+
     return P.fcall(function() {
-
-            // assign a connection to the request
-            self._assign_connection(req, options);
-
             dbg.log1('RPC client_request: START',
                 'srv', req.srv,
                 'reqid', req.reqid);
@@ -443,12 +445,14 @@ RPC.prototype._assign_connection = function(req, options) {
         addr_url = url.parse(address, true);
         this._address_to_url_cache[address] = addr_url;
     }
-    var conn = this._get_connection(addr_url, req.srv);
-    var rseq = conn._rpc_req_seq;
-    req.connection = conn;
-    req.reqid = rseq + '@' + conn.connid;
-    conn._rpc_req_seq = rseq + 1;
-    conn._sent_requests[req.reqid] = req;
+    var conn = this._get_connection(addr_url, req.srv, options.force_redirect);
+    if (conn !== null) {
+        var rseq = conn._rpc_req_seq;
+        req.connection = conn;
+        req.reqid = rseq + '@' + conn.connid;
+        conn._rpc_req_seq = rseq + 1;
+        conn._sent_requests[req.reqid] = req;
+    }
     return conn;
 };
 
@@ -469,12 +473,12 @@ RPC.prototype._release_connection = function(req) {
  * _get_connection
  *
  */
-RPC.prototype._get_connection = function(addr_url, srv) {
+RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
     var conn = this._connection_by_address[addr_url.href];
 
-    if (conn) {
+    if (conn && !force_redirect) {
         if (conn.closed) {
-            dbg.log0('RPC _assign_connection: remove stale connection',
+            dbg.log2('RPC _assign_connection: remove stale connection',
                 'address', addr_url.href,
                 'srv', srv,
                 'connid', conn.connid);
@@ -488,12 +492,20 @@ RPC.prototype._get_connection = function(addr_url, srv) {
         }
     }
 
-    if (!conn) {
-        conn = this._new_connection(addr_url);
-        dbg.log1('RPC _assign_connection: new',
-            'address', addr_url.href,
-            'srv', srv,
-            'connid', conn.connid);
+    if (!conn || force_redirect) {
+        if (this.redirector_transport &&
+            addr_url.protocol === 'n2n:') {
+            dbg.log2('RPC redirecting',
+                'address', addr_url.href,
+                'srv', srv);
+            return null;
+        } else {
+            conn = this._new_connection(addr_url);
+            dbg.log2('RPC _assign_connection: new',
+                'address', addr_url.href,
+                'srv', srv,
+                'connid', conn.connid);
+        }
     }
 
     return conn;
@@ -693,6 +705,24 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
     }
 };
 
+RPC.prototype._redirect = function(api, method, params, options) {
+    var self = this;
+    var req = {
+        method_api: api.name,
+        method_name: method.name,
+        target: options.address,
+        request_params: params
+    };
+    dbg.log3('redirecting ', req, 'to', self.redirector_transport.href);
+
+    return P.when(self.redirection(req, {
+        address: self.redirector_transport.href,
+    })).
+    then(function(res) {
+        return res;
+    });
+};
+
 
 RPC.prototype.emit_stats = function(name, data) {
     // TODO COLLECT STATS
@@ -767,6 +797,18 @@ RPC.prototype.register_n2n_transport = function() {
  */
 RPC.prototype.n2n_signal = function(params) {
     return this.n2n_agent.signal(params);
+};
+
+
+/**
+ *
+ * register_redirector_transport
+ *
+ */
+RPC.prototype.register_redirector_transport = function() {
+    dbg.log0('RPC register_redirector_transport');
+    this.redirector_transport = url.parse(this.get_default_base_address('background'));
+    return;
 };
 
 RPC.prototype.get_default_base_address = function(server) {

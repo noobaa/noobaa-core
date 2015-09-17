@@ -2,7 +2,7 @@
 #define NOOBAA__NUDP__H
 
 #include "../util/common.h"
-#include "../util/uvh.h"
+#include "../util/tloop.h"
 
 #define NUDP_USE_CRC 0
 
@@ -54,23 +54,15 @@ private:
     static NAUV_UDP_RECEIVE_CB_WRAP(uv_callback_receive_wrap, uv_callback_receive);
 
 private:
-    explicit Nudp();
-    ~Nudp();
-    void close();
-    void on_write_data();
-    void on_read_data(const uint8_t *buf, int len);
-    void do_bind(const char* address, int port);
-    void setup_socket(utp_socket* socket);
-    void start_receiving();
-
-    static const int MSG_HDR_LEN = 4;
-    static const char MSG_HDR_MAGIC[MSG_HDR_LEN];
+    static const int MAX_MSG_LEN = 16 * 1024 * 1024;
+    static const int MSG_MAGIC_LEN = 4;
+    static const char MSG_HDR_MAGIC[MSG_MAGIC_LEN];
 
     // packing the header so that if it has multiple fields
     // then it won't have different padding between different compilers
     #pragma pack(push, 1)
     struct MsgHdr {
-        char magic[MSG_HDR_LEN];
+        char magic[MSG_MAGIC_LEN];
         uint32_t len;
         uint64_t seq;
         #if NUDP_USE_CRC
@@ -83,16 +75,13 @@ private:
             , crc(0)
             #endif
         {
-            memcpy(magic, MSG_HDR_MAGIC, MSG_HDR_LEN);
+            memcpy(magic, MSG_HDR_MAGIC, MSG_MAGIC_LEN);
         }
         void encode();
         void decode();
         bool is_valid();
     };
     #pragma pack(pop)
-
-    static const int MSG_HDR_SIZE = sizeof(MsgHdr);
-    static const int MAX_MSG_LEN = 16 * 1024 * 1024;
 
     struct Msg {
         Nan::Persistent<v8::Object> persistent;
@@ -105,6 +94,19 @@ private:
         ~Msg();
     };
 
+    static const int MSG_HDR_SIZE = sizeof(MsgHdr);
+
+private:
+    explicit Nudp();
+    ~Nudp();
+    void _close();
+    void _write_data();
+    void _read_data(const uint8_t *buf, int len);
+    void _bind(const char* address, int port);
+    void _setup_socket(utp_socket* socket);
+    void _start_receiving();
+
+private:
     utp_context* _utp_ctx;
     utp_socket* _utp_socket;
     uv_timer_t _uv_timer_handle;
@@ -120,6 +122,7 @@ private:
     bool _closed;
     bool _receiving;
     int _local_port;
+    ThreadLoop* _tloop;
 };
 
 } // namespace noobaa

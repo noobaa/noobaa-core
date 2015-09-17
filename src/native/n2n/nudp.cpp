@@ -89,18 +89,44 @@ Nudp::Nudp()
 Nudp::~Nudp()
 {
     DBG2("Nudp::~Nudp");
-    close();
+    _close();
 }
 
 NAN_METHOD(Nudp::close)
 {
+    /*
+    struct CloseWorker : public ThreadLoop::Worker
+    {
+        Nudp& self;
+        std::list<Msg*> canceled_message;
+        CloseWorker(Nudp& nudp) : self(nudp)
+        {
+            self._tloop->submit(this);
+        }
+        virtual void work()
+        {
+            //canceled_message =
+            self._close();
+        }
+        virtual void after_work()
+        {
+            while (!canceled_message.empty()) {
+                Msg* m =canceled_message.front();
+                v8::Local<v8::Value> argv[] = { NAN_ERR("NUDP CLOSED") };
+                m->callback->Call(1, argv);
+                canceled_message.pop_front();
+                delete m;
+            }
+        }
+    };
+    */
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
-    self.close();
+    self._close();
     NAN_RETURN(Nan::Undefined());
 }
 
 void
-Nudp::close()
+Nudp::_close()
 {
     if (_closed) {
         return;
@@ -131,10 +157,29 @@ Nudp::close()
 
 NAN_METHOD(Nudp::bind)
 {
+    /*
+    struct BindWorker : public ThreadLoop::Worker
+    {
+        Nudp& self;
+        BindWorker(Nudp& nudp) : self(nudp)
+        {
+            self._tloop->submit(this);
+        }
+        virtual void work()
+        {
+            self._bind(*address, port);
+        }
+        virtual void after_work()
+        {
+            v8::Local<v8::Value> args[] = { Nan::Undefined(), NAN_INT(self._local_port) };
+            Nan::MakeCallback(info.This(), info[2].As<v8::Function>(), 2, args);
+        }
+    };
+    */
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
     int port = info[0]->Int32Value();
     Nan::Utf8String address(info[1]);
-    self.do_bind(*address, port);
+    self._bind(*address, port);
     v8::Local<v8::Value> args[] = { Nan::Undefined(), NAN_INT(self._local_port) };
     Nan::MakeCallback(info.This(), info[2].As<v8::Function>(), 2, args);
     NAN_RETURN(Nan::Undefined());
@@ -147,11 +192,11 @@ NAN_METHOD(Nudp::connect)
     Nan::Utf8String address(info[1]);
     struct sockaddr_in sin;
     NAUV_IP4_ADDR(*address, port, &sin);
-    self.do_bind("0.0.0.0", 0);
+    self._bind("0.0.0.0", 0);
     DBG2("Nudp::connect:"
          << " local_port " << self._local_port
          << " to " << *address << ":" << port);
-    self.setup_socket(NULL); // will create utp socket
+    self._setup_socket(NULL); // will create utp socket
     utp_connect(self._utp_socket, reinterpret_cast<struct sockaddr*>(&sin), sizeof(sin));
     v8::Local<v8::Value> args[] = { Nan::Undefined(), NAN_INT(self._local_port) };
     Nan::MakeCallback(info.This(), info[2].As<v8::Function>(), 2, args);
@@ -202,12 +247,12 @@ NAN_METHOD(Nudp::send)
          << " local_port " << self._local_port);
     m->hdr.encode();
     self._messages.push_back(m);
-    self.on_write_data();
+    self._write_data();
     NAN_RETURN(Nan::Undefined());
 }
 
 void
-Nudp::on_write_data()
+Nudp::_write_data()
 {
     Nan::HandleScope scope;
     while (!_messages.empty()) {
@@ -215,7 +260,7 @@ Nudp::on_write_data()
         const int num_iovecs = m->iovecs.size();
         const int remain_iovecs = num_iovecs - m->iov_index;
         if (remain_iovecs <= 0) {
-            DBG3("Nudp::on_write_data: write message done"
+            DBG3("Nudp::_write_data: write message done"
                  << " seq " << ntohll(m->hdr.seq)
                  << " len " << ntohl(m->hdr.len)
                  << " messages " << _messages.size()
@@ -227,7 +272,7 @@ Nudp::on_write_data()
             continue;
         }
         utp_iovec* iop = &m->iovecs[m->iov_index];
-        DBG3("Nudp::on_write_data:"
+        DBG3("Nudp::_write_data:"
              << " seq " << ntohll(m->hdr.seq)
              << " len " << ntohl(m->hdr.len)
              << " remain iovecs " << remain_iovecs
@@ -236,14 +281,14 @@ Nudp::on_write_data()
              << " local_port " << _local_port);
         size_t sent = utp_writev(_utp_socket, iop, remain_iovecs);
         if (sent <= 0) {
-            DBG4("Nudp::on_write_data: utp not writable. local_port " << _local_port);
+            DBG4("Nudp::_write_data: utp not writable. local_port " << _local_port);
             return;
         }
         if (DBG_VISIBLE(9) && m->iov_index == 0) {
-            Buf::hexdump(iop->iov_base, iop->iov_len, "Nudp::on_write_data (header)");
+            Buf::hexdump(iop->iov_base, iop->iov_len, "Nudp::_write_data (header)");
         }
         while (m->iov_index < num_iovecs && iop->iov_len >= 0 && sent >= iop->iov_len) {
-            DBG4("Nudp::on_write_data: iovec consumed completely "
+            DBG4("Nudp::_write_data: iovec consumed completely "
                  << " iov_len " << iop->iov_len
                  << " sent " << sent
                  << " local_port " << _local_port);
@@ -255,7 +300,7 @@ Nudp::on_write_data()
             m->iov_index++;
         }
         if (sent > 0) {
-            DBG4("Nudp::on_write_data: iovec partially consumed "
+            DBG4("Nudp::_write_data: iovec partially consumed "
                  << " iov_len " << iop->iov_len
                  << " sent " << sent
                  << " local_port " << _local_port);
@@ -273,9 +318,9 @@ Nudp::on_write_data()
 }
 
 void
-Nudp::on_read_data(const uint8_t *buf, int len)
+Nudp::_read_data(const uint8_t *buf, int len)
 {
-    DBG2("Nudp::on_read_data: put buffer of length "
+    DBG2("Nudp::_read_data: put buffer of length "
          << len << " local_port " << _local_port);
     while (len > 0) {
         if (!_recv_payload) {
@@ -294,10 +339,10 @@ Nudp::on_read_data(const uint8_t *buf, int len)
             // process the header when full
             if (_recv_hdr_pos >= MSG_HDR_SIZE) {
                 if (DBG_VISIBLE(9)) {
-                    Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Nudp::on_read_data (header)");
+                    Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Nudp::_read_data (header)");
                 }
                 _recv_hdr.decode();
-                DBG3("Nudp::on_read_data: incoming message"
+                DBG3("Nudp::_read_data: incoming message"
                      << " seq " << _recv_hdr.seq
                      << " len " << _recv_hdr.len
                      << " local_port " << _local_port);
@@ -336,10 +381,10 @@ Nudp::on_read_data(const uint8_t *buf, int len)
                     crc != _recv_hdr.crc ||
                     #endif
                     _recv_hdr.seq != _recv_msg_seq) {
-                    Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Nudp::on_read_data (header decoded)");
+                    Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Nudp::_read_data (header decoded)");
                     Buf::hexdump(_recv_payload,
                                  _recv_hdr.len > 128 ? 128 : _recv_hdr.len,
-                                 "Nudp::on_read_data (payload)");
+                                 "Nudp::_read_data (payload)");
                     // TODO close connection instead of panic
                     PANIC("bad message:"
                           << " magic " << _recv_hdr.magic
@@ -360,7 +405,7 @@ Nudp::on_read_data(const uint8_t *buf, int len)
                 _recv_hdr_pos = 0;
                 _recv_payload_pos = 0;
                 // emit the message buffer
-                DBG3("Nudp::on_read_data: incoming message completed"
+                DBG3("Nudp::_read_data: incoming message completed"
                      << " seq " << _recv_hdr.seq
                      << " len " << _recv_hdr.len
                      << " local_port " << _local_port);
@@ -372,7 +417,7 @@ Nudp::on_read_data(const uint8_t *buf, int len)
 }
 
 void
-Nudp::do_bind(const char* address, int port)
+Nudp::_bind(const char* address, int port)
 {
     if (_local_port) {
         return;
@@ -383,17 +428,17 @@ Nudp::do_bind(const char* address, int port)
     NAUV_CALL(uv_udp_bind(&_uv_udp_handle, NAUV_UDP_ADDR(&sin), 0));
     NAUV_CALL(uv_udp_getsockname(&_uv_udp_handle, NAUV_UDP_ADDR(&sin), &sin_len));
     _local_port = ntohs(sin.sin_port);
-    start_receiving();
+    _start_receiving();
 }
 
 void
-Nudp::setup_socket(utp_socket* socket)
+Nudp::_setup_socket(utp_socket* socket)
 {
     if (_utp_socket && !socket) {
         return;
     }
     if (_utp_socket) {
-        PANIC("Nudp::setup_socket: already has socket. local_port " << _local_port);
+        PANIC("Nudp::_setup_socket: already has socket. local_port " << _local_port);
     }
     if (socket) {
         _utp_socket = socket;
@@ -407,11 +452,11 @@ Nudp::setup_socket(utp_socket* socket)
     utp_setsockopt(_utp_socket, UTP_SNDBUF, UTP_SNDBUF_SIZE);
     utp_setsockopt(_utp_socket, UTP_RCVBUF, UTP_RCVBUF_SIZE);
     // start receiving if not already
-    start_receiving();
+    _start_receiving();
 }
 
 void
-Nudp::start_receiving()
+Nudp::_start_receiving()
 {
     if (_receiving) {
         return;
@@ -546,7 +591,7 @@ Nudp::utp_callback_on_read(utp_callback_arguments *a)
 {
     DBG3("Nudp::utp_callback_on_read: buffer length " << a->len);
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
-    self.on_read_data(a->buf, a->len);
+    self._read_data(a->buf, a->len);
     utp_read_drained(a->socket);
     return 0;
 }
@@ -562,12 +607,12 @@ Nudp::utp_callback_on_state_change(utp_callback_arguments *a)
     switch (a->state) {
     case UTP_STATE_CONNECT:
     case UTP_STATE_WRITABLE:
-        self.on_write_data();
+        self._write_data();
         break;
 
     case UTP_STATE_EOF:
         LOG("Nudp::utp_callback_on_state_change: EOF");
-        self.close();
+        self._close();
         break;
 
     case UTP_STATE_DESTROYING:
@@ -671,7 +716,7 @@ Nudp::utp_callback_on_accept(utp_callback_arguments *a)
 {
     LOG("Nudp::utp_callback_on_accept");
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
-    self.setup_socket(a->socket);
+    self._setup_socket(a->socket);
     return 0;
 }
 
@@ -680,7 +725,7 @@ Nudp::utp_callback_on_error(utp_callback_arguments *a)
 {
     LOG("Nudp::utp_callback_on_error: " << utp_error_code_names[a->error_code]);
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
-    self.close();
+    self._close();
     return 0;
 }
 
@@ -741,12 +786,12 @@ Nudp::MsgHdr::decode()
     #endif
 }
 
-const char Nudp::MSG_HDR_MAGIC[Nudp::MSG_HDR_LEN] = { 'N', 'u', 'd', 'p' };
+const char Nudp::MSG_HDR_MAGIC[Nudp::MSG_MAGIC_LEN] = { 'N', 'u', 'd', 'p' };
 
 bool
 Nudp::MsgHdr::is_valid()
 {
-    if (memcmp(magic, MSG_HDR_MAGIC, MSG_HDR_LEN)) {
+    if (memcmp(magic, MSG_HDR_MAGIC, MSG_MAGIC_LEN)) {
         return false;
     }
     return true;

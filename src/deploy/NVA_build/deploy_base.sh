@@ -16,6 +16,18 @@ function deploy_log {
 	fi
 }
 
+function add_sudoers {
+	sudo grep noobaa /etc/sudoers
+  if [ $? -ne 0 ]; then
+      deploy_log "adding noobaa to sudoers"
+	  sudo echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+	  sudo grep noobaa /etc/sudoers
+	  if [ $? -ne 0 ]; then
+	      deploy_log "failed to add noobaa to sudoers"
+   	  fi
+  fi
+}
+
 function build_node {
 	deploy_log "build_node start"
 	yum -y groupinstall "Development Tools"
@@ -207,6 +219,7 @@ function install_id_gen {
 if [ "$1" == "runinstall" ]; then
 	deploy_log "Running with runinstall"
 	set -e
+	add_sudoers
 	build_node
 	install_aux
 	install_repos

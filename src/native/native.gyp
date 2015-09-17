@@ -8,6 +8,7 @@
             'third_party/libutp/libutp.gyp:libutp',
             'third_party/libutp/libutp.gyp:ucat',
             'third_party/crc32/crc32.gyp:crc32',
+            # 'third_party/crc32/crc32.gyp:runcrc',
             # 'third_party/webrtc/webrtc.gyp:webrtc_crc32',
             # 'third_party/webrtc/webrtc.gyp:webrtc_stun',
             # 'third_party/udt4/udt4.gyp:udt4',

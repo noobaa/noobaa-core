@@ -1,6 +1,8 @@
 #include "nudp.h"
 #include "../third_party/libutp/utp.h"
+#include "../third_party/crc32/crc32.h"
 #include "nat.h"
+#include "../util/buf.h"
 
 namespace noobaa {
 
@@ -14,7 +16,6 @@ static const int UTP_RCVBUF_SIZE = 1 * 1024 * 1024;
 
 static std::string addrinfo2str(const struct addrinfo* ai);
 static std::string sockaddr2str(const struct sockaddr* sa);
-static void hexdump(const void *p, size_t len);
 
 NAN_MODULE_INIT(Nudp::setup)
 {
@@ -44,16 +45,16 @@ NAN_METHOD(Nudp::new_instance)
 
 Nudp::Nudp()
     : _utp_socket(NULL)
+    , _recv_payload(NULL)
+    , _recv_hdr_pos(0)
+    , _recv_payload_pos(0)
+    , _send_msg_seq(1)
+    , _recv_msg_seq(1)
     , _closed(false)
     , _receiving(false)
     , _local_port(0)
 {
     DBG2("Nudp::Nudp");
-    _incoming_msg.data = 0;
-    _incoming_msg.len = 0;
-    _incoming_msg.pos = 0;
-    _incoming_msg.hdr_pos = 0;
-
     _utp_ctx = utp_init(2); // version=2
     utp_context_set_userdata(_utp_ctx, this);
     utp_context_set_option(_utp_ctx, UTP_SNDBUF, UTP_SNDBUF_SIZE);
@@ -114,13 +115,14 @@ Nudp::close()
         utp_close(_utp_socket);
         _utp_socket = NULL;
     }
+    if (_recv_payload) {
+        delete[] _recv_payload;
+    }
     while (!_messages.empty()) {
-        Msg* m = _messages.front();
-        _messages.pop_front();
+        Msg* m =_messages.front();
         v8::Local<v8::Value> argv[] = { NAN_ERR("NUDP CLOSED") };
-        m->persistent.Reset();
         m->callback->Call(1, argv);
-        m->callback.reset();
+        _messages.pop_front();
         delete m;
     }
     v8::Local<v8::Value> argv[] = { NAN_STR("close") };
@@ -147,8 +149,8 @@ NAN_METHOD(Nudp::connect)
     NAUV_IP4_ADDR(*address, port, &sin);
     self.do_bind("0.0.0.0", 0);
     DBG2("Nudp::connect:"
-        << " local_port " << self._local_port
-        << " to " << *address << ":" << port);
+         << " local_port " << self._local_port
+         << " to " << *address << ":" << port);
     self.setup_socket(NULL); // will create utp socket
     utp_connect(self._utp_socket, reinterpret_cast<struct sockaddr*>(&sin), sizeof(sin));
     v8::Local<v8::Value> args[] = { Nan::Undefined(), NAN_INT(self._local_port) };
@@ -159,22 +161,47 @@ NAN_METHOD(Nudp::connect)
 NAN_METHOD(Nudp::send)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
-    if (info.Length() < 1) {
-        NAN_RETURN(Nan::Undefined());
-    }
-    v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[0]).ToLocalChecked();
-    Msg* m = new Msg;
-    m->persistent.Reset(buffer); // keep persistent ref to the buffer
+    Msg* m = new Msg();
+    // TODO handle leak of m on exception
+    v8::Local<v8::Object> buffer_or_buffers = Nan::To<v8::Object>(info[0]).ToLocalChecked();
     m->callback.reset(new Nan::Callback(info[1].As<v8::Function>()));
-    m->data = node::Buffer::Data(buffer);
-    m->len = node::Buffer::Length(buffer);
-    m->pos = 0;
-    m->hdr_pos = 0;
-    *reinterpret_cast<uint32_t*>(m->hdr_buf) = htonl(m->len);
-    self._messages.push_back(m);
+    m->persistent.Reset(buffer_or_buffers); // keep persistent ref to the buffer
+    if (node::Buffer::HasInstance(buffer_or_buffers)) {
+        m->iovecs.resize(2);
+        m->iovecs[0].iov_base = &m->hdr;
+        m->iovecs[0].iov_len = MSG_HDR_SIZE;
+        m->iovecs[1].iov_base = node::Buffer::Data(buffer_or_buffers);
+        m->iovecs[1].iov_len = node::Buffer::Length(buffer_or_buffers);
+        m->hdr.len = m->iovecs[1].iov_len;
+        #if NUDP_USE_CRC
+        m->hdr.crc = crc32_fast(m->iovecs[1].iov_base, m->iovecs[1].iov_len);
+        #endif
+    } else if (buffer_or_buffers->IsArray()) {
+        int num_buffers = buffer_or_buffers.As<v8::Array>()->Length();
+        m->iovecs.resize(num_buffers + 1);
+        m->iovecs[0].iov_base = &m->hdr;
+        m->iovecs[0].iov_len = MSG_HDR_SIZE;
+        for (int i=0; i<num_buffers; ++i) {
+            auto buf = NAN_GET_OBJ(buffer_or_buffers, i);
+            char* data = node::Buffer::Data(buf);
+            int len = node::Buffer::Length(buf);
+            m->iovecs[i+1].iov_base = data;
+            m->iovecs[i+1].iov_len = len;
+            m->hdr.len += len;
+            #if NUDP_USE_CRC
+            m->hdr.crc = crc32_fast(data, len, m->hdr.crc);
+            #endif
+        }
+    } else {
+        return Nan::ThrowError("Nudp::send: expected buffer or array of buffers");
+    }
+    m->hdr.seq = self._send_msg_seq++;
     DBG2("Nudp::send:"
-        << " local_port " << self._local_port
-        << " message length " << m->len);
+         << " seq " << m->hdr.seq
+         << " len " << m->hdr.len
+         << " local_port " << self._local_port);
+    m->hdr.encode();
+    self._messages.push_back(m);
     self.on_write_data();
     NAN_RETURN(Nan::Undefined());
 }
@@ -183,30 +210,64 @@ void
 Nudp::on_write_data()
 {
     Nan::HandleScope scope;
-    DBG3("Nudp::on_write_data: local_port " << _local_port);
     while (!_messages.empty()) {
-        Msg* m = _messages.front();
-        utp_iovec iovecs[2];
-        iovecs[0].iov_base = m->hdr_buf + m->hdr_pos;
-        iovecs[0].iov_len = Msg::HDR_LEN - m->hdr_pos;
-        iovecs[1].iov_base = m->data + m->pos;
-        iovecs[1].iov_len = m->len - m->pos;
-        size_t sent = utp_writev(_utp_socket, iovecs, 2);
+        Msg* m =_messages.front();
+        const int num_iovecs = m->iovecs.size();
+        const int remain_iovecs = num_iovecs - m->iov_index;
+        if (remain_iovecs <= 0) {
+            DBG3("Nudp::on_write_data: write message done"
+                 << " seq " << ntohll(m->hdr.seq)
+                 << " len " << ntohl(m->hdr.len)
+                 << " messages " << _messages.size()
+                 << " local_port " << _local_port);
+            v8::Local<v8::Value> argv[] = { Nan::Undefined() };
+            m->callback->Call(1, argv);
+            _messages.pop_front();
+            delete m;
+            continue;
+        }
+        utp_iovec* iop = &m->iovecs[m->iov_index];
+        DBG3("Nudp::on_write_data:"
+             << " seq " << ntohll(m->hdr.seq)
+             << " len " << ntohl(m->hdr.len)
+             << " remain iovecs " << remain_iovecs
+             << " next iovec len " << iop->iov_len
+             << " messages " << _messages.size()
+             << " local_port " << _local_port);
+        size_t sent = utp_writev(_utp_socket, iop, remain_iovecs);
         if (sent <= 0) {
+            DBG4("Nudp::on_write_data: utp not writable. local_port " << _local_port);
             return;
         }
-        int sent_hdr = sent < iovecs[0].iov_len ? sent : iovecs[0].iov_len;
-        sent -= sent_hdr;
-        m->hdr_pos += sent_hdr;
-        m->pos += sent;
-        if (m->pos >= m->len) {
-            DBG3("Nudp::on_write_data: write message done. local_port " << _local_port);
-            _messages.pop_front();
-            v8::Local<v8::Value> argv[] = { Nan::Undefined() };
-            m->persistent.Reset();
-            m->callback->Call(1, argv);
-            m->callback.reset();
-            delete m;
+        if (DBG_VISIBLE(9) && m->iov_index == 0) {
+            Buf::hexdump(iop->iov_base, iop->iov_len, "Nudp::on_write_data (header)");
+        }
+        while (m->iov_index < num_iovecs && iop->iov_len >= 0 && sent >= iop->iov_len) {
+            DBG4("Nudp::on_write_data: iovec consumed completely "
+                 << " iov_len " << iop->iov_len
+                 << " sent " << sent
+                 << " local_port " << _local_port);
+            // iovec consumed completely
+            sent -= iop->iov_len;
+            iop->iov_len = 0;
+            iop->iov_base = 0;
+            iop++;
+            m->iov_index++;
+        }
+        if (sent > 0) {
+            DBG4("Nudp::on_write_data: iovec partially consumed "
+                 << " iov_len " << iop->iov_len
+                 << " sent " << sent
+                 << " local_port " << _local_port);
+            // iovec partially consumed
+            assert(m->iov_index < num_iovecs);
+            assert(iop->iov_len > sent);
+            iop->iov_len -= sent;
+            iop->iov_base = reinterpret_cast<byte*>(iop->iov_base) + sent;
+            sent = 0;
+        } else {
+            assert(sent == 0);
+            assert(m->iov_index <= num_iovecs);
         }
     }
 }
@@ -214,43 +275,94 @@ Nudp::on_write_data()
 void
 Nudp::on_read_data(const uint8_t *buf, int len)
 {
-    DBG2("Nudp::on_read_data: put buffer of length " << len
-        << " local_port " << _local_port);
-    Nan::HandleScope scope;
+    DBG2("Nudp::on_read_data: put buffer of length "
+         << len << " local_port " << _local_port);
     while (len > 0) {
-        if (!_incoming_msg.data) {
-            int hdr_remain = Msg::HDR_LEN - _incoming_msg.hdr_pos;
-            int copy_len = len < hdr_remain ? len : hdr_remain;
-            memcpy(_incoming_msg.hdr_buf + _incoming_msg.hdr_pos, buf, copy_len);
+        if (!_recv_payload) {
+
+            // copy bytes to header
+            int copy_len = MSG_HDR_SIZE - _recv_hdr_pos;
+            if (copy_len > len) {
+                copy_len = len;
+            }
+            char* hdr_ptr = reinterpret_cast<char*>(&_recv_hdr) + _recv_hdr_pos;
+            memcpy(hdr_ptr, buf, copy_len);
             buf += copy_len;
             len -= copy_len;
-            _incoming_msg.hdr_pos += copy_len;
-            if (_incoming_msg.hdr_pos >= Msg::HDR_LEN) {
-                uint32_t msg_len = ntohl(*reinterpret_cast<const uint32_t*>(_incoming_msg.hdr_buf));
-                DBG3("Nudp::on_read_data: new incoming message of length " << msg_len
-                    << " local_port " << _local_port);
-                v8::Local<v8::Object> node_buf = Nan::NewBuffer(msg_len).ToLocalChecked();
-                _incoming_msg.persistent.Reset(node_buf);
-                _incoming_msg.data = node::Buffer::Data(node_buf);
-                _incoming_msg.len = msg_len;
-                _incoming_msg.pos = 0;
+            _recv_hdr_pos += copy_len;
+
+            // process the header when full
+            if (_recv_hdr_pos >= MSG_HDR_SIZE) {
+                if (DBG_VISIBLE(9)) {
+                    Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Nudp::on_read_data (header)");
+                }
+                _recv_hdr.decode();
+                DBG3("Nudp::on_read_data: incoming message"
+                     << " seq " << _recv_hdr.seq
+                     << " len " << _recv_hdr.len
+                     << " local_port " << _local_port);
+                if (_recv_hdr.len > MAX_MSG_LEN) {
+                    // TODO close connection instead of panic
+                    LOG("message too big:"
+                        << " magic " << _recv_hdr.magic
+                        << " seq " << _recv_hdr.seq
+                        << " seq " << _recv_msg_seq
+                        << " len " << _recv_hdr.len);
+                    _recv_hdr.len = 0;
+                }
+                _recv_payload = new char[_recv_hdr.len];
+                _recv_hdr_pos = 0;
+                _recv_payload_pos = 0;
             }
         } else {
-            int data_remain = _incoming_msg.len - _incoming_msg.pos;
-            int copy_len = len < data_remain ? len : data_remain;
-            memcpy(_incoming_msg.data + _incoming_msg.pos, buf, copy_len);
+
+            // copy bytes to payload
+            int copy_len = _recv_hdr.len - _recv_payload_pos;
+            if (copy_len > len) {
+                copy_len = len;
+            }
+            memcpy(_recv_payload + _recv_payload_pos, buf, copy_len);
             buf += copy_len;
             len -= copy_len;
-            _incoming_msg.pos += copy_len;
-            if (_incoming_msg.pos >= _incoming_msg.len) {
-                v8::Local<v8::Object> node_buf = Nan::New(_incoming_msg.persistent);
-                _incoming_msg.persistent.Reset();
-                _incoming_msg.data = 0;
-                _incoming_msg.len = 0;
-                _incoming_msg.pos = 0;
-                _incoming_msg.hdr_pos = 0;
-                DBG3("Nudp::on_read_data: incoming message completed of length "
-                     << node::Buffer::Length(node_buf)
+            _recv_payload_pos += copy_len;
+
+            // process the payload when full
+            if (_recv_payload_pos >= _recv_hdr.len) {
+                #if NUDP_USE_CRC
+                uint32_t crc = crc32_fast(_recv_payload, _recv_hdr.len);
+                #endif
+                if (!_recv_hdr.is_valid() ||
+                    #if NUDP_USE_CRC
+                    crc != _recv_hdr.crc ||
+                    #endif
+                    _recv_hdr.seq != _recv_msg_seq) {
+                    Buf::hexdump(&_recv_hdr, MSG_HDR_SIZE, "Nudp::on_read_data (header decoded)");
+                    Buf::hexdump(_recv_payload,
+                                 _recv_hdr.len > 128 ? 128 : _recv_hdr.len,
+                                 "Nudp::on_read_data (payload)");
+                    // TODO close connection instead of panic
+                    PANIC("bad message:"
+                          << " magic " << _recv_hdr.magic
+                          << " seq " << _recv_hdr.seq
+                          << " expected " << _recv_msg_seq
+                          #if NUDP_USE_CRC
+                          << " crc 0x" << std::hex << crc
+                          << " expected 0x" << _recv_hdr.crc << std::dec
+                          #endif
+                          << " len " << _recv_hdr.len);
+                }
+                _recv_msg_seq += 1;
+                // ownership on memory passed to the node buffer
+                Nan::HandleScope scope;
+                v8::Local<v8::Object> node_buf =
+                    Nan::NewBuffer(_recv_payload, _recv_hdr.len).ToLocalChecked();
+                _recv_payload = NULL;
+                _recv_hdr_pos = 0;
+                _recv_payload_pos = 0;
+                // emit the message buffer
+                DBG3("Nudp::on_read_data: incoming message completed"
+                     << " seq " << _recv_hdr.seq
+                     << " len " << _recv_hdr.len
                      << " local_port " << _local_port);
                 v8::Local<v8::Value> argv[] = { NAN_STR("message"), node_buf };
                 Nan::MakeCallback(handle(), "emit", 2, argv);
@@ -314,7 +426,7 @@ Nudp::start_receiving()
 // check for utp events in the uv loop
 NAUV_CALLBACK(Nudp::uv_callback_timer, uv_timer_t* handle)
 {
-    DBG9("Nudp::uv_callback_timer");
+    // DBG9("Nudp::uv_callback_timer");
     Nudp& self = *reinterpret_cast<Nudp*>(handle->data);
     utp_issue_deferred_acks(self._utp_ctx);
     utp_check_timeouts(self._utp_ctx);
@@ -322,7 +434,7 @@ NAUV_CALLBACK(Nudp::uv_callback_timer, uv_timer_t* handle)
 
 NAUV_CALLBACK(Nudp::uv_callback_prepare, uv_prepare_t* handle)
 {
-    DBG9("Nudp::uv_callback_prepare");
+    // DBG9("Nudp::uv_callback_prepare");
     Nudp& self = *reinterpret_cast<Nudp*>(handle->data);
     utp_issue_deferred_acks(self._utp_ctx);
 }
@@ -330,7 +442,7 @@ NAUV_CALLBACK(Nudp::uv_callback_prepare, uv_prepare_t* handle)
 void
 Nudp::uv_callback_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf)
 {
-    buf->len = 4096;
+    buf->len = suggested_size;
     buf->base = new char[buf->len];
     DBG9("Nudp::uv_callback_alloc: allocating " << buf->len << " suggested " << suggested_size);
 }
@@ -349,9 +461,8 @@ Nudp::uv_callback_receive(
          << " nread " << nread
          << " addr " << sockaddr2str(addr)
          << " flags " << flags);
-    const byte* data = reinterpret_cast<const byte*>(buf->base);
     if (DBG_VISIBLE(9)) {
-        hexdump(data, nread);
+        Buf::hexdump(buf->base, nread > 128 ? 128 : nread, "Nudp::uv_callback_receive");
     }
     if (flags & UV_UDP_PARTIAL) {
         PANIC("Nudp::uv_callback_receive: truncated packet"
@@ -360,26 +471,28 @@ Nudp::uv_callback_receive(
               << " buf len " << buf->len);
     }
     if (nread <= 0) {
+        delete[] buf->base;
         return;
     }
     assert(addr);
-    if (NAT::is_stun_packet(data, nread)) {
+    if (NAT::is_stun_packet(buf->base, nread)) {
         DBG2("Nudp::uv_callback_receive: got STUN packet local_port " << self._local_port);
         Nan::HandleScope scope;
-        // the node buffer takes ownership on the memory, so not deleting the data in this path
         const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(addr);
+        // the node buffer takes ownership on the memory, so not deleting the allocation in this path
         v8::Local<v8::Value> argv[] = {
             NAN_STR("stun"),
-            Nan::NewBuffer(buf->base, buf->len).ToLocalChecked(),
+            Nan::NewBuffer(buf->base, nread).ToLocalChecked(),
             NAN_INT(ntohs(sin->sin_port)),
             NAN_STR(inet_ntoa(sin->sin_addr))
         };
         Nan::MakeCallback(self.handle(), "emit", 4, argv);
     } else {
+        const byte* data = reinterpret_cast<const byte*>(buf->base);
         if (!utp_process_udp(self._utp_ctx, data, nread, addr, sizeof(struct sockaddr))) {
             DBG3("Nudp::uv_callback_receive: UDP packet not handled by UTP. Ignoring.");
         }
-        delete[] data;
+        delete[] buf->base;
     }
 }
 
@@ -405,7 +518,7 @@ Nudp::utp_callback_sendto(utp_callback_arguments *a)
          << " packet length " << a->len
          << " addr " << sockaddr2str(a->address));
     if (DBG_VISIBLE(9)) {
-        hexdump(a->buf, a->len);
+        Buf::hexdump(a->buf, a->len > 128 ? 128 : a->len, "Nudp::utp_callback_sendto");
     }
     NAUV_CALL(uv_udp_send(
                   req, &self._uv_udp_handle,
@@ -482,25 +595,20 @@ Nudp::utp_callback_on_state_change(utp_callback_arguments *a)
 NAN_METHOD(Nudp::send_outbound)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
+    Msg* m = new Msg();
     v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[0]).ToLocalChecked();
     int port = info[1]->Int32Value();
     Nan::Utf8String address(info[2]);
-
-    uv_udp_send_t* req = new uv_udp_send_t;
-    Msg* m = new Msg;
-    req->data = m;
-    m->persistent.Reset(buffer); // keep persistent ref to the buffer
-    m->callback.reset(new Nan::Callback(info[3].As<v8::Function>()));
-    m->data = node::Buffer::Data(buffer);
-    m->len = node::Buffer::Length(buffer);
-    m->pos = 0;
-    m->hdr_pos = 0;
-
     struct sockaddr_in sin;
     NAUV_IP4_ADDR(*address, port, &sin);
-    uv_buf_t buf = uv_buf_init(m->data, m->len);
 
-    DBG3("Nudp::send_outbound: packet length " << m->len << " addr " << *address << ":" << port);
+    uv_buf_t buf = uv_buf_init(node::Buffer::Data(buffer), node::Buffer::Length(buffer));
+    m->persistent.Reset(buffer); // keep persistent ref to the buffer
+    m->callback.reset(new Nan::Callback(info[3].As<v8::Function>()));
+
+    DBG3("Nudp::send_outbound: packet length " << buf.len << " addr " << *address << ":" << port);
+    uv_udp_send_t* req = new uv_udp_send_t;
+    req->data = m;
     NAUV_CALL(uv_udp_send(
                   req, &self._uv_udp_handle,
                   &buf, 1,
@@ -515,7 +623,6 @@ Nudp::uv_callback_send_outbound(uv_udp_send_t* req, int status)
     Nan::HandleScope scope;
     DBG3("Nudp::uv_callback_send_outbound: status " << status);
     Msg* m = reinterpret_cast<Msg*>(req->data);
-    m->persistent.Reset();
     if (status) {
         v8::Local<v8::Value> argv[] = { NAN_ERR("NUDP STUN SEND ERROR") };
         m->callback->Call(1, argv);
@@ -523,7 +630,6 @@ Nudp::uv_callback_send_outbound(uv_udp_send_t* req, int status)
         v8::Local<v8::Value> argv[] = { Nan::Undefined() };
         m->callback->Call(1, argv);
     }
-    m->callback.reset();
     delete m;
     delete req;
 }
@@ -604,27 +710,46 @@ sockaddr2str(const struct sockaddr* sa)
     return std::string(inet_ntoa(sin->sin_addr)) + ":" + std::to_string(ntohs(sin->sin_port));
 }
 
-static
-void
-hexdump(const void *p, size_t len)
+Nudp::Msg::Msg()
+    : iov_index(0)
 {
-    int count = 1;
-    const char* pc = reinterpret_cast<const char*>(p);
+}
 
-    while (len--) {
-        if (count == 1)
-            fprintf(stderr, "    %p: ", pc);
+Nudp::Msg::~Msg()
+{
+    persistent.Reset();
+    callback.reset();
+}
 
-        fprintf(stderr, " %02x", *pc++ & 0xff);
+void
+Nudp::MsgHdr::encode()
+{
+    len = htonl(len);
+    seq = htonll(seq);
+    #if NUDP_USE_CRC
+    crc = htonl(crc);
+    #endif
+}
 
-        if (count++ == 16) {
-            fprintf(stderr, "\n");
-            count = 1;
-        }
+void
+Nudp::MsgHdr::decode()
+{
+    len = ntohl(len);
+    seq = ntohll(seq);
+    #if NUDP_USE_CRC
+    crc = ntohl(crc);
+    #endif
+}
+
+const char Nudp::MSG_HDR_MAGIC[Nudp::MSG_HDR_LEN] = { 'N', 'u', 'd', 'p' };
+
+bool
+Nudp::MsgHdr::is_valid()
+{
+    if (memcmp(magic, MSG_HDR_MAGIC, MSG_HDR_LEN)) {
+        return false;
     }
-
-    if (count != 1)
-        fprintf(stderr, "\n");
+    return true;
 }
 
 } // namespace noobaa

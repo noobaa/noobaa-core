@@ -7,7 +7,7 @@ var url = require('url');
 var dgram = require('dgram');
 var crypto = require('crypto');
 var ip_module = require('ip');
-var chance = new(require('chance').Chance)();
+var chance = require('chance')();
 
 // https://tools.ietf.org/html/rfc5389
 var stun = module.exports = {

@@ -4,7 +4,10 @@
 #include "../util/common.h"
 #include "../util/uvh.h"
 
+#define NUDP_USE_CRC 0
+
 // utp.h forward declerations
+struct utp_iovec;
 typedef struct UTPSocket utp_socket;
 typedef struct struct_utp_context utp_context;
 typedef struct struct_utp_callback_arguments utp_callback_arguments;
@@ -60,23 +63,60 @@ private:
     void setup_socket(utp_socket* socket);
     void start_receiving();
 
+    static const int MSG_HDR_LEN = 4;
+    static const char MSG_HDR_MAGIC[MSG_HDR_LEN];
+
+    // packing the header so that if it has multiple fields
+    // then it won't have different padding between different compilers
+    #pragma pack(push, 1)
+    struct MsgHdr {
+        char magic[MSG_HDR_LEN];
+        uint32_t len;
+        uint64_t seq;
+        #if NUDP_USE_CRC
+        uint32_t crc;
+        #endif
+        MsgHdr()
+            : len(0)
+            , seq(0)
+            #if NUDP_USE_CRC
+            , crc(0)
+            #endif
+        {
+            memcpy(magic, MSG_HDR_MAGIC, MSG_HDR_LEN);
+        }
+        void encode();
+        void decode();
+        bool is_valid();
+    };
+    #pragma pack(pop)
+
+    static const int MSG_HDR_SIZE = sizeof(MsgHdr);
+    static const int MAX_MSG_LEN = 16 * 1024 * 1024;
+
+    struct Msg {
+        Nan::Persistent<v8::Object> persistent;
+        NanCallbackSharedPtr callback;
+        std::vector<utp_iovec> iovecs;
+        size_t iov_index;
+        MsgHdr hdr;
+
+        Msg();
+        ~Msg();
+    };
+
     utp_context* _utp_ctx;
     utp_socket* _utp_socket;
     uv_timer_t _uv_timer_handle;
     uv_prepare_t _uv_prepare_handle;
     uv_udp_t _uv_udp_handle;
-    struct Msg {
-        Nan::Persistent<v8::Object> persistent;
-        NanCallbackSharedPtr callback;
-        char* data;
-        int len;
-        int pos;
-        static const int HDR_LEN = sizeof(uint32_t);
-        char hdr_buf[HDR_LEN];
-        int hdr_pos;
-    };
     std::list<Msg*> _messages;
-    Msg _incoming_msg;
+    MsgHdr _recv_hdr;
+    char* _recv_payload;
+    int _recv_hdr_pos;
+    int _recv_payload_pos;
+    uint64_t _send_msg_seq;
+    uint64_t _recv_msg_seq;
     bool _closed;
     bool _receiving;
     int _local_port;

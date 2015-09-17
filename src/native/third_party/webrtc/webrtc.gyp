@@ -17,5 +17,15 @@
             'webrtc/p2p/base/stun.cc',
             'webrtc/p2p/base/stun.h',
         ],
+    }, {
+        'target_name': 'webrtc_crc32',
+        'type': 'static_library',
+        'include_dirs' : ['.'],
+        'sources': [
+            'webrtc/base/constructormagic.h',
+            'webrtc/base/basictypes.h',
+            'webrtc/base/crc32.cc',
+            'webrtc/base/crc32.h',
+        ],
     }]
 }

@@ -37,7 +37,7 @@ function RpcN2NConnection(addr_url, n2n_agent) {
         self.close();
     });
     self.nudp.on('message', function(msg) {
-        dbg.log1('N2N RECEIVE', msg.length);
+        dbg.log1('N2N RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
         self.emit('message', msg);
     });
     self.nudp.on('stun', function(buffer, port, address) {
@@ -106,9 +106,7 @@ RpcN2NConnection.prototype.close = function(err) {
 };
 
 RpcN2NConnection.prototype.send = function(msg) {
-    // TODO Nudp sendv !!!
-    msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
-    // console.log('******* N2N SEND', msg.length);
+    // msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     return P.ninvoke(this.nudp, 'send', msg);
 };
 

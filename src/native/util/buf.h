@@ -216,6 +216,11 @@ public:
         return str;
     }
 
+    /**
+     * dump memory in hex
+     */
+    static void hexdump(const void *p, size_t len, const char* prefix = NULL);
+
 private:
 
     class Alloc

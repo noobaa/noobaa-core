@@ -776,7 +776,8 @@ RPC.prototype.register_n2n_transport = function() {
 };
 
 /**
- *
+ * this function allows the n2n protocol to accept connections.
+ * it should called when a signal is accepted in order to process it by the n2n_agent.
  */
 RPC.prototype.n2n_signal = function(params) {
     return this.n2n_agent.signal(params);

@@ -9,7 +9,7 @@ var util = require('util');
 var EventEmitter = require('events').EventEmitter;
 var ip_module = require('ip');
 var stun = require('./stun');
-var chance = new(require('chance').Chance)();
+var chance = require('chance')();
 var dbg = require('../util/debug_module')(__filename);
 
 

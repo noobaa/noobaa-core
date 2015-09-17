@@ -552,6 +552,10 @@ struct UTPSocket {
 
 	void log(int level, char const *fmt, ...)
 	{
+		if (!ctx->should_log(level)) {
+			return;
+		}
+
 		va_list va;
 		char buf[4096], buf2[4096];
 
@@ -3391,10 +3395,8 @@ void* utp_get_userdata(utp_socket *socket) {
 
 void struct_utp_context::log(int level, utp_socket *socket, char const *fmt, ...)
 {
-	switch (level) {
-		case UTP_LOG_NORMAL:	if (!log_normal) return;
-		case UTP_LOG_MTU:		if (!log_mtu)    return;
-		case UTP_LOG_DEBUG:		if (!log_debug)  return;
+	if (!should_log(level)) {
+		return;
 	}
 
 	va_list va;

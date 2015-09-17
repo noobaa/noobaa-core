@@ -7,6 +7,7 @@ var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
+var chance = require('chance')();
 var memwatch = null; //require('memwatch');
 var dbg = require('../util/debug_module')(__filename);
 var MB = 1024 * 1024;
@@ -27,10 +28,13 @@ argv.rsize = argv.rsize || 0;
 argv.client = argv.client || false;
 argv.server = argv.server || false;
 argv.n2n = argv.n2n || false;
+argv.nconn = argv.nconn || 1;
 argv.addr = url.parse(argv.addr || '');
 argv.addr.protocol = argv.addr.protocol || 'ws:';
 argv.addr.hostname = argv.addr.hostname || '127.0.0.1';
 argv.addr.port = argv.addr.port || 5656;
+
+var target_addresses;
 
 // debug level
 argv.debug = argv.debug || 0;
@@ -108,11 +112,10 @@ var rpc = new RPC({
 rpc.register_service(schema.rpcbench, {
     io: io_service,
     n2n_signal: function(req) {
+        // when a signal is received, pass it to the n2n agent
         return rpc.n2n_signal(req.params);
     }
 });
-
-var io_rpc_options = {};
 
 var io_count = 0;
 var io_rbytes = 0;
@@ -166,17 +169,16 @@ function start() {
         .then(function() {
 
             if (!argv.n2n) {
+                target_addresses = [url.format(argv.addr)];
                 return;
             }
 
             // setup a signaller callback
             rpc.n2n_signaller = rpc.client.rpcbench.n2n_signal;
 
-            // set rpc address to use n2n.
-            // the hostname doesn't matter here since our signalling
-            // is not using the url for routing.
-            io_rpc_options.address = typeof(argv.n2n) === 'string' ?
-                argv.n2n : 'n2n://unused';
+            target_addresses = _.times(argv.nconn, function(i) {
+                return 'n2n://conn' + i;
+            });
 
             // open udp listening port for udp based protocols
             // (both server and client)
@@ -211,12 +213,16 @@ function call_next_io(res) {
         io_rbytes += res.data.length;
         io_wbytes += argv.wsize;
     }
+    var data = new Buffer(argv.wsize);
+    data.fill(0xFA);
     return rpc.client.rpcbench.io({
             kushkush: {
-                data: new Buffer(argv.wsize),
+                data: data,
                 rsize: argv.rsize
             }
-        }, io_rpc_options)
+        }, {
+            address: chance.pick(target_addresses)
+        })
         .then(call_next_io);
 }
 
@@ -225,8 +231,10 @@ function io_service(req) {
     io_count += 1;
     io_rbytes += req.params.kushkush.data.length;
     io_wbytes += req.params.kushkush.rsize;
+    var data = new Buffer(req.params.kushkush.rsize);
+    data.fill(0x99);
     return {
-        data: new Buffer(req.params.kushkush.rsize)
+        data: data
     };
 }
 

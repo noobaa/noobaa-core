@@ -26,6 +26,8 @@ function add_sudoers {
 	      deploy_log "failed to add noobaa to sudoers"
    	  fi
   fi
+	
+	unalias cp
 }
 
 function build_node {

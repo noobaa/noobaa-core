@@ -174,6 +174,12 @@ module.exports = function(params) {
 
     var extract_s3_info = function(req) {
 
+        if (!_.has(clients, req.access_key)) {
+            return P.fcall(function() {
+                return this.add_new_system_client(req);
+            });
+        }
+
         if (_.isUndefined(clients[req.access_key].client.options)) {
             dbg.error('extract_s3_info problem');
         }
@@ -531,7 +537,7 @@ module.exports = function(params) {
                     var create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
                     var bucket_key_params = _.pick(upload_params, 'bucket', 'key');
 
-                    dbg.log0('upload_stream: start upload', upload_params.key,upload_params.size);
+                    dbg.log0('upload_stream: start upload', upload_params.key, upload_params.size);
                     if (_.isUndefined(clients[access_key].buckets[req.bucket])) {
                         clients[access_key].buckets = [req.bucket];
                         clients[access_key].buckets[req.bucket] = {

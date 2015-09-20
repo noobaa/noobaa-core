@@ -43,39 +43,25 @@ module.exports = {
             }
         },
 
-        subscribe: {
-            method: 'POST',
-            params: {
-                $ref: '/redirector_api/definitions/basic_registration_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        unsubscribe: {
-            method: 'POST',
-            params: {
-                $ref: '/redirector_api/definitions/basic_registration_info'
-            },
-            auth: {
-                system: 'admin'
-            }
-        },
-
-        unsubscribe_all: {
+        resync_agents: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['server', 'port'],
                 properties: {
                     server: {
                         type: 'string',
                     },
-                    port: {
+                    timestamp: {
                         type: 'integer',
-                    }
-                }
+                        format: 'idate',
+                    },
+                    agents: {
+                        type: 'array',
+                        items: {
+                            type: 'string'
+                        },
+                    },
+                },
             },
             auth: {
                 system: 'admin'

@@ -15,11 +15,14 @@ var P = require('../util/promise');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc').server_rpc;
 var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
 
+//On reconnect to redirector, sync al agent_storage
+bg_workers_rpc.on('reconnect', _resync_agents);
 
 /**
  * finding node by id for heatbeat requests uses a barrier for merging DB calls.
@@ -244,14 +247,19 @@ function heartbeat(req) {
             }
         }).then(function() {
             if (notify_redirector) {
-                return P.when(bg_workers_rpc.client.redirector.register_agent({
-                    agent: node.peer_id,
-                    server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
-                }));
-            } else {
-                return;
+                P.when(bg_workers_rpc.client.redirector.register_agent({
+                        agent: node.peer_id,
+                        server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
+                    }))
+                    .fail(function(error) {
+                        dbg.log0('Failed to register agent', error);
+                        _resync_agents();
+                    })
+                    .then(function() {
+                        req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
+                    });
             }
-        }).then(function() {
+
             reply.storage = {
                 alloc: node.storage.alloc || 0,
                 used: node.storage.used || 0,
@@ -347,6 +355,43 @@ function set_debug_node(req) {
             dbg.log0('Error on set_debug_node', err);
             return '';
         });
+}
+
+function _unregister_agent(connection, peer_id) {
+    return P.when(bg_workers_rpc.client.redirector.unregister_agent({
+            agent: peer_id,
+            server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
+        }))
+        .fail(function(error) {
+            dbg.log0('Failed to unregister agent', error);
+            _resync_agents();
+        });
+}
+
+function _resync_agents() {
+    var ts = Date.now();
+    var done = false;
+    var agents = server_rpc.get_n2n_addresses();
+
+    //Retry to resync redirector
+    return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
+        try {
+            return P.when(bg_workers_rpc.client.redirector.resync_agents({
+                    agents: agents,
+                    timestamp: ts,
+                    server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
+                }))
+                .fail(function(error) {
+                    dbg.log0('Failed resyncing agents to redirector', error);
+                    throw new Error('Failed resyncing agents to redirector');
+                })
+                .then(function() {
+                    done = true;
+                });
+        } catch (ex) {
+            dbg.log0('Caught exception on resyncing agents to redirector', ex.message);
+        }
+    });
 }
 
 /**

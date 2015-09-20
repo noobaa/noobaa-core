@@ -3,6 +3,7 @@
 module.exports = {
     redirect: redirect,
     register_agent: register_agent,
+    unregister_agent: unregister_agent,
     subscribe: subscribe,
     unsubscribe: unsubscribe,
     unsubscribe_all: unsubscribe_all,
@@ -68,6 +69,20 @@ function register_agent(req) {
             req.connection.on('close', cleanup_on_close.bind(undefined, req.connection));
         }
         req.connection.agents.push(agent);
+    }
+    return;
+}
+
+function unregister_agent(req) {
+    dbg.log2('Un-registering agent', req.rpc_params.agent, 'with server', req.rpc_params.server);
+
+    var agent = req.rpc_params.agent;
+    var entry = REGISTERED_AGENTS.agents2srvs[agent];
+    if (entry) {
+        //Remove agent
+        delete REGISTERED_AGENTS.agents2srvs[agent];
+
+        //TODO::NBNB Go over subscribers list and notify them on change
     }
     return;
 }

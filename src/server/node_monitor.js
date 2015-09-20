@@ -4,6 +4,7 @@
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
+    redirect: redirect,
     self_test_to_node_via_web: self_test_to_node_via_web,
     collect_agent_diagnostics: collect_agent_diagnostics,
     set_debug_node: set_debug_node,
@@ -14,10 +15,14 @@ var P = require('../util/promise');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc').server_rpc;
+var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
 
+//On reconnect to redirector, sync al agent_storage
+bg_workers_rpc.on('reconnect', _resync_agents);
 
 /**
  * finding node by id for heatbeat requests uses a barrier for merging DB calls.
@@ -106,8 +111,6 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     }
 });
 
-
-
 /**
  *
  * HEARTBEAT
@@ -122,6 +125,7 @@ function heartbeat(req) {
     }
 
     var params = _.pick(req.rpc_params,
+        'name',
         'id',
         'geolocation',
         'ip',
@@ -137,6 +141,7 @@ function heartbeat(req) {
     params.system = req.system;
 
     var node;
+    var notify_redirector;
 
     dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION);
 
@@ -181,7 +186,8 @@ function heartbeat(req) {
 
             var node_listen_addr = 'n2n://' + node.peer_id;
             dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
-            server_rpc.map_address_to_connection(node_listen_addr, req.connection);
+
+            notify_redirector = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
@@ -239,8 +245,21 @@ function heartbeat(req) {
                 updates.heartbeat = new Date();
                 return node.update(updates).exec();
             }
-
         }).then(function() {
+            if (notify_redirector) {
+                P.when(bg_workers_rpc.client.redirector.register_agent({
+                        agent: node.peer_id,
+                        server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
+                    }))
+                    .fail(function(error) {
+                        dbg.log0('Failed to register agent', error);
+                        _resync_agents();
+                    })
+                    .then(function() {
+                        req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
+                    });
+            }
+
             reply.storage = {
                 alloc: node.storage.alloc || 0,
                 used: node.storage.used || 0,
@@ -255,8 +274,6 @@ function heartbeat(req) {
     }
 }
 
-
-
 /**
  *
  * n2n_signal
@@ -264,13 +281,27 @@ function heartbeat(req) {
  */
 function n2n_signal(req) {
     var target = req.rpc_params.target;
-    console.log('n2n_signal', target);
+    dbg.log1('n2n_signal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
         address: target,
     });
 }
 
-
+/**
+ *
+ * redirect
+ *
+ */
+function redirect(req) {
+    var target = req.rpc_params.target;
+    var api = req.rpc_params.method_api.slice(0, -4);
+    var method = req.rpc_params.method_name;
+    dbg.log3('node_monitor redirect', api + '.' + method, 'to', target,
+        'with params', req.rpc_params.request_params);
+    return server_rpc.client[api][method](req.rpc_params.request_params, {
+        address: target,
+    });
+}
 
 /**
  *
@@ -324,6 +355,43 @@ function set_debug_node(req) {
             dbg.log0('Error on set_debug_node', err);
             return '';
         });
+}
+
+function _unregister_agent(connection, peer_id) {
+    return P.when(bg_workers_rpc.client.redirector.unregister_agent({
+            agent: peer_id,
+            server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
+        }))
+        .fail(function(error) {
+            dbg.log0('Failed to unregister agent', error);
+            _resync_agents();
+        });
+}
+
+function _resync_agents() {
+    var ts = Date.now();
+    var done = false;
+    var agents = server_rpc.get_n2n_addresses();
+
+    //Retry to resync redirector
+    return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
+        try {
+            return P.when(bg_workers_rpc.client.redirector.resync_agents({
+                    agents: agents,
+                    timestamp: ts,
+                    server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
+                }))
+                .fail(function(error) {
+                    dbg.log0('Failed resyncing agents to redirector', error);
+                    throw new Error('Failed resyncing agents to redirector');
+                })
+                .then(function() {
+                    done = true;
+                });
+        } catch (ex) {
+            dbg.log0('Caught exception on resyncing agents to redirector', ex.message);
+        }
+    });
 }
 
 /**

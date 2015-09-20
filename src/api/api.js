@@ -20,6 +20,7 @@ api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./stats_api'));
 api_schema.register_api(require('./cloud_sync_api'));
 api_schema.register_api(require('./debug_api'));
+api_schema.register_api(require('./redirector_api'));
 
 function new_rpc(options) {
     options = options || {};
@@ -27,6 +28,8 @@ function new_rpc(options) {
     var rpc = new RPC(options);
     // abusing the default rpc client as the n2n_signaller for the rpc
     rpc.n2n_signaller = rpc.client.node.n2n_signal;
+    // also abusing the default rpc client for the redirection
+    rpc.redirection = rpc.client.redirector.redirect;
     return rpc;
 }
 

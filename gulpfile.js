@@ -715,7 +715,7 @@ function serve_bg() {
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
         console.error(' ');
         bg_workers_server = null;
-        setTimeout(serve, 1);
+        setTimeout(serve_bg, 1);
     });
     gulp_notify('noobaa bg serving...').end('stam');
 }

@@ -33,6 +33,16 @@ module.exports = {
             }
         },
 
+        unregister_agent: {
+            method: 'POST',
+            params: {
+                $ref: '/signaller_api/definitions/basic_signal_info'
+            },
+            auth: {
+                system: 'admin'
+            }
+        },
+
         subscribe: {
             method: 'POST',
             params: {

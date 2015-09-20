@@ -68,6 +68,11 @@ var object_part_schema = new Schema({
         type: Number,
     },
 
+    // optional and temporary etag for part etag (s3). we set it for part sequence 0 during upload and remove it after.
+    etag: {
+        type: String,
+    },
+
     // on delete set deletion time
     deleted: {
         type: Date

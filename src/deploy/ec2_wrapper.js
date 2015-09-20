@@ -7,7 +7,8 @@ var util = require('util');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
 var AWS = require('aws-sdk');
-
+var promise_utils = require('../util/promise_utils');
+var moment = require('moment');
 
 /**
  *
@@ -358,35 +359,64 @@ function put_object(ip) {
     var params = {
         Bucket: 'files',
         Key: 'ec2_wrapper_test_upgrade.dat',
-        Body: fs.createReadStream('/var/log/authd.log'),
+        Body: fs.createReadStream('/var/log/appstore.log'),
     };
-    console.log('about to upload object',params);
+    console.log('about to upload object');
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
-            console.log('Uploaded object');
-            load_aws_config_env(); //back to EC2/S3
-            return;
-        })
-        .then(null, function(err) {
-            console.error('put_object', err);
-            load_aws_config_env(); //back to EC2/S3
-            throw new Error('put_object' + err);
-        });
-
-    /*return P.fcall(function() {
-        return s3bucket.upload(params).
-        on('httpUploadProgress', function(evt) {
-            console.log(evt);
-        }).send(function(err, data) {
-            if (err) {
-                load_aws_config_env(); //back to EC2/S3
-                throw new Error('Error in upload err:' + err + 'data: ' + data);
-            } else {
+                console.log('Uploaded object',res);
                 load_aws_config_env(); //back to EC2/S3
                 return;
-            }
+            }, function(err) {
+                var wait_limit_in_sec = 1200;
+                var start_moment = moment();
+                var wait_for_agents = (err.statusCode === 500);
+                console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
+                return promise_utils.pwhile(
+                    function() {
+                        return wait_for_agents;
+                    },
+                    function() {
+                        return P.fcall(function() {
+                            //switch to Demo system
+                            return load_demo_config_env();
+                        }).then(function() {
+                            params.Body = fs.createReadStream('/var/log/appstore.log');
+
+                            return P.ninvoke(s3bucket, 'upload', params)
+                            .then(function(res) {
+                                    load_aws_config_env(); //back to EC2/S3
+                                    wait_for_agents = false;
+                                    return;
+                                }, function(err) {
+                                    console.log('failed to upload. Will wait 10 seconds and retry. err', err.statusCode);
+                                    var curr_time = moment();
+                                    if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
+                                        console.error('failed to upload. cannot wait any more', err.statusCode);
+                                        load_aws_config_env(); //back to EC2/S3
+                                        wait_for_agents = false;
+                                    } else {
+                                        return P.delay(10000);
+                                    }
+                                });
+                        });
+                });
         });
-    });*/
+
+/*return P.fcall(function() {
+    return s3bucket.upload(params).
+    on('httpUploadProgress', function(evt) {
+        console.log(evt);
+    }).send(function(err, data) {
+        if (err) {
+            load_aws_config_env(); //back to EC2/S3
+            throw new Error('Error in upload err:' + err + 'data: ' + data);
+        } else {
+            load_aws_config_env(); //back to EC2/S3
+            return;
+        }
+    });
+});*/
 }
 
 function get_object(ip) {
@@ -541,7 +571,7 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
     return P.fcall(get_agent_ami_image_id, region_name, is_win)
         .then(function(ami_image_id) {
 
-            console.log('AddInstance:', region_name, count, ami_image_id, 'script', run_script);
+            console.log('AddInstance:', region_name, count, ami_image_id);
             return ec2_region_call(region_name, 'runInstances', {
                     ImageId: ami_image_id,
                     MaxCount: count,

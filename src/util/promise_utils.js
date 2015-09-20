@@ -21,6 +21,7 @@ module.exports = {
     promised_spawn: promised_spawn,
     promised_exec: promised_exec,
     full_dir_copy: full_dir_copy,
+    pwhile: pwhile,
 };
 
 
@@ -97,6 +98,20 @@ function loop(times, func) {
     }
 }
 
+
+function pwhile(condition, body) {
+    return loop2();
+
+    // When the result of calling `condition` is no longer true, we are done.
+    // Use `when`, in case `body` does not return a promise.
+    // When it completes loop again otherwise, if it fails, reject the
+    // done promise
+    function loop2() {
+        if (condition()) {
+            return P.fcall(body).then(loop2);
+        }
+    }
+}
 
 /**
  *

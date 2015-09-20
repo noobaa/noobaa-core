@@ -28,7 +28,7 @@ var FileStore = function(rootDirectory) {
     };
 
     var deleteBucket = function(bucket, done) {
-        var bucketPath = getBucketPath(bucket.name);
+        var bucketPath = getBucketPath(bucket);
         fs.rmdir(bucketPath, function(err) {
             if (err) {
                 return done(err);
@@ -59,7 +59,7 @@ var FileStore = function(rootDirectory) {
     };
 
     var getObject = function(bucket, key, done) {
-        var filePath = path.resolve(getBucketPath(bucket.name), key);
+        var filePath = path.resolve(getBucketPath(bucket), key);
         console.log('get obj:',filePath,' ',path.join(filePath, CONTENT_FILE));
         fs.exists(filePath, function(exists) {
             if (exists === false) {
@@ -93,7 +93,7 @@ var FileStore = function(rootDirectory) {
     };
 
     var getObjects = function(bucket, options, done) {
-        var bucketPath = getBucketPath(bucket.name);
+        var bucketPath = getBucketPath(bucket);
         var matches = [];
         var keys = utils.walk(bucketPath);
         var filteredKeys = _.filter(keys, function(file) {
@@ -203,31 +203,42 @@ var FileStore = function(rootDirectory) {
     };
 
     var putObject = function(bucket, req, done) {
-        var keyName = path.join(bucket.name, req.params.key);
+        var keyName = path.join(bucket, req.params.key);
         var dirName = path.join(rootDirectory, keyName);
         mkdirp.sync(dirName);
         var contentFile = path.join(dirName, CONTENT_FILE);
         var metaFile = path.join(dirName, METADATA_FILE);
         var key = req.params.key;
         key = key.substr(key.lastIndexOf('/') + 1);
-        console.log('content:',contentFile);
-        fs.writeFile(contentFile, new Buffer(req.body), function(err) {
-            if (err) {
-                return done('Error writing file');
-            }
-            createMetaData({
-                contentFile: contentFile,
-                type: req.headers['content-type'],
-                key: key,
-                metaFile: metaFile,
-                headers: req.headers
-            }, function(err, metaData) {
-                if (err) {
-                    return done('Error uploading file');
-                }
-                return done(null, new S3Object(metaData));
-            });
-        });
+        console.log('content:',contentFile,req.body);
+        var writeStream = fs.createWriteStream(contentFile);
+
+         // This pipes the POST data to the file
+         req.pipe(writeStream);
+
+         // After all the data is saved, respond with a simple html form so they can post more data
+         req.on('end', function () {
+             createMetaData({
+                 contentFile: contentFile,
+                 type: req.headers['content-type'],
+                 key: key,
+                 metaFile: metaFile,
+                 headers: req.headers
+             }, function(err, metaData) {
+                 if (err) {
+                     return done('Error uploading file');
+                 }
+                 return done(null, new S3Object(metaData));
+             });
+         });
+
+         // This is here incase any errors occur
+         writeStream.on('error', function (err) {
+           return done('Error writing file');
+         });
+
+
+
     };
 
     var copyObject = function(srcBucket, srcKey, destBucket, destKey, done) {
@@ -250,7 +261,7 @@ var FileStore = function(rootDirectory) {
     };
 
     var deleteObject = function(bucket, key, done) {
-        var keyPath = path.resolve(getBucketPath(bucket.name), key);
+        var keyPath = path.resolve(getBucketPath(bucket), key);
         async.map([path.join(keyPath, METADATA_FILE),
             path.join(keyPath, CONTENT_FILE)
         ], fs.unlink, function(err) {
@@ -264,7 +275,7 @@ var FileStore = function(rootDirectory) {
     };
 
     var getObjectExists = function(bucket, key, done) {
-        var keyPath = path.resolve(getBucketPath(bucket.name), key);
+        var keyPath = path.resolve(getBucketPath(bucket), key);
         fs.stat(keyPath, function(err, file) {
             if (err || !file.isDirectory()) {
                 return done('Object not found for ' + keyPath);

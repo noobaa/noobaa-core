@@ -50,68 +50,73 @@ function s3app(params) {
         }
     });
     app.use(function(req, res, next) {
+        if (req.headers.host === 'testme') {
+            dbg.log0('LB test page hit');
+            return res.status(200).end();
+        } else {
 
-        return P.fcall(function() {
+            return P.fcall(function() {
 
-                dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'method:', req.method, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
-                var authenticated_request = false;
+                    dbg.log0('S3 request information. Time:', Date.now(), 'url:', req.originalUrl, 'method:', req.method, 'headers:', req.headers, 'query string:', req.query, 'query prefix', req.query.prefix, 'query delimiter', req.query.delimiter);
+                    var authenticated_request = false;
 
-                if (req.headers.authorization) {
+                    if (req.headers.authorization) {
 
-                    //Using noobaa's extraction function, due to compatibility problem in aws library with express.
+                        //Using noobaa's extraction function, due to compatibility problem in aws library with express.
+                        dbg.log0('authorization header exists', req.headers.authorization);
 
-                    var end_of_aws_key = req.headers.authorization.indexOf(':');
-                    var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
-                    req.access_key = req_access_key;
-                    req.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
-                    authenticated_request = true;
-                } else if (req.query.AWSAccessKeyId && req.query.Signature) {
-                    req.access_key = req.query.AWSAccessKeyId;
-                    req.signature = req.query.Signature;
-                    authenticated_request = true;
-                    dbg.log0('signed url');
-                }
-                if (authenticated_request) {
-                    // var s3 = new s3_auth(req);
-                    req.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
-                    // debug code.
-                    // use it for faster detection of a problem in the signature calculation and verification
-                    //
-                    //
-                    //  var s3_internal_signature = s3.sign(req.access_key, req.string_to_sign);
-                    //  dbg.log0('s3 internal:::' + req.string_to_sign,req.query.Signature,req.headers.authorization);
-                    //  if ((req.headers.authorization === 'AWS ' + req.access_key + ':' + s3_internal_signature) ||
-                    //      (req.query.Signature === s3_internal_signature))
-                    //  {
-                    //      dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
-                    //  } else {
-                    //
-                    //      dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization || req.query.Signature);
-                    //  }
+                        var end_of_aws_key = req.headers.authorization.indexOf(':');
+                        var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+                        req.access_key = req_access_key;
+                        req.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
+                        authenticated_request = true;
+                    } else if (req.query.AWSAccessKeyId && req.query.Signature) {
+                        req.access_key = req.query.AWSAccessKeyId;
+                        req.signature = req.query.Signature;
+                        authenticated_request = true;
+                        dbg.log0('signed url');
+                    }
+                    if (authenticated_request) {
+                        // var s3 = new s3_auth(req);
+                        dbg.log0('authenticated request with signature', req.signature);
+                        req.string_to_sign = s3_util.noobaa_string_to_sign(req, res.headers);
+                        // debug code.
+                        // use it for faster detection of a problem in the signature calculation and verification
+                        //
+                        //
+                        //  var s3_internal_signature = s3.sign(req.access_key, req.string_to_sign);
+                        //  dbg.log0('s3 internal:::' + req.string_to_sign,req.query.Signature,req.headers.authorization);
+                        //  if ((req.headers.authorization === 'AWS ' + req.access_key + ':' + s3_internal_signature) ||
+                        //      (req.query.Signature === s3_internal_signature))
+                        //  {
+                        //      dbg.log0('s3 internal authentication test passed!!!',s3_internal_signature);
+                        //  } else {
+                        //
+                        //      dbg.error('s3 internal authentication test failed!!! Computed signature is ',s3_internal_signature, 'while the expected signature is:',req.headers.authorization || req.query.Signature);
+                        //  }
 
-                    return P.fcall(function() {
-                        return controllers.is_system_client_exists(req.access_key);
-                    }).then(function(is_exists) {
-                        if (!is_exists) {
-                            return controllers.add_new_system_client(req);
-                        }
-                        // else {
-                        //     controllers.update_system_auth(req);
-                        // }
-                    });
+                        return P.fcall(function() {
+                            return controllers.is_system_client_exists(req.access_key);
+                        }).then(function(is_exists) {
+                            if (!is_exists) {
+                                return controllers.add_new_system_client(req);
+                            }
+                        });
 
-                } else {
-                    //unauthorized...
-                    dbg.error('Unauthorized request!');
-                    throw (new Error('Unauthorized request!'));
-                }
-            }).then(function() {
-                next();
-            })
-            .then(null, function(err) {
-                dbg.error('Failure during new request handling', err, err.stack);
-                controllers.build_unauthorized_response(res, req.string_to_sign);
-            });
+                    } else {
+                        //unauthorized...
+                        dbg.error('Unauthorized request!');
+                        throw (new Error('Unauthorized request!'));
+                    }
+                }).then(function() {
+                    next();
+                })
+                .then(null, function(err) {
+                    dbg.error('Failure during new request handling', err, err.stack);
+                    controllers.build_unauthorized_response(res, req.string_to_sign);
+                });
+        }
+
     });
 
     /**
@@ -127,12 +132,12 @@ function s3app(params) {
     app.get('/:bucket', controllers.bucketExists, controllers.getBucket);
     app.delete('/:bucket', controllers.bucketExists, controllers.deleteBucket);
     app.put('/:bucket', controllers.putBucket);
-    app.put('/:bucket/:key(*)', controllers.bucketExists, controllers.putObject);
+    app.put('/:bucket/:key(*)', controllers.bucketExistsInCache, controllers.putObject);
     app.get('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.head('/:bucket/:key(*)', controllers.bucketExists, controllers.getObject);
     app.delete('/:bucket/:key(*)', controllers.bucketExists, controllers.deleteObject);
     app.post('/:bucket', controllers.bucketExists, controllers.deleteObjects);
-    app.post('/:bucket/:key(*)', controllers.bucketExists, controllers.postMultipartObject);
+    app.post('/:bucket/:key(*)', controllers.bucketExistsInCache, controllers.postMultipartObject);
 
     return app;
 }

@@ -126,7 +126,30 @@ module.exports = {
                 system: ['admin', 'user']
             }
         },
-
+        complete_part_upload: {
+            method: 'PUT',
+            params: {
+                type: 'object',
+                required: ['bucket', 'key'],
+                properties: {
+                    bucket: {
+                        type: 'string',
+                    },
+                    key: {
+                        type: 'string',
+                    },
+                    upload_part_number: {
+                        type: 'integer',
+                    },
+                    etag: {
+                        type: 'string',
+                    }
+                }
+            },
+            auth: {
+                system: ['admin', 'user']
+            }
+        },
         abort_multipart_upload: {
             method: 'DELETE',
             params: {

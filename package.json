@@ -65,6 +65,7 @@
     "forever": "^0.15.1",
     "forever-service": "^0.5.4",
     "form-data": "^0.2.0",
+    "fs-extra": "^0.24.0",
     "generate-function": "~2.0.0",
     "glob-to-regexp": "~0.1.0",
     "googleapis": "~2.1.3",

@@ -88,6 +88,7 @@ function extract_package {
 function do_upgrade {
   disable_supervisord
 
+  unalias cp
   deploy_log "Tar extracted successfully, Running pre upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} pre
 

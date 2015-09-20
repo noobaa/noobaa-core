@@ -41,6 +41,8 @@ console.log('loading .env file ( no foreman ;)');
 dotenv.load();
 //}
 
+dbg.set_process_name('WebServer');
+
 // address means the address of the server as reachable from the internet
 process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
 
@@ -186,7 +188,7 @@ P.fcall(function() {
         return P.ninvoke(https_server, 'listen', https_port);
     })
     .then(function() {
-        dbg.log('Web Server ports: http', http_port, 'https', https_port);
+        dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
         server_rpc.register_ws_transport(http_server);
         server_rpc.register_ws_transport(https_server);
     })

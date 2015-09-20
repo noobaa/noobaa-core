@@ -36,6 +36,8 @@ function show_usage() {
 }
 
 function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
+    console.log('Upgrading the machine');
+
     var filename;
     if (upgrade_pack.indexOf('/') !== -1) {
         filename = upgrade_pack.substring(upgrade_pack.indexOf('/'));
@@ -60,7 +62,48 @@ function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
         })
         .then(function(httpResponse, body) {
             console.log('Upload package successful');
-            return;
+            var isNotListening = true;
+            return P.delay(60000).then(function() {
+                return promise_utils.pwhile(
+                    function() {
+                        return isNotListening;
+                    },
+                    function() {
+                        return P.ninvoke(request, 'get', {
+                            url: 'http://' + ip + ':8080/',
+                            rejectUnauthorized: false,
+                        }).then(function(res, body) {
+                            console.log('Web Server started after upgrade');
+                            isNotListening = false;
+                        }, function(err) {
+                            console.log('waiting for Web Server to start');
+                            return P.delay(10000);
+                        });
+                    });
+            }).then(function(){
+
+            isNotListening = true;
+            return P.delay(60000).then(function() {
+                return promise_utils.pwhile(
+                    function() {
+                        return isNotListening;
+                    },
+                    function() {
+                        return P.ninvoke(request, 'get', {
+                            url: 'https://' + ip + ':8443/',
+                            rejectUnauthorized: false,
+                        }).then(function(res, body) {
+                            console.log('S3 server started after upgrade');
+                            isNotListening = false;
+                        }, function(err) {
+                            console.log('waiting for S3 server to start');
+                            return P.delay(10000);
+                        });
+                    });
+            });
+        });
+
+
         })
         .then(null, function(err) {
             console.error('Upload package failed', err, err.stack());
@@ -146,7 +189,7 @@ function upload_file(ip) {
                 });
         })
         .then(null, function(err) {
-            console.error('Error in verify_demo_system', err,err.stack);
+            console.error('Error in verify_demo_system', err, err.stack);
             throw new Error('Error in verify_demo_system ' + err);
         });
 }
@@ -193,7 +236,7 @@ function main() {
     } else if (_.isUndefined(argv.upgrade_pack)) {
         missing_params = true;
         console.error('missing upgrade_pack');
-    }else if (!_.isUndefined(argv.region)) {
+    } else if (!_.isUndefined(argv.region)) {
         target_region = argv.region;
     } else if (!_.isUndefined(process.env.AWS_REGION)) {
         target_region = process.env.AWS_REGION;
@@ -226,8 +269,25 @@ function main() {
                     })
                     .then(function(ip) {
                         target_ip = ip;
-                        return;
-                        return upload_and_upgrade(target_ip, argv.upgrade_pack, instance_id, target_region);
+                        var isNotListening = true;
+                        return promise_utils.pwhile(
+                            function() {
+                                return isNotListening;
+                            },
+                            function() {
+                                return P.ninvoke(request, 'get', {
+                                    url: 'http://' + ip + ':8080/',
+                                    rejectUnauthorized: false,
+                                }).then(function(res, body) {
+                                    console.log('server started');
+                                    isNotListening = false;
+                                }, function(err) {
+                                    console.log('waiting for server to start');
+                                    return P.delay(10000);
+                                });
+                            }).then(function(){
+                                return upload_and_upgrade(target_ip, argv.upgrade_pack, instance_id, target_region);
+                            });
                     })
                     .then(function() {
                         return get_agent_setup(target_ip);

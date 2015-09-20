@@ -2,6 +2,10 @@
 require('../util/panic');
 
 var dotenv = require('dotenv');
+//Global Configuration and Initialization
+console.log('loading .env file ( no foreman ;)');
+dotenv.load();
+
 var _ = require('lodash');
 var P = require('../util/promise');
 var mongoose = require('mongoose');
@@ -11,10 +15,6 @@ var cloud_sync = require('./cloud_sync');
 var build_chunks = require('./build_chunks_worker');
 var dbg = require('../util/debug_module')(__filename);
 var mongoose_logger = require('../util/mongoose_logger');
-
-//Global Configuration and Initialization
-console.log('loading .env file ( no foreman ;)');
-dotenv.load();
 
 
 //TODO:: move all this to db index (function and direct call)
@@ -65,7 +65,7 @@ function register_rpc() {
 
     http_server = http.createServer();
     P.fcall(function() {
-            return P.ninvoke(http_server, 'listen', (parseInt(process.env.PORT)+1));
+            return P.ninvoke(http_server, 'listen', bg_workers_rpc.get_default_base_port('background'));
         })
         .then(function() {
             bg_workers_rpc.register_ws_transport(http_server);

@@ -19,7 +19,7 @@ var REGISTERED_AGENTS = {
 };
 
 /*
- * SIGNALLER API
+ * REDIRECTOR API
  */
 function redirect(req) {
     dbg.log2('redirect request for', req.rpc_params);

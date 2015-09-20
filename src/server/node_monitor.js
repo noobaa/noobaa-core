@@ -138,7 +138,7 @@ function heartbeat(req) {
     params.system = req.system;
 
     var node;
-    var notify_signaller;
+    var notify_redirector;
 
     dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION);
 
@@ -184,7 +184,7 @@ function heartbeat(req) {
             var node_listen_addr = 'n2n://' + node.peer_id;
             dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
 
-            notify_signaller = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
+            notify_redirector = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
@@ -243,8 +243,8 @@ function heartbeat(req) {
                 return node.update(updates).exec();
             }
         }).then(function() {
-            if (notify_signaller) {
-                return P.when(bg_workers_rpc.client.signaller.register_agent({
+            if (notify_redirector) {
+                return P.when(bg_workers_rpc.client.redirector.register_agent({
                     agent: node.peer_id,
                     server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
                 }));

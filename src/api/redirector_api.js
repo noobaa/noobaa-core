@@ -2,12 +2,12 @@
 
 /**
  *
- * SIGNALLER API
+ * REDIRECTOR API
  *
  */
 module.exports = {
 
-    name: 'signaller_api',
+    name: 'redirector_api',
 
     methods: {
         redirect: {
@@ -26,7 +26,7 @@ module.exports = {
         register_agent: {
             method: 'POST',
             params: {
-                $ref: '/signaller_api/definitions/basic_signal_info'
+                $ref: '/redirector_api/definitions/basic_registration_info'
             },
             auth: {
                 system: 'admin'
@@ -36,7 +36,7 @@ module.exports = {
         unregister_agent: {
             method: 'POST',
             params: {
-                $ref: '/signaller_api/definitions/basic_signal_info'
+                $ref: '/redirector_api/definitions/basic_registration_info'
             },
             auth: {
                 system: 'admin'
@@ -46,7 +46,7 @@ module.exports = {
         subscribe: {
             method: 'POST',
             params: {
-                $ref: '/signaller_api/definitions/basic_signal_info'
+                $ref: '/redirector_api/definitions/basic_registration_info'
             },
             auth: {
                 system: 'admin'
@@ -56,7 +56,7 @@ module.exports = {
         unsubscribe: {
             method: 'POST',
             params: {
-                $ref: '/signaller_api/definitions/basic_signal_info'
+                $ref: '/redirector_api/definitions/basic_registration_info'
             },
             auth: {
                 system: 'admin'
@@ -84,7 +84,7 @@ module.exports = {
     },
 
     definitions: {
-        basic_signal_info: {
+        basic_registration_info: {
             type: 'object',
             required: ['agent', 'server', 'port'],
             properties: {

@@ -7,9 +7,3 @@ python-setuptools, 18.3.2, Python License 2.0, https://pypi.python.org/pypi/setu
 tcpdump, 4.0.0, BSD, http://www.tcpdump.org
 dialog, 0.7, LGPL, http://invisible-island.net/dialog/
 nsis installer, 3.0b1, zlib/libpng license, http://sourceforge.net/projects/nsis/files/NSIS%203%20Pre-release/3.0b1/
-libb64, 1.2.1, public domain, http://sourceforge.net/projects/libb64
-crc32, 6.0.0, zlib license, http://create.stephan-brumme.com/crc32/
-snappy, 0.0.0, BSD-3, https://github.com/google/snappy,
-libutp, 0.0.0, MIT, https://github.com/bittorrent/libutp,
-udt4, 0.0.0, BSD-3, http://udt.sourceforge.net/,
-usrsctp, 0.0.0, BSD-3, https://github.com/sctplab/usrsctp,

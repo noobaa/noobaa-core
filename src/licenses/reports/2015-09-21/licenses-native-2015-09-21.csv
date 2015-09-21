@@ -1,0 +1,7 @@
+Software, Version, License, Link
+libb64, 1.2.1, public domain, http://sourceforge.net/projects/libb64
+crc32, 6.0.0, zlib license, http://create.stephan-brumme.com/crc32/
+snappy, 0.0.0, BSD-3, https://github.com/google/snappy,
+libutp, 0.0.0, MIT, https://github.com/bittorrent/libutp,
+udt4, 0.0.0, BSD-3, http://udt.sourceforge.net/,
+usrsctp, 0.0.0, BSD-3, https://github.com/sctplab/usrsctp,

@@ -346,7 +346,7 @@ function verify_demo_system(ip) {
         });
 }
 
-function put_object(ip) {
+function put_object(ip, source) {
     load_demo_config_env(); //switch to Demo system
 
     var rest_endpoint = 'http://' + ip + ':80';
@@ -356,67 +356,59 @@ function put_object(ip) {
         sslEnabled: false,
     });
 
+    //if no source file supplied, use a log from the machine
+    if (!source) {
+        source = '/var/log/appstore.log';
+    }
+
     var params = {
         Bucket: 'files',
         Key: 'ec2_wrapper_test_upgrade.dat',
-        Body: fs.createReadStream('/var/log/appstore.log'),
+        Body: fs.createReadStream(source),
     };
     console.log('about to upload object');
+    var start_ts = Date.now();
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
-                console.log('Uploaded object',res);
-                load_aws_config_env(); //back to EC2/S3
-                return;
-            }, function(err) {
-                var wait_limit_in_sec = 1200;
-                var start_moment = moment();
-                var wait_for_agents = (err.statusCode === 500);
-                console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
-                return promise_utils.pwhile(
-                    function() {
-                        return wait_for_agents;
-                    },
-                    function() {
-                        return P.fcall(function() {
-                            //switch to Demo system
-                            return load_demo_config_env();
-                        }).then(function() {
-                            params.Body = fs.createReadStream('/var/log/appstore.log');
-
-                            return P.ninvoke(s3bucket, 'upload', params)
-                            .then(function(res) {
-                                    load_aws_config_env(); //back to EC2/S3
-                                    wait_for_agents = false;
-                                    return;
-                                }, function(err) {
-                                    console.log('failed to upload. Will wait 10 seconds and retry. err', err.statusCode);
-                                    var curr_time = moment();
-                                    if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
-                                        console.error('failed to upload. cannot wait any more', err.statusCode);
-                                        load_aws_config_env(); //back to EC2/S3
-                                        wait_for_agents = false;
-                                    } else {
-                                        return P.delay(10000);
-                                    }
-                                });
-                        });
-                });
-        });
-
-/*return P.fcall(function() {
-    return s3bucket.upload(params).
-    on('httpUploadProgress', function(evt) {
-        console.log(evt);
-    }).send(function(err, data) {
-        if (err) {
-            load_aws_config_env(); //back to EC2/S3
-            throw new Error('Error in upload err:' + err + 'data: ' + data);
-        } else {
+            console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
             load_aws_config_env(); //back to EC2/S3
             return;
-        }
-    });
-});*/
+        }, function(err) {
+            var wait_limit_in_sec = 1200;
+            var start_moment = moment();
+            var wait_for_agents = (err.statusCode === 500);
+            console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
+            return promise_utils.pwhile(
+                function() {
+                    return wait_for_agents;
+                },
+                function() {
+                    return P.fcall(function() {
+                        //switch to Demo system
+                        return load_demo_config_env();
+                    }).then(function() {
+                        params.Body = fs.createReadStream(source);
+                        start_ts = Date.now();
+                        return P.ninvoke(s3bucket, 'upload', params)
+                            .then(function(res) {
+                                console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
+                                load_aws_config_env(); //back to EC2/S3
+                                wait_for_agents = false;
+                                return;
+                            }, function(err) {
+                                console.log('failed to upload. Will wait 10 seconds and retry. err', err.statusCode);
+                                var curr_time = moment();
+                                if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
+                                    console.error('failed to upload. cannot wait any more', err.statusCode);
+                                    load_aws_config_env(); //back to EC2/S3
+                                    wait_for_agents = false;
+                                } else {
+                                    return P.delay(10000);
+                                }
+                            });
+                    });
+                });
+        });
 }
 
 function get_object(ip) {
@@ -434,10 +426,13 @@ function get_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
+    var start_ts = Date.now();
+    console.log('about to download object');
     return P.fcall(function() {
             return s3bucket.getObject(params).createReadStream();
         })
         .then(function() {
+            console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
             load_aws_config_env(); //back to EC2/S3
             return;
         })

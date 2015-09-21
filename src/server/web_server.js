@@ -1,11 +1,6 @@
 'use strict';
 require('../util/panic');
 
-// newrelic monitoring should load first
-if (process.env.NEW_RELIC_LICENSE_KEY) {
-    require('newrelic');
-}
-
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 

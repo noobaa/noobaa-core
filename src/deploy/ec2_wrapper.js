@@ -391,7 +391,7 @@ function put_object(ip, source) {
                         start_ts = Date.now();
                         return P.ninvoke(s3bucket, 'upload', params)
                             .then(function(res) {
-                                console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'result', res);
+                                console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
                                 load_aws_config_env(); //back to EC2/S3
                                 wait_for_agents = false;
                                 return;
@@ -426,10 +426,13 @@ function get_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
+    var start_ts = Date.now();
+    console.log('about to download object');
     return P.fcall(function() {
             return s3bucket.getObject(params).createReadStream();
         })
         .then(function() {
+            console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
             load_aws_config_env(); //back to EC2/S3
             return;
         })

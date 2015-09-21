@@ -13,6 +13,8 @@ var promise_utils = require('../../util/promise_utils');
 var default_instance_type = 'm3.large';
 //var default_instance_type = 't2.micro'; //TODO:: NBNB change back
 
+var test_file = '/tmp/test_upgrade_100mb.dat';
+
 //TODO: on upload file, wait for systemOk ? (see next todo, maybe sleep too)
 //TODO: sleep after agents creation until ready
 
@@ -20,6 +22,7 @@ function show_usage() {
     console.error('\nusage: node test_upgrade_ec2.js <--base_ami AMI_Image_name  | --use_instance instanceid> <--upgrade_pack path_to_upgrade_pack> [--region region] [--name name]');
     console.error('   example: node test_upgrade_ec2.js --base_ami AlphaV0.3 --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1 --name \'New Alpha V0.3 Test\'');
     console.error('   example: node test_upgrade_ec2.js --use_instance i-9d1c955c --upgrade_pack ../build/public/noobaa-NVA.tar.gz --region eu-central-1');
+    console.error('Note: The demo system must exist either in the AMI or on the instance for the test to work');
 
     console.error('\n base_ami -\t\tThe AMI image name to use');
     console.error(' use_instance -\t\tThe already existing instance id to use');
@@ -80,28 +83,28 @@ function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
                             return P.delay(10000);
                         });
                     });
-            }).then(function(){
+            }).then(function() {
 
-            isNotListening = true;
-            return P.delay(60000).then(function() {
-                return promise_utils.pwhile(
-                    function() {
-                        return isNotListening;
-                    },
-                    function() {
-                        return P.ninvoke(request, 'get', {
-                            url: 'https://' + ip + ':8443/',
-                            rejectUnauthorized: false,
-                        }).then(function(res, body) {
-                            console.log('S3 server started after upgrade');
-                            isNotListening = false;
-                        }, function(err) {
-                            console.log('waiting for S3 server to start');
-                            return P.delay(10000);
+                isNotListening = true;
+                return P.delay(60000).then(function() {
+                    return promise_utils.pwhile(
+                        function() {
+                            return isNotListening;
+                        },
+                        function() {
+                            return P.ninvoke(request, 'get', {
+                                url: 'https://' + ip + ':8443/',
+                                rejectUnauthorized: false,
+                            }).then(function(res, body) {
+                                console.log('S3 server started after upgrade');
+                                isNotListening = false;
+                            }, function(err) {
+                                console.log('waiting for S3 server to start');
+                                return P.delay(10000);
+                            });
                         });
-                    });
+                });
             });
-        });
 
 
         })
@@ -178,7 +181,7 @@ function upload_file(ip) {
         .then(function() {
             //upload the file
             return P.fcall(function() {
-                    return ec2_wrap.put_object(ip);
+                    return ec2_wrap.put_object(ip, test_file);
                 })
                 .then(function() {
                     console.log('Upload file successfully');
@@ -285,15 +288,19 @@ function main() {
                                     console.log('waiting for server to start');
                                     return P.delay(10000);
                                 });
-                            }).then(function(){
-                                return upload_and_upgrade(target_ip, argv.upgrade_pack, instance_id, target_region);
-                            });
+                            }).then(function() {
+                            return upload_and_upgrade(target_ip, argv.upgrade_pack, instance_id, target_region);
+                        });
                     })
                     .then(function() {
                         return get_agent_setup(target_ip);
                     })
                     .then(function() {
                         return create_new_agents(target_ip, target_region);
+                    })
+                    .then(function() {
+                        console.log('Generating a 100MB random test file for upload');
+                        return promise_utils.promised_exec('dd if=/dev/random of=' + test_file + ' count=100 bs=1m');
                     })
                     .then(function() {
                         return upload_file(target_ip);

@@ -12,7 +12,10 @@
         'target_name': 'libutp',
         'type': 'static_library',
         'conditions' : [
-            [ 'OS=="mac"', {
+            [ 'OS=="mac" ', {
+                'defines': ['POSIX']
+            }],
+            [ 'OS=="linux" ', {
                 'defines': ['POSIX']
             }]
         ],

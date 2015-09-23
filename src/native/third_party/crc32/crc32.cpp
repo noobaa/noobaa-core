@@ -19,13 +19,14 @@
 
 
 #include <stdlib.h>
+#include <stdint.h>
 
 static union {
     uint32_t x;
     char c[4];
-} order_checker = {0x01020304};
+} order_checker = {0x11223344};
 
-static const bool IS_BIG_ENDIAN = (order_checker.c[0] == 1);
+static const bool IS_BIG_ENDIAN = (order_checker.c[0] == 0x11);
 
 
 // define endianess and some integer data types

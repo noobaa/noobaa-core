@@ -41,6 +41,9 @@
         'conditions' : [
             [ 'OS=="mac"', {
                 'defines': ['POSIX']
+            }],
+            [ 'OS=="linux" ', {
+                'defines': ['POSIX']
             }]
         ],
         'dependencies': ['libutp'],

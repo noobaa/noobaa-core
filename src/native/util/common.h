@@ -23,6 +23,19 @@
 #include <node_buffer.h>
 #include <nan.h>
 
+#ifdef WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+    #include <winsock2.h>
+    #include <ws2tcpip.h>
+#else
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <unistd.h>
+    #include <sys/socket.h>
+#endif
+
+#include "../third_party/endian.h"
 #include "backtrace.h"
 
 namespace noobaa {
@@ -93,7 +106,8 @@ public:
         , _bt(new Backtrace())
     {
     }
-    virtual ~Exception() throw() {
+    virtual ~Exception() throw()
+    {
     }
     virtual const char* what() const throw()
     {
@@ -111,11 +125,11 @@ private:
 typedef std::shared_ptr<Nan::Callback> NanCallbackSharedPtr;
 
 template <class T>
-inline v8::Local<T> UnmaybeLocal(v8::Local<T> h) {
+inline v8::Local<T> Unmaybe(v8::Local<T> h) {
     return h;
 }
 template <class T>
-inline v8::Local<T> UnmaybeLocal(Nan::MaybeLocal<T> h) {
+inline v8::Local<T> Unmaybe(Nan::MaybeLocal<T> h) {
     return h.ToLocalChecked();
 }
 inline int NanKey(int i) {
@@ -170,7 +184,7 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         if (!info.IsConstructCall()) { \
             /* Invoked as plain function call, turn into construct 'new' call. */ \
             int argc = info.Length(); \
-            std::vector<v8::Local<v8::Value> > argv(argc); \
+            std::vector<v8::Local<v8::Value>> argv(argc); \
             for (int i=0; i<argc; ++i) { \
                 argv[i] = info[i]; \
             } \

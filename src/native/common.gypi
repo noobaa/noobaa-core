@@ -66,9 +66,14 @@
         'cflags!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
         'cflags_cc!': ['-fno-exceptions', '-fno-rtti', '-fno-threadsafe-statics'],
         'cflags_cc': ['-std=c++0x'],
-
         'libraries': [
             '<(openssl_lib)',
+        ],
+
+        'conditions' : [
+            [ 'OS=="linux"', {
+                'ldflags': ['-lrt']
+            }]
         ],
 
         'xcode_settings': {

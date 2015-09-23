@@ -80,6 +80,19 @@
 	#define snprintf _snprintf
 #endif
 
+#include <stdint.h>
+typedef uint8_t byte;
+typedef uint8_t uint8;
+typedef int8_t int8;
+typedef uint16_t uint16;
+typedef int16_t int16;
+typedef uint32_t uint;
+typedef uint32_t uint32;
+typedef int32_t int32;
+typedef uint64_t uint64;
+typedef int64_t int64;
+
+/*
 // standard types
 typedef unsigned char byte;
 typedef unsigned char uint8;
@@ -97,6 +110,7 @@ typedef signed __int64 int64;
 typedef unsigned long long uint64;
 typedef long long int64;
 #endif
+*/
 
 /* compile-time assert */
 #ifndef CASSERT

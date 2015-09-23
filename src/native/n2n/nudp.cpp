@@ -261,8 +261,8 @@ Nudp::_write_data()
         const int remain_iovecs = num_iovecs - m->iov_index;
         if (remain_iovecs <= 0) {
             DBG3("Nudp::_write_data: write message done"
-                 << " seq " << ntohll(m->hdr.seq)
-                 << " len " << ntohl(m->hdr.len)
+                 << " seq " << be64toh(m->hdr.seq)
+                 << " len " << be32toh(m->hdr.len)
                  << " messages " << _messages.size()
                  << " local_port " << _local_port);
             v8::Local<v8::Value> argv[] = { Nan::Undefined() };
@@ -273,8 +273,8 @@ Nudp::_write_data()
         }
         utp_iovec* iop = &m->iovecs[m->iov_index];
         DBG3("Nudp::_write_data:"
-             << " seq " << ntohll(m->hdr.seq)
-             << " len " << ntohl(m->hdr.len)
+             << " seq " << be64toh(m->hdr.seq)
+             << " len " << be32toh(m->hdr.len)
              << " remain iovecs " << remain_iovecs
              << " next iovec len " << iop->iov_len
              << " messages " << _messages.size()
@@ -769,20 +769,20 @@ Nudp::Msg::~Msg()
 void
 Nudp::MsgHdr::encode()
 {
-    len = htonl(len);
-    seq = htonll(seq);
+    len = htobe32(len);
+    seq = htobe64(seq);
     #if NUDP_USE_CRC
-    crc = htonl(crc);
+    crc = htobe32(crc);
     #endif
 }
 
 void
 Nudp::MsgHdr::decode()
 {
-    len = ntohl(len);
-    seq = ntohll(seq);
+    len = be32toh(len);
+    seq = be64toh(seq);
     #if NUDP_USE_CRC
-    crc = ntohl(crc);
+    crc = be32toh(crc);
     #endif
 }
 

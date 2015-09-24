@@ -36,6 +36,9 @@
 #include <string>
 #include <vector>
 
+#ifdef _WIN32
+typedef int ssize_t;
+#endif
 
 namespace snappy {
 

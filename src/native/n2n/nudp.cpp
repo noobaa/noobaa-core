@@ -386,15 +386,21 @@ Nudp::_read_data(const uint8_t *buf, int len)
                                  _recv_hdr.len > 128 ? 128 : _recv_hdr.len,
                                  "Nudp::_read_data (payload)");
                     // TODO close connection instead of panic
+                    #if NUDP_USE_CRC
                     PANIC("bad message:"
                           << " magic " << _recv_hdr.magic
                           << " seq " << _recv_hdr.seq
                           << " expected " << _recv_msg_seq
-                          #if NUDP_USE_CRC
                           << " crc 0x" << std::hex << crc
                           << " expected 0x" << _recv_hdr.crc << std::dec
-                          #endif
                           << " len " << _recv_hdr.len);
+                    #else
+                    PANIC("bad message:"
+                          << " magic " << _recv_hdr.magic
+                          << " seq " << _recv_hdr.seq
+                          << " expected " << _recv_msg_seq
+                          << " len " << _recv_hdr.len);
+                    #endif
                 }
                 _recv_msg_seq += 1;
                 // ownership on memory passed to the node buffer

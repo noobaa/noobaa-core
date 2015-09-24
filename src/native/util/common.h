@@ -23,11 +23,12 @@
 #include <node_buffer.h>
 #include <nan.h>
 
-#ifdef WIN32
+#ifdef _WIN32
     #define WIN32_LEAN_AND_MEAN
-    #include <windows.h>
     #include <winsock2.h>
     #include <ws2tcpip.h>
+    // windows.h must be included after winsock2.h
+    #include <windows.h>
 #else
     #include <netinet/in.h>
     #include <arpa/inet.h>
@@ -154,10 +155,8 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 #define NAN_GET_ARR(obj, key) (NAN_GET(obj, key).As<v8::Array>())
 #define NAN_GET_INT(obj, key) (NAN_GET(obj, key)->Int32Value())
 #define NAN_GET_BUF(obj, key) \
-    ({ \
-        auto node_buf = NAN_GET_OBJ(obj, key); \
-        Buf(node::Buffer::Data(node_buf), node::Buffer::Length(node_buf)); \
-    })
+    Buf(node::Buffer::Data(NAN_GET_OBJ(obj, key)), \
+        node::Buffer::Length(NAN_GET_OBJ(obj, key)))
 
 #define NAN_SET(obj, key, val) (Nan::Set(obj, NanKey(key), val))
 #define NAN_SET_STR(obj, key, val) (NAN_SET(obj, key, NAN_STR(val)))

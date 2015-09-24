@@ -97,10 +97,10 @@ module.exports = {
         n2n_signal: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_request'
+                $ref: '/node_api/definitions/signal_params'
             },
             reply: {
-                $ref: '/node_api/definitions/signal_response'
+                $ref: '/node_api/definitions/signal_reply'
             },
         },
 

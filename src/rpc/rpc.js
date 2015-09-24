@@ -186,7 +186,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
     // assign a connection to the request
     var conn = self._assign_connection(req, options);
-    if (conn === null) { //redirection
+    if (!conn) { //redirection
         return self._redirect(api, method_api, params, options);
     }
 
@@ -438,7 +438,7 @@ RPC.prototype.map_address_to_connection = function(address, conn) {
  */
 RPC.prototype.get_n2n_addresses = function() {
     var addresses = [];
-    _.each(_.keys(this._connection_by_address), function(address) {
+    _.each(this._connection_by_address, function(conn, address) {
         if (address.indexOf('n2n://') !== -1) {
             addresses.push(address.slice(6));
         }

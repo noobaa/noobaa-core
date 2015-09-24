@@ -341,10 +341,10 @@ module.exports = {
         redirect: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_request'
+                $ref: '/node_api/definitions/signal_params'
             },
             reply: {
-                $ref: '/node_api/definitions/signal_response'
+                $ref: '/node_api/definitions/signal_reply'
             },
             auth: {
                 system: false
@@ -503,7 +503,7 @@ module.exports = {
             }
         },
 
-        signal_request: {
+        signal_params: {
             type: 'object',
             required: ['target', 'method_api', 'method_name'],
             properties: {
@@ -523,7 +523,7 @@ module.exports = {
             },
         },
 
-        signal_response: {
+        signal_reply: {
             type: 'object',
             required: [],
             additionalProperties: true,

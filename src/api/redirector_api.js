@@ -13,10 +13,10 @@ module.exports = {
         redirect: {
             method: 'POST',
             params: {
-                $ref: '/node_api/definitions/signal_request'
+                $ref: '/node_api/definitions/signal_params'
             },
             reply: {
-                $ref: '/node_api/definitions/signal_response'
+                $ref: '/node_api/definitions/signal_reply'
             },
             auth: {
                 system: false
@@ -74,7 +74,7 @@ module.exports = {
             type: 'object',
             required: ['agent', 'server', 'port'],
             properties: {
-                agent: {
+                peer_id: {
                     type: 'string',
                 },
                 server: {

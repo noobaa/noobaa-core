@@ -22,6 +22,7 @@ var REGISTERED_AGENTS = {
 function redirect(req) {
     dbg.log2('redirect request for', req.rpc_params);
 
+    //Remove the leading n2n:// prefix from the address
     var target_agent = req.rpc_params.target.slice(6);
     var entry = REGISTERED_AGENTS.agents2srvs[target_agent];
     if (entry) {
@@ -37,9 +38,9 @@ function redirect(req) {
 }
 
 function register_agent(req) {
-    dbg.log2('Registering agent', req.rpc_params.agent, 'with server', req.rpc_params.server);
+    dbg.log2('Registering agent', req.rpc_params.peer_id, 'with server', req.rpc_params.server);
 
-    var agent = req.rpc_params.agent;
+    var agent = req.rpc_params.peer_id;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
     if (entry) {
         //Update data
@@ -53,7 +54,7 @@ function register_agent(req) {
 
         //Save agent on connection for quick cleanup on close,
         //Register on close handler to clean the agents form the agents2srvs map
-        if (!_.has(req.connection, 'agents')) {
+        if (!req.connection.agents) {
             req.connection.agents = [];
             req.connection.on('close', cleanup_on_close.bind(undefined, req.connection));
         }
@@ -63,9 +64,9 @@ function register_agent(req) {
 }
 
 function unregister_agent(req) {
-    dbg.log2('Un-registering agent', req.rpc_params.agent, 'with server', req.rpc_params.server);
+    dbg.log2('Un-registering agent', req.rpc_params.peer_id, 'with server', req.rpc_params.server);
 
-    var agent = req.rpc_params.agent;
+    var agent = req.rpc_params.peer_id;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
     if (entry) {
         //Remove agent
@@ -95,5 +96,5 @@ function cleanup_on_close(connection) {
     _.each(connection.agents, function(agent) {
         delete REGISTERED_AGENTS.agents2srvs[agent];
     });
-    connection.agents = [];
+    connection.agents = null;
 }

@@ -125,7 +125,6 @@ function heartbeat(req) {
     }
 
     var params = _.pick(req.rpc_params,
-        'name',
         'id',
         'geolocation',
         'ip',
@@ -247,16 +246,14 @@ function heartbeat(req) {
             }
         }).then(function() {
             if (notify_redirector) {
+                req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
                 P.when(bg_workers_rpc.client.redirector.register_agent({
-                        agent: node.peer_id,
+                        peer_id: node.peer_id,
                         server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
                     }))
                     .fail(function(error) {
                         dbg.log0('Failed to register agent', error);
                         _resync_agents();
-                    })
-                    .then(function() {
-                        req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
                     });
             }
 
@@ -359,7 +356,7 @@ function set_debug_node(req) {
 
 function _unregister_agent(connection, peer_id) {
     return P.when(bg_workers_rpc.client.redirector.unregister_agent({
-            agent: peer_id,
+            peer_id: peer_id,
             server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
         }))
         .fail(function(error) {
@@ -369,13 +366,13 @@ function _unregister_agent(connection, peer_id) {
 }
 
 function _resync_agents() {
-    var ts = Date.now();
     var done = false;
-    var agents = server_rpc.get_n2n_addresses();
 
     //Retry to resync redirector
     return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
         try {
+            var agents = server_rpc.get_n2n_addresses();
+            var ts = Date.now();
             return P.when(bg_workers_rpc.client.redirector.resync_agents({
                     agents: agents,
                     timestamp: ts,

@@ -249,7 +249,6 @@ function heartbeat(req) {
                 req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
                 P.when(bg_workers_rpc.client.redirector.register_agent({
                         peer_id: node.peer_id,
-                        server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
                     }))
                     .fail(function(error) {
                         dbg.log0('Failed to register agent', error);
@@ -357,7 +356,6 @@ function set_debug_node(req) {
 function _unregister_agent(connection, peer_id) {
     return P.when(bg_workers_rpc.client.redirector.unregister_agent({
             peer_id: peer_id,
-            server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
         }))
         .fail(function(error) {
             dbg.log0('Failed to unregister agent', error);
@@ -376,7 +374,6 @@ function _resync_agents() {
             return P.when(bg_workers_rpc.client.redirector.resync_agents({
                     agents: agents,
                     timestamp: ts,
-                    server: 'ws://127.0.0.1:5001', //TODO:: Actual port once we have several servers on the same node
                 }))
                 .fail(function(error) {
                     dbg.log0('Failed resyncing agents to redirector', error);

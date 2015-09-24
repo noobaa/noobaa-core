@@ -38,18 +38,18 @@ function redirect(req) {
 }
 
 function register_agent(req) {
-    dbg.log2('Registering agent', req.rpc_params.peer_id, 'with server', req.rpc_params.server);
+    dbg.log2('Registering agent', req.rpc_params.peer_id, 'with server', req.connection.url);
 
     var agent = req.rpc_params.peer_id;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
     if (entry) {
         //Update data
         REGISTERED_AGENTS.agents2srvs[agent] = {
-            server: req.rpc_params.server,
+            server: req.connection.url,
         };
     } else {
         REGISTERED_AGENTS.agents2srvs[agent] = {
-            server: req.rpc_params.server,
+            server: req.connection.url,
         };
 
         //Save agent on connection for quick cleanup on close,
@@ -64,26 +64,31 @@ function register_agent(req) {
 }
 
 function unregister_agent(req) {
-    dbg.log2('Un-registering agent', req.rpc_params.peer_id, 'with server', req.rpc_params.server);
+    dbg.log2('Un-registering agent', req.rpc_params.peer_id, 'with server', req.connection.url);
 
     var agent = req.rpc_params.peer_id;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
     if (entry) {
-        //Remove agent
-        delete REGISTERED_AGENTS.agents2srvs[agent];
+        if (req.connection.url === entry.server) {
+            //Remove agent
+            delete REGISTERED_AGENTS.agents2srvs[agent];
+        } else {
+            dbg.log0('Error: recieved unregister for', agent, 'on connection to', req.connection.url,
+                'while previously registered on', entry.server, ', ignoring');
+        }
     }
     return;
 }
 
 function resync_agents(req) {
-    dbg.log2('resync_agents of #', req.rpc_params.agents.length, 'agents with server', req.rpc_params.server);
+    dbg.log2('resync_agents of #', req.rpc_params.agents.length, 'agents with server', req.connection.url);
     if (req.connection.last_resync &&
         req.connection.last_resync < req.rpc_params.timestamp) {
         cleanup_on_close(req.connection);
         req.connection.last_resync = req.rpc_params.timestamp;
         _.each(req.rpc_params.agents, function(a) {
             REGISTERED_AGENTS.agents2srvs[a] = {
-                server: req.rpc_params.server,
+                server: req.connection.url,
             };
             req.connection.agents.push(a);
         });

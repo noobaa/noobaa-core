@@ -48,9 +48,6 @@ module.exports = {
             params: {
                 type: 'object',
                 properties: {
-                    server: {
-                        type: 'string',
-                    },
                     timestamp: {
                         type: 'integer',
                         format: 'idate',
@@ -77,12 +74,6 @@ module.exports = {
                 peer_id: {
                     type: 'string',
                 },
-                server: {
-                    type: 'string',
-                },
-                port: {
-                    type: 'integer',
-                }
             }
         }
     }

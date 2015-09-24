@@ -30,7 +30,7 @@ var P = require('../util/promise');
 var AWS = require('aws-sdk');
 var db = require('./db');
 var object_server = require('./object_server');
-var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
+var bg_worker = require('./server_rpc').bg_worker;
 var dbg = require('../util/debug_module')(__filename);
 
 
@@ -138,7 +138,7 @@ function delete_bucket(req) {
         })
         .then(db.check_not_found(req, 'bucket'))
         .then(function() {
-            return P.when(bg_workers_rpc.client.cloud_sync.refresh_policy({
+            return P.when(bg_worker.cloud_sync.refresh_policy({
                 sysid: req.system.id,
                 bucketid: bucketid.toString(),
                 force_stop: true,
@@ -189,7 +189,7 @@ function get_cloud_sync_policy(req) {
         .then(function(b) {
             var bucket = b;
             if (bucket.cloud_sync && bucket.cloud_sync.endpoint) {
-                return P.when(bg_workers_rpc.client.cloud_sync.get_policy_status({
+                return P.when(bg_worker.cloud_sync.get_policy_status({
                         sysid: req.system.id,
                         bucketid: bucket._id.toString()
                     }))
@@ -235,7 +235,7 @@ function get_all_cloud_sync_policies(req) {
         .then(function(buckets) {
             _.each(buckets, function(bucket, i) {
                 if (bucket.cloud_sync.endpoint) {
-                    return P.when(bg_workers_rpc.client.cloud_sync.get_policy_status({
+                    return P.when(bg_worker.cloud_sync.get_policy_status({
                             sysid: req.system.id,
                             bucketid: bucket._id.toString()
                         }))
@@ -288,7 +288,7 @@ function delete_cloud_sync(req) {
                 .exec());
         })
         .then(function() {
-            return P.when(bg_workers_rpc.client.cloud_sync.refresh_policy({
+            return P.when(bg_worker.cloud_sync.refresh_policy({
                 sysid: req.system.id,
                 bucketid: bucketid.toString(),
                 force_stop: true,
@@ -354,7 +354,7 @@ function set_cloud_sync(req) {
             return object_server.set_all_files_for_sync(req.system.id, bucket._id);
         })
         .then(function() {
-            return P.when(bg_workers_rpc.client.cloud_sync.refresh_policy({
+            return P.when(bg_worker.cloud_sync.refresh_policy({
                 sysid: req.system.id,
                 bucketid: bucket._id.toString(),
                 force_stop: force_stop,

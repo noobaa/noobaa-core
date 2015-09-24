@@ -17,12 +17,11 @@ var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
 var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc').server_rpc;
-var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
+var bg_worker = require('./server_rpc').bg_worker;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
 
-//On reconnect to redirector, sync al agent_storage
-bg_workers_rpc.on('reconnect', _resync_agents);
+server_rpc.on('reconnect', _on_reconnect);
 
 /**
  * finding node by id for heatbeat requests uses a barrier for merging DB calls.
@@ -247,7 +246,7 @@ function heartbeat(req) {
         }).then(function() {
             if (notify_redirector) {
                 req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
-                P.when(bg_workers_rpc.client.redirector.register_agent({
+                P.when(bg_worker.redirector.register_agent({
                         peer_id: node.peer_id,
                     }))
                     .fail(function(error) {
@@ -354,7 +353,7 @@ function set_debug_node(req) {
 }
 
 function _unregister_agent(connection, peer_id) {
-    return P.when(bg_workers_rpc.client.redirector.unregister_agent({
+    return P.when(bg_worker.redirector.unregister_agent({
             peer_id: peer_id,
         }))
         .fail(function(error) {
@@ -363,15 +362,23 @@ function _unregister_agent(connection, peer_id) {
         });
 }
 
+function _on_reconnect(conn) {
+    dbg.log2('_on_reconnect called', conn.url.href, server_rpc.get_default_base_address('backgroubd'));
+    if (_.startsWith(server_rpc.get_default_base_address('background'), conn.url.href)) {
+        _resync_agents();
+    }
+}
+
 function _resync_agents() {
     var done = false;
+    dbg.log2('_resync_agents called');
 
     //Retry to resync redirector
     return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
         try {
             var agents = server_rpc.get_n2n_addresses();
             var ts = Date.now();
-            return P.when(bg_workers_rpc.client.redirector.resync_agents({
+            return P.when(bg_worker.redirector.resync_agents({
                     agents: agents,
                     timestamp: ts,
                 }))
@@ -387,42 +394,3 @@ function _resync_agents() {
         }
     });
 }
-
-/**
- *
- * NODE_MONITOR_WORKER
- *
- * background worker that scans chunks and builds them according to their blocks status
- *
- * /
-var node_monitor_worker = promise_utils.run_background_worker({
-
-    name: 'node_monitor_worker',
-    batch_size: 100,
-    time_since_last_build: 3000, // TODO increase...
-    building_timeout: 60000, // TODO increase...
-
-    /**
-     * run the next batch of node scan
-     * /
-    run_batch: function() {
-        var self = this;
-        return P.fcall(function() {
-                dbg.log0('NODE_MONITOR_WORKER:', 'RUN');
-            })
-            .then(function() {
-                // return the delay before next batch
-                if (self.last_node_id) {
-                    return 1000;
-                } else {
-                    return 60000;
-                }
-            }, function(err) {
-                // return the delay before next batch
-                dbg.log0('NODE_MONITOR_WORKER:', 'ERROR', err, err.stack);
-                return 10000;
-            });
-    }
-
-});
-*/

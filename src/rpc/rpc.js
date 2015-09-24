@@ -673,8 +673,6 @@ RPC.prototype._connection_closed = function(conn) {
     });
 
     // for base_address try to reconnect after small delay.
-    // using _.startsWith() since in some cases url.parse will add a trailing /
-    // specifically in http urls for some strange reason...
     if (!conn._no_reconnect && self._should_reconnect(conn.url.href)) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
@@ -733,6 +731,8 @@ RPC.prototype._redirect = function(api, method, params, options) {
 
 RPC.prototype._should_reconnect = function(href) {
     var self = this;
+    // using _.startsWith() since in some cases url.parse will add a trailing /
+    // specifically in http urls for some strange reason...
     if (_.startsWith(href, self.get_default_base_address()) ||
         _.startsWith(href, self.get_default_base_address('background'))) {
         return true;

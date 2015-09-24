@@ -34,6 +34,9 @@ function new_rpc(options) {
 }
 
 var api_rpc = new_rpc();
+var bg_workers_client = api_rpc.create_schema_client(api_schema, _.create({
+    address: api_rpc.get_default_base_address('background')
+}));
 
 
 module.exports = {
@@ -41,6 +44,7 @@ module.exports = {
     rpc: api_rpc,
     new_rpc: new_rpc,
     Client: Client,
+    bg_workers_client: bg_workers_client
 };
 
 /**

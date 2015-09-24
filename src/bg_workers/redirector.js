@@ -9,7 +9,7 @@ module.exports = {
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var server_rpc = require('./bg_workers_rpc').server_rpc;
+var bg_workers_rpc = require('./bg_workers_rpc').bg_workers_rpc;
 var dbg = require('../util/debug_module')(__filename);
 
 var REGISTERED_AGENTS = {
@@ -26,30 +26,28 @@ function redirect(req) {
     var target_agent = req.rpc_params.target.slice(6);
     var entry = REGISTERED_AGENTS.agents2srvs[target_agent];
     if (entry) {
-        return P.when(server_rpc.client.node.redirect(req.rpc_params, {
-                address: entry.server,
-            }))
-            .then(function(res) {
-                return res;
-            });
+        dbg.log3('redirect found entry', entry);
+        return P.when(bg_workers_rpc.client.node.redirect(req.rpc_params, {
+            address: entry.server,
+        }));
     } else {
-        throw new Error('Agent not registered' + target_agent);
+        throw new Error('Agent not registered ' + target_agent);
     }
 }
 
 function register_agent(req) {
-    dbg.log2('Registering agent', req.rpc_params.peer_id, 'with server', req.connection.url);
+    dbg.log2('Registering agent', req.rpc_params.peer_id, 'with server', req.connection.url.href);
 
     var agent = req.rpc_params.peer_id;
     var entry = REGISTERED_AGENTS.agents2srvs[agent];
     if (entry) {
         //Update data
         REGISTERED_AGENTS.agents2srvs[agent] = {
-            server: req.connection.url,
+            server: req.connection.url.href,
         };
     } else {
         REGISTERED_AGENTS.agents2srvs[agent] = {
-            server: req.connection.url,
+            server: req.connection.url.href,
         };
 
         //Save agent on connection for quick cleanup on close,

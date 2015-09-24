@@ -289,7 +289,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     req.connection = conn;
     var rseq = conn._rpc_req_seq || 1;
     conn._rpc_req_seq = rseq + 1;
-    req.reqid = msg.header.reqid ? msg.header.reqid  : (rseq + '@' + conn.connid);
+    req.reqid = msg.header.reqid ? msg.header.reqid : (rseq + '@' + conn.connid);
 
     // find the requested service
     var srv = msg.header.api +
@@ -730,10 +730,7 @@ RPC.prototype._redirect = function(api, method, params, options) {
 
     return P.when(self.redirection(req, {
         address: self.redirector_transport.href,
-    })).
-    then(function(res) {
-        return res;
-    });
+    }));
 };
 
 

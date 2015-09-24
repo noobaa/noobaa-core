@@ -6,6 +6,7 @@ var P = require('../util/promise');
 var moment = require('moment');
 var chance = new (require('chance').Chance)();
 var promise_utils = require('../util/promise_utils');
+var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);
 
 var nb_api = angular.module('nb_api');
@@ -344,7 +345,7 @@ nb_api.factory('nbNodes', [
                             });
                             dbg.log0('SELF TEST got', online_nodes.length,
                                 'online nodes out of', nodes.length, 'total nodes');
-                            if (online_nodes.length < 3) {
+                            if (online_nodes.length < config.min_node_number) {
                                 nbAlertify.error('Not enough online nodes');
                                 throw new Error('Not enough online nodes');
                             }

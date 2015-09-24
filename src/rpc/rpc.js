@@ -7,8 +7,6 @@ var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var assert = require('assert');
-// var ip_module = require('ip');
-// var time_utils = require('../util/time_utils');
 var dbg = require('../util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
@@ -289,7 +287,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     req.connection = conn;
     var rseq = conn._rpc_req_seq || 1;
     conn._rpc_req_seq = rseq + 1;
-    req.reqid = msg.header.reqid ? msg.header.reqid  : (rseq + '@' + conn.connid);
+    req.reqid = msg.header.reqid ? msg.header.reqid : (rseq + '@' + conn.connid);
 
     // find the requested service
     var srv = msg.header.api +
@@ -675,9 +673,7 @@ RPC.prototype._connection_closed = function(conn) {
     });
 
     // for base_address try to reconnect after small delay.
-    // using _.startsWith() since in some cases url.parse will add a trailing /
-    // specifically in http urls for some strange reason...
-    if (!conn._no_reconnect && _.startsWith(conn.url.href, self.base_address)) {
+    if (!conn._no_reconnect && self._should_reconnect(conn.url.href)) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
 };
@@ -730,10 +726,18 @@ RPC.prototype._redirect = function(api, method, params, options) {
 
     return P.when(self.redirection(req, {
         address: self.redirector_transport.href,
-    })).
-    then(function(res) {
-        return res;
-    });
+    }));
+};
+
+RPC.prototype._should_reconnect = function(href) {
+    var self = this;
+    // using _.startsWith() since in some cases url.parse will add a trailing /
+    // specifically in http urls for some strange reason...
+    if (_.startsWith(href, self.get_default_base_address()) ||
+        _.startsWith(href, self.get_default_base_address('background'))) {
+        return true;
+    }
+    return false;
 };
 
 

@@ -39,9 +39,8 @@ var promise_utils = require('../util/promise_utils');
 var diag = require('./utils/server_diagnostics');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
-var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
+var bg_worker = require('./server_rpc').bg_worker;
 var AWS = require('aws-sdk');
-//var fs = require('fs');
 var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 var bucket_server = require('./bucket_server');
@@ -637,7 +636,7 @@ function start_debug(req) {
             module: 'core'
         }))
         .then(function() {
-            return P.when(bg_workers_rpc.client.debug.set_debug_level({
+            return P.when(bg_worker.debug.set_debug_level({
                 level: 5,
                 module: 'core'
             }));
@@ -651,7 +650,7 @@ function start_debug(req) {
                     }));
                 })
                 .then(function() {
-                    return P.when(bg_workers_rpc.client.debug.set_debug_level({
+                    return P.when(bg_worker.debug.set_debug_level({
                         level: 0,
                         module: 'core'
                     }));

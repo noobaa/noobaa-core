@@ -5,17 +5,14 @@ var api = require('../api');
 // using the api rpc instance.
 // we can certainly create a new one, but we don't need for now.
 var server_rpc = api.rpc;
-var bg_workers_rpc = api.new_rpc();
+var bg_worker_client = api.bg_workers_client;
 
 // base rpc address for server is redirected locally
 server_rpc.base_address = 'fcall://fcall';
 
-// base rpc address for background workers is local, but a different process
-bg_workers_rpc.base_address = bg_workers_rpc.get_default_base_address('background');
-
 module.exports = {
     server_rpc: server_rpc,
-    bg_workers_rpc: bg_workers_rpc,
+    bg_worker: bg_worker_client,
     register_servers: register_servers,
 };
 

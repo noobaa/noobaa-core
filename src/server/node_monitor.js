@@ -139,7 +139,6 @@ function heartbeat(req) {
     params.system = req.system;
 
     var node;
-    var notify_redirector;
 
     dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION);
 
@@ -185,7 +184,20 @@ function heartbeat(req) {
             var node_listen_addr = 'n2n://' + node.peer_id;
             dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
 
-            notify_redirector = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
+            //Add node to RPC map and notify redirector if needed
+            var notify_redirector = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
+            if (notify_redirector) {
+                req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
+                P.fcall(function() {
+                        return bg_worker.redirector.register_agent({
+                            peer_id: node.peer_id,
+                        });
+                    })
+                    .fail(function(error) {
+                        dbg.log0('Failed to register agent', error);
+                        _resync_agents();
+                    });
+            }
 
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
@@ -244,17 +256,6 @@ function heartbeat(req) {
                 return node.update(updates).exec();
             }
         }).then(function() {
-            if (notify_redirector) {
-                req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
-                P.when(bg_worker.redirector.register_agent({
-                        peer_id: node.peer_id,
-                    }))
-                    .fail(function(error) {
-                        dbg.log0('Failed to register agent', error);
-                        _resync_agents();
-                    });
-            }
-
             reply.storage = {
                 alloc: node.storage.alloc || 0,
                 used: node.storage.used || 0,
@@ -370,27 +371,19 @@ function _on_reconnect(conn) {
 }
 
 function _resync_agents() {
-    var done = false;
     dbg.log2('_resync_agents called');
 
     //Retry to resync redirector
     return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
-        try {
-            var agents = server_rpc.get_n2n_addresses();
-            var ts = Date.now();
-            return P.when(bg_worker.redirector.resync_agents({
-                    agents: agents,
-                    timestamp: ts,
-                }))
-                .fail(function(error) {
-                    dbg.log0('Failed resyncing agents to redirector', error);
-                    throw new Error('Failed resyncing agents to redirector');
-                })
-                .then(function() {
-                    done = true;
-                });
-        } catch (ex) {
-            dbg.log0('Caught exception on resyncing agents to redirector', ex.message);
-        }
+        var agents = server_rpc.get_n2n_addresses();
+        var ts = Date.now();
+        return bg_worker.redirector.resync_agents({
+                agents: agents,
+                timestamp: ts,
+            })
+            .fail(function(error) {
+                dbg.log0('Failed resyncing agents to redirector', error);
+                throw new Error('Failed resyncing agents to redirector');
+            });
     });
 }

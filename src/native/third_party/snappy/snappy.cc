@@ -36,7 +36,7 @@
 #include <string>
 #include <vector>
 
-#ifdef _WIN32
+#if defined(_MSC_VER) && _MSC_VER < 1400
 typedef int ssize_t;
 #endif
 

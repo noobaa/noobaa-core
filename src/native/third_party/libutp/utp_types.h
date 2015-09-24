@@ -61,7 +61,8 @@
 	#endif
 #endif
 
-#ifdef _MSC_VER
+// ssize_t is already defined with visual studio c++ 14.00 (2015)
+#if defined(_MSC_VER) && _MSC_VER < 1400
 	#include <BaseTsd.h>
 	typedef SSIZE_T ssize_t;
 #endif
@@ -76,9 +77,9 @@
 	#define I64u "%Lu"
 #endif
 
-#ifdef WIN32
-	// snprintf is defined with visual studio c++ 2015
-	// #define snprintf _snprintf
+// snprintf is already defined with visual studio c++ 14.00 (2015)
+#if defined(_MSC_VER) && _MSC_VER < 1400
+	#define snprintf _snprintf
 #endif
 
 #include <stdint.h>

@@ -290,7 +290,7 @@ function n2n_signal(req) {
  */
 function redirect(req) {
     var target = req.rpc_params.target;
-    var api = req.rpc_params.method_api.slice(0, -4);
+    var api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
     var method = req.rpc_params.method_name;
     dbg.log3('node_monitor redirect', api + '.' + method, 'to', target,
         'with params', req.rpc_params.request_params);

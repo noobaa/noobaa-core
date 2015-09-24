@@ -289,7 +289,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     req.connection = conn;
     var rseq = conn._rpc_req_seq || 1;
     conn._rpc_req_seq = rseq + 1;
-    req.reqid = rseq + '@' + conn.connid;
+    req.reqid = msg.header.reqid ? msg.header.reqid  : (rseq + '@' + conn.connid);
 
     // find the requested service
     var srv = msg.header.api +

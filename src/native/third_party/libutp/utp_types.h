@@ -77,9 +77,8 @@
 #endif
 
 #ifdef WIN32
-	#ifndef snprintf
-		#define snprintf _snprintf
-	#endif
+	// snprintf is defined with visual studio c++ 2015
+	// #define snprintf _snprintf
 #endif
 
 #include <stdint.h>

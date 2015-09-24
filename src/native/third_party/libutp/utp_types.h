@@ -77,7 +77,9 @@
 #endif
 
 #ifdef WIN32
-	#define snprintf _snprintf
+	#ifndef snprintf
+		#define snprintf _snprintf
+	#endif
 #endif
 
 #include <stdint.h>

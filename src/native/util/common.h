@@ -23,19 +23,6 @@
 #include <node_buffer.h>
 #include <nan.h>
 
-#ifdef _WIN32
-    #define WIN32_LEAN_AND_MEAN
-    #include <winsock2.h>
-    #include <ws2tcpip.h>
-    // windows.h must be included after winsock2.h
-    #include <windows.h>
-#else
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <unistd.h>
-    #include <sys/socket.h>
-#endif
-
 #include "../third_party/endian.h"
 #include "backtrace.h"
 

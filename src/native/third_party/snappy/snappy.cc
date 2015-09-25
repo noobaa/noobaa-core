@@ -36,8 +36,11 @@
 #include <string>
 #include <vector>
 
-#if defined(_MSC_VER) && _MSC_VER < 1400
-typedef int ssize_t;
+// see uv-win.h from libuv
+#ifdef WIN32 && !defined(_SSIZE_T_) && !defined(_SSIZE_T_DEFINED)
+	typedef intptr_t ssize_t;
+	# define _SSIZE_T_
+	# define _SSIZE_T_DEFINED
 #endif
 
 namespace snappy {

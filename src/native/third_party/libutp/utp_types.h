@@ -61,10 +61,11 @@
 	#endif
 #endif
 
-// ssize_t is already defined with visual studio c++ 14.00 (2015)
-#if defined(_MSC_VER) && _MSC_VER < 1400
-	#include <BaseTsd.h>
-	typedef SSIZE_T ssize_t;
+// see uv-win.h from libuv
+#ifdef WIN32 && !defined(_SSIZE_T_) && !defined(_SSIZE_T_DEFINED)
+	typedef intptr_t ssize_t;
+	# define _SSIZE_T_
+	# define _SSIZE_T_DEFINED
 #endif
 
 #ifdef POSIX

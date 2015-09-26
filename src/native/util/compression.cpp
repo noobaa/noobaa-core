@@ -1,7 +1,7 @@
 #include "compression.h"
 #include "../third_party/snappy/snappy.h"
 #include "../third_party/snappy/snappy-sinksource.h"
-#include <zlib.h>
+#include "../third_party/zlib/zlib.h"
 
 namespace noobaa {
 

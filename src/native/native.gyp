@@ -7,6 +7,7 @@
             'third_party/snappy/snappy.gyp:snappy',
             'third_party/libutp/libutp.gyp:libutp',
             'third_party/crc32/crc32.gyp:crc32',
+            'third_party/zlib/zlib.gyp:zlib',
             # 'third_party/libutp/libutp.gyp:ucat',
             # 'third_party/crc32/crc32.gyp:runcrc',
             # 'third_party/webrtc/webrtc.gyp:webrtc_crc32',

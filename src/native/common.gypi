@@ -73,6 +73,9 @@
         'conditions' : [
             [ 'OS=="linux"', {
                 'ldflags': ['-lrt']
+            }],
+            [ 'OS=="win"', {
+                'libraries': ['ws2_32']
             }]
         ],
 

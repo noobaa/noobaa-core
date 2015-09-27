@@ -1,14 +1,27 @@
 'use strict';
 var fs = require('fs');
 var path = require('path');
-var argv = require('minimist')(process.argv);
 
 var DETECTABLE_LICENSES;
 var PERMISSIVE_LICENSES_MAP_UPPERCASE;
+var config = {
+    debug: false,
+    comments: false,
+};
 
-// run with --comments to add comments on parse errors to the output
-// run with --debug for debug printouts
+module.exports = {
+    process_folder: process_folder,
+    detect_license_text: detect_license_text,
+    init_detectable_licenses: init_detectable_licenses,
+    config: config
+};
+
 if (require.main === module) {
+    var argv = require('minimist')(process.argv);
+    // run with --debug for debug printouts
+    config.debug = argv.debug;
+    // run with --comments to add comments on parse errors to the output
+    config.comments = argv.comments;
     init_detectable_licenses();
     console.log('Software,Version,Licenses,Url,Comments');
     var dirs = argv._.slice(2);
@@ -28,9 +41,7 @@ function process_folder(dir) {
         list.forEach(function(name) {
             // recurse to handle subdirs (will ignore files)
             process_folder(path.join(dir, name));
-            if (name === process.argv[1]) {
-                // ignore this script even if the name contains 'license'
-            } else if (name === 'package.json' || name === 'bower.json') {
+            if (name === 'package.json' || name === 'bower.json') {
                 json_files.push(name);
             } else if (name.match(/license|copying/i)) {
                 license_files.push(name);
@@ -125,7 +136,7 @@ function process_pkg_json(pkg, dir, json_file, json_text) {
             });
         }
     } catch (err) {
-        if (argv.comments) {
+        if (config.comments) {
             pkg.comments.push('JSON PARSE ERROR: ' + err.message +
                 ' ' + path.join(dir, json_file));
         } else {
@@ -147,7 +158,7 @@ function process_pkg_license(pkg, dir, license_file, license_text) {
             src: license_file,
             license: undefined
         });
-        if (argv.comments) {
+        if (config.comments) {
             pkg.comments.push('UNDETECTED LICENSE FILE: ' + path.join(dir, license_file));
         } else {
             dbg('UNDETECTED LICENSE FILE: ' + path.join(dir, license_file));
@@ -184,7 +195,7 @@ function process_pkg_all_licenses(pkg) {
         }).join(' & ');
     }
     if (!permissive) {
-        if (argv.comments) {
+        if (config.comments) {
             pkg.comments.push('NON PERMISSIVE LICENSE !!!');
         } else {
             dbg('NON PERMISSIVE LICENSE: ' + pkg.name);
@@ -324,7 +335,7 @@ function levenshtein_distance(s, t, stop_marker) {
 }
 
 function dbg() {
-    if (argv.debug) {
+    if (config.debug) {
         var args = Array.prototype.slice.apply(arguments);
         console.warn.apply(console, [' . . . '].concat(args));
     }

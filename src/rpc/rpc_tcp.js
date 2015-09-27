@@ -14,7 +14,9 @@ var dbg = require('../util/debug_module')(__filename);
 
 util.inherits(RpcTcpConnection, RpcBaseConnection);
 
-var MSG_HEADER_LEN = 4;
+var MSG_HEADER_LEN = 8;
+var MSG_MAGIC = 0x98765432;
+var MAX_MSG_LEN = 16 * 1024 * 1024;
 
 /**
  *
@@ -52,11 +54,15 @@ RpcTcpConnection.prototype.connect = function() {
  * close
  *
  */
-RpcTcpConnection.prototype.close = function() {
+RpcTcpConnection.prototype.close = function(err) {
+    if (err) {
+        dbg.error('TCP CLOSE ON ERROR', this.connid, this.url.href, err.stack || err);
+    }
     this.closed = true;
     this.emit('close');
     if (this.tcp_conn) {
         this.tcp_conn.destroy();
+        this.tcp_conn = null;
     }
 };
 
@@ -72,22 +78,35 @@ RpcTcpConnection.prototype.send = function(msg) {
         throw new Error('TCP NOT OPEN ' + this.connid + ' ' + this.url.href);
     }
 
-    // TODO rewrite this flow, need to wait for write callbacks,
-    // respect the 'drain' event, and return promise.
-    // return new P(function(resolve, reject) {});
-
     var msg_len = _.sum(msg, 'length');
     dbg.log2('TCP SEND', msg_len);
+    if (msg_len > MAX_MSG_LEN) {
+        throw new Error('TCP sent message too big' + msg_len);
+    }
     var msg_header = new Buffer(MSG_HEADER_LEN);
-    msg_header.writeUInt32BE(msg_len, 0);
-    this.tcp_conn.write(msg_header);
+    msg_header.writeUInt32BE(MSG_MAGIC, 0);
+    msg_header.writeUInt32BE(msg_len, 4);
 
-    if (_.isArray(msg)) {
-        for (var i = 0; i < msg.length; ++i) {
-            this.tcp_conn.write(msg[i]);
+    // when writing to the tcp connection we ignore the return value of false
+    // (that indicates that the internal buffer is full) since the data here
+    // is already in memory waiting to be sent, so we don't really need
+    // another level of buffering and just prefer to push it forward.
+    //
+    // in addition, we also don't pass a callback function to write,
+    // because we prefer not to wait and will simply close the connection
+    // once error is emitted.
+    try {
+        this.tcp_conn.write(msg_header);
+        if (_.isArray(msg)) {
+            for (var i = 0; i < msg.length; ++i) {
+                this.tcp_conn.write(msg[i]);
+            }
+        } else {
+            this.tcp_conn.write(msg);
         }
-    } else {
-        this.tcp_conn.write(msg);
+    } catch(err) {
+        this.close(err);
+        throw err;
     }
 };
 
@@ -108,7 +127,7 @@ RpcTcpConnection.prototype._init = function() {
 
     tcp_conn.on('timeout', function() {
         dbg.error('TCP IDLE', self.connid, self.url.href);
-        // TODO tcp connection idle timeout, close it?
+        // TODO tcp connection idle timeout, need to close it?
         // self.close();
     });
 
@@ -125,8 +144,17 @@ RpcTcpConnection.prototype._init = function() {
                 if (!self._msg_header) {
                     break;
                 }
+                var magic = self._msg_header.readUInt32BE(0);
+                if (magic !== MSG_MAGIC) {
+                    self.close(new Error('TCP received magic mismatch ' + magic));
+                    return;
+                }
             }
-            var msg_len = self._msg_header.readUInt32BE(0);
+            var msg_len = self._msg_header.readUInt32BE(4);
+            if (msg_len > MAX_MSG_LEN) {
+                self.close(new Error('TCP received message too big ' + msg_len));
+                return;
+            }
             var msg = tcp_conn.read(msg_len);
             if (!msg) {
                 break;

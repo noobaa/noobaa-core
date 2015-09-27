@@ -120,7 +120,7 @@ function test() {
         var native_core = require("../util/native_core")();
         var dedup_chunker = new native_core.DedupChunker({
             tpool: new native_core.ThreadPool(1)
-        });
+        }, new native_core.DedupConfig({}));
         var object_coding = new native_core.ObjectCoding({
             tpool: new native_core.ThreadPool(2),
             digest_type: 'sha384',

@@ -97,6 +97,7 @@ var FRAG_ATTRS = [
 
 var natives_inited;
 var DedupChunker;
+var dedup_config;
 var dedup_chunker_tpool;
 var object_coding_tpool;
 var object_coding;
@@ -105,6 +106,7 @@ function lazy_init_natives() {
     if (natives_inited) return;
     var nc = native_core();
     DedupChunker = nc.DedupChunker;
+    dedup_config = new nc.DedupConfig({});
     // these threadpools are global OS threads used to offload heavy CPU work
     // from the node.js thread so that it will keep processing incoming IO while
     // encoding/decoding the object chunks in high performance native code.
@@ -184,7 +186,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 this.offset = start;
                 this.chunker = new DedupChunker({
                     tpool: dedup_chunker_tpool
-                });
+                }, dedup_config);
             },
             transform: function(data) {
                 dbg.log0('upload_stream_parts: chunking', size_utils.human_offset(this.offset));

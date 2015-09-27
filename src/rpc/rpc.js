@@ -287,9 +287,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     // var millistamp = time_utils.millistamp();
     var req = new RpcRequest();
     req.connection = conn;
-    var rseq = conn._rpc_req_seq || 1;
-    conn._rpc_req_seq = rseq + 1;
-    req.reqid = rseq + '@' + conn.connid;
+    req.reqid = msg.header.reqid;
 
     // find the requested service
     var srv = msg.header.api +

@@ -265,7 +265,9 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             var p = _.pick(part, PART_ATTRS);
                             p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
                             p.frags = _.map(part.chunk.frags, function(fragment) {
-                                return _.pick(fragment, FRAG_ATTRS);
+                                var f = _.pick(fragment, FRAG_ATTRS);
+                                f.size = fragment.block.length;
+                                return f;
                             });
                             dbg.log3('upload_stream_parts: allocating specific part ul#',
                                 p.upload_part_number, 'seq#', p.part_sequence_number);

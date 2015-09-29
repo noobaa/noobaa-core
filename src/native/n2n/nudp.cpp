@@ -10,7 +10,7 @@ DBG_INIT(0);
 
 Nan::Persistent<v8::Function> Nudp::_ctor;
 
-static const int UTP_TARGET_DELAY_MICROS = 1000;
+static const int UTP_TARGET_DELAY_MICROS = 10000;
 static const int UTP_SNDBUF_SIZE = 1 * 1024 * 1024;
 static const int UTP_RCVBUF_SIZE = 1 * 1024 * 1024;
 
@@ -57,6 +57,7 @@ Nudp::Nudp()
     DBG2("Nudp::Nudp");
     _utp_ctx = utp_init(2); // version=2
     utp_context_set_userdata(_utp_ctx, this);
+    utp_context_set_option(_utp_ctx, UTP_TARGET_DELAY, UTP_TARGET_DELAY_MICROS);
     utp_context_set_option(_utp_ctx, UTP_SNDBUF, UTP_SNDBUF_SIZE);
     utp_context_set_option(_utp_ctx, UTP_RCVBUF, UTP_RCVBUF_SIZE);
     utp_set_callback(_utp_ctx, UTP_SENDTO,           &Nudp::utp_callback_sendto);
@@ -425,6 +426,10 @@ Nudp::_read_data(const uint8_t *buf, int len)
 void
 Nudp::_bind(const char* address, int port)
 {
+    if (_closed) {
+        DBG5("Nudp::_bind: closed. ignoring.");
+        return; // TODO exception on close?
+    }
     if (_local_port) {
         return;
     }
@@ -432,6 +437,11 @@ Nudp::_bind(const char* address, int port)
     int sin_len = sizeof(sin);
     NAUV_IP4_ADDR(address, port, &sin);
     NAUV_CALL(uv_udp_bind(&_uv_udp_handle, NAUV_UDP_ADDR(&sin), 0));
+    // once we have a file descriptor we can set the
+    int udp_buffer_size = UTP_SNDBUF_SIZE;
+    NAUV_CALL(uv_send_buffer_size(reinterpret_cast<uv_handle_t*>(&_uv_udp_handle), &udp_buffer_size));
+    udp_buffer_size = UTP_RCVBUF_SIZE;
+    NAUV_CALL(uv_recv_buffer_size(reinterpret_cast<uv_handle_t*>(&_uv_udp_handle), &udp_buffer_size));
     NAUV_CALL(uv_udp_getsockname(&_uv_udp_handle, NAUV_UDP_ADDR(&sin), &sin_len));
     _local_port = ntohs(sin.sin_port);
     _start_receiving();
@@ -464,6 +474,10 @@ Nudp::_setup_socket(utp_socket* socket)
 void
 Nudp::_start_receiving()
 {
+    if (_closed) {
+        DBG5("Nudp::_start_receiving: closed. ignoring.");
+        return; // TODO exception on close?
+    }
     if (_receiving) {
         return;
     }
@@ -557,6 +571,12 @@ uint64_t
 Nudp::utp_callback_sendto(utp_callback_arguments *a)
 {
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
+    if (self._closed) {
+        // the udp handle is closed, so cannot send anymore
+        // but utp still had queued items, so we just drop them
+        DBG5("Nudp::utp_callback_sendto: closed. ignoring.");
+        return 0;
+    }
     uv_udp_send_t* req = new uv_udp_send_t;
     SendUtpPacketReq* data = new SendUtpPacketReq;
     req->data = data;
@@ -646,6 +666,14 @@ Nudp::utp_callback_on_state_change(utp_callback_arguments *a)
 NAN_METHOD(Nudp::send_outbound)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
+    if (self._closed) {
+        // the udp handle is closed, so cannot send anymore
+        // but utp still had queued items, so we just drop them
+        DBG5("Nudp::send_outbound: closed. ignoring.");
+        v8::Local<v8::Value> argv[] = { NAN_ERR("Nudp::send_outbound: CLOSED") };
+        Nan::Callback(info[3].As<v8::Function>()).Call(1, argv);
+        return;
+    }
     Msg* m = new Msg();
     v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[0]).ToLocalChecked();
     int port = info[1]->Int32Value();
@@ -675,7 +703,7 @@ Nudp::uv_callback_send_outbound(uv_udp_send_t* req, int status)
     DBG3("Nudp::uv_callback_send_outbound: status " << status);
     Msg* m = reinterpret_cast<Msg*>(req->data);
     if (status) {
-        v8::Local<v8::Value> argv[] = { NAN_ERR("NUDP STUN SEND ERROR") };
+        v8::Local<v8::Value> argv[] = { NAN_ERR("Nudp::send_outbound: SEND FAILED") };
         m->callback->Call(1, argv);
     } else {
         v8::Local<v8::Value> argv[] = { Nan::Undefined() };

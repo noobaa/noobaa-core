@@ -79,7 +79,8 @@ Nudp::Nudp()
 
     NAUV_CALL(uv_udp_init(uv_default_loop(), &_uv_udp_handle));
     NAUV_CALL(uv_timer_init(uv_default_loop(), &_uv_timer_handle));
-    NAUV_CALL(uv_timer_start(&_uv_timer_handle, &Nudp::uv_callback_timer, 0, 100));
+    // the timer interval follows from libutp's TIMEOUT_CHECK_INTERVAL
+    NAUV_CALL(uv_timer_start(&_uv_timer_handle, &Nudp::uv_callback_timer, 0, 520));
     NAUV_CALL(uv_prepare_init(uv_default_loop(), &_uv_prepare_handle));
     NAUV_CALL(uv_prepare_start(&_uv_prepare_handle, &Nudp::uv_callback_prepare));
     _uv_udp_handle.data = this;

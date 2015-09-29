@@ -55,7 +55,11 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
  * connect
  *
  */
-RpcHttpConnection.prototype.connect = function() {
+RpcHttpConnection.prototype._connect = function() {
+    // there is not real need to connect http connections
+    // as the actual connection is managed by the nodejs http module
+    // so we only manage a transient request-response.
+    // see the RpcHttpConnection.prototype.transient = true handling
     if (this.url.protocol === 'http:' && is_browser_secure) {
         throw new Error('HTTP INSECURE - cannot use http: from secure browser page');
     }
@@ -67,9 +71,7 @@ RpcHttpConnection.prototype.connect = function() {
  * close
  *
  */
-RpcHttpConnection.prototype.close = function() {
-    this.emit('close');
-
+RpcHttpConnection.prototype._close = function() {
     // try to abort the connetion's running request
     if (this.req) {
         if (this.req.abort) {
@@ -86,7 +88,7 @@ RpcHttpConnection.prototype.close = function() {
  * send
  *
  */
-RpcHttpConnection.prototype.send = function(msg, op, req) {
+RpcHttpConnection.prototype._send = function(msg, op, req) {
     if (op === 'res') {
         return this.send_http_response(msg, req);
     } else {
@@ -102,20 +104,19 @@ RpcHttpConnection.prototype.send = function(msg, op, req) {
  */
 RpcHttpConnection.prototype.send_http_response = function(msg, req) {
     var res = this.res;
-    if (res) {
-        res.status(200);
-        if (_.isArray(msg)) {
-            _.each(msg, function(m) {
-                res.write(m);
-            });
-            res.end();
-        } else {
-            res.end(msg);
-        }
-        this.res = null;
-    } else {
-        dbg.warn('HTTP RESPONSE ALREADY SENT', req.reqid);
+    if (!res) {
+        throw new Error('HTTP RESPONSE ALREADY SENT ' + req.reqid);
     }
+    res.status(200);
+    if (_.isArray(msg)) {
+        _.each(msg, function(m) {
+            res.write(m);
+        });
+        res.end();
+    } else {
+        res.end(msg);
+    }
+    this.res = null;
 };
 
 

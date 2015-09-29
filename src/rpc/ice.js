@@ -45,6 +45,15 @@ function Ice(options) {
     var self = this;
     EventEmitter.call(self);
 
+    // sender should be set externally to provide a function(buffer, port, hostname)
+    // that will send a udp packet uto the stun server or the peer
+    self.sender = null;
+
+    // signaller should be set externally to provide a function(signal_params)
+    // that will deliver the signal params over relay channel to the peer
+    // and call Ice.accept() in order to setup the peer's matching ICE flow
+    self.signaller = null;
+
     self.ip = ip_module.address();
     self.selected_candidate = null;
     self.stun_candidate_defer = P.defer();

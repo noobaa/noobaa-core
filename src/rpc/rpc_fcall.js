@@ -12,11 +12,9 @@ util.inherits(RpcFcallConnection, RpcBaseConnection);
 function RpcFcallConnection(addr_url) {
     var self = this;
     RpcBaseConnection.call(self, addr_url);
-
-    self.close = function() {};
-    self.connect = function() {};
-
-    self.send = function(msg) {
+    self._close = _.noop;
+    self._connect = _.noop;
+    self._send = function(msg) {
         msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
         setImmediate(function() {
             self.emit('message', msg);

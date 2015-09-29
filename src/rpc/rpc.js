@@ -47,6 +47,10 @@ if (browser_location) {
     }
 }
 
+var RPC_PING_INTERVAL_MS = 20000;
+var RECONN_BACKOFF_BASE = 1000;
+var RECONN_BACKOFF_MAX = 15000;
+var RECONN_BACKOFF_FACTOR = 1.2;
 
 util.inherits(RPC, EventEmitter);
 
@@ -198,7 +202,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             self.emit_stats('stats.client_request.start', req);
 
             // connect the connection
-            return req.connection.connect_once();
+            return req.connection.connect();
 
         })
         .then(function() {
@@ -247,7 +251,13 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             self.emit_stats('stats.client_request.done', req);
 
-            return reply;
+            if (options.return_rpc_req) {
+                // this mode allows callers to get back the request
+                // instead of a bare reply, and the reply is in req.reply
+                return req;
+            } else {
+                return reply;
+            }
 
         })
         .then(null, function(err) {
@@ -438,10 +448,8 @@ RPC.prototype._assign_connection = function(req, options) {
         this._address_to_url_cache[address] = addr_url;
     }
     var conn = this._get_connection(addr_url, req.srv);
-    var rseq = conn._rpc_req_seq;
     req.connection = conn;
-    req.reqid = rseq + '@' + conn.connid;
-    conn._rpc_req_seq = rseq + 1;
+    req.reqid = conn._alloc_reqid();
     conn._sent_requests[req.reqid] = req;
     return conn;
 };
@@ -530,26 +538,36 @@ RPC.prototype._new_connection = function(addr_url) {
  *
  */
 RPC.prototype._accept_new_connection = function(conn) {
-    // always replace previous connection in the address map,
-    // assuming the new connection is preferred.
-    if (!conn.transient) {
-        dbg.log3('RPC NEW CONNECTION', conn.connid, conn.url.href);
-        this._connection_by_address[conn.url.href] = conn;
-    }
-    conn._rpc_req_seq = 1;
+    var self = this;
     conn._sent_requests = {};
     conn._received_requests = {};
-    conn.on('message', this._connection_receive.bind(this, conn));
-    conn.on('close', this._connection_closed.bind(this, conn));
-
+    conn.on('message', function(msg) {
+        return self._connection_receive(conn, msg);
+    });
+    conn.on('close', function(err) {
+        return self._connection_closed(conn, err);
+    });
     // we prefer to let the connection handle it's own errors and decide if to close or not
-    // conn.on('error', this._connection_error.bind(this, conn));
+    // conn.on('error', self._connection_error.bind(self, conn));
+
+    if (!conn.transient) {
+        // always replace previous connection in the address map,
+        // assuming the new connection is preferred.
+        dbg.log3('RPC NEW CONNECTION', conn.connid, conn.url.href);
+        self._connection_by_address[conn.url.href] = conn;
+
+        // send pings to keepalive
+        conn._ping_interval = setInterval(function() {
+            dbg.log4('RPC PING', conn.connid);
+            conn._ping_last_reqid = conn._alloc_reqid();
+            P.invoke(conn, 'send', RpcRequest.encode_message({
+                op: 'ping',
+                reqid: conn._ping_last_reqid
+            })).fail(_.noop); // already means the conn is closed
+        }, RPC_PING_INTERVAL_MS);
+    }
 };
 
-
-var RECONN_BACKOFF_BASE = 1000;
-var RECONN_BACKOFF_MAX = 15000;
-var RECONN_BACKOFF_FACTOR = 1.1;
 
 
 /**
@@ -577,7 +595,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
             conn._reconn_backoff = Math.min(
                 reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
 
-            return conn.connect_once();
+            return conn.connect();
 
         })
         .then(function() {
@@ -647,6 +665,11 @@ RPC.prototype._connection_closed = function(conn) {
         req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid);
     });
 
+    if (conn._ping_interval) {
+        clearInterval(conn._ping_interval);
+        conn._ping_interval = null;
+    }
+
     // for base_address try to reconnect after small delay.
     // using _.startsWith() since in some cases url.parse will add a trailing /
     // specifically in http urls for some strange reason...
@@ -679,9 +702,34 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
 
     switch (msg.header.op) {
         case 'req':
-            return self.handle_request(conn, msg);
+            P.fcall(function() {
+                return self.handle_request(conn, msg);
+            }).fail(function(err) {
+                dbg.warn('RPC _connection_receive: ERROR from handle_request', err.stack || err);
+            }).done();
+            break;
         case 'res':
-            return self.handle_response(conn, msg);
+            self.handle_response(conn, msg);
+            break;
+        case 'ping':
+            dbg.log4('RPC PONG', conn.connid);
+            P.invoke(conn, 'send', RpcRequest.encode_message({
+                op: 'pong',
+                reqid: msg.header.reqid
+            })).fail(_.noop); // already means the conn is closed
+            break;
+        case 'pong':
+            if (conn._ping_last_reqid === msg.header.reqid) {
+                dbg.log4('RPC PINGPONG', conn.connid);
+            } else {
+                conn._ping_mismatch_count = (conn._ping_mismatch_count || 0) + 1;
+                if (conn._ping_mismatch_count < 3) {
+                    dbg.warn('RPC PINGPONG MISMATCH #' + conn._ping_mismatch_count, conn.connid);
+                } else {
+                    conn.close(new Error('RPC PINGPONG MISMATCH #' + conn._ping_mismatch_count + ' ' + conn.connid));
+                }
+            }
+            break;
         default:
             conn.emit('error', new Error('RPC _connection_receive:' +
                 ' BAD MESSAGE OP ' + msg.header.op +
@@ -783,7 +831,7 @@ RPC.prototype.n2n_signal = function(params) {
 
 RPC.prototype.get_default_base_address = function(server) {
     if (server === 'background') {
-      return DEFAULT_BACKGROUND_ADDRESS;
+        return DEFAULT_BACKGROUND_ADDRESS;
     }
     return DEFAULT_BASE_ADDRESS;
 };

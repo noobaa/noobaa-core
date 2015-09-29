@@ -23,28 +23,21 @@ function RpcWsConnection(addr_url) {
     RpcBaseConnection.call(this, addr_url);
 }
 
-var KEEPALIVE_OP = 'keepalive';
-var KEEPALIVE_COMMAND = JSON.stringify({
-    op: KEEPALIVE_OP
-});
-
 /**
  *
  * connect
  *
  */
-RpcWsConnection.prototype.connect = function() {
+RpcWsConnection.prototype._connect = function() {
     var self = this;
-    if (self.ws) {
-        return self.connect_defer.promise;
-    }
-    var ws = new WS(self.url.href);
-    ws.binaryType = 'arraybuffer';
-    self._init(ws);
-    ws.onopen = function() {
-        self._on_open();
-    };
-    return self.connect_defer.promise;
+    return new P(function(resolve, reject) {
+        var ws = new WS(self.url.href);
+        self._init(ws);
+        ws.onopen = function() {
+            self.removeListener('close', reject);
+            resolve();
+        };
+    });
 };
 
 
@@ -53,24 +46,10 @@ RpcWsConnection.prototype.connect = function() {
  * close
  *
  */
-RpcWsConnection.prototype.close = function() {
-
-    this.closed = true;
-    this.emit('close');
-
+RpcWsConnection.prototype._close = function() {
     var ws = this.ws;
     if (!ws) {
         return;
-    }
-
-
-    if (ws.keepalive_interval) {
-        clearInterval(ws.keepalive_interval);
-        ws.keepalive_interval = null;
-    }
-
-    if (this.connect_defer) {
-        this.connect_defer.reject('WS DISCONNECTED ' + this.connid);
     }
 
     if (ws.readyState !== WS.CLOSED &&
@@ -92,8 +71,8 @@ var WS_SEND_OPTIONS = {
  * send
  *
  */
-RpcWsConnection.prototype.send = function(msg) {
-    if (!this.ws || this.closed) {
+RpcWsConnection.prototype._send = function(msg) {
+    if (!this.ws) {
         throw new Error('WS NOT OPEN ' + this.connid);
     }
     msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
@@ -132,8 +111,8 @@ function RpcWsServer(http_server) {
             var addr_url = url.parse(address);
             conn = new RpcWsConnection(addr_url);
             dbg.log0('WS ACCEPT CONNECTION', conn.connid);
+            conn.connected_promise = P.resolve();
             conn._init(ws);
-            conn._on_open();
             self.emit('connection', conn);
         } catch (err) {
             dbg.log0('WS ACCEPT ERROR', address, err.stack || err);
@@ -151,71 +130,28 @@ function RpcWsServer(http_server) {
 }
 
 
-
-RpcWsConnection.prototype._on_open = function() {
-    var self = this;
-    var ws = self.ws;
-
-    // start keepaliving
-    ws.keepalive_interval =
-        setInterval(send_command, 10000, KEEPALIVE_COMMAND);
-
-    if (self.connect_defer) {
-        self.connect_defer.resolve();
-    }
-
-    function send_command(command_string) {
-        try {
-            ws.send(command_string);
-        } catch (err) {
-            dbg.error('WS SEND COMMAND ERROR', self.connid, err.stack || err);
-            self.close();
-        }
-    }
-};
-
-
 RpcWsConnection.prototype._init = function(ws) {
     var self = this;
-    self.connect_defer = P.defer();
     self.ws = ws;
+    ws.binaryType = 'arraybuffer';
 
-    ws.onclose = function() {
+    ws.onclose = function onclose() {
         dbg.warn('WS CLOSED', self.connid);
         self.close();
     };
 
-    ws.onerror = function(err) {
+    ws.onerror = function onerror(err) {
         dbg.error('WS ERROR', self.connid, err.stack || err);
         self.close();
     };
 
-    ws.onmessage = function(msg) {
+    ws.onmessage = function onmessage(msg) {
         try {
-            if (Buffer.isBuffer(msg.data) || msg.data instanceof ArrayBuffer) {
-                handle_data_message(msg);
-            } else {
-                handle_command_message(msg);
-            }
+            var buffer = buffer_utils.toBuffer(msg.data);
+            self.emit('message', buffer);
         } catch (err) {
             dbg.error('WS MESSAGE ERROR', self.connid, err.stack || err);
             self.close();
-        }
-
-        function handle_data_message(msg) {
-            var buffer = buffer_utils.toBuffer(msg.data);
-            self.emit('message', buffer);
-        }
-
-        function handle_command_message(msg) {
-            var cmd = _.isString(msg.data) ? JSON.parse(msg.data) : msg.data;
-            switch (cmd.op) {
-                case KEEPALIVE_OP:
-                    // noop
-                    break;
-                default:
-                    throw new Error('BAD COMMAND ' + self.connid);
-            }
         }
     };
 };

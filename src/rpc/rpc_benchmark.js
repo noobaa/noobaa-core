@@ -2,6 +2,7 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
+P.longStackTraces();
 var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);
@@ -29,10 +30,11 @@ argv.client = argv.client || false;
 argv.server = argv.server || false;
 argv.n2n = argv.n2n || false;
 argv.nconn = argv.nconn || 1;
+argv.closeconn = parseInt(argv.closeconn, 10) || 0;
 argv.addr = url.parse(argv.addr || '');
-argv.addr.protocol = argv.addr.protocol || 'ws:';
-argv.addr.hostname = argv.addr.hostname || '127.0.0.1';
-argv.addr.port = argv.addr.port || 5656;
+argv.addr.protocol = argv.proto || argv.addr.protocol || 'ws:';
+argv.addr.hostname = argv.host || argv.addr.hostname || '127.0.0.1';
+argv.addr.port = parseInt(argv.port, 10) || argv.addr.port || 5656;
 
 var target_addresses;
 
@@ -207,11 +209,20 @@ function start() {
 }
 
 // test loop
-function call_next_io(res) {
-    if (res && res.data) {
-        io_count += 1;
-        io_rbytes += res.data.length;
-        io_wbytes += argv.wsize;
+function call_next_io(req) {
+    if (req) {
+        var reply = req.reply;
+        if (reply && reply.data) {
+            io_count += 1;
+            io_rbytes += reply.data.length;
+            io_wbytes += argv.wsize;
+        }
+        var conn = req.connection;
+        if (conn && argv.closeconn) {
+            setTimeout(function() {
+                conn.close();
+            }, argv.closeconn);
+        }
     }
     var data = new Buffer(argv.wsize);
     data.fill(0xFA);
@@ -221,8 +232,10 @@ function call_next_io(res) {
                 rsize: argv.rsize
             }
         }, {
-            address: chance.pick(target_addresses)
+            address: chance.pick(target_addresses),
+            return_rpc_req: true
         })
+        .fail(_.noop)
         .then(call_next_io);
 }
 

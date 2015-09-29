@@ -3,7 +3,7 @@
 module.exports = RpcN2NConnection;
 RpcN2NConnection.Agent = RpcN2NAgent;
 
-var _ = require('lodash');
+// var _ = require('lodash');
 var P = require('../util/promise');
 var util = require('util');
 var url = require('url');
@@ -66,7 +66,7 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     // setInterval(function() { dbg.log2('N2N STATS', self.nudp.stats()); }, 5000);
 }
 
-RpcN2NConnection.prototype.connect = function() {
+RpcN2NConnection.prototype._connect = function() {
     var self = this;
     dbg.log1('N2N connect', self.url.href);
     return P.fcall(function() {
@@ -80,6 +80,11 @@ RpcN2NConnection.prototype.connect = function() {
         });
 };
 
+/**
+ * accept ICE signal and attempt to open connection to peer.
+ * takes the peer's ICE cadidates info, and returns the local ICE info
+ * to be delivered back to the peer over the signal channel.
+ */
 RpcN2NConnection.prototype.accept = function(info) {
     var self = this;
     return P.fcall(function() {
@@ -90,22 +95,12 @@ RpcN2NConnection.prototype.accept = function(info) {
         });
 };
 
-RpcN2NConnection.prototype.close = function(err) {
-    if (err) {
-        dbg.error('N2N CONNECTION ERROR', this.connid, err.stack || err);
-    } else {
-        dbg.warn('N2N CONNECTION CLOSED', this.connid);
-    }
-    if (this.closed) {
-        return;
-    }
-    this.closed = true;
+RpcN2NConnection.prototype._close = function(err) {
     this.nudp.close();
     this.ice.close();
-    this.emit('close');
 };
 
-RpcN2NConnection.prototype.send = function(msg) {
+RpcN2NConnection.prototype._send = function(msg) {
     // msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     return P.ninvoke(this.nudp, 'send', msg);
 };
@@ -138,7 +133,8 @@ RpcN2NAgent.prototype.signal = function(params) {
     var conn = new RpcN2NConnection(addr_url, self);
     return conn.accept(params.info)
         .tap(function() {
-            conn.connect_promise = P.resolve();
+            // once accept returns it means we have connected
+            conn.connected_promise = P.resolve();
             self.emit('connection', conn);
         });
 };

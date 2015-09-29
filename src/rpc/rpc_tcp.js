@@ -33,11 +33,8 @@ function RpcTcpConnection(addr_url) {
  * connect
  *
  */
-RpcTcpConnection.prototype.connect = function() {
+RpcTcpConnection.prototype._connect = function() {
     var self = this;
-    if (self.closed) {
-        throw new Error('TCP DISCONNECTED ' + self.connid + ' ' + self.url.href);
-    }
     return new P(function(resolve, reject) {
         var connector = (self.url.protocol === 'tls:' ? tls : net);
         self.tcp_conn = connector.connect({
@@ -54,12 +51,7 @@ RpcTcpConnection.prototype.connect = function() {
  * close
  *
  */
-RpcTcpConnection.prototype.close = function(err) {
-    if (err) {
-        dbg.error('TCP CLOSE ON ERROR', this.connid, this.url.href, err.stack || err);
-    }
-    this.closed = true;
-    this.emit('close');
+RpcTcpConnection.prototype._close = function() {
     if (this.tcp_conn) {
         this.tcp_conn.destroy();
         this.tcp_conn = null;
@@ -73,8 +65,8 @@ RpcTcpConnection.prototype.close = function(err) {
  * send
  *
  */
-RpcTcpConnection.prototype.send = function(msg) {
-    if (!this.tcp_conn || this.closed) {
+RpcTcpConnection.prototype._send = function(msg) {
+    if (!this.tcp_conn) {
         throw new Error('TCP NOT OPEN ' + this.connid + ' ' + this.url.href);
     }
 
@@ -205,6 +197,7 @@ function RpcTcpServer(port, tls_options) {
             var conn = new RpcTcpConnection(addr_url);
             dbg.log0('TCP ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);
             conn.tcp_conn = tcp_conn;
+            conn.connected_promise = P.resolve();
             conn._init();
             self.emit('connection', conn);
         } catch (err) {

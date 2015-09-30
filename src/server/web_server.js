@@ -35,11 +35,26 @@ var mongoose_logger = require('../util/mongoose_logger');
 var pem = require('../util/pem');
 var multer = require('multer');
 var fs = require('fs');
+var cluster = require('cluster');
 
-//if (!process.env.PORT) {
+
 console.log('loading .env file ( no foreman ;)');
 dotenv.load();
-//}
+
+
+var numCPUs = Math.ceil(require('os').cpus().length / 2);
+if (cluster.isMaster) {
+    // Fork MD Servers
+    for (var i = 0; i < numCPUs; i++) {
+        console.warn('Spawning MD Server', i + 1);
+        cluster.fork();
+    }
+
+    cluster.on('exit', function(worker, code, signal) {
+        console.log('MD Server ' + worker.process.pid + ' died');
+    });
+    return;
+}
 
 dbg.set_process_name('WebServer');
 

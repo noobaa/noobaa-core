@@ -603,7 +603,7 @@ function list_multipart_parts(params) {
  */
 function set_multipart_part_md5(obj) {
     return P.when(db.ObjectPart.find({
-            obj: obj._id,
+            obj: obj.obj._id,
             part_sequence_number: 0,
             deleted: null,
             upload_part_number: obj.upload_part_number
@@ -629,20 +629,22 @@ function set_multipart_part_md5(obj) {
  *
  */
 function calc_multipart_md5(obj) {
-    var aggregated_nobin_md5='';
-    var aggregated_bin_md5='';
+    var aggregated_nobin_md5 = '';
+    var aggregated_bin_md5 = '';
     return P.fcall(function() {
         // find part that need update of start and end offsets
         return db.ObjectPart.find({
                 obj: obj,
                 part_sequence_number: 0,
                 deleted: null,
-                etag: { $exists: true }
+                etag: {
+                    $exists: true
+                }
             })
             .sort({
-                upload_part_number:1,
+                upload_part_number: 1,
                 _id: -1 // when same, get newest first
-                
+
             })
             .exec();
     }).then(function(upload_parts) {
@@ -743,7 +745,7 @@ function fix_multipart_parts(obj) {
                         },
                         $unset: {
                             upload_part_number: '',
-                            etag:''
+                            etag: ''
                         }
                     });
                     last_end = current_end;

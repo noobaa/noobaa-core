@@ -136,12 +136,18 @@ Nudp::_close()
     _closed = true;
     LOG("Nudp::close: local_port " << _local_port);
     Nan::HandleScope scope;
+    NAUV_CALL(uv_timer_stop(&_uv_timer_handle));
+    NAUV_CALL(uv_prepare_stop(&_uv_prepare_handle));
     uv_close(reinterpret_cast<uv_handle_t*>(&_uv_udp_handle), NULL);
     uv_close(reinterpret_cast<uv_handle_t*>(&_uv_timer_handle), NULL);
     uv_close(reinterpret_cast<uv_handle_t*>(&_uv_prepare_handle), NULL);
     if (_utp_socket) {
         utp_close(_utp_socket);
         _utp_socket = NULL;
+    }
+    if (_utp_ctx) {
+        utp_destroy(_utp_ctx);
+        _utp_ctx = NULL;
     }
     if (_recv_payload) {
         delete[] _recv_payload;
@@ -195,19 +201,34 @@ NAN_METHOD(Nudp::connect)
     struct sockaddr_in sin;
     NAUV_IP4_ADDR(*address, port, &sin);
     self._bind("0.0.0.0", 0);
-    DBG2("Nudp::connect:"
+    DBG0("Nudp::connect:"
          << " local_port " << self._local_port
          << " to " << *address << ":" << port);
     self._setup_socket(NULL); // will create utp socket
     utp_connect(self._utp_socket, reinterpret_cast<struct sockaddr*>(&sin), sizeof(sin));
     v8::Local<v8::Value> args[] = { Nan::Undefined(), NAN_INT(self._local_port) };
     Nan::MakeCallback(info.This(), info[2].As<v8::Function>(), 2, args);
+    DBG0("Nudp::connect: AFTER"
+         << " local_port " << self._local_port
+         << " to " << *address << ":" << port);
     NAN_RETURN(Nan::Undefined());
 }
 
 NAN_METHOD(Nudp::send)
 {
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
+    if (self._closed) {
+        DBG5("Nudp::send: closed. thats an error.");
+        v8::Local<v8::Value> argv[] = { NAN_ERR("Nudp::send: CLOSED") };
+        Nan::Callback(info[1].As<v8::Function>()).Call(1, argv);
+        return;
+    }
+    if (!self._utp_socket) {
+        DBG5("Nudp::send: not connected. thats an error.");
+        v8::Local<v8::Value> argv[] = { NAN_ERR("Nudp::send: NOT CONNECTED") };
+        Nan::Callback(info[1].As<v8::Function>()).Call(1, argv);
+        return;
+    }
     Msg* m = new Msg();
     // TODO handle leak of m on exception
     v8::Local<v8::Object> buffer_or_buffers = Nan::To<v8::Object>(info[0]).ToLocalChecked();
@@ -256,6 +277,9 @@ NAN_METHOD(Nudp::send)
 void
 Nudp::_write_data()
 {
+    if (_closed) {
+        return;
+    }
     Nan::HandleScope scope;
     while (!_messages.empty()) {
         Msg* m =_messages.front();
@@ -494,6 +518,9 @@ NAUV_CALLBACK(Nudp::uv_callback_timer, uv_timer_t* handle)
 {
     // DBG9("Nudp::uv_callback_timer");
     Nudp& self = *reinterpret_cast<Nudp*>(handle->data);
+    if (self._closed) {
+        return;
+    }
     utp_issue_deferred_acks(self._utp_ctx);
     utp_check_timeouts(self._utp_ctx);
 }
@@ -502,6 +529,9 @@ NAUV_CALLBACK(Nudp::uv_callback_prepare, uv_prepare_t* handle)
 {
     // DBG9("Nudp::uv_callback_prepare");
     Nudp& self = *reinterpret_cast<Nudp*>(handle->data);
+    if (self._closed) {
+        return;
+    }
     utp_issue_deferred_acks(self._utp_ctx);
 }
 

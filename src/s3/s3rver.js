@@ -27,6 +27,7 @@ var certificate;
 if (cluster.isMaster) {
     // Fork workers.
     for (var i = 0; i < numCPUs; i++) {
+        console.warn('Spawning S3 Server', i + 1);
         cluster.fork();
     }
 

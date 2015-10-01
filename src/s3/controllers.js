@@ -586,7 +586,7 @@ module.exports = function(params) {
 
         return clients[s3_info.access_key].client.bucket.list_buckets({}, options)
             .then(function(reply) {
-                dbg.log3('trying to find', bucketName, 'in', reply.buckets);
+                dbg.log0('trying to find', bucketName, 'in', reply.buckets);
                 buckets_cache = reply.buckets;
                 if (_.findIndex(reply.buckets, {
                         'name': bucketName
@@ -670,29 +670,47 @@ module.exports = function(params) {
         },
         bucketExistsInCache: function(req, res, next) {
             var bucketName = req.params.bucket;
-            var bucket_exists = false;
-            if (_.isEmpty(buckets_cache)) {
-                dbg.log0('buckets cache empty');
-                isBucketExists(bucketName, extract_s3_info(req))
-                    .then(function(exists) {
-                        bucket_exists = exists;
-                    });
-            } else {
-                dbg.log0('has buckets cache ');
-                bucket_exists = (_.findIndex(buckets_cache, {
-                    'name': bucketName
-                }) < 0);
-            }
-            if (bucket_exists) {
-                dbg.error('(1) No bucket found for "%s"', bucketName);
-                var template = templateBuilder.buildBucketNotFound(bucketName);
-                return buildXmlResponse(res, 404, template);
-
-            } else {
-                dbg.log0('got bucket name ' + bucketName);
-                req.bucket = bucketName;
-                return next();
-            }
+            return P.fcall(function() {
+                if (_.isEmpty(buckets_cache)) {
+                    dbg.log3('buckets cache empty');
+                    return isBucketExists(bucketName, extract_s3_info(req))
+                        .then(function(exists) {
+                            return exists;
+                        });
+                } else {
+                    dbg.log3('has buckets cache ', buckets_cache, _.findIndex(buckets_cache, {
+                        'name': bucketName
+                    }));
+                    if (_.findIndex(buckets_cache, {
+                            'name': bucketName
+                        }) < 0) {
+                        return false;
+                    } else {
+                        return true;
+                    }
+                }
+            }).then(function(bucket_exists) {
+                if (!bucket_exists) {
+                    dbg.warn('(1) No bucket found for "%s"', bucketName);
+                    return isBucketExists(bucketName, extract_s3_info(req))
+                        .then(function(exists) {
+                            bucket_exists = exists;
+                            if (!bucket_exists) {
+                                dbg.error('(1) No bucket found for "%s" in server as well', bucketName, buckets_cache);
+                                var template = templateBuilder.buildBucketNotFound(bucketName);
+                                return buildXmlResponse(res, 404, template);
+                            } else {
+                                dbg.log0('Found bucket name in server ' + bucketName);
+                                req.bucket = bucketName;
+                                return next();
+                            }
+                        });
+                } else {
+                    dbg.log0('got bucket name ' + bucketName);
+                    req.bucket = bucketName;
+                    return next();
+                }
+            });
         },
 
         getBuckets: function(req, res) {

@@ -520,7 +520,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
  *
  */
 function add_agent_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
-    var instance_type = 't2.micro';
+    var instance_type = 'c3.large';
     // the run script to send to started instances
     var run_script = fs.readFileSync(__dirname + '/init_agent.sh', 'UTF8');
 
@@ -545,19 +545,15 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
             run_script = "<script>" + run_script + "</script>";
             run_script = run_script.replace('${env_name}', app_name);
             run_script = run_script.replace('$agent_conf', agent_conf);
-            instance_type = 't2.micro';
+            instance_type = 'c3.large';
         } else {
 
-            test_instances_counter = (run_script.match(/test/g) || []).length;
-
-            console.log('test_instances_counter', test_instances_counter);
-            if (test_instances_counter !== 1) {
-                throw new Error('init_agent.sh expected to contain default env "test"', test_instances_counter);
-            }
             run_script = run_script.replace('${env_name}', app_name);
             run_script = run_script.replace('$agent_conf', agent_conf);
             run_script = run_script.replace('$network', 1);
             run_script = run_script.replace('$router', '0.0.0.0');
+
+            console.log('script:',run_script);
         }
 
     }

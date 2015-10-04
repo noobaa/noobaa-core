@@ -29,7 +29,6 @@ P.promisifyAll(require('child_process'));
 
 // aliases from Q
 P.when = P.resolve;
-P.allSettled = P.settle;
 P.prototype.fin = P.prototype.finally;
 P.prototype.fail = P.prototype.catch;
 P.prototype.thenResolve = P.prototype.return;

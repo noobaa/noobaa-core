@@ -146,8 +146,8 @@ function build_chunks(chunks) {
             // replicate blocks
             // send to the agent a request to replicate from the source
 
-            return Q.allSettled(_.map(chunks_status, function(chunk_status) {
-                return Q.allSettled(_.map(chunk_status.blocks_info_to_allocate,
+            return Q.all(_.map(chunks_status, function(chunk_status) {
+                return Q.all(_.map(chunk_status.blocks_info_to_allocate,
                     function(block_info_to_allocate) {
                         var block = block_info_to_allocate.block;
                         if (!block) {

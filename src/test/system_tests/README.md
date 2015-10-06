@@ -4,6 +4,7 @@
 * [Introduction](#introduction) - introduction
 * [test_upgrade_ec2](#test_upgrade_ec2) - Test Upgrade Flow on EC2
 * [test_upgrade_gcloud](#test_upgrade_gcloud) - Test Upgrade Flow on GCloud
+* [test_files_ul](#test_small_files_ul) - Test UL of small files
 
 
 * ###introduction
@@ -21,3 +22,5 @@
 
 * ###test_upgrade_gcloud
   Same as test_upgrade_ec2, but for gcloud.
+
+* ###test_files_ul

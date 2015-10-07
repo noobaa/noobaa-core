@@ -3,7 +3,7 @@
 module.exports = RpcWsConnection;
 
 var _ = require('lodash');
-var P = require('../util/promise');
+// var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var EventEmitter = require('events').EventEmitter;
@@ -13,6 +13,20 @@ var dbg = require('../util/debug_module')(__filename);
 var WS = require('ws');
 
 util.inherits(RpcWsConnection, RpcBaseConnection);
+
+var WS_SEND_OPTIONS = {
+    // rpc throughput with these options is ~200 MB/s (no ssl)
+    binary: true,
+    // masking (http://tools.ietf.org/html/rfc6455#section-10.3)
+    // will randomly mask the messages on the wire.
+    // this is needed for browsers that were malicious scripts
+    // may send fake http messages inside the websocket
+    // in order to poison intermediate proxy caches.
+    // reduces rpc throughput to ~70 MB/s
+    mask: false,
+    // zlib compression reduces throughput to ~15 MB/s
+    compress: false
+};
 
 /**
  *
@@ -30,16 +44,12 @@ function RpcWsConnection(addr_url) {
  */
 RpcWsConnection.prototype._connect = function() {
     var self = this;
-    return new P(function(resolve, reject) {
-        var ws = new WS(self.url.href);
-        self._init(ws);
-        ws.onopen = function() {
-            self.removeListener('close', reject);
-            resolve();
-        };
-    });
+    var ws = new WS(self.url.href);
+    self._init_ws(ws);
+    ws.onopen = function() {
+        self.emit('connect');
+    };
 };
-
 
 /**
  *
@@ -47,24 +57,8 @@ RpcWsConnection.prototype._connect = function() {
  *
  */
 RpcWsConnection.prototype._close = function() {
-    var ws = this.ws;
-    if (!ws) {
-        return;
-    }
-
-    if (ws.readyState !== WS.CLOSED &&
-        ws.readyState !== WS.CLOSING) {
-        ws.close();
-    }
+    close_ws(this.ws);
 };
-
-
-var WS_SEND_OPTIONS = {
-    binary: true,
-    mask: false,
-    compress: false
-};
-
 
 /**
  *
@@ -72,11 +66,38 @@ var WS_SEND_OPTIONS = {
  *
  */
 RpcWsConnection.prototype._send = function(msg) {
-    if (!this.ws) {
-        throw new Error('WS NOT OPEN ' + this.connid);
-    }
     msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     this.ws.send(msg, WS_SEND_OPTIONS);
+};
+
+
+RpcWsConnection.prototype._init_ws = function(ws) {
+    var self = this;
+    self.ws = ws;
+    ws.binaryType = 'arraybuffer';
+
+    ws.onclose = function onclose() {
+        if (self.ws !== ws) return close_ws(ws);
+        dbg.warn('WS CLOSED', self.connid);
+        self.close();
+    };
+
+    ws.onerror = function onerror(err) {
+        if (self.ws !== ws) return close_ws(ws);
+        dbg.error('WS ERROR', self.connid, err);
+        self.close();
+    };
+
+    ws.onmessage = function onmessage(msg) {
+        if (self.ws !== ws) return close_ws(ws);
+        try {
+            var buffer = buffer_utils.toBuffer(msg.data);
+            self.emit('message', buffer);
+        } catch (err) {
+            dbg.error('WS MESSAGE ERROR', self.connid, err.stack || err);
+            self.close();
+        }
+    };
 };
 
 
@@ -111,15 +132,15 @@ function RpcWsServer(http_server) {
             var addr_url = url.parse(address);
             conn = new RpcWsConnection(addr_url);
             dbg.log0('WS ACCEPT CONNECTION', conn.connid);
-            conn.connected_promise = P.resolve();
-            conn._init(ws);
+            conn.emit('connect');
+            conn._init_ws(ws);
             self.emit('connection', conn);
         } catch (err) {
             dbg.log0('WS ACCEPT ERROR', address, err.stack || err);
             if (conn) {
                 conn.close();
             } else {
-                ws.close();
+                close_ws(ws);
             }
         }
     });
@@ -130,28 +151,10 @@ function RpcWsServer(http_server) {
 }
 
 
-RpcWsConnection.prototype._init = function(ws) {
-    var self = this;
-    self.ws = ws;
-    ws.binaryType = 'arraybuffer';
-
-    ws.onclose = function onclose() {
-        dbg.warn('WS CLOSED', self.connid);
-        self.close();
-    };
-
-    ws.onerror = function onerror(err) {
-        dbg.error('WS ERROR', self.connid, err.stack || err);
-        self.close();
-    };
-
-    ws.onmessage = function onmessage(msg) {
-        try {
-            var buffer = buffer_utils.toBuffer(msg.data);
-            self.emit('message', buffer);
-        } catch (err) {
-            dbg.error('WS MESSAGE ERROR', self.connid, err.stack || err);
-            self.close();
-        }
-    };
-};
+function close_ws(ws) {
+    if (ws &&
+        ws.readyState !== WS.CLOSED &&
+        ws.readyState !== WS.CLOSING) {
+        ws.close();
+    }
+}

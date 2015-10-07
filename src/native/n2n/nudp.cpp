@@ -96,32 +96,6 @@ Nudp::~Nudp()
 
 NAN_METHOD(Nudp::close)
 {
-    /*
-    struct CloseWorker : public ThreadLoop::Worker
-    {
-        Nudp& self;
-        std::list<Msg*> canceled_message;
-        CloseWorker(Nudp& nudp) : self(nudp)
-        {
-            self._tloop->submit(this);
-        }
-        virtual void work()
-        {
-            //canceled_message =
-            self._close();
-        }
-        virtual void after_work()
-        {
-            while (!canceled_message.empty()) {
-                Msg* m =canceled_message.front();
-                v8::Local<v8::Value> argv[] = { NAN_ERR("NUDP CLOSED") };
-                m->callback->Call(1, argv);
-                canceled_message.pop_front();
-                delete m;
-            }
-        }
-    };
-    */
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
     self._close();
     NAN_RETURN(Nan::Undefined());
@@ -165,25 +139,6 @@ Nudp::_close()
 
 NAN_METHOD(Nudp::bind)
 {
-    /*
-    struct BindWorker : public ThreadLoop::Worker
-    {
-        Nudp& self;
-        BindWorker(Nudp& nudp) : self(nudp)
-        {
-            self._tloop->submit(this);
-        }
-        virtual void work()
-        {
-            self._bind(*address, port);
-        }
-        virtual void after_work()
-        {
-            v8::Local<v8::Value> args[] = { Nan::Undefined(), NAN_INT(self._local_port) };
-            Nan::MakeCallback(info.This(), info[2].As<v8::Function>(), 2, args);
-        }
-    };
-    */
     Nudp& self = *NAN_UNWRAP_THIS(Nudp);
     int port = info[0]->Int32Value();
     Nan::Utf8String address(info[1]);
@@ -574,15 +529,30 @@ Nudp::uv_callback_receive(
     if (NAT::is_stun_packet(buf->base, nread)) {
         DBG2("Nudp::uv_callback_receive: got STUN packet local_port " << self._local_port);
         Nan::HandleScope scope;
-        const struct sockaddr_in* sin = reinterpret_cast<const struct sockaddr_in*>(addr);
+        auto rinfo = NAN_NEW_OBJ();
+        char s[INET6_ADDRSTRLEN];
+        if (addr->sa_family == AF_INET) {
+            const struct sockaddr_in* sin4 = reinterpret_cast<const struct sockaddr_in*>(addr);
+            char name4[INET_ADDRSTRLEN];
+            uv_ip4_name(sin4, name4, sizeof(name4));
+            NAN_SET_STR(rinfo, "family", "IPv4");
+            NAN_SET_STR(rinfo, "address", name4);
+            NAN_SET_INT(rinfo, "port", ntohs(sin4->sin_port));
+        } else {
+            const struct sockaddr_in6* sin6 = reinterpret_cast<const struct sockaddr_in6*>(addr);
+            char name6[INET6_ADDRSTRLEN];
+            uv_ip6_name(sin6, name6, sizeof(name6));
+            NAN_SET_STR(rinfo, "family", "IPv6");
+            NAN_SET_STR(rinfo, "address", name6);
+            NAN_SET_INT(rinfo, "port", ntohs(sin6->sin6_port));
+        }
         // the node buffer takes ownership on the memory, so not deleting the allocation in this path
         v8::Local<v8::Value> argv[] = {
             NAN_STR("stun"),
             Nan::NewBuffer(buf->base, nread).ToLocalChecked(),
-            NAN_INT(ntohs(sin->sin_port)),
-            NAN_STR(inet_ntoa(sin->sin_addr))
+            rinfo
         };
-        Nan::MakeCallback(self.handle(), "emit", 4, argv);
+        Nan::MakeCallback(self.handle(), "emit", 3, argv);
     } else {
         const byte* data = reinterpret_cast<const byte*>(buf->base);
         if (!utp_process_udp(self._utp_ctx, data, nread, addr, sizeof(struct sockaddr))) {

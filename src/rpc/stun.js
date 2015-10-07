@@ -21,6 +21,7 @@ var stun = module.exports = {
     get_attrs_len_field: get_attrs_len_field,
     set_attrs_len_field: set_attrs_len_field,
     set_magic_and_tid_field: set_magic_and_tid_field,
+    get_tid_field: get_tid_field,
     get_attrs_map: get_attrs_map,
     decode_attrs: decode_attrs,
 
@@ -215,6 +216,10 @@ function set_magic_and_tid_field(buffer, req_buffer) {
     }
 }
 
+function get_tid_field(buffer) {
+    return buffer.slice(8, 12);
+}
+
 /**
  * simply create a map from common attributes.
  * dup keys will be overriden by last value.
@@ -244,11 +249,25 @@ function get_attrs_map(buffer) {
  * decode packet attributes
  */
 function decode_attrs(buffer) {
+
+    // limit the amount of work we are willing to do
+    // in case someone decides to annoy us or just a bug
+    if (buffer.length > 512) {
+        throw new Error('STUN PACKET TOO LONG, dropping buffer ' + buffer.length);
+    }
+
     var attrs = [];
     var offset = stun.HEADER_LENGTH;
     var end = offset + get_attrs_len_field(buffer);
 
     while (offset < end) {
+
+        // limit the amount of work we are willing to do
+        // in case someone decides to annoy us or just a bug
+        if (attrs.length > 10) {
+            throw new Error('STUN PACKET TOO MANY ATTRS, dropping buffer ' + buffer.length);
+        }
+
         var type = buffer.readUInt16BE(offset);
         offset += 2;
         var length = buffer.readUInt16BE(offset);

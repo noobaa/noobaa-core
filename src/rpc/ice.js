@@ -4,31 +4,41 @@ module.exports = Ice;
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var os = require('os');
+var net = require('net');
+var tls = require('tls');
 var url = require('url');
+var path = require('path');
 var util = require('util');
-var EventEmitter = require('events').EventEmitter;
 var ip_module = require('ip');
+var crypto = require('crypto');
+var EventEmitter = require('events').EventEmitter;
 var stun = require('./stun');
 var chance = require('chance')();
+var url_utils = require('../util/url_utils');
+var FrameStream = require('../util/frame_stream');
 var dbg = require('../util/debug_module')(__filename);
 
 
-var CAND_TYPE_HOST = 'host';
-var CAND_TYPE_SERVER_REFLEX = 'server';
-var CAND_TYPE_PEER_REFLEX = 'peer';
+const CAND_TYPE_HOST = 'host';
+const CAND_TYPE_SERVER_REFLEX = 'server';
+const CAND_TYPE_PEER_REFLEX = 'peer';
+const CAND_DISCARD_PORT = 9;
+const CAND_TCP_TYPE_ACTIVE = 'active';
+const CAND_TCP_TYPE_PASSIVE = 'passive';
+const CAND_TCP_TYPE_SO = 'so';
 
-var RAND_ICE_CHAR_POOL =
+const ICE_UFRAG_LENGTH = 4;
+const ICE_PWD_LENGTH = 22;
+const RAND_ICE_CHAR_POOL_64 =
     'abcdefghijklmnopqrstuvwxyz' +
     'ABCDEFGHIJKLMNOPQRTTUVWXYZ' +
     '0123456789+/';
-var RAND_ICE_UFRAG = {
-    length: 4,
-    pool: RAND_ICE_CHAR_POOL
+
+const ICE_FRAME_CONFIG = {
+    magic: 'ICEmagic'
 };
-var RAND_ICE_PWD = {
-    length: 22,
-    pool: RAND_ICE_CHAR_POOL
-};
+const ICE_FRAME_STUN_MSG_TYPE = 1;
 
 util.inherits(Ice, EventEmitter);
 
@@ -36,32 +46,79 @@ util.inherits(Ice, EventEmitter);
  *
  * Ice
  *
- * minimalistic implementation of ICE - https://tools.ietf.org/html/rfc5245
+ * minimalistic implementation of Interactive Connectivity Establishment (ICE) -
+ * https://tools.ietf.org/html/rfc5245 (ICE UDP)
+ * https://tools.ietf.org/html/rfc6544 (ICE TCP)
  * we chose a small subset of the spec to keep it simple,
  * but this module will continue to develop as we encounter more complicated networks.
  *
+ * @param config - ICE configuration object with the following properties:
+ *
+ *  stun_servers: (array of urls)
+ *      used to get server reflexive addresses for NAT traversal.
+ *
+ *  udp_socket: (function())
+ *      used to create a udp socket and bind it to a port (random typically).
+ *      the returned object can send packets using send(buffer,port,host),
+ *      and once messages are received it should detect stun messages (see in stun.js)
+ *      and call emit 'stun' events on received stun packet to be handled by ICE.
+ *
+ *  tcp_secure: (boolean)
+ *      when true will upgrade to TLS after ICE connects
+ *  tcp_active: (boolean)
+ *      this endpoint will offer to connect using tcp.
+ *  tcp_random_passive: (boolean)
+ *      this endpoint will listen on a random port.
+ *  tcp_fixed_passive: (port number)
+ *      this endpoint will listen on the given port
+ *      (will keep the server shared with other ice connections).
+ *  tcp_so: (boolean)
+ *      simultaneous_open means both endpoints will connect simultaneously,
+ *      see https://en.wikipedia.org/wiki/TCP_hole_punching
+ *
+ *  signaller: (function(info))
+ *      send signal over relayed channel to the peer to communicate
+ *      the credentials and candidates.
+ *      this should be SDP format by the spec, but it's simpler to use
+ *      plain JSON for now.
+ *
+ *  ufrag_length: (integer) (optional)
+ *      change the default ice credential length
+ *  pwd_length: (integer) (optional)
+ *      change the default ice credential length
+ *
  */
-function Ice(options) {
+function Ice(connid, config) {
     var self = this;
     EventEmitter.call(self);
 
-    // sender should be set externally to provide a function(buffer, port, hostname)
-    // that will send a udp packet uto the stun server or the peer
-    self.sender = null;
+    // connid is provided externally for debugging
+    self.connid = connid;
 
-    // signaller should be set externally to provide a function(signal_params)
-    // that will deliver the signal params over relay channel to the peer
-    // and call Ice.accept() in order to setup the peer's matching ICE flow
-    self.signaller = null;
+    // config object for ICE (see detailed list in the doc above)
+    self.config = config;
 
-    self.ip = ip_module.address();
+    // stun requests map, the keys are generated stun tid's
+    // which will allow to match the replies to the requests
+    self.stun_requests = {};
+
+    self.networks = _.flatten(_.map(os.networkInterfaces(), function(addresses, name) {
+        _.each(addresses, function(addr) {
+            addr.ifcname = name;
+        });
+        return addresses;
+    }));
+
     self.selected_candidate = null;
-    self.stun_candidate_defer = P.defer();
 
     self.local = {
         credentials: {
-            ufrag: chance.string(RAND_ICE_UFRAG),
-            pwd: chance.string(RAND_ICE_PWD),
+            ufrag: random_crypto_string(
+                self.config.ufrag_length || ICE_UFRAG_LENGTH,
+                RAND_ICE_CHAR_POOL_64),
+            pwd: random_crypto_string(
+                self.config.pwd_length || ICE_PWD_LENGTH,
+                RAND_ICE_CHAR_POOL_64),
         },
         candidates: {}
     };
@@ -72,84 +129,44 @@ function Ice(options) {
     };
 }
 
-Ice.STUN_SERVERS = [];
-Ice.SIMPLE_STUN_REQUEST = stun.new_packet(stun.METHODS.REQUEST);
-Ice.SIMPLE_STUN_INDICATION = stun.new_packet(stun.METHODS.INDICATION);
-
 /**
- * static function to add a stun server to be used (picked at random)
+ * using crypto random to avoid predictability
  */
-Ice.add_stun_server = function(stun_url) {
-    if (!(stun_url instanceof url.Url)) {
-        stun_url = url.parse(stun_url);
+function random_crypto_string(len, char_pool) {
+    var str = '';
+    var bytes = crypto.randomBytes(len);
+    for (var i = 0; i < len; ++i) {
+        str += char_pool[bytes[i] % char_pool.length];
     }
-    Ice.STUN_SERVERS.push(stun_url);
-};
-
-/**
- * static function to get the stun server to use
- */
-Ice.get_stun_server = function() {
-    switch (Ice.STUN_SERVERS.length) {
-        case 0:
-            return;
-        case 1:
-            return Ice.STUN_SERVERS[0];
-        default:
-            return chance.pick(Ice.STUN_SERVERS);
-    }
-};
-
-// TODO take this away from here to the agent heartbeat
-read_on_premise_stun_server();
-
-function read_on_premise_stun_server() {
-    try {
-        var fs = require('fs');
-        var agent_conf = JSON.parse(fs.readFileSync('agent_conf.json'));
-        var on_premise_server = url.parse(agent_conf.address);
-        var stun_url = url.parse('stun://' + on_premise_server.hostname + ':' + stun.PORT);
-        Ice.add_stun_server(stun_url);
-        dbg.log0('using on-premise ICE/STUN server from agent_conf.json', stun_url);
-    } catch (err) {
-        dbg.warn('agent_conf.json does not exist/valid, no stun server to use !!!');
-    }
+    return str;
 }
 
-Ice.prototype.close = function() {
-    this.closed = true;
-};
-
-Ice.prototype.throw_if_close = function(from) {
-    if (this.closed) {
-        throw new Error("ICE CLOSED " + (from || ''));
-    }
-};
 
 /**
  *
  * connect
  *
  */
-Ice.prototype.connect = function(local_port) {
+Ice.prototype.connect = function() {
     var self = this;
-    self.local_port = local_port;
-    dbg.log1('ICE connect: local_port', local_port);
+
     return P.fcall(function() {
-            return self._collect_local_candidates();
+
+            // open sockets to create local candidates
+            dbg.log0('ICE CONNECT INIT', self.connid);
+            return self._init_local_candidates();
         })
-        .then(function() {
+        .then(function(local_info) {
 
             // send local info using the signaller
-            return self.signaller(self.local);
+            dbg.log0('ICE CONNECT LOCAL INFO', local_info, self.connid);
+            return self.config.signaller(local_info);
         })
         .then(function(remote_info) {
 
-            // merge the remote info - to set credentials and add new candidates
-            _.merge(self.remote, remote_info);
-
-            // punch hole using the remote info returned from the signal call
-            return self._connect_remote_candidates();
+            // connectivity attempys using the remote info returned from the signal call
+            dbg.log0('ICE CONNECT REMOTE INFO', remote_info, self.connid);
+            return self._connect_remote_candidates(remote_info);
         });
 };
 
@@ -159,197 +176,305 @@ Ice.prototype.connect = function(local_port) {
  * accept
  *
  */
-Ice.prototype.accept = function(local_port, remote_info) {
+Ice.prototype.accept = function(remote_info) {
     var self = this;
-    self.local_port = local_port;
-    dbg.log1('ICE accept: local_port', local_port);
-
-    // merge the remote info - to set credentials and add new candidates
-    _.merge(self.remote, remote_info);
 
     return P.fcall(function() {
-            return self._collect_local_candidates();
-        })
-        .then(function() {
 
-            // don't wait for the address selection
-            // because we need to return the candidates first
-            // to the sender of the signal so that it will send us
-            // stun requests.
-            self._connect_remote_candidates();
+            // open sockets to create local candidates
+            dbg.log0('ICE ACCEPT INIT', self.connid);
+            return self._init_local_candidates();
+        })
+        .then(function(local_info) {
+
+
+            // we schedule the connectivity checks in the background
+            // since we need to return our local candidates first
+            // for the peer to be able to simultaneously run the checks.
+            setTimeout(function() {
+                dbg.log0('ICE ACCEPT REMOTE INFO', remote_info, self.connid);
+                self._connect_remote_candidates(remote_info);
+            }, 10);
 
             // return my local info over the signal
-            return self.local;
+            dbg.log0('ICE ACCEPT LOCAL INFO', local_info, self.connid);
+            return local_info;
         });
 };
 
 
 /**
- *
- * _collect_local_candidates
- *
+ * _init_local_candidates
  */
-Ice.prototype._collect_local_candidates = function() {
+Ice.prototype._init_local_candidates = function() {
     var self = this;
-    var stun_url = Ice.get_stun_server();
-    var attempts = 0;
-
-    // add my host address
-    self._add_local_candidate({
-        type: CAND_TYPE_HOST,
-        family: 'IPv4',
-        address: self.ip,
-        port: self.local_port
-    });
-
-    if (!stun_url) {
-        return;
-    }
-
-    // sending stun request to discover my address outside of the NAT
-    // and keep the stun mapping open after by sending indications
-    // periodically.
-    return send_stun_request_and_wait()
-        .then(run_indication_loop);
-
-    function send_stun_request_and_wait() {
-        self.throw_if_close('_collect_local_candidates (request)');
-        if (attempts++ >= 20) {
-            throw new Error('ICE _collect_local_candidates: NO RESPONSE FROM STUN SERVER ' +
-                stun_url.hostname + ':' + stun_url.port);
-        }
-        // send the request
-        P.fcall(self.sender, Ice.SIMPLE_STUN_REQUEST, stun_url.port, stun_url.hostname);
-        // in parallel to the send start waiting for a response
-        // if it arrived then we are done, if timedout then send again
-        return self.stun_candidate_defer.promise
-            .timeout(200)
-            .catch(send_stun_request_and_wait);
-    }
-
-    function run_indication_loop() {
-        self.throw_if_close('_collect_local_candidates (indication)');
-        P.fcall(self.sender, Ice.SIMPLE_STUN_INDICATION, stun_url.port, stun_url.hostname);
-        return P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
-            .then(run_indication_loop);
-    }
-};
-
-/**
- *
- * _connect_remote_candidate
- *
- */
-Ice.prototype._connect_remote_candidate = function(credentials, addr) {
-    var self = this;
-    var attempts = 0;
-    var buffer = stun.new_packet(stun.METHODS.REQUEST, [{
-        type: stun.ATTRS.USERNAME,
-        value: credentials.ufrag + ':' + self.local.credentials.ufrag
-    }, {
-        type: stun.ATTRS.PASSWORD_OLD,
-        value: credentials.pwd
-    }]);
-
-    return send_stun_connect_and_wait();
-
-    function send_stun_connect_and_wait() {
-        self.throw_if_close('_connect_remote_candidate');
-        // we are done if address was selected
-        if (self.selected_candidate) return;
-        if (attempts++ >= 50) {
-            // dont throw on attempts exhausted,
-            // because some other candidate might succeed
-            dbg.warn('ICE _connect_remote_candidate: ATTEMPTS EXHAUSTED for address', addr,
-                'local_port', self.local_port);
-            return;
-        }
-        P.fcall(self.sender, buffer, addr.port, addr.address);
-        // TODO implement ICE scheduling https://tools.ietf.org/html/rfc5245#page-37
-        return P.delay(200).then(send_stun_connect_and_wait);
-    }
-};
-
-
-/**
- *
- * _connect_remote_candidates
- *
- */
-Ice.prototype._connect_remote_candidates = function() {
-    var self = this;
-    return P.fcall(function() {
-            dbg.log0('ICE _connect_remote_candidates: remote info', self.remote,
-                'local_port', self.local_port);
-            // send stun request to each of the remote candidates
-            return P.all(_.map(self.remote.candidates, function(candidate) {
-                return self._connect_remote_candidate(self.remote.credentials, candidate);
-            }));
-        })
+    return P.join(
+            self._init_udp_candidates(),
+            self._init_tcp_active_candidates(),
+            self._init_tcp_random_passive_candidates(),
+            self._init_tcp_fixed_passive_candidates(),
+            self._init_tcp_so_candidates()
+        )
         .then(function() {
-            if (self.selected_candidate) {
-                return self.selected_candidate;
-            }
-            throw new Error('ICE _connect_remote_candidates: CONNECT TIMEOUT');
+            return {
+                credentials: self.local.credentials,
+                candidates: _.mapValues(self.local.candidates, function(cand) {
+                    return _.pick(cand,
+                        'type',
+                        'transport',
+                        'tcp_type',
+                        'ifcname',
+                        'internal',
+                        'family',
+                        'address',
+                        'port');
+                })
+            };
+        });
+};
+
+/**
+ * _init_udp_candidates
+ */
+Ice.prototype._init_udp_candidates = function() {
+    var self = this;
+
+    if (!self.config.udp_socket) return;
+
+    return P.fcall(self.config.udp_socket)
+        .then(function(udp) {
+            self.udp = udp;
+            self._init_udp_connection(udp);
+
+            // we bind the udp socket to all interfaces, so add candidate to each
+            _.each(self.networks, function(n, ifcname) {
+                self._add_local_candidate({
+                    type: CAND_TYPE_HOST,
+                    transport: 'udp',
+                    ifcname: n.ifcname,
+                    internal: n.internal, // aka loopback
+                    family: n.family,
+                    address: n.address,
+                    port: self.udp.port,
+                    udp: udp
+                });
+            });
+
+            return self._request_stun_servers_candidates(udp);
         });
 };
 
 
 /**
- *
- * handle_stun_packet
- *
+ * _init_tcp_active_candidates
  */
-Ice.prototype.handle_stun_packet = function(buffer, rinfo) {
-    var method = stun.get_method_field(buffer);
-    switch (method) {
-        case stun.METHODS.INDICATION:
-            // indication = keepalives
-            dbg.log3('ICE handle_stun_packet: stun indication',
-                rinfo.address + ':' + rinfo.port, 'local_port', this.local_port);
-            break;
-        case stun.METHODS.ERROR:
-            // most likely a problem in the request we sent.
-            dbg.warn('ICE handle_stun_packet: STUN ERROR',
-                rinfo.address + ':' + rinfo.port, 'local_port', this.local_port);
-            break;
-        case stun.METHODS.REQUEST:
-            this._handle_stun_request(buffer, rinfo);
-            break;
-        case stun.METHODS.SUCCESS:
-            this._handle_stun_response(buffer, rinfo);
-            break;
-        default:
-            break;
-    }
+Ice.prototype._init_tcp_active_candidates = function() {
+    var self = this;
+    if (!self.config.tcp_active) return;
+    _.each(self.networks, function(n, ifcname) {
+        self._add_local_candidate({
+            type: CAND_TYPE_HOST,
+            transport: 'tcp',
+            tcp_type: CAND_TCP_TYPE_ACTIVE,
+            ifcname: n.ifcname,
+            internal: n.internal, // aka loopback
+            family: n.family,
+            address: n.address,
+            port: CAND_DISCARD_PORT,
+        });
+    });
+};
+
+/**
+ * _init_tcp_random_passive_candidates
+ */
+Ice.prototype._init_tcp_random_passive_candidates = function() {
+    var self = this;
+    if (!self.config.tcp_random_passive) return;
+
+    var server = net.createServer(function(conn) {
+        self._init_tcp_connection(conn);
+    });
+
+    server.on('error', function(err) {
+        // TODO listening failed
+        dbg.error('ICE TCP SERVER ERROR', err);
+    });
+
+    self.tcp_server = server;
+
+    return P.ninvoke(server, 'listen')
+        .then(function() {
+            var address = server.address();
+            _.each(self.networks, function(n, ifcname) {
+                self._add_local_candidate({
+                    type: CAND_TYPE_HOST,
+                    transport: 'tcp',
+                    tcp_type: CAND_TCP_TYPE_PASSIVE,
+                    ifcname: n.ifcname,
+                    internal: n.internal, // aka loopback
+                    family: n.family,
+                    address: n.address,
+                    port: address.port,
+                    tcp_server: server
+                });
+            });
+        });
+};
+
+/**
+ * _init_tcp_fixed_passive_candidates
+ */
+Ice.prototype._init_tcp_fixed_passive_candidates = function() {
+    var self = this;
+    if (!self.config.tcp_fixed_passive) return;
+
+    // TODO implement tcp_fixed_passive
+};
+
+/**
+ * _init_tcp_so_candidates
+ */
+Ice.prototype._init_tcp_so_candidates = function() {
+    var self = this;
+    if (!self.config.tcp_so) return;
+    // we create a temp tcp server and listen just to allocate
+    // a random port, and then immediately close it
+    var server = net.createServer();
+    return P.ninvoke(server, 'listen')
+        .then(function() {
+            var address = server.address();
+            server.close();
+            _.each(self.networks, function(n, ifcname) {
+                self._add_local_candidate({
+                    type: CAND_TYPE_HOST,
+                    transport: 'tcp',
+                    tcp_type: CAND_TCP_TYPE_SO,
+                    ifcname: n.ifcname,
+                    internal: n.internal, // aka loopback
+                    family: n.family,
+                    address: n.address,
+                    port: address.port,
+                });
+            });
+        });
 };
 
 
 /**
- *
- * _handle_stun_request
- *
+ * _init_udp_connection
  */
-Ice.prototype._handle_stun_request = function(buffer, rinfo) {
-    var attr_map = stun.get_attrs_map(buffer);
-    if (!this._check_stun_credentials(attr_map)) {
-        return;
-    }
+Ice.prototype._init_udp_connection = function(conn) {
+    var self = this;
 
-    this._add_remote_candidate({
-        type: CAND_TYPE_PEER_REFLEX,
-        family: 'IPv4',
-        address: rinfo.address,
-        port: rinfo.port
+    conn.on('close', function(err) {
+        dbg.error('ICE UDP CONN CLOSED', err || '');
     });
 
-    // send response
-    var reply = stun.new_packet(stun.METHODS.SUCCESS, [{
+    conn.on('error', function(err) {
+        dbg.error('ICE UDP CONN ERROR', err || '');
+    });
+
+    // TODO limit udp that receives only non-stun messages
+    conn.on('stun', function(buffer, info) {
+        info.udp = conn;
+        self._handle_stun_packet(buffer, info);
+    });
+};
+
+
+/**
+ * _init_tcp_connection
+ */
+Ice.prototype._init_tcp_connection = function(conn) {
+    var self = this;
+    var info = conn.address();
+    info.tcp = conn;
+
+    conn.on('close', function(err) {
+        dbg.error('ICE TCP CONN CLOSED', err || '');
+    });
+
+    // TODO remove ice tcp conn candidates on error
+    conn.on('error', function(err) {
+        dbg.error('ICE TCP CONN ERROR', err || '');
+        conn.destroy();
+    });
+
+    // TODO set timeout on idle connection
+    conn.on('timeout', function(err) {
+        dbg.error('ICE TCP CONN TIMEOUT', err || '');
+    });
+
+    // TODO limit tcp that receives only non-stun messages
+    conn.frame_stream = new FrameStream(conn, function(buffer, msg_type) {
+        if (msg_type === ICE_FRAME_STUN_MSG_TYPE) {
+            self._handle_stun_packet(buffer, info);
+        } else {
+            // TODO handle data messages
+        }
+    }, ICE_FRAME_CONFIG);
+};
+
+
+/**
+ * _new_stun_request
+ */
+Ice.prototype._new_stun_request = function(with_credentials) {
+    var self = this;
+    var packet;
+    var tid;
+    var attrs;
+    if (with_credentials) {
+        attrs = [{
+            type: stun.ATTRS.USERNAME,
+            value: self.remote.credentials.ufrag + ':' + self.local.credentials.ufrag
+        }, {
+            type: stun.ATTRS.PASSWORD_OLD,
+            value: self.remote.credentials.pwd
+        }];
+    }
+    do {
+        packet = stun.new_packet(stun.METHODS.REQUEST, attrs);
+        tid = stun.get_tid_field(packet).toString('base64');
+    } while (self.stun_requests[tid]);
+
+    var req = self.stun_requests[tid] = {
+        packet: packet,
+        tid: tid,
+        defer: P.defer(),
+        send_tcp_request: function() {
+            req.tcp.frame_stream.send_message(req.packet, ICE_FRAME_STUN_MSG_TYPE);
+        },
+        send_udp_request_loop: function() {
+            if (self.closed) return;
+            if (req.closed) return;
+            req.udp.send_outbound(req.packet, req.udp_port, req.udp_host);
+            return P.delay(100).then(req.send_udp_request_loop);
+        },
+        send_udp_indication_loop: function() {
+            if (self.closed) return;
+            if (req.closed) return;
+            req.udp.send_outbound(req.indication, req.udp_port, req.udp_host);
+            return P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
+                .then(req.send_udp_indication_loop);
+        }
+    };
+
+    return req;
+};
+
+
+/**
+ * _make_stun_response
+ */
+Ice.prototype._make_stun_response = function(buffer, info) {
+    return stun.new_packet(stun.METHODS.SUCCESS, [{
         type: stun.ATTRS.XOR_MAPPED_ADDRESS,
         value: {
-            family: 'IPv4',
-            port: rinfo.port,
-            address: rinfo.address
+            family: info.family,
+            address: info.address,
+            port: info.port,
         }
     }, {
         type: stun.ATTRS.USERNAME,
@@ -358,12 +483,87 @@ Ice.prototype._handle_stun_request = function(buffer, rinfo) {
         type: stun.ATTRS.PASSWORD_OLD,
         value: this.remote.credentials.pwd
     }], buffer);
+};
 
-    return this.sender(reply, rinfo.port, rinfo.address)
-        .then(null, function(err) {
-            dbg.warn('ICE _handle_stun_request: SEND RESPONSE FAILED',
-                rinfo, err.stack || err);
-        });
+
+/**
+ *
+ * _handle_stun_packet
+ *
+ */
+Ice.prototype._handle_stun_packet = function(buffer, info) {
+
+    // TODO implement stun message integrity check with HMAC
+
+    var method = stun.get_method_field(buffer);
+    switch (method) {
+        case stun.METHODS.REQUEST:
+            return this._handle_stun_request(buffer, info);
+        case stun.METHODS.SUCCESS:
+            return this._handle_stun_response(buffer, info);
+            // case stun.METHODS.INDICATION:
+            // case stun.METHODS.ERROR:
+        default:
+            return this._handle_bad_stun_packet(buffer, info,
+                'PACKET WITH UNEXPECTED METHOD ' + method);
+    }
+};
+
+
+/**
+ *
+ * _handle_bad_stun_packet
+ *
+ */
+Ice.prototype._handle_bad_stun_packet = function(buffer, info, reason) {
+    // TODO limit received bad stun messages
+    dbg.warn('ICE _handle_bad_stun_packet:', reason, info, this.connid);
+    if (info.tcp) {
+        info.tcp.destroy();
+    } else {
+        // udp silently ignore to avoid denial of service
+        // TODO maybe better fail and restart a new ICE on random port?
+    }
+};
+
+/**
+ *
+ * _handle_stun_request
+ *
+ */
+Ice.prototype._handle_stun_request = function(buffer, info) {
+
+    // checking the request credentials match the remote credentials
+    // as were communicated by the signaller.
+    // we only reply to requests with credentials in this path,
+    // since this is meant to be served on a random port.
+    // for general stun server just use the stun.js module.
+    var attr_map = stun.get_attrs_map(buffer);
+    if (!this._check_stun_credentials(attr_map)) {
+        return this._handle_bad_stun_packet(buffer, info, 'REQUEST WITH BAD CREDENTIALS');
+    }
+
+    // got an authenticated stun request, that's a good candidate for remote communication
+    this._add_remote_candidate({
+        type: CAND_TYPE_PEER_REFLEX,
+        family: info.family,
+        address: info.address,
+        port: info.port,
+        transport: info.tcp ? 'tcp' : 'udp',
+        tcp: info.tcp,
+        udp: info.udp
+    });
+
+    // send response that may or may not be delivered
+    // if it does then the peer can add a candidate as well
+    // and also he will know the candidate I have for him from the mapped address attr.
+    var reply = this._make_stun_response(buffer, info);
+
+    if (info.tcp) {
+        info.tcp.frame_stream.send_message(reply, ICE_FRAME_STUN_MSG_TYPE);
+    } else {
+        info.udp.send_outbound(reply, info.port, info.address, _.noop);
+    }
 };
 
 
@@ -371,37 +571,248 @@ Ice.prototype._handle_stun_request = function(buffer, rinfo) {
  *
  * _handle_stun_response
  *
- * this is a stun response from a stun server, letting us know
+ * this is a stun response from a stun server or the peer, letting us know
  * what is our reflexive address as it sees us.
  * we keep all the local candidates we discover in a map (without dups),
- * so they can be used later for contacting us from other peers.
+ * so we can send it over the signalling channel to the peer.
  *
  */
-Ice.prototype._handle_stun_response = function(buffer, rinfo) {
-    var attr_map = stun.get_attrs_map(buffer);
-    var cand_type;
+Ice.prototype._handle_stun_response = function(buffer, info) {
 
-    if (this._check_stun_credentials(attr_map)) {
-        // select this remote address since we got a valid response from it
-        cand_type = CAND_TYPE_PEER_REFLEX;
-        this._add_remote_candidate({
-            type: cand_type,
-            family: 'IPv4',
-            address: rinfo.address,
-            port: rinfo.port
-        });
-    } else {
-        cand_type = CAND_TYPE_SERVER_REFLEX;
+    // lookup the tid in the pending requests
+    var tid = stun.get_tid_field(buffer).toString('base64');
+    var req = this.stun_requests[tid];
+    if (!req) {
+        return this._handle_bad_stun_packet(buffer, info, 'RESPONSE TO MISSING REQUEST');
+    }
+    if (req.closed) {
+        return this._handle_bad_stun_packet(buffer, info, 'RESPONSE TO CLOSED REQUEST');
     }
 
+    var attr_map = stun.get_attrs_map(buffer);
+    var cand_type = CAND_TYPE_SERVER_REFLEX;
+
+    if (req.is_peer) {
+        if (!this._check_stun_credentials(attr_map)) {
+            req.defer.reject(new Error('ICE STUN RESPONSE BAD CREDENTIALS'));
+            this._handle_bad_stun_packet(buffer, info, 'RESPONSE WITH BAD CREDENTIALS');
+            return;
+        }
+        // this means the response is from the peer and not from public stun server
+        cand_type = CAND_TYPE_PEER_REFLEX;
+        // add this remote address since we got a valid response from it
+        this._add_remote_candidate({
+            type: cand_type,
+            family: info.family,
+            address: info.address,
+            port: info.port,
+            transport: info.tcp ? 'tcp' : 'udp',
+            tcp: info.tcp,
+            udp: info.udp
+        });
+    }
+
+    // add the local address from the stun mapped address field
+    // we do it also for peer responses although we currently signal only once
+    // and at this stage we already signalled, so this will not be used.
     if (attr_map.address) {
         this._add_local_candidate({
             type: cand_type,
-            family: 'IPv4',
+            transport: info.tcp ? 'tcp' : 'udp',
+            family: attr_map.address.family,
             address: attr_map.address.address,
-            port: attr_map.address.port
+            port: attr_map.address.port,
+            udp: info.udp,
+            tcp: info.tcp
         });
     }
+
+    // resolve the request to let the waiter know its done
+    req.defer.resolve(info);
+};
+
+
+/**
+ *
+ * _request_stun_servers_candidates
+ *
+ * sending stun requests to public servers to discover my address outside of the NAT
+ * and keep the stun mapping open after by sending indications periodically.
+ *
+ */
+Ice.prototype._request_stun_servers_candidates = function(udp) {
+    var self = this;
+
+    return P.all(_.map(self.config.stun_servers, function(stun_url) {
+        var req = self._new_stun_request();
+        req.transport = 'udp';
+        req.udp = udp;
+        stun_url = _.isString(stun_url) ? url_utils.quick_parse(stun_url) : stun_url;
+        req.udp_host = stun_url.hostname;
+        req.udp_port = stun_url.port;
+        // this request is to public server and we need to know that
+        // when processing the response to not require it to include credentials,
+        // while the peer stun messages will be required to include it.
+        req.is_peer = false;
+        // indication packet copy tid from request packet, not sure if needed,
+        // but seems like it would make sense to the stun server
+        // to see the indications coming from the same tid session.
+        req.indication = stun.new_packet(stun.METHODS.INDICATION, null, req.packet);
+        // start sending udp requests
+        req.send_udp_request_loop();
+        return req.defer.promise
+            // once replied, start sending indications until the request is closed
+            .then(function() {
+                req.send_udp_indication_loop();
+            })
+            // wait for the reply for 5 seconds before timeout
+            .timeout(5000)
+            // on timeout mark this request as closed
+            .catch(function(err) {
+                req.error = err;
+                req.closed = true;
+                req.defer.reject(err);
+            });
+    }));
+};
+
+
+/**
+ *
+ * _connect_remote_candidates
+ *
+ */
+Ice.prototype._connect_remote_candidates = function(remote_info) {
+    var self = this;
+
+    // merge the remote info - to set credentials and candidates
+    _.merge(self.remote, remote_info);
+
+    // create a list of pairs of candidates to be tested
+    // TODO should we support foundation and frozen candidates?
+    self.candidate_pairs = {};
+
+    return P.map(self.local.candidates, function(l) {
+            // ignore loopback candidates for now
+            if (l.internal) return;
+            // ignore apple internal network
+            if (l.ifcname && l.ifcname.startsWith('awdl')) return;
+            // match against each remote candidate
+            return P.map(self.remote.candidates, function(r) {
+                if (r.internal) return;
+                if (r.ifcname && l.ifcname.startsWith('awdl')) return;
+                if (l.family !== r.family) return;
+                if (l.transport !== r.transport) return;
+                if (l.tcp_type === CAND_TCP_TYPE_PASSIVE) return;
+                if (l.tcp_type === CAND_TCP_TYPE_ACTIVE &&
+                    r.tcp_type !== CAND_TCP_TYPE_PASSIVE) return;
+                if (l.tcp_type === CAND_TCP_TYPE_SO &&
+                    r.tcp_type !== CAND_TCP_TYPE_SO) return;
+                dbg.log0('ICE _connect_remote_candidates: candidate pair',
+                    'LOCAL', l, 'REMOTE', r);
+                var pair_key = l.key + '<->' + r.key;
+                var pair = {
+                    local: l,
+                    remote: r
+                };
+                self.candidate_pairs[pair_key] = pair;
+                return self._connect_candidate_pair(pair);
+            });
+        })
+        .then(function() {
+            if (!self.selected_candidate) {
+                throw new Error('ICE _connect_remote_candidates: CONNECT TIMEOUT');
+            }
+            return self.selected_candidate;
+        });
+};
+
+
+/**
+ *
+ * _connect_candidate_pair
+ *
+ */
+Ice.prototype._connect_candidate_pair = function(pair) {
+    var self = this;
+
+    var req = self._new_stun_request('with credentials');
+    req.is_peer = true;
+    if (pair.local.transport === 'tcp') {
+        req.transport = 'tcp';
+        if (pair.local.tcp_type === CAND_TCP_TYPE_SO) {
+            self._connect_tcp_so_pair(req, pair);
+        } else {
+            self._connect_tcp_active_passive_pair(req, pair);
+        }
+    } else {
+        req.transport = 'udp';
+        req.udp = pair.local.udp;
+        req.udp_host = pair.remote.address;
+        req.udp_port = pair.remote.port;
+        req.send_udp_request_loop();
+    }
+
+    return req.defer.promise
+        // wait for the reply for 5 seconds before timeout
+        .timeout(5000)
+        // on timeout mark this request as closed
+        .then(function(info) {
+            dbg.warn('ICE PAIR SUCCESSFUL', pair, info);
+        })
+        .catch(function(err) {
+            req.error = err;
+            req.closed = true;
+            req.defer.reject(err);
+            dbg.warn('ICE PAIR NO SUCCESS', pair, err);
+        });
+};
+
+
+/**
+ *
+ * _connect_tcp_so_pair
+ *
+ */
+Ice.prototype._connect_tcp_so_pair = function(req, pair) {
+    var self = this;
+    var so_attempts = 1000;
+    var try_so = function() {
+        req.tcp = net.connect(pair.remote.port, pair.remote.address);
+        req.tcp.on('error', function(err) {
+            req.tcp.destroy();
+            if (so_attempts <= 0 || self.closed) {
+                req.defer.reject(new Error('ICE TCP SO EXHAUSTED'));
+            } else {
+                so_attempts -= 1;
+                setTimeout(try_so, 100 * Math.random());
+            }
+        });
+        req.tcp.on('connect', function(err) {
+            so_attempts = 0;
+            self._init_tcp_connection(req.tcp);
+            req.send_tcp_request();
+        });
+    };
+    try_so();
+};
+
+/**
+ *
+ * _connect_tcp_active_passive_pair
+ *
+ */
+Ice.prototype._connect_tcp_active_passive_pair = function(req, pair) {
+    var self = this;
+    req.tcp = net.connect(pair.remote.port, pair.remote.address);
+    req.tcp.on('error', function(err) {
+        req.tcp.destroy();
+        req.defer.reject(err);
+    });
+    req.tcp.on('connect', function(err) {
+        self._init_tcp_connection(req.tcp);
+        req.send_tcp_request();
+    });
 };
 
 
@@ -433,19 +844,9 @@ Ice.prototype._check_stun_credentials = function(attr_map) {
  *
  */
 Ice.prototype._add_local_candidate = function(candidate) {
-    var addr = candidate.address + ':' + candidate.port;
-
-    dbg.log1('ICE LOCAL CANDIDATE', addr,
-        'type', candidate.type,
-        'local_port', this.local_port);
-
-    this.local.candidates[addr] = candidate;
-
-    // continue if we are waiting for the stun server response
-    if (candidate.type === CAND_TYPE_SERVER_REFLEX &&
-        this.stun_candidate_defer) {
-        this.stun_candidate_defer.resolve();
-    }
+    var cand = new IceCandidate(candidate);
+    dbg.log1('ICE LOCAL CANDIDATE', cand.key, this.connid);
+    this.local.candidates[cand.key] = cand;
 };
 
 /**
@@ -454,20 +855,16 @@ Ice.prototype._add_local_candidate = function(candidate) {
  *
  */
 Ice.prototype._add_remote_candidate = function(candidate) {
-    var addr = candidate.address + ':' + candidate.port;
-
-    dbg.log1('ICE REMOTE CANDIDATE', addr,
-        'type', candidate.type,
-        'local_port', this.local_port);
-
-    this.remote.candidates[addr] = candidate;
+    var cand = new IceCandidate(candidate);
+    dbg.log1('ICE REMOTE CANDIDATE', cand.key, this.connid);
+    this.remote.candidates[cand.key] = cand;
 
     if (!this.selected_candidate) {
-        dbg.log0('ICE READY ~~~ SELECTED CANDIDATE', addr, 'local_port', this.local_port);
+        dbg.log0('ICE READY ~~~ SELECTED CANDIDATE', cand.key, this.connid);
         this._select_remote_candidate(candidate);
     } else if (ip_module.isPrivate(candidate.address) &&
         !ip_module.isPrivate(this.selected_candidate.address)) {
-        dbg.log0('ICE READY ~~~ RE-SELECTED CANDIDATE', addr, 'local_port', this.local_port);
+        dbg.log0('ICE READY ~~~ RE-SELECTED CANDIDATE', cand.key, this.connid);
         this._select_remote_candidate(candidate);
     }
 };
@@ -479,6 +876,7 @@ Ice.prototype._add_remote_candidate = function(candidate) {
  */
 Ice.prototype._select_remote_candidate = function(candidate) {
     this.selected_candidate = candidate;
+    // this.emit('connect');
     this._selected_candidate_keepalive();
 };
 
@@ -486,7 +884,7 @@ Ice.prototype._selected_candidate_keepalive = function() {
     var self = this;
     if (self._selected_candidate_keepalive_running) return;
     self._selected_candidate_keepalive_running = true;
-    send_keepalive_and_delay();
+    send_keepalive_and_delay().fail(_.noop);
 
     function send_keepalive_and_delay() {
         self.throw_if_close('_selected_candidate_keepalive');
@@ -502,3 +900,43 @@ Ice.prototype._selected_candidate_keepalive = function() {
             .then(send_keepalive_and_delay);
     }
 };
+
+Ice.prototype.close = function() {
+    var self = this;
+    self.closed = true;
+    _.each(self.local.candidates, function(cand) {
+        if (cand.tcp_server) {
+            cand.tcp_server.close();
+        }
+        if (cand.udp) {
+            cand.udp.close();
+        }
+    });
+    _.each(self.stun_requests, function(req) {
+        req.closed = true;
+        req.defer.reject(new Error('ICE CLOSED'));
+        if (req.udp) {
+            req.udp.close();
+        }
+        if (req.tcp) {
+            req.tcp.destroy();
+        }
+    });
+};
+
+Ice.prototype.throw_if_close = function(from) {
+    if (this.closed) {
+        throw new Error('ICE CLOSED ' + this.connid + ' ' + (from || ''));
+    }
+};
+
+
+function IceCandidate(cand) {
+    cand.key = url.format({
+        protocol: cand.transport + (cand.family === 'IPv6' ? 6 : 4),
+        hostname: cand.address,
+        port: cand.port,
+        path: path.join(cand.type, cand.tcp_type || '')
+    });
+    return cand;
+}

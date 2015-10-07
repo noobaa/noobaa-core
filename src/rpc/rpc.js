@@ -15,6 +15,7 @@ var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
 var RpcHttpConnection = require('./rpc_http');
 var RpcTcpConnection = require('./rpc_tcp');
+var RpcNudpConnection = require('./rpc_nudp');
 var RpcN2NConnection = require('./rpc_n2n');
 var RpcFcallConnection = require('./rpc_fcall');
 var EventEmitter = require('events').EventEmitter;
@@ -260,7 +261,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             }
 
         })
-        .then(null, function(err) {
+        .fail(function(err) {
 
             dbg.error('RPC client_request: response ERROR',
                 'srv', req.srv,
@@ -388,8 +389,9 @@ RPC.prototype.handle_request = function(conn, msg) {
             }
 
             return conn.send(req.export_response_buffer(), 'res', req);
-        })
-        .fin(function() {
+
+        // })
+        // .fin(function() {
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
         });
 };
@@ -475,7 +477,7 @@ RPC.prototype._get_connection = function(addr_url, srv) {
     var conn = this._connection_by_address[addr_url.href];
 
     if (conn) {
-        if (conn.closed) {
+        if (conn.is_closed()) {
             dbg.log0('RPC _assign_connection: remove stale connection',
                 'address', addr_url.href,
                 'srv', srv,
@@ -511,13 +513,16 @@ RPC.prototype._new_connection = function(addr_url) {
         case 'n2n:':
             conn = new RpcN2NConnection(addr_url, this.n2n_agent);
             break;
-        case 'ws:':
-        case 'wss:':
-            conn = new RpcWsConnection(addr_url);
-            break;
         case 'tls:':
         case 'tcp:':
             conn = new RpcTcpConnection(addr_url);
+            break;
+        case 'nudp:':
+            conn = new RpcNudpConnection(addr_url);
+            break;
+        case 'ws:':
+        case 'wss:':
+            conn = new RpcWsConnection(addr_url);
             break;
         case 'http:':
         case 'https:':
@@ -648,8 +653,6 @@ RPC.prototype._connection_error = function(conn, err) {
  */
 RPC.prototype._connection_closed = function(conn) {
     var self = this;
-
-    conn.closed = true;
 
     dbg.log3('RPC _connection_closed:', conn.connid);
 
@@ -797,9 +800,31 @@ RPC.prototype.register_ws_transport = function(http_server) {
  */
 RPC.prototype.register_tcp_transport = function(port, tls_options) {
     dbg.log0('RPC register_tcp_transport');
-    var tcp_server = new RpcTcpConnection.Server(port, tls_options);
+    var tcp_server = new RpcTcpConnection.Server(tls_options);
     tcp_server.on('connection', this._accept_new_connection.bind(this));
+    tcp_server.listen(port);
     return tcp_server;
+};
+
+
+/**
+ *
+ * register_nudp_transport
+ *
+ * this is not really like tcp listening, it only creates a one time
+ * nudp connection that binds to the given port, and waits for a peer
+ * to connect. after that connection is made, it ceases to listen for new connections,
+ * and that udp port is used for the nudp connection.
+ *
+ */
+RPC.prototype.register_nudp_transport = function(port) {
+    var self = this;
+    dbg.log0('RPC register_tcp_transport');
+    var conn = new RpcNudpConnection(url_utils.quick_parse('nudp://0.0.0.0:0'));
+    conn.on('connected', function() {
+        self._accept_new_connection(conn);
+    });
+    return conn.accept(port);
 };
 
 

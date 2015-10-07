@@ -63,6 +63,7 @@ RpcHttpConnection.prototype._connect = function() {
     if (this.url.protocol === 'http:' && is_browser_secure) {
         throw new Error('HTTP INSECURE - cannot use http: from secure browser page');
     }
+    this.emit('connect');
 };
 
 
@@ -329,6 +330,7 @@ RpcHttpServer.prototype.middleware = function(req, res) {
         var conn = new RpcHttpConnection(url.parse(address));
         conn.req = req;
         conn.res = res;
+        conn.emit('connect');
         this.emit('connection', conn);
         conn.emit('message', req.body);
     } catch (err) {

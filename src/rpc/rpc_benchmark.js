@@ -32,7 +32,7 @@ argv.n2n = argv.n2n || false;
 argv.nconn = argv.nconn || 1;
 argv.closeconn = parseInt(argv.closeconn, 10) || 0;
 argv.addr = url.parse(argv.addr || '');
-argv.addr.protocol = argv.proto || argv.addr.protocol || 'ws:';
+argv.addr.protocol = (argv.proto && argv.proto + ':') || argv.addr.protocol || 'ws:';
 argv.addr.hostname = argv.host || argv.addr.hostname || '127.0.0.1';
 argv.addr.port = parseInt(argv.port, 10) || argv.addr.port || 5656;
 
@@ -136,10 +136,9 @@ function start() {
                 return;
             }
 
-            var secure = argv.addr.protocol in {
-                'https:': 1,
-                'wss:': 1,
-            };
+            if (argv.addr.protocol === 'nudp:') {
+                return rpc.register_nudp_transport(argv.addr.port);
+            }
 
             var tcp = argv.addr.protocol in {
                 'tcp:': 1,
@@ -160,6 +159,11 @@ function start() {
                             });
                     });
             }
+
+            var secure = argv.addr.protocol in {
+                'https:': 1,
+                'wss:': 1,
+            };
 
             // open http listening port for http based protocols
             return rpc.start_http_server(argv.addr.port, secure)

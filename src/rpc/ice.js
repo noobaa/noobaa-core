@@ -55,14 +55,16 @@ util.inherits(Ice, EventEmitter);
  *
  * @param config - ICE configuration object with the following properties:
  *
- *  stun_servers: (array of urls)
- *      used to get server reflexive addresses for NAT traversal.
+ *  ufrag_length: (integer) (optional)
+ *      change the default ice credential length
+ *  pwd_length: (integer) (optional)
+ *      change the default ice credential length
  *
- *  udp_socket: (function())
- *      used to create a udp socket and bind it to a port (random typically).
- *      the returned object can send packets using send(buffer,port,host),
- *      and once messages are received it should detect stun messages (see in stun.js)
- *      and call emit 'stun' events on received stun packet to be handled by ICE.
+ *  offer_ipv4: (boolean)
+ *  offer_ipv6: (boolean)
+ *  accept_ipv4: (boolean)
+ *  accept_ipv6: (boolean)
+ *      the default is true for all. set to false to override.
  *
  *  tcp_secure: (boolean)
  *      when true will upgrade to TLS after ICE connects
@@ -77,16 +79,20 @@ util.inherits(Ice, EventEmitter);
  *      simultaneous_open means both endpoints will connect simultaneously,
  *      see https://en.wikipedia.org/wiki/TCP_hole_punching
  *
+ *  udp_socket: (function())
+ *      used to create a udp socket and bind it to a port (random typically).
+ *      the returned object can send packets using send(buffer,port,host),
+ *      and once messages are received it should detect stun messages (see in stun.js)
+ *      and call emit 'stun' events on received stun packet to be handled by ICE.
+ *
  *  signaller: (function(info))
  *      send signal over relayed channel to the peer to communicate
  *      the credentials and candidates.
  *      this should be SDP format by the spec, but it's simpler to use
  *      plain JSON for now.
  *
- *  ufrag_length: (integer) (optional)
- *      change the default ice credential length
- *  pwd_length: (integer) (optional)
- *      change the default ice credential length
+ *  stun_servers: (array of urls)
+ *      used to get server reflexive addresses for NAT traversal.
  *
  */
 function Ice(connid, config) {
@@ -103,31 +109,37 @@ function Ice(connid, config) {
     // which will allow to match the replies to the requests
     self.sessions = {};
 
-    self.networks = _.flatten(_.map(os.networkInterfaces(), function(addresses, name) {
-        _.each(addresses, function(addr) {
-            addr.ifcname = name;
+    self.networks = [];
+    _.each(os.networkInterfaces(), function(interfaces, name) {
+        _.each(interfaces, function(n) {
+            // ignore loopback candidates for now
+            if (n.internal) return;
+            // ignore apple internal network
+            if (name.startsWith('awdl')) return;
+            if (self.config.offer_ipv4 === false && n.family === 'IPv4') return;
+            if (self.config.offer_ipv6 === false && n.family === 'IPv6') return;
+            n.ifcname = name;
+            self.networks.push(n);
         });
-        return addresses;
-    }));
+    });
 
+    self.local_credentials = {
+        ufrag: random_crypto_string(
+            self.config.ufrag_length || ICE_UFRAG_LENGTH,
+            RAND_ICE_CHAR_POOL_64),
+        pwd: random_crypto_string(
+            self.config.pwd_length || ICE_PWD_LENGTH,
+            RAND_ICE_CHAR_POOL_64),
+    };
+    self.local_candidates = {};
+    self.remote_credentials = {};
+    self.remote_candidates = {};
     self.selected_candidate = null;
 
-    self.local = {
-        credentials: {
-            ufrag: random_crypto_string(
-                self.config.ufrag_length || ICE_UFRAG_LENGTH,
-                RAND_ICE_CHAR_POOL_64),
-            pwd: random_crypto_string(
-                self.config.pwd_length || ICE_PWD_LENGTH,
-                RAND_ICE_CHAR_POOL_64),
-        },
-        candidates: {}
-    };
-
-    self.remote = {
-        credentials: {},
-        candidates: {}
-    };
+    self.on('error', function(err) {
+        dbg.error('ICE ERROR', err.stack || err);
+        self.close();
+    });
 }
 
 /**
@@ -170,7 +182,7 @@ Ice.prototype.connect = function() {
             return self._connect_remote_candidates(remote_info);
         })
         .fail(function(err) {
-            self.close(err);
+            self.emit('error', err);
             throw err;
         });
 };
@@ -206,7 +218,7 @@ Ice.prototype.accept = function(remote_info) {
             return local_info;
         })
         .fail(function(err) {
-            self.close(err);
+            self.emit('error', err);
             throw err;
         });
 };
@@ -226,8 +238,10 @@ Ice.prototype._init_local_candidates = function() {
         )
         .then(function() {
             return {
-                credentials: self.local.credentials,
-                candidates: _.mapValues(self.local.candidates, function(cand) {
+                credentials: self.local_credentials,
+                candidates: _.mapValues(self.local_candidates, function(cand) {
+                    // need to pick properties because we have connections in there
+                    // which shouldn't be sent
                     return _.pick(cand,
                         'type',
                         'transport',
@@ -427,31 +441,142 @@ Ice.prototype._init_tcp_connection = function(conn) {
 
 
 /**
+ *
+ * _connect_remote_candidates
+ *
+ */
+Ice.prototype._connect_remote_candidates = function(remote_info) {
+    var self = this;
+
+    // set the remote info - to set credentials and candidates
+    self.remote_credentials = remote_info.credentials;
+    _.each(remote_info.candidates, function(cand) {
+        self._add_remote_candidate(cand);
+    });
+
+    // TODO should we support foundation and frozen candidates from the SPEC?
+
+    // match each local against each remote candidate
+    return P.all(_.map(self.local_candidates, function(l) {
+            return P.all(_.map(self.remote_candidates, function(r) {
+                if (self.config.accept_ipv4 === false && r.family === 'IPv4') return;
+                if (self.config.accept_ipv6 === false && r.family === 'IPv6') return;
+                if (l.family !== r.family) return;
+                if (l.transport !== r.transport) return;
+                if (l.tcp_type === CAND_TCP_TYPE_PASSIVE) return;
+                if (l.tcp_type === CAND_TCP_TYPE_ACTIVE &&
+                    r.tcp_type !== CAND_TCP_TYPE_PASSIVE) return;
+                if (l.tcp_type === CAND_TCP_TYPE_SO &&
+                    r.tcp_type !== CAND_TCP_TYPE_SO) return;
+                dbg.log0('ICE _connect_remote_candidates: candidate pair',
+                    'LOCAL', l, 'REMOTE', r);
+                return self._connect_candidate_pair(l, r);
+            }));
+        }))
+        .then(function() {
+            if (!self.selected_candidate) {
+                throw new Error('ICE _connect_remote_candidates: CONNECT TIMEOUT');
+            }
+        })
+        .fail(function(err) {
+            dbg.error('ICE _connect_remote_candidates: ERROR', err.stack || err);
+            self.emit('error', err);
+            throw err;
+        });
+};
+
+
+/**
+ *
+ * _connect_candidate_pair
+ *
+ */
+Ice.prototype._connect_candidate_pair = function(local, remote) {
+    var self = this;
+
+    var session = self._new_session(local, remote);
+    if (local.transport === 'tcp') {
+        if (local.tcp_type === CAND_TCP_TYPE_SO) {
+            self._connect_tcp_so_pair(session, local, remote);
+        } else {
+            self._connect_tcp_active_passive_pair(session, local, remote);
+        }
+    } else {
+        session.send_udp_request_loop();
+    }
+
+    return session.defer.promise
+        // wait for the reply for 5 seconds before timeout
+        .timeout(5000)
+        // on timeout mark this request as closed
+        .then(function(info) {
+            dbg.warn('ICE PAIR SUCCESSFUL', local.key, remote.key, info);
+        })
+        .catch(function(err) {
+            session.error = err;
+            session.closed = true;
+            session.defer.reject(err);
+            dbg.warn('ICE PAIR NO SUCCESS', local.key, remote.key, err);
+        });
+};
+
+
+/**
+ *
+ * _connect_tcp_so_pair
+ *
+ */
+Ice.prototype._connect_tcp_so_pair = function(session, local, remote) {
+    var self = this;
+    var so_max_delay_ms = 100;
+    var try_so = function() {
+        session.tcp = net.connect(remote.port, remote.address);
+        session.tcp.on('error', function(err) {
+            session.tcp.destroy();
+            if (so_max_delay_ms <= 0 || self.closed) {
+                session.defer.reject(new Error('ICE TCP SO EXHAUSTED'));
+            } else {
+                setTimeout(try_so, so_max_delay_ms * Math.random());
+                so_max_delay_ms -= 0.1;
+            }
+        });
+        session.tcp.on('connect', function(err) {
+            so_max_delay_ms = 0;
+            self._init_tcp_connection(session.tcp);
+            session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
+        });
+    };
+    try_so();
+};
+
+/**
+ *
+ * _connect_tcp_active_passive_pair
+ *
+ */
+Ice.prototype._connect_tcp_active_passive_pair = function(session, local, remote) {
+    var self = this;
+    session.tcp = net.connect(remote.port, remote.address);
+    session.tcp.on('error', function(err) {
+        session.tcp.destroy();
+        session.defer.reject(err);
+    });
+    session.tcp.on('connect', function(err) {
+        self._init_tcp_connection(session.tcp);
+        session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
+    });
+};
+
+
+/**
  * _new_session
  */
-Ice.prototype._new_session = function(is_stun_server) {
-    var self = this;
-    var packet;
-    var tid;
-    var attrs;
-    if (!is_stun_server) {
-        attrs = [{
-            type: stun.ATTRS.USERNAME,
-            value: self.remote.credentials.ufrag + ':' + self.local.credentials.ufrag
-        }, {
-            type: stun.ATTRS.PASSWORD_OLD,
-            value: self.remote.credentials.pwd
-        }];
-    }
+Ice.prototype._new_session = function(local, remote) {
+    var session;
     do {
-        packet = stun.new_packet(stun.METHODS.REQUEST, attrs);
-        tid = stun.get_tid_field(packet).toString('base64');
-    } while (self.sessions[tid]);
-    var session = new IceSession(this, packet);
-    self.sessions[tid] = session;
-    if (is_stun_server) {
-        session.stun_server = true;
-    }
+        session = new IceSession(this, local, remote);
+    } while (this.sessions[session.tid]);
+    this.sessions[session.tid] = session;
     return session;
 };
 
@@ -469,10 +594,10 @@ Ice.prototype._make_stun_response = function(buffer, info) {
         }
     }, {
         type: stun.ATTRS.USERNAME,
-        value: this.remote.credentials.ufrag + ':' + this.local.credentials.ufrag
+        value: this.remote_credentials.ufrag + ':' + this.local_credentials.ufrag
     }, {
         type: stun.ATTRS.PASSWORD_OLD,
-        value: this.remote.credentials.pwd
+        value: this.remote_credentials.pwd
     }], buffer);
 };
 
@@ -583,7 +708,7 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
     var attr_map = stun.get_attrs_map(buffer);
     var cand_type = CAND_TYPE_SERVER_REFLEX;
 
-    if (!session.stun_server) {
+    if (!session.remote.is_stun_server) {
         if (!this._check_stun_credentials(attr_map)) {
             session.defer.reject(new Error('ICE STUN RESPONSE BAD CREDENTIALS'));
             this._handle_bad_stun_packet(buffer, info, 'RESPONSE WITH BAD CREDENTIALS');
@@ -635,19 +760,18 @@ Ice.prototype._request_stun_servers_candidates = function(udp) {
     var self = this;
 
     return P.all(_.map(self.config.stun_servers, function(stun_url) {
+        stun_url = _.isString(stun_url) ? url_utils.quick_parse(stun_url) : stun_url;
         // this request is to public server and we need to know that
         // when processing the response to not require it to include credentials,
         // while the peer stun messages will be required to include it.
-        var session = self._new_session('stun server');
-        session.transport = 'udp';
-        session.udp = udp;
-        stun_url = _.isString(stun_url) ? url_utils.quick_parse(stun_url) : stun_url;
-        session.udp_host = stun_url.hostname;
-        session.udp_port = stun_url.port;
-        // indication packet copy tid from request packet, not sure if needed,
-        // but seems like it would make sense to the stun server
-        // to see the indications coming from the same tid session.
-        session.indication = stun.new_packet(stun.METHODS.INDICATION, null, session.packet);
+        // send "minimal candidates" like local and remote
+        var session = self._new_session({
+            udp: udp
+        }, {
+            is_stun_server: true,
+            address: stun_url.hostname,
+            port: stun_url.port
+        });
         // start sending udp requests
         session.send_udp_request_loop();
         return session.defer.promise
@@ -669,147 +793,6 @@ Ice.prototype._request_stun_servers_candidates = function(udp) {
 
 /**
  *
- * _connect_remote_candidates
- *
- */
-Ice.prototype._connect_remote_candidates = function(remote_info) {
-    var self = this;
-
-    // merge the remote info - to set credentials and candidates
-    _.merge(self.remote, remote_info);
-
-    // create a list of pairs of candidates to be tested
-    // TODO should we support foundation and frozen candidates?
-    self.candidate_pairs = {};
-
-    return P.map(self.local.candidates, function(l) {
-            // ignore loopback candidates for now
-            if (l.internal) return;
-            // ignore apple internal network
-            if (l.ifcname && l.ifcname.startsWith('awdl')) return;
-            // match against each remote candidate
-            return P.map(self.remote.candidates, function(r) {
-                if (r.internal) return;
-                if (r.ifcname && l.ifcname.startsWith('awdl')) return;
-                if (l.family !== r.family) return;
-                if (l.transport !== r.transport) return;
-                if (l.tcp_type === CAND_TCP_TYPE_PASSIVE) return;
-                if (l.tcp_type === CAND_TCP_TYPE_ACTIVE &&
-                    r.tcp_type !== CAND_TCP_TYPE_PASSIVE) return;
-                if (l.tcp_type === CAND_TCP_TYPE_SO &&
-                    r.tcp_type !== CAND_TCP_TYPE_SO) return;
-                dbg.log0('ICE _connect_remote_candidates: candidate pair',
-                    'LOCAL', l, 'REMOTE', r);
-                var pair_key = l.key + '<->' + r.key;
-                var pair = {
-                    local: l,
-                    remote: r
-                };
-                self.candidate_pairs[pair_key] = pair;
-                return self._connect_candidate_pair(pair);
-            });
-        })
-        .then(function() {
-            if (!self.selected_candidate) {
-                throw new Error('ICE _connect_remote_candidates: CONNECT TIMEOUT');
-            }
-        })
-        .fail(function(err) {
-            self.close(err);
-            throw err;
-        });
-};
-
-
-/**
- *
- * _connect_candidate_pair
- *
- */
-Ice.prototype._connect_candidate_pair = function(pair) {
-    var self = this;
-
-    var session = self._new_session();
-    if (pair.local.transport === 'tcp') {
-        session.transport = 'tcp';
-        if (pair.local.tcp_type === CAND_TCP_TYPE_SO) {
-            self._connect_tcp_so_pair(session, pair);
-        } else {
-            self._connect_tcp_active_passive_pair(session, pair);
-        }
-    } else {
-        session.transport = 'udp';
-        session.udp = pair.local.udp;
-        session.udp_host = pair.remote.address;
-        session.udp_port = pair.remote.port;
-        session.send_udp_request_loop();
-    }
-
-    return session.defer.promise
-        // wait for the reply for 5 seconds before timeout
-        .timeout(5000)
-        // on timeout mark this request as closed
-        .then(function(info) {
-            dbg.warn('ICE PAIR SUCCESSFUL', pair, info);
-        })
-        .catch(function(err) {
-            session.error = err;
-            session.closed = true;
-            session.defer.reject(err);
-            dbg.warn('ICE PAIR NO SUCCESS', pair, err);
-        });
-};
-
-
-/**
- *
- * _connect_tcp_so_pair
- *
- */
-Ice.prototype._connect_tcp_so_pair = function(session, pair) {
-    var self = this;
-    var so_max_delay_ms = 100;
-    var try_so = function() {
-        session.tcp = net.connect(pair.remote.port, pair.remote.address);
-        session.tcp.on('error', function(err) {
-            session.tcp.destroy();
-            if (so_max_delay_ms <= 0 || self.closed) {
-                session.defer.reject(new Error('ICE TCP SO EXHAUSTED'));
-            } else {
-                setTimeout(try_so, so_max_delay_ms * Math.random());
-                so_max_delay_ms -= 0.1;
-            }
-        });
-        session.tcp.on('connect', function(err) {
-            so_max_delay_ms = 0;
-            self._init_tcp_connection(session.tcp);
-            session.send_tcp_request();
-        });
-    };
-    try_so();
-};
-
-/**
- *
- * _connect_tcp_active_passive_pair
- *
- */
-Ice.prototype._connect_tcp_active_passive_pair = function(session, pair) {
-    var self = this;
-    session.tcp = net.connect(pair.remote.port, pair.remote.address);
-    session.tcp.on('error', function(err) {
-        session.tcp.destroy();
-        session.defer.reject(err);
-    });
-    session.tcp.on('connect', function(err) {
-        self._init_tcp_connection(session.tcp);
-        session.send_tcp_request();
-    });
-};
-
-
-/**
- *
  * _check_stun_credentials
  *
  */
@@ -820,9 +803,9 @@ Ice.prototype._check_stun_credentials = function(attr_map) {
 
     // check the credentials match
     var frags = attr_map.username.split(':', 2);
-    if (frags[0] !== this.local.credentials.ufrag ||
-        frags[1] !== this.remote.credentials.ufrag ||
-        attr_map.password !== this.local.credentials.pwd) {
+    if (frags[0] !== this.local_credentials.ufrag ||
+        frags[1] !== this.remote_credentials.ufrag ||
+        attr_map.password !== this.local_credentials.pwd) {
         return false;
     }
 
@@ -838,7 +821,7 @@ Ice.prototype._check_stun_credentials = function(attr_map) {
 Ice.prototype._add_local_candidate = function(candidate) {
     var cand = new IceCandidate(candidate);
     dbg.log1('ICE LOCAL CANDIDATE', cand.key, this.connid);
-    this.local.candidates[cand.key] = cand;
+    this.local_candidates[cand.key] = cand;
 };
 
 /**
@@ -849,7 +832,7 @@ Ice.prototype._add_local_candidate = function(candidate) {
 Ice.prototype._add_remote_candidate = function(candidate) {
     var cand = new IceCandidate(candidate);
     dbg.log1('ICE REMOTE CANDIDATE', cand.key, this.connid);
-    this.remote.candidates[cand.key] = cand;
+    this.remote_candidates[cand.key] = cand;
 
     if (!this.selected_candidate) {
         dbg.log0('ICE READY ~~~ SELECTED CANDIDATE', cand.key, this.connid);
@@ -869,7 +852,7 @@ Ice.prototype._add_remote_candidate = function(candidate) {
 Ice.prototype._select_remote_candidate = function(candidate) {
     this.selected_candidate = candidate;
     // this.emit('connect');
-    this._selected_candidate_keepalive();
+    // this._selected_candidate_keepalive();
 };
 
 Ice.prototype._selected_candidate_keepalive = function() {
@@ -882,10 +865,10 @@ Ice.prototype._selected_candidate_keepalive = function() {
         self.throw_if_close('_selected_candidate_keepalive');
         var buffer = stun.new_packet(stun.METHODS.REQUEST, [{
             type: stun.ATTRS.USERNAME,
-            value: self.remote.credentials.ufrag + ':' + self.local.credentials.ufrag
+            value: self.remote_credentials.ufrag + ':' + self.local_credentials.ufrag
         }, {
             type: stun.ATTRS.PASSWORD_OLD,
-            value: self.remote.credentials.pwd
+            value: self.remote_credentials.pwd
         }]);
         P.fcall(self.sender, buffer, self.selected_candidate.port, self.selected_candidate.address);
         return P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
@@ -895,8 +878,10 @@ Ice.prototype._selected_candidate_keepalive = function() {
 
 Ice.prototype.close = function() {
     var self = this;
+    if (self.closed) return;
     self.closed = true;
-    _.each(self.local.candidates, function(cand) {
+    self.emit('close');
+    _.each(self.local_candidates, function(cand) {
         if (cand.tcp_server) {
             cand.tcp_server.close();
         }
@@ -933,29 +918,44 @@ function IceCandidate(cand) {
     return cand;
 }
 
-function IceSession(ice, packet) {
+function IceSession(ice, local, remote) {
     this.ice = ice;
-    this.packet = packet;
+    this.local = local;
+    this.remote = remote;
+    var attrs;
+    if (!remote.is_stun_server) {
+        attrs = [{
+            type: stun.ATTRS.USERNAME,
+            value: ice.remote_credentials.ufrag + ':' + ice.local_credentials.ufrag
+        }, {
+            type: stun.ATTRS.PASSWORD_OLD,
+            value: ice.remote_credentials.pwd
+        }];
+    }
+    this.packet = stun.new_packet(stun.METHODS.REQUEST, attrs);
+    this.tid = stun.get_tid_field(this.packet).toString('base64');
     this.defer = P.defer();
     js_utils.self_bind(this, 'send_udp_request_loop');
     js_utils.self_bind(this, 'send_udp_indication_loop');
 }
 
-IceSession.prototype.send_tcp_request = function() {
-    this.tcp.frame_stream.send_message(this.packet, ICE_FRAME_STUN_MSG_TYPE);
-};
-
 IceSession.prototype.send_udp_request_loop = function() {
     if (this.ice.closed) return;
     if (this.closed) return;
-    this.udp.send_outbound(this.packet, this.udp_port, this.udp_host);
+    this.local.udp.send_outbound(this.packet, this.remote.port, this.remote.address);
     return P.delay(100).then(this.send_udp_request_loop);
 };
 
 IceSession.prototype.send_udp_indication_loop = function() {
     if (this.ice.closed) return;
     if (this.closed) return;
-    this.udp.send_outbound(this.indication, this.udp_port, this.udp_host);
+    if (!this.indication) {
+        // indication packet copy tid from request packet, not sure if needed,
+        // but seems like it would make sense to the stun server
+        // to see the indications coming from the same tid session.
+        this.indication = stun.new_packet(stun.METHODS.INDICATION, null, this.packet);
+    }
+    this.local.udp.send_outbound(this.indication, this.remote.port, this.remote.address);
     return P.delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
         .then(this.send_udp_indication_loop);
 };

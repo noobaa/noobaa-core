@@ -34,6 +34,20 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     self.n2n_agent = n2n_agent;
     var Nudp = native_core().Nudp;
     self.ice = new Ice(self.connid, {
+        // auth options
+        ufrag_length: 32,
+        pwd_length: 32,
+        // ip options
+        offer_ipv4: true,
+        offer_ipv6: false,
+        accept_ipv4: true,
+        accept_ipv6: true,
+        // tcp options
+        tcp_active: true,
+        tcp_passive: true,
+        tcp_so: true,
+        tcp_secure: true,
+        // udp options
         udp_socket: function() {
             var nudp = new Nudp();
             return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
@@ -41,10 +55,6 @@ function RpcN2NConnection(addr_url, n2n_agent) {
                 return nudp;
             });
         },
-        tcp_active: true,
-        tcp_passive: true,
-        tcp_so: true,
-        tcp_secure: true,
         signaller: function(info) {
             // send ice info to the peer over a relayed signal channel
             // in order to coordinate NAT traversal.
@@ -52,7 +62,7 @@ function RpcN2NConnection(addr_url, n2n_agent) {
                 target: self.url.href,
                 info: info
             });
-        }
+        },
     });
     self.ice.on('close', function(err) {
         self.close(err);

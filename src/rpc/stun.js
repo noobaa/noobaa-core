@@ -56,16 +56,16 @@ var stun = module.exports = {
     // Attributes
     ATTRS: {
         MAPPED_ADDRESS: 0x0001,
-        RESPONSE_ADDRESS_OLD: 0x0002,
-        CHANGE_ADDRESS_OLD: 0x0003,
-        SOURCE_ADDRESS_OLD: 0x0004,
-        CHANGED_ADDRESS_OLD: 0x0005,
+        RESPONSE_ADDRESS: 0x0002, // deprecated
+        CHANGE_ADDRESS: 0x0003, // deprecated
+        SOURCE_ADDRESS: 0x0004, // deprecated
+        CHANGED_ADDRESS: 0x0005, // deprecated
         USERNAME: 0x0006,
-        PASSWORD_OLD: 0x0007,
+        PASSWORD: 0x0007, // deprecated
         MESSAGE_INTEGRITY: 0x0008,
         ERROR_CODE: 0x0009,
         UNKNOWN_ATTRIBUTES: 0x000A,
-        REFLECTED_FROM_OLD: 0x000B,
+        REFLECTED_FROM: 0x000B, // deprecated
         REALM: 0x0014,
         NONCE: 0x0015,
         XOR_MAPPED_ADDRESS: 0x0020,
@@ -236,7 +236,7 @@ function get_attrs_map(buffer) {
             case stun.ATTRS.USERNAME:
                 map.username = attr.value;
                 break;
-            case stun.ATTRS.PASSWORD_OLD:
+            case stun.ATTRS.PASSWORD:
                 map.password = attr.value;
                 break;
         }
@@ -277,10 +277,10 @@ function decode_attrs(buffer) {
         var value;
         switch (type) {
             case stun.ATTRS.MAPPED_ADDRESS:
-            case stun.ATTRS.RESPONSE_ADDRESS_OLD:
-            case stun.ATTRS.CHANGE_ADDRESS_OLD:
-            case stun.ATTRS.SOURCE_ADDRESS_OLD:
-            case stun.ATTRS.CHANGED_ADDRESS_OLD:
+            case stun.ATTRS.RESPONSE_ADDRESS:
+            case stun.ATTRS.CHANGE_ADDRESS:
+            case stun.ATTRS.SOURCE_ADDRESS:
+            case stun.ATTRS.CHANGED_ADDRESS:
                 value = decode_attr_mapped_addr(buffer, offset, next);
                 break;
             case stun.ATTRS.XOR_MAPPED_ADDRESS:
@@ -294,7 +294,7 @@ function decode_attrs(buffer) {
                 break;
             case stun.ATTRS.SOFTWARE:
             case stun.ATTRS.USERNAME:
-            case stun.ATTRS.PASSWORD_OLD:
+            case stun.ATTRS.PASSWORD:
             case stun.ATTRS.REALM:
                 value = buffer.slice(offset, next).toString('utf8');
                 break;
@@ -334,17 +334,17 @@ function encoded_attrs_len(attrs) {
 function encoded_attr_len(attr) {
     switch (attr.type) {
         case stun.ATTRS.MAPPED_ADDRESS:
-        case stun.ATTRS.RESPONSE_ADDRESS_OLD:
-        case stun.ATTRS.CHANGE_ADDRESS_OLD:
-        case stun.ATTRS.SOURCE_ADDRESS_OLD:
-        case stun.ATTRS.CHANGED_ADDRESS_OLD:
+        case stun.ATTRS.RESPONSE_ADDRESS:
+        case stun.ATTRS.CHANGE_ADDRESS:
+        case stun.ATTRS.SOURCE_ADDRESS:
+        case stun.ATTRS.CHANGED_ADDRESS:
         case stun.ATTRS.XOR_MAPPED_ADDRESS:
             // IPv4 address has: 2 byte family, 2 byte port, 4 byte ip
             // IPv6 address has: 2 byte family, 2 byte port, 8 byte ip
             return attr.value.family === 'IPv6' ? 12 : 8;
         case stun.ATTRS.SOFTWARE:
         case stun.ATTRS.USERNAME:
-        case stun.ATTRS.PASSWORD_OLD:
+        case stun.ATTRS.PASSWORD:
         case stun.ATTRS.REALM:
             return Buffer.byteLength(attr.value, 'utf8');
         default:
@@ -368,10 +368,10 @@ function encode_attrs(buffer, attrs) {
 
         switch (attr.type) {
             case stun.ATTRS.MAPPED_ADDRESS:
-            case stun.ATTRS.RESPONSE_ADDRESS_OLD:
-            case stun.ATTRS.CHANGE_ADDRESS_OLD:
-            case stun.ATTRS.SOURCE_ADDRESS_OLD:
-            case stun.ATTRS.CHANGED_ADDRESS_OLD:
+            case stun.ATTRS.RESPONSE_ADDRESS:
+            case stun.ATTRS.CHANGE_ADDRESS:
+            case stun.ATTRS.SOURCE_ADDRESS:
+            case stun.ATTRS.CHANGED_ADDRESS:
                 encode_attr_mapped_addr(attr.value, buffer, offset, next);
                 break;
             case stun.ATTRS.XOR_MAPPED_ADDRESS:
@@ -382,7 +382,7 @@ function encode_attrs(buffer, attrs) {
                 break;
             case stun.ATTRS.SOFTWARE:
             case stun.ATTRS.USERNAME:
-            case stun.ATTRS.PASSWORD_OLD:
+            case stun.ATTRS.PASSWORD:
             case stun.ATTRS.REALM:
                 buffer.write(attr.value, offset, length, 'utf8');
                 break;
@@ -542,7 +542,7 @@ function test() {
         if (!is_stun_packet(buffer)) {
             console.log('NON STUN MESSAGE', buffer.toString(), 'from', rinfo);
         } else {
-            console.log('STUN',  get_method_name(buffer), 'from', rinfo.address + ':' + rinfo.port);
+            console.log('STUN', get_method_name(buffer), 'from', rinfo.address + ':' + rinfo.port);
             var attrs = decode_attrs(buffer);
             _.each(attrs, function(attr) {
                 console.log('  *',
@@ -583,8 +583,8 @@ function test() {
                     stun_url = chance.pick(stun.PUBLIC_SERVERS);
                 }
                 return P.join(
-                    P.ninvoke(socket, 'send', req, 0, req.length, stun_url.port, stun_url.hostname),
-                    P.ninvoke(socket, 'send', ind, 0, ind.length, stun_url.port, stun_url.hostname))
+                        P.ninvoke(socket, 'send', req, 0, req.length, stun_url.port, stun_url.hostname),
+                        P.ninvoke(socket, 'send', ind, 0, ind.length, stun_url.port, stun_url.hostname))
                     .delay(stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER))
                     .then(loop);
             }

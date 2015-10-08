@@ -7,8 +7,6 @@ var P = require('../util/promise');
 var os = require('os');
 var net = require('net');
 var tls = require('tls');
-var url = require('url');
-var path = require('path');
 var util = require('util');
 var ip_module = require('ip');
 var crypto = require('crypto');
@@ -596,7 +594,7 @@ Ice.prototype._make_stun_response = function(buffer, info) {
         type: stun.ATTRS.USERNAME,
         value: this.remote_credentials.ufrag + ':' + this.local_credentials.ufrag
     }, {
-        type: stun.ATTRS.PASSWORD_OLD,
+        type: stun.ATTRS.PASSWORD,
         value: this.remote_credentials.pwd
     }], buffer);
 };
@@ -867,7 +865,7 @@ Ice.prototype._selected_candidate_keepalive = function() {
             type: stun.ATTRS.USERNAME,
             value: self.remote_credentials.ufrag + ':' + self.local_credentials.ufrag
         }, {
-            type: stun.ATTRS.PASSWORD_OLD,
+            type: stun.ATTRS.PASSWORD,
             value: self.remote_credentials.pwd
         }]);
         P.fcall(self.sender, buffer, self.selected_candidate.port, self.selected_candidate.address);
@@ -909,12 +907,12 @@ Ice.prototype.throw_if_close = function(from) {
 
 
 function IceCandidate(cand) {
-    cand.key = url.format({
-        protocol: cand.transport + (cand.family === 'IPv6' ? 6 : 4),
-        hostname: cand.address,
-        port: cand.port,
-        path: path.join(cand.type, cand.tcp_type || '')
-    });
+    cand.key = cand.transport +
+        (cand.family === 'IPv6' ?
+            '6://[' + cand.address + ']:' :
+            '4://' + cand.address + ':') + cand.port +
+        '/' + cand.type +
+        '/' + (cand.tcp_type || '');
     return cand;
 }
 
@@ -928,7 +926,7 @@ function IceSession(ice, local, remote) {
             type: stun.ATTRS.USERNAME,
             value: ice.remote_credentials.ufrag + ':' + ice.local_credentials.ufrag
         }, {
-            type: stun.ATTRS.PASSWORD_OLD,
+            type: stun.ATTRS.PASSWORD,
             value: ice.remote_credentials.pwd
         }];
     }

@@ -42,13 +42,15 @@ function RpcN2NConnection(addr_url, n2n_agent) {
         offer_ipv6: false,
         accept_ipv4: true,
         accept_ipv6: true,
+        offer_internal: true,
         // tcp options
         tcp_active: true,
-        tcp_passive: true,
+        tcp_random_passive: true,
+        tcp_fixed_passive: true,
         tcp_so: true,
         tcp_secure: true,
         // udp options
-        udp_socket: function() {
+        udp_socket: false && function() {
             var nudp = new Nudp();
             return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
                 nudp.port = port;
@@ -70,9 +72,37 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     self.ice.on('error', function(err) {
         self.close(err);
     });
-    self.ice.on('connect', function() {
-        // self.conn = self.ice.get_best_candidate();
-        self.emit('connect');
+    self.ice.once('connect', function(cand) {
+        if (cand.tcp) {
+            self._send = function(msg) {
+                cand.tcp.frame_stream.send_message(msg);
+            };
+            cand.tcp.on('message', function(msg) {
+                dbg.log1('N2N TCP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
+                self.emit('message', msg);
+            });
+            self.emit('connect');
+        } else {
+            self._send = function(msg) {
+                return P.ninvoke(cand.udp, 'send', msg);
+            };
+            cand.udp.on('message', function(msg) {
+                dbg.log1('N2N UDP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
+                self.emit('message', msg);
+            });
+            if (self.accepting) {
+                dbg.log0('ACCEPTING NUDP');
+                self.emit('connect');
+            } else {
+                dbg.log0('CONNECTING NUDP');
+                P.invoke(cand.udp, 'connect', cand.port, cand.address)
+                    .done(function() {
+                        self.emit('connect');
+                    }, function(err) {
+                        self.emit('error', err);
+                    });
+            }
+        }
     });
 
     /*
@@ -93,6 +123,7 @@ RpcN2NConnection.prototype._connect = function() {
  * pass remote_info to ICE and return back the ICE local info
  */
 RpcN2NConnection.prototype.accept = function(remote_info) {
+    this.accepting = true;
     return this.ice.accept(remote_info);
 };
 
@@ -103,6 +134,7 @@ RpcN2NConnection.prototype._close = function(err) {
 RpcN2NConnection.prototype._send = function(msg) {
     // msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     // return P.ninvoke(this.nudp, 'send', msg);
+    throw new Error('N2N NOT CONNECTED');
 };
 
 
@@ -135,7 +167,7 @@ RpcN2NAgent.prototype.signal = function(params) {
 
     var addr_url = url.parse(params.target, true);
     var conn = new RpcN2NConnection(addr_url, self);
-    conn.on('connect', function() {
+    conn.once('connect', function() {
         self.emit('connection', conn);
     });
     return conn.accept(params.info);

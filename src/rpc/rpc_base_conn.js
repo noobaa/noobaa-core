@@ -39,7 +39,7 @@ function RpcBaseConnection(addr_url) {
     // the 'connect' event is emitted by the inherited type (http/ws/tcp/n2n)
     // and is expected after calling _connect() or when a connection is accepted
     // and already considered connected.
-    self.on('connect', on_connect);
+    self.once('connect', on_connect);
 
     // connections are closed on error, and once closed will not be reopened again.
     self.on('error', on_error_or_close);

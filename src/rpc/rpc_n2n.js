@@ -47,7 +47,7 @@ function RpcN2NConnection(addr_url, n2n_agent) {
         tcp_active: true,
         tcp_random_passive: true,
         tcp_fixed_passive: true,
-        tcp_so: true,
+        tcp_so: false,
         tcp_secure: true,
         // udp options
         udp_socket: false && function() {

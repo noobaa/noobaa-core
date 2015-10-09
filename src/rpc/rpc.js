@@ -821,7 +821,7 @@ RPC.prototype.register_nudp_transport = function(port) {
     var self = this;
     dbg.log0('RPC register_tcp_transport');
     var conn = new RpcNudpConnection(url_utils.quick_parse('nudp://0.0.0.0:0'));
-    conn.on('connected', function() {
+    conn.on('connect', function() {
         self._accept_new_connection(conn);
     });
     return conn.accept(port);

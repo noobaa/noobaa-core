@@ -43,7 +43,7 @@ RpcTcpConnection.prototype._connect = function() {
         port: self.url.port,
         host: self.url.hostname
     }, function() {
-        self.emit('connected');
+        self.emit('connect');
     });
     self._init_tcp();
 };
@@ -146,7 +146,7 @@ function RpcTcpServer(tls_options) {
             dbg.log0('TCP ACCEPT CONNECTION', conn.connid + ' ' + conn.url.href);
             conn.tcp_conn = tcp_conn;
             conn._init_tcp();
-            conn.emit('connected');
+            conn.emit('connect');
             self.emit('connection', conn);
         } catch (err) {
             dbg.log0('TCP ACCEPT ERROR', address, err.stack || err);

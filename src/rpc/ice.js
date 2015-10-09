@@ -313,6 +313,7 @@ Ice.prototype._init_tcp_random_passive_candidates = function() {
     if (!self.config.tcp_random_passive) return;
 
     var server = net.createServer(function(conn) {
+        dbg.log0('ICE TCP ACCEPTED CONNECTION', conn.address());
         self._init_tcp_connection(conn);
     });
 
@@ -433,9 +434,11 @@ Ice.prototype._init_tcp_connection = function(conn) {
 
     // TODO limit tcp that receives only non-stun messages
     conn.frame_stream = new FrameStream(conn, function(buffer, msg_type) {
+        dbg.log0('ICE TCP RECEIVE', msg_type, buffer.length);
         if (msg_type === ICE_FRAME_STUN_MSG_TYPE) {
             self._handle_stun_packet(buffer, info);
         } else {
+            dbg.log0('ICE TCP RECEIVE DATA', buffer.length);
             conn.emit('message', buffer);
         }
     }, ICE_FRAME_CONFIG);
@@ -470,8 +473,7 @@ Ice.prototype._connect_remote_candidates = function(remote_info) {
                     r.tcp_type !== CAND_TCP_TYPE_PASSIVE) return;
                 if (l.tcp_type === CAND_TCP_TYPE_SO &&
                     r.tcp_type !== CAND_TCP_TYPE_SO) return;
-                dbg.log0('ICE _connect_remote_candidates: candidate pair',
-                    'LOCAL', l, 'REMOTE', r);
+                dbg.log0('ICE _connect_remote_candidates:', 'LOCAL', l, 'REMOTE', r);
                 return self._connect_candidate_pair(l, r);
             }));
         }))
@@ -535,6 +537,7 @@ Ice.prototype._connect_tcp_so_pair = function(session, local, remote) {
         session.tcp.on('error', function(err) {
             session.tcp.destroy();
             if (so_max_delay_ms <= 0 || self.closed) {
+                dbg.warn('ICE FAILED TCP SO', local.key, '->', remote.key);
                 session.close(new Error('ICE TCP SO EXHAUSTED'));
             } else {
                 setTimeout(try_so, so_max_delay_ms * Math.random());
@@ -542,6 +545,7 @@ Ice.prototype._connect_tcp_so_pair = function(session, local, remote) {
             }
         });
         session.tcp.on('connect', function(err) {
+            dbg.log0('ICE CONNECT TCP SO', local.key, '->', remote.key);
             so_max_delay_ms = 0;
             self._init_tcp_connection(session.tcp);
             session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
@@ -559,10 +563,12 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session, local, remote
     var self = this;
     session.tcp = net.connect(remote.port, remote.address);
     session.tcp.on('error', function(err) {
+        dbg.warn('ICE FAILED TCP AP', local.key, '->', remote.key);
         session.tcp.destroy();
         session.close(err);
     });
     session.tcp.on('connect', function(err) {
+        dbg.log0('ICE CONNECT TCP AP', local.key, '->', remote.key);
         self._init_tcp_connection(session.tcp);
         session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
     });
@@ -609,6 +615,7 @@ Ice.prototype._make_stun_response = function(buffer, info) {
  *
  */
 Ice.prototype._handle_stun_packet = function(buffer, info) {
+    dbg.log0('ICE RECEIVED STUN PACKET', info);
 
     // TODO implement stun message integrity check with HMAC
 

@@ -37,7 +37,8 @@ function FrameStream(stream, msg_handler, config) {
  * support iovecs
  */
 FrameStream.prototype.send_message = function(buffer_or_buffers, message_type_code_16bit) {
-    var msg_len = _.sum(buffer_or_buffers, 'length');
+    var is_iovecs = _.isArray(buffer_or_buffers);
+    var msg_len = is_iovecs ? _.sum(buffer_or_buffers, 'length') : buffer_or_buffers.length;
     if (msg_len > this._max_len) {
         throw new Error('message too big' + msg_len);
     }
@@ -60,7 +61,7 @@ FrameStream.prototype.send_message = function(buffer_or_buffers, message_type_co
     // because we prefer the errors to be handled by the stream error event.
     try {
         this.stream.write(msg_header);
-        if (_.isArray(buffer_or_buffers)) {
+        if (is_iovecs) {
             for (var i = 0; i < buffer_or_buffers.length; ++i) {
                 this.stream.write(buffer_or_buffers[i]);
             }

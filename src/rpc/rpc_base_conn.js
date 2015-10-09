@@ -39,43 +39,28 @@ function RpcBaseConnection(addr_url) {
     // the 'connect' event is emitted by the inherited type (http/ws/tcp/n2n)
     // and is expected after calling _connect() or when a connection is accepted
     // and already considered connected.
-    self.once('connect', on_connect);
-
-    // connections are closed on error, and once closed will not be reopened again.
-    self.on('error', on_error_or_close);
-    self.on('close', on_error_or_close);
-
-    // on send failures we handle by closing and rethrowing to the caller
-    self.on_send_error = function on_send_error(err) {
-        if (err) {
-            on_error_or_close(err);
-            throw err;
-        }
-    };
-
-    function on_error_or_close(err) {
-        if (err) {
-            dbg.error('RPC CONN CLOSE ON ERROR', self.connid, err.stack || err);
-        }
-        if (self._state === STATE_CLOSED) return;
-        self._state = STATE_CLOSED;
-        if (self.connecting_defer) {
-            self.connecting_defer.reject('RPC CONN CLOSED ' + self.connid);
-            self.connecting_defer = null;
-        }
-        self._close();
-    }
-
-    function on_connect() {
+    self.once('connect', function on_connect() {
         dbg.log0('RPC CONN CONNECTED state', self._state, self.connid);
         if (self._state === STATE_CONNECTING || self._state === STATE_INIT) {
             self._state = STATE_CONNECTED;
+            clearTimeout(self._connect_timeout);
         }
         if (self.connecting_defer) {
             self.connecting_defer.resolve();
             self.connecting_defer = null;
         }
-    }
+    });
+
+    // connections are closed on error, and once closed will not be reopened again.
+    self.on('error', function on_error(err) {
+        dbg.error('RPC CONN CLOSE ON ERROR', self.connid, err.stack || err);
+        self.close();
+    });
+
+    // on send failures we handle by closing and rethrowing to the caller
+    self.emit_error = function emit_error(err) {
+        self.emit('error', err);
+    };
 }
 
 /**
@@ -91,6 +76,8 @@ RpcBaseConnection.prototype.connect = function() {
         case STATE_INIT:
             // start connecting and wait for the 'connect' event
             this._state = STATE_CONNECTING;
+            // set a timer to limit how long we are waiting for connect
+            this._connect_timeout = setTimeout(this.emit_error, 5000, 'RPC CONN TIMEOUT');
             this._connect();
             return this.connecting_defer.promise;
         case STATE_CONNECTING:
@@ -113,15 +100,20 @@ RpcBaseConnection.prototype.send = function(msg, op, req) {
     if (this._state !== STATE_CONNECTED) {
         throw new Error('RPC CONN NOT CONNECTED ' + this._state + ' ' + this.connid);
     }
-    return P.invoke(this, '_send', msg, op, req).fail(this.on_send_error);
+    return P.invoke(this, '_send', msg, op, req).fail(this.emit_error);
     // return this._send(msg, op, req);
 };
 
-/**
- * convinient way of emitting the close event with optional error
- */
-RpcBaseConnection.prototype.close = function(err) {
-    this.emit('close', err);
+RpcBaseConnection.prototype.close = function() {
+    if (this._state === STATE_CLOSED) return;
+    this._state = STATE_CLOSED;
+    this.emit('close');
+    clearTimeout(this._connect_timeout);
+    if (this.connecting_defer) {
+        this.connecting_defer.reject('RPC CONN CLOSED ' + this.connid);
+        this.connecting_defer = null;
+    }
+    this._close();
 };
 
 RpcBaseConnection.prototype.is_closed = function() {

@@ -56,7 +56,6 @@ RpcTcpConnection.prototype._connect = function() {
 RpcTcpConnection.prototype._close = function() {
     if (this.tcp_conn) {
         this.tcp_conn.destroy();
-        this.tcp_conn = null;
     }
 };
 
@@ -73,22 +72,16 @@ RpcTcpConnection.prototype._init_tcp = function() {
     var self = this;
     var tcp_conn = self.tcp_conn;
 
-    tcp_conn.on('close', function(err) {
-        if (self.tcp_conn !== tcp_conn) return tcp_conn.destroy();
-        dbg.warn('TCP CLOSED', self.connid);
-        self.close();
+    tcp_conn.on('close', function() {
+        self.emit('error', 'TCP CLOSED');
     });
 
     tcp_conn.on('error', function(err) {
-        if (self.tcp_conn !== tcp_conn) return tcp_conn.destroy();
-        dbg.error('TCP ERROR', self.connid, err);
-        self.close();
+        self.emit('error', err);
     });
 
     tcp_conn.on('timeout', function() {
-        if (self.tcp_conn !== tcp_conn) return tcp_conn.destroy();
-        dbg.error('TCP IDLE TIMEOUT', self.connid);
-        self.close();
+        self.emit('error', 'TCP IDLE TIMEOUT');
     });
 
     // FrameStream reads data from the socket and emit framed messages
@@ -116,21 +109,12 @@ function RpcTcpServer(tls_options) {
         tls.createServer(tls_options, conn_handler) :
         net.createServer(conn_handler);
 
-    self.on('close', function(err) {
-        if (err) {
-            dbg.error('TCP SERVER ERROR', err.stack || err);
-        }
-        self.server.close();
-        self.server = null;
-        self.port = 0;
-    });
-
     self.server.on('close', function(err) {
-        self.emit('close', err);
+        self.emit('error', new Error('TCP SERVER CLOSED'));
     });
 
     self.server.on('error', function(err) {
-        self.emit('close', err);
+        self.emit('error', err);
     });
 
     function conn_handler(tcp_conn) {
@@ -156,7 +140,13 @@ function RpcTcpServer(tls_options) {
 }
 
 RpcTcpServer.prototype.close = function(err) {
-    this.emit('close', err);
+    if (this.closed) return;
+    this.closed = true;
+    this.emit('close');
+    if (this.server) {
+        this.server.close();
+    }
+    this.port = 0;
 };
 
 RpcTcpServer.prototype.listen = function(preffered_port) {

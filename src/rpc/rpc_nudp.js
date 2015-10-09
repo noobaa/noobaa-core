@@ -57,7 +57,6 @@ RpcNudpConnection.prototype._connect = function() {
 RpcNudpConnection.prototype._close = function() {
     if (this.nudp) {
         this.nudp.close();
-        this.nudp = null;
     }
 };
 
@@ -99,17 +98,14 @@ RpcNudpConnection.prototype._init_nudp = function() {
     var nudp = self.nudp;
 
     nudp.on('close', function() {
-        if (self.nudp !== nudp) return nudp.close();
-        self.emit('close');
+        self.emit('error', new Error('NUDP CLOSED'));
     });
 
     nudp.on('error', function(err) {
-        if (self.nudp !== nudp) return nudp.close();
         self.emit('error', err);
     });
 
     nudp.on('message', function(msg) {
-        if (self.nudp !== nudp) return nudp.close();
         self.emit('message', msg);
     });
 

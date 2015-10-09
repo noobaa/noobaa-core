@@ -77,25 +77,20 @@ RpcWsConnection.prototype._init_ws = function(ws) {
     ws.binaryType = 'arraybuffer';
 
     ws.onclose = function onclose() {
-        if (self.ws !== ws) return close_ws(ws);
-        dbg.warn('WS CLOSED', self.connid);
-        self.close();
+        self.emit('error', 'WS CLOSED');
     };
 
     ws.onerror = function onerror(err) {
-        if (self.ws !== ws) return close_ws(ws);
-        dbg.error('WS ERROR', self.connid, err);
-        self.close();
+        self.emit('error', err);
     };
 
     ws.onmessage = function onmessage(msg) {
-        if (self.ws !== ws) return close_ws(ws);
         try {
             var buffer = buffer_utils.toBuffer(msg.data);
             self.emit('message', buffer);
         } catch (err) {
             dbg.error('WS MESSAGE ERROR', self.connid, err.stack || err);
-            self.close();
+            self.emit('error', err);
         }
     };
 };
@@ -137,10 +132,9 @@ function RpcWsServer(http_server) {
             self.emit('connection', conn);
         } catch (err) {
             dbg.log0('WS ACCEPT ERROR', address, err.stack || err);
+            close_ws(ws);
             if (conn) {
-                conn.close();
-            } else {
-                close_ws(ws);
+                conn.emit('error', err);
             }
         }
     });

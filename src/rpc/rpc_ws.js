@@ -77,7 +77,9 @@ RpcWsConnection.prototype._init_ws = function(ws) {
     ws.binaryType = 'arraybuffer';
 
     ws.onclose = function onclose() {
-        self.emit('error', 'WS CLOSED');
+        var closed_err = new Error('WS CLOSED');
+        closed_err.stack = '';
+        self.emit('error', closed_err);
     };
 
     ws.onerror = function onerror(err) {

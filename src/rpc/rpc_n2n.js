@@ -11,7 +11,7 @@ var dbg = require('../util/debug_module')(__filename);
 // var js_utils = require('../util/js_utils');
 // var time_utils = require('../util/time_utils');
 // var promise_utils = require('../util/promise_utils');
-var url_utils = require('../util/url_utils');
+// var url_utils = require('../util/url_utils');
 var native_core = require('../util/native_core');
 var EventEmitter = require('events').EventEmitter;
 var RpcBaseConnection = require('./rpc_base_conn');
@@ -31,54 +31,27 @@ util.inherits(RpcN2NConnection, RpcBaseConnection);
 function RpcN2NConnection(addr_url, n2n_agent) {
     var self = this;
     RpcBaseConnection.call(self, addr_url);
-    self.n2n_agent = n2n_agent;
-    var Nudp = native_core().Nudp;
-    self.ice = new Ice(self.connid, {
-        // auth options
-        ufrag_length: 32,
-        pwd_length: 32,
-        // ip options
-        offer_ipv4: true,
-        offer_ipv6: false,
-        accept_ipv4: true,
-        accept_ipv6: true,
-        offer_internal: true,
-        // tcp options
-        tcp_active: true,
-        tcp_random_passive: true,
-        tcp_fixed_passive: true,
-        tcp_so: false,
-        tcp_secure: true,
-        // udp options
-        udp_socket: false && function() {
-            var nudp = new Nudp();
-            return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
-                nudp.port = port;
-                return nudp;
-            });
-        },
-        signaller: function(info) {
-            // send ice info to the peer over a relayed signal channel
-            // in order to coordinate NAT traversal.
-            return self.n2n_agent.signaller({
-                target: self.url.href,
-                info: info
-            });
-        },
+
+    self.ice = new Ice(self.connid, n2n_agent.ice_config, self.url.href);
+
+    self.ice.on('close', function() {
+        var closed_err = new Error('N2N ICE CLOSED');
+        closed_err.stack = '';
+        self.emit('error', closed_err);
     });
-    self.ice.on('close', function(err) {
-        self.close(err);
-    });
+
     self.ice.on('error', function(err) {
-        self.close(err);
+        self.emit('error', err);
     });
+
     self.ice.once('connect', function(cand) {
         if (cand.tcp) {
+            dbg.log0('N2N CONNECTED TO TCP', cand.tcp.address());
             self._send = function(msg) {
                 cand.tcp.frame_stream.send_message(msg);
             };
             cand.tcp.on('message', function(msg) {
-                dbg.log1('N2N TCP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
+                dbg.log0('N2N TCP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
                 self.emit('message', msg);
             });
             self.emit('connect');
@@ -90,32 +63,25 @@ function RpcN2NConnection(addr_url, n2n_agent) {
                 dbg.log1('N2N UDP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
                 self.emit('message', msg);
             });
-            if (self.accepting) {
-                dbg.log0('ACCEPTING NUDP');
-                self.emit('connect');
-            } else {
+            if (self.leader) {
                 dbg.log0('CONNECTING NUDP');
                 P.invoke(cand.udp, 'connect', cand.port, cand.address)
                     .done(function() {
+                        dbg.log0('N2N CONNECTED TO UDP', cand.address + ':' + cand.port);
                         self.emit('connect');
                     }, function(err) {
                         self.emit('error', err);
                     });
+            } else {
+                dbg.log0('ACCEPTING NUDP');
+                self.emit('connect');
             }
         }
     });
-
-    /*
-    self.nudp.on('message', function(msg) {
-        dbg.log1('N2N RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
-        self.emit('message', msg);
-    });
-    */
-
-    // setInterval(function() { dbg.log2('N2N STATS', self.nudp.stats()); }, 5000);
 }
 
 RpcN2NConnection.prototype._connect = function() {
+    this.leader = true;
     return this.ice.connect();
 };
 
@@ -123,7 +89,6 @@ RpcN2NConnection.prototype._connect = function() {
  * pass remote_info to ICE and return back the ICE local info
  */
 RpcN2NConnection.prototype.accept = function(remote_info) {
-    this.accepting = true;
     return this.ice.accept(remote_info);
 };
 
@@ -132,9 +97,10 @@ RpcN2NConnection.prototype._close = function(err) {
 };
 
 RpcN2NConnection.prototype._send = function(msg) {
+    // this default error impl will be overridden once ice emit's connect
+    throw new Error('N2N NOT CONNECTED');
     // msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
     // return P.ninvoke(this.nudp, 'send', msg);
-    throw new Error('N2N NOT CONNECTED');
 };
 
 
@@ -148,13 +114,61 @@ RpcN2NConnection.prototype._send = function(msg) {
  *
  */
 function RpcN2NAgent(options) {
-    EventEmitter.call(this);
+    var self = this;
+    EventEmitter.call(self);
     options = options || {};
 
     // signaller is function(info) that sends over a signal channel
     // and delivers the info to info.target,
     // and returns back the info that was returned by the peer.
-    this.signaller = options.signaller;
+    self.signaller = options.signaller;
+
+    // lazy loading of native_core to use Nudp
+    var Nudp = native_core().Nudp;
+
+    // initialize the ICE config structure
+    self.ice_config = {
+
+        // auth options
+        ufrag_length: 32,
+        pwd_length: 32,
+
+        // ip options
+        offer_ipv4: true,
+        offer_ipv6: false,
+        accept_ipv4: true,
+        accept_ipv6: true,
+        offer_internal: true,
+
+        // tcp options
+        tcp_active: true,
+        tcp_random_passive: true,
+        tcp_fixed_passive: true,
+        tcp_so: false,
+        tcp_secure: true,
+
+        // udp options
+        udp_socket: false && function() {
+            var nudp = new Nudp();
+            return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
+                nudp.port = port;
+                return nudp;
+            });
+        },
+
+        // TODO stun server to use for N2N ICE
+        stun_servers: [],
+
+        // signaller callback
+        signaller: function(target, info) {
+            // send ice info to the peer over a relayed signal channel
+            // in order to coordinate NAT traversal.
+            return self.signaller({
+                target: target,
+                info: info
+            });
+        }
+    };
 }
 
 util.inherits(RpcN2NAgent, EventEmitter);

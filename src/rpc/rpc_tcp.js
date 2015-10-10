@@ -73,7 +73,9 @@ RpcTcpConnection.prototype._init_tcp = function() {
     var tcp_conn = self.tcp_conn;
 
     tcp_conn.on('close', function() {
-        self.emit('error', 'TCP CLOSED');
+        var closed_err = new Error('TCP CLOSED');
+        closed_err.stack = '';
+        self.emit('error', closed_err);
     });
 
     tcp_conn.on('error', function(err) {
@@ -81,7 +83,9 @@ RpcTcpConnection.prototype._init_tcp = function() {
     });
 
     tcp_conn.on('timeout', function() {
-        self.emit('error', 'TCP IDLE TIMEOUT');
+        var timeout_err = new Error('TCP IDLE TIMEOUT');
+        timeout_err.stack = '';
+        self.emit('error', timeout_err);
     });
 
     // FrameStream reads data from the socket and emit framed messages

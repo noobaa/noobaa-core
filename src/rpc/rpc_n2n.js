@@ -44,30 +44,30 @@ function RpcN2NConnection(addr_url, n2n_agent) {
         self.emit('error', err);
     });
 
-    self.ice.once('connect', function(cand) {
-        if (cand.tcp) {
-            dbg.log0('N2N CONNECTED TO TCP', cand.tcp.address());
+    self.ice.once('connect', function(session) {
+        if (session.tcp) {
+            dbg.log0('N2N CONNECTED TO TCP', session.tcp.address());
             self._send = function(msg) {
-                cand.tcp.frame_stream.send_message(msg);
+                session.tcp.frame_stream.send_message(msg);
             };
-            cand.tcp.on('message', function(msg) {
+            session.tcp.on('message', function(msg) {
                 dbg.log0('N2N TCP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
                 self.emit('message', msg);
             });
             self.emit('connect');
         } else {
             self._send = function(msg) {
-                return P.ninvoke(cand.udp, 'send', msg);
+                return P.ninvoke(self.ice.udp, 'send', msg);
             };
-            cand.udp.on('message', function(msg) {
+            self.ice.udp.on('message', function(msg) {
                 dbg.log1('N2N UDP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
                 self.emit('message', msg);
             });
             if (self.leader) {
                 dbg.log0('CONNECTING NUDP');
-                P.invoke(cand.udp, 'connect', cand.port, cand.address)
+                P.invoke(self.ice.udp, 'connect', session.remote.port, session.remote.address)
                     .done(function() {
-                        dbg.log0('N2N CONNECTED TO UDP', cand.address + ':' + cand.port);
+                        dbg.log0('N2N CONNECTED TO UDP', session.remote.address + ':' + session.remote.port);
                         self.emit('connect');
                     }, function(err) {
                         self.emit('error', err);

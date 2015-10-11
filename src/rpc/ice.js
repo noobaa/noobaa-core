@@ -641,9 +641,6 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
 
     // easy way to remember to close this connection when ICE closes
     self.on('close', destroy_conn);
-    if (session) {
-        session.on('close', destroy_conn);
-    }
     // TODO remove ice tcp conn candidates on error
     conn.on('close', destroy_conn);
     conn.on('error', destroy_conn);
@@ -656,8 +653,8 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
         }
         temp_queue = null;
         conn.destroy();
-        if (session) {
-            session.close(err || new Error('ICE TCP DESTROYING'));
+        if (info.session) {
+            info.session.close(err || new Error('ICE TCP DESTROYING'));
         }
     }
 
@@ -1228,6 +1225,9 @@ IceSession.prototype.close = function(err) {
     this.ready_timeout = null;
     clearTimeout(this.activating_timeout);
     this.activating_timeout = null;
+    if (this.tcp) {
+        this.tcp.destroy();
+    }
 };
 
 IceSession.prototype.run_udp_request_loop = function() {

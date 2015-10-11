@@ -101,7 +101,7 @@ FrameStream.prototype._on_readable = function() {
                 this._recv_seq = seq;
             } else {
                 var recv_seq = this._recv_seq + 1;
-                if (recv_seq > MAX_SEQ) {
+                if (recv_seq >= MAX_SEQ) {
                     recv_seq = 0;
                 }
                 if (recv_seq === seq) {

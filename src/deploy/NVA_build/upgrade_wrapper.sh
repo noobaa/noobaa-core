@@ -130,6 +130,7 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
+	#Fix login message
 	echo  " _   _            ______ "   > /etc/issue
 	echo  "| \\ | |           | ___ \\"    >> /etc/issue
 	echo  "|  \\| | ___   ___ | |_/ / __ _  __ _ " >> /etc/issue
@@ -137,7 +138,8 @@ function post_upgrade {
 	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |" >> /etc/issue
 	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|" >> /etc/issue
   echo -e "\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server,\n" >> /etc/issue
-  echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >>/etc/issue
+  echo -e "You can configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
+
   deploy_log "NooBaa supervisor services configuration changes"
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf

@@ -47,9 +47,8 @@ function RpcN2NConnection(addr_url, n2n_agent) {
     self.ice.once('connect', function(session) {
         if (session.tcp) {
             dbg.log0('N2N CONNECTED TO TCP',
-                session.tcp.localAddress + ':' + session.tcp.localPort,
-                session.tcp.remoteAddress + ':' + session.tcp.remotePort,
-                session.tcp.listenerCount('newListener'), session.tcp);
+                // session.tcp.localAddress + ':' + session.tcp.localPort, '=>',
+                session.tcp.remoteAddress + ':' + session.tcp.remotePort);
             self._send = function(msg) {
                 session.tcp.frame_stream.send_message(msg);
             };
@@ -139,16 +138,16 @@ function RpcN2NAgent(options) {
 
         // ip options
         offer_ipv4: true,
-        offer_ipv6: false,
+        offer_ipv6: true,
         accept_ipv4: true,
         accept_ipv6: true,
-        offer_internal: true,
+        offer_internal: false,
 
         // tcp options
-        tcp_active: false,
-        tcp_random_passive: false,
-        tcp_fixed_passive: false,
-        tcp_so: false,
+        tcp_active: true,
+        tcp_random_passive: true,
+        tcp_fixed_passive: true,
+        tcp_so: true,
         tcp_secure: true,
 
         // udp options

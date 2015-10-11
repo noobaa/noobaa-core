@@ -372,13 +372,13 @@ Ice.prototype._add_tcp_fixed_passive_candidates = function() {
 Ice.prototype._add_tcp_so_candidates = function() {
     var self = this;
     if (!self.config.tcp_so) return;
-    // we create a temp tcp server and listen just to allocate
-    // a random port, and then immediately close it
-    var server = net.createServer();
-    return P.ninvoke(server, 'listen').then(function() {
-        var address = server.address();
-        server.close();
-        _.each(self.networks, function(n, ifcname) {
+    return P.all(_.map(self.networks, function(n, ifcname) {
+        // we create a temp tcp server and listen just to allocate
+        // a random port, and then immediately close it
+        var server = net.createServer();
+        return P.ninvoke(server, 'listen').then(function() {
+            var address = server.address();
+            server.close();
             self._add_local_candidate({
                 transport: 'tcp',
                 family: n.family,
@@ -390,7 +390,7 @@ Ice.prototype._add_tcp_so_candidates = function() {
                 internal: n.internal, // aka loopback
             });
         });
-    });
+    }));
 };
 
 
@@ -402,18 +402,15 @@ Ice.prototype._add_tcp_so_candidates = function() {
 Ice.prototype._add_local_candidate = function(candidate) {
     var self = this;
     var local = new IceCandidate(candidate);
-    var existing = self.local_candidates[local.key];
-    if (existing) return existing;
+    if (self.local_candidates[local.key]) return;
 
-    dbg.log1('ICE LOCAL CANDIDATE', local.key, self.connid);
+    dbg.log0('ICE ADDED LOCAL CANDIDATE', local.key, self.connid);
     self.local_candidates[local.key] = local;
 
     // match each remote against the new local candidate
     _.each(self.remote_candidates, function(remote) {
         self._check_connectivity(local, remote);
     });
-
-    return local;
 };
 
 
@@ -426,18 +423,15 @@ Ice.prototype._add_local_candidate = function(candidate) {
 Ice.prototype._add_remote_candidate = function(candidate) {
     var self = this;
     var remote = new IceCandidate(candidate);
-    var existing = self.remote_candidates[remote.key];
-    if (existing) return existing;
+    if (self.remote_candidates[remote.key]) return;
 
-    dbg.log1('ICE REMOTE CANDIDATE', remote.key, self.connid);
+    dbg.log0('ICE ADDED REMOTE CANDIDATE', remote.key, self.connid);
     self.remote_candidates[remote.key] = remote;
 
     // match each local against the new remote candidate
     _.each(self.local_candidates, function(local) {
         self._check_connectivity(local, remote);
     });
-
-    return remote;
 };
 
 
@@ -449,10 +443,11 @@ Ice.prototype._add_remote_candidate = function(candidate) {
 Ice.prototype._check_connectivity = function(local, remote) {
     var session = this._add_session_if_not_exists(local, remote);
     if (!session) return;
-    if (session.checking_connectivity) return;
-    session.checking_connectivity = true;
+    if (!session.is_init()) return;
+    session.mark_checking();
 
     // start connecting the seesion
+    dbg.log0('ICE CHECKING CONNECTIVITY', session.key, this.connid);
     if (local.transport === 'tcp') {
         if (local.tcp_type === CAND_TCP_TYPE_SO) {
             this._connect_tcp_so_pair(session);
@@ -473,9 +468,12 @@ Ice.prototype._check_connectivity = function(local, remote) {
 Ice.prototype._add_session_if_not_exists = function(local, remote) {
     var self = this;
 
+    // check if exists already by the session key
+    // if exists and still valid then keep using it,
+    // otherwise override it
     var session_key = make_session_key(local, remote);
     var existing = self.sessions_by_key[session_key];
-    if (existing) return existing;
+    if (existing && !existing.is_closed()) return existing;
 
     // TODO should we support foundation and frozen candidates from the SPEC?
     if (self.config.accept_ipv4 === false && remote.family === 'IPv4') return;
@@ -490,11 +488,11 @@ Ice.prototype._add_session_if_not_exists = function(local, remote) {
 
     var session;
     do {
-        session = new IceSession(self, local, remote, self._make_stun_request_response(remote));
+        session = new IceSession(local, remote, self._make_stun_request_response(remote), self.udp);
     } while (self.sessions_by_tid[session.tid]);
     self.sessions_by_key[session.key] = session;
     self.sessions_by_tid[session.tid] = session;
-    dbg.log0('ICE ADDED NEW SESSION', session.key);
+    dbg.log0('ICE ADDED SESSION', session.key, self.connid);
 
     return session;
 };
@@ -507,13 +505,15 @@ Ice.prototype._add_session_if_not_exists = function(local, remote) {
  */
 Ice.prototype._connect_tcp_active_passive_pair = function(session) {
     var self = this;
-    var attempts = 10;
+    const MAX_ATTEMPTS = 10;
+    var attempts = 0;
+    var delay = 250;
     var try_ap = function() {
         if (self.active_session || self.closed || session.is_closed()) {
             dbg.log0('ICE TCP AP STOPPED', session.key);
             session.close(new Error('ICE TCP AP STOPPED'));
             return;
-        } else if (attempts <= 0) {
+        } else if (attempts >= MAX_ATTEMPTS) {
             dbg.warn('ICE TCP AP FAILED', session.key);
             session.close(new Error('ICE TCP AP EXHAUSTED'));
             return;
@@ -521,12 +521,12 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
         session.tcp = net.connect(session.remote.port, session.remote.address);
         session.tcp.on('error', function(err) {
             session.tcp.destroy();
-            setTimeout(try_ap, 250);
-            attempts -= 1;
+            setTimeout(try_ap, delay);
+            attempts += 1;
         });
         session.tcp.on('connect', function(err) {
-            dbg.log0('ICE TCP AP CONNECTED', session.key);
-            attempts = 0;
+            dbg.log0('ICE TCP AP CONNECTED', session.key, 'took', attempts, 'attempts');
+            attempts = MAX_ATTEMPTS;
             if (self.active_session || self.closed || session.is_closed()) {
                 session.tcp.destroy();
                 return;
@@ -546,26 +546,36 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
  */
 Ice.prototype._connect_tcp_so_pair = function(session) {
     var self = this;
-    var so_max_delay_ms = 100;
+    const MAX_ATTEMPTS = 200;
+    var attempts = 0;
+    var delay = 50;
+    var so_connect_conf = {
+        port: session.remote.port,
+        address: session.remote.address,
+        localPort: session.local.port
+    };
     var try_so = function() {
         if (self.active_session || self.closed || session.is_closed()) {
             dbg.log0('ICE TCP SO STOPPED', session.key);
             session.close(new Error('ICE TCP SO STOPPED'));
             return;
-        } else if (so_max_delay_ms <= 0) {
+        } else if (attempts >= MAX_ATTEMPTS) {
             dbg.warn('ICE TCP SO FAILED', session.key);
             session.close(new Error('ICE TCP SO EXHAUSTED'));
             return;
         }
-        session.tcp = net.connect(session.remote.port, session.remote.address);
+        session.tcp = net.connect(so_connect_conf);
         session.tcp.on('error', function(err) {
             session.tcp.destroy();
-            setTimeout(try_so, so_max_delay_ms * Math.random());
-            so_max_delay_ms -= 0.1;
+            setTimeout(try_so, delay);
+            attempts += 1;
+            if (delay > 10) {
+                delay *= 0.9;
+            }
         });
         session.tcp.on('connect', function(err) {
-            dbg.log0('ICE TCP SO CONNECTED', session.key);
-            so_max_delay_ms = 0;
+            dbg.log0('ICE TCP SO CONNECTED', session.key, 'took', attempts, 'attempts');
+            attempts = MAX_ATTEMPTS;
             if (self.active_session || self.closed || session.is_closed()) {
                 session.tcp.destroy();
                 return;
@@ -627,6 +637,8 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
         key: make_candidate_key('tcp', conn.remoteFamily, conn.remoteAddress, conn.remotePort)
     };
 
+    var temp_queue = [];
+
     // easy way to remember to close this connection when ICE closes
     self.on('close', destroy_conn);
     if (session) {
@@ -642,46 +654,49 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
         if (err) {
             dbg.error('ICE TCP DESTROYING', err || '');
         }
+        temp_queue = null;
         conn.destroy();
         if (session) {
             session.close(err || new Error('ICE TCP DESTROYING'));
         }
     }
 
-    var message_queue = [];
-
+    // we keep a message queue until the 'message' listener will be added
+    // to the connection because there is a short time that only one peer
+    // knows the connection is fully active, and the other peer still did
+    // not receive the response to the activate request.
+    // the first peer might send messages during that time and since there is
+    // no event handler installed yet then these messages will get lost.
+    // we solve by queueing them, and unleashing once the handler is added.
     conn.on('newListener', function new_listener_handler(event) {
-        dbg.log('ICE TCP FLUSH QUEUE', event, message_queue.length, info.key);
         if (event !== 'message') return;
+        dbg.log('ICE TCP UNLEASH', temp_queue.length, 'QUEUED MESSAGES', info.key);
         conn.removeListener('newListener', new_listener_handler);
-        var mq = message_queue;
-        message_queue = null;
+        var mq = temp_queue;
+        temp_queue = null;
         for (var i = 0; i < mq.length; ++i) {
             conn.emit('message', mq[i]);
         }
     });
-    dbg.log0('ICE TCP WAITING FOR newListener on message',
-        conn.localAddress + ':' + conn.localPort,
-        conn.remoteAddress + ':' + conn.remotePort,
-        conn.listenerCount('newListener'), message_queue.length, info.key);
 
-
-    // TODO limit tcp that receives only non-stun messages
     conn.frame_stream = new FrameStream(conn, function(buffer, msg_type) {
         if (msg_type === ICE_FRAME_STUN_MSG_TYPE) {
             self._handle_stun_packet(buffer, info);
-        } else {
-            // dbg.log0('ICE TCP RECEIVE DATA', buffer.length, info.key);
-            if (!message_queue) {
-                conn.emit('message', buffer);
-            } else {
-                message_queue.push(buffer);
-                dbg.log0('ICE TCP PUSHED TO QUEUE',
-                    conn.localAddress + ':' + conn.localPort,
-                    conn.remoteAddress + ':' + conn.remotePort,
-                    conn.listenerCount('newListener'), message_queue.length, info.key);
-            }
+            return;
         }
+        if (!temp_queue) {
+            conn.emit('message', buffer);
+            return;
+        }
+        // limit tcp that receives non-stun messages before
+        // proper connection is established and the 'message' listener is added
+        if (temp_queue.length > 30) {
+            destroy_conn(new Error('ICE TCP TOO MANY QUEUED MESSAGES'));
+            return;
+        }
+        temp_queue.push(buffer);
+        dbg.log0('ICE TCP HOLDING MESSAGE IN QUEUE FOR LISTENER',
+            temp_queue.length, info.key);
     }, ICE_FRAME_CONFIG);
 };
 
@@ -764,13 +779,13 @@ Ice.prototype._handle_stun_request = function(buffer, info) {
 
     if (!info.session) {
         // add session based on the addresses
-        info.session = this._add_session_if_not_exists(this._add_local_candidate({
+        info.session = this._add_session_if_not_exists(new IceCandidate({
             transport: info.transport,
             family: info.family, // make it match instead of attr_map.address.family,
             address: attr_map.address.address,
             port: attr_map.address.port,
             type: CAND_TYPE_PEER_REFLEX,
-        }), this._add_remote_candidate({
+        }), new IceCandidate({
             transport: info.transport,
             family: info.family,
             address: info.address,
@@ -785,7 +800,8 @@ Ice.prototype._handle_stun_request = function(buffer, info) {
             info.session.tcp = info.tcp;
         }
         if (info.session.mark_ready()) {
-            this._find_session_to_connect();
+            dbg.log0('ICE SESSION READY (REQUESTED)', info.session.key, this.connid);
+            this._find_session_to_activate();
         }
         if (attr_map.use_candidate) {
             this._activate_session_complete(info.session);
@@ -869,13 +885,15 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
     }
     var changed = false;
     if (info.session && info.session.mark_ready()) {
+        dbg.log0('ICE SESSION READY (RESPONDED)', session.key, this.connid);
         changed = true;
     }
     if (session.mark_ready()) {
+        dbg.log0('ICE SESSION READY (RESPONDED)', session.key, this.connid);
         changed = true;
     }
     if (changed) {
-        this._find_session_to_connect();
+        this._find_session_to_activate();
     }
     if (attr_map.use_candidate) {
         this._activate_session_complete(session);
@@ -884,19 +902,19 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
 
 
 /**
- * _find_session_to_connect
+ * _find_session_to_activate
  */
-Ice.prototype._find_session_to_connect = function() {
+Ice.prototype._find_session_to_activate = function() {
 
-    if (this.closed) return;
     // only the controlling chooses sessions
     if (!this.controlling) return;
+    if (this.closed) return;
 
     var best_session;
     var highest_non_closed_priority = -Infinity;
 
     // close all sessions with less attractive remote candidate
-    _.each(this.sessions_by_key, function(session) {
+    _.each(this.sessions_by_tid, function(session) {
         if (session.is_closed()) return;
         if (session.remote.priority > highest_non_closed_priority) {
             highest_non_closed_priority = session.remote.priority;
@@ -905,9 +923,9 @@ Ice.prototype._find_session_to_connect = function() {
         if (!best_session) {
             best_session = session;
         } else {
+            // in case of priority tie, we pick in arbitrary way to break tie
+            // so here we compare key lexical order
             if (session.remote.priority === best_session.remote.priority) {
-                // we pick in arbitrary way to break tie
-                // so here we compare key lexical order
                 if (session.key > best_session.key) {
                     best_session = session;
                 }
@@ -927,8 +945,9 @@ Ice.prototype._find_session_to_connect = function() {
 Ice.prototype._activate_session = function(session) {
     if (this.closed) return;
     if (this.activating_session) return;
-    dbg.log0('ICE SESSION ACTIVATING', session.key);
     this.activating_session = session;
+
+    dbg.log0('ICE SESSION ACTIVATING', session.key);
 
     var activate_packet = stun.new_packet(stun.METHODS.REQUEST, [{
         type: stun.ATTRS.USE_CANDIDATE,
@@ -965,17 +984,21 @@ Ice.prototype._activate_session = function(session) {
  * _activate_session_complete
  */
 Ice.prototype._activate_session_complete = function(session) {
-    if (this.closed) return;
-    if (this.active_session) return;
+    var self = this;
+    if (self.closed) return;
+    if (self.active_session) return;
     dbg.log0('ICE SESSION ACTIVE', session.key);
+    self.active_session = session;
     session.mark_active();
-    this.active_session = session;
-    _.each(this.sessions_by_key, function(s) {
-        if (session !== s) {
+    session.on('close', function() {
+        self.close();
+    });
+    _.each(self.sessions_by_tid, function(s) {
+        if (s !== session) {
             s.close();
         }
     });
-    this.emit('connect', session);
+    self.emit('connect', session);
 };
 
 /**
@@ -1005,13 +1028,13 @@ Ice.prototype._add_stun_servers_candidates = function(udp) {
                 family: family,
                 address: stun_url.hostname,
                 port: stun_url.port
-            }, stun.new_packet(stun.METHODS.REQUEST));
+            }, stun.new_packet(stun.METHODS.REQUEST), self.udp);
         } while (self.stun_server_sessions_by_tid[session.tid]);
         self.stun_server_sessions_by_tid[session.tid] = session;
         // send udp requests until replied
         session.run_udp_request_loop();
         // the stun response will add the local candidate and wake us up
-        return session.wait_ready().then(function() {
+        return session.wait_for().then(function() {
             session.run_udp_indication_loop();
         });
     }));
@@ -1073,7 +1096,7 @@ Ice.prototype.close = function() {
     if (self.closed) return;
     self.closed = true;
     self.emit('close');
-    _.each(self.sessions_by_key, function(session) {
+    _.each(self.sessions_by_tid, function(session) {
         session.close();
     });
     _.each(self.stun_server_sessions_by_tid, function(session) {
@@ -1097,74 +1120,110 @@ function IceCandidate(cand) {
 
 util.inherits(IceSession, EventEmitter);
 
-function IceSession(ice, local, remote, packet) {
+function IceSession(local, remote, packet, udp) {
     var self = this;
     EventEmitter.call(self);
-    self.ice = ice;
     self.local = local;
     self.remote = remote;
-    self.key = make_session_key(local, remote);
     self.packet = packet;
+    self.udp = udp;
+    self.key = make_session_key(local, remote);
     self.tid = stun.get_tid_field(self.packet).toString('base64');
     self.state = 'init';
     js_utils.self_bind(self, 'run_udp_request_loop');
     js_utils.self_bind(self, 'run_udp_indication_loop');
-    self.ready_defer = P.defer();
-    self.ready_defer.promise.fail(_.noop); // to ignore 'Unhandled rejection' printouts
+    self.defer = P.defer();
+    self.defer.promise.fail(_.noop); // to ignore 'Unhandled rejection' printouts
     // set session timeout
     self.ready_timeout = setTimeout(function() {
         self.close(new Error('ICE SESSION TIMEOUT'));
     }, 5000);
 }
 
-IceSession.prototype.mark_ready = function() {
-    if (this.state === 'closed') throw new Error('ICE SESSION STATE CLOSED');
-    if (this.state !== 'init') return;
-    this.state = 'ready';
-    var was_pending = this.ready_defer.promise.isPending();
-    this.ready_defer.resolve();
-    clearTimeout(this.ready_timeout);
-    this.ready_timeout = null;
-    return was_pending;
+IceSession.prototype.is_init = function() {
+    return this.state === 'init';
 };
-
-IceSession.prototype.wait_ready = function() {
-    return this.ready_defer.promise;
-};
-
 IceSession.prototype.is_ready = function() {
     return this.state === 'ready';
+};
+IceSession.prototype.is_closed = function() {
+    return this.state === 'closed';
+};
+IceSession.prototype.wait_for = function() {
+    return this.defer.promise;
+};
+
+IceSession.prototype.mark_checking = function() {
+    switch (this.state) {
+        case 'closed':
+            throw new Error('ICE SESSION STATE CLOSED');
+        case 'init':
+            break;
+        default:
+            return;
+    }
+    if (this.state === 'closed') throw new Error('ICE SESSION STATE CLOSED');
+    if (this.state !== 'init') return;
+    this.state = 'checking';
+};
+
+IceSession.prototype.mark_ready = function() {
+    switch (this.state) {
+        case 'closed':
+            throw new Error('ICE SESSION STATE CLOSED');
+        case 'init':
+        case 'checking':
+            break;
+        default:
+            return;
+    }
+    this.state = 'ready';
+    clearTimeout(this.ready_timeout);
+    this.ready_timeout = null;
+    this.defer.resolve();
+    return true;
 };
 
 IceSession.prototype.mark_activating = function(packet) {
     var self = this;
-    if (self.state === 'closed') throw new Error('ICE SESSION STATE CLOSED');
-    if (self.state !== 'init' && self.state !== 'ready') return;
+    switch (self.state) {
+        case 'closed':
+            throw new Error('ICE SESSION STATE CLOSED');
+        case 'activating':
+        case 'active':
+            return;
+        default:
+            break;
+    }
     self.state = 'activating';
     self.packet = packet;
     // mark this session as waiting for connect response
     self.activating_timeout = setTimeout(function() {
         self.close(new Error('ICE SESSION CONNECT TIMEOUT'));
     }, 5000);
+    return true;
 };
 
 IceSession.prototype.mark_active = function() {
-    if (this.state === 'closed') throw new Error('ICE SESSION STATE CLOSED');
-    if (this.state !== 'init' && this.state !== 'ready' && this.state !== 'activating') return;
+    switch (this.state) {
+        case 'closed':
+            throw new Error('ICE SESSION STATE CLOSED');
+        case 'active':
+            return;
+        default:
+            break;
+    }
     this.state = 'active';
     clearTimeout(this.activating_timeout);
     this.activating_timeout = null;
-};
-
-IceSession.prototype.is_closed = function() {
-    return this.state === 'closed';
+    return true;
 };
 
 IceSession.prototype.close = function(err) {
     if (this.state === 'closed') return;
     this.state = 'closed';
     this.emit('close');
-    this.ready_defer.reject(err || new Error('ICE SESSION CLOSED'));
+    this.defer.reject(err || new Error('ICE SESSION CLOSED'));
     clearTimeout(this.ready_timeout);
     this.ready_timeout = null;
     clearTimeout(this.activating_timeout);
@@ -1172,23 +1231,20 @@ IceSession.prototype.close = function(err) {
 };
 
 IceSession.prototype.run_udp_request_loop = function() {
-    if (this.ice.closed) return;
-    if (this.state === 'closed') return;
-    if (this.ready_defer.promise.isFulfilled()) return;
-    this.ice.udp.send_outbound(this.packet, this.remote.port, this.remote.address, _.noop);
+    if (this.state !== 'checking' && this.state !== 'activating') return;
+    this.udp.send_outbound(this.packet, this.remote.port, this.remote.address, _.noop);
     setTimeout(this.run_udp_request_loop, 100);
 };
 
 IceSession.prototype.run_udp_indication_loop = function() {
-    if (this.ice.closed) return;
-    if (this.state === 'closed') return;
+    if (this.state !== 'ready') return;
     if (!this.indication) {
         // indication packet copy tid from request packet, not sure if needed,
         // but seems like it would make sense to the stun server
         // to see the indications coming from the same tid session.
         this.indication = stun.new_packet(stun.METHODS.INDICATION, null, this.packet);
     }
-    this.ice.udp.send_outbound(this.indication, this.remote.port, this.remote.address, _.noop);
+    this.udp.send_outbound(this.indication, this.remote.port, this.remote.address, _.noop);
     var delay = stun.INDICATION_INTERVAL * chance.floating(stun.INDICATION_JITTER);
     setTimeout(this.run_udp_indication_loop, delay);
 };
@@ -1196,8 +1252,8 @@ IceSession.prototype.run_udp_indication_loop = function() {
 function make_candidate_key(transport, family, address, port) {
     return transport +
         (family === 'IPv6' ?
-            '6://[' + address + ']:' :
-            '4://' + address + ':') +
+            '://[' + address + ']:' :
+            '://' + address + ':') +
         port;
 }
 

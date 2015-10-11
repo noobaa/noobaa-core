@@ -106,9 +106,11 @@ function Ice(connid, config, signal_target) {
     // to be passed as the target when calling the signaller
     self.signal_target = signal_target;
 
+    // sessions by key for uniqueness - see make_session_key
+    self.sessions_by_key = {};
+
     // sessions map, the map by tid use the key of the stun tid's
     // which will allow to match the replies to the requests
-    self.sessions_by_key = {};
     self.sessions_by_tid = {};
     self.stun_server_sessions_by_tid = {};
 
@@ -702,16 +704,17 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
  * _find_session_to_activate
  */
 Ice.prototype._find_session_to_activate = function() {
+    var self = this;
+    if (self.closed) return;
 
-    // only the controlling chooses sessions
-    if (!this.controlling) return;
-    if (this.closed) return;
+    // only the controlling chooses sessions to activate
+    if (!self.controlling) return;
 
     var best_session;
     var highest_non_closed_priority = -Infinity;
 
-    // close all sessions with less attractive remote candidate
-    _.each(this.sessions_by_tid, function(session) {
+    // find best session and see if there's any pending sessions with higher priority
+    _.each(self.sessions_by_tid, function(session) {
         if (session.is_closed()) return;
         if (session.remote.priority > highest_non_closed_priority) {
             highest_non_closed_priority = session.remote.priority;
@@ -731,8 +734,9 @@ Ice.prototype._find_session_to_activate = function() {
             }
         }
     });
-    if (highest_non_closed_priority <= best_session.remote.priority) {
-        this._activate_session(best_session);
+
+    if (best_session && highest_non_closed_priority <= best_session.remote.priority) {
+        self._activate_session(best_session);
     }
 };
 

@@ -36,6 +36,13 @@ argv.addr.protocol = (argv.proto && argv.proto + ':') || argv.addr.protocol || '
 argv.addr.hostname = argv.host || argv.addr.hostname || '127.0.0.1';
 argv.addr.port = parseInt(argv.port, 10) || argv.addr.port || 5656;
 
+// retry delay in seconds on failures
+argv.retry = argv.retry || undefined;
+var retry_ms = 1000 * (parseInt(argv.retry, 10) || 0);
+var retry_func = argv.retry && function() {
+    return P.delay(retry_ms);
+};
+
 var target_addresses;
 
 // debug level
@@ -230,17 +237,19 @@ function call_next_io(req) {
     }
     var data = new Buffer(argv.wsize);
     data.fill(0xFA);
-    return rpc.client.rpcbench.io({
-            kushkush: {
-                data: data,
-                rsize: argv.rsize
-            }
-        }, {
-            address: chance.pick(target_addresses),
-            return_rpc_req: true
-        })
-        .fail(_.noop)
-        .then(call_next_io);
+    var promise = rpc.client.rpcbench.io({
+        kushkush: {
+            data: data,
+            rsize: argv.rsize
+        }
+    }, {
+        address: chance.pick(target_addresses),
+        return_rpc_req: true
+    });
+    if (retry_func) {
+        promise = promise.fail(retry_func);
+    }
+    return promise.then(call_next_io);
 }
 
 function io_service(req) {

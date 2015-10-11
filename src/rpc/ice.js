@@ -318,7 +318,7 @@ Ice.prototype._add_tcp_random_passive_candidates = function() {
     if (!self.config.tcp_random_passive) return;
 
     var server = net.createServer(function(conn) {
-        if (self.connected || self.closed) {
+        if (self.active_session || self.closed) {
             conn.detroy();
             return;
         }
@@ -339,22 +339,21 @@ Ice.prototype._add_tcp_random_passive_candidates = function() {
         dbg.error('ICE TCP SERVER ERROR', err);
     });
 
-    return P.ninvoke(server, 'listen')
-        .then(function() {
-            var address = server.address();
-            _.each(self.networks, function(n, ifcname) {
-                self._add_local_candidate({
-                    transport: 'tcp',
-                    family: n.family,
-                    address: n.address,
-                    port: address.port,
-                    type: CAND_TYPE_HOST,
-                    tcp_type: CAND_TCP_TYPE_PASSIVE,
-                    ifcname: n.ifcname,
-                    internal: n.internal, // aka loopback
-                });
+    return P.ninvoke(server, 'listen').then(function() {
+        var address = server.address();
+        _.each(self.networks, function(n, ifcname) {
+            self._add_local_candidate({
+                transport: 'tcp',
+                family: n.family,
+                address: n.address,
+                port: address.port,
+                type: CAND_TYPE_HOST,
+                tcp_type: CAND_TCP_TYPE_PASSIVE,
+                ifcname: n.ifcname,
+                internal: n.internal, // aka loopback
             });
         });
+    });
 };
 
 /**
@@ -376,10 +375,10 @@ Ice.prototype._add_tcp_so_candidates = function() {
     // we create a temp tcp server and listen just to allocate
     // a random port, and then immediately close it
     var server = net.createServer();
-    return P.all(_.map(self.networks, function(n, ifcname) {
-        return P.ninvoke(server, 'listen').then(function() {
-            var address = server.address();
-            server.close();
+    return P.ninvoke(server, 'listen').then(function() {
+        var address = server.address();
+        server.close();
+        _.each(self.networks, function(n, ifcname) {
             self._add_local_candidate({
                 transport: 'tcp',
                 family: n.family,
@@ -391,7 +390,7 @@ Ice.prototype._add_tcp_so_candidates = function() {
                 internal: n.internal, // aka loopback
             });
         });
-    }));
+    });
 };
 
 
@@ -411,7 +410,7 @@ Ice.prototype._add_local_candidate = function(candidate) {
 
     // match each remote against the new local candidate
     _.each(self.remote_candidates, function(remote) {
-        self._add_session_if_not_exists(local, remote);
+        self._check_connectivity(local, remote);
     });
 
     return local;
@@ -435,10 +434,34 @@ Ice.prototype._add_remote_candidate = function(candidate) {
 
     // match each local against the new remote candidate
     _.each(self.local_candidates, function(local) {
-        self._add_session_if_not_exists(local, remote);
+        self._check_connectivity(local, remote);
     });
 
     return remote;
+};
+
+
+/**
+ *
+ * _check_connectivity
+ *
+ */
+Ice.prototype._check_connectivity = function(local, remote) {
+    var session = this._add_session_if_not_exists(local, remote);
+    if (!session) return;
+    if (session.checking_connectivity) return;
+    session.checking_connectivity = true;
+
+    // start connecting the seesion
+    if (local.transport === 'tcp') {
+        if (local.tcp_type === CAND_TCP_TYPE_SO) {
+            this._connect_tcp_so_pair(session);
+        } else {
+            this._connect_tcp_active_passive_pair(session);
+        }
+    } else {
+        session.run_udp_request_loop();
+    }
 };
 
 
@@ -473,17 +496,6 @@ Ice.prototype._add_session_if_not_exists = function(local, remote) {
     self.sessions_by_tid[session.tid] = session;
     dbg.log0('ICE ADDED NEW SESSION', session.key);
 
-    // start connecting the seesion
-    if (local.transport === 'tcp') {
-        if (local.tcp_type === CAND_TCP_TYPE_SO) {
-            self._connect_tcp_so_pair(session);
-        } else {
-            self._connect_tcp_active_passive_pair(session);
-        }
-    } else {
-        session.run_udp_request_loop();
-    }
-
     return session;
 };
 
@@ -497,7 +509,7 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
     var self = this;
     var attempts = 10;
     var try_ap = function() {
-        if (self.connected || self.closed || session.closed) {
+        if (self.active_session || self.closed || session.is_closed()) {
             dbg.log0('ICE TCP AP STOPPED', session.key);
             session.close(new Error('ICE TCP AP STOPPED'));
             return;
@@ -515,7 +527,7 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
         session.tcp.on('connect', function(err) {
             dbg.log0('ICE TCP AP CONNECTED', session.key);
             attempts = 0;
-            if (self.connected || self.closed || session.closed) {
+            if (self.active_session || self.closed || session.is_closed()) {
                 session.tcp.destroy();
                 return;
             }
@@ -536,7 +548,7 @@ Ice.prototype._connect_tcp_so_pair = function(session) {
     var self = this;
     var so_max_delay_ms = 100;
     var try_so = function() {
-        if (self.connected || self.closed || session.closed) {
+        if (self.active_session || self.closed || session.is_closed()) {
             dbg.log0('ICE TCP SO STOPPED', session.key);
             session.close(new Error('ICE TCP SO STOPPED'));
             return;
@@ -554,7 +566,7 @@ Ice.prototype._connect_tcp_so_pair = function(session) {
         session.tcp.on('connect', function(err) {
             dbg.log0('ICE TCP SO CONNECTED', session.key);
             so_max_delay_ms = 0;
-            if (self.connected || self.closed || session.closed) {
+            if (self.active_session || self.closed || session.is_closed()) {
                 session.tcp.destroy();
                 return;
             }
@@ -587,7 +599,7 @@ Ice.prototype._init_udp_connection = function(conn) {
         if (err) {
             dbg.error('ICE UDP CLOSING', err || '');
         }
-        conn.destroy();
+        conn.close();
     }
 
     // TODO limit udp that receives only non-stun messages
@@ -659,7 +671,7 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
         if (msg_type === ICE_FRAME_STUN_MSG_TYPE) {
             self._handle_stun_packet(buffer, info);
         } else {
-            dbg.log0('ICE TCP RECEIVE DATA', buffer.length, info.key);
+            // dbg.log0('ICE TCP RECEIVE DATA', buffer.length, info.key);
             if (!message_queue) {
                 conn.emit('message', buffer);
             } else {
@@ -768,11 +780,15 @@ Ice.prototype._handle_stun_request = function(buffer, info) {
         // dbg.log0('GGG session', info.session, attr_map.address, info);
     }
     if (info.session) {
-        if (info.session.mark_replied()) {
-            this._update_sessions();
+        if (info.tcp && !info.tcp.destroyed &&
+            (!info.session.tcp || info.session.tcp.destroyed)) {
+            info.session.tcp = info.tcp;
+        }
+        if (info.session.mark_ready()) {
+            this._find_session_to_connect();
         }
         if (attr_map.use_candidate) {
-            this._connect_session_complete(info.session);
+            this._activate_session_complete(info.session);
         }
     }
 
@@ -809,7 +825,7 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
         if (!session) {
             return this._bad_stun_packet(buffer, info, 'RESPONSE TO MISSING SESSION');
         }
-        if (session.closed) {
+        if (session.is_closed()) {
             return this._bad_stun_packet(buffer, info, 'RESPONSE TO CLOSED SESSION');
         }
         dbg.log0('ICE STUN RESPONSE FROM SERVER', info.key);
@@ -824,11 +840,11 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
                 type: CAND_TYPE_SERVER_REFLEX,
             });
         }
-        session.mark_replied();
+        session.mark_ready();
         return;
     }
 
-    if (session.closed) {
+    if (session.is_closed()) {
         return this._bad_stun_packet(buffer, info, 'RESPONSE TO CLOSED SESSION');
     }
 
@@ -851,37 +867,41 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
     if (!info.session) {
         info.session = session;
     }
-    var should_update = false;
-    if (info.session && info.session.mark_replied()) {
-        should_update = true;
+    var changed = false;
+    if (info.session && info.session.mark_ready()) {
+        changed = true;
     }
-    if (session.mark_replied()) {
-        should_update = true;
+    if (session.mark_ready()) {
+        changed = true;
     }
-    if (should_update) {
-        this._update_sessions();
+    if (changed) {
+        this._find_session_to_connect();
     }
     if (attr_map.use_candidate) {
-        this._connect_session_complete(session);
+        this._activate_session_complete(session);
     }
 };
 
 
 /**
- * _update_sessions
+ * _find_session_to_connect
  */
-Ice.prototype._update_sessions = function() {
+Ice.prototype._find_session_to_connect = function() {
+
+    if (this.closed) return;
     // only the controlling chooses sessions
     if (!this.controlling) return;
+
     var best_session;
     var highest_non_closed_priority = -Infinity;
+
     // close all sessions with less attractive remote candidate
     _.each(this.sessions_by_key, function(session) {
-        if (session.closed) return;
+        if (session.is_closed()) return;
         if (session.remote.priority > highest_non_closed_priority) {
             highest_non_closed_priority = session.remote.priority;
         }
-        if (!session.is_replied()) return;
+        if (!session.is_ready()) return;
         if (!best_session) {
             best_session = session;
         } else {
@@ -897,17 +917,20 @@ Ice.prototype._update_sessions = function() {
         }
     });
     if (highest_non_closed_priority <= best_session.remote.priority) {
-        this._connect_session(best_session);
+        this._activate_session(best_session);
     }
 };
 
 /**
- * _connect_session
+ * _activate_session
  */
-Ice.prototype._connect_session = function(session) {
-    dbg.log0('ICE SESSION MARK CONNECTING', session.key);
+Ice.prototype._activate_session = function(session) {
+    if (this.closed) return;
+    if (this.activating_session) return;
+    dbg.log0('ICE SESSION ACTIVATING', session.key);
+    this.activating_session = session;
 
-    var connect_packet = stun.new_packet(stun.METHODS.REQUEST, [{
+    var activate_packet = stun.new_packet(stun.METHODS.REQUEST, [{
         type: stun.ATTRS.USE_CANDIDATE,
         value: '1'
     }, {
@@ -928,7 +951,7 @@ Ice.prototype._connect_session = function(session) {
         }
     }], session.packet);
 
-    session.mark_connecting(connect_packet);
+    session.mark_activating(activate_packet);
 
     if (session.tcp) {
         session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
@@ -939,15 +962,14 @@ Ice.prototype._connect_session = function(session) {
 
 
 /**
- * _connect_session_complete
+ * _activate_session_complete
  */
-Ice.prototype._connect_session_complete = function(session) {
+Ice.prototype._activate_session_complete = function(session) {
     if (this.closed) return;
-    if (this.connected) return;
-    dbg.log0('ICE SESSION COMPLETED CONNECTING', session.key);
-    session.mark_connected();
-    this.connected = true;
-    // this.connected_session = session;
+    if (this.active_session) return;
+    dbg.log0('ICE SESSION ACTIVE', session.key);
+    session.mark_active();
+    this.active_session = session;
     _.each(this.sessions_by_key, function(s) {
         if (session !== s) {
             s.close();
@@ -989,7 +1011,7 @@ Ice.prototype._add_stun_servers_candidates = function(udp) {
         // send udp requests until replied
         session.run_udp_request_loop();
         // the stun response will add the local candidate and wake us up
-        return session.wait_for_reply().then(function() {
+        return session.wait_ready().then(function() {
             session.run_udp_indication_loop();
         });
     }));
@@ -1084,74 +1106,82 @@ function IceSession(ice, local, remote, packet) {
     self.key = make_session_key(local, remote);
     self.packet = packet;
     self.tid = stun.get_tid_field(self.packet).toString('base64');
-    self.reply_defer = P.defer();
-    self.reply_defer.promise.fail(_.noop); // to ignore 'Unhandled rejection' printouts
+    self.state = 'init';
     js_utils.self_bind(self, 'run_udp_request_loop');
     js_utils.self_bind(self, 'run_udp_indication_loop');
+    self.ready_defer = P.defer();
+    self.ready_defer.promise.fail(_.noop); // to ignore 'Unhandled rejection' printouts
     // set session timeout
-    self.reply_timeout = setTimeout(function() {
+    self.ready_timeout = setTimeout(function() {
         self.close(new Error('ICE SESSION TIMEOUT'));
     }, 5000);
 }
 
-IceSession.prototype.mark_replied = function() {
-    var was_pending = this.reply_defer.promise.isPending();
-    this.reply_defer.resolve();
-    clearTimeout(this.reply_timeout);
-    this.reply_timeout = null;
+IceSession.prototype.mark_ready = function() {
+    if (this.state === 'closed') throw new Error('ICE SESSION STATE CLOSED');
+    if (this.state !== 'init') return;
+    this.state = 'ready';
+    var was_pending = this.ready_defer.promise.isPending();
+    this.ready_defer.resolve();
+    clearTimeout(this.ready_timeout);
+    this.ready_timeout = null;
     return was_pending;
 };
 
-IceSession.prototype.wait_for_reply = function() {
-    if (this.closed) return P.reject(new Error('ICE SESSION CLOSED'));
-    return this.reply_defer.promise;
+IceSession.prototype.wait_ready = function() {
+    return this.ready_defer.promise;
 };
 
-IceSession.prototype.is_replied = function() {
-    return !this.closed && this.reply_defer.promise.isFulfilled();
+IceSession.prototype.is_ready = function() {
+    return this.state === 'ready';
 };
 
-IceSession.prototype.mark_connecting = function(packet) {
+IceSession.prototype.mark_activating = function(packet) {
     var self = this;
+    if (self.state === 'closed') throw new Error('ICE SESSION STATE CLOSED');
+    if (self.state !== 'init' && self.state !== 'ready') return;
+    self.state = 'activating';
     self.packet = packet;
     // mark this session as waiting for connect response
-    self.connect_timeout = setTimeout(function() {
+    self.activating_timeout = setTimeout(function() {
         self.close(new Error('ICE SESSION CONNECT TIMEOUT'));
     }, 5000);
 };
 
-IceSession.prototype.is_connecting = function() {
-    return !this.closed && this.connect_timeout;
+IceSession.prototype.mark_active = function() {
+    if (this.state === 'closed') throw new Error('ICE SESSION STATE CLOSED');
+    if (this.state !== 'init' && this.state !== 'ready' && this.state !== 'activating') return;
+    this.state = 'active';
+    clearTimeout(this.activating_timeout);
+    this.activating_timeout = null;
 };
 
-IceSession.prototype.mark_connected = function() {
-    this.connected = true;
-    clearTimeout(this.connect_timeout);
-    this.connect_timeout = null;
+IceSession.prototype.is_closed = function() {
+    return this.state === 'closed';
 };
 
 IceSession.prototype.close = function(err) {
-    if (this.closed) return;
-    this.closed = true;
+    if (this.state === 'closed') return;
+    this.state = 'closed';
     this.emit('close');
-    this.reply_defer.reject(err || new Error('ICE SESSION CLOSED'));
-    clearTimeout(this.reply_timeout);
-    this.reply_timeout = null;
-    clearTimeout(this.connect_timeout);
-    this.connect_timeout = null;
+    this.ready_defer.reject(err || new Error('ICE SESSION CLOSED'));
+    clearTimeout(this.ready_timeout);
+    this.ready_timeout = null;
+    clearTimeout(this.activating_timeout);
+    this.activating_timeout = null;
 };
 
 IceSession.prototype.run_udp_request_loop = function() {
     if (this.ice.closed) return;
-    if (this.closed) return;
-    if (this.reply_defer.promise.isFulfilled()) return;
+    if (this.state === 'closed') return;
+    if (this.ready_defer.promise.isFulfilled()) return;
     this.ice.udp.send_outbound(this.packet, this.remote.port, this.remote.address, _.noop);
     setTimeout(this.run_udp_request_loop, 100);
 };
 
 IceSession.prototype.run_udp_indication_loop = function() {
     if (this.ice.closed) return;
-    if (this.closed) return;
+    if (this.state === 'closed') return;
     if (!this.indication) {
         // indication packet copy tid from request packet, not sure if needed,
         // but seems like it would make sense to the stun server
@@ -1172,6 +1202,6 @@ function make_candidate_key(transport, family, address, port) {
 }
 
 function make_session_key(local, remote) {
-    // return local.key + '=>' + remote.key;
-    return 'local=>' + remote.key;
+    return local.key + '=>' + remote.key;
+    // return 'local=>' + remote.key;
 }

@@ -48,13 +48,13 @@ function RpcN2NConnection(addr_url, n2n_agent) {
         if (session.tcp) {
             dbg.log0('N2N CONNECTED TO TCP',
                 session.tcp.localAddress + ':' + session.tcp.localPort,
-                session.tcp.remoteAddress + ':' + session.tcp.remotePort, 
-                session.tcp.listenerCount('newListener'));
+                session.tcp.remoteAddress + ':' + session.tcp.remotePort,
+                session.tcp.listenerCount('newListener'), session.tcp);
             self._send = function(msg) {
                 session.tcp.frame_stream.send_message(msg);
             };
             session.tcp.on('message', function(msg) {
-                dbg.log0('N2N TCP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
+                // dbg.log0('N2N TCP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
                 self.emit('message', msg);
             });
             self.emit('connect');
@@ -145,14 +145,14 @@ function RpcN2NAgent(options) {
         offer_internal: true,
 
         // tcp options
-        tcp_active: true,
-        tcp_random_passive: true,
-        tcp_fixed_passive: true,
+        tcp_active: false,
+        tcp_random_passive: false,
+        tcp_fixed_passive: false,
         tcp_so: false,
         tcp_secure: true,
 
         // udp options
-        udp_socket: false && function() {
+        udp_socket: function() {
             var nudp = new Nudp();
             return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
                 nudp.port = port;

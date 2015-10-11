@@ -239,6 +239,15 @@ function get_attrs_map(buffer) {
             case stun.ATTRS.PASSWORD:
                 map.password = attr.value;
                 break;
+            case stun.ATTRS.USE_CANDIDATE:
+                map.use_candidate = attr.value;
+                break;
+            case stun.ATTRS.ICE_CONTROLLED:
+                map.ice_controlled = attr.value;
+                break;
+            case stun.ATTRS.ICE_CONTROLLING:
+                map.ice_controlling = attr.value;
+                break;
         }
     });
     return map;
@@ -295,6 +304,9 @@ function decode_attrs(buffer) {
             case stun.ATTRS.SOFTWARE:
             case stun.ATTRS.USERNAME:
             case stun.ATTRS.PASSWORD:
+            case stun.ATTRS.USE_CANDIDATE:
+            case stun.ATTRS.ICE_CONTROLLED:
+            case stun.ATTRS.ICE_CONTROLLING:
             case stun.ATTRS.REALM:
                 value = buffer.slice(offset, next).toString('utf8');
                 break;
@@ -322,6 +334,7 @@ function decode_attrs(buffer) {
 function encoded_attrs_len(attrs) {
     var len = 0;
     for (var i = 0; i < attrs.length; ++i) {
+        if (!attrs[i]) continue;
         // every attr requires type and len 16bit each
         len = align_offset(len + 4 + encoded_attr_len(attrs[i]));
     }
@@ -345,6 +358,9 @@ function encoded_attr_len(attr) {
         case stun.ATTRS.SOFTWARE:
         case stun.ATTRS.USERNAME:
         case stun.ATTRS.PASSWORD:
+        case stun.ATTRS.USE_CANDIDATE:
+        case stun.ATTRS.ICE_CONTROLLED:
+        case stun.ATTRS.ICE_CONTROLLING:
         case stun.ATTRS.REALM:
             return Buffer.byteLength(attr.value, 'utf8');
         default:
@@ -359,6 +375,7 @@ function encode_attrs(buffer, attrs) {
     var offset = stun.HEADER_LENGTH;
     for (var i = 0; i < attrs.length; ++i) {
         var attr = attrs[i];
+        if (!attr) continue;
         buffer.writeUInt16BE(attr.type, offset);
         offset += 2;
         var length = encoded_attr_len(attr);
@@ -383,6 +400,9 @@ function encode_attrs(buffer, attrs) {
             case stun.ATTRS.SOFTWARE:
             case stun.ATTRS.USERNAME:
             case stun.ATTRS.PASSWORD:
+            case stun.ATTRS.USE_CANDIDATE:
+            case stun.ATTRS.ICE_CONTROLLED:
+            case stun.ATTRS.ICE_CONTROLLING:
             case stun.ATTRS.REALM:
                 buffer.write(attr.value, offset, length, 'utf8');
                 break;

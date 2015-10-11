@@ -46,7 +46,10 @@ function RpcN2NConnection(addr_url, n2n_agent) {
 
     self.ice.once('connect', function(session) {
         if (session.tcp) {
-            dbg.log0('N2N CONNECTED TO TCP', session.tcp.address());
+            dbg.log0('N2N CONNECTED TO TCP',
+                session.tcp.localAddress + ':' + session.tcp.localPort,
+                session.tcp.remoteAddress + ':' + session.tcp.remotePort, 
+                session.tcp.listenerCount('newListener'));
             self._send = function(msg) {
                 session.tcp.frame_stream.send_message(msg);
             };
@@ -63,25 +66,26 @@ function RpcN2NConnection(addr_url, n2n_agent) {
                 dbg.log1('N2N UDP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
                 self.emit('message', msg);
             });
-            if (self.leader) {
-                dbg.log0('CONNECTING NUDP');
+            if (self.controlling) {
+                dbg.log0('N2N CONNECTING NUDP', session.key);
                 P.invoke(self.ice.udp, 'connect', session.remote.port, session.remote.address)
                     .done(function() {
-                        dbg.log0('N2N CONNECTED TO UDP', session.remote.address + ':' + session.remote.port);
+                        dbg.log0('N2N CONNECTED TO NUDP', session.key);
                         self.emit('connect');
                     }, function(err) {
                         self.emit('error', err);
                     });
             } else {
-                dbg.log0('ACCEPTING NUDP');
+                dbg.log0('N2N ACCEPTING NUDP');
                 self.emit('connect');
+                // TODO need to wait for NUDP accept event...
             }
         }
     });
 }
 
 RpcN2NConnection.prototype._connect = function() {
-    this.leader = true;
+    this.controlling = true;
     return this.ice.connect();
 };
 

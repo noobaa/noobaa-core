@@ -699,6 +699,107 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
 
 
 /**
+ * _find_session_to_activate
+ */
+Ice.prototype._find_session_to_activate = function() {
+
+    // only the controlling chooses sessions
+    if (!this.controlling) return;
+    if (this.closed) return;
+
+    var best_session;
+    var highest_non_closed_priority = -Infinity;
+
+    // close all sessions with less attractive remote candidate
+    _.each(this.sessions_by_tid, function(session) {
+        if (session.is_closed()) return;
+        if (session.remote.priority > highest_non_closed_priority) {
+            highest_non_closed_priority = session.remote.priority;
+        }
+        if (!session.is_ready()) return;
+        if (!best_session) {
+            best_session = session;
+        } else {
+            // in case of priority tie, we pick in arbitrary way to break tie
+            // so here we compare key lexical order
+            if (session.remote.priority === best_session.remote.priority) {
+                if (session.key > best_session.key) {
+                    best_session = session;
+                }
+            } else if (session.remote.priority > best_session.remote.priority) {
+                best_session = session;
+            }
+        }
+    });
+    if (highest_non_closed_priority <= best_session.remote.priority) {
+        this._activate_session(best_session);
+    }
+};
+
+/**
+ * _activate_session
+ */
+Ice.prototype._activate_session = function(session) {
+    if (this.closed) return;
+    if (this.activating_session) return;
+    this.activating_session = session;
+
+    dbg.log0('ICE SESSION ACTIVATING', session.key);
+
+    var activate_packet = stun.new_packet(stun.METHODS.REQUEST, [{
+        type: stun.ATTRS.USE_CANDIDATE,
+        value: '1'
+    }, {
+        type: this.controlling ? stun.ATTRS.ICE_CONTROLLING : stun.ATTRS.ICE_CONTROLLED,
+        value: '1'
+    }, {
+        type: stun.ATTRS.USERNAME,
+        value: this.remote_credentials.ufrag + ':' + this.local_credentials.ufrag
+    }, {
+        type: stun.ATTRS.PASSWORD,
+        value: this.remote_credentials.pwd
+    }, {
+        type: stun.ATTRS.XOR_MAPPED_ADDRESS,
+        value: {
+            family: session.remote.family,
+            address: session.remote.address,
+            port: session.remote.port,
+        }
+    }], session.packet);
+
+    session.mark_activating(activate_packet);
+
+    if (session.tcp) {
+        session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
+    } else {
+        session.run_udp_request_loop();
+    }
+};
+
+
+/**
+ * _activate_session_complete
+ */
+Ice.prototype._activate_session_complete = function(session) {
+    var self = this;
+    if (self.closed) return;
+    if (self.active_session) return;
+    dbg.log0('ICE SESSION ACTIVE', session.key);
+    self.active_session = session;
+    session.mark_active();
+    session.on('close', function() {
+        self.close();
+    });
+    _.each(self.sessions_by_tid, function(s) {
+        if (s !== session) {
+            s.close();
+        }
+    });
+    self.emit('connect', session);
+};
+
+
+/**
  *
  * _handle_stun_packet
  *
@@ -897,106 +998,6 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
     }
 };
 
-
-/**
- * _find_session_to_activate
- */
-Ice.prototype._find_session_to_activate = function() {
-
-    // only the controlling chooses sessions
-    if (!this.controlling) return;
-    if (this.closed) return;
-
-    var best_session;
-    var highest_non_closed_priority = -Infinity;
-
-    // close all sessions with less attractive remote candidate
-    _.each(this.sessions_by_tid, function(session) {
-        if (session.is_closed()) return;
-        if (session.remote.priority > highest_non_closed_priority) {
-            highest_non_closed_priority = session.remote.priority;
-        }
-        if (!session.is_ready()) return;
-        if (!best_session) {
-            best_session = session;
-        } else {
-            // in case of priority tie, we pick in arbitrary way to break tie
-            // so here we compare key lexical order
-            if (session.remote.priority === best_session.remote.priority) {
-                if (session.key > best_session.key) {
-                    best_session = session;
-                }
-            } else if (session.remote.priority > best_session.remote.priority) {
-                best_session = session;
-            }
-        }
-    });
-    if (highest_non_closed_priority <= best_session.remote.priority) {
-        this._activate_session(best_session);
-    }
-};
-
-/**
- * _activate_session
- */
-Ice.prototype._activate_session = function(session) {
-    if (this.closed) return;
-    if (this.activating_session) return;
-    this.activating_session = session;
-
-    dbg.log0('ICE SESSION ACTIVATING', session.key);
-
-    var activate_packet = stun.new_packet(stun.METHODS.REQUEST, [{
-        type: stun.ATTRS.USE_CANDIDATE,
-        value: '1'
-    }, {
-        type: this.controlling ? stun.ATTRS.ICE_CONTROLLING : stun.ATTRS.ICE_CONTROLLED,
-        value: '1'
-    }, {
-        type: stun.ATTRS.USERNAME,
-        value: this.remote_credentials.ufrag + ':' + this.local_credentials.ufrag
-    }, {
-        type: stun.ATTRS.PASSWORD,
-        value: this.remote_credentials.pwd
-    }, {
-        type: stun.ATTRS.XOR_MAPPED_ADDRESS,
-        value: {
-            family: session.remote.family,
-            address: session.remote.address,
-            port: session.remote.port,
-        }
-    }], session.packet);
-
-    session.mark_activating(activate_packet);
-
-    if (session.tcp) {
-        session.tcp.frame_stream.send_message(session.packet, ICE_FRAME_STUN_MSG_TYPE);
-    } else {
-        session.run_udp_request_loop();
-    }
-};
-
-
-/**
- * _activate_session_complete
- */
-Ice.prototype._activate_session_complete = function(session) {
-    var self = this;
-    if (self.closed) return;
-    if (self.active_session) return;
-    dbg.log0('ICE SESSION ACTIVE', session.key);
-    self.active_session = session;
-    session.mark_active();
-    session.on('close', function() {
-        self.close();
-    });
-    _.each(self.sessions_by_tid, function(s) {
-        if (s !== session) {
-            s.close();
-        }
-    });
-    self.emit('connect', session);
-};
 
 /**
  *

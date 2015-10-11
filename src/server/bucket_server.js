@@ -40,12 +40,12 @@ var dbg = require('../util/debug_module')(__filename);
  *
  */
 function create_bucket(req) {
-    return resolve_tiering(req.system.id, req.rpc_params.tiering)
+    return resolve_tiering_policy(req.system.id, req.rpc_params.tiering)
         .then(function(tiering) {
             var info = _.pick(req.rpc_params, 'name');
             info.system = req.system.id;
             if (tiering) {
-                info.tiering = tiering;
+                info.tiering = tiering[0]._id;
             }
             return db.Bucket.create(info);
         })
@@ -71,7 +71,7 @@ function create_bucket(req) {
 function read_bucket(req) {
     return P.when(db.Bucket
             .findOne(get_bucket_query(req))
-            .populate('tiering.tier')
+            .populate('tiering.tiers')
             .exec())
         .then(db.check_not_deleted(req, 'bucket'))
         .then(function(bucket) {
@@ -94,7 +94,7 @@ function read_bucket(req) {
  *
  */
 function update_bucket(req) {
-    return resolve_tiering(req.system.id, req.rpc_params.tiering)
+    return resolve_tiering_policy(req.system.id, req.rpc_params.tiering)
         .then(function(tiering) {
             var updates = {};
             if (req.rpc_params.new_name) {
@@ -160,7 +160,7 @@ function list_buckets(req) {
                 system: req.system.id,
                 deleted: null,
             })
-            .populate('tiering.tier')
+            .populate('tiering.tiers')
             .exec())
         .then(function(buckets) {
             return {
@@ -418,28 +418,20 @@ function get_bucket_info(bucket) {
     return reply;
 }
 
-function resolve_tiering(system_id, tiering) {
+function resolve_tiering_policy(system_id, tiering) {
     if (!tiering) return P.resolve();
-    return P.when(db.Tier
+    return P.when(db.TieringPolicy
             .find({
                 system: system_id,
-                name: {
-                    $in: tiering
-                },
+                name: tiering,
                 deleted: null,
             })
             .exec())
-        .then(function(tiers) {
-            var tiers_by_name = _.indexBy(tiers, 'name');
-            return _.map(tiering, function(name) {
-                var tier = tiers_by_name[name];
-                if (!tier) {
-                    console.log('TIER NOT FOUND', name);
-                    throw new Error('missing tier');
-                }
-                return {
-                    tier: tier
-                };
-            });
+        .then(function(tiering_policy) {
+            if (!tiering_policy) {
+                console.log('TIER POLICY NOT FOUND', tiering);
+                throw new Error('missing tiering policy');
+            }
+            return tiering_policy;
         });
 }

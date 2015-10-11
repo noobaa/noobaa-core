@@ -102,10 +102,26 @@ function create_system(req) {
             return server_rpc.client.tier.create_tier({
                 name: 'nodes',
                 kind: 'edge',
+                data_placement: 'SPREAD',
                 edge_details: {
                     replicas: 3,
                     data_fragments: 1,
                     parity_fragments: 0
+                },
+                nodes: [],
+                pools: [],
+            }, {
+                auth_token: system_token
+            });
+        })
+        .then(function() {
+            return server_rpc.client.tiering_policy.create_policy({
+                policy: {
+                    name: 'default_tiering',
+                    tiers: [{
+                        order: 0,
+                        tier: 'nodes'
+                    }]
                 }
             }, {
                 auth_token: system_token
@@ -114,7 +130,7 @@ function create_system(req) {
         .then(function() {
             return server_rpc.client.bucket.create_bucket({
                 name: 'files',
-                tiering: ['nodes']
+                tiering: 'default_tiering'
             }, {
                 auth_token: system_token
             });
@@ -255,7 +271,7 @@ function read_system(req) {
                 used: a.size || 0,
             };
             b.num_objects = a.count || 0;
-            b.tiering = _.map(bucket.tiering, function(tier_id) {
+            b.tiering = _.map(bucket.tiering.tiers, function(tier_id) {
                 var tier = tiers_by_id[tier_id];
                 if (!tier) return '';
                 var replicas = tier.edge_details && tier.edge_details.replicas || 3;

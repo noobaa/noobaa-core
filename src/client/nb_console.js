@@ -556,7 +556,7 @@ nb_console.controller('SystemDataCtrl', [
                                 scope.arrow_tooltip = 'Synchornization from NooBaa to AWS';
                             }
                         }
-                        console.log('arrow_type:'+scope.arrow_type);
+                        console.log('arrow_type:' + scope.arrow_type);
                     }
 
                 });
@@ -809,7 +809,7 @@ nb_console.controller('SystemDataCtrl', [
                 if (return_value === "ok") {
                     $q.when(nbClient.client.bucket.create_bucket({
                         name: bucket_name,
-                        tiering: ['nodes']
+                        tiering: 'default_tiering'
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');

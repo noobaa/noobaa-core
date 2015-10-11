@@ -12,11 +12,18 @@ var db = require('./db');
  *
  */
 var tier_server = {
+    //Tiers
     create_tier: create_tier,
     read_tier: read_tier,
     update_tier: update_tier,
     delete_tier: delete_tier,
     list_tiers: list_tiers,
+
+    //Tiering Policy
+    create_policy: create_policy,
+    update_policy: update_policy,
+    get_policy: get_policy,
+    delete_policy: delete_policy
 };
 
 module.exports = tier_server;
@@ -30,7 +37,7 @@ module.exports = tier_server;
  *
  */
 function create_tier(req) {
-    var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details');
+    var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details', 'pools', 'nodes', 'data_placement');
     info.system = req.system.id;
     return P.when(db.Tier.create(info))
         .then(null, db.check_already_exists(req, 'tier'))
@@ -123,6 +130,48 @@ function list_tiers(req) {
         .then(function(tiers) {
             return tiers;
         });
+}
+
+// TIERING POLICY /////////////////////////////////////////////////
+function create_policy(req) {
+    var info = _.pick(req.rpc_params.policy, 'name', 'tiers');
+    var tiers = _.pluck(req.rpc_params.policy.tiers, 'tier');
+    return P.when(
+            db.Tier.find({
+                system: req.system.id,
+                name: {
+                    $in: tiers
+                },
+                deleted: null,
+            })
+            .exec())
+        .then(function(tiers) {
+            if (tiers.length !== info.tiers.length) {
+                throw new Error('DB Tiers and requested tiers are not equal');
+            }
+            info.system = req.system.id;
+            _.each(tiers, function(t) {
+                var ind = _.findIndex(info.tiers, function(it) {
+                    return it.tier === t.name;
+                });
+                info.tiers[ind].tier = t._id;
+            });
+            return P.when(db.TieringPolicy.create(info))
+                .then(null, db.check_already_exists(req, 'tiering_policy'))
+                .thenResolve();
+        });
+}
+
+function update_policy(req) {
+
+}
+
+function get_policy(req) {
+
+}
+
+function delete_policy(req) {
+
 }
 
 

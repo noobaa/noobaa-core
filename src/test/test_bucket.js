@@ -38,7 +38,7 @@ describe('bucket', function() {
         }).then(function() {
             return client.bucket.create_bucket({
                 name: 'bkt',
-                tiering: ['edge'],
+                tiering: 'default_tiering',
             });
         }).then(function() {
             return client.bucket.list_buckets();
@@ -50,7 +50,7 @@ describe('bucket', function() {
             return client.bucket.update_bucket({
                 name: 'bkt',
                 new_name: 'bkt2',
-                tiering: ['edge'],
+                tiering: 'default_tiering',
             });
         }).then(function() {
             return client.bucket.read_bucket({

@@ -32,6 +32,15 @@ module.exports = {
                     cloud_details: {
                         $ref: '/tier_api/definitions/cloud_details'
                     },
+                    nodes: {
+                        $ref: '/system_api/definitions/nodes_info'
+                    },
+                    pools: {
+                        $ref: '/tier_api/definitions/pool_info'
+                    },
+                    data_placement: {
+                        $ref: '/tier_api/definitions/data_placement_enum'
+                    },
                 }
             },
             auth: {
@@ -78,6 +87,15 @@ module.exports = {
                     cloud_details: {
                         $ref: '/tier_api/definitions/cloud_details'
                     },
+                    nodes: {
+                        $ref: '/system_api/definitions/nodes_info'
+                    },
+                    pools: {
+                        $ref: '/tier_api/definitions/pool_info'
+                    },
+                    data_placement: {
+                        $ref: '/tier_api/definitions/data_placement_enum'
+                    },
                 }
             },
             auth: {
@@ -101,7 +119,6 @@ module.exports = {
                 system: 'admin'
             }
         },
-
     },
 
 
@@ -109,7 +126,7 @@ module.exports = {
 
         tier_info: {
             type: 'object',
-            required: ['name', 'kind', 'storage', 'nodes'],
+            required: ['name', 'kind', 'storage', 'nodes', 'pools', 'data_placement'],
             properties: {
                 name: {
                     type: 'string',
@@ -129,6 +146,12 @@ module.exports = {
                 nodes: {
                     $ref: '/system_api/definitions/nodes_info'
                 },
+                pools: {
+                    $ref: '/tier_api/definitions/pool_info'
+                },
+                data_placement: {
+                    $ref: '/tier_api/definitions/data_placement_enum'
+                }
             }
         },
 
@@ -159,6 +182,16 @@ module.exports = {
             additionalProperties: true,
         },
 
-    }
+        data_placement_enum: {
+            enum: ['MIRROR', 'SPREAD'],
+            type: 'string',
+        },
 
+        pools: {
+            type: 'array',
+            items: {
+                type: 'string',
+            }
+        },
+    }
 };

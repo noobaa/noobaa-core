@@ -44,6 +44,27 @@ var tier_schema = new Schema({
         },
     },
 
+    //Each tier can be composed of pools OR nodes
+    //This is done for ease of use in cases of small servers number (use nodes)
+    //or large desktop numbers (use pools)
+    pools: [{
+        ref: 'Pool',
+        type: types.ObjectId,
+        required: true,
+    }],
+
+    nodes: [{
+        ref: 'Node',
+        type: types.ObjectId,
+        required: true,
+    }],
+
+    data_placement: {
+        type: String,
+        enum: ['MIRROR', 'SPREAD'],
+        required: true,
+    },
+
     // details needed to access the cloud storage
     // for example for AWS S3 the details should contain:
     //     access_key, secret, region, etc.

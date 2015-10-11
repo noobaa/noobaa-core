@@ -13,7 +13,7 @@ var SliceReader = require('../util/slice_reader');
 
 var chance_seed = argv.seed || Date.now();
 console.log('using seed', chance_seed);
-var chance = new (require('chance').Chance)(chance_seed);
+var chance = new(require('chance').Chance)(chance_seed);
 
 var dbg = require('../util/debug_module')(__filename);
 dbg.set_level(5, 'core');
@@ -45,7 +45,7 @@ describe('object', function() {
         }).then(function() {
             return client.bucket.create_bucket({
                 name: BKT,
-                tiering: [TIER],
+                tiering: 'default_tiering',
             });
         }).then(function() {
             return coretest.init_test_nodes(10, SYS, TIER);

@@ -1022,18 +1022,25 @@ Ice.prototype._add_stun_servers_candidates = function(udp) {
         var family = net.isIPv6(stun_url.hostname) ? 'IPv6' : 'IPv4';
         do {
             // create "minimal candidates" local and remote
-            session = new IceSession(self, {
-                family: family,
-                address: '0.0.0.0',
-                port: self.udp.port
-            }, {
-                family: family,
-                address: stun_url.hostname,
-                port: stun_url.port
-            }, stun.new_packet(stun.METHODS.REQUEST), self.udp);
+            session = new IceSession(
+                new IceCandidate({
+                    transport: 'udp',
+                    family: family,
+                    address: '0.0.0.0',
+                    port: self.udp.port
+                }),
+                new IceCandidate({
+                    transport: 'udp',
+                    family: family,
+                    address: stun_url.hostname,
+                    port: stun_url.port
+                }),
+                stun.new_packet(stun.METHODS.REQUEST),
+                self.udp);
         } while (self.stun_server_sessions_by_tid[session.tid]);
         self.stun_server_sessions_by_tid[session.tid] = session;
         // send udp requests until replied
+        session.mark_checking();
         session.run_udp_request_loop();
         // the stun response will add the local candidate and wake us up
         return session.wait_for().then(function() {
@@ -1237,6 +1244,7 @@ IceSession.prototype.close = function(err) {
 
 IceSession.prototype.run_udp_request_loop = function() {
     if (this.state !== 'checking' && this.state !== 'activating') return;
+    dbg.log0('ICE UDP SEND', this.key, this.local, this.remote);
     this.udp.send_outbound(this.packet, this.remote.port, this.remote.address, _.noop);
     setTimeout(this.run_udp_request_loop, 100);
 };

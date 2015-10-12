@@ -138,16 +138,16 @@ function RpcN2NAgent(options) {
 
         // ip options
         offer_ipv4: true,
-        offer_ipv6: true,
+        offer_ipv6: false,
         accept_ipv4: true,
         accept_ipv6: true,
         offer_internal: false,
 
         // tcp options
         tcp_active: true,
-        tcp_random_passive: true,
+        tcp_random_passive: false,
         tcp_fixed_passive: true,
-        tcp_so: true,
+        tcp_so: false,
         tcp_secure: true,
 
         // udp options
@@ -160,7 +160,10 @@ function RpcN2NAgent(options) {
         },
 
         // TODO stun server to use for N2N ICE
-        stun_servers: [],
+        // TODO Nudp require ip's, not hostnames, and also does not support IPv6 yet
+        stun_servers: [
+            // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
+        ],
 
         // signaller callback
         signaller: function(target, info) {

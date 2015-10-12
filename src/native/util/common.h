@@ -195,8 +195,10 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 
 # define NAUV_CALLBACK(func_name, handle_def) \
     void func_name(handle_def, int)
-# define NAUV_IP4_ADDR(address, port, sinp) \
-    *sinp = uv_ip4_addr(address, port)
+# define NAUV_IP4_ADDR(address, port, sin4) \
+    *sin4 = uv_ip4_addr(address, port)
+# define NAUV_IP6_ADDR(address, port, sin6) \
+    *sin6 = uv_ip6_addr(address, port)
 # define NAUV_UDP_ADDR(sinp) *sinp
 # define NAUV_CALL(fcall) \
     do { \
@@ -227,8 +229,10 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 
 # define NAUV_CALLBACK(func_name, handle_def) \
     void func_name(handle_def)
-# define NAUV_IP4_ADDR(address, port, sinp) \
-    uv_ip4_addr(address, port, sinp)
+# define NAUV_IP4_ADDR(address, port, sin4) \
+    uv_ip4_addr(address, port, sin4)
+# define NAUV_IP6_ADDR(address, port, sin6) \
+    uv_ip6_addr(address, port, sin6)
 # define NAUV_UDP_ADDR(sinp) reinterpret_cast<struct sockaddr*>(sinp)
 # define NAUV_CALL(fcall) \
     do { \

@@ -724,6 +724,7 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
         case 'pong':
             if (conn._ping_last_reqid === msg.header.reqid) {
                 dbg.log4('RPC PINGPONG', conn.connid);
+                conn._ping_mismatch_count = 0;
             } else {
                 conn._ping_mismatch_count = (conn._ping_mismatch_count || 0) + 1;
                 if (conn._ping_mismatch_count < 3) {

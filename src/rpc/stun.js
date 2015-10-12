@@ -274,13 +274,18 @@ function decode_attrs(buffer) {
         // limit the amount of work we are willing to do
         // in case someone decides to annoy us or just a bug
         if (attrs.length > 10) {
-            throw new Error('STUN PACKET TOO MANY ATTRS, dropping buffer ' + buffer.length);
+            throw new Error('STUN PACKET TOO MANY ATTRS dropping buffer ' + buffer.length);
         }
 
         var type = buffer.readUInt16BE(offset);
         offset += 2;
         var length = buffer.readUInt16BE(offset);
         offset += 2;
+
+        if (length > 256) {
+            throw new Error('STUN PACKET ATTR TOO LONG type=' + type +
+                ' length=' + length + ' dropping buffer ' + buffer.length);
+        }
 
         var next = offset + length;
         var value;

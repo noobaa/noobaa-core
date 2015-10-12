@@ -146,12 +146,17 @@ function RpcN2NAgent(options) {
         // tcp options
         tcp_active: true,
         tcp_random_passive: false,
-        tcp_fixed_passive: true,
+        tcp_fixed_passive: {
+            port_range: {
+                min: 56565,
+                max: 57000
+            }
+        },
         tcp_so: false,
         tcp_secure: true,
 
         // udp options
-        udp_socket: function() {
+        udp_socket: false && function() {
             var nudp = new Nudp();
             return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
                 nudp.port = port;

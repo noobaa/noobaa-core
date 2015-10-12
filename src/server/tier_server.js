@@ -170,11 +170,32 @@ function update_policy(req) {
 }
 
 function get_policy(req) {
-
+    return P.when(db.TieringPolicy
+            .findOne(get_policy_query(req))
+            .exec())
+        .then(db.check_not_deleted(req, 'tier'))
+        .then(function(policy) {
+            var reply;
+            reply.name = policy.name;
+            reply.tiers = policy.tiers;
+            return reply;
+        });
 }
 
 function delete_policy(req) {
-    dbg.log0('Deleting tiering policy');
+    dbg.log0('Deleting tiering policy', req.rpc_params.name);
+    return P.when(db.TieringPolicy
+            .findOne(get_policy_query(req))
+            .exec())
+        .then(db.check_not_deleted(req, 'tier'))
+        .then(function(policy) {
+            var updates = {
+                deleted: new Date()
+            };
+            return P.when(db.TieringPolicy
+                .findOneAndUpdate(get_policy_query(req), updates)
+                .exec());
+        });
 }
 
 
@@ -182,6 +203,14 @@ function delete_policy(req) {
 
 
 function get_tier_query(req) {
+    return {
+        system: req.system.id,
+        name: req.rpc_params.name,
+        deleted: null,
+    };
+}
+
+function get_policy_query(req) {
     return {
         system: req.system.id,
         name: req.rpc_params.name,

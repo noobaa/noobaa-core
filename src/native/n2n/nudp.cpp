@@ -639,7 +639,7 @@ Nudp::utp_callback_on_state_change(utp_callback_arguments *a)
 
     case UTP_STATE_EOF:
         LOG("Nudp::utp_callback_on_state_change: EOF");
-        self._close();
+        self._submit_close();
         break;
 
     case UTP_STATE_DESTROYING:
@@ -755,12 +755,29 @@ Nudp::utp_callback_on_accept(utp_callback_arguments *a)
     return 0;
 }
 
+void
+Nudp::_submit_close()
+{
+    uv_prepare_t* prepare = new uv_prepare_t;
+    uv_prepare_init(uv_default_loop(), prepare);
+    uv_prepare_start(prepare, uv_callback_prepare_close);
+    prepare->data = this;
+}
+
+NAUV_CALLBACK(Nudp::uv_callback_prepare_close, uv_prepare_t* prepare)
+{
+    Nudp& self = *reinterpret_cast<Nudp*>(prepare->data);
+    self._close();
+    uv_prepare_stop(prepare);
+    delete prepare;
+}
+
 uint64_t
 Nudp::utp_callback_on_error(utp_callback_arguments *a)
 {
-    LOG("Nudp::utp_callback_on_error: " << utp_error_code_names[a->error_code]);
     Nudp& self = *reinterpret_cast<Nudp*>(utp_context_get_userdata(a->context));
-    self._close();
+    LOG("Nudp::utp_callback_on_error: " << utp_error_code_names[a->error_code]);
+    self._submit_close();
     return 0;
 }
 

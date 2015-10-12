@@ -41,6 +41,7 @@ private:
     // uv callbacks
     static NAUV_CALLBACK(uv_callback_timer, uv_timer_t* handle);
     static NAUV_CALLBACK(uv_callback_prepare, uv_prepare_t* handle);
+    static NAUV_CALLBACK(uv_callback_prepare_close, uv_prepare_t* handle);
     static void uv_callback_send_utp(uv_udp_send_t* req, int status);
     static void uv_callback_send_outbound(uv_udp_send_t* req, int status);
     static void uv_callback_alloc(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
@@ -100,6 +101,7 @@ private:
     explicit Nudp();
     ~Nudp();
     void _close();
+    void _submit_close();
     void _write_data();
     void _read_data(const uint8_t *buf, int len);
     void _bind(const char* address, int port);

@@ -1,0 +1,61 @@
+.status-icon-base {
+    .fa;
+    .fa-lg;
+    .fa-fw;
+}
+
+.srvmode-none {
+    &.block-online-true {
+        &.block-building-false {
+            .status-icon-base;
+            &:extend(.fa-check all);
+            .text-success;
+        }
+        &.block-building-true {
+            .status-icon-base;
+            &:extend(.fa-wrench all);
+            .text-muted;
+        }
+    }
+    &.block-online-false {
+        .status-icon-base;
+        &:extend(.fa-moon-o all);
+        .text-muted;
+    }
+}
+
+.srvmode-disabled {
+    .status-icon-base;
+    &:extend(.fa-ban all);
+    .text-muted;
+}
+
+.srvmode-decommissioning {
+    .status-icon-base;
+    &:extend(.fa-flag all);
+    .text-info;
+}
+
+.srvmode-decommissioned {
+    .status-icon-base;
+    &:extend(.fa-flag-checkered all);
+    .text-muted;
+}
+
+.health-healthy {
+    // .status-icon-base;
+    // &:extend(.fa-check all);
+    .text-success;
+}
+
+.health-unavailable {
+    // .status-icon-base;
+    // &:extend(.fa-moon-o all);
+    .text-danger;
+}
+
+.health-repairing {
+    // .status-icon-base;
+    // &:extend(.fa-wrench all);
+    .text-info;
+}

@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
-
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -39,6 +39,7 @@ module.exports = tier_server;
 function create_tier(req) {
     var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details', 'pools', 'nodes', 'data_placement');
     info.system = req.system.id;
+    dbg.log0('Creating new tier', info);
     return P.when(db.Tier.create(info))
         .then(null, db.check_already_exists(req, 'tier'))
         .thenResolve();
@@ -103,6 +104,7 @@ function update_tier(req) {
  *
  */
 function delete_tier(req) {
+    dbg.log0('Deleting tier', req.rpc_params.name, 'on', req.system.id);
     var updates = {
         deleted: new Date()
     };
@@ -135,6 +137,7 @@ function list_tiers(req) {
 // TIERING POLICY /////////////////////////////////////////////////
 function create_policy(req) {
     var info = _.pick(req.rpc_params.policy, 'name', 'tiers');
+    dbg.log0('Creating tiering policy', info);
     var tiers = _.pluck(req.rpc_params.policy.tiers, 'tier');
     return P.when(
             db.Tier.find({
@@ -163,7 +166,7 @@ function create_policy(req) {
 }
 
 function update_policy(req) {
-
+    dbg.log0('Updating tiering policy');
 }
 
 function get_policy(req) {
@@ -171,7 +174,7 @@ function get_policy(req) {
 }
 
 function delete_policy(req) {
-
+    dbg.log0('Deleting tiering policy');
 }
 
 

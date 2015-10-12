@@ -113,6 +113,7 @@ private:
     utp_socket* _utp_socket;
     uv_timer_t _uv_timer_handle;
     uv_prepare_t _uv_prepare_handle;
+    uv_prepare_t _uv_prepare_close_handle;
     uv_udp_t _uv_udp_handle;
     std::list<Msg*> _messages;
     MsgHdr _recv_hdr;

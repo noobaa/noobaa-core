@@ -83,9 +83,11 @@ Nudp::Nudp()
     NAUV_CALL(uv_timer_start(&_uv_timer_handle, &Nudp::uv_callback_timer, 0, 520));
     NAUV_CALL(uv_prepare_init(uv_default_loop(), &_uv_prepare_handle));
     NAUV_CALL(uv_prepare_start(&_uv_prepare_handle, &Nudp::uv_callback_prepare));
+    NAUV_CALL(uv_prepare_init(uv_default_loop(), &_uv_prepare_close_handle));
     _uv_udp_handle.data = this;
     _uv_timer_handle.data = this;
     _uv_prepare_handle.data = this;
+    _uv_prepare_close_handle.data = this;
 }
 
 Nudp::~Nudp()
@@ -112,9 +114,11 @@ Nudp::_close()
     Nan::HandleScope scope;
     NAUV_CALL(uv_timer_stop(&_uv_timer_handle));
     NAUV_CALL(uv_prepare_stop(&_uv_prepare_handle));
+    NAUV_CALL(uv_prepare_stop(&_uv_prepare_close_handle));
     uv_close(reinterpret_cast<uv_handle_t*>(&_uv_udp_handle), NULL);
     uv_close(reinterpret_cast<uv_handle_t*>(&_uv_timer_handle), NULL);
     uv_close(reinterpret_cast<uv_handle_t*>(&_uv_prepare_handle), NULL);
+    uv_close(reinterpret_cast<uv_handle_t*>(&_uv_prepare_close_handle), NULL);
     if (_utp_socket) {
         utp_close(_utp_socket);
         _utp_socket = NULL;
@@ -758,18 +762,14 @@ Nudp::utp_callback_on_accept(utp_callback_arguments *a)
 void
 Nudp::_submit_close()
 {
-    uv_prepare_t* prepare = new uv_prepare_t;
-    uv_prepare_init(uv_default_loop(), prepare);
-    uv_prepare_start(prepare, uv_callback_prepare_close);
-    prepare->data = this;
+    NAUV_CALL(uv_prepare_start(&_uv_prepare_close_handle, &uv_callback_prepare_close));
 }
 
 NAUV_CALLBACK(Nudp::uv_callback_prepare_close, uv_prepare_t* prepare)
 {
     Nudp& self = *reinterpret_cast<Nudp*>(prepare->data);
     self._close();
-    uv_prepare_stop(prepare);
-    delete prepare;
+    NAUV_CALL(uv_prepare_stop(prepare));
 }
 
 uint64_t

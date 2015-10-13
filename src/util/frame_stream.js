@@ -19,10 +19,12 @@ const MAX_SEQ = (1 << 16);
  */
 function FrameStream(stream, msg_handler, config) {
     this.stream = stream;
-    this.msg_handler = msg_handler;
-    this._magic = config.magic || DEFAULT_MSG_MAGIC;
+    this.msg_handler = msg_handler || function(msg, msg_type) {
+        stream.emit('message', msg, msg_type);
+    };
+    this._magic = config && config.magic || DEFAULT_MSG_MAGIC;
     this._magic_len = this._magic.length;
-    this._max_len = config.max_len || DEFAULT_MAX_MSG_LEN;
+    this._max_len = config && config.max_len || DEFAULT_MAX_MSG_LEN;
     this._send_seq = (MAX_SEQ * Math.random()) >>> 0;
     this._recv_seq = NaN;
     this._header_len = this._magic_len + 8;

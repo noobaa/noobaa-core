@@ -4,9 +4,10 @@ module.exports = Ice;
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var fs = require('fs');
 var os = require('os');
 var net = require('net');
-// var tls = require('tls');
+var tls = require('tls');
 var util = require('util');
 var ip_module = require('ip');
 var crypto = require('crypto');
@@ -873,7 +874,59 @@ Ice.prototype._activate_session_complete = function(session) {
             s.close();
         }
     });
-    self.emit('connect', session);
+    if (session.tcp && self.config.tcp_secure) {
+        // submit the upgrade to allow the stun response to be sent
+        // before tls kicks in so that the peer will also get it plain
+        setTimeout(function() {
+            self._upgrade_to_tls(session);
+        }, 100);
+    } else {
+        self.emit('connect', session);
+    }
+};
+
+
+Ice.prototype._upgrade_to_tls = function(session) {
+    var self = this;
+    dbg.log0('ICE UPGRADE TO TLS', session.key, session.state);
+    var tcp_conn = session.tcp;
+    var tls_conn;
+    tcp_conn.removeAllListeners();
+    tcp_conn.frame_stream = null;
+    session.tcp = null;
+
+    if (self.controlling) {
+        tls_conn = tls.connect({
+            socket: tcp_conn,
+            key: fs.readFileSync('./ryans-key.pem'),
+            cert: fs.readFileSync('./ryans-cert.pem'),
+            ca: [fs.readFileSync('./ryans-cert.pem')],
+        }, once_connected);
+    } else {
+        tls_conn = new tls.TLSSocket(tcp_conn, {
+            isServer: true,
+            secureContext: tls.createSecureContext({
+                key: fs.readFileSync('./ryans-key.pem'),
+                cert: fs.readFileSync('./ryans-cert.pem'),
+                ca: [fs.readFileSync('./ryans-cert.pem')],
+            })
+        });
+    }
+    tls_conn.on('secureConnect', once_connected);
+    tls_conn.on('error', destroy_conn);
+    tls_conn.on('close', destroy_conn);
+
+    function destroy_conn(err) {
+        dbg.error('TLS ERROR', err);
+        session.close(err);
+    }
+
+    function once_connected() {
+        dbg.log0('ICE TLS CONNECTED', session.key);
+        session.tcp = tls_conn;
+        tls_conn.frame_stream = new FrameStream(tls_conn);
+        self.emit('connect', session);
+    }
 };
 
 

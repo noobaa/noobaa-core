@@ -877,9 +877,9 @@ Ice.prototype._activate_session_complete = function(session) {
     if (session.tcp && self.config.tcp_secure) {
         // submit the upgrade to allow the stun response to be sent
         // before tls kicks in so that the peer will also get it plain
-        setTimeout(function() {
+        setImmediate(function() {
             self._upgrade_to_tls(session);
-        }, 100);
+        });
     } else {
         self.emit('connect', session);
     }
@@ -891,17 +891,13 @@ Ice.prototype._upgrade_to_tls = function(session) {
     dbg.log0('ICE UPGRADE TO TLS', session.key, session.state);
     var tcp_conn = session.tcp;
     var tls_conn;
-    tcp_conn.removeAllListeners();
-    tcp_conn.frame_stream = null;
-    session.tcp = null;
-
     if (self.controlling) {
         tls_conn = tls.connect({
             socket: tcp_conn,
             key: fs.readFileSync('./ryans-key.pem'),
             cert: fs.readFileSync('./ryans-cert.pem'),
             ca: [fs.readFileSync('./ryans-cert.pem')],
-        }, once_connected);
+        });
     } else {
         tls_conn = new tls.TLSSocket(tcp_conn, {
             isServer: true,
@@ -912,12 +908,16 @@ Ice.prototype._upgrade_to_tls = function(session) {
             })
         });
     }
-    tls_conn.on('secureConnect', once_connected);
+    tls_conn.on('secure', once_connected);
     tls_conn.on('error', destroy_conn);
     tls_conn.on('close', destroy_conn);
 
     function destroy_conn(err) {
-        dbg.error('TLS ERROR', err);
+        if (err) {
+            dbg.error('TLS ERROR:', session.key, err);
+        } else {
+            dbg.error('TLS CLOSED:', session.key);
+        }
         session.close(err);
     }
 

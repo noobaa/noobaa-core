@@ -190,7 +190,9 @@ nb_api.factory('nbNodes', [
                 tier: 'nodes',
                 prod: true,
                 bucket: 'files',
-                root_path: './agent_storage/'
+                root_path: './agent_storage/',
+                port: 8888,
+                secure_port: 9999
             };
 
             config_json.address = 'wss://noobaa.local:' + nbSystem.system.ssl_port;

@@ -21,9 +21,17 @@ function test() {
     var filename = process.argv[2];
     var mode = process.argv[3];
     console.log('FILE', filename);
-    var input = fs.createReadStream(filename, {
-        highWaterMark: 1024 * 1024
-    });
+    var input;
+    if (parseInt(filename, 10)) {
+        var RandStream = require('../util/rand_stream');
+        input = new RandStream(parseInt(filename, 10), {
+            highWaterMark: 1024 * 1024
+        });
+    } else {
+        input = fs.createReadStream(filename, {
+            highWaterMark: 1024 * 1024
+        });
+    }
     var api;
     var stats = {
         count: 0,

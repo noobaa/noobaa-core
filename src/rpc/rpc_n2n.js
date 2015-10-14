@@ -5,8 +5,11 @@ RpcN2NConnection.Agent = RpcN2NAgent;
 
 // var _ = require('lodash');
 var P = require('../util/promise');
-var util = require('util');
+var fs = require('fs');
+var dns = require('dns');
+var tls = require('tls');
 var url = require('url');
+var util = require('util');
 var dbg = require('../util/debug_module')(__filename);
 // var js_utils = require('../util/js_utils');
 // var time_utils = require('../util/time_utils');
@@ -30,6 +33,7 @@ util.inherits(RpcN2NConnection, RpcBaseConnection);
  */
 function RpcN2NConnection(addr_url, n2n_agent) {
     var self = this;
+    if (!n2n_agent) throw new Error('N2N AGENT NOT REGISTERED');
     RpcBaseConnection.call(self, addr_url);
 
     self.ice = new Ice(self.connid, n2n_agent.ice_config, self.url.href);
@@ -148,15 +152,24 @@ function RpcN2NAgent(options) {
         tcp_random_passive: false,
         tcp_fixed_passive: {
             port_range: {
-                min: 56565,
-                max: 57000
+                min: 60111,
+                max: 60888
             }
         },
-        tcp_so: false,
-        tcp_secure: true,
+        tcp_so: false, // tcp simultaneous open
+        tcp_tls: {
+            // we allow self generated certificates to avoid public CA signing:
+            rejectUnauthorized: false,
+            secureContext: tls.createSecureContext({
+                key: get_global_tls_key(),
+                cert: get_global_tls_cert(),
+                // TODO use a system ca certificate
+                // ca: [tls_cert],
+            }),
+        },
 
         // udp options
-        udp_socket: false && function() {
+        udp_socket: function() {
             var nudp = new Nudp();
             return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
                 nudp.port = port;
@@ -167,6 +180,7 @@ function RpcN2NAgent(options) {
         // TODO stun server to use for N2N ICE
         // TODO Nudp require ip's, not hostnames, and also does not support IPv6 yet
         stun_servers: [
+            read_on_premise_stun_server()
             // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
         ],
 
@@ -197,3 +211,78 @@ RpcN2NAgent.prototype.signal = function(params) {
     });
     return conn.accept(params.info);
 };
+
+function read_on_premise_stun_server() {
+    return fs.readFileAsync('agent_conf.json')
+        .then(function(data) {
+            var agent_conf = JSON.parse(data);
+            var host_url = url.parse(agent_conf.address);
+            return P.nfcall(dns.resolve, host_url.hostname);
+        })
+        .then(function(server_ips) {
+            if (!server_ips || !server_ips[0]) return;
+            var stun_url = url.parse('stun://' + server_ips[0] + ':3479');
+            dbg.log0('N2N STUN SERVER from agent_conf.json', stun_url.href);
+            return stun_url;
+        })
+        .catch(function(err) {
+            dbg.warn('N2N NO STUN SERVER in agent_conf.json');
+        });
+}
+
+function get_global_tls_key() {
+    return [
+        '-----BEGIN RSA PRIVATE KEY-----',
+        'MIIEpAIBAAKCAQEAvSegTfXkLDbLalfxrsjlFJXpaDWPDgb3ohS78+ByJXcgwPrG',
+        'Q2yNO47qY04UuWkgGEUW+RXis7iPCdpYwl4RfYjAPQHIUhhlw7v7U+Sv7PIv5uUv',
+        'kk/kzjz54m42K+z/NBvO/kpf/L777a9czOuUR5fCPbPg+br7PFyBh0djMw+RA/hk',
+        'KSEM87jru2k4e1y1cnMv4qupVCVNaegOszSkclrFvnCUxVhyHCofhidrx7nqQhZU',
+        '8zOVdrPmnakGcmX1Hux5v90eg5nm640c0xQcTOQ3rCCq3YkwYcwujtfQI+0p086d',
+        'eMMCF6jJ+i2Fb2NAHYQO65jhZNWoCHlJPzsvUQIDAQABAoIBAQCYT+RBYpLNF4JM',
+        'q2wtNg9guCYuh5Id1XZpyRBfnIfNq1NwkX48pJhFMRuDw0fk1MXHRTrub7UQyrhD',
+        'UtLOEDk9QHSrq1fG42ZualxCfY872PjBkCLySesQNwFwVxa/4CLPruTK1tDcEF2E',
+        'UwUC7V+FFqqOTN4HuYy8WjDi4ZT7c1RPD0N2xnpkk4ZmqSOhgfwWW0P29CmUorWJ',
+        'PCeW0zH30YF+0xjBUH0qORc/vbSZjGjpuGAZ6KOENYcSneRI+HAENn7Z/SmxW7EW',
+        'A9BQjitNRV88A+DTdGk7SC0AXxV6HN0GHlkE28N23CS+EUVtmqh8vwzpycoXkPWm',
+        'gb7aBxPBAoGBAPkfQuv+Rkvr6AD3LAJeES8/4kg25zQla8ck0iyieSjDuDE22MBd',
+        've2m/bAxCURTxiVuhUyI+7EbnYtjBydermyHGhNVih6JW4p7bgLdAT+j5XoXYtcs',
+        '3v8jlou4lnsGfs4wpP+bdEB9ipItb1bm4Isf0c1CuBSOCDVXv1OHGF4dAoGBAMJg',
+        'h4IIxXFIouUq48Qj+0yklqMpzBm1BRziwYxcoNFgQ5IaP1Q83pNO5cHuqKjr7HX/',
+        'AaB0k5vgfIDzPU36SzvYnqxEqRkYAMKcxClxqqR80+m4CseunxIF6TiJtIHMDsvb',
+        'YTHOYcpNQoF8fyPO46jnsbSCXfVAYrMOh4WLZl/FAoGAeolx9XrBQR7so2zw7Mkw',
+        'UrltqG+5EeFGPlJSPzo7tl1vAGYl/5kcjwUQy9WS5VT/pfHTB25pvxgCSkmPf0IH',
+        'McLShKgSpCqUKG3GEwp6Tr9jZMaUC5s6pOzwZBGLk0ACp5Et17yzVfVqb7SBi5FM',
+        '6aHhJMGoohOq3fInXgKZbdECgYBfv6Mgp+dyrUAouR7ncH4KvAzEJQO4KhZxqzWC',
+        'SeKiINRINQu7GBzf3X6KMGD+jPC3Ez2e564Km+NYtfkd30yOF1/aJhxSEyPUudpb',
+        'O/W9/wt4VsNgp6EOBMFkq1iyk206eD+BhFNhjvtSw5vxbKlye2drLsjP1b6Iy4Bw',
+        'hUGRrQKBgQCaVjWxbtd8Rv9tCNYDfgSAfYlfMkMziaLPiGMz/OD2LX8YV3rknAuJ',
+        'OEQN98dOkLWaJogYzMPJc6RBSaZaBrvRIPgkG3JcHzib42gVyBOSjsXwThe/09OU',
+        '8gj5btThBrTqiXQgm8VqSCwLgJEUwCmxUEEuXyFhgimOIimBUWg7AQ==',
+        '-----END RSA PRIVATE KEY-----',
+    ].join('\n');
+}
+
+function get_global_tls_cert() {
+    return [
+        '-----BEGIN CERTIFICATE-----',
+        'MIIDLjCCAhYCCQDbjDECU6toDDANBgkqhkiG9w0BAQUFADBZMQswCQYDVQQGEwJB',
+        'VTETMBEGA1UECBMKU29tZS1TdGF0ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0',
+        'cyBQdHkgTHRkMRIwEAYDVQQDEwlsb2NhbGhvc3QwHhcNMTUxMDA1MDI0OTExWhcN',
+        'MTUxMTA0MDI0OTExWjBZMQswCQYDVQQGEwJBVTETMBEGA1UECBMKU29tZS1TdGF0',
+        'ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMRIwEAYDVQQDEwls',
+        'b2NhbGhvc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC9J6BN9eQs',
+        'NstqV/GuyOUUleloNY8OBveiFLvz4HIldyDA+sZDbI07jupjThS5aSAYRRb5FeKz',
+        'uI8J2ljCXhF9iMA9AchSGGXDu/tT5K/s8i/m5S+ST+TOPPnibjYr7P80G87+Sl/8',
+        'vvvtr1zM65RHl8I9s+D5uvs8XIGHR2MzD5ED+GQpIQzzuOu7aTh7XLVycy/iq6lU',
+        'JU1p6A6zNKRyWsW+cJTFWHIcKh+GJ2vHuepCFlTzM5V2s+adqQZyZfUe7Hm/3R6D',
+        'mebrjRzTFBxM5DesIKrdiTBhzC6O19Aj7SnTzp14wwIXqMn6LYVvY0AdhA7rmOFk',
+        '1agIeUk/Oy9RAgMBAAEwDQYJKoZIhvcNAQEFBQADggEBAFZ0CKD10m+Yb2y/n4j4',
+        'EoLGr+pOaBPDIEgpcV5/Kf+BJpA6scs9UYaysPSCKUsLSk8SxKLOE8DxwiuYwxtu',
+        'M2W69nZU1n1t84BkrJ5JyphKe8lXtjiNJIlST2BNHyMOSx/5/dyZgC+P0MHUlCmy',
+        'aVeyz+7ckKB/ubr7bknNfuHkNPkZm2cUCnULZzRyCWcWl/RWA9p4CcAIxg3DZl76',
+        'mAB9B6VSVAnE7fOPIrfp/5ot7D+wnbv/R1s04cc78R3DUkhPKDJKHIvVMv12BEhq',
+        'On3Ht3GyCamJKqr174h4ynIk4neFaDeZ0N/jsMrkEYEpYYwiT/swuX9ZPAJ4CIKx',
+        '2RE=',
+        '-----END CERTIFICATE-----',
+    ].join('\n');
+}

@@ -41,7 +41,9 @@ RpcTcpConnection.prototype._connect = function() {
     var connector = (self.url.protocol === 'tls:' ? tls : net);
     self.tcp_conn = connector.connect({
         port: self.url.port,
-        host: self.url.hostname
+        host: self.url.hostname,
+        // we allow self generated certificates to avoid public CA signing:
+        rejectUnauthorized: false,
     }, function() {
         self.emit('connect');
     });

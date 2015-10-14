@@ -4,7 +4,6 @@ module.exports = Ice;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-var fs = require('fs');
 var os = require('os');
 var net = require('net');
 var tls = require('tls');
@@ -65,8 +64,10 @@ util.inherits(Ice, EventEmitter);
  *  accept_ipv6: (boolean)
  *      the default is true for all. set to false to override.
  *
- *  tcp_secure: (boolean)
- *      when true will upgrade to TLS after ICE connects
+ *  tcp_tls: (object)
+ *      when provided will upgrade to TLS after ICE connects
+ *      should contain tls options: key, cert, ca, etc.
+ *      see https://nodejs.org/api/tls.html#tls_tls_connect_options_callback
  *  tcp_active: (boolean)
  *      this endpoint will offer to connect using tcp.
  *  tcp_random_passive: (boolean)
@@ -87,7 +88,7 @@ util.inherits(Ice, EventEmitter);
  *      and once messages are received it should detect stun messages (see in stun.js)
  *      and call emit 'stun' events on received stun packet to be handled by ICE.
  *
- *  stun_servers: (array of urls)
+ *  stun_servers: (array of urls or promises to urls)
  *      used to get server reflexive addresses for NAT traversal.
  *
  *  signaller: (function(target, info))
@@ -874,7 +875,7 @@ Ice.prototype._activate_session_complete = function(session) {
             s.close();
         }
     });
-    if (session.tcp && self.config.tcp_secure) {
+    if (session.tcp && self.config.tcp_tls) {
         // submit the upgrade to allow the stun response to be sent
         // before tls kicks in so that the peer will also get it plain
         setImmediate(function() {
@@ -891,23 +892,18 @@ Ice.prototype._upgrade_to_tls = function(session) {
     dbg.log0('ICE UPGRADE TO TLS', session.key, session.state);
     var tcp_conn = session.tcp;
     var tls_conn;
+    var tls_options = _.clone(self.config.tcp_tls);
     if (self.controlling) {
-        tls_conn = tls.connect({
-            socket: tcp_conn,
-            key: fs.readFileSync('./ryans-key.pem'),
-            cert: fs.readFileSync('./ryans-cert.pem'),
-            ca: [fs.readFileSync('./ryans-cert.pem')],
-        });
+        tls_options.socket = tcp_conn;
+        tls_conn = tls.connect(tls_options);
     } else {
-        tls_conn = new tls.TLSSocket(tcp_conn, {
-            isServer: true,
-            secureContext: tls.createSecureContext({
-                key: fs.readFileSync('./ryans-key.pem'),
-                cert: fs.readFileSync('./ryans-cert.pem'),
-                ca: [fs.readFileSync('./ryans-cert.pem')],
-            })
-        });
+        tls_options.isServer = true;
+        tls_conn = new tls.TLSSocket(tcp_conn, tls_options);
     }
+    // for some reason the expected event 'secureConnect' is only emitted
+    // on the connect side and not on the server side, so using the 'secure'
+    // event from SecurePair works well:
+    // https://nodejs.org/api/tls.html#tls_event_secure
     tls_conn.on('secure', once_connected);
     tls_conn.on('error', destroy_conn);
     tls_conn.on('close', destroy_conn);
@@ -1140,7 +1136,8 @@ Ice.prototype._handle_stun_response = function(buffer, info) {
  */
 Ice.prototype._add_stun_servers_candidates = function(udp) {
     var self = this;
-    return P.all(_.map(self.config.stun_servers, function(stun_url) {
+    return P.map(self.config.stun_servers, function(stun_url) {
+        if (!stun_url) return;
         stun_url = _.isString(stun_url) ? url_utils.quick_parse(stun_url) : stun_url;
         // this request is to public server and we need to know that
         // when processing the response to not require it to include credentials,
@@ -1173,7 +1170,7 @@ Ice.prototype._add_stun_servers_candidates = function(udp) {
         return session.wait_for().then(function() {
             session.run_udp_indication_loop();
         });
-    }));
+    });
 };
 
 
@@ -1371,7 +1368,7 @@ IceSession.prototype.close = function(err) {
 
 IceSession.prototype.run_udp_request_loop = function() {
     if (this.state !== 'checking' && this.state !== 'activating') return;
-    dbg.log0('ICE UDP SEND', this.key, this.local, this.remote);
+    dbg.log0('ICE UDP SEND', this.key);
     this.udp.send_outbound(this.packet, this.remote.port, this.remote.address, _.noop);
     setTimeout(this.run_udp_request_loop, 100);
 };

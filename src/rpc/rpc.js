@@ -22,10 +22,6 @@ var EventEmitter = require('events').EventEmitter;
 
 // dbg.set_level(5, __dirname);
 
-// allow self generated certificates for testing
-// TODO NODE_TLS_REJECT_UNAUTHORIZED is not a proper flag to mess with...
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
-
 var browser_location = global.window && global.window.location;
 var is_browser_secure = browser_location && browser_location.protocol === 'https:';
 var browser_ws = global.window && global.window.WebSocket;

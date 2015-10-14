@@ -14,7 +14,9 @@ function RpcFcallConnection(addr_url) {
     RpcBaseConnection.call(self, addr_url);
     self._close = _.noop;
     self._connect = function() {
-        self.emit('connect');
+        setImmediate(function() {
+            self.emit('connect');
+        });
     };
     self._send = function(msg) {
         msg = _.isArray(msg) ? Buffer.concat(msg) : msg;

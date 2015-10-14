@@ -226,7 +226,7 @@ function read_on_premise_stun_server() {
             return stun_url;
         })
         .catch(function(err) {
-            dbg.warn('N2N NO STUN SERVER in agent_conf.json');
+            dbg.log0('N2N NO STUN SERVER in agent_conf.json');
         });
 }
 

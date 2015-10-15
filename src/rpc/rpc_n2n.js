@@ -149,13 +149,15 @@ function RpcN2NAgent(options) {
 
         // tcp options
         tcp_active: true,
-        tcp_random_passive: false,
-        tcp_fixed_passive: {
+        tcp_permanent_passive: {
+            // set single port or port_range
+            // port: 60111,
             port_range: {
                 min: 60111,
                 max: 60888
             }
         },
+        tcp_transient_passive: true,
         tcp_so: false, // tcp simultaneous open
         tcp_tls: {
             // we allow self generated certificates to avoid public CA signing:

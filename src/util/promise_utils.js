@@ -259,8 +259,8 @@ function full_dir_copy(src, dst) {
 function wait_for_event(emitter, event, timeout) {
     return new P(function(resolve, reject) {
         // the first event to fire wins.
-        // we don't make an effort to remove the remaining dangling listeners
-        // as it's not really important and the promise will ignore the next calls anyhow.
+        // since we use emitter.once and the promise will not change after settling
+        // then we can be lazy and leave dangling listeners
         emitter.once(event, resolve);
         if (event !== 'close') {
             emitter.once('close', reject);

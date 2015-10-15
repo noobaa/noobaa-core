@@ -15,6 +15,7 @@ var stun = require('./stun');
 var chance = require('chance')();
 var js_utils = require('../util/js_utils');
 var url_utils = require('../util/url_utils');
+var promise_utils = require('../util/promise_utils');
 var FrameStream = require('../util/frame_stream');
 var dbg = require('../util/debug_module')(__filename);
 
@@ -70,14 +71,15 @@ util.inherits(Ice, EventEmitter);
  *      see https://nodejs.org/api/tls.html#tls_tls_connect_options_callback
  *  tcp_active: (boolean)
  *      this endpoint will offer to connect using tcp.
- *  tcp_random_passive: (boolean)
- *      this endpoint will listen on a random port.
- *  tcp_fixed_passive: (object)
- *      this endpoint will listen on the given port
- *      (will keep the server shared with other ice connections).
+ *  tcp_permanent_passive: (bool | object with port number or port range object)
+ *      this endpoint will listen on tcp port
+ *      and will keep the server shared with other ICE connections.
  *      the provided object should have a port property (integer)
  *      or port_range property (object with min,max integers)
  *      and will be used to keep the shared server.
+ *  tcp_transient_passive: (bool | object with port number or port range object)
+ *      this endpoint will listen on tcp port
+ *      and will be used only by this ICE instance.
  *  tcp_so: (boolean / port number / port range object)
  *      simultaneous_open means both endpoints will connect simultaneously,
  *      see https://en.wikipedia.org/wiki/TCP_hole_punching
@@ -254,8 +256,8 @@ Ice.prototype._add_local_candidates = function() {
     return P.join(
             self._add_udp_candidates(),
             self._add_tcp_active_candidates(),
-            self._add_tcp_random_passive_candidates(),
-            self._add_tcp_fixed_passive_candidates(),
+            self._add_tcp_permanent_passive_candidates(),
+            self._add_tcp_transient_passive_candidates(),
             self._add_tcp_so_candidates()
         )
         .then(function() {
@@ -276,6 +278,8 @@ Ice.prototype._add_udp_candidates = function() {
 
     return P.fcall(self.config.udp_socket)
         .then(function(udp) {
+
+            // will be closed by ice.close
             self.udp = udp;
             self._init_udp_connection(udp);
 
@@ -293,6 +297,9 @@ Ice.prototype._add_udp_candidates = function() {
             });
 
             return self._add_stun_servers_candidates(udp);
+        })
+        .fail(function(err) {
+            dbg.warn('ICE _add_udp_candidates: FAILED', err);
         });
 };
 
@@ -318,95 +325,56 @@ Ice.prototype._add_tcp_active_candidates = function() {
 };
 
 /**
- * _add_tcp_random_passive_candidates
+ * _add_tcp_permanent_passive_candidates
+ *
+ * the permanent mode creates a shared tcp server used by multiple ICE sessions.
+ * the server is created and maintained inside the config object,
+ * and other ICE isntances using the same config will share the server.
  */
-Ice.prototype._add_tcp_random_passive_candidates = function() {
+Ice.prototype._add_tcp_permanent_passive_candidates = function() {
     var self = this;
-    if (!self.config.tcp_random_passive) return;
+    if (!self.config.tcp_permanent_passive) return;
+    var conf = self.config.tcp_permanent_passive;
 
-    var server = net.createServer(function(conn) {
-        if (self.active_session || self.closed) {
-            conn.detroy();
-            return;
-        }
-        dbg.log0('ICE TCP ACCEPTED CONNECTION', conn.remoteAddress + ':' + conn.remotePort);
-        self._init_tcp_connection(conn);
-    });
+    return P.fcall(function() {
+            // register my credentials in ice_map
+            if (!conf.ice_map) {
+                conf.ice_map = {};
+            }
+            var my_ice_key = self.local_credentials.ufrag + self.local_credentials.pwd;
+            conf.ice_map[my_ice_key] = self;
+            self.on('close', remove_my_from_ice_map);
+            self.on('connect', remove_my_from_ice_map);
 
-    function close_server() {
-        server.close();
-    }
+            function remove_my_from_ice_map() {
+                delete conf.ice_map[my_ice_key];
+            }
 
-    // easy way to remember to close this server when ICE closes
-    self.on('close', close_server);
-    self.on('connect', close_server);
+            // setup ice_lookup to find the ice instance by stun credentials
+            if (!conf.ice_lookup) {
+                conf.ice_lookup = function(buffer, info) {
+                    var attr_map = stun.get_attrs_map(buffer);
+                    var ice_key = attr_map.username.split(':', 1)[0] + attr_map.password;
+                    return conf.ice_map[ice_key];
+                };
+            }
 
-    server.on('error', function(err) {
-        // TODO listening failed
-        dbg.error('ICE TCP SERVER ERROR', err);
-    });
-
-    return P.ninvoke(server, 'listen').then(function() {
-        var address = server.address();
-        _.each(self.networks, function(n, ifcname) {
-            self._add_local_candidate({
-                transport: 'tcp',
-                family: n.family,
-                address: n.address,
-                port: address.port,
-                type: CAND_TYPE_HOST,
-                tcp_type: CAND_TCP_TYPE_PASSIVE,
-                ifcname: n.ifcname,
-                internal: n.internal, // aka loopback
-            });
-        });
-    });
-};
-
-/**
- * _add_tcp_fixed_passive_candidates
- */
-Ice.prototype._add_tcp_fixed_passive_candidates = function() {
-    var self = this;
-    if (!self.config.tcp_fixed_passive) return;
-    var ctx = self.config.tcp_fixed_passive;
-
-    // register my credentials in ice_map
-    if (!ctx.ice_map) {
-        ctx.ice_map = {};
-    }
-    var my_ice_key = self.local_credentials.ufrag + self.local_credentials.pwd;
-    ctx.ice_map[my_ice_key] = self;
-    self.on('close', remove_my_from_ice_map);
-    self.on('connect', remove_my_from_ice_map);
-
-    function remove_my_from_ice_map() {
-        delete ctx.ice_map[my_ice_key];
-    }
-
-    // setup ice_lookup to find the ice instance by stun credentials
-    if (!ctx.ice_lookup) {
-        ctx.ice_lookup = function(buffer, info) {
-            var attr_map = stun.get_attrs_map(buffer);
-            var ice_key = attr_map.username.split(':', 1)[0] + attr_map.password;
-            return ctx.ice_map[ice_key];
-        };
-    }
-
-    if (!ctx.listen_promise ||
-        ctx.listen_promise.isRejected()) {
-        ctx.listen_promise = listen_on_port_range(ctx.port || ctx.port_range);
-    }
-    return ctx.listen_promise
+            if (!conf.listen_promise ||
+                conf.listen_promise.isRejected()) {
+                conf.listen_promise = listen_on_port_range(conf.port || conf.port_range);
+            }
+            return conf.listen_promise;
+        })
         .then(function(server) {
-            if (!ctx.server) {
-                ctx.server = server;
+            // register handlers only if just been created and not in the conf object
+            if (!conf.server) {
+                conf.server = server;
                 server.on('connection', function(conn) {
-                    init_tcp_connection(conn, null, null, ctx.ice_lookup);
+                    init_tcp_connection(conn, null, null, conf.ice_lookup);
                 });
                 server.on('close', function() {
-                    ctx.listen_promise = null;
-                    ctx.server = null;
+                    conf.listen_promise = null;
+                    conf.server = null;
                 });
             }
             var address = server.address();
@@ -422,7 +390,59 @@ Ice.prototype._add_tcp_fixed_passive_candidates = function() {
                     internal: n.internal, // aka loopback
                 });
             });
+        })
+        .fail(function(err) {
+            dbg.warn('ICE _add_tcp_permanent_passive_candidates: FAILED', err);
         });
+};
+
+/**
+ * _add_tcp_transient_passive_candidates
+ */
+Ice.prototype._add_tcp_transient_passive_candidates = function() {
+    var self = this;
+    if (!self.config.tcp_transient_passive) return;
+    var conf = self.config.tcp_transient_passive;
+
+    return listen_on_port_range(conf.port || conf.port_range)
+        .then(function(server) {
+            var address = server.address();
+
+            // remember to close this server when ICE closes
+            self.on('close', close_server);
+            self.on('connect', close_server);
+
+            function close_server() {
+                server.close();
+            }
+
+            // handle connections
+            server.on('connection', function(conn) {
+                if (self.active_session || self.closed) {
+                    conn.detroy();
+                    return;
+                }
+                dbg.log0('ICE TCP ACCEPTED CONNECTION', conn.remoteAddress + ':' + conn.remotePort);
+                self._init_tcp_connection(conn);
+            });
+
+            _.each(self.networks, function(n, ifcname) {
+                self._add_local_candidate({
+                    transport: 'tcp',
+                    family: n.family,
+                    address: n.address,
+                    port: address.port,
+                    type: CAND_TYPE_HOST,
+                    tcp_type: CAND_TCP_TYPE_PASSIVE,
+                    ifcname: n.ifcname,
+                    internal: n.internal, // aka loopback
+                });
+            });
+        })
+        .fail(function(err) {
+            dbg.warn('ICE _add_tcp_transient_passive_candidates: FAILED', err);
+        });
+
 };
 
 /**
@@ -432,20 +452,23 @@ Ice.prototype._add_tcp_so_candidates = function() {
     var self = this;
     if (!self.config.tcp_so) return;
     return P.all(_.map(self.networks, function(n, ifcname) {
-        return allocate_port_in_range(self.config.tcp_so, 5)
-            .then(function(port) {
-                self._add_local_candidate({
-                    transport: 'tcp',
-                    family: n.family,
-                    address: n.address,
-                    port: port,
-                    type: CAND_TYPE_HOST,
-                    tcp_type: CAND_TCP_TYPE_SO,
-                    ifcname: n.ifcname,
-                    internal: n.internal, // aka loopback
+            return allocate_port_in_range(self.config.tcp_so.port || self.config.tcp_so.port_range)
+                .then(function(port) {
+                    self._add_local_candidate({
+                        transport: 'tcp',
+                        family: n.family,
+                        address: n.address,
+                        port: port,
+                        type: CAND_TYPE_HOST,
+                        tcp_type: CAND_TCP_TYPE_SO,
+                        ifcname: n.ifcname,
+                        internal: n.internal, // aka loopback
+                    });
                 });
-            });
-    }));
+        }))
+        .fail(function(err) {
+            dbg.warn('ICE _add_tcp_so_candidates: FAILED', err);
+        });
 };
 
 
@@ -653,7 +676,7 @@ Ice.prototype._connect_tcp_so_pair = function(session) {
 Ice.prototype._init_udp_connection = function(conn) {
     var self = this;
 
-    // easy way to remember to close this connection when ICE closes
+    // remember to close this connection when ICE closes
     self.on('close', close_conn);
     // TODO handld udp socket close
     conn.on('close', close_conn);
@@ -689,7 +712,7 @@ Ice.prototype._init_tcp_connection = function(conn, session) {
  *
  * init_tcp_connection
  *
- * this function is used also for tcp_fixed_passive and this is why
+ * this function is used also for tcp_permanent_passive and this is why
  * it is not in the context of a single ICE instance.
  * see _init_tcp_connection above for an instance wrapper.
  */
@@ -1406,30 +1429,37 @@ function make_session_key(local, remote) {
  *
  * start a tcp listening server on port (random or in range),
  * and return the listening server, or reject if failed.
- * @param range - single integer or object with integers min,max
- * @param attempts - integer > 0
+ * @param port_or_range - port number or object with integers min,max
  */
-function listen_on_port_range(range, attempts) {
-    var port = 0;
-    if (attempts <= 0) {
-        throw new Error('ICE PORT ALLOCATION EXHAUSTED');
-    }
-    if (typeof(range) === 'object') {
-        port = chance.integer(range);
-    } else if (typeof(range) === 'number') {
-        port = range;
-    }
-    var server = net.createServer();
-    return P.ninvoke(server, 'listen', port)
-        .then(function() {
-            return server;
-        })
-        .fail(function() {
-            server.close();
-            return P.delay(0).then(function() {
-                return listen_on_port_range(range, attempts - 1);
+function listen_on_port_range(port_or_range) {
+    var attempts = 0;
+    return P.fcall(try_to_listen);
+
+    function try_to_listen() {
+        var port;
+        var server = net.createServer();
+        if (typeof(port_or_range) === 'object') {
+            if (attempts > port_or_range.max - port_or_range.min) {
+                throw new Error('ICE PORT ALLOCATION EXHAUSTED');
+            }
+            port = chance.integer(port_or_range);
+        } else if (typeof(port_or_range) === 'number') {
+            port = port_or_range;
+        } else {
+            port = 0;
+        }
+        dbg.log1('ICE listen_on_port_range', port, 'attempts', attempts);
+        attempts += 1;
+        server.listen(port);
+        // wait for listen even, while also watching for error/close.
+        return promise_utils.wait_for_event(server, 'listening')
+            .return(server)
+            .fail(function(err) {
+                dbg.log1('ICE listen_on_port_range: FAILED', port, err);
+                server.close();
+                return P.delay(1).then(try_to_listen);
             });
-        });
+    }
 }
 
 /**
@@ -1438,11 +1468,10 @@ function listen_on_port_range(range, attempts) {
  *
  * try to allocate a port (random or in range),
  * and in any case release it and return it's number.
- * @param range - object with integers min,max
- * @param attempts - integer > 0
+ * @param port_or_range - port number or object with integers min,max
  */
-function allocate_port_in_range(range, attempts) {
-    return listen_on_port_range(range, attempts)
+function allocate_port_in_range(port_or_range) {
+    return listen_on_port_range(port_or_range)
         .then(function(server) {
             var port = server.address().port;
             server.close();

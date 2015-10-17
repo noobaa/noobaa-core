@@ -1,0 +1,27 @@
+.hover-border {
+    .transition-fast;
+    &:hover,
+    &:active {
+        /* border-color: white; */
+        /* box-shadow: 0 0 7px 0 black; */
+    }
+}
+
+.transition-time(@time) {
+    transition: all @time;
+    -o-transition: all @time;
+    -moz-transition: all @time;
+    -webkit-transition: all @time;
+}
+
+.transition-fast {
+    .transition-time(0.5s);
+}
+
+.transition-normal {
+    .transition-time(1s);
+}
+
+.transition-slow {
+    .transition-time(1.5s);
+}

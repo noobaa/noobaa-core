@@ -252,18 +252,17 @@ module.exports = {
         },
 
 
-
         heartbeat: {
             method: 'PUT',
             params: {
                 type: 'object',
                 required: [
-                    'id',
-                    'port',
+                    'ip',
+                    'version',
                     'storage',
                 ],
                 properties: {
-                    id: {
+                    name: {
                         type: 'string'
                     },
                     geolocation: {
@@ -272,8 +271,8 @@ module.exports = {
                     ip: {
                         type: 'string'
                     },
-                    port: {
-                        type: 'integer'
+                    rpc_address: {
+                        type: 'string'
                     },
                     version: {
                         type: 'string'
@@ -294,8 +293,15 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['version', 'delay_ms'],
+                required: ['rpc_address', 'version', 'delay_ms'],
                 properties: {
+                    auth_token: {
+                        // auth token will only be sent back if new node was created
+                        type: 'string'
+                    },
+                    rpc_address: {
+                        type: 'string'
+                    },
                     version: {
                         type: 'string'
                     },
@@ -308,7 +314,7 @@ module.exports = {
                 }
             },
             auth: {
-                system: ['admin', 'agent']
+                system: ['admin', 'agent', 'create_node']
             }
         },
 
@@ -429,7 +435,6 @@ module.exports = {
                 'rpc_address',
                 'peer_id',
                 'ip',
-                'port',
                 'online',
                 'heartbeat',
                 'version',
@@ -459,9 +464,6 @@ module.exports = {
                 },
                 ip: {
                     type: 'string'
-                },
-                port: {
-                    type: 'integer'
                 },
                 online: {
                     type: 'boolean',

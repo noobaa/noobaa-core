@@ -193,10 +193,9 @@ function start() {
                 return 'n2n://conn' + i;
             });
 
-            // open udp listening port for udp based protocols
-            // (both server and client)
-            return rpc.register_n2n_transport();
-
+            // register n2n and accept any peer_id
+            var n2n_agent = rpc.register_n2n_transport();
+            n2n_agent.set_any_peer_id();
         })
         .then(function() {
 

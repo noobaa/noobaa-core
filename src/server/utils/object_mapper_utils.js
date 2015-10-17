@@ -403,7 +403,7 @@ function analyze_chunk_status(chunk, all_blocks) {
 function get_block_md(block) {
     var b = _.pick(block, 'size', 'digest_type', 'digest_b64');
     b.id = block._id.toString();
-    b.address = block.node.get_rpc_address();
+    b.address = block.node.rpc_address;
     return b;
 }
 

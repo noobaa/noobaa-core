@@ -14,7 +14,7 @@ var dbg = require('../util/debug_module')(__filename);
 // var js_utils = require('../util/js_utils');
 // var time_utils = require('../util/time_utils');
 // var promise_utils = require('../util/promise_utils');
-// var url_utils = require('../util/url_utils');
+var url_utils = require('../util/url_utils');
 var native_core = require('../util/native_core');
 var EventEmitter = require('events').EventEmitter;
 var RpcBaseConnection = require('./rpc_base_conn');
@@ -106,8 +106,6 @@ RpcN2NConnection.prototype._close = function(err) {
 RpcN2NConnection.prototype._send = function(msg) {
     // this default error impl will be overridden once ice emit's connect
     throw new Error('N2N NOT CONNECTED');
-    // msg = _.isArray(msg) ? Buffer.concat(msg) : msg;
-    // return P.ninvoke(this.nudp, 'send', msg);
 };
 
 
@@ -163,8 +161,8 @@ function RpcN2NAgent(options) {
             // we allow self generated certificates to avoid public CA signing:
             rejectUnauthorized: false,
             secureContext: tls.createSecureContext({
-                key: get_global_tls_key(),
-                cert: get_global_tls_cert(),
+                key: get_global_ssl_key(),
+                cert: get_global_ssl_cert(),
                 // TODO use a system ca certificate
                 // ca: [tls_cert],
             }),
@@ -200,19 +198,39 @@ function RpcN2NAgent(options) {
 
 util.inherits(RpcN2NAgent, EventEmitter);
 
+RpcN2NAgent.prototype.reset_peer_id = function() {
+    this.peer_id = undefined;
+};
+RpcN2NAgent.prototype.set_peer_id = function(peer_id) {
+    this.peer_id = peer_id;
+};
+RpcN2NAgent.prototype.set_any_peer_id = function() {
+    this.peer_id = '*';
+};
+RpcN2NAgent.prototype.set_ssl_context = function(secure_context_params) {
+    this.ice_config.tcp_tls.secureContext =
+        tls.createSecureContext(secure_context_params);
+};
+
 RpcN2NAgent.prototype.signal = function(params) {
     var self = this;
     dbg.log0('N2N AGENT signal:', params);
 
     // TODO target address is me, should use the source address but we don't send it ...
-
-    var addr_url = url.parse(params.target, true);
-    var conn = new RpcN2NConnection(addr_url, self);
+    var target_url = url_utils.quick_parse(params.target);
+    // the special case if peer_id='*' allows testing code to accept for any peer_id
+    if (!self.peer_id || !target_url.hostname ||
+        (self.peer_id !== '*' && self.peer_id !== target_url.hostname)) {
+        throw new Error('N2N MISMATCHING PEER ID ' + params.target +
+            ' my peer id ' + self.peer_id);
+    }
+    var conn = new RpcN2NConnection(target_url, self);
     conn.once('connect', function() {
         self.emit('connection', conn);
     });
     return conn.accept(params.info);
 };
+
 
 function read_on_premise_stun_server() {
     return fs.readFileAsync('agent_conf.json')
@@ -232,7 +250,8 @@ function read_on_premise_stun_server() {
         });
 }
 
-function get_global_tls_key() {
+// TODO this is a temporary place to keep the SSL certificate
+function get_global_ssl_key() {
     return [
         '-----BEGIN RSA PRIVATE KEY-----',
         'MIIEpAIBAAKCAQEAvSegTfXkLDbLalfxrsjlFJXpaDWPDgb3ohS78+ByJXcgwPrG',
@@ -264,7 +283,8 @@ function get_global_tls_key() {
     ].join('\n');
 }
 
-function get_global_tls_cert() {
+// TODO this is a temporary place to keep the SSL certificate
+function get_global_ssl_cert() {
     return [
         '-----BEGIN CERTIFICATE-----',
         'MIIDLjCCAhYCCQDbjDECU6toDDANBgkqhkiG9w0BAQUFADBZMQswCQYDVQQGEwJB',

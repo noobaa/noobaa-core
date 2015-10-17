@@ -19,6 +19,7 @@ var api = require('../api');
 var dbg = require('../util/debug_module')(__filename);
 var LRUCache = require('../util/lru_cache');
 var size_utils = require('../util/size_utils');
+var url_utils = require('../util/url_utils');
 var promise_utils = require('../util/promise_utils');
 var os_util = require('../util/os_util');
 var diag = require('./agent_diagnostics');
@@ -48,8 +49,6 @@ function Agent(params) {
     assert(params.node_name, 'missing param: node_name');
     self.node_name = params.node_name;
     self.token = params.token;
-    self.prefered_port = params.prefered_port;
-    self.prefered_secure_port = params.prefered_secure_port;
     self.storage_path = params.storage_path;
 
     if (self.storage_path) {
@@ -95,31 +94,54 @@ function Agent(params) {
         set_debug_node: self.set_debug_node.bind(self),
     };
 
-    var app = express();
-    app.use(express_morgan_logger('dev'));
-    app.use(express_body_parser.json());
-    app.use(express_body_parser.raw({
-        // increase size limit on raw requests to allow serving data blocks
-        limit: 4 * size_utils.MEGABYTE
-    }));
-    app.use(express_body_parser.text());
-    app.use(express_body_parser.urlencoded({
-        extended: false
-    }));
-    app.use(express_method_override());
-    app.use(express_compress());
-    self.rpc.register_http_transport(app);
-    self.agent_app = app;
+    self.agent_app = (function() {
+        var app = express();
+        app.use(express_morgan_logger('dev'));
+        app.use(express_body_parser.json());
+        app.use(express_body_parser.raw({
+            // increase size limit on raw requests to allow serving data blocks
+            limit: 4 * size_utils.MEGABYTE
+        }));
+        app.use(express_body_parser.text());
+        app.use(express_body_parser.urlencoded({
+            extended: false
+        }));
+        app.use(express_method_override());
+        app.use(express_compress());
+        return app;
+    })();
+
+    // register rpc to serve the agent_api
+    self.rpc.register_service(api.schema.agent_api, self.agent_server, {
+        authorize: function(req, method_api) {
+            // TODO verify aithorized tokens in agent?
+        }
+    });
+
+    // register rpc http server
+    self.rpc.register_http_transport(self.agent_app);
+    // register rpc n2n
+    self.n2n_agent = self.rpc.register_n2n_transport();
 
     // TODO these sample geolocations are just for testing
     self.geolocation = _.sample([
-        'United States', 'Canada',
-        'Brazil',
-        'China', 'Japan', 'Korea',
-        'Ireland', 'Germany',
+        // aws
+        'North Virginia',
+        'North California',
+        'Oregon',
+        'Ireland',
+        'Frankfurt',
+        'Singapore',
+        'Sydney',
+        'Tokyo',
+        'Sao Paulo',
+        // google cloud
+        'Iowa',
+        'Belgium',
+        'Taiwan',
     ]);
 
-    //If test, add test APIs
+    // If test, add test APIs
     if (config.test_mode) {
         self._add_test_APIs();
     }
@@ -140,24 +162,7 @@ Agent.prototype.start = function() {
             return self._init_node();
         })
         .then(function() {
-
-            // register agent_server in rpc, with peer as my peer_id
-            // to match only calls to me
-            self.rpc.register_service(api.schema.agent_api, self.agent_server, {
-                authorize: function(req, method_api) {
-                    // TODO verify aithorized tokens in agent?
-                }
-            });
-
-        })
-        .then(function() {
-            return self._start_stop_http_server();
-        })
-        .then(function() {
-            return self.rpc.register_n2n_transport();
-        })
-        .then(function() {
-            return self.send_heartbeat();
+            return self._do_heartbeat();
         })
         .then(null, function(err) {
             dbg.error('server failed to start', err.stack || err);
@@ -174,9 +179,9 @@ Agent.prototype.start = function() {
  */
 Agent.prototype.stop = function() {
     var self = this;
-    dbg.log0('stop agent ' + self.node_id);
+    dbg.log0('stop agent ' + self.node_name);
     self.is_started = false;
-    self._start_stop_http_server();
+    self._start_stop_server();
     self._start_stop_heartbeats();
     self.rpc.disconnect_all();
 };
@@ -208,46 +213,20 @@ Agent.prototype._init_node = function() {
             return fs.readFileAsync(token_path);
         })
         .then(function(token) {
-            // use the token as authorization and read the auth info
+            // use the token as authorization (either 'create_node' or 'agent' role)
             self.client.options.auth_token = token.toString();
-            return self.client.auth.read_auth();
+            return P.nfcall(pem.createCertificate, {
+                days: 365 * 100,
+                selfSigned: true
+            });
         })
-        .then(function(res) {
-            dbg.log0('res:', res);
-            // if we are already authorized with our specific node_id, use it
-            if (res.system &&
-                res.extra && res.extra.node_id) {
-                self.node_id = res.extra.node_id;
-                self.peer_id = res.extra.peer_id;
-                dbg.log0('authorized node ' + self.node_name +
-                    ' id ' + self.node_id + ' peer_id ' + self.peer_id);
-                return;
-            }
-
-            // if we have authorization to create a node, do it
-            if (res.system &&
-                _.contains(['admin', 'create_node'], res.role) &&
-                res.extra && res.extra.tier) {
-                dbg.log0('create node', self.node_name, 'tier', res.extra.tier);
-                return self.client.node.create_node({
-                    name: self.node_name,
-                    tier: res.extra.tier,
-                    geolocation: self.geolocation,
-                }).then(function(node) {
-                    self.node_id = node.id;
-                    self.peer_id = node.peer_id;
-                    self.client.options.auth_token = node.token;
-                    dbg.log0('created node', self.node_name, 'id', node.id, 'peer_id', self.peer_id);
-                    if (self.storage_path) {
-                        dbg.log0('save node token', self.node_name, 'id', node.id);
-                        var token_path = path.join(self.storage_path, 'token');
-                        return fs.writeFileAsync(token_path, node.token);
-                    }
-                });
-            }
-
-            dbg.error('bad token', res);
-            throw new Error('bad token');
+        .then(function(pem_cert) {
+            self.ssl_cert = {
+                key: pem_cert.serviceKey,
+                cert: pem_cert.certificate
+            };
+            // update the n2n ssl to use my certificate
+            self.n2n_agent.set_ssl_context(self.ssl_cert);
         });
 };
 
@@ -257,80 +236,88 @@ Agent.prototype._init_node = function() {
 
 /**
  *
- * _start_stop_http_server
+ * _start_stop_server
  *
  */
-Agent.prototype._start_stop_http_server = function() {
+Agent.prototype._start_stop_server = function() {
     var self = this;
 
-    if (!self.is_started) {
-        if (self.http_server) {
-            // close event will also nullify the pointer (see below)
-            self.http_server.close();
-        }
-        if (self.https_server) {
-            // close event will also nullify the pointer (see below)
-            self.https_server.close();
-        }
-        return;
+    // in any case we stop
+    self.n2n_agent.reset_peer_id();
+    if (self.server) {
+        self.server.close();
+        self.server = null;
     }
 
-    return P.fcall(function() {
-            return P.nfcall(pem.createCertificate, {
-                days: 365 * 100,
-                selfSigned: true
+    if (!self.is_started) return;
+    if (!self.rpc_address) return;
+
+    var addr_url = url_utils.quick_parse(self.rpc_address);
+    switch (addr_url.protocol) {
+        case 'n2n:':
+            self.n2n_agent.set_peer_id(addr_url.hostname);
+            break;
+        case 'http:':
+        case 'ws:':
+            var http_server = http.createServer(self.agent_app)
+                .on('error', function(err) {
+                    dbg.error('AGENT HTTP SERVER ERROR', err.stack || err);
+                    http_server.close();
+                })
+                .on('close', function() {
+                    dbg.warn('AGENT HTTP SERVER CLOSED');
+                    retry();
+                })
+                .listen(addr_url.port);
+            if (addr_url.protocol === 'ws:') {
+                self.rpc.register_ws_transport(http_server);
+            }
+            self.server = http_server;
+            break;
+        case 'https:':
+        case 'wss:':
+            var https_server = https.createServer(self.ssl_cert, self.agent_app)
+                .on('error', function(err) {
+                    dbg.error('AGENT HTTPS SERVER ERROR', err.stack || err);
+                    https_server.close();
+                })
+                .on('close', function() {
+                    dbg.warn('AGENT HTTPS SERVER CLOSED');
+                    retry();
+                })
+                .listen(addr_url.port);
+            if (addr_url.protocol === 'wss:') {
+                self.rpc.register_ws_transport(https_server);
+            }
+            self.server = https_server;
+            break;
+        case 'tcp:':
+            var tcp_server = self.rpc.register_tcp_transport(addr_url.port);
+            tcp_server.on('close', function() {
+                dbg.warn('AGENT TCP SERVER CLOSED');
+                retry();
             });
-        })
-        .then(function(cert) {
-            var promises = [];
-
-            if (!self.http_server) {
-                self.http_server = http.createServer(self.agent_app)
-                    .on('error', function(err) {
-                        dbg.error('HTTP SERVER ERROR', err.stack || err);
-                    })
-                    .on('close', function() {
-                        dbg.warn('HTTP SERVER CLOSED');
-                        self.http_server = null;
-                        setTimeout(self._start_stop_http_server.bind(this), 1000);
-                    });
-                promises.push(
-                    P.ninvoke(self.http_server, 'listen', self.prefered_port));
-            }
-
-            if (!self.https_server) {
-                self.https_server = https.createServer({
-                        key: cert.serviceKey,
-                        cert: cert.certificate
-                    }, self.agent_app)
-                    .on('error', function(err) {
-                        dbg.error('HTTPS SERVER ERROR', err.stack || err);
-                    })
-                    .on('close', function() {
-                        dbg.warn('HTTPS SERVER CLOSED');
-                        self.https_server = null;
-                        setTimeout(self._start_stop_http_server.bind(this), 1000);
-                    });
-                promises.push(
-                    P.ninvoke(self.https_server, 'listen', self.prefered_secure_port));
-            }
-
-            self.rpc.register_ws_transport(self.http_server);
-            self.rpc.register_ws_transport(self.https_server);
-
-            return P.all(promises);
-        });
-};
+            self.server = tcp_server;
+            break;
+        case 'tls:':
+            var tls_server = self.rpc.register_tcp_transport(addr_url.port, self.ssl_cert);
+            tls_server.on('close', function() {
+                dbg.warn('AGENT TLS SERVER CLOSED');
+                retry();
+            });
+            self.server = tls_server;
+            break;
+        default:
+            dbg.error('UNSUPPORTED AGENT PROTOCOL', addr_url);
+            break;
+    }
 
 
-/**
- *
- * _server_error_handler
- *
- */
-Agent.prototype._server_error_handler = function(err) {
-    // the server will also trigger close event after
-    dbg.error('server error', err);
+    function retry() {
+        if (self.is_started) {
+            setTimeout(self._start_stop_server.bind(self), 1000);
+        }
+    }
 };
 
 
@@ -342,10 +329,10 @@ Agent.prototype._server_error_handler = function(err) {
 
 /**
  *
- * send_heartbeat
+ * _do_heartbeat
  *
  */
-Agent.prototype.send_heartbeat = function() {
+Agent.prototype._do_heartbeat = function() {
     var self = this;
     var store_stats;
     var extended_hb;
@@ -375,20 +362,20 @@ Agent.prototype.send_heartbeat = function() {
         .then(function() {
 
             var ip = ip_module.address();
-            var https_port = self.https_server && self.https_server.address().port;
-            // var http_port = self.http_server && self.http_server.address().port;
-
             var params = {
-                id: self.node_id,
+                name: self.node_name || '',
                 geolocation: self.geolocation,
                 ip: ip,
-                port: https_port || 0,
                 version: self.heartbeat_version || '',
                 storage: {
                     alloc: store_stats.alloc,
                     used: store_stats.used
                 },
             };
+
+            if (self.rpc_address) {
+                params.rpc_address = self.rpc_address;
+            }
 
             if (extended_hb) {
                 params.os_info = os_util.os_info();
@@ -410,8 +397,40 @@ Agent.prototype.send_heartbeat = function() {
             return self.client.node.heartbeat(params);
         })
         .then(function(res) {
+            dbg.log0('heartbeat: res.version', res.version,
+                'hb version', self.heartbeat_version,
+                'node', self.node_name);
+
+            if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
+                dbg.log0('version changed, exiting');
+                process.exit(0);
+            }
+
+            // on first call we
+            self.heartbeat_version = res.version;
+            self.heartbeat_delay_ms = res.delay_ms;
             if (extended_hb) {
                 self.extended_hb_last_time = Date.now();
+            }
+
+            var promises = [];
+
+            if (res.auth_token) {
+                dbg.log0('got node token', self.node_name);
+                self.client.options.auth_token = res.auth_token;
+                if (self.storage_path) {
+                    var token_path = path.join(self.storage_path, 'token');
+                    promises.push(fs.writeFileAsync(token_path, res.auth_token));
+                }
+            }
+
+            if (self.rpc_address !== res.rpc_address) {
+                dbg.log0('got rpc address', res.rpc_address,
+                    'previously was', self.rpc_address);
+                // calling _start_stop_server to update the listening address
+                // according to the info returned from the heartbeat call
+                self.rpc_address = res.rpc_address;
+                promises.push(self._start_stop_server());
             }
 
             if (res.storage) {
@@ -429,18 +448,10 @@ Agent.prototype.send_heartbeat = function() {
                     self.store.set_alloc(res.storage.alloc);
                 }
             }
-            dbg.log0('res.version:', res.version,
-                'hb version:', self.heartbeat_version,
-                'node', self.node_name);
 
-            if (res.version && self.heartbeat_version && self.heartbeat_version !== res.version) {
-                dbg.log0('version changed, exiting');
-                process.exit(0);
-            }
-            self.heartbeat_version = res.version;
-            self.heartbeat_delay_ms = res.delay_ms;
-
-        }, function(err) {
+            return P.all(promises);
+        })
+        .fail(function(err) {
 
             dbg.error('HEARTBEAT FAILED', err, err.stack, 'node', self.node_name);
 
@@ -471,7 +482,7 @@ Agent.prototype._start_stop_heartbeats = function() {
         ms = ms || (60000 * (1 + Math.random())); // default 1 minute
         ms = Math.max(ms, 1000); // force above 1 second
         ms = Math.min(ms, 300000); // force below 5 minutes
-        self.heartbeat_timeout = setTimeout(self.send_heartbeat.bind(self), ms);
+        self.heartbeat_timeout = setTimeout(self._do_heartbeat.bind(self), ms);
     }
 };
 

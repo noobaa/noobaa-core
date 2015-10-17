@@ -39,6 +39,7 @@ describe('node', function() {
             });
         }).then(function(res) {
             return client.node.heartbeat({
+                name: 'haha',
                 id: res.id,
                 geolocation: 'home',
                 port: 0,

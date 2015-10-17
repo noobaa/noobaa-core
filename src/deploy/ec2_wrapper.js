@@ -7,7 +7,8 @@ var util = require('util');
 var dotenv = require('dotenv');
 var argv = require('minimist')(process.argv);
 var AWS = require('aws-sdk');
-
+var promise_utils = require('../util/promise_utils');
+var moment = require('moment');
 
 /**
  *
@@ -292,14 +293,16 @@ function get_ip_address(instid) {
                     InstanceIds: [instid],
                 };
 
-                return ec2_wait_for(res.region_name, 'instanceRunning', params)
-                    .then(function(data) {
-                        if (data) {
-                            console.log('Recieved IP', data.NetworkInterfaces[0].Association.PublicIp);
-                            return data.NetworkInterfaces[0].Association.PublicIp;
-                        } else {
-                            throw new Error('ec2_Wait_for InstanceID ' + instid + ' No data returned');
-                        }
+                console.log('Machine in', res.State, 'state, waiting for instanceStatusOk');
+                return ec2_wait_for(res.region_name, 'instanceStatusOk', params)
+                    .then(function() {
+                        return P.fcall(function() {
+                                return describe_instance(instid);
+                            })
+                            .then(function(res) {
+                                console.log('Recieved IP', res.PublicIpAddress);
+                                return res.PublicIpAddress;
+                            });
                     })
                     .then(null, function(error) {
                         throw new Error('Error in get_ip_address ' + instid + ' on ec2_wait_for ' + error);
@@ -308,7 +311,7 @@ function get_ip_address(instid) {
                 console.log('Error in get_ip_address InstanceID', instid, 'Not in pending/running state, unexpected');
                 throw new Error('InstanceID ' + instid + ' Not in pending/running state');
             }
-            return res.NetworkInterfaces[0].Association.PublicIp;
+            return res.PublicIpAddress;
         });
 }
 
@@ -322,7 +325,7 @@ function get_ip_address(instid) {
 function verify_demo_system(ip) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var rest_endpoint = 'http://' + ip + ':80/';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
@@ -339,58 +342,79 @@ function verify_demo_system(ip) {
         })
         .then(null, function(error) {
             load_aws_config_env(); //back to EC2/S3
-            throw new Error('No Demo System, please create one ' + error);
+            throw new Error('No Demo System, please create one for ' + rest_endpoint + ' bucket:' + s3bucket + ',error:' + error);
         });
 }
 
-function put_object(ip) {
+function put_object(ip, source) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var rest_endpoint = 'http://' + ip + ':80';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
         sslEnabled: false,
     });
 
+    //if no source file supplied, use a log from the machine
+    if (!source) {
+        source = '/var/log/appstore.log';
+    }
+
     var params = {
         Bucket: 'files',
         Key: 'ec2_wrapper_test_upgrade.dat',
-        Body: fs.createReadStream('/var/log/authd.log'),
+        Body: fs.createReadStream(source),
     };
-
+    console.log('about to upload object');
+    var start_ts = Date.now();
     return P.ninvoke(s3bucket, 'upload', params)
         .then(function(res) {
-            console.log('put_object', res);
+            console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
             load_aws_config_env(); //back to EC2/S3
             return;
-        })
-        .then(null, function(err) {
-            console.error('put_object', err);
-            load_aws_config_env(); //back to EC2/S3
-            throw new Error('put_object' + err);
+        }, function(err) {
+            var wait_limit_in_sec = 1200;
+            var start_moment = moment();
+            var wait_for_agents = (err.statusCode === 500);
+            console.log('failed to upload object in loop', err.statusCode, wait_for_agents);
+            return promise_utils.pwhile(
+                function() {
+                    return wait_for_agents;
+                },
+                function() {
+                    return P.fcall(function() {
+                        //switch to Demo system
+                        return load_demo_config_env();
+                    }).then(function() {
+                        params.Body = fs.createReadStream(source);
+                        start_ts = Date.now();
+                        return P.ninvoke(s3bucket, 'upload', params)
+                            .then(function(res) {
+                                console.log('Uploaded object took', (Date.now() - start_ts) / 1000, 'seconds, result', res);
+                                load_aws_config_env(); //back to EC2/S3
+                                wait_for_agents = false;
+                                return;
+                            }, function(err) {
+                                console.log('failed to upload. Will wait 10 seconds and retry. err', err.statusCode);
+                                var curr_time = moment();
+                                if (curr_time.subtract(wait_limit_in_sec, 'second') > start_moment) {
+                                    console.error('failed to upload. cannot wait any more', err.statusCode);
+                                    load_aws_config_env(); //back to EC2/S3
+                                    wait_for_agents = false;
+                                } else {
+                                    return P.delay(10000);
+                                }
+                            });
+                    });
+                });
         });
-
-    /*return P.fcall(function() {
-        return s3bucket.upload(params).
-        on('httpUploadProgress', function(evt) {
-            console.log(evt);
-        }).send(function(err, data) {
-            if (err) {
-                load_aws_config_env(); //back to EC2/S3
-                throw new Error('Error in upload err:' + err + 'data: ' + data);
-            } else {
-                load_aws_config_env(); //back to EC2/S3
-                return;
-            }
-        });
-    });*/
 }
 
 function get_object(ip) {
     load_demo_config_env(); //switch to Demo system
 
-    var rest_endpoint = 'http://' + ip + ':80/s3';
+    var rest_endpoint = 'http://' + ip + ':80/';
     var s3bucket = new AWS.S3({
         endpoint: rest_endpoint,
         s3ForcePathStyle: true,
@@ -402,10 +426,13 @@ function get_object(ip) {
         Key: 'ec2_wrapper_test_upgrade.dat',
     };
 
+    var start_ts = Date.now();
+    console.log('about to download object');
     return P.fcall(function() {
             return s3bucket.getObject(params).createReadStream();
         })
         .then(function() {
+            console.log('Download object took', (Date.now() - start_ts) / 1000, 'seconds');
             load_aws_config_env(); //back to EC2/S3
             return;
         })
@@ -426,7 +453,7 @@ function get_object(ip) {
  * scale_agent_instances
  *
  */
-function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region,agent_conf) {
+function scale_agent_instances(count, allow_terminate, is_docker_host, number_of_dockers, is_win, filter_region, agent_conf) {
     return describe_instances({
         Filters: [{
             Name: 'instance-state-name',
@@ -448,7 +475,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
         console.log('region_names:', region_names, 'count:', count);
 
         if (count < region_names.length) {
-            // if number of instances is smaller than the number of regions,
+            // if number of instances is smallser than the number of regions,
             // we will add one instance per region until we have enough instances.
             if (count === 0) {
                 target_region_count = 0;
@@ -493,7 +520,7 @@ function scale_agent_instances(count, allow_terminate, is_docker_host, number_of
  *
  */
 function add_agent_region_instances(region_name, count, is_docker_host, number_of_dockers, is_win, agent_conf) {
-    var instance_type = 't2.micro';
+    var instance_type = 'c3.large';
     // the run script to send to started instances
     var run_script = fs.readFileSync(__dirname + '/init_agent.sh', 'UTF8');
 
@@ -509,25 +536,24 @@ function add_agent_region_instances(region_name, count, is_docker_host, number_o
         if (test_instances_counter !== 1 || dockers_instances_counter !== 1) {
             throw new Error('docker_setup.sh expected to contain default env "test" and default number of dockers - 200');
         }
+        run_script = run_script.replace('<agent_conf>', agent_conf);
         run_script = run_script.replace('test', app_name);
         run_script = run_script.replace('200', number_of_dockers);
     } else {
         if (is_win) {
             run_script = fs.readFileSync(__dirname + '/init_agent.bat', 'UTF8');
-            run_script = "<script>"+run_script+"</script>";
+            run_script = "<script>" + run_script + "</script>";
             run_script = run_script.replace('${env_name}', app_name);
             run_script = run_script.replace('$agent_conf', agent_conf);
-            instance_type = 't2.micro';
+            instance_type = 'c3.large';
         } else {
 
-            test_instances_counter = (run_script.match(/test/g) || []).length;
-
-            console.log('test_instances_counter', test_instances_counter);
-            if (test_instances_counter !== 1) {
-                throw new Error('init_agent.sh expected to contain default env "test"', test_instances_counter);
-            }
             run_script = run_script.replace('${env_name}', app_name);
             run_script = run_script.replace('$agent_conf', agent_conf);
+            run_script = run_script.replace('$network', 1);
+            run_script = run_script.replace('$router', '0.0.0.0');
+
+            console.log('script:',run_script);
         }
 
     }
@@ -637,7 +663,7 @@ function ec2_wait_for(region_name, state_name, params) {
 
     return P.ninvoke(ec2, 'waitFor', state_name, params).then(function(data) {
         if (data) {
-            return data.Reservations[0].Instances[0];
+            return;
         } else {
             console.error('Error while waiting for state', state_name, 'at', region_name, 'with', params);
             return '';
@@ -660,7 +686,7 @@ function ec2_wait_for(region_name, state_name, params) {
  * @param instances - array of existing instances
  *
  */
-function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win,agent_conf) {
+function scale_region(region_name, count, instances, allow_terminate, is_docker_host, number_of_dockers, is_win, agent_conf) {
     // always make sure the region has the security group and key pair
     return P.fcall(function() {
             return create_security_group(region_name);
@@ -674,7 +700,7 @@ function scale_region(region_name, count, instances, allow_terminate, is_docker_
             if (count > instances.length) {
                 console.log('ScaleRegion:', region_name, 'has', instances.length,
                     ' +++ adding', count - instances.length);
-                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win,agent_conf);
+                return add_agent_region_instances(region_name, count - instances.length, is_docker_host, number_of_dockers, is_win, agent_conf);
             }
 
             // need to terminate

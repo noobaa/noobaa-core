@@ -165,12 +165,14 @@ function InternalDebugLogger() {
                 tailable: true,
                 zippedArchive: true,
                 formatter: function(options) {
-                    //prefix - time and level
-                    var prefix = '\x1b[32m' + formatted_time() +
+                    //prefix - time, level, module & pid
+                    var proc = '[' + self._proc_name + '/' + self._pid + ']';
+                    var prefix = '\x1B[32m' + formatted_time() +
+                        '\x1B[35m ' + proc +
                         ((self._levels[options.level] === 0) ?
                             ' \x1B[31m[' :
                             ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
-                        options.level + "]\x1b[39m ";
+                        options.level + ']\x1B[39m ';
                     //message - one liner for file transport
                     var message = (options.message !== undefined ? (options.message.replace(/(\r\n|\n|\r)/gm, "")) : '');
 
@@ -184,11 +186,13 @@ function InternalDebugLogger() {
                 level: 'ERROR',
                 showLevel: false,
                 formatter: function(options) {
-                    return '\x1b[32m' + formatted_time() +
+                    var proc = '[' + self._proc_name + '/' + self._pid + ']';
+                    return '\x1B[32m' + formatted_time() +
+                        '\x1B[35m ' + proc +
                         ((self._levels[options.level] === 0) ?
                             ' \x1B[31m[' :
                             ((self._levels[options.level] === 1) ? ' \x1B[33m[' : ' \x1B[36m[')) +
-                        options.level + "]\x1b[39m " +
+                        options.level + ']\x1B[39m ' +
                         (undefined !== options.message ? options.message : '') +
                         (options.meta && Object.keys(options.meta).length ?
                             JSON.stringify(options.meta) : '');
@@ -196,6 +200,9 @@ function InternalDebugLogger() {
             })
         ]
     });
+
+    self._proc_name = '';
+    self._pid = process.pid;
 }
 
 InternalDebugLogger.prototype.build_module_context = function(mod, mod_object) {
@@ -399,6 +406,10 @@ DebugLogger.prototype.should_log = function(level) {
 
 DebugLogger.prototype.get_module_structure = function() {
     return int_dbg._modules;
+};
+
+DebugLogger.prototype.set_process_name = function(name) {
+    int_dbg._proc_name = name;
 };
 
 DebugLogger.prototype.log_progress = function(fraction) {

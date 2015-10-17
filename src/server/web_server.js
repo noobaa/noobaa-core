@@ -1,6 +1,11 @@
 'use strict';
 require('../util/panic');
 
+// load .env file before any other modules so that it will contain
+// all the arguments even when the modules are loading.
+console.log('loading .env file');
+require('dotenv').load();
+
 // dump heap with kill -USR2 <pid>
 require('heapdump');
 
@@ -13,7 +18,6 @@ var path = require('path');
 var http = require('http');
 var https = require('https');
 var mongoose = require('mongoose');
-var dotenv = require('dotenv');
 var express = require('express');
 var express_favicon = require('serve-favicon');
 var express_morgan_logger = require('morgan');
@@ -30,11 +34,27 @@ var mongoose_logger = require('../util/mongoose_logger');
 var pem = require('../util/pem');
 var multer = require('multer');
 var fs = require('fs');
+var cluster = require('cluster');
 
-//if (!process.env.PORT) {
-console.log('loading .env file ( no foreman ;)');
-dotenv.load();
-//}
+
+
+
+// Temporary removed - causes issues with upgrade.
+//var numCPUs = Math.ceil(require('os').cpus().length / 2);
+// if (cluster.isMaster) {
+//     // Fork MD Servers
+//     for (var i = 0; i < numCPUs; i++) {
+//         console.warn('Spawning MD Server', i + 1);
+//         cluster.fork();
+//     }
+//
+//     cluster.on('exit', function(worker, code, signal) {
+//         console.log('MD Server ' + worker.process.pid + ' died');
+//     });
+//     return;
+// }
+
+dbg.set_process_name('WebServer');
 
 // address means the address of the server as reachable from the internet
 process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
@@ -155,9 +175,10 @@ function use_exclude(path, middleware) {
 // register RPC services and transports
 require('./server_rpc').register_servers();
 var server_rpc = require('./server_rpc').server_rpc;
-var bg_workers_rpc = require('./server_rpc').bg_workers_rpc;
+var bg_worker = require('./server_rpc').bg_worker;
 server_rpc.register_http_transport(app);
 // server_rpc.register_n2n_transport();
+server_rpc.register_redirector_transport(); //Allow redirection from this point
 var http_port = process.env.PORT = process.env.PORT || 5001;
 var https_port = process.env.SSL_PORT = process.env.SSL_PORT || 5443;
 var http_server = http.createServer(app);
@@ -180,7 +201,7 @@ P.fcall(function() {
         return P.ninvoke(https_server, 'listen', https_port);
     })
     .then(function() {
-        dbg.log('Web Server ports: http', http_port, 'https', https_port);
+        dbg.log('Web Server Started, ports: http', http_port, 'https', https_port);
         server_rpc.register_ws_transport(http_server);
         server_rpc.register_ws_transport(https_server);
     })
@@ -298,7 +319,7 @@ app.post('/set_log_level*', function(req, res) {
 
     dbg.log0('Change log level requested for', req.param('module'), 'to', req.param('level'));
     dbg.set_level(req.param('level'), req.param('module'));
-    return P.when(bg_workers_rpc.client.bg_workers.set_debug_level({
+    return P.when(bg_worker.bg_workers.set_debug_level({
         level: req.param('level'),
         module: req.param('module')
     })).

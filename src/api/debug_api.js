@@ -2,27 +2,27 @@
 
 /**
  *
- * BG_WORKERS API
+ * DEBUG API
  *
  *
  */
 module.exports = {
 
-    name: 'bg_workers_api',
+    name: 'debug_api',
 
     methods: {
         set_debug_level: {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['level'],
+                required: ['module', 'level'],
                 properties: {
-                    level: {
-                        type: 'integer',
-                    },
                     module: {
                         type: 'string',
                     },
+                    level: {
+                        type: 'integer',
+                    }
                 }
             },
             auth: {

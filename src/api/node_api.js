@@ -319,7 +319,7 @@ module.exports = {
         },
 
         n2n_signal: {
-            method: 'POST',
+          method: 'POST',
             params: {
                 type: 'object',
                 required: ['target'],
@@ -335,6 +335,19 @@ module.exports = {
                 required: [],
                 additionalProperties: true,
                 properties: {}
+            },
+            auth: {
+                system: false
+            }
+        },
+
+        redirect: {
+            method: 'POST',
+            params: {
+                $ref: '/node_api/definitions/signal_params'
+            },
+            reply: {
+                $ref: '/node_api/definitions/signal_reply'
             },
             auth: {
                 system: false
@@ -419,7 +432,6 @@ module.exports = {
             }
         },
 
-
         srvmode: {
             type: 'string',
             enum: ['connect', 'disabled', 'decommissioning', 'decommissioned']
@@ -488,6 +500,33 @@ module.exports = {
                     $ref: '/common_api/definitions/os_info'
                 },
             }
+        },
+
+        signal_params: {
+            type: 'object',
+            required: ['target', 'method_api', 'method_name'],
+            properties: {
+                target: {
+                    type: 'string'
+                },
+                method_api: {
+                    type: 'string'
+                },
+                method_name: {
+                    type: 'string'
+                },
+                request_params: {
+                    type: 'object',
+                    additionalProperties: true,
+                },
+            },
+        },
+
+        signal_reply: {
+            type: 'object',
+            required: [],
+            additionalProperties: true,
+            properties: {}
         }
 
     }

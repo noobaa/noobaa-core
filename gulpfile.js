@@ -142,12 +142,13 @@ var PATHS = {
         'src/ngview/**/*.*',
         'src/rpc/**/*.*',
         'src/s3/**/*.*',
-        'src/ar/**/*.*',
+        'src/server/**/*.*',
+        'src/bg_workers/**/*.*',
         'src/util/**/*.*',
         'src/views/**/*.*',
         'src/native/**/*.*',
-        'binding.gyp'
-
+        'binding.gyp',
+        'common.gypi'
     ],
 };
 
@@ -714,7 +715,7 @@ function serve_bg() {
         console.error('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~');
         console.error(' ');
         bg_workers_server = null;
-        setTimeout(serve, 1);
+        setTimeout(serve_bg, 1);
     });
     gulp_notify('noobaa bg serving...').end('stam');
 }

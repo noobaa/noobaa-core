@@ -3,7 +3,14 @@
 ###Utils Table of Contents:
 
 * [DebugLogger](#DebugLogger) - Our logging infrastructure.
+* [Promise](#Promise) - Our promise pakcage wrapper.
+* [PromiseUtils](#PromiseUtils) - Various promise helpers.
 
+* ###PromiseUtils
+  Various promise helper funcs, such as promised loop, retries, promised spawn/exec, etc.
+
+* ###Promise
+  Currently implemeneted over bluebird, exposing the APIs and syntactic sugarding of the popular Q package.
 
 * ###DebugLogger
   Encapsulation for winston. Gets a module name on creation (__filename) and uses winston to log

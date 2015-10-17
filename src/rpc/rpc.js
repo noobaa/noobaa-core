@@ -4,7 +4,7 @@ module.exports = RPC;
 
 var _ = require('lodash');
 var P = require('../util/promise');
-// var url = require('url');
+var url = require('url');
 var util = require('util');
 var assert = require('assert');
 // var ip_module = require('ip');
@@ -30,8 +30,8 @@ var browser_ws = global.window && global.window.WebSocket;
 // in the browser we take the address as the host of the web page
 // just like any ajax request. for development we take localhost.
 // for any other case the RPC objects can set the base_address property.
-var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:5001';
-var DEFAULT_BACKGROUND_ADDRESS = 'ws://127.0.0.1:5002';
+var DEFAULT_BASE_ADDRESS = 'ws://127.0.0.1:' + get_default_base_port();
+var DEFAULT_BACKGROUND_ADDRESS = 'ws://127.0.0.1:' + get_default_base_port('background');
 if (browser_location) {
     if (browser_ws) {
         // use ws/s address
@@ -187,11 +187,13 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
     req.new_request(api, method_api, params, options.auth_token);
     req.response_defer = P.defer();
 
+    // assign a connection to the request
+    var conn = self._assign_connection(req, options);
+    if (!conn) { //redirection
+        return self._redirect(api, method_api, params, options);
+    }
+
     return P.fcall(function() {
-
-            // assign a connection to the request
-            self._assign_connection(req, options);
-
             dbg.log1('RPC client_request: START',
                 'srv', req.srv,
                 'reqid', req.reqid);
@@ -426,12 +428,31 @@ RPC.prototype.handle_response = function(conn, msg) {
 /**
  *
  * map_address_to_connection
- *
+ * return true if address was associated to same conn
+ * false otherwise
  */
 RPC.prototype.map_address_to_connection = function(address, conn) {
+    if (_.has(this._connection_by_address, address) &&
+        _.isEqual(this._connection_by_address[address], conn)) {
+        return false;
+    }
     this._connection_by_address[address] = conn;
+    return true;
 };
 
+/**
+ *
+ * return all n2n registered connections
+ */
+RPC.prototype.get_n2n_addresses = function() {
+    var addresses = [];
+    _.each(this._connection_by_address, function(conn, address) {
+        if (address.indexOf('n2n://') !== -1) {
+            addresses.push(address.slice(6));
+        }
+    });
+    return addresses;
+};
 
 /**
  *
@@ -445,10 +466,12 @@ RPC.prototype._assign_connection = function(req, options) {
         addr_url = url_utils.quick_parse(address, true);
         this._address_to_url_cache[address] = addr_url;
     }
-    var conn = this._get_connection(addr_url, req.srv);
-    req.connection = conn;
-    req.reqid = conn._alloc_reqid();
-    conn._sent_requests[req.reqid] = req;
+    var conn = this._get_connection(addr_url, req.srv, options.force_redirect);
+    if (conn !== null) {
+        req.connection = conn;
+        req.reqid = conn._alloc_reqid();
+        conn._sent_requests[req.reqid] = req;
+    }
     return conn;
 };
 
@@ -469,10 +492,10 @@ RPC.prototype._release_connection = function(req) {
  * _get_connection
  *
  */
-RPC.prototype._get_connection = function(addr_url, srv) {
+RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
     var conn = this._connection_by_address[addr_url.href];
 
-    if (conn) {
+    if (conn && !force_redirect) {
         if (conn.is_closed()) {
             dbg.log0('RPC _assign_connection: remove stale connection',
                 'address', addr_url.href,
@@ -488,12 +511,20 @@ RPC.prototype._get_connection = function(addr_url, srv) {
         }
     }
 
-    if (!conn) {
-        conn = this._new_connection(addr_url);
-        dbg.log1('RPC _assign_connection: new',
-            'address', addr_url.href,
-            'srv', srv,
-            'connid', conn.connid);
+    if (!conn || force_redirect) {
+        if (this.redirector_transport &&
+            addr_url.protocol === 'n2n:') {
+            dbg.log2('RPC redirecting',
+                'address', addr_url.href,
+                'srv', srv);
+            return null;
+        } else {
+            conn = this._new_connection(addr_url);
+            dbg.log2('RPC _assign_connection: new',
+                'address', addr_url.href,
+                'srv', srv,
+                'connid', conn.connid);
+        }
     }
 
     return conn;
@@ -670,9 +701,7 @@ RPC.prototype._connection_closed = function(conn) {
     }
 
     // for base_address try to reconnect after small delay.
-    // using _.startsWith() since in some cases url.parse will add a trailing /
-    // specifically in http urls for some strange reason...
-    if (!conn._no_reconnect && _.startsWith(conn.url.href, self.base_address)) {
+    if (!conn._no_reconnect && self._should_reconnect(conn.url.href)) {
         self._reconnect(conn.url, conn._reconn_backoff);
     }
 };
@@ -737,6 +766,32 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
                 ' connid ' + conn.connid));
             break;
     }
+};
+
+RPC.prototype._redirect = function(api, method, params, options) {
+    var self = this;
+    var req = {
+        method_api: api.name,
+        method_name: method.name,
+        target: options.address,
+        request_params: params
+    };
+    dbg.log3('redirecting ', req, 'to', self.redirector_transport.href);
+
+    return P.when(self.redirection(req, {
+        address: self.redirector_transport.href,
+    }));
+};
+
+RPC.prototype._should_reconnect = function(href) {
+    var self = this;
+    // using _.startsWith() since in some cases url.parse will add a trailing /
+    // specifically in http urls for some strange reason...
+    if (_.startsWith(href, self.get_default_base_address()) ||
+        _.startsWith(href, self.get_default_base_address('background'))) {
+        return true;
+    }
+    return false;
 };
 
 
@@ -851,9 +906,34 @@ RPC.prototype.n2n_signal = function(params) {
     return this.n2n_agent.signal(params);
 };
 
+
+/**
+ *
+ * register_redirector_transport
+ *
+ */
+RPC.prototype.register_redirector_transport = function() {
+    dbg.log0('RPC register_redirector_transport');
+    this.redirector_transport = url.parse(this.get_default_base_address('background'));
+    return;
+};
+
 RPC.prototype.get_default_base_address = function(server) {
     if (server === 'background') {
         return DEFAULT_BACKGROUND_ADDRESS;
     }
     return DEFAULT_BASE_ADDRESS;
 };
+
+RPC.prototype.get_default_base_port = function(server) {
+    return get_default_base_port(server);
+};
+
+function get_default_base_port(server) {
+    // the default 5001 port is for development
+    var base_port = parseInt(process.env.PORT, 10) || 5001;
+    if (server === 'background') {
+        base_port += 1;
+    }
+    return base_port;
+}

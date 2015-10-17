@@ -4,6 +4,7 @@
 module.exports = {
     heartbeat: heartbeat,
     n2n_signal: n2n_signal,
+    redirect: redirect,
     self_test_to_node_via_web: self_test_to_node_via_web,
     collect_agent_diagnostics: collect_agent_diagnostics,
     set_debug_node: set_debug_node,
@@ -14,10 +15,13 @@ var P = require('../util/promise');
 var db = require('./db');
 var Barrier = require('../util/barrier');
 var size_utils = require('../util/size_utils');
+var promise_utils = require('../util/promise_utils');
 var server_rpc = require('./server_rpc').server_rpc;
+var bg_worker = require('./server_rpc').bg_worker;
 var system_server = require('./system_server');
 var dbg = require('../util/debug_module')(__filename);
 
+server_rpc.on('reconnect', _on_reconnect);
 
 /**
  * finding node by id for heatbeat requests uses a barrier for merging DB calls.
@@ -106,8 +110,6 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
     }
 });
 
-
-
 /**
  *
  * HEARTBEAT
@@ -169,12 +171,25 @@ function update_heartbeat(params, conn, reply_token) {
     // TODO allow setting rpc_address in pool
     var rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
     var rpc_address;
-    if (rpc_proto === 'n2n') {
+    if (rpc_proto !== 'n2n') {
+        rpc_address = rpc_proto + '://' + params.ip + ':' + (process.env.AGENT_PORT || 60111);
+    } else {
         rpc_address = 'n2n://' + peer_id;
         dbg.log0('PEER REVERSE ADDRESS', rpc_address, conn.url.href);
-        server_rpc.map_address_to_connection(rpc_address, conn);
-    } else {
-        rpc_address = rpc_proto + '://' + params.ip + ':' + (process.env.AGENT_PORT || 60111);
+        // Add node to RPC map and notify redirector if needed
+        var notify_redirector = server_rpc.map_address_to_connection(rpc_address, conn);
+        if (notify_redirector) {
+            conn.on('close', _unregister_agent.bind(null, conn, peer_id));
+            P.fcall(function() {
+                    return bg_worker.redirector.register_agent({
+                        peer_id: peer_id,
+                    });
+                })
+                .fail(function(error) {
+                    dbg.log0('Failed to register agent', error);
+                    _resync_agents();
+                });
+        }
     }
 
     // if the agent still did not listen on any address
@@ -274,7 +289,6 @@ function update_heartbeat(params, conn, reply_token) {
                 updates.heartbeat = new Date();
                 return node.update(updates).exec();
             }
-
         }).then(function() {
             reply.storage = {
                 alloc: node.storage.alloc || 0,
@@ -290,8 +304,6 @@ function update_heartbeat(params, conn, reply_token) {
     }
 }
 
-
-
 /**
  *
  * n2n_signal
@@ -299,13 +311,27 @@ function update_heartbeat(params, conn, reply_token) {
  */
 function n2n_signal(req) {
     var target = req.rpc_params.target;
-    console.log('n2n_signal', target);
+    dbg.log1('n2n_signal', target);
     return server_rpc.client.agent.n2n_signal(req.rpc_params, {
         address: target,
     });
 }
 
-
+/**
+ *
+ * redirect
+ *
+ */
+function redirect(req) {
+    var target = req.rpc_params.target;
+    var api = req.rpc_params.method_api.slice(0, -4); //Remove _api suffix
+    var method = req.rpc_params.method_name;
+    dbg.log3('node_monitor redirect', api + '.' + method, 'to', target,
+        'with params', req.rpc_params.request_params);
+    return server_rpc.client[api][method](req.rpc_params.request_params, {
+        address: target,
+    });
+}
 
 /**
  *
@@ -361,41 +387,37 @@ function set_debug_node(req) {
         });
 }
 
-/**
- *
- * NODE_MONITOR_WORKER
- *
- * background worker that scans chunks and builds them according to their blocks status
- *
- * /
-var node_monitor_worker = promise_utils.run_background_worker({
+function _unregister_agent(connection, peer_id) {
+    return P.when(bg_worker.redirector.unregister_agent({
+            peer_id: peer_id,
+        }))
+        .fail(function(error) {
+            dbg.log0('Failed to unregister agent', error);
+            _resync_agents();
+        });
+}
 
-    name: 'node_monitor_worker',
-    batch_size: 100,
-    time_since_last_build: 3000, // TODO increase...
-    building_timeout: 60000, // TODO increase...
-
-    /**
-     * run the next batch of node scan
-     * /
-    run_batch: function() {
-        var self = this;
-        return P.fcall(function() {
-                dbg.log0('NODE_MONITOR_WORKER:', 'RUN');
-            })
-            .then(function() {
-                // return the delay before next batch
-                if (self.last_node_id) {
-                    return 1000;
-                } else {
-                    return 60000;
-                }
-            }, function(err) {
-                // return the delay before next batch
-                dbg.log0('NODE_MONITOR_WORKER:', 'ERROR', err, err.stack);
-                return 10000;
-            });
+function _on_reconnect(conn) {
+    dbg.log2('_on_reconnect called', conn.url.href, server_rpc.get_default_base_address('backgroubd'));
+    if (_.startsWith(server_rpc.get_default_base_address('background'), conn.url.href)) {
+        _resync_agents();
     }
+}
 
-});
-*/
+function _resync_agents() {
+    dbg.log2('_resync_agents called');
+
+    //Retry to resync redirector
+    return promise_utils.retry(Infinity, 1000, 0, function(attempt) {
+        var agents = server_rpc.get_n2n_addresses();
+        var ts = Date.now();
+        return bg_worker.redirector.resync_agents({
+                agents: agents,
+                timestamp: ts,
+            })
+            .fail(function(error) {
+                dbg.log0('Failed resyncing agents to redirector', error);
+                throw new Error('Failed resyncing agents to redirector');
+            });
+    });
+}

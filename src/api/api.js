@@ -19,7 +19,8 @@ api_schema.register_api(require('./object_api'));
 api_schema.register_api(require('./agent_api'));
 api_schema.register_api(require('./stats_api'));
 api_schema.register_api(require('./cloud_sync_api'));
-api_schema.register_api(require('./bg_workers_api'));
+api_schema.register_api(require('./debug_api'));
+api_schema.register_api(require('./redirector_api'));
 
 function new_rpc(options) {
     options = options || {};
@@ -27,10 +28,15 @@ function new_rpc(options) {
     var rpc = new RPC(options);
     // abusing the default rpc client as the n2n_signaller for the rpc
     rpc.n2n_signaller = rpc.client.node.n2n_signal;
+    // also abusing the default rpc client for the redirection
+    rpc.redirection = rpc.client.redirector.redirect;
     return rpc;
 }
 
 var api_rpc = new_rpc();
+var bg_workers_client = api_rpc.create_schema_client(api_schema, _.create({
+    address: api_rpc.get_default_base_address('background')
+}));
 
 
 module.exports = {
@@ -38,6 +44,7 @@ module.exports = {
     rpc: api_rpc,
     new_rpc: new_rpc,
     Client: Client,
+    bg_workers_client: bg_workers_client
 };
 
 /**

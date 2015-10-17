@@ -1,6 +1,6 @@
 'use strict';
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var util = require('util');
 var events = require('events');
 var P = require('../util/promise');
@@ -35,6 +35,7 @@ function RpcBaseConnection(addr_url) {
 
     // the connecting_defer is used by connect() to wait for the connected event
     self.connecting_defer = P.defer();
+    self.connecting_defer.promise.fail(_.noop); // to prevent error log of unhandled rejection
 
     // the 'connect' event is emitted by the inherited type (http/ws/tcp/n2n)
     // and is expected after calling _connect() or when a connection is accepted

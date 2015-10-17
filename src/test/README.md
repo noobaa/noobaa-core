@@ -4,7 +4,7 @@
 
 * [core_agent_control](#core_agent_control) - Agent Control Testing Infrastructure
 * [coretest](#coretest) - Core Test Infrastructure
-* [deployment_tests](https://github.com/noobaa/noobaa-core/blob/master/src/test/deployment_tests/README.md)
+* [system_tests](https://github.com/noobaa/noobaa-core/blob/master/src/test/system_tests/README.md)
 
 
 * ###core_agent_control

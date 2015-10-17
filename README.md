@@ -9,3 +9,8 @@ noobaa-core
 [2. Various Deployment Tools and Flows](https://github.com/noobaa/noobaa-core/blob/master/src/deploy/README.md)
 
 [3. Tests](https://github.com/noobaa/noobaa-core/blob/master/src/test/README.md)
+
+[4. Utils](https://github.com/noobaa/noobaa-core/blob/master/src/util/README.md)
+
+[5. BG Workers](https://github.com/noobaa/noobaa-core/blob/master/src/bg_workers/README.md)
+

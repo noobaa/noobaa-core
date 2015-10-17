@@ -419,7 +419,7 @@ Ice.prototype._add_tcp_transient_passive_candidates = function() {
             // handle connections
             server.on('connection', function(conn) {
                 if (self.active_session || self.closed) {
-                    conn.detroy();
+                    conn.destroy();
                     return;
                 }
                 dbg.log0('ICE TCP ACCEPTED CONNECTION', conn.remoteAddress + ':' + conn.remotePort);

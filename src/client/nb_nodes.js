@@ -6,6 +6,7 @@ var P = require('../util/promise');
 var moment = require('moment');
 var chance = require('chance')();
 var promise_utils = require('../util/promise_utils');
+var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);
 
 var nb_api = angular.module('nb_api');
@@ -189,7 +190,9 @@ nb_api.factory('nbNodes', [
                 tier: 'nodes',
                 prod: true,
                 bucket: 'files',
-                root_path: './agent_storage/'
+                root_path: './agent_storage/',
+                port: 8888,
+                secure_port: 9999
             };
 
             config_json.address = 'wss://noobaa.local:' + nbSystem.system.ssl_port;
@@ -344,7 +347,7 @@ nb_api.factory('nbNodes', [
                             });
                             dbg.log0('SELF TEST got', online_nodes.length,
                                 'online nodes out of', nodes.length, 'total nodes');
-                            if (online_nodes.length < 3) {
+                            if (online_nodes.length < config.min_node_number) {
                                 nbAlertify.error('Not enough online nodes');
                                 throw new Error('Not enough online nodes');
                             }

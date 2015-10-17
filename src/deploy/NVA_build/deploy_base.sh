@@ -16,11 +16,25 @@ function deploy_log {
 	fi
 }
 
+function add_sudoers {
+	sudo grep noobaa /etc/sudoers
+  if [ $? -ne 0 ]; then
+      deploy_log "adding noobaa to sudoers"
+	  sudo echo "noobaa ALL=(ALL)	NOPASSWD:ALL" >> /etc/sudoers
+	  sudo grep noobaa /etc/sudoers
+	  if [ $? -ne 0 ]; then
+	      deploy_log "failed to add noobaa to sudoers"
+   	  fi
+  fi
+
+	unalias cp
+}
+
 function build_node {
 	deploy_log "build_node start"
 	yum -y groupinstall "Development Tools"
-`	export PATH=$PATH:/usr/local/bin
-`	#Install Node.js / NPM
+	export PATH=$PATH:/usr/local/bin
+	#Install Node.js / NPM
 	cd /usr/src
 	curl ${NODE_DL} > node-v0.10.33.tar.gz || true
 	tar zxf node-v0.10.33.tar.gz
@@ -167,8 +181,14 @@ function general_settings {
 	chmod 4755 /etc/profile.d/first_install_diaglog.sh
 
 	#Fix login message
-	echo -e "Welcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" > /etc/issue
-	echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >> /etc/issue
+	echo  " _   _            ______ "   > /etc/issue
+	echo  "| \\ | |           | ___ \\"    >> /etc/issue
+	echo  "|  \\| | ___   ___ | |_/ / __ _  __ _ " >> /etc/issue
+	echo  "| . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |" >> /etc/issue
+	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |" >> /etc/issue
+	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|" >> /etc/issue
+	echo -e "\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server.\n" >> /etc/issue
+	echo -e "You can configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
 }
 
 function setup_supervisors {
@@ -207,6 +227,7 @@ function install_id_gen {
 if [ "$1" == "runinstall" ]; then
 	deploy_log "Running with runinstall"
 	set -e
+	add_sudoers
 	build_node
 	install_aux
 	install_repos

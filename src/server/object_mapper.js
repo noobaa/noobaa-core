@@ -21,9 +21,12 @@ module.exports = {
     read_node_mappings: read_node_mappings,
     list_multipart_parts: list_multipart_parts,
     fix_multipart_parts: fix_multipart_parts,
+    calc_multipart_md5: calc_multipart_md5,
+    set_multipart_part_md5: set_multipart_part_md5,
     delete_object_mappings: delete_object_mappings,
     report_bad_block: report_bad_block,
     chunks_and_objects_count: chunks_and_objects_count
+
 };
 
 var _ = require('lodash');
@@ -33,8 +36,11 @@ var server_rpc = require('./server_rpc').server_rpc;
 var object_utils = require('./utils/object_mapper_utils');
 var block_allocator = require('./block_allocator');
 var range_utils = require('../util/range_utils');
+var string_utils = require('../util/string_utils');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
+var crypto = require('crypto');
+
 
 /**
  *
@@ -591,7 +597,71 @@ function list_multipart_parts(params) {
 }
 
 
+/**
+ *
+ * set_multipart_part_md5
+ *
+ */
+function set_multipart_part_md5(obj) {
+    return P.when(db.ObjectPart.find({
+            obj: obj.obj._id,
+            part_sequence_number: 0,
+            deleted: null,
+            upload_part_number: obj.upload_part_number
+        })
+        .sort({
+            _id: -1 // when same, get newest first
+        })
+        .exec()
+    ).then(function(part_obj) {
+        dbg.log1('set_multipart_part_md5_obj: ', part_obj[0]._id, obj.etag);
+        return P.when(db.ObjectPart.update({
+            _id: part_obj[0]._id
+        }, {
+            $set: {
+                etag: obj.etag
+            }
+        }).exec());
+    });
+}
+/**
+ *
+ * calc_multipart_md5
+ *
+ */
+function calc_multipart_md5(obj) {
+    var aggregated_nobin_md5 = '';
+    var aggregated_bin_md5 = '';
+    return P.fcall(function() {
+        // find part that need update of start and end offsets
+        return db.ObjectPart.find({
+                obj: obj,
+                part_sequence_number: 0,
+                deleted: null,
+                etag: {
+                    $exists: true
+                }
+            })
+            .sort({
+                upload_part_number: 1,
+                _id: -1 // when same, get newest first
 
+            })
+            .exec();
+    }).then(function(upload_parts) {
+        _.each(upload_parts, function(part) {
+            var part_md5 = part.etag;
+            aggregated_nobin_md5 = aggregated_nobin_md5 + part_md5;
+            aggregated_bin_md5 = aggregated_bin_md5 + string_utils.toBinary(part_md5);
+            dbg.log0('part', part, ' with md5', part_md5, 'aggregated:', aggregated_nobin_md5);
+        });
+        var digester = crypto.createHash('md5');
+        digester.update(aggregated_bin_md5);
+        var aggregated_md5 = digester.digest('hex') + '-' + upload_parts.length;
+        dbg.log0('aggregated etag:', aggregated_md5, ' for ', obj.key);
+        return aggregated_md5;
+    });
+}
 /**
  *
  * fix_multipart_parts
@@ -675,7 +745,8 @@ function fix_multipart_parts(obj) {
                             end: current_end,
                         },
                         $unset: {
-                            upload_part_number: ''
+                            upload_part_number: '',
+                            etag: ''
                         }
                     });
                     last_end = current_end;

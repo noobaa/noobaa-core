@@ -88,6 +88,7 @@ function extract_package {
 function do_upgrade {
   disable_supervisord
 
+  unalias cp
   deploy_log "Tar extracted successfully, Running pre upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} pre
 
@@ -104,6 +105,9 @@ function do_upgrade {
   #replace with locally built packages
   cp -rf /backup/node_modules/heapdump  /root/node_modules/noobaa-core/node_modules/
   cp -rf /backup/node_modules/bcrypt  /root/node_modules/noobaa-core/node_modules/
+
+  #temp! build native on target machine
+  #TODO: build on centos and use prebuild
 
   # Re-setup Repos
   setup_repos

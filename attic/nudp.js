@@ -9,7 +9,7 @@ var js_utils = require('../util/js_utils');
 var time_utils = require('../util/time_utils');
 var EventEmitter = require('events').EventEmitter;
 var LinkedList = require('../util/linked_list');
-var chance = new(require('chance').Chance)();
+var chance = require('chance')();
 var dbg = require('../util/debug_module')(__filename);
 
 
@@ -35,12 +35,12 @@ var MTU_MAX = 64 * 1024;
 var SYN_ATTEMPTS = 20;
 var SYN_ATTEMPT_DELAY = 100;
 
-var WINDOW_BYTES_MAX = 4 * 1024 * 1024;
-var WINDOW_LENGTH_MAX = 5000;
-var SEND_BATCH_COUNT = 5;
-var SEND_RETRANSMIT_DELAY = 100;
+var WINDOW_BYTES_MAX = 1 * 1024 * 1024;
+var WINDOW_LENGTH_MAX = 1000;
+var SEND_BATCH_COUNT = 20;
+var SEND_RETRANSMIT_DELAY = 100000;
 var ACKS_PER_SEC_MIN = 1000;
-var ACK_DELAY = 5;
+var ACK_DELAY = 1;
 var SYN_ACK_DELAY = 50;
 var FIN_DELAY = 500;
 
@@ -48,23 +48,6 @@ var RAND_SPEC = {
     min: 0,
     max: (1 << 16) * (1 << 16)
 };
-
-var native_rpc;
-
-function lazy_init_native() {
-    var bindings = require('bindings');
-    if (typeof(bindings) !== 'function') {
-        return;
-    }
-    try {
-        console.log('native_rpc: trying to load ...');
-        native_rpc = bindings('native_rpc.node');
-        console.log('native_rpc: loaded !!!');
-    } catch (err) {
-        // ignore
-    }
-}
-
 
 util.inherits(NudpFlow, EventEmitter);
 
@@ -77,15 +60,10 @@ util.inherits(NudpFlow, EventEmitter);
  * (regardless of underlying mtu).
  *
  */
-function NudpFlow(connid) {
+function NudpFlow(params) {
     EventEmitter.call(this);
 
-    lazy_init_native();
-    if (native_rpc) {
-        // TODO ...
-    }
-
-    this.connid = connid;
+    this.connid = params.connid;
     this.time = Date.now();
     this.rand = chance.integer(RAND_SPEC);
 
@@ -94,7 +72,7 @@ function NudpFlow(connid) {
 
     // the message send queue is the first phase for sending messages,
     // and its main purpose is to maintain the buffer message boundary,
-    // and a P.defer used to wakeup the caller once acknowledged.
+    // and a P.defer used to wakeup the caller once acknowleded.
     this._messages_send_queue = new LinkedList('m');
 
     // the send & receive windows holding packet objects which are being
@@ -271,6 +249,8 @@ NudpFlow.prototype._trim_send_window = function() {
         this._packets_send_window.pop_front();
         packet = this._packets_send_window.get_front();
     }
+    dbg.log0('NUDP _trim_send_window: front seq', packet && packet.seq,
+        'len', this._packets_send_window.length, this.connid);
 };
 
 
@@ -283,7 +263,7 @@ NudpFlow.prototype._trim_send_window = function() {
  *
  */
 NudpFlow.prototype._populate_send_window = function() {
-    dbg.log2('NUDP _populate_send_window:',
+    dbg.log0('NUDP _populate_send_window:',
         'len', this._packets_send_window.length,
         'bytes', this._packets_send_window_bytes,
         this.connid);
@@ -343,7 +323,7 @@ NudpFlow.prototype._populate_send_window = function() {
         }
         populated += 1;
         this._packets_send_wait_ack_map[seq] = packet;
-        this._packets_send_queue.push_front(packet);
+        // this._packets_send_queue.push_back(packet);
         this._packets_send_window.push_back(packet);
         this._packets_send_window_seq += 1;
         this._packets_send_window_bytes += packet_len;
@@ -352,7 +332,7 @@ NudpFlow.prototype._populate_send_window = function() {
 
     if (populated) {
         // wakeup sender if sleeping
-        if (!this._process_send_immediate) {
+        if (!this._process_send_immediate && !this._process_send_timeout) {
             this._process_send_immediate = setImmediate(this._send_packets);
         }
     }
@@ -374,48 +354,47 @@ NudpFlow.prototype._send_packets = function() {
         this.emit('error', new Error('NUDP not connected'));
         return;
     }
-    if (!this._packets_send_queue.length) {
+    if (!this._packets_send_window.length) {
         return;
     }
-    dbg.log3('NUDP _send_packets:',
-        'length', this._packets_send_queue.length,
+    dbg.log0('NUDP _send_packets:',
+        'length', this._packets_send_window.length,
         this.connid);
 
     var now = Date.now();
+    var last_send_thres = now - SEND_RETRANSMIT_DELAY;
     var batch_count = 0;
-    var send_delay = 0;
-    var packet = this._packets_send_queue.get_front();
-    var last_packet = this._packets_send_queue.get_back();
+    // var send_delay = 0;
+    var packet = this._packets_send_window.get_front();
+    // var last_packet = this._packets_send_queue.get_back();
     while (packet && batch_count < SEND_BATCH_COUNT) {
 
         // resend packets only if last send was above a threshold
-        send_delay = SEND_RETRANSMIT_DELAY - (now - packet.last_sent);
-        if (send_delay > 0) {
-            break;
+        // send_delay = now - packet.last_sent;
+        if (!packet.ack && (packet.nacks > 3 || packet.last_sent < last_send_thres)) {
+            packet.transmits += 1;
+            if (packet.transmits > 1) {
+                dbg.log0('NUDP _send_packets:',
+                    'seq', packet.seq,
+                    'len', packet.len,
+                    'transmits', packet.transmits,
+                    this.connid);
+                this._packets_retrasmits += 1;
+            }
+            packet.last_sent = now;
+            batch_count += 1;
+            this._send_packet(packet.buffer, 0, packet.len);
         }
-
-        dbg.log3('NUDP _send_packets:',
-            'seq', packet.seq,
-            'len', packet.len,
-            'transmits', packet.transmits,
-            this.connid);
-        packet.transmits += 1;
-        if (packet.transmits > 1) {
-            this._packets_retrasmits += 1;
-        }
-        packet.last_sent = now;
-        batch_count += 1;
-        this._send_packet(packet.buffer, 0, packet.len);
 
         // move packet to end of the send queue
         // keep the next packet so we keep iterating even when we mutate the list
-        var next_packet = this._packets_send_queue.get_next(packet);
-        this._packets_send_queue.remove(packet);
-        this._packets_send_queue.push_back(packet);
+        var next_packet = this._packets_send_window.get_next(packet);
+        // this._packets_send_queue.remove(packet);
+        // this._packets_send_queue.push_back(packet);
         // stop once completed cycle on all packets
-        if (packet === last_packet) {
-            break;
-        }
+        // if (packet === last_packet) {
+            // break;
+        // }
         packet = next_packet;
     }
 
@@ -445,7 +424,7 @@ NudpFlow.prototype._send_packets = function() {
         (rate_change * Math.max(acks_per_sec, ACKS_PER_SEC_MIN));
 
     // print a report
-    if (secstamp - this._send_packets_report_last_time >= 10) {
+    if (secstamp - this._send_packets_report_last_time >= 1) {
         dbg.log0('NUDP _send_packets:',
             'num_acks', num_acks,
             'acks_per_sec', acks_per_sec.toFixed(2),
@@ -453,10 +432,10 @@ NudpFlow.prototype._send_packets = function() {
             'ms_per_batch', ms_per_batch.toFixed(2),
             this.connid);
         this._send_packets_report_last_time = secstamp;
-    }
+    // }
 
     // update the saved values once in fixed intervals
-    if (dt >= 0.03) {
+    // if (dt >= 0.03) {
         this._packets_ack_counter_last_time = secstamp;
         this._packets_ack_counter_last_val = this._packets_ack_counter;
         this._packets_retrasmits_last_val = this._packets_retrasmits;
@@ -467,10 +446,10 @@ NudpFlow.prototype._send_packets = function() {
     // because the timer will not be able to wake us up in sub milli times,
     // so for higher rates we use setImmediate, but that will leave less
     // cpu time for other tasks...
-    send_delay = Math.max(send_delay, ms_per_batch);
-    if (send_delay > 5) {
+    // send_delay = Math.max(send_delay, ms_per_batch);
+    if (ms_per_batch > 5) {
         this._process_send_timeout =
-            setTimeout(this._send_packets, send_delay);
+            setTimeout(this._send_packets, ms_per_batch);
     } else {
         this._process_send_immediate =
             setImmediate(this._send_packets);
@@ -671,8 +650,9 @@ NudpFlow.prototype._receive_data_packet = function(hdr, buffer) {
         // checking if the received sequence is out of the window length
         // TODO reply with NEGATIVE ACK ?
 
-        dbg.log2('NUDP _receive_data_packet:',
+        dbg.log0('NUDP _receive_data_packet:',
             'drop seq out of window', hdr.seq,
+            'window seq', this._packets_receive_window_seq,
             this.connid);
         add_to_acks_queue = false;
 
@@ -683,8 +663,9 @@ NudpFlow.prototype._receive_data_packet = function(hdr, buffer) {
         // we still send an ack for this packet to help release the sender.
         // TODO reply with DUP ACK ?
 
-        dbg.log2('NUDP _receive_data_packet:',
+        dbg.log0('NUDP _receive_data_packet:',
             'drop old seq', hdr.seq,
+            'window seq', this._packets_receive_window_seq,
             this.connid);
 
     } else {
@@ -796,13 +777,13 @@ NudpFlow.prototype._receive_acks = function(hdr, buffer) {
         var packet = this._packets_send_wait_ack_map[seq];
         delete this._packets_send_wait_ack_map[seq];
         if (!packet) {
-            dbg.log3('NUDP _receive_acks: ignore missing seq', seq, this.connid);
+            dbg.log3('NUDP _receive_acks: ack seq already gone', seq, this.connid);
             continue;
         }
 
         // update the packet and remove from pending send list
         packet.ack = true;
-        this._packets_send_queue.remove(packet);
+        // this._packets_send_queue.remove(packet);
         this._packets_ack_counter += 1;
 
         // check if this ack is the last ACK waited by this message,
@@ -817,11 +798,16 @@ NudpFlow.prototype._receive_acks = function(hdr, buffer) {
 
     // for the missing packet we force resend
     var missing_seq = hdr.seq;
+    if (missing_seq + this._packets_send_window.length < this._packets_send_window_seq) {
+        dbg.error('NUDP _receive_acks: missing seq too old', missing_seq,
+            'window seq', this._packets_send_window_seq, this.connid);
+        // this.emit('error', new Error('NUDP _receive_acks: missing seq too old'));
+    }
     var missing_packet = this._packets_send_wait_ack_map[missing_seq];
     if (missing_packet) {
-        this._packets_send_queue.remove(missing_packet);
-        this._packets_send_queue.push_front(missing_packet);
-        missing_packet.last_sent = 0;
+        // this._packets_send_queue.remove(missing_packet);
+        // this._packets_send_queue.push_front(missing_packet);
+        missing_packet.nacks = (missing_packet.nacks || 0) + 1;
     }
 
     // after receiving ACKs we trim send window to allow adding new messages,

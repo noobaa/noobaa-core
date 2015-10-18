@@ -1,7 +1,9 @@
-#ifndef BUZHASH_H_
-#define BUZHASH_H_
+#ifndef NOOBAA__BUZHASH__H
+#define NOOBAA__BUZHASH__H
 
 #include "common.h"
+
+namespace noobaa {
 
 /**
  *
@@ -61,4 +63,6 @@ private:
     static const T byte_const_hash[256];
 };
 
-#endif // BUZHASH_H_
+} // namespace noobaa
+
+#endif // NOOBAA__BUZHASH__H

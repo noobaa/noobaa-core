@@ -1,5 +1,5 @@
-#ifndef COMMON_H_
-#define COMMON_H_
+#ifndef NOOBAA__COMMON__H
+#define NOOBAA__COMMON__H
 
 #include <stdint.h>
 #include <stddef.h>
@@ -23,7 +23,10 @@
 #include <node_buffer.h>
 #include <nan.h>
 
+#include "../third_party/endian.h"
 #include "backtrace.h"
+
+namespace noobaa {
 
 #ifndef __func__
 #define __func__ __FUNCTION__
@@ -31,7 +34,30 @@
 
 #define DVAL(x) #x "=" << x << " "
 
-#define LOG(x) std::cout << x << std::endl;
+#define LOG(x) std::cout << x << std::endl
+
+// to use DBG the module/file should use either DBG_INIT or DBG_INIT_VAR.
+#define DBG_INIT(level) static int __module_debug_var__ = level
+#define DBG_INIT_VAR(debug_var) static int& __module_debug_var__ = debug_var
+#define DBG_SET_LEVEL(level) __module_debug_var__ = level
+#define DBG_GET_LEVEL() (__module_debug_var__)
+#define DBG_VISIBLE(level) (level <= __module_debug_var__)
+#define DBG(level, x) \
+    do { \
+        if (DBG_VISIBLE(level)) { \
+            LOG(x); \
+        } \
+    } while(0)
+#define DBG0(x) DBG(0, x)
+#define DBG1(x) DBG(1, x)
+#define DBG2(x) DBG(2, x)
+#define DBG3(x) DBG(3, x)
+#define DBG4(x) DBG(4, x)
+#define DBG5(x) DBG(5, x)
+#define DBG6(x) DBG(6, x)
+#define DBG7(x) DBG(7, x)
+#define DBG8(x) DBG(8, x)
+#define DBG9(x) DBG(9, x)
 
 #define PANIC(info) \
     do { \
@@ -68,7 +94,9 @@ public:
         , _bt(new Backtrace())
     {
     }
-    virtual ~Exception() throw() {}
+    virtual ~Exception() throw()
+    {
+    }
     virtual const char* what() const throw()
     {
         return (std::string("Exception: ") + _msg).c_str();
@@ -85,11 +113,11 @@ private:
 typedef std::shared_ptr<Nan::Callback> NanCallbackSharedPtr;
 
 template <class T>
-inline v8::Local<T> UnmaybeLocal(v8::Local<T> h) {
+inline v8::Local<T> Unmaybe(v8::Local<T> h) {
     return h;
 }
 template <class T>
-inline v8::Local<T> UnmaybeLocal(Nan::MaybeLocal<T> h) {
+inline v8::Local<T> Unmaybe(Nan::MaybeLocal<T> h) {
     return h.ToLocalChecked();
 }
 inline int NanKey(int i) {
@@ -103,24 +131,25 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 }
 
 #define NAN_STR(str) (Nan::New(str).ToLocalChecked())
+#define NAN_INT(i) (Nan::New<v8::Integer>(i))
 #define NAN_NEW_OBJ() (Nan::New<v8::Object>())
 #define NAN_NEW_ARR(len) (Nan::New<v8::Array>(len))
 #define NAN_GET(obj, key) (Nan::Get(obj, NanKey(key)).ToLocalChecked())
 #define NAN_UNWRAP_THIS(type) (Unwrap<type>(info.This()))
+#define NAN_UNWRAP_OBJ(type, obj) (Unwrap<type>(Nan::To<v8::Object>(obj).ToLocalChecked()))
 #define NAN_GET_UNWRAP(type, obj, key) (Unwrap<type>(Nan::To<v8::Object>(NAN_GET(obj, key)).ToLocalChecked()))
 #define NAN_GET_STR(obj, key) *Nan::Utf8String(NAN_GET(obj, key))
 #define NAN_GET_OBJ(obj, key) (NAN_GET(obj, key)->ToObject())
 #define NAN_GET_ARR(obj, key) (NAN_GET(obj, key).As<v8::Array>())
 #define NAN_GET_INT(obj, key) (NAN_GET(obj, key)->Int32Value())
 #define NAN_GET_BUF(obj, key) \
-    ({ \
-        auto node_buf = NAN_GET_OBJ(obj, key); \
-        Buf(node::Buffer::Data(node_buf), node::Buffer::Length(node_buf)); \
-    })
+    Buf(node::Buffer::Data(NAN_GET_OBJ(obj, key)), \
+        node::Buffer::Length(NAN_GET_OBJ(obj, key)))
 
 #define NAN_SET(obj, key, val) (Nan::Set(obj, NanKey(key), val))
 #define NAN_SET_STR(obj, key, val) (NAN_SET(obj, key, NAN_STR(val)))
 #define NAN_SET_INT(obj, key, val) (NAN_SET(obj, key, Nan::New(val)))
+#define NAN_SET_NUM(obj, key, val) (NAN_SET(obj, key, Nan::New<v8::Number>(val)))
 #define NAN_SET_BUF_COPY(obj, key, buf) \
     (NAN_SET(obj, key, Nan::CopyBuffer(buf.cdata(), buf.length()).ToLocalChecked()))
 #define NAN_SET_BUF_DETACH(obj, key, buf) \
@@ -142,7 +171,7 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
         if (!info.IsConstructCall()) { \
             /* Invoked as plain function call, turn into construct 'new' call. */ \
             int argc = info.Length(); \
-            std::vector<v8::Local<v8::Value> > argv(argc); \
+            std::vector<v8::Local<v8::Value>> argv(argc); \
             for (int i=0; i<argc; ++i) { \
                 argv[i] = info[i]; \
             } \
@@ -152,12 +181,83 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 
 #define NAN_COPY_OPTIONS_TO_WRAPPER(obj, options) \
     do { \
-        v8::Local<v8::Array> keys = options->GetPropertyNames(); \
-        for (uint32_t i=0; i<keys->Length(); ++i) { \
-            v8::Local<v8::Value> key = keys->Get(i); \
-            v8::Local<v8::Value> val = options->Get(key); \
-            Nan::Set(obj, key, val); \
+        if (!options.IsEmpty()) { \
+            v8::Local<v8::Array> keys = options->GetPropertyNames(); \
+            for (uint32_t i=0; i<keys->Length(); ++i) { \
+                v8::Local<v8::Value> key = keys->Get(i); \
+                v8::Local<v8::Value> val = options->Get(key); \
+                Nan::Set(obj, key, val); \
+            } \
         } \
     } while (0)
 
-#endif // COMMON_H_
+#if NAUV_UVVERSION < 0x000b17
+
+# define NAUV_CALLBACK(func_name, handle_def) \
+    void func_name(handle_def, int)
+# define NAUV_IP4_ADDR(address, port, sin4) \
+    *sin4 = uv_ip4_addr(address, port)
+# define NAUV_IP6_ADDR(address, port, sin6) \
+    *sin6 = uv_ip6_addr(address, port)
+# define NAUV_UDP_ADDR(sinp) *sinp
+# define NAUV_CALL(fcall) \
+    do { \
+        if (fcall) { \
+            PANIC(__FUNCTION__ << ": " << #fcall << " - " \
+                               << uv_strerror(uv_last_error(uv_default_loop()))); \
+        } \
+    } while(0)
+# define NAUV_ALLOC_CB_WRAP(func_name, alloc_func) \
+    uv_buf_t func_name(uv_handle_t* handle, size_t suggested_size) \
+    { \
+        uv_buf_t buf; \
+        alloc_func(handle, suggested_size, buf); \
+        return buf; \
+    }
+# define NAUV_UDP_RECEIVE_CB_WRAP(func_name, receive_func) \
+    void uv_callback_receive_wrap( \
+        uv_udp_t* handle, \
+        ssize_t nread, \
+        uv_buf_t buf, \
+        struct sockaddr* addr, \
+        unsigned flags) \
+    { \
+        receive_func(handle, nread, &buf, addr, flags); \
+    }
+
+#else
+
+# define NAUV_CALLBACK(func_name, handle_def) \
+    void func_name(handle_def)
+# define NAUV_IP4_ADDR(address, port, sin4) \
+    uv_ip4_addr(address, port, sin4)
+# define NAUV_IP6_ADDR(address, port, sin6) \
+    uv_ip6_addr(address, port, sin6)
+# define NAUV_UDP_ADDR(sinp) reinterpret_cast<struct sockaddr*>(sinp)
+# define NAUV_CALL(fcall) \
+    do { \
+        if (int rc = fcall) { \
+            PANIC(__FUNCTION__ << ": " << #fcall << " - " << uv_strerror(rc)); \
+        } \
+    } while(0)
+# define NAUV_ALLOC_CB_WRAP(func_name, alloc_func) \
+    void func_name(uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) \
+    { \
+        alloc_func(handle, suggested_size, buf); \
+    }
+# define NAUV_UDP_RECEIVE_CB_WRAP(func_name, receive_func) \
+    void uv_callback_receive_wrap( \
+        uv_udp_t* handle, \
+        ssize_t nread, \
+        const uv_buf_t* buf, \
+        const struct sockaddr* addr, \
+        unsigned flags) \
+    { \
+        receive_func(handle, nread, buf, addr, flags); \
+    }
+
+#endif
+
+} // namespace noobaa
+
+#endif // NOOBAA__COMMON__H

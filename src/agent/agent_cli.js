@@ -67,7 +67,6 @@ AgentCLI.prototype.init = function() {
         .then(function() {
             _.defaults(self.params, {
                 root_path: './agent_storage/',
-                port: 0,
                 access_key: '123',
                 secret_key: 'abc',
                 system: 'demo',
@@ -279,8 +278,6 @@ AgentCLI.prototype.start = function(node_name) {
         agent = self.agents[node_name] = new Agent({
             address: self.params.address,
             node_name: node_name,
-            prefered_port: self.params.port,
-            prefered_secure_port: self.params.secure_port,
             storage_path: path.join(self.params.root_path, node_name),
         });
         dbg.log0('agent inited', node_name, self.params.addres, self.params.port, self.params.secure_port);
@@ -381,6 +378,7 @@ function main() {
 
     var cli = new AgentCLI(argv);
     cli.init().done(function() {
+        if (argv.norepl) return;
         // start a Read-Eval-Print-Loop
         var repl_srv = repl.start({
             prompt: 'agent-cli > ',

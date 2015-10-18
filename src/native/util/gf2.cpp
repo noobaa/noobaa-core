@@ -1,5 +1,7 @@
 #include "gf2.h"
 
+namespace noobaa {
+
 /*
    template <typename T>
    const int Poly<T>::byte_deg_table[256] = {
@@ -11,3 +13,5 @@
     DEG256(0)
    };
  */
+
+} // namespace noobaa

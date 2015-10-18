@@ -16,6 +16,7 @@ var LRUCache = require('../util/lru_cache');
 var devnull = require('dev-null');
 var config = require('../../config.js');
 var dbg = require('../util/debug_module')(__filename);
+var native_core = require('../util/native_core');
 
 module.exports = ObjectDriver;
 
@@ -67,10 +68,6 @@ function ObjectDriver(client) {
     self._init_blocks_cache();
 }
 
-var native_util;
-var dedup_chunker_tpool;
-var object_coding_tpool;
-var object_coding;
 var PART_ATTRS = [
     'start',
     'end',
@@ -98,35 +95,35 @@ var FRAG_ATTRS = [
     'digest_b64'
 ];
 
-function lazy_init_natives() {
-    var bindings = require('bindings');
-    if (typeof(bindings) !== 'function') {
-        return;
-    }
-    native_util = bindings('native_util.node');
+var natives_inited;
+var DedupChunker;
+var dedup_config;
+var dedup_chunker_tpool;
+var object_coding_tpool;
+var object_coding;
 
+function lazy_init_natives() {
+    if (natives_inited) return;
+    var nc = native_core();
+    DedupChunker = nc.DedupChunker;
+    dedup_config = new nc.DedupConfig({});
     // these threadpools are global OS threads used to offload heavy CPU work
     // from the node.js thread so that it will keep processing incoming IO while
     // encoding/decoding the object chunks in high performance native code.
-    if (!dedup_chunker_tpool) {
-        dedup_chunker_tpool = new native_util.ThreadPool(1);
-    }
-    if (!object_coding_tpool) {
-        object_coding_tpool = new native_util.ThreadPool(2);
-    }
-    if (!object_coding) {
-        object_coding = new native_util.ObjectCoding({
-            tpool: object_coding_tpool,
-            digest_type: 'sha384',
-            compress_type: 'snappy',
-            cipher_type: 'aes-256-gcm',
-            frag_digest_type: 'sha1',
-            data_frags: 1,
-            parity_frags: 0,
-            lrc_frags: 0,
-            lrc_parity: 0,
-        });
-    }
+    dedup_chunker_tpool = new nc.ThreadPool(1);
+    object_coding_tpool = new nc.ThreadPool(2);
+    object_coding = new nc.ObjectCoding({
+        tpool: object_coding_tpool,
+        digest_type: 'sha384',
+        compress_type: 'snappy',
+        cipher_type: 'aes-256-gcm',
+        frag_digest_type: 'sha1',
+        data_frags: 1,
+        parity_frags: 0,
+        lrc_frags: 0,
+        lrc_parity: 0,
+    });
+    natives_inited = true;
 }
 
 
@@ -187,9 +184,9 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
             },
             init: function() {
                 this.offset = start;
-                this.chunker = new native_util.DedupChunker({
+                this.chunker = new DedupChunker({
                     tpool: dedup_chunker_tpool
-                });
+                }, dedup_config);
             },
             transform: function(data) {
                 dbg.log0('upload_stream_parts: chunking', size_utils.human_offset(this.offset));
@@ -268,7 +265,9 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                             var p = _.pick(part, PART_ATTRS);
                             p.chunk = _.pick(part.chunk, CHUNK_ATTRS);
                             p.frags = _.map(part.chunk.frags, function(fragment) {
-                                return _.pick(fragment, FRAG_ATTRS);
+                                var f = _.pick(fragment, FRAG_ATTRS);
+                                f.size = fragment.block.length;
+                                return f;
                             });
                             dbg.log3('upload_stream_parts: allocating specific part ul#',
                                 p.upload_part_number, 'seq#', p.part_sequence_number);

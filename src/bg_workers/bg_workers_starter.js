@@ -1,10 +1,10 @@
 'use strict';
 require('../util/panic');
 
-var dotenv = require('dotenv');
-//Global Configuration and Initialization
-console.log('loading .env file ( no foreman ;)');
-dotenv.load();
+// load .env file before any other modules so that it will contain
+// all the arguments even when the modules are loading.
+console.log('loading .env file');
+require('dotenv').load();
 
 var _ = require('lodash');
 var P = require('../util/promise');

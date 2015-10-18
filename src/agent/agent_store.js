@@ -188,31 +188,23 @@ AgentStore.prototype.write_block = function(block_md, data) {
  */
 AgentStore.prototype.delete_blocks = function(block_ids) {
     var self = this;
-    var ret = '';
-    var tmp_usage = {
-        size: 0,
-        count: 0,
-    };
-    var delete_funcs = [];
 
-    _.each(block_ids, function(block) {
-        delete_funcs.push(function() {
-            return self._delete_block(block);
-        });
-    });
-
-    //TODO: use q.allSettled with 10 concurrency
-    return P.allSettled(_.map(delete_funcs, function(call) {
-            return call();
+    // TODO: limit concurrency with semaphore
+    return P.settle(_.map(block_ids, function(block_id) {
+            return self._delete_block(block_id);
         }))
         .then(function(results) {
+            var tmp_usage = {
+                size: 0,
+                count: 0,
+            };
             _.each(results, function(r) {
-                if (r.state === 'fulfilled') {
-                    tmp_usage.size += r.value;
+                if (r.isFulfilled()) {
+                    tmp_usage.size += r.value();
                     tmp_usage.count += 1;
                 } else {
-                    dbg.log0("delete block failed due to ", r.reason);
-                    ret = r.reason;
+                    dbg.warn("delete block failed due to ", r.reason());
+                    // TODO what to do with failed deletions? report back? reclaim later?
                 }
             });
             if (self._usage) {
@@ -220,8 +212,6 @@ AgentStore.prototype.delete_blocks = function(block_ids) {
                 self._usage.count -= tmp_usage.count;
             }
         });
-
-    //TODO: should we return ret here ?
 };
 
 

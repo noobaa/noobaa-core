@@ -1,8 +1,10 @@
-#ifndef COMPRESS_H_
-#define COMPRESS_H_
+#ifndef NOOBAA__COMPRESSION__H
+#define NOOBAA__COMPRESSION__H
 
 #include "common.h"
 #include "buf.h"
+
+namespace noobaa {
 
 /**
  * supported types: "zlib", "snappy"
@@ -14,4 +16,6 @@ public:
     static Buf decompress(Buf buf, int decompressed_len, std::string type);
 };
 
-#endif // COMPRESS_H_
+} // namespace noobaa
+
+#endif // NOOBAA__COMPRESSION__H

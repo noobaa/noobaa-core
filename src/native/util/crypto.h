@@ -1,5 +1,5 @@
-#ifndef CRYPTO_H_
-#define CRYPTO_H_
+#ifndef NOOBAA__CRYPTO__H
+#define NOOBAA__CRYPTO__H
 
 #include "common.h"
 #include "buf.h"
@@ -8,6 +8,8 @@
 #include <openssl/sha.h>
 #include <openssl/err.h>
 #include <openssl/rand.h>
+
+namespace noobaa {
 
 class Crypto
 {
@@ -124,4 +126,6 @@ public:
 
 };
 
-#endif // CRYPTO_H_
+} // namespace noobaa
+
+#endif // NOOBAA__CRYPTO__H

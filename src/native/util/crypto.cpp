@@ -1,5 +1,7 @@
 #include "crypto.h"
 
+namespace noobaa {
+
 void
 Crypto::init()
 {
@@ -13,3 +15,5 @@ void
 Crypto::destroy()
 {
 }
+
+} // namespace noobaa

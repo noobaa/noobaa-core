@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var moment = require('moment');
-var chance = new (require('chance').Chance)();
+var chance = require('chance')();
 var promise_utils = require('../util/promise_utils');
 var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);

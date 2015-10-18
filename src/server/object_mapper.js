@@ -186,6 +186,7 @@ function allocate_object_parts(bucket, obj, parts) {
                                 if (!block) {
                                     throw new Error('allocate_object_parts: no nodes for allocation');
                                 }
+                                block.size = fragment.size;
                                 block.layer = fragment.layer;
                                 block.frag = fragment.frag;
                                 if (fragment.layer_n) {
@@ -1050,7 +1051,7 @@ function get_part_info(params) {
             params.adminfo && fragment.blocks ||
             fragment.accessible_blocks;
 
-        var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag');
+        var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
 
         // take the digest from some block.
         // TODO better check that the rest of the blocks match...

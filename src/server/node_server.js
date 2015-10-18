@@ -432,21 +432,19 @@ var NODE_PICK_FIELDS = [
     'geolocation',
     'peer_id',
     'ip',
-    'port',
+    'rpc_address',
     'srvmode',
     'version'
 ];
 
 var NODE_DEFAULT_FIELDS = {
     ip: '0.0.0.0',
-    port: 0,
     version: '',
-    peer_id: ''
+    peer_id: '',
 };
 
 function get_node_full_info(node) {
     var info = _.defaults(_.pick(node, NODE_PICK_FIELDS), NODE_DEFAULT_FIELDS);
-    info.rpc_address = node.get_rpc_address();
     if (node.srvmode) {
         info.srvmode = node.srvmode;
     }

@@ -30,9 +30,8 @@ Object.defineProperty(RpcRequest.prototype, 'rpc_params', {
  *
  */
 RpcRequest.prototype.new_request = function(api, method_api, params, auth_token) {
+    // this.reqid will be set by the connection...
     this.time = Date.now();
-    // reqid will be set by the connection...
-    // this.reqid = this.time.toString(16) + Math.random().toString(16).slice(1);
     this.api = api;
     this.method_api = method_api;
     this.params = params;

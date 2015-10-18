@@ -20,18 +20,15 @@ module.exports = P;
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
 // using setImmediate to allow modules to change the env on startup
-setImmediate(function() {
-    if (process.env.DEBUG_MODE) {
-        P.longStackTraces();
-    }
-});
+if (process.env.DEBUG_MODE) {
+    P.longStackTraces();
+}
 
 P.promisifyAll(require('fs'));
 P.promisifyAll(require('child_process'));
 
 // aliases from Q
 P.when = P.resolve;
-P.allSettled = P.settle;
 P.prototype.fin = P.prototype.finally;
 P.prototype.fail = P.prototype.catch;
 P.prototype.thenResolve = P.prototype.return;

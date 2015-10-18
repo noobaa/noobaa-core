@@ -202,6 +202,10 @@ Ice.prototype.connect = function() {
             _.each(remote_info.candidates, function(remote_candidate) {
                 self._add_remote_candidate(remote_candidate);
             });
+
+            setTimeout(function() {
+                self._find_session_to_activate('force');
+            }, 3000);
         })
         .fail(function(err) {
             self.emit('error', err);
@@ -807,7 +811,7 @@ function init_tcp_connection(conn, session, ice, ice_lookup) {
 /**
  * _find_session_to_activate
  */
-Ice.prototype._find_session_to_activate = function() {
+Ice.prototype._find_session_to_activate = function(force) {
     var self = this;
     if (self.closed) return;
 
@@ -839,10 +843,12 @@ Ice.prototype._find_session_to_activate = function() {
         }
     });
 
-    if (best_session && highest_non_closed_priority <= best_session.remote.priority) {
+    if (best_session &&
+        (force || highest_non_closed_priority <= best_session.remote.priority)) {
         self._activate_session(best_session);
     }
 };
+
 
 /**
  * _activate_session
@@ -1274,7 +1280,7 @@ function IceCandidate(cand) {
     cand.priority =
         (ip_module.isPrivate(cand.address) ? 1 : 0) << 3 |
         (cand.transport === 'tcp' ? 1 : 0) << 2 |
-        (cand.family === 'IPv4' ? 1 : 0) << 1 |
+        // (cand.family === 'IPv4' ? 1 : 0) << 1 |
         (cand.tcp_type !== CAND_TCP_TYPE_SO ? 1 : 0) << 0;
     return cand;
 }

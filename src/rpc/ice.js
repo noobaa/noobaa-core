@@ -65,10 +65,12 @@ util.inherits(Ice, EventEmitter);
  *  accept_ipv6: (boolean)
  *      the default is true for all. set to false to override.
  *
- *  tcp_tls: (object)
- *      when provided will upgrade to TLS after ICE connects
- *      should contain tls options: key, cert, ca, etc.
+ *  ssl_options: (object)
+ *      should contain ssl options: key, cert, ca, etc.
  *      see https://nodejs.org/api/tls.html#tls_tls_connect_options_callback
+ *
+ *  tcp_tls: (boolean)
+ *      when provided will upgrade to TLS after ICE connects
  *  tcp_active: (boolean)
  *      this endpoint will offer to connect using tcp.
  *  tcp_permanent_passive: (bool | object with port number or port range object)
@@ -80,11 +82,13 @@ util.inherits(Ice, EventEmitter);
  *  tcp_transient_passive: (bool | object with port number or port range object)
  *      this endpoint will listen on tcp port
  *      and will be used only by this ICE instance.
- *  tcp_so: (boolean / port number / port range object)
+ *  tcp_simultaneous_open: (boolean / port number / port range object)
  *      simultaneous_open means both endpoints will connect simultaneously,
  *      see https://en.wikipedia.org/wiki/TCP_hole_punching
  *
- *  udp_socket: (function())
+ *  udp_port: (boolean / port number / port range object)
+ *  udp_dtls: (boolean)
+ *  udp_socket: (function(udp_port, dtls))
  *      used to create a udp socket and bind it to a port (random typically).
  *      the returned object can send packets using send(buffer,port,host),
  *      and once messages are received it should detect stun messages (see in stun.js)
@@ -258,7 +262,7 @@ Ice.prototype._add_local_candidates = function() {
             self._add_tcp_active_candidates(),
             self._add_tcp_permanent_passive_candidates(),
             self._add_tcp_transient_passive_candidates(),
-            self._add_tcp_so_candidates()
+            self._add_tcp_simultaneous_open_candidates()
         )
         .then(function() {
             return {
@@ -274,9 +278,9 @@ Ice.prototype._add_local_candidates = function() {
 Ice.prototype._add_udp_candidates = function() {
     var self = this;
 
-    if (!self.config.udp_socket) return;
+    if (!self.config.udp_port) return;
 
-    return P.fcall(self.config.udp_socket)
+    return P.fcall(self.config.udp_socket, self.config.udp_port, self.config.udp_dtls)
         .then(function(udp) {
 
             // will be closed by ice.close
@@ -361,7 +365,7 @@ Ice.prototype._add_tcp_permanent_passive_candidates = function() {
 
             if (!conf.listen_promise ||
                 conf.listen_promise.isRejected()) {
-                conf.listen_promise = listen_on_port_range(conf.port || conf.port_range);
+                conf.listen_promise = listen_on_port_range(conf);
             }
             return conf.listen_promise;
         })
@@ -404,7 +408,7 @@ Ice.prototype._add_tcp_transient_passive_candidates = function() {
     if (!self.config.tcp_transient_passive) return;
     var conf = self.config.tcp_transient_passive;
 
-    return listen_on_port_range(conf.port || conf.port_range)
+    return listen_on_port_range(conf)
         .then(function(server) {
             var address = server.address();
 
@@ -446,13 +450,14 @@ Ice.prototype._add_tcp_transient_passive_candidates = function() {
 };
 
 /**
- * _add_tcp_so_candidates
+ * _add_tcp_simultaneous_open_candidates
  */
-Ice.prototype._add_tcp_so_candidates = function() {
+Ice.prototype._add_tcp_simultaneous_open_candidates = function() {
     var self = this;
-    if (!self.config.tcp_so) return;
+    if (!self.config.tcp_simultaneous_open) return;
+    var conf = self.config.tcp_simultaneous_open;
     return P.all(_.map(self.networks, function(n, ifcname) {
-            return allocate_port_in_range(self.config.tcp_so.port || self.config.tcp_so.port_range)
+            return allocate_port_in_range(conf)
                 .then(function(port) {
                     self._add_local_candidate({
                         transport: 'tcp',
@@ -467,7 +472,7 @@ Ice.prototype._add_tcp_so_candidates = function() {
                 });
         }))
         .fail(function(err) {
-            dbg.warn('ICE _add_tcp_so_candidates: FAILED', err);
+            dbg.warn('ICE _add_tcp_simultaneous_open_candidates: FAILED', err);
         });
 };
 
@@ -528,7 +533,7 @@ Ice.prototype._check_connectivity = function(local, remote) {
     dbg.log0('ICE CHECKING CONNECTIVITY', session.key, this.connid);
     if (local.transport === 'tcp') {
         if (local.tcp_type === CAND_TCP_TYPE_SO) {
-            this._connect_tcp_so_pair(session);
+            this._connect_tcp_simultaneous_open_pair(session);
         } else {
             this._connect_tcp_active_passive_pair(session);
         }
@@ -619,10 +624,10 @@ Ice.prototype._connect_tcp_active_passive_pair = function(session) {
 
 /**
  *
- * _connect_tcp_so_pair
+ * _connect_tcp_simultaneous_open_pair
  *
  */
-Ice.prototype._connect_tcp_so_pair = function(session) {
+Ice.prototype._connect_tcp_simultaneous_open_pair = function(session) {
     var self = this;
     const MAX_ATTEMPTS = 200;
     var attempts = 0;
@@ -915,13 +920,13 @@ Ice.prototype._upgrade_to_tls = function(session) {
     dbg.log0('ICE UPGRADE TO TLS', session.key, session.state);
     var tcp_conn = session.tcp;
     var tls_conn;
-    var tls_options = _.clone(self.config.tcp_tls);
+    var ssl_options = _.clone(self.config.ssl_options);
     if (self.controlling) {
-        tls_options.socket = tcp_conn;
-        tls_conn = tls.connect(tls_options);
+        ssl_options.socket = tcp_conn;
+        tls_conn = tls.connect(ssl_options);
     } else {
-        tls_options.isServer = true;
-        tls_conn = new tls.TLSSocket(tcp_conn, tls_options);
+        ssl_options.isServer = true;
+        tls_conn = new tls.TLSSocket(tcp_conn, ssl_options);
     }
     // for some reason the expected event 'secureConnect' is only emitted
     // on the connect side and not on the server side, so using the 'secure'
@@ -1429,22 +1434,27 @@ function make_session_key(local, remote) {
  *
  * start a tcp listening server on port (random or in range),
  * and return the listening server, or reject if failed.
- * @param port_or_range - port number or object with integers min,max
+ * @param port_range - port number or object with integers min,max
  */
-function listen_on_port_range(port_or_range) {
+function listen_on_port_range(port_range) {
     var attempts = 0;
     return P.fcall(try_to_listen);
 
     function try_to_listen() {
         var port;
         var server = net.createServer();
-        if (typeof(port_or_range) === 'object') {
-            if (attempts > port_or_range.max - port_or_range.min) {
-                throw new Error('ICE PORT ALLOCATION EXHAUSTED');
+        if (typeof(port_range) === 'object') {
+            if (typeof(port_range.min) === 'number' &&
+                typeof(port_range.max) === 'number') {
+                if (attempts > port_range.max - port_range.min) {
+                    throw new Error('ICE PORT ALLOCATION EXHAUSTED');
+                }
+                port = chance.integer(port_range);
+            } else {
+                port = port_range.port || 0;
             }
-            port = chance.integer(port_or_range);
-        } else if (typeof(port_or_range) === 'number') {
-            port = port_or_range;
+        } else if (typeof(port_range) === 'number') {
+            port = port_range;
         } else {
             port = 0;
         }
@@ -1468,10 +1478,10 @@ function listen_on_port_range(port_or_range) {
  *
  * try to allocate a port (random or in range),
  * and in any case release it and return it's number.
- * @param port_or_range - port number or object with integers min,max
+ * @param port_range - port number or object with integers min,max
  */
-function allocate_port_in_range(port_or_range) {
-    return listen_on_port_range(port_or_range)
+function allocate_port_in_range(port_range) {
+    return listen_on_port_range(port_range)
         .then(function(server) {
             var port = server.address().port;
             server.close();

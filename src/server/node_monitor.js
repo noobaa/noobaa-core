@@ -168,7 +168,7 @@ function update_heartbeat(params, conn, reply_token) {
     hb_delay_ms = Math.min(hb_delay_ms, 300000); // force below 5 minutes
 
     // rpc address is taken from server env so that we can change in one place.
-    // TODO allow setting rpc_address in pool
+    // TODO keep rpc_proto in pool/system
     var rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
     var rpc_address;
     if (rpc_proto !== 'n2n') {
@@ -207,6 +207,37 @@ function update_heartbeat(params, conn, reply_token) {
     };
     if (reply_token) {
         reply.auth_token = reply_token;
+    }
+
+    if (params.extended_hb) {
+        // these ice options affect only agents.
+        // non-agents use the default as defined in rpc_n2n.js,
+        // TODO keep ice config in pool/system
+        reply.ice_config = {
+            // ip options
+            offer_ipv4: true,
+            offer_ipv6: false,
+            accept_ipv4: true,
+            accept_ipv6: true,
+            offer_internal: false,
+            // tcp options
+            tcp_active: true,
+            tcp_permanent_passive: {
+                min: 60111,
+                max: 60888
+            },
+            tcp_transient_passive: false,
+            tcp_simultaneous_open: false,
+            tcp_tls: true,
+            // udp options
+            udp_port: true,
+            udp_dtls: false,
+            stun_servers: [
+                // TODO stun server address (only IPv4 is supported now, also need to resolve DNS)
+                // 'stun://our-server-ip:3479'
+                // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
+            ]
+        };
     }
 
     // code for testing performance of server with no heartbeat work

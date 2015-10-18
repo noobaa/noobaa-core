@@ -3,12 +3,12 @@
 module.exports = RpcN2NConnection;
 RpcN2NConnection.Agent = RpcN2NAgent;
 
-// var _ = require('lodash');
+var _ = require('lodash');
 var P = require('../util/promise');
-var fs = require('fs');
-var dns = require('dns');
+// var fs = require('fs');
+// var dns = require('dns');
 var tls = require('tls');
-var url = require('url');
+// var url = require('url');
 var util = require('util');
 var dbg = require('../util/debug_module')(__filename);
 // var js_utils = require('../util/js_utils');
@@ -148,16 +148,26 @@ function RpcN2NAgent(options) {
         // tcp options
         tcp_active: true,
         tcp_permanent_passive: {
-            // set single port or port_range
-            // port: 60111,
-            port_range: {
-                min: 60111,
-                max: 60888
-            }
+            min: 60111,
+            max: 60888
         },
-        tcp_transient_passive: true,
-        tcp_so: false, // tcp simultaneous open
-        tcp_tls: {
+        tcp_transient_passive: false,
+        tcp_simultaneous_open: false,
+        tcp_tls: true,
+
+        // udp options
+        udp_port: true,
+        udp_dtls: false,
+
+        // TODO stun server to use for N2N ICE
+        // TODO Nudp require ip's, not hostnames, and also does not support IPv6 yet
+        stun_servers: [
+            // read_on_premise_stun_server()
+            // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
+        ],
+
+        // ssl options - apply for both tcp-tls and udp-dtls
+        ssl_options: {
             // we allow self generated certificates to avoid public CA signing:
             rejectUnauthorized: false,
             secureContext: tls.createSecureContext({
@@ -168,21 +178,15 @@ function RpcN2NAgent(options) {
             }),
         },
 
-        // udp options
-        udp_socket: function() {
+        // callback to create and bind nudp socket
+        // TODO implement nudp dtls
+        udp_socket: function(udp_port, dtls) {
             var nudp = new Nudp();
             return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
                 nudp.port = port;
                 return nudp;
             });
         },
-
-        // TODO stun server to use for N2N ICE
-        // TODO Nudp require ip's, not hostnames, and also does not support IPv6 yet
-        stun_servers: [
-            read_on_premise_stun_server()
-            // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
-        ],
 
         // signaller callback
         signaller: function(target, info) {
@@ -207,9 +211,30 @@ RpcN2NAgent.prototype.set_peer_id = function(peer_id) {
 RpcN2NAgent.prototype.set_any_peer_id = function() {
     this.peer_id = '*';
 };
+
 RpcN2NAgent.prototype.set_ssl_context = function(secure_context_params) {
-    this.ice_config.tcp_tls.secureContext =
+    this.ice_config.ssl_options.secureContext =
         tls.createSecureContext(secure_context_params);
+};
+
+RpcN2NAgent.prototype.update_ice_config = function(config) {
+    var self = this;
+    _.each(config, function(val, key) {
+        if (key === 'tcp_permanent_passive') {
+            // since the tcp permanent object holds more info than just the port_range
+            // then we need to check if the port range cofig changes, if not we ignore
+            // if it did then we have to start a new
+            var conf = self.ice_config.tcp_permanent_passive;
+            if (!_.isEqual(_.pick('min', 'max', 'port'), val)) {
+                if (conf.server) {
+                    conf.server.close();
+                }
+                self.ice_config.tcp_permanent_passive = _.clone(val);
+            }
+        } else {
+            self.ice_config[key] = val;
+        }
+    });
 };
 
 RpcN2NAgent.prototype.signal = function(params) {
@@ -232,6 +257,7 @@ RpcN2NAgent.prototype.signal = function(params) {
 };
 
 
+/*
 function read_on_premise_stun_server() {
     return fs.readFileAsync('agent_conf.json')
         .then(function(data) {
@@ -249,6 +275,7 @@ function read_on_premise_stun_server() {
             dbg.log0('N2N NO STUN SERVER in agent_conf.json');
         });
 }
+*/
 
 // TODO this is a temporary place to keep the SSL certificate
 function get_global_ssl_key() {

@@ -335,7 +335,7 @@ Agent.prototype._start_stop_server = function() {
 Agent.prototype._do_heartbeat = function() {
     var self = this;
     var store_stats;
-    var extended_hb;
+    var extended_hb = false;
 
     var EXTENDED_HB_PERIOD = 3600000;
     // var EXTENDED_HB_PERIOD = 1000;
@@ -367,6 +367,7 @@ Agent.prototype._do_heartbeat = function() {
                 geolocation: self.geolocation,
                 ip: ip,
                 version: self.heartbeat_version || '',
+                extended_hb: extended_hb,
                 storage: {
                     alloc: store_stats.alloc,
                     used: store_stats.used
@@ -406,11 +407,14 @@ Agent.prototype._do_heartbeat = function() {
                 process.exit(0);
             }
 
-            // on first call we
             self.heartbeat_version = res.version;
             self.heartbeat_delay_ms = res.delay_ms;
             if (extended_hb) {
                 self.extended_hb_last_time = Date.now();
+            }
+
+            if (res.ice_config) {
+                self.n2n_agent.update_ice_config(res.ice_config);
             }
 
             var promises = [];

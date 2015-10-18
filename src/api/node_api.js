@@ -277,6 +277,9 @@ module.exports = {
                     version: {
                         type: 'string'
                     },
+                    extended_hb: {
+                        type: 'boolean'
+                    },
                     storage: {
                         $ref: '/common_api/definitions/storage_info'
                     },
@@ -302,6 +305,9 @@ module.exports = {
                     rpc_address: {
                         type: 'string'
                     },
+                    ice_config: {
+                        $ref: '/common_api/definitions/ice_config'
+                    },
                     version: {
                         type: 'string'
                     },
@@ -319,7 +325,7 @@ module.exports = {
         },
 
         n2n_signal: {
-          method: 'POST',
+            method: 'POST',
             params: {
                 type: 'object',
                 required: ['target'],

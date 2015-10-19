@@ -7,7 +7,7 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var Q = require('q');
+var P = require('../util/promise');
 var db = require('../db');
 var block_allocator = require('../block_allocator');
 var server_rpc = require('../server_rpc').server_rpc;
@@ -42,7 +42,7 @@ function build_chunks(chunks) {
 
     dbg.log1('build_chunks:', 'batch start', chunks.length, 'chunks');
 
-    return Q.all([ // parallel queries
+    return P.all([ // parallel queries
 
             // load blocks of the chunk
             // TODO: sort by _id is a hack to make consistent decisions between
@@ -146,8 +146,8 @@ function build_chunks(chunks) {
             // replicate blocks
             // send to the agent a request to replicate from the source
 
-            return Q.allSettled(_.map(chunks_status, function(chunk_status) {
-                return Q.allSettled(_.map(chunk_status.blocks_info_to_allocate,
+            return P.allSettled(_.map(chunks_status, function(chunk_status) {
+                return P.allSettled(_.map(chunk_status.blocks_info_to_allocate,
                     function(block_info_to_allocate) {
                         var block = block_info_to_allocate.block;
                         if (!block) {
@@ -205,7 +205,7 @@ function build_chunks(chunks) {
             });
             dbg.log2('build_chunks: failed chunks', failed_chunk_ids.length);
 
-            return Q.all([
+            return P.all([
                 // wait for blocks to be removed here before finishing
                 remove_blocks_promise,
 

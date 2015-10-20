@@ -42,4 +42,4 @@ pools_schema.index({
     unique: true
 });
 
-module.exports = mongoose.model('Pools', pools_schema);
+module.exports = mongoose.model('Pool', pools_schema);

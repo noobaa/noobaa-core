@@ -7,7 +7,7 @@ module.exports = {
 };
 
 var _ = require('lodash');
-var P = require('../util/promise');
+var P = require('../../util/promise');
 var db = require('../db');
 var block_allocator = require('../block_allocator');
 var server_rpc = require('../server_rpc').server_rpc;

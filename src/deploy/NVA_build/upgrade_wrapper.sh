@@ -156,7 +156,7 @@ function post_upgrade {
 
   #Installation ID generation if needed
   #TODO: Move this into the mongo_upgrade.js
-  local id=$(/mongodb/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
+  local id=$(/usr/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
   if [ ${id} -eq 0 ]; then
       id=$(uuidgen)
       /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
@@ -191,7 +191,6 @@ function post_upgrade {
   deploy_log "list core dir"
   deploy_log "$(ls -R ${CORE_DIR}/build/)"
 
-  /etc/rc.d/init.d/supervisord restart
   sudo grep noobaa /etc/sudoers
   if [ $? -ne 0 ]; then
       deploy_log "adding noobaa to sudoers"
@@ -203,8 +202,10 @@ function post_upgrade {
 
   fi
 
-
-  rm -f /tmp/*.tar.gz
+	rm -f /tmp/*.tar.gz
+	
+	/etc/rc.d/init.d/supervisord stop
+	/etc/rc.d/init.d/supervisord start
 }
 
 

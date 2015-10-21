@@ -21,7 +21,13 @@ start() {
 
 stop() {
     echo "Stopping ..."
-    kill -9 `cat $PIDFILE`
+    local p=$(cat $PIDFILE)
+    kill -9 ${p}
+    #unlink /tmp/supervisor.sock
+    #local pid=$(lsof -i :8080|awk  '{ print $2 }' | sed '1 d')
+    #for p in ${pid} ; do
+      #kill -9 ${p}
+    #done
     [ $? -eq 0 ] && rm -f $PIDFILE
     return $retval
 }
@@ -35,6 +41,7 @@ case $1 in
     ;;
     restart)
         stop
+        sleep 1
         start
     ;;
     *)

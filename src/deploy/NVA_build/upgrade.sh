@@ -11,6 +11,7 @@ VER_CHECK="/root/node_modules/noobaa-core/src/deploy/NVA_build/version_check.js"
 NEW_UPGRADE_SCRIPT="${EXTRACTION_PATH}noobaa-core/src/deploy/NVA_build/upgrade.sh"
 
 function disable_supervisord {
+  deploy_log "disable_supervisord"
   #services under supervisord
   local services=$($SUPERCTL status | grep pid | sed 's:.*pid \(.*\),.*:\1:')
   #disable the supervisord
@@ -22,9 +23,8 @@ function disable_supervisord {
 }
 
 function enable_supervisord {
+  deploy_log "enable_supervisord"
   ${SUPERD}
-
-
 }
 
 function restart_webserver {
@@ -114,17 +114,28 @@ function do_upgrade {
 
   deploy_log "Running post upgrade"
   ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post
+  deploy_log "Finished post upgrade"
 
   enable_supervisord
+  deploy_log "Enabling supervisor"
   #workaround - from some reason, without sleep + restart, the server starts with odd behavior
   #TODO: understand why and fix.
   sleep 5;
   restart_s3rver
+  deploy_log "Restarted s3rver"
   restart_webserver
   deploy_log "Upgrade finished successfully!"
 }
 
 deploy_log "upgrade.sh called with $@"
+
+#Node.js Cluster chnages the .spawn behavour. On a normal spawn FDs are not inherited,
+#on a node cluster they are, which meand the listening ports of the webserver are inherited by this create_multipart_upload.
+#murder them
+fds=`lsof -p $$ | grep LISTEN | awk '{print $4}' | sed 's:\(.*\)u:\1:'`
+for f in ${fds}; do
+  exec ${f}<&-
+done
 
 if [ "$1" == "from_file" ]; then
   if [ "$2" != "" ]; then

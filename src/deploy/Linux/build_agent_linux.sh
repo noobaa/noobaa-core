@@ -63,6 +63,7 @@ else
         cp -R ../../src/util ./package/src/
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
+        cp -R ../../build ./package/build/
         #remove irrelevant packages
         #TODO: create new package for that matter
         cd package

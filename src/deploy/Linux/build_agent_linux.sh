@@ -4,6 +4,9 @@
 source ~/.bashrc
 source "$NVM_DIR/nvm.sh"
 
+echo "WARNING: devtoolset-2 is enabled!"
+. /opt/rh/devtoolset-2/enable
+
 nvm install 4.2.1
 nvm alias default 4.2.1
 nvm use 4.2.1

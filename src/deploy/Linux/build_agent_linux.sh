@@ -1,6 +1,8 @@
 #!/bin/bash
 # default - clean build
 
+source ~/.bashrc
+source "$NVM_DIR/nvm.sh"
 
 nvm install 4.2.1
 nvm alias default 4.2.1

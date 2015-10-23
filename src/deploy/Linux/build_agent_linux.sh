@@ -64,6 +64,8 @@ else
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
         cp -R ../../src/native ./package/src/
+        cp -R ../../binding.gyp ./package/
+
         #remove irrelevant packages
         #TODO: create new package for that matter
         cd package

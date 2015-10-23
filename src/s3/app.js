@@ -67,6 +67,15 @@ function s3app(params) {
 
                         var end_of_aws_key = req.headers.authorization.indexOf(':');
                         var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+                        if (req_access_key === 'AWS4'){
+                            //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
+
+                            var credentials_location = req.headers.authorization.indexOf('Credential')+11;
+
+                            req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));
+                        }
+                        dbg.log0('req_access_key',req_access_key);
+
                         req.access_key = req_access_key;
                         req.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
                         authenticated_request = true;

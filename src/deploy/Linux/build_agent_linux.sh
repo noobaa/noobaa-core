@@ -1,12 +1,10 @@
 #!/bin/bash
 # default - clean build
 
-source ~/.bashrc
-source "$NVM_DIR/nvm.sh"
+
 nvm install 4.2.1
 nvm alias default 4.2.1
 nvm use 4.2.1
-
 
 CLEAN=true;
 #ON_PREMISE means that we are currently building the ON_PREMISE package
@@ -77,9 +75,10 @@ else
         echo "npm install node-gyp"
         npm install -g node-gyp
         npm install -g nan
+        echo "rebuild"
+        node-gyp rebuild
         echo "npm install"
         npm install -dd
-        echo "rebuild"
         #node-gyp rebuild
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh

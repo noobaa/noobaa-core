@@ -67,7 +67,6 @@ else
         #remove irrelevant packages
         #TODO: create new package for that matter
         cd package
-        echo "npm install"
         sed -i '/gulp/d' package.json
         sed -i '/bower/d' package.json
         sed -i '/bootstrap/d' package.json
@@ -75,11 +74,13 @@ else
         sed -i '/rebuild/d' package.json
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
-        npm install -dd
+        echo "npm install node-gyp"
         npm install -g node-gyp
         npm install -g nan
-        
-        node-gyp rebuild
+        echo "npm install"
+        npm install -dd
+        echo "rebuild"
+        #node-gyp rebuild
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself.sh

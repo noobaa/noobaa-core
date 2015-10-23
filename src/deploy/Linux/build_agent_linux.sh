@@ -76,6 +76,9 @@ else
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
         npm install -dd
+        npm install -g node-gyp
+        npm install -g nan
+        
         node-gyp rebuild
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh

@@ -18,7 +18,7 @@ function s3app(params) {
         res.header('Access-Control-Allow-Methods',
             'GET,POST,PUT,DELETE,OPTIONS');
         res.header('Access-Control-Allow-Headers',
-            'Content-Type,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag');
+            'Content-Type,Authorization,X-Amz-User-Agent,X-Amz-Date,ETag,X-Amz-Content-Sha256');
         res.header('Access-Control-Allow-Origin', '*');
         res.header('Access-Control-Expose-Headers', 'ETag');
         // note that browsers will not allow origin=* with credentials
@@ -66,15 +66,16 @@ function s3app(params) {
                         dbg.log0('authorization header exists', req.headers.authorization);
 
                         var end_of_aws_key = req.headers.authorization.indexOf(':');
-                        var req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
-                        if (req_access_key === 'AWS4'){
+                        var req_access_key;
+                        if (req.headers.authorization.substring(0, 4) === 'AWS4') {
                             //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
-
-                            var credentials_location = req.headers.authorization.indexOf('Credential')+11;
-
+                            var credentials_location = req.headers.authorization.indexOf('Credential') + 11;
                             req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));
+                        } else {
+                            req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
                         }
-                        dbg.log0('req_access_key',req_access_key);
+
+                        dbg.log0('req_access_key', req_access_key);
 
                         req.access_key = req_access_key;
                         req.signature = req.headers.authorization.substring(end_of_aws_key + 1, req.headers.authorization.lenth);
@@ -84,7 +85,14 @@ function s3app(params) {
                         req.signature = req.query.Signature;
                         authenticated_request = true;
                         dbg.log0('signed url');
+                    } else if (req.query['X-Amz-Credential']) {
+                        req.access_key  = req.query['X-Amz-Credential'].substring(0, req.query['X-Amz-Credential'].indexOf('/'));
+                        req.signature = req.query['X-Amz-Signature'];
+                        authenticated_request = true;
+                        dbg.log0('signed url v4',req.access_key);
+
                     }
+
                     if (authenticated_request) {
                         // var s3 = new s3_auth(req);
                         dbg.log0('authenticated request with signature', req.signature);

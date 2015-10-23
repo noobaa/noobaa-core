@@ -163,17 +163,19 @@ module.exports = function(params) {
         var req_access_key;
         if (req.headers.authorization) {
             var end_of_aws_key = req.headers.authorization.indexOf(':');
-            req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
-            if (req_access_key === 'AWS4'){
+            if (req.headers.authorization.substring(0,4)==='AWS4'){
                 //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
-
                 var credentials_location = req.headers.authorization.indexOf('Credential')+11;
-
                 req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));
+            }else{
+                req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
             }
         } else {
             if (req.query.AWSAccessKeyId) {
                 req_access_key = req.query.AWSAccessKeyId;
+            }else if (req.query['X-Amz-Credential'])
+            {
+                req_access_key = req.query['X-Amz-Credential'].substring(0,req.query['X-Amz-Credential'].indexOf('/'));
             }
         }
         return req_access_key;

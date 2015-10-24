@@ -56,14 +56,17 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
  *
  */
 RpcHttpConnection.prototype._connect = function() {
+    var self = this;
     // there is not real need to connect http connections
     // as the actual connection is managed by the nodejs http module
     // so we only manage a transient request-response.
     // see the RpcHttpConnection.prototype.transient = true handling
-    if (this.url.protocol === 'http:' && is_browser_secure) {
+    if (self.url.protocol === 'http:' && is_browser_secure) {
         throw new Error('HTTP INSECURE - cannot use http: from secure browser page');
     }
-    this.emit('connect');
+    setImmediate(function() {
+        self.emit('connect');
+    });
 };
 
 
@@ -147,6 +150,8 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
         method: http_method,
         path: path,
         headers: headers,
+        // accept self signed ssl certificates
+        rejectUnauthorized: false,
         // turn off withCredentials for browser xhr requests
         // in order to use allow-origin=* (CORS)
         withCredentials: false,

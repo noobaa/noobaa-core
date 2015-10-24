@@ -47,6 +47,7 @@ function sdk_build() {
 
 function demo_compile() {
     log "DEMO: COMPILE"
+    source="../../`dirname $0`/s3-demo.cpp"
     g++ \
         -Isrc/aws-cpp-sdk-core/include \
         -Laws-cpp-sdk-core/ \
@@ -55,11 +56,10 @@ function demo_compile() {
         -Laws-cpp-sdk-s3/ \
         -laws-cpp-sdk-s3 \
         -std=c++11 \
-        -stdlib=libc++ \
         -lstdc++ \
-        -o s3-demo \
-        ../../src/native/aws-cpp-sdk/s3-demo.cpp
-        # -stdlib=libstdc++ \
+        -o s3-demo $source
+    # -stdlib=libstdc++ \
+    # -stdlib=libc++ \
     log "DEMO: COMPILED  -->  \"$BUILD_DIR/s3-demo\""
 }
 
@@ -70,7 +70,7 @@ function build() {
     then
         log "FORCE BUILD SDK"
         sdk_build
-    elif [ ! -f aws-cpp-sdk-s3/libaws-cpp-sdk-s3.*lib ]
+    elif [ ! -f aws-cpp-sdk-s3/libaws-cpp-sdk-s3.* ]
     then
         log "BUILD SDK"
         sdk_build
@@ -79,4 +79,5 @@ function build() {
     popd # $BUILD_DIR
 }
 
-build
+build $1
+

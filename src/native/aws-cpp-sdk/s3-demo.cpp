@@ -179,7 +179,7 @@ string download_file_from_s3(S3ClientSharedPtr s3, string fname, string bucket, 
     req.SetBucket(bucket);
     req.SetKey(key);
     req.SetResponseStreamFactory([dlname](){
-        return Aws::New<Aws::FStream>(MEMTAG, dlname, std::ios::in|std::ios::binary);
+        return Aws::New<Aws::FStream>(MEMTAG, dlname, std::ios::out|std::ios::binary);
     });
     Aws::S3::Model::GetObjectOutcome getObjectOutcome =
         s3->GetObject(req);

@@ -83,6 +83,7 @@ int main(int ac, char** av)
                 << " down=\"" << md5_down << "\""
                 << endl << endl;
         } else {
+            cout << " ===> MD5 Matched." << endl;
             cout << " ===> Done." << endl;
         }
 

@@ -60,6 +60,7 @@ function demo_compile() {
         -o s3-demo \
         ../../src/native/aws-cpp-sdk/s3-demo.cpp
         # -stdlib=libstdc++ \
+    log "DEMO: COMPILED  -->  \"$BUILD_DIR/s3-demo\""
 }
 
 function build() {

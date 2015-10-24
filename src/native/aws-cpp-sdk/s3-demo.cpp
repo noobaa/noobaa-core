@@ -107,7 +107,7 @@ S3ClientSharedPtr create_s3_client(string endpoint, string access_key, string se
     config.scheme = Aws::Http::Scheme::HTTPS;
     config.region = Aws::Region::US_EAST_1;
     config.connectTimeoutMs = 30000;
-    config.requestTimeoutMs = 30000;
+    config.requestTimeoutMs = 24 * 3600 * 1000; // 24h
 
     S3ClientSharedPtr s3_client = Aws::MakeShared<Aws::S3::S3Client>(
         MEMTAG,

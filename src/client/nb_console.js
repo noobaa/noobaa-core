@@ -556,7 +556,7 @@ nb_console.controller('SystemDataCtrl', [
                                 scope.arrow_tooltip = 'Synchornization from NooBaa to AWS';
                             }
                         }
-                        console.log('arrow_type:'+scope.arrow_type);
+                        console.log('arrow_type:' + scope.arrow_type);
                     }
 
                 });
@@ -1168,7 +1168,10 @@ nb_console.controller('BucketViewCtrl', [
             }
             return nbFiles.list_files(params)
                 .then(function(res) {
-                    $scope.files = res.files;
+                    $scope.files = res.files.map(function(f) {
+                        f.escapedName = encodeURIComponent(f.name);
+                        return f;
+                    });
                     set_number_of_files(res.total_count);
                 });
         }

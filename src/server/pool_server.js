@@ -23,14 +23,13 @@ module.exports = pool_server;
 
 
 function create_pool(req) {
-    var info;
-    info.name = req.rpc_params.name;
+    var info = _.pick(req.rpc_params.pool, 'name');
     info.system = req.system.id;
-    return P.when(resolve_nodes_ids(req.system.id, req.rpc_params.nodes))
+    return P.when(resolve_nodes_ids(req.system.id, req.rpc_params.pool.nodes))
         .then(function(nodes) {
             info.nodes = nodes;
             dbg.log0('Creating new pool', info);
-            return P.when(db.Pools.create(info))
+            return P.when(db.Pool.create(info))
                 .then(null, db.check_already_exists(req, 'pool'))
                 .thenResolve();
         });
@@ -38,7 +37,7 @@ function create_pool(req) {
 
 function update_pool(req) {
     dbg.log0('Update pool', req.rpc_params.name, 'to', req.rpc_params.new_name);
-    return P.when(db.Pools
+    return P.when(db.Pool
             .findOne(get_pool_query(req))
             .exec())
         .then(db.check_not_deleted(req, 'pool'))
@@ -53,7 +52,7 @@ function update_pool(req) {
 }
 
 function get_pool(req) {
-    return P.when(db.Pools
+    return P.when(db.Pool
             .findOne(get_pool_query(req))
             .populate('node')
             .exec())
@@ -68,7 +67,7 @@ function get_pool(req) {
 
 function delete_pool(req) {
     dbg.log0('Deleting pool', req.rpc_params.name);
-    return P.when(db.Pools
+    return P.when(db.Pool
             .findOne(get_pool_query(req))
             .exec())
         .then(db.check_not_deleted(req, 'pool'))
@@ -85,7 +84,7 @@ function delete_pool(req) {
 function add_nodes_to_pool(req) {
     dbg.log0('Adding nodes to pool', req.rpc_params.name);
     var current_nodes;
-    return P.when(db.Pools
+    return P.when(db.Pool
             .findOne(get_pool_query(req))
             .exec())
         .then(db.check_not_deleted(req, 'pool'))
@@ -108,7 +107,7 @@ function add_nodes_to_pool(req) {
 function remove_nodes_from_pool(req) {
     dbg.log0('Removing nodes to pool', req.rpc_params.name);
     var new_nodes;
-    return P.when(db.Pools
+    return P.when(db.Pool
             .findOne(get_pool_query(req))
             .exec())
         .then(db.check_not_deleted(req, 'pool'))
@@ -146,7 +145,7 @@ function get_pool_query(req) {
 
 //Recieves an array of node names, return an array of nodes IDs
 function resolve_nodes_ids(system, nodes) {
-    return P.when(db.Nodes
+    return P.when(db.Node
             .find({
                 system: system,
                 name: {

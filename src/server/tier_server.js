@@ -37,12 +37,25 @@ module.exports = tier_server;
  *
  */
 function create_tier(req) {
-    var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details', 'pools', 'nodes', 'data_placement');
+    var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details', 'nodes', 'data_placement');
     info.system = req.system.id;
-    dbg.log0('Creating new tier', info);
-    return P.when(db.Tier.create(info))
-        .then(null, db.check_already_exists(req, 'tier'))
-        .thenResolve();
+    return P.when(db.Pool.find({
+                name: {
+                    $in: req.rpc_params.pools,
+                },
+            })
+            .exec())
+        .then(function(pools) {
+            var ids = [];
+            _.each(pools, function(p) {
+                ids.push(p._id);
+            });
+            info.pools = ids;
+            dbg.log0('Creating new tier', info);
+            return P.when(db.Tier.create(info))
+                .then(null, db.check_already_exists(req, 'tier'))
+                .thenResolve();
+        });
 }
 
 

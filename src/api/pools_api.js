@@ -89,19 +89,16 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['pool'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
                     },
                     nodes: {
                         type: 'array',
-                        properties: [{
-                            node: {
-                                type: 'string',
-                                required: true,
-                            },
-                        }]
+                        items: {
+                            type: 'string',
+                        }
                     }
                 }
             },
@@ -115,19 +112,16 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['pool'],
+                required: ['name'],
                 properties: {
                     name: {
                         type: 'string',
                     },
                     nodes: {
                         type: 'array',
-                        properties: [{
-                            node: {
-                                type: 'string',
-                                required: true,
-                            },
-                        }]
+                        items: {
+                            type: 'string',
+                        }
                     }
                 }
             },

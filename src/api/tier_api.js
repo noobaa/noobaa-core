@@ -187,7 +187,7 @@ module.exports = {
             type: 'string',
         },
 
-        pools: {
+        pool_info: {
             type: 'array',
             items: {
                 type: 'string',

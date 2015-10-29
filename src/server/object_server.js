@@ -173,7 +173,7 @@ function abort_multipart_upload(req) {
  *
  */
 function allocate_object_parts(req) {
-    return find_object_md(req)
+    return get_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.allocate_object_parts(
@@ -190,7 +190,7 @@ function allocate_object_parts(req) {
  *
  */
 function finalize_object_parts(req) {
-    return find_object_md(req)
+    return get_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.finalize_object_parts(
@@ -462,14 +462,21 @@ function find_object_md(req) {
         .then(function() {
             var query = _.omit(object_md_query(req), 'deleted');
             query.deleted = null;
-            dbg.log0('find object:', query);
             return db.ObjectMD.findOne(query).exec();
         })
-        .then(db.check_not_found(req, 'object'))
-        .then(function(obj) {
-            dbg.log0('find object(2):', obj);
-            return obj;
-        });
+        .then(db.check_not_found(req, 'object'));
+}
+
+function get_cached_object_md(req) {
+    return load_bucket(req)
+        .then(function() {
+            return db.ObjectMDCache.get({
+                system: req.system.id,
+                bucket: req.bucket.id,
+                key: req.rpc_params.key,
+            });
+        })
+        .then(db.check_not_deleted(req, 'object'));
 }
 
 function fail_obj_not_in_upload_mode(req, obj) {

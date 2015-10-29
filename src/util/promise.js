@@ -20,7 +20,8 @@ module.exports = P;
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
 // using setImmediate to allow modules to change the env on startup
-if (process.env.DEBUG_MODE) {
+if (process.env.DEBUG_MODE === 'true') {
+    console.log('Promise with longStackTraces on DEBUG_MODE');
     P.longStackTraces();
 }
 

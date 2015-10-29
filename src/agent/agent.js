@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var fs = require('fs');
-var pem = require('pem');
+var pem = require('../util/pem');
 var path = require('path');
 var http = require('http');
 var https = require('https');
@@ -38,6 +38,8 @@ module.exports = Agent;
  */
 function Agent(params) {
     var self = this;
+
+    dbg.log0('process.env.DEBUG_MODE=' + process.env.DEBUG_MODE);
 
     self.rpc = api.new_rpc();
     if (params.address) {

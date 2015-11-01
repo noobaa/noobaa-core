@@ -24,11 +24,7 @@ var pools_schema = new Schema({
         required: true,
     },
 
-    nodes: [{
-        ref: 'Node',
-        type: types.ObjectId,
-        required: true,
-    }],
+    nodes: [String],
 }, {
     // we prefer to call ensureIndexes explicitly when needed
     autoIndex: false

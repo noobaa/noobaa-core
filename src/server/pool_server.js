@@ -25,14 +25,12 @@ module.exports = pool_server;
 function create_pool(req) {
     var info = _.pick(req.rpc_params.pool, 'name');
     info.system = req.system.id;
-    return P.when(resolve_nodes_ids(req.system.id, req.rpc_params.pool.nodes))
-        .then(function(nodes) {
-            info.nodes = nodes;
-            dbg.log0('Creating new pool', info);
-            return P.when(db.Pool.create(info))
-                .then(null, db.check_already_exists(req, 'pool'))
-                .thenResolve();
-        });
+
+    info.nodes = req.rpc_params.pool.nodes;
+    dbg.log0('Creating new pool', info);
+    return P.when(db.Pool.create(info))
+        .then(null, db.check_already_exists(req, 'pool'))
+        .thenResolve();
 }
 
 function update_pool(req) {
@@ -82,7 +80,7 @@ function delete_pool(req) {
 }
 
 function add_nodes_to_pool(req) {
-    dbg.log0('Adding nodes to pool', req.rpc_params.name);
+    dbg.log0('Adding', req.rpc_params.nodes, 'to pool', req.rpc_params.name);
     var current_nodes;
     return P.when(db.Pool
             .findOne(get_pool_query(req))
@@ -90,22 +88,19 @@ function add_nodes_to_pool(req) {
         .then(db.check_not_deleted(req, 'pool'))
         .then(function(pool) {
             current_nodes = pool.nodes;
-            return P.when(resolve_nodes_ids(req.system.id, req.rpc_params.nodes))
-                .then(function(new_nodes) {
-                    current_nodes = current_nodes.concat(new_nodes);
-                    current_nodes = _.uniq(current_nodes);
-                    var updates = {
-                        nodes: current_nodes
-                    };
-                    return P.when(db.Pool
-                        .findOneAndUpdate(get_pool_query(req), updates)
-                        .exec());
-                });
+            current_nodes = current_nodes.concat(req.rpc_params.nodes);
+            current_nodes = _.uniq(current_nodes);
+            var updates = {
+                nodes: current_nodes
+            };
+            return P.when(db.Pool
+                .findOneAndUpdate(get_pool_query(req), updates)
+                .exec());
         });
 }
 
 function remove_nodes_from_pool(req) {
-    dbg.log0('Removing nodes to pool', req.rpc_params.name);
+    dbg.log0('Removing ', req.rpc_params.nodes, 'from pool', req.rpc_params.name);
     var new_nodes;
     return P.when(db.Pool
             .findOne(get_pool_query(req))
@@ -115,21 +110,19 @@ function remove_nodes_from_pool(req) {
             _.each(pool.nodes, function(n) {
                 new_nodes[n] = true;
             });
-            return P.when(resolve_nodes_ids(req.system.id, req.rpc_params.nodes))
-                .then(function(removed_nodes) {
-                    _.each(removed_nodes, function(n) {
-                        if (new_nodes[n]) {
-                            delete new_nodes[n];
-                        }
-                    });
 
-                    var updates = {
-                        nodes: _.keys(new_nodes)
-                    };
-                    return P.when(db.Pool
-                        .findOneAndUpdate(get_pool_query(req), updates)
-                        .exec());
-                });
+            _.each(req.rpc_params.nodes, function(n) {
+                if (new_nodes[n]) {
+                    delete new_nodes[n];
+                }
+            });
+
+            var updates = {
+                nodes: _.keys(new_nodes)
+            };
+            return P.when(db.Pool
+                .findOneAndUpdate(get_pool_query(req), updates)
+                .exec());
         });
 }
 
@@ -141,19 +134,4 @@ function get_pool_query(req) {
         name: req.rpc_params.name,
         deleted: null,
     };
-}
-
-//Recieves an array of node names, return an array of nodes IDs
-function resolve_nodes_ids(system, nodes) {
-    return P.when(db.Node
-            .find({
-                system: system,
-                name: {
-                    $in: nodes
-                }
-            })
-            .exec())
-        .then(function(query_nodes) {
-            return _.pluck(query_nodes, '_id');
-        });
 }

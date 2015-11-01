@@ -26,7 +26,6 @@ module.exports = {
  *
  */
 function allocate_block(chunk, avoid_nodes) {
-    console.warn('NBNB:: block_allocator:: allocate_block with chunk', chunk);
     return update_tier_alloc_nodes(chunk.system, chunk.tier, chunk.bucket)
         .then(function(alloc_nodes) {
             var block_size = (chunk.size / chunk.kfrag) | 0;
@@ -76,62 +75,41 @@ function new_block(chunk, node, size) {
 var tier_alloc_nodes = {};
 
 function update_tier_alloc_nodes(system, tier, bucketid) {
-    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
-    return P.when(get_associated_nodes(bucketid))
+    var tier_id = (tier && tier._id) || tier || null;
+    var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
+        last_refresh: new Date(0),
+        nodes: [],
+    };
+
+    // cache the nodes for 1 minutes and then refresh
+    if (info.last_refresh >= moment().subtract(1, 'minute').toDate()) {
+        return P.resolve(info.nodes);
+    }
+
+    if (info.promise) return info.promise;
+
+    // refresh
+    info.promise = P.when(get_associated_nodes(bucketid))
         .then(function(nodes) {
-            var tier_id = (tier && tier._id) || tier || null;
-            var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
-                last_refresh: new Date(0),
-                nodes: [],
-            };
-
-            // cache the nodes for 1 minutes and then refresh
-            if (info.last_refresh >= moment().subtract(1, 'minute').toDate()) {
-                return P.resolve(info.nodes);
+            info.promise = null;
+            info.nodes = nodes;
+            if (nodes.length < config.min_node_number) {
+                throw new Error('not enough nodes: ' + nodes.length);
             }
-
-            if (info.promise) return info.promise;
-
-            var q = {
-                system: system,
-                deleted: null,
-                heartbeat: {
-                    $gt: min_heartbeat
-                },
-                srvmode: null,
-            };
-            if (tier_id) {
-                q.tier = tier_id;
-            }
-
-            // refresh
-            info.promise =
-                db.Node.find(q)
-                .sort({
-                    // sorting with lowest used storage nodes first
-                    'storage.used': 1
-                })
-                .limit(100)
-                .exec()
-                .then(function(nodes) {
-                    info.promise = null;
-                    info.nodes = nodes;
-                    if (nodes.length < config.min_node_number) {
-                        throw new Error('not enough nodes: ' + nodes.length);
-                    }
-                    info.last_refresh = new Date();
-                    return nodes;
-                }, function(err) {
-                    info.promise = null;
-                    throw err;
-                });
-
-            return info.promise;
+            info.last_refresh = new Date();
+            return nodes;
+        }, function(err) {
+            info.promise = null;
+            throw err;
         });
+
+    return info.promise;
 }
 
 function get_associated_nodes(bucketid) {
-    var associated_nodes;
+    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
+    var associated_nodes = [];
+    var system_id;
     return P.when(db.Bucket
             .findOne({
                 _id: bucketid,
@@ -139,16 +117,14 @@ function get_associated_nodes(bucketid) {
             .populate('tiering')
             .exec())
         .then(function(bucket) {
-            console.warn('NBNB:: in update_tier_alloc_nodes got back policy (.tiering)', bucket.tiering);
+            system_id = bucket.system;
             return P.when(db.TieringPolicy
                     .findOne({
                         _id: bucket.tiering,
                     })
                     .exec())
-                .then(function(tiers) {
-                    console.warn('NBNB:: in update_tier_alloc_nodes got back tiers (.tiers)', tiers.tiers);
-                    var tier_ids = _.pluck(tiers.tiers, 'tier');
-                    console.warn('NBNB:: in update_tier_alloc_nodes plucked', tier_ids);
+                .then(function(pol) {
+                    var tier_ids = _.pluck(pol.tiers, 'tier');
                     return P.when(db.Tier
                             .find({
                                 _id: {
@@ -156,15 +132,13 @@ function get_associated_nodes(bucketid) {
                                 }
                             })
                             .exec())
-                        .then(function(nodes) {
-                            console.warn('NBNB:: in update_tier_alloc_nodes got back nodes', nodes);
-                            _.each(nodes, function(n) {
+                        .then(function(tiers) {
+                            _.each(tiers, function(n) {
                                 if (n.nodes.length !== 0) {
                                     associated_nodes = associated_nodes.concat(n.nodes);
                                 }
                             });
-                            console.warn('NBNB:: in update_tier_alloc_nodes after adding direct nodes', associated_nodes);
-                            var pool_ids = _.pluck(tiers.tiers, 'pools');
+                            var pool_ids = _.pluck(tiers, 'pools');
                             return P.when(db.Pool
                                     .find({
                                         _id: {
@@ -178,11 +152,31 @@ function get_associated_nodes(bucketid) {
                                             associated_nodes = associated_nodes.concat(p.nodes);
                                         }
                                     });
-                                    console.warn('NBNB:: in update_tier_alloc_nodes after adding pools', associated_nodes);
                                     return associated_nodes;
                                 });
                         });
                 });
+        })
+        .then(function() {
+            var q = {
+                system: system_id,
+                deleted: null,
+                name: {
+                    $in: associated_nodes
+                },
+                heartbeat: {
+                    $gt: min_heartbeat
+                },
+                srvmode: null,
+            };
+
+            return db.Node.find(q)
+                .sort({
+                    // sorting with lowest used storage nodes first
+                    'storage.used': 1
+                })
+                .limit(100)
+                .exec();
         });
 }
 

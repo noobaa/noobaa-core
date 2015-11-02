@@ -168,7 +168,7 @@ function post_upgrade {
 
   #node-gyp install & building
   export PATH=$PATH:/usr/local/bin
-  deploy_log "before node-gyp rebuild"
+  deploy_log "before node-gyp build"
   cd ${CORE_DIR}
   which node-gyp
   if [ $? -ne 0 ]; then
@@ -202,8 +202,13 @@ function post_upgrade {
 
   fi
 
+	# temporary - adding NTP package
+
+	yum install -y ntp
+
+
 	rm -f /tmp/*.tar.gz
-	
+
 	/etc/rc.d/init.d/supervisord stop
 	/etc/rc.d/init.d/supervisord start
 }

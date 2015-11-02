@@ -67,6 +67,10 @@ function install_aux {
 
 	# Install Expect
 	yum install -y expect
+
+	# install NTP server
+	yum install -y ntp
+
 }
 
 function install_repos {

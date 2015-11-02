@@ -887,8 +887,31 @@ module.exports = function(params) {
             });
         },
         deleteBucket: function(req, res) {
-            var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
-            return buildXmlResponse(res, 409, template);
+            var bucketName = req.params.bucket;
+            var s3_info = extract_s3_info(req);
+
+            P.fcall(function() {
+                dbg.log0('check if bucket exists');
+                return isBucketExists(bucketName, s3_info)
+                    .then(function(exists) {
+                        if (exists) {
+                            clients[s3_info.access_key].client.bucket.delete_bucket({
+                                    name: bucketName
+                                })
+                                .then(function() {
+                                    dbg.log0('Deleted new bucket "%s" successfully', bucketName);
+                                    res.header('Location', '/' + bucketName);
+                                    return res.status(200).send();
+                                }).then(null, function(err) {
+                                    var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
+                                    return buildXmlResponse(res, 409, template);
+                                });
+                        } else {
+                            dbg.log0('no such bucket', bucketName);
+                        }
+                    });
+            });
+
         },
 
 

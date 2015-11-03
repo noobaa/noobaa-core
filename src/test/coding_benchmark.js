@@ -87,6 +87,7 @@ function test() {
     function init_api() {
         api = require('../api');
         api.client = new api.Client();
+        api.rpc.base_address = 'ws://127.0.0.1:5001';
         api.rpc.register_n2n_transport();
         return api.client.create_auth_token({
             email: 'demo@noobaa.com',
@@ -121,8 +122,8 @@ function test() {
         var dedup_chunker = new native_util.DedupChunker({
             tpool: new native_util.ThreadPool(1)
         });
+        var object_coding_tpool = new native_util.ThreadPool(2);
         var object_coding = new native_util.ObjectCoding({
-            tpool: new native_util.ThreadPool(2),
             digest_type: 'sha384',
             compress_type: 'snappy',
             cipher_type: 'aes-256-gcm',
@@ -153,7 +154,7 @@ function test() {
             },
             transform_parallel: function(data) {
                 // console.log('encode chunk');
-                return P.ninvoke(object_coding, 'encode', data);
+                return P.ninvoke(object_coding, 'encode', object_coding_tpool, data);
             },
         }));
         if (process.argv[4]) {
@@ -170,7 +171,8 @@ function test() {
                     objectMode: true,
                 },
                 transform_parallel: function(chunk) {
-                    return P.ninvoke(object_coding, 'decode', chunk).thenResolve(chunk);
+                    return P.ninvoke(object_coding, 'decode', object_coding_tpool, chunk)
+                        .thenResolve(chunk);
                 },
             }));
         }

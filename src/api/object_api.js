@@ -17,7 +17,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'size', 'content_type'],
+                required: ['bucket', 'key', 'size'],
                 properties: {
                     bucket: {
                         type: 'string',

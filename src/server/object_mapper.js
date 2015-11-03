@@ -51,11 +51,10 @@ function allocate_object_parts(bucket, obj, parts) {
     var new_blocks = [];
     var new_chunks = [];
     var new_parts = [];
-    var digest_to_dup_chunk;
+    var existing_chunks;
     var existing_parts;
-    var remove_parts;
     var query_parts_params = _.map(parts, get_part_key);
-    dbg.log1('GGG allocate_object_parts: start');
+    dbg.log1('allocate_object_parts: start');
 
     var reply = {
         parts: _.times(parts.length, function() {
@@ -65,7 +64,9 @@ function allocate_object_parts(bucket, obj, parts) {
 
     return P.join(
 
-            // Check if some of the ObjectParts already exists from previous attempts
+            // find the parts already exists from previous attempts
+            // that will be removed.
+            // their chunks will be used though.
             P.when(db.ObjectPart.find({
                     system: obj.system,
                     obj: obj.id,
@@ -90,15 +91,14 @@ function allocate_object_parts(bucket, obj, parts) {
         )
         .spread(function(existing_parts_arg, dup_chunks) {
             existing_parts = existing_parts_arg;
-            digest_to_dup_chunk = _.indexBy(dup_chunks, function(chunk) {
-                return chunk.digest_b64;
+            existing_chunks = dup_chunks;
+            _.each(existing_parts, function(existing_part) {
+                if (existing_part.chunk) {
+                    existing_chunks.push(existing_part.chunk);
+                }
             });
-            // find blocks of the dup chunks
-            var chunks_ids = _.uniq(
-                _.map(digest_to_dup_chunk, '_id').concat(
-                    _.map(existing_parts, function(part) {
-                        return part.chunk._id;
-                    })));
+            // find blocks of the dup chunks and existing parts chunks
+            var chunks_ids = _.uniq(_.map(existing_chunks, '_id'));
             return chunks_ids.length && P.when(
                 db.DataBlock.find({
                     chunk: {
@@ -113,64 +113,56 @@ function allocate_object_parts(bucket, obj, parts) {
 
             // assign blocks to chunks
             var blocks_by_chunk_id = _.groupBy(blocks, 'chunk');
-            _.each(digest_to_dup_chunk, function(chunk) {
+            var digest_to_chunk = {};
+
+            // filter only the available chunks to be used for dedup
+            _.each(existing_chunks, function(chunk) {
                 chunk.all_blocks = blocks_by_chunk_id[chunk._id];
                 chunk.chunk_status = object_utils.analyze_chunk_status(chunk, chunk.all_blocks);
-            });
-            remove_parts = _.remove(existing_parts, function(existing_part) {
-                var chunk = existing_part.chunk;
-                if (!chunk) {
-                    return true; // remove it
+                var prev = digest_to_chunk[chunk.digest_b64];
+                if (prev) {
+                    dbg.log0('allocate_object_parts: already found chunk for digest', prev, chunk);
+                } else if (chunk.chunk_status.chunk_health === 'unavailable') {
+                    dbg.log0('allocate_object_parts: ignore unavailable chunk', chunk);
+                } else {
+                    digest_to_chunk[chunk.digest_b64] = chunk;
                 }
-                chunk.all_blocks = blocks_by_chunk_id[chunk._id];
-                chunk.chunk_status = object_utils.analyze_chunk_status(chunk, chunk.all_blocks);
             });
 
             return P.map(parts, function(part, i) {
                 var reply_part = reply.parts[i];
-                var existing_part = _.find(existing_parts, get_part_key(part));
-                var dup_chunk = digest_to_dup_chunk[part.chunk.digest_b64];
+                var dup_chunk = digest_to_chunk[part.chunk.digest_b64];
 
-                if (existing_part) {
-                    // part already exists, probably from a previous attempt, use it
-                    // and don't create a new part
-                    dbg.log2('allocate_object_parts: found existing part, not allocating new',
-                        part.start, part.end, part.part_sequence_number);
-                    part.db_part = existing_part;
-                    part.db_chunk = existing_part.chunk;
+                dbg.log0('allocate_object_parts: allocate part',
+                    part.start, part.end, part.part_sequence_number,
+                    'dup_chunk', dup_chunk);
+                if (dup_chunk) {
+                    part.db_chunk = dup_chunk;
+                    reply_part.dedup = true;
                 } else {
-                    // create a new part
-                    dbg.log3('allocate_object_parts: no existing part, allocating new',
-                        part.start, part.end, part.part_sequence_number);
-                    if (dup_chunk) {
-                        part.db_chunk = dup_chunk;
-                    } else {
-                        part.db_chunk = /*new db.DataChunk*/ (_.extend({
-                            _id: db.new_object_id(),
-                            system: obj.system,
-                            building: new Date(),
-                        }, part.chunk));
-                        new_chunks.push(part.db_chunk);
-                    }
-                    part.db_part = /*new db.ObjectPart*/ ({
+                    part.db_chunk = /*new db.DataChunk*/ (_.extend({
                         _id: db.new_object_id(),
                         system: obj.system,
-                        obj: obj.id,
-                        start: part.start,
-                        end: part.end,
-                        part_sequence_number: part.part_sequence_number,
-                        upload_part_number: part.upload_part_number || 0,
-                        chunk: part.db_chunk
-                    });
-                    new_parts.push(part.db_part);
+                        building: new Date(),
+                    }, part.chunk));
+                    new_chunks.push(part.db_chunk);
                 }
 
-                // Verify chunk health
-                if (part.db_chunk.chunk_status &&
-                    part.db_chunk.chunk_status.chunk_health !== 'unavailable') {
-                    // Chunk health is ok, we can mark it as dedup
-                    dbg.log3('allocate_object_parts: chunk already available');
-                    reply_part.dedup = true;
+                // create a new part
+                part.db_part = /*new db.ObjectPart*/ ({
+                    _id: db.new_object_id(),
+                    system: obj.system,
+                    obj: obj.id,
+                    start: part.start,
+                    end: part.end,
+                    part_sequence_number: part.part_sequence_number,
+                    upload_part_number: part.upload_part_number || 0,
+                    chunk: part.db_chunk
+                });
+                new_parts.push(part.db_part);
+
+                if (reply_part.dedup) {
+                    dbg.log3('allocate_object_parts: using dup chunk');
                     return;
                 }
 
@@ -233,7 +225,7 @@ function allocate_object_parts(bucket, obj, parts) {
             });
             dbg.log2('allocate_object_parts: db create blocks', new_blocks);
             dbg.log2('allocate_object_parts: db create chunks', new_chunks);
-            dbg.log2('allocate_object_parts: db remove parts', remove_parts);
+            dbg.log2('allocate_object_parts: db remove existing parts', existing_parts);
             dbg.log2('allocate_object_parts: db create parts', new_parts);
             // we send blocks and chunks to DB in parallel,
             // even if we fail, it will be ignored until someday we reclaim it
@@ -242,9 +234,9 @@ function allocate_object_parts(bucket, obj, parts) {
                 new_blocks.length && P.when(db.DataBlock.collection.insertMany(new_blocks)),
                 // new_chunks.length && db.DataChunk.create(new_chunks),
                 new_chunks.length && P.when(db.DataChunk.collection.insertMany(new_chunks)),
-                remove_parts.length && db.ObjectPart.update({
+                existing_parts.length && db.ObjectPart.update({
                     _id: {
-                        $in: _.map(remove_parts, '_id')
+                        $in: _.map(existing_parts, '_id')
                     }
                 }, {
                     deleted: new Date()

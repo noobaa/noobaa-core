@@ -27,22 +27,10 @@ describe('tier', function() {
         }).then(function() {
             return client.tier.create_tier({
                 name: 'edge',
-                kind: 'edge',
-                edge_details: {
-                    replicas: 2,
-                    data_fragments: 200,
-                    parity_fragments: 100,
-                }
-            });
-        }).then(function() {
-            return client.tier.create_tier({
-                name: 'cloud',
-                kind: 'cloud',
-                cloud_details: {
-                    access_key: 'access_key',
-                    secret: 'secret',
-                    region: 'region',
-                }
+                replicas: 2,
+                data_fragments: 200,
+                parity_fragments: 100,
+
             });
         }).then(function() {
             return client.tier.read_tier({

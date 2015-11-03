@@ -37,7 +37,18 @@ module.exports = tier_server;
  *
  */
 function create_tier(req) {
-    var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details', 'nodes', 'data_placement');
+    var info = _.pick(req.rpc_params, 'name', 'cloud_details', 'nodes', 'data_placement');
+    if (req.rpc_params.edge_details) {
+        if (req.rpc_params.edge_details.replicas) {
+            info.replicas = req.rpc_params.edge_details.replicas;
+        }
+        if (req.rpc_params.edge_details.data_fragments) {
+            info.data_fragments = req.rpc_params.edge_details.data_fragments;
+        }
+        if (req.rpc_params.edge_details.parity_fragments) {
+            info.parity_fragments = req.rpc_params.edge_details.parity_fragments;
+        }
+    }
     info.system = req.system.id;
     return P.when(db.Pool.find({
                 name: {
@@ -71,12 +82,8 @@ function read_tier(req) {
             .exec())
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
-            var reply = _.pick(tier, 'name', 'kind');
-            if (tier.kind === 'edge') {
-                reply.edge_details = tier.edge_details.toObject();
-            } else if (tier.kind === 'cloud') {
-                reply.cloud_details = tier.cloud_details;
-            }
+            var reply = _.pick(tier, 'name');
+            reply.edge_details = _.pick(tier, 'replicas', 'data_fragments', 'parity_fragments').toObject();
             // TODO read tier's storage and nodes
             reply.storage = {
                 alloc: 0,
@@ -98,9 +105,18 @@ function read_tier(req) {
  *
  */
 function update_tier(req) {
-    var updates = _.pick(req.rpc_params, 'edge_details', 'cloud_details');
+    var updates = _.pick(req.rpc_params, 'cloud_details');
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
+    }
+    if (req.rpc_params.edge_details.replicas) {
+        updates.replicas = req.rpc_params.edge_details.replicas;
+    }
+    if (req.rpc_params.edge_details.data_fragments) {
+        updates.data_fragments = req.rpc_params.edge_details.data_fragments;
+    }
+    if (req.rpc_params.edge_details.parity_fragments) {
+        updates.parity_fragments = req.rpc_params.edge_details.parity_fragments;
     }
     return P.when(db.Tier
             .findOneAndUpdate(get_tier_query(req), updates)

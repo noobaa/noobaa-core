@@ -39,8 +39,7 @@ describe('object', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: TIER,
-                kind: 'edge',
+                name: TIER,                
             });
         }).then(function() {
             return client.bucket.create_bucket({

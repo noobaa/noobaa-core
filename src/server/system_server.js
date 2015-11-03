@@ -111,7 +111,6 @@ function create_system(req) {
         .then(function() {
             return server_rpc.client.tier.create_tier({
                 name: 'nodes',
-                kind: 'edge',
                 data_placement: 'SPREAD',
                 edge_details: {
                     replicas: 3,
@@ -284,7 +283,7 @@ function read_system(req) {
             b.tiering = _.map(bucket.tiering.tiers, function(tier_id) {
                 var tier = tiers_by_id[tier_id];
                 if (!tier) return '';
-                var replicas = tier.edge_details && tier.edge_details.replicas || 3;
+                var replicas = tier.replicas || 3;
                 var t = nodes_aggregate[tier.id];
                 // TODO how to account bucket total storage with multiple tiers?
                 b.storage.total = (t.total || 0) / replicas;
@@ -342,7 +341,7 @@ function read_system(req) {
                     return role;
                 }),
                 tiers: _.map(tiers, function(tier) {
-                    var t = _.pick(tier, 'name', 'kind');
+                    var t = _.pick(tier, 'name');
                     var a = nodes_aggregate[tier.id];
                     t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
                         alloc: 0,

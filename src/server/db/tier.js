@@ -25,23 +25,15 @@ var tier_schema = new Schema({
         required: true,
     },
 
-    kind: {
-        enum: ['edge', 'cloud'],
-        type: String,
-        required: true,
+    replicas: {
+        type: Number,
     },
-
-    edge_details: {
-        replicas: {
-            type: Number,
-        },
-        // see data_frags in data_chunk.js
-        data_fragments: {
-            type: Number,
-        },
-        parity_fragments: {
-            type: Number,
-        },
+    // see data_frags in data_chunk.js
+    data_fragments: {
+        type: Number,
+    },
+    parity_fragments: {
+        type: Number,
     },
 
     //Each tier can be composed of pools OR nodes

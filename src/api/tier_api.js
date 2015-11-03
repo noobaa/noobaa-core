@@ -18,13 +18,10 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                requires: ['name', 'kind'],
+                requires: ['name'],
                 properties: {
                     name: {
                         type: 'string',
-                    },
-                    kind: {
-                        $ref: '/tier_api/definitions/tier_kind'
                     },
                     edge_details: {
                         $ref: '/tier_api/definitions/edge_details'
@@ -126,13 +123,10 @@ module.exports = {
 
         tier_info: {
             type: 'object',
-            required: ['name', 'kind', 'storage', 'nodes', 'pools', 'data_placement'],
+            required: ['name', 'storage', 'nodes', 'pools', 'data_placement'],
             properties: {
                 name: {
                     type: 'string',
-                },
-                kind: {
-                    $ref: '/tier_api/definitions/tier_kind'
                 },
                 edge_details: {
                     $ref: '/tier_api/definitions/edge_details'
@@ -153,11 +147,6 @@ module.exports = {
                     $ref: '/tier_api/definitions/data_placement_enum'
                 }
             }
-        },
-
-        tier_kind: {
-            enum: ['edge', 'cloud'],
-            type: 'string',
         },
 
         edge_details: {

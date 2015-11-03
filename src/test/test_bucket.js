@@ -26,8 +26,7 @@ describe('bucket', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: 'edge',
-                kind: 'edge',
+                name: 'edge',                
             });
         }).nodeify(done);
     });

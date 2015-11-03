@@ -1,10 +1,10 @@
 'use strict';
 require('../util/panic');
 
-// newrelic monitoring should load first
-if (process.env.NEW_RELIC_LICENSE_KEY) {
-    require('newrelic');
-}
+// load .env file before any other modules so that it will contain
+// all the arguments even when the modules are loading.
+console.log('loading .env file');
+require('dotenv').load();
 
 // dump heap with kill -USR2 <pid>
 require('heapdump');
@@ -18,7 +18,6 @@ var path = require('path');
 var http = require('http');
 var https = require('https');
 var mongoose = require('mongoose');
-var dotenv = require('dotenv');
 var express = require('express');
 var express_favicon = require('serve-favicon');
 var express_morgan_logger = require('morgan');
@@ -38,10 +37,9 @@ var fs = require('fs');
 var cluster = require('cluster');
 
 
-console.log('loading .env file ( no foreman ;)');
-dotenv.load();
 
 
+// Temporary removed - causes issues with upgrade.
 var numCPUs = Math.ceil(require('os').cpus().length / 2);
 if (cluster.isMaster) {
     // Fork MD Servers

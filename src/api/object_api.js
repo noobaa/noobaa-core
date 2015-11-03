@@ -639,12 +639,16 @@ module.exports = {
         frag_info: {
             type: 'object',
             required: [
+                'size',
                 'layer',
                 'frag',
                 'digest_type',
                 'digest_b64'
             ],
             properties: {
+                size: {
+                    type: 'integer'
+                },
                 layer: {
                     type: 'string'
                 },

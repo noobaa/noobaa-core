@@ -146,8 +146,8 @@ function build_chunks(chunks) {
             // replicate blocks
             // send to the agent a request to replicate from the source
 
-            return P.allSettled(_.map(chunks_status, function(chunk_status) {
-                return P.allSettled(_.map(chunk_status.blocks_info_to_allocate,
+            return P.all(_.map(chunks_status, function(chunk_status) {
+                return P.all(_.map(chunk_status.blocks_info_to_allocate,
                     function(block_info_to_allocate) {
                         var block = block_info_to_allocate.block;
                         if (!block) {
@@ -403,7 +403,7 @@ function analyze_chunk_status(chunk, all_blocks) {
 function get_block_md(block) {
     var b = _.pick(block, 'size', 'digest_type', 'digest_b64');
     b.id = block._id.toString();
-    b.address = block.node.get_rpc_address();
+    b.address = block.node.rpc_address;
     return b;
 }
 

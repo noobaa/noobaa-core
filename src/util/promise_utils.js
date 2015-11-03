@@ -21,6 +21,7 @@ module.exports = {
     promised_spawn: promised_spawn,
     promised_exec: promised_exec,
     full_dir_copy: full_dir_copy,
+    wait_for_event: wait_for_event,
     pwhile: pwhile,
 };
 
@@ -266,6 +267,24 @@ function full_dir_copy(src, dst) {
             return P.reject(new Error('full_dir_copy failed with ' + err));
         } else {
             return P.resolve();
+        }
+    });
+}
+
+function wait_for_event(emitter, event, timeout) {
+    return new P(function(resolve, reject) {
+        // the first event to fire wins.
+        // since we use emitter.once and the promise will not change after settling
+        // then we can be lazy and leave dangling listeners
+        emitter.once(event, resolve);
+        if (event !== 'close') {
+            emitter.once('close', reject);
+        }
+        if (event !== 'error') {
+            emitter.once('error', reject);
+        }
+        if (timeout) {
+            setTimeout(reject, timeout);
         }
     });
 }

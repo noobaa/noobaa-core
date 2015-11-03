@@ -1,8 +1,10 @@
-#ifndef GF2_H_
-#define GF2_H_
+#ifndef NOOBAA__GF2__H
+#define NOOBAA__GF2__H
 
 #include "common.h"
 #include <math.h>
+
+namespace noobaa {
 
 /**
  *
@@ -137,4 +139,6 @@ private:
     T carry_byte_shift_table[256];
 };
 
-#endif // GF2_H_
+} // namespace noobaa
+
+#endif // NOOBAA__GF2__H

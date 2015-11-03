@@ -7,19 +7,20 @@ var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
 var assert = require('assert');
+// var ip_module = require('ip');
+// var time_utils = require('../util/time_utils');
+var url_utils = require('../util/url_utils');
 var dbg = require('../util/debug_module')(__filename);
 var RpcRequest = require('./rpc_request');
 var RpcWsConnection = require('./rpc_ws');
 var RpcHttpConnection = require('./rpc_http');
+var RpcTcpConnection = require('./rpc_tcp');
+var RpcNudpConnection = require('./rpc_nudp');
 var RpcN2NConnection = require('./rpc_n2n');
 var RpcFcallConnection = require('./rpc_fcall');
 var EventEmitter = require('events').EventEmitter;
 
 // dbg.set_level(5, __dirname);
-
-// allow self generated certificates for testing
-// TODO NODE_TLS_REJECT_UNAUTHORIZED is not a proper flag to mess with...
-process.env.NODE_TLS_REJECT_UNAUTHORIZED = 0;
 
 var browser_location = global.window && global.window.location;
 var is_browser_secure = browser_location && browser_location.protocol === 'https:';
@@ -43,6 +44,10 @@ if (browser_location) {
     }
 }
 
+var RPC_PING_INTERVAL_MS = 20000;
+var RECONN_BACKOFF_BASE = 1000;
+var RECONN_BACKOFF_MAX = 15000;
+var RECONN_BACKOFF_FACTOR = 1.2;
 
 util.inherits(RPC, EventEmitter);
 
@@ -196,7 +201,7 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
             self.emit_stats('stats.client_request.start', req);
 
             // connect the connection
-            return P.invoke(req.connection, 'connect');
+            return req.connection.connect();
 
         })
         .then(function() {
@@ -245,10 +250,16 @@ RPC.prototype.client_request = function(api, method_api, params, options) {
 
             self.emit_stats('stats.client_request.done', req);
 
-            return reply;
+            if (options.return_rpc_req) {
+                // this mode allows callers to get back the request
+                // instead of a bare reply, and the reply is in req.reply
+                return req;
+            } else {
+                return reply;
+            }
 
         })
-        .then(null, function(err) {
+        .fail(function(err) {
 
             dbg.error('RPC client_request: response ERROR',
                 'srv', req.srv,
@@ -285,9 +296,7 @@ RPC.prototype.handle_request = function(conn, msg) {
     // var millistamp = time_utils.millistamp();
     var req = new RpcRequest();
     req.connection = conn;
-    var rseq = conn._rpc_req_seq || 1;
-    conn._rpc_req_seq = rseq + 1;
-    req.reqid = msg.header.reqid ? msg.header.reqid : (rseq + '@' + conn.connid);
+    req.reqid = msg.header.reqid;
 
     // find the requested service
     var srv = msg.header.api +
@@ -378,8 +387,9 @@ RPC.prototype.handle_request = function(conn, msg) {
             }
 
             return conn.send(req.export_response_buffer(), 'res', req);
-        })
-        .fin(function() {
+
+        // })
+        // .fin(function() {
             // dbg.log0('RPC', req.srv, 'took', time_utils.millitook(millistamp));
         });
 };
@@ -453,15 +463,13 @@ RPC.prototype._assign_connection = function(req, options) {
     var address = options.address || this.base_address;
     var addr_url = this._address_to_url_cache[address];
     if (!addr_url) {
-        addr_url = url.parse(address, true);
+        addr_url = url_utils.quick_parse(address, true);
         this._address_to_url_cache[address] = addr_url;
     }
     var conn = this._get_connection(addr_url, req.srv, options.force_redirect);
     if (conn !== null) {
-        var rseq = conn._rpc_req_seq;
         req.connection = conn;
-        req.reqid = rseq + '@' + conn.connid;
-        conn._rpc_req_seq = rseq + 1;
+        req.reqid = conn._alloc_reqid();
         conn._sent_requests[req.reqid] = req;
     }
     return conn;
@@ -488,8 +496,8 @@ RPC.prototype._get_connection = function(addr_url, srv, force_redirect) {
     var conn = this._connection_by_address[addr_url.href];
 
     if (conn && !force_redirect) {
-        if (conn.closed) {
-            dbg.log2('RPC _assign_connection: remove stale connection',
+        if (conn.is_closed()) {
+            dbg.log0('RPC _assign_connection: remove stale connection',
                 'address', addr_url.href,
                 'srv', srv,
                 'connid', conn.connid);
@@ -532,6 +540,13 @@ RPC.prototype._new_connection = function(addr_url) {
         case 'n2n:':
             conn = new RpcN2NConnection(addr_url, this.n2n_agent);
             break;
+        case 'tls:':
+        case 'tcp:':
+            conn = new RpcTcpConnection(addr_url);
+            break;
+        case 'nudp:':
+            conn = new RpcNudpConnection(addr_url);
+            break;
         case 'ws:':
         case 'wss:':
             conn = new RpcWsConnection(addr_url);
@@ -555,26 +570,36 @@ RPC.prototype._new_connection = function(addr_url) {
  *
  */
 RPC.prototype._accept_new_connection = function(conn) {
-    // always replace previous connection in the address map,
-    // assuming the new connection is preferred.
-    if (!conn.transient) {
-        dbg.log3('RPC NEW CONNECTION', conn.connid, conn.url.href);
-        this._connection_by_address[conn.url.href] = conn;
-    }
-    conn._rpc_req_seq = 1;
+    var self = this;
     conn._sent_requests = {};
     conn._received_requests = {};
-    conn.on('message', this._connection_receive.bind(this, conn));
-    conn.on('close', this._connection_closed.bind(this, conn));
-
+    conn.on('message', function(msg) {
+        return self._connection_receive(conn, msg);
+    });
+    conn.on('close', function(err) {
+        return self._connection_closed(conn, err);
+    });
     // we prefer to let the connection handle it's own errors and decide if to close or not
-    // conn.on('error', this._connection_error.bind(this, conn));
+    // conn.on('error', self._connection_error.bind(self, conn));
+
+    if (!conn.transient) {
+        // always replace previous connection in the address map,
+        // assuming the new connection is preferred.
+        dbg.log3('RPC NEW CONNECTION', conn.connid, conn.url.href);
+        self._connection_by_address[conn.url.href] = conn;
+
+        // send pings to keepalive
+        conn._ping_interval = setInterval(function() {
+            dbg.log4('RPC PING', conn.connid);
+            conn._ping_last_reqid = conn._alloc_reqid();
+            P.invoke(conn, 'send', RpcRequest.encode_message({
+                op: 'ping',
+                reqid: conn._ping_last_reqid
+            })).fail(_.noop); // already means the conn is closed
+        }, RPC_PING_INTERVAL_MS);
+    }
 };
 
-
-var RECONN_BACKOFF_BASE = 1000;
-var RECONN_BACKOFF_MAX = 15000;
-var RECONN_BACKOFF_FACTOR = 1.1;
 
 
 /**
@@ -602,7 +627,7 @@ RPC.prototype._reconnect = function(addr_url, reconn_backoff) {
             conn._reconn_backoff = Math.min(
                 reconn_backoff * RECONN_BACKOFF_FACTOR, RECONN_BACKOFF_MAX);
 
-            return P.invoke(conn, 'connect');
+            return conn.connect();
 
         })
         .then(function() {
@@ -656,8 +681,6 @@ RPC.prototype._connection_error = function(conn, err) {
 RPC.prototype._connection_closed = function(conn) {
     var self = this;
 
-    conn.closed = true;
-
     dbg.log3('RPC _connection_closed:', conn.connid);
 
     // remove from connection pool
@@ -671,6 +694,11 @@ RPC.prototype._connection_closed = function(conn) {
             'connid', conn.connid);
         req.rpc_error('DISCONNECTED', 'connection closed ' + conn.connid);
     });
+
+    if (conn._ping_interval) {
+        clearInterval(conn._ping_interval);
+        conn._ping_interval = null;
+    }
 
     // for base_address try to reconnect after small delay.
     if (!conn._no_reconnect && self._should_reconnect(conn.url.href)) {
@@ -702,9 +730,35 @@ RPC.prototype._connection_receive = function(conn, msg_buffer) {
 
     switch (msg.header.op) {
         case 'req':
-            return self.handle_request(conn, msg);
+            P.fcall(function() {
+                return self.handle_request(conn, msg);
+            }).fail(function(err) {
+                dbg.warn('RPC _connection_receive: ERROR from handle_request', err.stack || err);
+            }).done();
+            break;
         case 'res':
-            return self.handle_response(conn, msg);
+            self.handle_response(conn, msg);
+            break;
+        case 'ping':
+            dbg.log4('RPC PONG', conn.connid);
+            P.invoke(conn, 'send', RpcRequest.encode_message({
+                op: 'pong',
+                reqid: msg.header.reqid
+            })).fail(_.noop); // already means the conn is closed
+            break;
+        case 'pong':
+            if (conn._ping_last_reqid === msg.header.reqid) {
+                dbg.log4('RPC PINGPONG', conn.connid);
+                conn._ping_mismatch_count = 0;
+            } else {
+                conn._ping_mismatch_count = (conn._ping_mismatch_count || 0) + 1;
+                if (conn._ping_mismatch_count < 3) {
+                    dbg.warn('RPC PINGPONG MISMATCH #' + conn._ping_mismatch_count, conn.connid);
+                } else {
+                    conn.close(new Error('RPC PINGPONG MISMATCH #' + conn._ping_mismatch_count + ' ' + conn.connid));
+                }
+            }
+            break;
         default:
             conn.emit('error', new Error('RPC _connection_receive:' +
                 ' BAD MESSAGE OP ' + msg.header.op +
@@ -793,6 +847,41 @@ RPC.prototype.register_ws_transport = function(http_server) {
 
 /**
  *
+ * register_tcp_transport
+ *
+ */
+RPC.prototype.register_tcp_transport = function(port, tls_options) {
+    dbg.log0('RPC register_tcp_transport');
+    var tcp_server = new RpcTcpConnection.Server(tls_options);
+    tcp_server.on('connection', this._accept_new_connection.bind(this));
+    tcp_server.listen(port);
+    return tcp_server;
+};
+
+
+/**
+ *
+ * register_nudp_transport
+ *
+ * this is not really like tcp listening, it only creates a one time
+ * nudp connection that binds to the given port, and waits for a peer
+ * to connect. after that connection is made, it ceases to listen for new connections,
+ * and that udp port is used for the nudp connection.
+ *
+ */
+RPC.prototype.register_nudp_transport = function(port) {
+    var self = this;
+    dbg.log0('RPC register_tcp_transport');
+    var conn = new RpcNudpConnection(url_utils.quick_parse('nudp://0.0.0.0:0'));
+    conn.on('connect', function() {
+        self._accept_new_connection(conn);
+    });
+    return conn.accept(port);
+};
+
+
+/**
+ *
  * register_n2n_transport
  *
  */
@@ -810,7 +899,8 @@ RPC.prototype.register_n2n_transport = function() {
 };
 
 /**
- *
+ * this function allows the n2n protocol to accept connections.
+ * it should called when a signal is accepted in order to process it by the n2n_agent.
  */
 RPC.prototype.n2n_signal = function(params) {
     return this.n2n_agent.signal(params);
@@ -840,8 +930,10 @@ RPC.prototype.get_default_base_port = function(server) {
 };
 
 function get_default_base_port(server) {
+    // the default 5001 port is for development
+    var base_port = parseInt(process.env.PORT, 10) || 5001;
     if (server === 'background') {
-        return (parseInt(process.env.PORT) + 1);
+        base_port += 1;
     }
-    return parseInt(process.env.PORT);
+    return base_port;
 }

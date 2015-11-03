@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var moment = require('moment');
-var chance = new (require('chance').Chance)();
+var chance = require('chance')();
 var promise_utils = require('../util/promise_utils');
 var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);
@@ -190,7 +190,9 @@ nb_api.factory('nbNodes', [
                 tier: 'nodes',
                 prod: true,
                 bucket: 'files',
-                root_path: './agent_storage/'
+                root_path: './agent_storage/',
+                port: 8888,
+                secure_port: 9999
             };
 
             config_json.address = 'wss://noobaa.local:' + nbSystem.system.ssl_port;

@@ -130,8 +130,16 @@ function post_upgrade {
   fi
   echo "${AGENT_VERSION_VAR}" >> ${CORE_DIR}/.env
 
-  echo -e "Welcome to your \x1b[0;35;40mNooBaa\x1b[0m server,\n" > /etc/issue
-  echo -e "You can use \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m login to configure IP,DNS,GW and Hostname" >>/etc/issue
+	#Fix login message
+	echo  " _   _            ______ "   > /etc/issue
+	echo  "| \\ | |           | ___ \\"    >> /etc/issue
+	echo  "|  \\| | ___   ___ | |_/ / __ _  __ _ " >> /etc/issue
+	echo  "| . \` |/ _ \\ / _ \\| ___ \\/ _\` |/ _\` |" >> /etc/issue
+	echo  "| |\\  | (_) | (_) | |_/ / (_| | (_| |" >> /etc/issue
+	echo  "\\_| \\_/\\___/ \\___/\\____/ \\__,_|\\__,_|" >> /etc/issue
+  echo -e "\nWelcome to your \x1b[0;35;40mNooBaa\x1b[0m server,\n" >> /etc/issue
+  echo -e "You can configure IP, DNS, GW and Hostname by logging in using \x1b[0;32;40mnoobaa/Passw0rd\x1b[0m" >> /etc/issue
+
   deploy_log "NooBaa supervisor services configuration changes"
   #NooBaa supervisor services configuration changes
   sed -i 's:logfile=.*:logfile=/tmp/supervisor/supervisord.log:' /etc/supervisord.conf
@@ -148,7 +156,7 @@ function post_upgrade {
 
   #Installation ID generation if needed
   #TODO: Move this into the mongo_upgrade.js
-  local id=$(/mongodb/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
+  local id=$(/usr/bin/mongo nbcore --eval "db.clusters.find().shellPrint()" | grep cluster_id | wc -l)
   if [ ${id} -eq 0 ]; then
       id=$(uuidgen)
       /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
@@ -183,7 +191,6 @@ function post_upgrade {
   deploy_log "list core dir"
   deploy_log "$(ls -R ${CORE_DIR}/build/)"
 
-  /etc/rc.d/init.d/supervisord restart
   sudo grep noobaa /etc/sudoers
   if [ $? -ne 0 ]; then
       deploy_log "adding noobaa to sudoers"
@@ -195,8 +202,10 @@ function post_upgrade {
 
   fi
 
-
-  rm -f /tmp/*.tar.gz
+	rm -f /tmp/*.tar.gz
+	
+	/etc/rc.d/init.d/supervisord stop
+	/etc/rc.d/init.d/supervisord start
 }
 
 

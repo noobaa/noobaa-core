@@ -2,11 +2,13 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
+// P.longStackTraces();
 var url = require('url');
 var util = require('util');
 var argv = require('minimist')(process.argv);
 var RPC = require('./rpc');
 var RpcSchema = require('./rpc_schema');
+var chance = require('chance')();
 var memwatch = null; //require('memwatch');
 var dbg = require('../util/debug_module')(__filename);
 var MB = 1024 * 1024;
@@ -27,10 +29,21 @@ argv.rsize = argv.rsize || 0;
 argv.client = argv.client || false;
 argv.server = argv.server || false;
 argv.n2n = argv.n2n || false;
+argv.nconn = argv.nconn || 1;
+argv.closeconn = parseInt(argv.closeconn, 10) || 0;
 argv.addr = url.parse(argv.addr || '');
-argv.addr.protocol = argv.addr.protocol || 'ws:';
-argv.addr.hostname = argv.addr.hostname || '127.0.0.1';
-argv.addr.port = argv.addr.port || 5656;
+argv.addr.protocol = (argv.proto && argv.proto + ':') || argv.addr.protocol || 'ws:';
+argv.addr.hostname = argv.host || argv.addr.hostname || '127.0.0.1';
+argv.addr.port = parseInt(argv.port, 10) || argv.addr.port || 5656;
+
+// retry delay in seconds on failures
+argv.retry = argv.retry || undefined;
+var retry_ms = 1000 * (parseInt(argv.retry, 10) || 0);
+var retry_func = argv.retry && function() {
+    return P.delay(retry_ms);
+};
+
+var target_addresses;
 
 // debug level
 argv.debug = argv.debug || 0;
@@ -108,11 +121,10 @@ var rpc = new RPC({
 rpc.register_service(schema.rpcbench, {
     io: io_service,
     n2n_signal: function(req) {
+        // when a signal is received, pass it to the n2n agent
         return rpc.n2n_signal(req.params);
     }
 });
-
-var io_rpc_options = {};
 
 var io_count = 0;
 var io_rbytes = 0;
@@ -131,6 +143,30 @@ function start() {
                 return;
             }
 
+            if (argv.addr.protocol === 'nudp:') {
+                return rpc.register_nudp_transport(argv.addr.port);
+            }
+
+            var tcp = argv.addr.protocol in {
+                'tcp:': 1,
+                'tls:': 1,
+            };
+
+            if (tcp) {
+                var pem = require('../util/pem');
+                return P.nfcall(pem.createCertificate, {
+                        days: 365 * 100,
+                        selfSigned: true
+                    })
+                    .then(function(cert) {
+                        return rpc.register_tcp_transport(argv.addr.port,
+                            argv.addr.protocol === 'tls:' && {
+                                key: cert.serviceKey,
+                                cert: cert.certificate
+                            });
+                    });
+            }
+
             var secure = argv.addr.protocol in {
                 'https:': 1,
                 'wss:': 1,
@@ -146,22 +182,20 @@ function start() {
         .then(function() {
 
             if (!argv.n2n) {
+                target_addresses = [url.format(argv.addr)];
                 return;
             }
 
             // setup a signaller callback
             rpc.n2n_signaller = rpc.client.rpcbench.n2n_signal;
 
-            // set rpc address to use n2n.
-            // the hostname doesn't matter here since our signalling
-            // is not using the url for routing.
-            io_rpc_options.address = typeof(argv.n2n) === 'string' ?
-                argv.n2n : 'n2n://unused';
+            target_addresses = _.times(argv.nconn, function(i) {
+                return 'n2n://conn' + i;
+            });
 
-            // open udp listening port for udp based protocols
-            // (both server and client)
-            return rpc.register_n2n_transport();
-
+            // register n2n and accept any peer_id
+            var n2n_agent = rpc.register_n2n_transport();
+            n2n_agent.set_any_peer_id();
         })
         .then(function() {
 
@@ -185,19 +219,36 @@ function start() {
 }
 
 // test loop
-function call_next_io(res) {
-    if (res && res.data) {
-        io_count += 1;
-        io_rbytes += res.data.length;
-        io_wbytes += argv.wsize;
+function call_next_io(req) {
+    if (req) {
+        var reply = req.reply;
+        if (reply && reply.data) {
+            io_count += 1;
+            io_rbytes += reply.data.length;
+            io_wbytes += argv.wsize;
+        }
+        var conn = req.connection;
+        if (conn && argv.closeconn) {
+            setTimeout(function() {
+                conn.close();
+            }, argv.closeconn);
+        }
     }
-    return rpc.client.rpcbench.io({
-            kushkush: {
-                data: new Buffer(argv.wsize),
-                rsize: argv.rsize
-            }
-        }, io_rpc_options)
-        .then(call_next_io);
+    var data = new Buffer(argv.wsize);
+    data.fill(0xFA);
+    var promise = rpc.client.rpcbench.io({
+        kushkush: {
+            data: data,
+            rsize: argv.rsize
+        }
+    }, {
+        address: chance.pick(target_addresses),
+        return_rpc_req: true
+    });
+    if (retry_func) {
+        promise = promise.fail(retry_func);
+    }
+    return promise.then(call_next_io);
 }
 
 function io_service(req) {
@@ -205,8 +256,10 @@ function io_service(req) {
     io_count += 1;
     io_rbytes += req.params.kushkush.data.length;
     io_wbytes += req.params.kushkush.rsize;
+    var data = new Buffer(req.params.kushkush.rsize);
+    data.fill(0x99);
     return {
-        data: new Buffer(req.params.kushkush.rsize)
+        data: data
     };
 }
 

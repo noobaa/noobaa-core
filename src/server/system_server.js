@@ -318,15 +318,28 @@ function read_system(req) {
                     }
                     b.policy_schedule_in_min = interval_text;
                     //If sync time is epoch (never synced) change to never synced
+                    if (sync_policy.paused) {
+                        b.cloud_sync_status = 'NOTSET';
+                    }
+                    if (!sync_policy.health) {
+                        b.cloud_sync_status = 'UNABLE';
+                    }
+                    if (sync_policy.status === 'IDLE') {
+                        b.cloud_sync_status = 'SYNCED';
+                    } else {
+                        b.cloud_sync_status = 'SYNCING';
+                    }
                     if (sync_policy.policy.last_sync === 0) {
                         b.last_sync = 'Waiting for first sync';
+                        b.cloud_sync_status = 'UNSYNCED';
                     } else {
                         b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
                     }
-
+                    dbg.log2('bucket is:', b);
+                    return b;
+                } else {
+                    b.cloud_sync_status = 'NOTSET';
                 }
-                dbg.log2('bucket is:', b);
-                return b;
             }).then(null, function(err) {
                 dbg.error('failed reading bucket information');
             });

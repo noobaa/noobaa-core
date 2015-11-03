@@ -21,9 +21,17 @@ function test() {
     var filename = process.argv[2];
     var mode = process.argv[3];
     console.log('FILE', filename);
-    var input = fs.createReadStream(filename, {
-        highWaterMark: 1024 * 1024
-    });
+    var input;
+    if (parseInt(filename, 10)) {
+        var RandStream = require('../util/rand_stream');
+        input = new RandStream(parseInt(filename, 10), {
+            highWaterMark: 1024 * 1024
+        });
+    } else {
+        input = fs.createReadStream(filename, {
+            highWaterMark: 1024 * 1024
+        });
+    }
     var api;
     var stats = {
         count: 0,
@@ -117,12 +125,12 @@ function test() {
 
     function test_coding() {
         var CoalesceStream = require("../util/coalesce_stream");
-        var native_util = require("bindings")("native_util.node");
-        var dedup_chunker = new native_util.DedupChunker({
-            tpool: new native_util.ThreadPool(1)
-        });
-        var object_coding = new native_util.ObjectCoding({
-            tpool: new native_util.ThreadPool(2),
+        var native_core = require("../util/native_core")();
+        var dedup_chunker = new native_core.DedupChunker({
+            tpool: new native_core.ThreadPool(1)
+        }, new native_core.DedupConfig({}));
+        var object_coding = new native_core.ObjectCoding({
+            tpool: new native_core.ThreadPool(2),
             digest_type: 'sha384',
             compress_type: 'snappy',
             cipher_type: 'aes-256-gcm',

@@ -14,6 +14,7 @@
     "trailing": true,
     "immed": true,
     "undef": true,
+    "esnext": true,
 
     "latedef": "nofunc",
     "unused": "vars",

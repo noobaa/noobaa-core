@@ -6,7 +6,6 @@ var _ = require('lodash');
 var P = require('../util/promise');
 var url = require('url');
 var util = require('util');
-var EventEmitter = require('events').EventEmitter;
 var http = require('http');
 var https = require('https');
 var express = require('express');
@@ -16,9 +15,11 @@ var express_method_override = require('method-override');
 var express_compress = require('compression');
 var pem = require('../util/pem');
 var dbg = require('../util/debug_module')(__filename);
+var EventEmitter = require('events').EventEmitter;
+var RpcBaseConnection = require('./rpc_base_conn');
 
 
-util.inherits(RpcHttpConnection, EventEmitter);
+util.inherits(RpcHttpConnection, RpcBaseConnection);
 
 /**
  *
@@ -26,9 +27,7 @@ util.inherits(RpcHttpConnection, EventEmitter);
  *
  */
 function RpcHttpConnection(addr_url) {
-    EventEmitter.call(this);
-    this.url = addr_url;
-    this.connid = addr_url.href;
+    RpcBaseConnection.call(this, addr_url);
 }
 
 /**
@@ -56,10 +55,18 @@ if (http.Agent && http.Agent.defaultMaxSockets < 100) {
  * connect
  *
  */
-RpcHttpConnection.prototype.connect = function() {
-    if (this.url.protocol === 'http:' && is_browser_secure) {
+RpcHttpConnection.prototype._connect = function() {
+    var self = this;
+    // there is not real need to connect http connections
+    // as the actual connection is managed by the nodejs http module
+    // so we only manage a transient request-response.
+    // see the RpcHttpConnection.prototype.transient = true handling
+    if (self.url.protocol === 'http:' && is_browser_secure) {
         throw new Error('HTTP INSECURE - cannot use http: from secure browser page');
     }
+    setImmediate(function() {
+        self.emit('connect');
+    });
 };
 
 
@@ -68,9 +75,7 @@ RpcHttpConnection.prototype.connect = function() {
  * close
  *
  */
-RpcHttpConnection.prototype.close = function() {
-    this.emit('close');
-
+RpcHttpConnection.prototype._close = function() {
     // try to abort the connetion's running request
     if (this.req) {
         if (this.req.abort) {
@@ -87,7 +92,7 @@ RpcHttpConnection.prototype.close = function() {
  * send
  *
  */
-RpcHttpConnection.prototype.send = function(msg, op, req) {
+RpcHttpConnection.prototype._send = function(msg, op, req) {
     if (op === 'res') {
         return this.send_http_response(msg, req);
     } else {
@@ -103,20 +108,19 @@ RpcHttpConnection.prototype.send = function(msg, op, req) {
  */
 RpcHttpConnection.prototype.send_http_response = function(msg, req) {
     var res = this.res;
-    if (res) {
-        res.status(200);
-        if (_.isArray(msg)) {
-            _.each(msg, function(m) {
-                res.write(m);
-            });
-            res.end();
-        } else {
-            res.end(msg);
-        }
-        this.res = null;
-    } else {
-        dbg.warn('HTTP RESPONSE ALREADY SENT', req.reqid);
+    if (!res) {
+        throw new Error('HTTP RESPONSE ALREADY SENT ' + req.reqid);
     }
+    res.status(200);
+    if (_.isArray(msg)) {
+        _.each(msg, function(m) {
+            res.write(m);
+        });
+        res.end();
+    } else {
+        res.end(msg);
+    }
+    this.res = null;
 };
 
 
@@ -146,6 +150,8 @@ RpcHttpConnection.prototype.send_http_request = function(msg, rpc_req) {
         method: http_method,
         path: path,
         headers: headers,
+        // accept self signed ssl certificates
+        rejectUnauthorized: false,
         // turn off withCredentials for browser xhr requests
         // in order to use allow-origin=* (CORS)
         withCredentials: false,
@@ -329,6 +335,7 @@ RpcHttpServer.prototype.middleware = function(req, res) {
         var conn = new RpcHttpConnection(url.parse(address));
         conn.req = req;
         conn.res = res;
+        conn.emit('connect');
         this.emit('connection', conn);
         conn.emit('message', req.body);
     } catch (err) {

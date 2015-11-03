@@ -1,5 +1,7 @@
 #include "buzhash.h"
 
+namespace noobaa {
+
 template <>
 const uint32_t BuzHash<uint32_t>::byte_const_hash[256] = {
     0xd45020ecu, 0x10307c23u, 0xb66dae89u, 0x26eb482du, 0xba418067u, 0xa326b628u, 0xf95439b6u, 0x8f04e668u,
@@ -103,3 +105,5 @@ const uint64_t BuzHash<uint64_t>::byte_const_hash[256] = {
     0xa467e16784b7740dull, 0x315ea276973469c5ull, 0x991998bf7068fe84ull, 0x24d05d3a6f6b21bfull,
     0xfd52007e22d1eb64ull, 0xa5d71bade18e9314ull, 0x7ad389e6a3c55555ull, 0x262ba20cc1de4ef2ull,
 };
+
+} // namespace noobaa

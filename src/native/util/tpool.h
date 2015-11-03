@@ -1,11 +1,22 @@
-#ifndef TPOOL_H_
-#define TPOOL_H_
+#ifndef NOOBAA__TPOOL__H
+#define NOOBAA__TPOOL__H
 
 #include "common.h"
 #include "mutex.h"
 
+namespace noobaa {
+
 class ThreadPool : public Nan::ObjectWrap
 {
+public:
+    static NAN_MODULE_INIT(setup);
+
+private:
+    static Nan::Persistent<v8::Function> _ctor;
+    static NAN_METHOD(new_instance);
+    static NAN_GETTER(nthreads_getter);
+    static NAN_SETTER(nthreads_setter);
+
 public:
 
     /**
@@ -53,14 +64,8 @@ private:
     std::list<Worker*> _pending_workers;
     std::list<Worker*> _completed_workers;
     int _refs;
-
-public:
-    static NAN_MODULE_INIT(setup);
-private:
-    static Nan::Persistent<v8::Function> _ctor;
-    static NAN_METHOD(new_instance);
-    static NAN_GETTER(nthreads_getter);
-    static NAN_SETTER(nthreads_setter);
 };
 
-#endif // TPOOL_H_
+} // namespace noobaa
+
+#endif // NOOBAA__TPOOL__H

@@ -1,7 +1,9 @@
 #include "compression.h"
-#include "../snappy/snappy.h"
-#include "../snappy/snappy-sinksource.h"
-#include <zlib.h>
+#include "../third_party/snappy/snappy.h"
+#include "../third_party/snappy/snappy-sinksource.h"
+#include "../third_party/zlib/zlib.h"
+
+namespace noobaa {
 
 /**
  *
@@ -200,3 +202,5 @@ Compression::decompress(Buf buf, int decompressed_len, std::string type)
         throw Exception(std::string("Compression not supported ") + type);
     }
 }
+
+} // namespace noobaa

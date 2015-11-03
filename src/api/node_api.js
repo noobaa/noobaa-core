@@ -252,21 +252,17 @@ module.exports = {
         },
 
 
-
         heartbeat: {
             method: 'PUT',
             params: {
                 type: 'object',
                 required: [
-                    'id',
-                    'port',
+                    'ip',
+                    'version',
                     'storage',
                 ],
                 properties: {
                     name: {
-                        type: 'string',
-                    },
-                    id: {
                         type: 'string'
                     },
                     geolocation: {
@@ -275,11 +271,14 @@ module.exports = {
                     ip: {
                         type: 'string'
                     },
-                    port: {
-                        type: 'integer'
+                    rpc_address: {
+                        type: 'string'
                     },
                     version: {
                         type: 'string'
+                    },
+                    extended_hb: {
+                        type: 'boolean'
                     },
                     storage: {
                         $ref: '/common_api/definitions/storage_info'
@@ -297,8 +296,18 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['version', 'delay_ms'],
+                required: ['rpc_address', 'version', 'delay_ms'],
                 properties: {
+                    auth_token: {
+                        // auth token will only be sent back if new node was created
+                        type: 'string'
+                    },
+                    rpc_address: {
+                        type: 'string'
+                    },
+                    ice_config: {
+                        $ref: '/common_api/definitions/ice_config'
+                    },
                     version: {
                         type: 'string'
                     },
@@ -311,12 +320,12 @@ module.exports = {
                 }
             },
             auth: {
-                system: ['admin', 'agent']
+                system: ['admin', 'agent', 'create_node']
             }
         },
 
         n2n_signal: {
-          method: 'POST',
+            method: 'POST',
             params: {
                 type: 'object',
                 required: ['target'],
@@ -444,7 +453,6 @@ module.exports = {
                 'rpc_address',
                 'peer_id',
                 'ip',
-                'port',
                 'online',
                 'heartbeat',
                 'version',
@@ -474,9 +482,6 @@ module.exports = {
                 },
                 ip: {
                     type: 'string'
-                },
-                port: {
-                    type: 'integer'
                 },
                 online: {
                     type: 'boolean',

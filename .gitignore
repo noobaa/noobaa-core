@@ -1,6 +1,7 @@
 node_modules/
 bower_components/
 build/
+!src/native/third_party/webrtc/webrtc/build
 .env
 *.pem
 *.iml

@@ -116,28 +116,47 @@ var heartbeat_update_node_timestamp_barrier = new Barrier({
  *
  */
 function heartbeat(req) {
-    var node_id = req.rpc_params.id;
+    dbg.log0('heartbeat:', 'ROLE', req.role, 'AUTH', req.auth, 'PARAMS', req.rpc_params);
 
     // verify the authorization to use this node for non admin roles
-    if (req.role !== 'admin' && node_id !== req.auth.extra.node_id) {
-        throw req.forbidden();
+    if (req.auth.extra.node_id &&
+        (req.role === 'admin' || req.role === 'agent')) {
+        req.rpc_params.node_id = req.auth.extra.node_id;
+        req.rpc_params.peer_id = req.auth.extra.peer_id;
+        return update_heartbeat(req.rpc_params, req.connection);
     }
 
-    var params = _.pick(req.rpc_params,
-        'id',
-        'geolocation',
-        'ip',
-        'port',
-        'version',
-        'storage',
-        'drives',
-        'os_info');
-    params.ip = params.ip ||
-        (req.headers && req.headers['x-forwarded-for']) ||
-        (req.connection && req.connection.remoteAddress);
-    params.port = params.port || 0;
-    params.system = req.system;
+    // check if the node doesn't yet has an id
+    // and has auth that can create a node,
+    // then first create the node and then update the heartbeat
+    if (!req.auth.extra.node_id &&
+        (req.role === 'admin' || req.role === 'create_node')) {
+        return server_rpc.client.node.create_node({
+            name: req.rpc_params.name,
+            tier: req.auth.extra.tier,
+            geolocation: req.rpc_params.geolocation,
+        }, {
+            auth_token: req.auth_token
+        }).then(function(node) {
+            req.rpc_params.node_id = node.id;
+            req.rpc_params.peer_id = node.peer_id;
+            return update_heartbeat(req.rpc_params, req.connection, node.token);
+        });
+    }
 
+    dbg.warn('heartbeat: bad auth role', req.role, req.auth);
+    throw req.forbidden();
+}
+
+
+/**
+ *
+ * UPDATE HEARTBEAT
+ *
+ */
+function update_heartbeat(params, conn, reply_token) {
+    var node_id = params.node_id;
+    var peer_id = params.peer_id;
     var node;
 
     dbg.log0('HEARTBEAT node_id', node_id, 'process.env.AGENT_VERSION', process.env.AGENT_VERSION);
@@ -148,15 +167,78 @@ function heartbeat(req) {
     hb_delay_ms = Math.max(hb_delay_ms, 1000); // force above 1 second
     hb_delay_ms = Math.min(hb_delay_ms, 300000); // force below 5 minutes
 
+    // rpc address is taken from server env so that we can change in one place.
+    // TODO keep rpc_proto in pool/system
+    var rpc_proto = process.env.AGENTS_PROTOCOL || 'n2n';
+    var rpc_address;
+    if (rpc_proto !== 'n2n') {
+        rpc_address = rpc_proto + '://' + params.ip + ':' + (process.env.AGENT_PORT || 60111);
+    } else {
+        rpc_address = 'n2n://' + peer_id;
+        dbg.log0('PEER REVERSE ADDRESS', rpc_address, conn.url.href);
+        // Add node to RPC map and notify redirector if needed
+        var notify_redirector = server_rpc.map_address_to_connection(rpc_address, conn);
+        if (notify_redirector) {
+            conn.on('close', _unregister_agent.bind(null, conn, peer_id));
+            P.fcall(function() {
+                    return bg_worker.redirector.register_agent({
+                        peer_id: peer_id,
+                    });
+                })
+                .fail(function(error) {
+                    dbg.log0('Failed to register agent', error);
+                    _resync_agents();
+                });
+        }
+    }
+
+    // if the agent still did not listen on any address
+    // we already update the DB with the default address
+    // that we also return in the reply, since we assume it will follow
+    // and we don't want to incur another HB request just for that update
+    if (!params.rpc_address) {
+        params.rpc_address = rpc_address;
+    }
+
     var reply = {
-        // TODO avoid returning storage property unless filled - do that once agents are updated
-        storage: {
-            alloc: 0,
-            used: 0,
-        },
+        rpc_address: rpc_address,
         version: process.env.AGENT_VERSION || '0',
-        delay_ms: hb_delay_ms
+        delay_ms: hb_delay_ms,
     };
+    if (reply_token) {
+        reply.auth_token = reply_token;
+    }
+
+    if (params.extended_hb) {
+        // these ice options affect only agents.
+        // non-agents use the default as defined in rpc_n2n.js,
+        // TODO keep ice config in pool/system
+        reply.ice_config = {
+            // ip options
+            offer_ipv4: true,
+            offer_ipv6: false,
+            accept_ipv4: true,
+            accept_ipv6: true,
+            offer_internal: false,
+            // tcp options
+            tcp_active: true,
+            tcp_permanent_passive: {
+                min: 60111,
+                max: 60888
+            },
+            tcp_transient_passive: false,
+            tcp_simultaneous_open: false,
+            tcp_tls: true,
+            // udp options
+            udp_port: true,
+            udp_dtls: false,
+            stun_servers: [
+                // TODO stun server address (only IPv4 is supported now, also need to resolve DNS)
+                // 'stun://our-server-ip:3479'
+                // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
+            ]
+        };
+    }
 
     // code for testing performance of server with no heartbeat work
     if (process.env.HEARTBEAT_MODE === 'ignore') {
@@ -181,24 +263,6 @@ function heartbeat(req) {
 
             var updates = {};
 
-            var node_listen_addr = 'n2n://' + node.peer_id;
-            dbg.log3('PEER REVERSE ADDRESS', node_listen_addr, req.connection.url.href);
-
-            //Add node to RPC map and notify redirector if needed
-            var notify_redirector = server_rpc.map_address_to_connection(node_listen_addr, req.connection);
-            if (notify_redirector) {
-                req.connection.on('close', _unregister_agent.bind(this, req.connection, node.peer_id));
-                P.fcall(function() {
-                        return bg_worker.redirector.register_agent({
-                            peer_id: node.peer_id,
-                        });
-                    })
-                    .fail(function(error) {
-                        dbg.log0('Failed to register agent', error);
-                        _resync_agents();
-                    });
-            }
-
             // TODO detect nodes that try to change ip, port too rapidly
             if (params.geolocation &&
                 params.geolocation !== node.geolocation) {
@@ -207,8 +271,9 @@ function heartbeat(req) {
             if (params.ip && params.ip !== node.ip) {
                 updates.ip = params.ip;
             }
-            if (params.port && params.port !== node.port) {
-                updates.port = params.port;
+            if (params.rpc_address &&
+                params.rpc_address !== node.rpc_address) {
+                updates.rpc_address = params.rpc_address;
             }
             if (params.version && params.version !== node.version) {
                 updates.version = params.version;

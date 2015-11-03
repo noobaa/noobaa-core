@@ -74,9 +74,13 @@
 
     <div class="text-right" style="position: fixed; bottom: 15px; right: 15px; z-index: 10">
 
-        <button class="btn btn-primary btn-material-teal btn-fab mdi-av-play-arrow pull-right" ng-click="play()" rel="tooltip" title="Open file content for streaming / preview..." data-placement="top"></button>
+        <button class="btn btn-primary btn-material-teal btn-fab mdi-av-play-arrow pull-right" ng-click="play()" rel="tooltip" title="Open file content for streaming / preview..." data-placement="top">
+            <img src="/public/images/play.png" style="width: 100%"/>
+        </button>
 
-        <a class="btn btn-warning btn-fab mdi-file-file-download pull-right" style="margin-right: 15px" href="{{file_url}}" download="{{file.name}}" rel="tooltip" title="Click to start downloading..." data-placement="top"></a>
+        <a class="btn btn-warning btn-fab mdi-file-file-download pull-right" style="margin-right: 15px" href="{{file_url}}" download="{{file.name}}" rel="tooltip" title="Click to start downloading..." data-placement="top">
+            <img src="/public/images/download.png" style="width: 100%"/>
+        </a>
 
     </div>
 

@@ -4,47 +4,25 @@ module.exports = RpcN2NConnection;
 RpcN2NConnection.Agent = RpcN2NAgent;
 
 var _ = require('lodash');
-// var P = require('../util/promise');
+var P = require('../util/promise');
+// var fs = require('fs');
+// var dns = require('dns');
+var tls = require('tls');
+// var url = require('url');
 var util = require('util');
-var url = require('url');
-var js_utils = require('../util/js_utils');
-var time_utils = require('../util/time_utils');
-var EventEmitter = require('events').EventEmitter;
 var dbg = require('../util/debug_module')(__filename);
-var IceConnection = require('./ice_connection');
-var NiceConnection = require('./nice_connection');
-var NudpFlow = require('./nudp');
+// var js_utils = require('../util/js_utils');
+// var time_utils = require('../util/time_utils');
+// var promise_utils = require('../util/promise_utils');
+var url_utils = require('../util/url_utils');
+var native_core = require('../util/native_core');
+var EventEmitter = require('events').EventEmitter;
+var RpcBaseConnection = require('./rpc_base_conn');
+var Ice = require('./ice');
 
-var CONNECTORS = {
-    ice: IceConnection,
-    nice: NiceConnection,
-    // jingle: jingle,
-    // webrtc: webrtc,
-};
+// dbg.set_level(5, 'core.rpc');
 
-var SECURITY = {
-    no: NoSecurity,
-    // dtls: DtlsSecurity,
-};
-
-var FLOW_CONTROL = {
-    nudp: NudpFlow,
-    // udt: udt,
-    // utp: utp,
-    // sctp: sctp,
-    // quic: quic,
-    // dccp: dccp,
-};
-
-var DEFAULT_N2N_CONF = {
-    // connector
-    con: 'ice',
-    // security
-    sec: 'no',
-    // flow-control
-    flow: 'nudp'
-};
-
+util.inherits(RpcN2NConnection, RpcBaseConnection);
 
 /**
  *
@@ -52,97 +30,84 @@ var DEFAULT_N2N_CONF = {
  *
  * n2n - node-to-node or noobaa-to-noobaa, essentially p2p, but noobaa branded.
  *
- * NOTE: this connection class is meant to be as flexible as possible
- * because at this point we do not know which of the stacks would prove best,
- * so we want to be able to experiment with as many as possible.
- * this generalization will requires extra resources (memory, cpu)
- * and once we have our pick we can discard the flexibility in favor of performance.
- *
  */
 function RpcN2NConnection(addr_url, n2n_agent) {
     var self = this;
-    EventEmitter.call(self);
+    if (!n2n_agent) throw new Error('N2N AGENT NOT REGISTERED');
+    RpcBaseConnection.call(self, addr_url);
 
-    self.n2n_agent = n2n_agent;
-    self.url = addr_url;
+    self.ice = new Ice(self.connid, n2n_agent.ice_config, self.url.href);
 
-    // generate connection id only used for identifying in debug prints
-    self.connid = 'N2N-' + time_utils.nanostamp().toString(36);
-
-    // use the configuration from the url query (parsed before)
-    var conf = self.conf = _.defaults(self.url.query, DEFAULT_N2N_CONF);
-    dbg.log0('N2N', 'con=' + conf.con, 'sec=' + conf.sec, 'flow=' + conf.flow);
-    self.connector = new CONNECTORS[conf.con]({
-        addr_url: addr_url,
-        signaller: js_utils.self_bind(self, 'signaller')
+    self.ice.on('close', function() {
+        var closed_err = new Error('N2N ICE CLOSED');
+        closed_err.stack = '';
+        self.emit('error', closed_err);
     });
-    self.security = new SECURITY[conf.sec]();
-    self.flow = new FLOW_CONTROL[conf.flow](self.connid);
 
-    js_utils.self_bind(self, 'close');
-    js_utils.self_bind(self.security, 'sendmsg');
-    js_utils.self_bind(self.security, 'recvmsg');
-    js_utils.self_bind(self.flow, 'recvmsg');
-    js_utils.self_bind(self.connector, 'send');
+    self.ice.on('error', function(err) {
+        self.emit('error', err);
+    });
 
-    // handle close and error
-    self.connector.on('error', self.close);
-    self.connector.on('close', self.close);
-    self.security.on('close', self.close);
-    self.security.on('close', self.close);
-    self.flow.on('error', self.close);
-    self.flow.on('close', self.close);
-
-    // packets redirection - connector <-> security <-> flow
-    self.connector.on('message', self.security.recvmsg);
-    self.security.on('sendmsg', self.connector.send);
-    self.security.on('recvmsg', self.flow.recvmsg);
-    self.flow.on('sendmsg', self.security.sendmsg);
-    self.flow.on('message', function(msg) {
-        // once a complete message is assembled it is emitted from the connection
-        self.emit('message', msg);
+    self.ice.once('connect', function(session) {
+        if (session.tcp) {
+            dbg.log0('N2N CONNECTED TO TCP',
+                // session.tcp.localAddress + ':' + session.tcp.localPort, '=>',
+                session.tcp.remoteAddress + ':' + session.tcp.remotePort);
+            self._send = function(msg) {
+                session.tcp.frame_stream.send_message(msg);
+            };
+            session.tcp.on('message', function(msg) {
+                // dbg.log0('N2N TCP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
+                self.emit('message', msg);
+            });
+            self.emit('connect');
+        } else {
+            self._send = function(msg) {
+                return P.ninvoke(self.ice.udp, 'send', msg);
+            };
+            self.ice.udp.on('message', function(msg) {
+                dbg.log1('N2N UDP RECEIVE', msg.length, msg.length < 200 ? msg.toString() : '');
+                self.emit('message', msg);
+            });
+            if (self.controlling) {
+                dbg.log0('N2N CONNECTING NUDP', session.key);
+                P.invoke(self.ice.udp, 'connect', session.remote.port, session.remote.address)
+                    .done(function() {
+                        dbg.log0('N2N CONNECTED TO NUDP', session.key);
+                        self.emit('connect');
+                    }, function(err) {
+                        self.emit('error', err);
+                    });
+            } else {
+                dbg.log0('N2N ACCEPTING NUDP');
+                self.emit('connect');
+                // TODO need to wait for NUDP accept event...
+            }
+        }
     });
 }
 
-util.inherits(RpcN2NConnection, EventEmitter);
-
-RpcN2NConnection.prototype.connect = function() {
-    return this.connector.connect();
+RpcN2NConnection.prototype._connect = function() {
+    this.controlling = true;
+    return this.ice.connect();
 };
 
-RpcN2NConnection.prototype.close = function(err) {
-    if (err) {
-        dbg.error('N2N CONNECTION ERROR', err.stack || err);
-    }
-    if (this.closed) {
-        return;
-    }
-    this.closed = true;
-    this.connector.close();
-    this.security.close();
-    this.flow.close();
-    this.emit('close');
+/**
+ * pass remote_info to ICE and return back the ICE local info
+ */
+RpcN2NConnection.prototype.accept = function(remote_info) {
+    return this.ice.accept(remote_info);
 };
 
-RpcN2NConnection.prototype.send = function(msg) {
-    return this.flow.send(msg);
+RpcN2NConnection.prototype._close = function(err) {
+    this.ice.close();
 };
 
-RpcN2NConnection.prototype.accept = function(info) {
-    return this.connector.accept(info);
+RpcN2NConnection.prototype._send = function(msg) {
+    // this default error impl will be overridden once ice emit's connect
+    throw new Error('N2N NOT CONNECTED');
 };
 
-// forward signals
-RpcN2NConnection.prototype.signaller = function(info) {
-    return this.n2n_agent.signaller({
-        target: this.url.href,
-        info: info
-    });
-};
-
-
-
-util.inherits(RpcN2NAgent, EventEmitter);
 
 /**
  *
@@ -154,41 +119,219 @@ util.inherits(RpcN2NAgent, EventEmitter);
  *
  */
 function RpcN2NAgent(options) {
-    EventEmitter.call(this);
+    var self = this;
+    EventEmitter.call(self);
     options = options || {};
-    this.signaller = options.signaller;
+
+    // signaller is function(info) that sends over a signal channel
+    // and delivers the info to info.target,
+    // and returns back the info that was returned by the peer.
+    self.signaller = options.signaller;
+
+    // lazy loading of native_core to use Nudp
+    var Nudp = native_core().Nudp;
+
+    // initialize the ICE config structure
+    self.ice_config = {
+
+        // auth options
+        ufrag_length: 32,
+        pwd_length: 32,
+
+        // ip options
+        offer_ipv4: true,
+        offer_ipv6: false,
+        accept_ipv4: true,
+        accept_ipv6: true,
+        offer_internal: false,
+
+        // tcp options
+        tcp_active: true,
+        tcp_permanent_passive: {
+            min: 60111,
+            max: 60888
+        },
+        tcp_transient_passive: false,
+        tcp_simultaneous_open: false,
+        tcp_tls: true,
+
+        // udp options
+        udp_port: true,
+        udp_dtls: false,
+
+        // TODO stun server to use for N2N ICE
+        // TODO Nudp require ip's, not hostnames, and also does not support IPv6 yet
+        stun_servers: [
+            // read_on_premise_stun_server()
+            // 'stun://64.233.184.127:19302' // === 'stun://stun.l.google.com:19302'
+        ],
+
+        // ssl options - apply for both tcp-tls and udp-dtls
+        ssl_options: {
+            // we allow self generated certificates to avoid public CA signing:
+            rejectUnauthorized: false,
+            secureContext: tls.createSecureContext({
+                key: get_global_ssl_key(),
+                cert: get_global_ssl_cert(),
+                // TODO use a system ca certificate
+                // ca: [tls_cert],
+            }),
+        },
+
+        // callback to create and bind nudp socket
+        // TODO implement nudp dtls
+        udp_socket: function(udp_port, dtls) {
+            var nudp = new Nudp();
+            return P.ninvoke(nudp, 'bind', 0, '0.0.0.0').then(function(port) {
+                nudp.port = port;
+                return nudp;
+            });
+        },
+
+        // signaller callback
+        signaller: function(target, info) {
+            // send ice info to the peer over a relayed signal channel
+            // in order to coordinate NAT traversal.
+            return self.signaller({
+                target: target,
+                info: info
+            });
+        }
+    };
 }
 
+util.inherits(RpcN2NAgent, EventEmitter);
+
+RpcN2NAgent.prototype.reset_peer_id = function() {
+    this.peer_id = undefined;
+};
+RpcN2NAgent.prototype.set_peer_id = function(peer_id) {
+    this.peer_id = peer_id;
+};
+RpcN2NAgent.prototype.set_any_peer_id = function() {
+    this.peer_id = '*';
+};
+
+RpcN2NAgent.prototype.set_ssl_context = function(secure_context_params) {
+    this.ice_config.ssl_options.secureContext =
+        tls.createSecureContext(secure_context_params);
+};
+
+RpcN2NAgent.prototype.update_ice_config = function(config) {
+    var self = this;
+    _.each(config, function(val, key) {
+        if (key === 'tcp_permanent_passive') {
+            // since the tcp permanent object holds more info than just the port_range
+            // then we need to check if the port range cofig changes, if not we ignore
+            // if it did then we have to start a new
+            var conf = self.ice_config.tcp_permanent_passive;
+            if (!_.isEqual(_.pick('min', 'max', 'port'), val)) {
+                if (conf.server) {
+                    conf.server.close();
+                }
+                self.ice_config.tcp_permanent_passive = _.clone(val);
+            }
+        } else {
+            self.ice_config[key] = val;
+        }
+    });
+};
 
 RpcN2NAgent.prototype.signal = function(params) {
+    var self = this;
     dbg.log0('N2N AGENT signal:', params);
 
-    // TODO target address is me, should use the source address ...
-
-    var addr_url = url.parse(params.target, true);
-    var conn = new RpcN2NConnection(addr_url, this);
-    this.emit('connection', conn);
+    // TODO target address is me, should use the source address but we don't send it ...
+    var target_url = url_utils.quick_parse(params.target);
+    // the special case if peer_id='*' allows testing code to accept for any peer_id
+    if (!self.peer_id || !target_url.hostname ||
+        (self.peer_id !== '*' && self.peer_id !== target_url.hostname)) {
+        throw new Error('N2N MISMATCHING PEER ID ' + params.target +
+            ' my peer id ' + self.peer_id);
+    }
+    var conn = new RpcN2NConnection(target_url, self);
+    conn.once('connect', function() {
+        self.emit('connection', conn);
+    });
     return conn.accept(params.info);
 };
 
 
-util.inherits(NoSecurity, EventEmitter);
+/*
+function read_on_premise_stun_server() {
+    return fs.readFileAsync('agent_conf.json')
+        .then(function(data) {
+            var agent_conf = JSON.parse(data);
+            var host_url = url.parse(agent_conf.address);
+            return P.nfcall(dns.resolve, host_url.hostname);
+        })
+        .then(function(server_ips) {
+            if (!server_ips || !server_ips[0]) return;
+            var stun_url = url.parse('stun://' + server_ips[0] + ':3479');
+            dbg.log0('N2N STUN SERVER from agent_conf.json', stun_url.href);
+            return stun_url;
+        })
+        .catch(function(err) {
+            dbg.log0('N2N NO STUN SERVER in agent_conf.json');
+        });
+}
+*/
 
-/**
- *
- * NoSecurity
- *
- * simply propagate the packets as plaintext
- *
- */
-function NoSecurity() {
-    var self = this;
-    EventEmitter.call(self);
-    self.recvmsg = function(msg) {
-        self.emit('recvmsg', msg);
-    };
-    self.sendmsg = function(msg) {
-        self.emit('sendmsg', msg);
-    };
-    self.close = function() {};
+// TODO this is a temporary place to keep the SSL certificate
+function get_global_ssl_key() {
+    return [
+        '-----BEGIN RSA PRIVATE KEY-----',
+        'MIIEpAIBAAKCAQEAvSegTfXkLDbLalfxrsjlFJXpaDWPDgb3ohS78+ByJXcgwPrG',
+        'Q2yNO47qY04UuWkgGEUW+RXis7iPCdpYwl4RfYjAPQHIUhhlw7v7U+Sv7PIv5uUv',
+        'kk/kzjz54m42K+z/NBvO/kpf/L777a9czOuUR5fCPbPg+br7PFyBh0djMw+RA/hk',
+        'KSEM87jru2k4e1y1cnMv4qupVCVNaegOszSkclrFvnCUxVhyHCofhidrx7nqQhZU',
+        '8zOVdrPmnakGcmX1Hux5v90eg5nm640c0xQcTOQ3rCCq3YkwYcwujtfQI+0p086d',
+        'eMMCF6jJ+i2Fb2NAHYQO65jhZNWoCHlJPzsvUQIDAQABAoIBAQCYT+RBYpLNF4JM',
+        'q2wtNg9guCYuh5Id1XZpyRBfnIfNq1NwkX48pJhFMRuDw0fk1MXHRTrub7UQyrhD',
+        'UtLOEDk9QHSrq1fG42ZualxCfY872PjBkCLySesQNwFwVxa/4CLPruTK1tDcEF2E',
+        'UwUC7V+FFqqOTN4HuYy8WjDi4ZT7c1RPD0N2xnpkk4ZmqSOhgfwWW0P29CmUorWJ',
+        'PCeW0zH30YF+0xjBUH0qORc/vbSZjGjpuGAZ6KOENYcSneRI+HAENn7Z/SmxW7EW',
+        'A9BQjitNRV88A+DTdGk7SC0AXxV6HN0GHlkE28N23CS+EUVtmqh8vwzpycoXkPWm',
+        'gb7aBxPBAoGBAPkfQuv+Rkvr6AD3LAJeES8/4kg25zQla8ck0iyieSjDuDE22MBd',
+        've2m/bAxCURTxiVuhUyI+7EbnYtjBydermyHGhNVih6JW4p7bgLdAT+j5XoXYtcs',
+        '3v8jlou4lnsGfs4wpP+bdEB9ipItb1bm4Isf0c1CuBSOCDVXv1OHGF4dAoGBAMJg',
+        'h4IIxXFIouUq48Qj+0yklqMpzBm1BRziwYxcoNFgQ5IaP1Q83pNO5cHuqKjr7HX/',
+        'AaB0k5vgfIDzPU36SzvYnqxEqRkYAMKcxClxqqR80+m4CseunxIF6TiJtIHMDsvb',
+        'YTHOYcpNQoF8fyPO46jnsbSCXfVAYrMOh4WLZl/FAoGAeolx9XrBQR7so2zw7Mkw',
+        'UrltqG+5EeFGPlJSPzo7tl1vAGYl/5kcjwUQy9WS5VT/pfHTB25pvxgCSkmPf0IH',
+        'McLShKgSpCqUKG3GEwp6Tr9jZMaUC5s6pOzwZBGLk0ACp5Et17yzVfVqb7SBi5FM',
+        '6aHhJMGoohOq3fInXgKZbdECgYBfv6Mgp+dyrUAouR7ncH4KvAzEJQO4KhZxqzWC',
+        'SeKiINRINQu7GBzf3X6KMGD+jPC3Ez2e564Km+NYtfkd30yOF1/aJhxSEyPUudpb',
+        'O/W9/wt4VsNgp6EOBMFkq1iyk206eD+BhFNhjvtSw5vxbKlye2drLsjP1b6Iy4Bw',
+        'hUGRrQKBgQCaVjWxbtd8Rv9tCNYDfgSAfYlfMkMziaLPiGMz/OD2LX8YV3rknAuJ',
+        'OEQN98dOkLWaJogYzMPJc6RBSaZaBrvRIPgkG3JcHzib42gVyBOSjsXwThe/09OU',
+        '8gj5btThBrTqiXQgm8VqSCwLgJEUwCmxUEEuXyFhgimOIimBUWg7AQ==',
+        '-----END RSA PRIVATE KEY-----',
+    ].join('\n');
+}
+
+// TODO this is a temporary place to keep the SSL certificate
+function get_global_ssl_cert() {
+    return [
+        '-----BEGIN CERTIFICATE-----',
+        'MIIDLjCCAhYCCQDbjDECU6toDDANBgkqhkiG9w0BAQUFADBZMQswCQYDVQQGEwJB',
+        'VTETMBEGA1UECBMKU29tZS1TdGF0ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0',
+        'cyBQdHkgTHRkMRIwEAYDVQQDEwlsb2NhbGhvc3QwHhcNMTUxMDA1MDI0OTExWhcN',
+        'MTUxMTA0MDI0OTExWjBZMQswCQYDVQQGEwJBVTETMBEGA1UECBMKU29tZS1TdGF0',
+        'ZTEhMB8GA1UEChMYSW50ZXJuZXQgV2lkZ2l0cyBQdHkgTHRkMRIwEAYDVQQDEwls',
+        'b2NhbGhvc3QwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC9J6BN9eQs',
+        'NstqV/GuyOUUleloNY8OBveiFLvz4HIldyDA+sZDbI07jupjThS5aSAYRRb5FeKz',
+        'uI8J2ljCXhF9iMA9AchSGGXDu/tT5K/s8i/m5S+ST+TOPPnibjYr7P80G87+Sl/8',
+        'vvvtr1zM65RHl8I9s+D5uvs8XIGHR2MzD5ED+GQpIQzzuOu7aTh7XLVycy/iq6lU',
+        'JU1p6A6zNKRyWsW+cJTFWHIcKh+GJ2vHuepCFlTzM5V2s+adqQZyZfUe7Hm/3R6D',
+        'mebrjRzTFBxM5DesIKrdiTBhzC6O19Aj7SnTzp14wwIXqMn6LYVvY0AdhA7rmOFk',
+        '1agIeUk/Oy9RAgMBAAEwDQYJKoZIhvcNAQEFBQADggEBAFZ0CKD10m+Yb2y/n4j4',
+        'EoLGr+pOaBPDIEgpcV5/Kf+BJpA6scs9UYaysPSCKUsLSk8SxKLOE8DxwiuYwxtu',
+        'M2W69nZU1n1t84BkrJ5JyphKe8lXtjiNJIlST2BNHyMOSx/5/dyZgC+P0MHUlCmy',
+        'aVeyz+7ckKB/ubr7bknNfuHkNPkZm2cUCnULZzRyCWcWl/RWA9p4CcAIxg3DZl76',
+        'mAB9B6VSVAnE7fOPIrfp/5ot7D+wnbv/R1s04cc78R3DUkhPKDJKHIvVMv12BEhq',
+        'On3Ht3GyCamJKqr174h4ynIk4neFaDeZ0N/jsMrkEYEpYYwiT/swuX9ZPAJ4CIKx',
+        '2RE=',
+        '-----END CERTIFICATE-----',
+    ].join('\n');
 }

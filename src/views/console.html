@@ -6,7 +6,7 @@
     <base href="/console/">
 </head>
 
-<body class="inverse" ng-controller="ConsoleCtrl" ng-cloak>
+<body class="inverse color-fix" ng-controller="ConsoleCtrl" ng-cloak>
 
 
     <div class="row">
@@ -16,7 +16,7 @@
             <ul class="nav nav-pills nav-stacked" ng-if="nbClient.account" style="position: absolute; bottom: 10px; left: 0; right: 0">
                 <li class="text-center dropup">
                     <a class="dropdown-toggle" data-toggle="dropdown" style="text-overflow: ellipsis; overflow: hidden">
-                        <i class="mdi-action-account-circle fa-3x"></i>
+                        <img src="/public/images/user.png" class="fa-3x" />
                         <br/>
                         <small>{{nbClient.account.email}}</small>
                     </a>

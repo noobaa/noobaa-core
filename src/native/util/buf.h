@@ -1,9 +1,11 @@
-#ifndef MEM_H_
-#define MEM_H_
+#ifndef NOOBAA__BUF__H
+#define NOOBAA__BUF__H
 
 #include "common.h"
-#include "base64/cencode.h"
-#include "base64/cdecode.h"
+#include "../third_party/base64/cencode.h"
+#include "../third_party/base64/cdecode.h"
+
+namespace noobaa {
 
 /**
  * Like a nodejs buffer, but thread safe
@@ -214,6 +216,11 @@ public:
         return str;
     }
 
+    /**
+     * dump memory in hex
+     */
+    static void hexdump(const void *p, size_t len, const char* prefix = NULL);
+
 private:
 
     class Alloc
@@ -312,4 +319,6 @@ public:
     int _len;
 };
 
-#endif // MEM_H_
+} // namespace noobaa
+
+#endif // NOOBAA__BUF__H

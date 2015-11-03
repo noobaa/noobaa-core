@@ -77,7 +77,7 @@ describe('semaphore', function() {
             sem = new Semaphore(10);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
-            return P.allSettled([
+            return P.settle([
                 sem.surround(function() {
                     assert.strictEqual(sem.length, 2);
                     assert.strictEqual(sem.value, 9);
@@ -93,16 +93,12 @@ describe('semaphore', function() {
                 })
             ]);
         }).then(function(results) {
-            assert.deepEqual(results, [{
-                state: "fulfilled",
-                value: 11
-            }, {
-                state: "rejected",
-                reason: 42
-            }, {
-                state: "fulfilled",
-                value: 22
-            }]);
+            assert(results[0].isFulfilled());
+            assert(results[0].value() === 11);
+            assert(results[1].isRejected());
+            assert(results[1].reason() === 42);
+            assert(results[2].isFulfilled());
+            assert(results[2].value() === 22);
             assert.strictEqual(sem.length, 0);
             assert.strictEqual(sem.value, 10);
         }).done(done);

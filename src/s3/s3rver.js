@@ -1,6 +1,11 @@
 'use strict';
 require('../util/panic');
 
+// load .env file before any other modules so that it will contain
+// all the arguments even when the modules are loading.
+console.log('loading .env file');
+require('dotenv').load();
+
 var _ = require('lodash');
 var P = require('../util/promise');
 var fs = require('fs');
@@ -15,12 +20,6 @@ var api = require('../api');
 var s3app = require('./app');
 var cluster = require('cluster');
 var numCPUs = require('os').cpus().length;
-var dotenv = require('dotenv');
-
-//Global Configuration and Initialization
-console.log('loading .env file ( no foreman ;)');
-dotenv.load();
-
 
 var params = argv;
 var certificate;

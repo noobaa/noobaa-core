@@ -2,7 +2,8 @@
     "env": {
         "browser": true,
         "node": true,
-        "mocha": true
+        "mocha": true,
+        "es6": true
     },
     "rules": {
         "eqeqeq": 2,
@@ -28,7 +29,6 @@
         "consistent-return": 0,
         "comma-dangle": 0,
         "no-constant-condition": 0,
-
 
         "no-shadow": 0,
         "handle-callback-err": 0

@@ -79,6 +79,7 @@ function allocate_object_parts(bucket, obj, parts) {
             process.env.DEDUP_DISABLED !== 'true' &&
             P.when(db.DataChunk.find({
                     system: obj.system,
+                    bucket: bucket._id,
                     digest_b64: {
                         $in: _.map(parts, function(part) {
                             return part.chunk.digest_b64;
@@ -148,6 +149,7 @@ function allocate_object_parts(bucket, obj, parts) {
                         part.db_chunk = /*new db.DataChunk*/ (_.extend({
                             _id: db.new_object_id(),
                             system: obj.system,
+                            bucket: bucket._id,
                             building: new Date(),
                         }, part.chunk));
                         new_chunks.push(part.db_chunk);
@@ -214,21 +216,10 @@ function allocate_object_parts(bucket, obj, parts) {
         })
         .then(function() {
             _.each(new_blocks, function(x) {
-                // x = x.toObject();
-                // x.system = x.system._id;
-                // x.tier = x.tier._id;
                 x.node = x.node._id;
                 x.chunk = x.chunk._id;
             });
-            _.each(new_chunks, function(x) {
-                // x = x.toObject();
-                // x.system = x.system._id;
-                // x.tier = x.tier._id;
-                // x.bucket = x.bucket._id;
-            });
             _.each(new_parts, function(x) {
-                // x = x.toObject();
-                // x.system = x.system._id;
                 x.obj = db.new_object_id(x.obj);
                 x.chunk = x.chunk._id;
             });

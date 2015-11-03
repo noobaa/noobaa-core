@@ -26,8 +26,7 @@ describe('agent', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: 'edge',
-                kind: 'edge',
+                name: 'edge',                
             });
         }).then(function() {
             return coretest.init_test_nodes(10, SYS, 'edge');

@@ -18,19 +18,25 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                requires: ['name', 'kind'],
+                requires: ['name'],
                 properties: {
                     name: {
                         type: 'string',
-                    },
-                    kind: {
-                        $ref: '/tier_api/definitions/tier_kind'
                     },
                     edge_details: {
                         $ref: '/tier_api/definitions/edge_details'
                     },
                     cloud_details: {
                         $ref: '/tier_api/definitions/cloud_details'
+                    },
+                    nodes: {
+                        $ref: '/system_api/definitions/nodes_info'
+                    },
+                    pools: {
+                        $ref: '/tier_api/definitions/pool_info'
+                    },
+                    data_placement: {
+                        $ref: '/tier_api/definitions/data_placement_enum'
                     },
                 }
             },
@@ -78,6 +84,15 @@ module.exports = {
                     cloud_details: {
                         $ref: '/tier_api/definitions/cloud_details'
                     },
+                    nodes: {
+                        $ref: '/system_api/definitions/nodes_info'
+                    },
+                    pools: {
+                        $ref: '/tier_api/definitions/pool_info'
+                    },
+                    data_placement: {
+                        $ref: '/tier_api/definitions/data_placement_enum'
+                    },
                 }
             },
             auth: {
@@ -101,7 +116,6 @@ module.exports = {
                 system: 'admin'
             }
         },
-
     },
 
 
@@ -109,13 +123,10 @@ module.exports = {
 
         tier_info: {
             type: 'object',
-            required: ['name', 'kind', 'storage', 'nodes'],
+            required: ['name', 'storage', 'nodes', 'pools', 'data_placement'],
             properties: {
                 name: {
                     type: 'string',
-                },
-                kind: {
-                    $ref: '/tier_api/definitions/tier_kind'
                 },
                 edge_details: {
                     $ref: '/tier_api/definitions/edge_details'
@@ -129,12 +140,13 @@ module.exports = {
                 nodes: {
                     $ref: '/system_api/definitions/nodes_info'
                 },
+                pools: {
+                    $ref: '/tier_api/definitions/pool_info'
+                },
+                data_placement: {
+                    $ref: '/tier_api/definitions/data_placement_enum'
+                }
             }
-        },
-
-        tier_kind: {
-            enum: ['edge', 'cloud'],
-            type: 'string',
         },
 
         edge_details: {
@@ -159,6 +171,16 @@ module.exports = {
             additionalProperties: true,
         },
 
-    }
+        data_placement_enum: {
+            enum: ['MIRROR', 'SPREAD'],
+            type: 'string',
+        },
 
+        pool_info: {
+            type: 'array',
+            items: {
+                type: 'string',
+            }
+        },
+    }
 };

@@ -26,7 +26,7 @@ module.exports = {
  *
  */
 function allocate_block(chunk, avoid_nodes) {
-    return update_tier_alloc_nodes(chunk.system, chunk.tier)
+    return update_tier_alloc_nodes(chunk.system, chunk.tier, chunk.bucket)
         .then(function(alloc_nodes) {
             var block_size = (chunk.size / chunk.kfrag) | 0;
             for (var i = 0; i < alloc_nodes.length; ++i) {
@@ -58,7 +58,7 @@ function remove_blocks(blocks) {
 
 
 function new_block(chunk, node, size) {
-    return /*new db.DataBlock*/({
+    return /*new db.DataBlock*/ ({
         _id: db.new_object_id(),
         system: chunk.system,
         tier: node.tier,
@@ -72,12 +72,9 @@ function new_block(chunk, node, size) {
     });
 }
 
-
-
 var tier_alloc_nodes = {};
 
-function update_tier_alloc_nodes(system, tier) {
-    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
+function update_tier_alloc_nodes(system, tier, bucketid) {
     var tier_id = (tier && tier._id) || tier || null;
     var info = tier_alloc_nodes[tier_id] = tier_alloc_nodes[tier_id] || {
         last_refresh: new Date(0),
@@ -91,27 +88,8 @@ function update_tier_alloc_nodes(system, tier) {
 
     if (info.promise) return info.promise;
 
-    var q = {
-        system: system,
-        deleted: null,
-        heartbeat: {
-            $gt: min_heartbeat
-        },
-        srvmode: null,
-    };
-    if (tier_id) {
-        q.tier = tier_id;
-    }
-
     // refresh
-    info.promise =
-        db.Node.find(q)
-        .sort({
-            // sorting with lowest used storage nodes first
-            'storage.used': 1
-        })
-        .limit(100)
-        .exec()
+    info.promise = P.when(get_associated_nodes(bucketid))
         .then(function(nodes) {
             info.promise = null;
             info.nodes = nodes;
@@ -126,6 +104,80 @@ function update_tier_alloc_nodes(system, tier) {
         });
 
     return info.promise;
+}
+
+function get_associated_nodes(bucketid) {
+    var min_heartbeat = db.Node.get_minimum_alloc_heartbeat();
+    var associated_nodes = [];
+    var system_id;
+    return P.when(db.Bucket
+            .findOne({
+                _id: bucketid,
+            })
+            .populate('tiering')
+            .exec())
+        .then(function(bucket) {
+            system_id = bucket.system;
+            return P.when(db.TieringPolicy
+                    .findOne({
+                        _id: bucket.tiering,
+                    })
+                    .exec())
+                .then(function(pol) {
+                    var tier_ids = _.pluck(pol.tiers, 'tier');
+                    return P.when(db.Tier
+                            .find({
+                                _id: {
+                                    $in: tier_ids,
+                                }
+                            })
+                            .exec())
+                        .then(function(tiers) {
+                            _.each(tiers, function(n) {
+                                if (n.nodes.length !== 0) {
+                                    associated_nodes = associated_nodes.concat(n.nodes);
+                                }
+                            });
+                            var pool_ids = _.pluck(tiers, 'pools');
+                            return P.when(db.Pool
+                                    .find({
+                                        _id: {
+                                            $in: pool_ids,
+                                        }
+                                    })
+                                    .exec())
+                                .then(function(pools) {
+                                    _.each(pools, function(p) {
+                                        if (p.nodes.length !== 0) {
+                                            associated_nodes = associated_nodes.concat(p.nodes);
+                                        }
+                                    });
+                                    return associated_nodes;
+                                });
+                        });
+                });
+        })
+        .then(function() {
+            var q = {
+                system: system_id,
+                deleted: null,
+                name: {
+                    $in: associated_nodes
+                },
+                heartbeat: {
+                    $gt: min_heartbeat
+                },
+                srvmode: null,
+            };
+
+            return db.Node.find(q)
+                .sort({
+                    // sorting with lowest used storage nodes first
+                    'storage.used': 1
+                })
+                .limit(100)
+                .exec();
+        });
 }
 
 

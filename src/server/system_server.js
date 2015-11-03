@@ -99,13 +99,38 @@ function create_system(req) {
                 .then(null, db.check_already_exists(req, 'role'));
         })
         .then(function() {
+            return server_rpc.client.pools.create_pool({
+                pool: {
+                    name: 'default_pool',
+                    nodes: [],
+                }
+            }, {
+                auth_token: system_token
+            });
+        })
+        .then(function() {
             return server_rpc.client.tier.create_tier({
                 name: 'nodes',
-                kind: 'edge',
+                data_placement: 'SPREAD',
                 edge_details: {
                     replicas: 3,
                     data_fragments: 1,
                     parity_fragments: 0
+                },
+                nodes: [],
+                pools: ['default_pool'],
+            }, {
+                auth_token: system_token
+            });
+        })
+        .then(function() {
+            return server_rpc.client.tiering_policy.create_policy({
+                policy: {
+                    name: 'default_tiering',
+                    tiers: [{
+                        order: 0,
+                        tier: 'nodes'
+                    }]
                 }
             }, {
                 auth_token: system_token
@@ -114,7 +139,7 @@ function create_system(req) {
         .then(function() {
             return server_rpc.client.bucket.create_bucket({
                 name: 'files',
-                tiering: ['nodes']
+                tiering: 'default_tiering'
             }, {
                 auth_token: system_token
             });
@@ -255,10 +280,10 @@ function read_system(req) {
                 used: a.size || 0,
             };
             b.num_objects = a.count || 0;
-            b.tiering = _.map(bucket.tiering, function(tier_id) {
+            b.tiering = _.map(bucket.tiering.tiers, function(tier_id) {
                 var tier = tiers_by_id[tier_id];
                 if (!tier) return '';
-                var replicas = tier.edge_details && tier.edge_details.replicas || 3;
+                var replicas = tier.replicas || 3;
                 var t = nodes_aggregate[tier.id];
                 // TODO how to account bucket total storage with multiple tiers?
                 b.storage.total = (t.total || 0) / replicas;
@@ -279,7 +304,7 @@ function read_system(req) {
                     }
                 });
             }).then(function(sync_policy) {
-                dbg.log2('bucket sync_policy is:', sync_policy);
+                dbg.log2('bucket sync_policy is:', sync_policy);                
                 if (!_.isEmpty(sync_policy)) {
                     var interval_text = 0;
                     if (sync_policy.policy.schedule < 60) {
@@ -310,11 +335,11 @@ function read_system(req) {
                     } else {
                         b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
                     }
-                    dbg.log2('bucket is:', b);
-                    return b;
                 } else {
                     b.cloud_sync_status = 'NOTSET';
                 }
+                dbg.log2('bucket is:', b);
+                return b;
             }).then(null, function(err) {
                 dbg.error('failed reading bucket information');
             });
@@ -329,7 +354,7 @@ function read_system(req) {
                     return role;
                 }),
                 tiers: _.map(tiers, function(tier) {
-                    var t = _.pick(tier, 'name', 'kind');
+                    var t = _.pick(tier, 'name');
                     var a = nodes_aggregate[tier.id];
                     t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
                         alloc: 0,

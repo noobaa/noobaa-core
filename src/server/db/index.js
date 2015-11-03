@@ -17,6 +17,8 @@ var ObjectPart = require('./object_part');
 var DataChunk = require('./data_chunk');
 var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
+var Pool = require('./pool');
+var TieringPolicy = require('./tiering_policy');
 // var dbg = require('../util/debug_module')(__filename);
 
 /**
@@ -46,6 +48,8 @@ module.exports = {
     DataBlock: DataBlock,
     ActivityLog: ActivityLog,
     Cluster: Cluster,
+    Pool: Pool,
+    TieringPolicy: TieringPolicy,
 
     check_not_found: check_not_found,
     check_not_deleted: check_not_deleted,
@@ -100,6 +104,36 @@ module.exports = {
         load: function(params) {
             console.log('TierCache: load', params.name);
             return P.when(Tier.findOne({
+                system: params.system,
+                name: params.name,
+                deleted: null,
+            }).exec());
+        }
+    }),
+
+    PoolCache: new LRUCache({
+        name: 'PoolCache',
+        make_key: function(params) {
+            return params.system + ':' + params.name;
+        },
+        load: function(params) {
+            console.log('PoolCache: load', params.name);
+            return P.when(Pool.findOne({
+                system: params.system,
+                name: params.name,
+                deleted: null,
+            }).exec());
+        }
+    }),
+
+    TieringPolicyCache: new LRUCache({
+        name: 'TieringPolicyCache',
+        make_key: function(params) {
+            return params.system + ':' + params.name;
+        },
+        load: function(params) {
+            console.log('TieringPolicyCache: load', params.name);
+            return P.when(TieringPolicy.findOne({
                 system: params.system,
                 name: params.name,
                 deleted: null,

@@ -266,8 +266,8 @@ app.post('/upgrade',
     function(req, res) {
         var upgrade_file = req.file;
         dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
-        var stdout = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
-        var stderr = fs.openSync('/var/log/noobaa_deploy.log ', 'a');
+        var stdout = fs.openSync('/var/log/noobaa_deploy_out.log', 'a');
+        var stderr = fs.openSync('/var/log/noobaa_deploy_out.log', 'a');
         var spawn = require('child_process').spawn;
         dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path + ' &');
         spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh', 'from_file', upgrade_file.path], {

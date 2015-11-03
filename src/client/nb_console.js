@@ -809,7 +809,7 @@ nb_console.controller('SystemDataCtrl', [
                 if (return_value === "ok") {
                     $q.when(nbClient.client.bucket.create_bucket({
                         name: bucket_name,
-                        tiering: ['nodes']
+                        tiering: 'default_tiering'
                     })).then(function() {
                         console.log('created new bucket');
                         scope.modal.modal('hide');

@@ -25,23 +25,36 @@ var tier_schema = new Schema({
         required: true,
     },
 
-    kind: {
-        enum: ['edge', 'cloud'],
-        type: String,
-        required: true,
+    replicas: {
+        type: Number,
+    },
+    // see data_frags in data_chunk.js
+    data_fragments: {
+        type: Number,
+    },
+    parity_fragments: {
+        type: Number,
     },
 
-    edge_details: {
-        replicas: {
-            type: Number,
-        },
-        // see data_frags in data_chunk.js
-        data_fragments: {
-            type: Number,
-        },
-        parity_fragments: {
-            type: Number,
-        },
+    //Each tier can be composed of pools OR nodes
+    //This is done for ease of use in cases of small servers number (use nodes)
+    //or large desktop numbers (use pools)
+    pools: [{
+        ref: 'Pool',
+        type: types.ObjectId,
+        required: true,
+    }],
+
+    nodes: [{
+        ref: 'Node',
+        type: types.ObjectId,
+        required: true,
+    }],
+
+    data_placement: {
+        type: String,
+        enum: ['MIRROR', 'SPREAD'],
+        required: true,
     },
 
     // details needed to access the cloud storage

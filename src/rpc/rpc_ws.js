@@ -49,7 +49,7 @@ function RpcWsConnection(addr_url) {
  */
 RpcWsConnection.prototype._connect = function() {
     var self = this;
-    var ws = new WS(self.url.href, WS_CONNECT_OPTIONS);
+    var ws = new WS(self.url.href, null, WS_CONNECT_OPTIONS);
     self._init_ws(ws);
     ws.onopen = function() {
         self.emit('connect');

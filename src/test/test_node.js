@@ -28,8 +28,7 @@ describe('node', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: 'tier',
-                kind: 'edge',
+                name: 'tier',              
             });
         }).then(function() {
             return client.node.create_node({

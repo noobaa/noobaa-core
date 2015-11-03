@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var db = require('./db');
-
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -12,11 +12,18 @@ var db = require('./db');
  *
  */
 var tier_server = {
+    //Tiers
     create_tier: create_tier,
     read_tier: read_tier,
     update_tier: update_tier,
     delete_tier: delete_tier,
     list_tiers: list_tiers,
+
+    //Tiering Policy
+    create_policy: create_policy,
+    update_policy: update_policy,
+    get_policy: get_policy,
+    delete_policy: delete_policy
 };
 
 module.exports = tier_server;
@@ -30,11 +37,36 @@ module.exports = tier_server;
  *
  */
 function create_tier(req) {
-    var info = _.pick(req.rpc_params, 'name', 'kind', 'edge_details', 'cloud_details');
+    var info = _.pick(req.rpc_params, 'name', 'cloud_details', 'nodes', 'data_placement');
+    if (req.rpc_params.edge_details) {
+        if (req.rpc_params.edge_details.replicas) {
+            info.replicas = req.rpc_params.edge_details.replicas;
+        }
+        if (req.rpc_params.edge_details.data_fragments) {
+            info.data_fragments = req.rpc_params.edge_details.data_fragments;
+        }
+        if (req.rpc_params.edge_details.parity_fragments) {
+            info.parity_fragments = req.rpc_params.edge_details.parity_fragments;
+        }
+    }
     info.system = req.system.id;
-    return P.when(db.Tier.create(info))
-        .then(null, db.check_already_exists(req, 'tier'))
-        .thenResolve();
+    return P.when(db.Pool.find({
+                name: {
+                    $in: req.rpc_params.pools,
+                },
+            })
+            .exec())
+        .then(function(pools) {
+            var ids = [];
+            _.each(pools, function(p) {
+                ids.push(p._id);
+            });
+            info.pools = ids;
+            dbg.log0('Creating new tier', info);
+            return P.when(db.Tier.create(info))
+                .then(null, db.check_already_exists(req, 'tier'))
+                .thenResolve();
+        });
 }
 
 
@@ -50,12 +82,8 @@ function read_tier(req) {
             .exec())
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
-            var reply = _.pick(tier, 'name', 'kind');
-            if (tier.kind === 'edge') {
-                reply.edge_details = tier.edge_details.toObject();
-            } else if (tier.kind === 'cloud') {
-                reply.cloud_details = tier.cloud_details;
-            }
+            var reply = _.pick(tier, 'name');
+            reply.edge_details = _.pick(tier, 'replicas', 'data_fragments', 'parity_fragments').toObject();
             // TODO read tier's storage and nodes
             reply.storage = {
                 alloc: 0,
@@ -77,9 +105,18 @@ function read_tier(req) {
  *
  */
 function update_tier(req) {
-    var updates = _.pick(req.rpc_params, 'edge_details', 'cloud_details');
+    var updates = _.pick(req.rpc_params, 'cloud_details');
     if (req.rpc_params.new_name) {
         updates.name = req.rpc_params.new_name;
+    }
+    if (req.rpc_params.edge_details.replicas) {
+        updates.replicas = req.rpc_params.edge_details.replicas;
+    }
+    if (req.rpc_params.edge_details.data_fragments) {
+        updates.data_fragments = req.rpc_params.edge_details.data_fragments;
+    }
+    if (req.rpc_params.edge_details.parity_fragments) {
+        updates.parity_fragments = req.rpc_params.edge_details.parity_fragments;
     }
     return P.when(db.Tier
             .findOneAndUpdate(get_tier_query(req), updates)
@@ -96,6 +133,7 @@ function update_tier(req) {
  *
  */
 function delete_tier(req) {
+    dbg.log0('Deleting tier', req.rpc_params.name, 'on', req.system.id);
     var updates = {
         deleted: new Date()
     };
@@ -125,11 +163,83 @@ function list_tiers(req) {
         });
 }
 
+// TIERING POLICY /////////////////////////////////////////////////
+function create_policy(req) {
+    var info = _.pick(req.rpc_params.policy, 'name', 'tiers');
+    dbg.log0('Creating tiering policy', info);
+    var tiers = _.pluck(req.rpc_params.policy.tiers, 'tier');
+    return P.when(
+            db.Tier.find({
+                system: req.system.id,
+                name: {
+                    $in: tiers
+                },
+                deleted: null,
+            })
+            .exec())
+        .then(function(tiers) {
+            if (tiers.length !== info.tiers.length) {
+                throw new Error('DB Tiers and requested tiers are not equal');
+            }
+            info.system = req.system.id;
+            _.each(tiers, function(t) {
+                var ind = _.findIndex(info.tiers, function(it) {
+                    return it.tier === t.name;
+                });
+                info.tiers[ind].tier = t._id;
+            });
+            return P.when(db.TieringPolicy.create(info))
+                .then(null, db.check_already_exists(req, 'tiering_policy'))
+                .thenResolve();
+        });
+}
+
+function update_policy(req) {
+    dbg.log0('Updating tiering policy');
+}
+
+function get_policy(req) {
+    return P.when(db.TieringPolicy
+            .findOne(get_policy_query(req))
+            .exec())
+        .then(db.check_not_deleted(req, 'tier'))
+        .then(function(policy) {
+            var reply;
+            reply.name = policy.name;
+            reply.tiers = policy.tiers;
+            return reply;
+        });
+}
+
+function delete_policy(req) {
+    dbg.log0('Deleting tiering policy', req.rpc_params.name);
+    return P.when(db.TieringPolicy
+            .findOne(get_policy_query(req))
+            .exec())
+        .then(db.check_not_deleted(req, 'tier'))
+        .then(function(policy) {
+            var updates = {
+                deleted: new Date()
+            };
+            return P.when(db.TieringPolicy
+                .findOneAndUpdate(get_policy_query(req), updates)
+                .exec());
+        });
+}
+
 
 // UTILS //////////////////////////////////////////////////////////
 
 
 function get_tier_query(req) {
+    return {
+        system: req.system.id,
+        name: req.rpc_params.name,
+        deleted: null,
+    };
+}
+
+function get_policy_query(req) {
     return {
         system: req.system.id,
         name: req.rpc_params.name,

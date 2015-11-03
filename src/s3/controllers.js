@@ -860,7 +860,9 @@ module.exports = function(params) {
                             dbg.log0('Creating new bucket', bucketName);
                             clients[access_key].client.bucket.create_bucket({
                                     name: bucketName,
-                                    tiering: ['nodes']
+                                    tiering: {
+                                        tiering: 'default_tiering'
+                                    }
                                 })
                                 .then(function() {
                                     dbg.log0('Created new bucket "%s" successfully', bucketName);

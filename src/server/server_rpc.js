@@ -26,9 +26,11 @@ function register_servers() {
     server_rpc.register_service(api.schema.account_api, require('./account_server'), options);
     server_rpc.register_service(api.schema.system_api, require('./system_server'), options);
     server_rpc.register_service(api.schema.tier_api, require('./tier_server'), options);
+    server_rpc.register_service(api.schema.tiering_policy_api, require('./tier_server'), options);
     server_rpc.register_service(api.schema.node_api, require('./node_server'), options);
     server_rpc.register_service(api.schema.bucket_api, require('./bucket_server'), options);
     server_rpc.register_service(api.schema.object_api, require('./object_server'), options);
+    server_rpc.register_service(api.schema.pools_api, require('./pool_server'), options);
     server_rpc.register_service(api.schema.stats_api, require('./stats_aggregator'), options);
     server_rpc.register_service(api.schema.debug_api, require('./debug_server'));
 }

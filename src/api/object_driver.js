@@ -71,6 +71,16 @@ var native_util;
 var dedup_chunker_tpool;
 var object_coding_tpool;
 var object_coding;
+var object_coding_default_options = {
+    digest_type: 'sha384',
+    compress_type: 'snappy',
+    cipher_type: 'aes-256-gcm',
+    frag_digest_type: 'sha1',
+    data_frags: 1,
+    parity_frags: 0,
+    lrc_frags: 0,
+    lrc_parity: 0,
+};
 var PART_ATTRS = [
     'start',
     'end',
@@ -115,17 +125,7 @@ function lazy_init_natives() {
         object_coding_tpool = new native_util.ThreadPool(2);
     }
     if (!object_coding) {
-        object_coding = new native_util.ObjectCoding({
-            tpool: object_coding_tpool,
-            digest_type: 'sha384',
-            compress_type: 'snappy',
-            cipher_type: 'aes-256-gcm',
-            frag_digest_type: 'sha1',
-            data_frags: 1,
-            parity_frags: 0,
-            lrc_frags: 0,
-            lrc_parity: 0,
-        });
+        object_coding = new native_util.ObjectCoding(object_coding_default_options);
     }
 }
 
@@ -227,7 +227,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 part_sequence_number += 1;
                 this.offset += data.length;
                 dbg.log0('upload_stream_parts: encode', range_utils.human_range(part));
-                return P.ninvoke(object_coding, 'encode', data)
+                return P.ninvoke(object_coding, 'encode', object_coding_tpool, data)
                     .then(function(chunk) {
                         part.chunk = chunk;
                         dbg.log0('upload_stream_parts: encode', range_utils.human_range(part),
@@ -863,7 +863,7 @@ ObjectDriver.prototype._read_object_part = function(part) {
                 return f;
             });
             dbg.log2('_read_object_part: decode chunk', chunk);
-            return P.ninvoke(object_coding, 'decode', chunk)
+            return P.ninvoke(object_coding, 'decode', object_coding_tpool, chunk)
                 .then(function(decoded_chunk) {
                     part.buffer = decoded_chunk.data;
                     return part;

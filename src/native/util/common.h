@@ -107,6 +107,7 @@ inline v8::Local<v8::Value> NanKey(std::string s) {
 #define NAN_NEW_ARR(len) (Nan::New<v8::Array>(len))
 #define NAN_GET(obj, key) (Nan::Get(obj, NanKey(key)).ToLocalChecked())
 #define NAN_UNWRAP_THIS(type) (Unwrap<type>(info.This()))
+#define NAN_UNWRAP_THAT(type, obj) (Unwrap<type>(Nan::To<v8::Object>(obj).ToLocalChecked()))
 #define NAN_GET_UNWRAP(type, obj, key) (Unwrap<type>(Nan::To<v8::Object>(NAN_GET(obj, key)).ToLocalChecked()))
 #define NAN_GET_STR(obj, key) *Nan::Utf8String(NAN_GET(obj, key))
 #define NAN_GET_OBJ(obj, key) (NAN_GET(obj, key)->ToObject())

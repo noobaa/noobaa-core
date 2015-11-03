@@ -304,7 +304,7 @@ function read_system(req) {
                     }
                 });
             }).then(function(sync_policy) {
-                dbg.log2('bucket sync_policy is:', sync_policy);
+                dbg.log2('bucket sync_policy is:', sync_policy);                
                 if (!_.isEmpty(sync_policy)) {
                     var interval_text = 0;
                     if (sync_policy.policy.schedule < 60) {
@@ -335,11 +335,11 @@ function read_system(req) {
                     } else {
                         b.last_sync = moment(sync_policy.policy.last_sync).format('LLL');
                     }
-                    dbg.log2('bucket is:', b);
-                    return b;
                 } else {
                     b.cloud_sync_status = 'NOTSET';
                 }
+                dbg.log2('bucket is:', b);
+                return b;
             }).then(null, function(err) {
                 dbg.error('failed reading bucket information');
             });

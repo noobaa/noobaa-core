@@ -58,6 +58,7 @@ function create_multipart_upload(req) {
                 content_type: req.rpc_params.content_type || 'application/octet-stream',
                 upload_size: 0,
                 cloud_synced: false,
+                xattr: req.rpc_params.xattr
             };
             return P.when(db.ObjectMD.create(info));
         }).then(function(data) {
@@ -423,7 +424,7 @@ function set_all_files_for_sync(sysid, bucketid) {
 
 
 function get_object_info(md) {
-    var info = _.pick(md, 'size', 'content_type', 'etag');
+    var info = _.pick(md, 'size', 'content_type', 'etag', 'xattr');
     info.size = info.size || 0;
     info.content_type = info.content_type || 'application/octet-stream';
     info.etag = info.etag || '';
@@ -431,7 +432,6 @@ function get_object_info(md) {
     if (_.isNumber(md.upload_size)) {
         info.upload_size = md.upload_size;
     }
-
     return info;
 }
 

@@ -41,7 +41,7 @@ var cluster = require('cluster');
 
 // Temporary removed - causes issues with upgrade.
 var numCPUs = Math.ceil(require('os').cpus().length / 2);
-if (cluster.isMaster) {
+if (cluster.isMaster && process.env.MD_CLUSTER_DISABLED !== 'true') {
     // Fork MD Servers
     for (var i = 0; i < numCPUs; i++) {
         console.warn('Spawning MD Server', i + 1);

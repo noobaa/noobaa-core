@@ -6,6 +6,7 @@ var P = require('../util/promise');
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
+var chance = new(require('chance').Chance)();
 var time_utils = require('../util/time_utils');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
@@ -95,6 +96,7 @@ function test() {
     function init_api() {
         api = require('../api');
         api.client = new api.Client();
+        api.rpc.base_address = 'ws://127.0.0.1:5001';
         api.rpc.register_n2n_transport();
         return api.client.create_auth_token({
             email: 'demo@noobaa.com',
@@ -113,12 +115,12 @@ function test() {
             })
             .then(function() {
                 return api.client.object_driver_lazy().upload_stream({
-                        bucket: 'files',
-                        key: path.basename(filename),
-                        size: fs.statSync(filename).size,
-                        content_type: require('mime').lookup(filename),
-                        source_stream: input
-                    });
+                    bucket: 'files',
+                    key: path.basename(filename),
+                    size: fs.statSync(filename).size,
+                    content_type: require('mime').lookup(filename),
+                    source_stream: input
+                });
             })
             .done(fin, fin);
     }
@@ -129,8 +131,8 @@ function test() {
         var dedup_chunker = new native_core.DedupChunker({
             tpool: new native_core.ThreadPool(1)
         }, new native_core.DedupConfig({}));
+        var object_coding_tpool = new native_util.ThreadPool(2);
         var object_coding = new native_core.ObjectCoding({
-            tpool: new native_core.ThreadPool(2),
             digest_type: 'sha384',
             compress_type: 'snappy',
             cipher_type: 'aes-256-gcm',
@@ -161,7 +163,7 @@ function test() {
             },
             transform_parallel: function(data) {
                 // console.log('encode chunk');
-                return P.ninvoke(object_coding, 'encode', data);
+                return P.ninvoke(object_coding, 'encode', object_coding_tpool, data);
             },
         }));
         if (process.argv[4]) {
@@ -178,7 +180,8 @@ function test() {
                     objectMode: true,
                 },
                 transform_parallel: function(chunk) {
-                    return P.ninvoke(object_coding, 'decode', chunk).thenResolve(chunk);
+                    return P.ninvoke(object_coding, 'decode', object_coding_tpool, chunk)
+                        .thenResolve(chunk);
                 },
             }));
         }
@@ -236,8 +239,12 @@ function test() {
                                     'cipher_type': 'aes-256-gcm',
                                     'data_frags': 1,
                                     'lrc_frags': 0,
-                                    'digest_b64': 'asdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasd',
-                                    'cipher_key_b64': 'asdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasd',
+                                    'digest_b64': chance.string({
+                                        length: 48
+                                    }),
+                                    'cipher_key_b64': chance.string({
+                                        length: 32
+                                    }),
                                 };
                                 p.frags = _.times(1, function(j) {
                                     return {
@@ -245,7 +252,9 @@ function test() {
                                         'layer_n': 0,
                                         'frag': j,
                                         'digest_type': 'sha1',
-                                        'digest_b64': 'asdasdasdasdasdasdasdasdasdasdasdasd'
+                                        'digest_b64': chance.string({
+                                            length: 20
+                                        })
                                     };
                                 });
                                 i += 1;

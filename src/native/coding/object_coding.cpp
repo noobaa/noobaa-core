@@ -42,6 +42,11 @@ NAN_METHOD(ObjectCoding::new_instance)
     if (c._cipher_type == "undefined") {
         c._cipher_type = "";
     }
+    // cipher key is optional, will randomize by default
+    c._cipher_key_b64 = NAN_GET_STR(self, "cipher_key_b64");
+    if (c._cipher_key_b64 == "undefined") {
+        c._cipher_key_b64 = "";
+    }
     c._frag_digest_type = NAN_GET_STR(self, "frag_digest_type");
     if (c._frag_digest_type == "undefined") {
         c._frag_digest_type = "";
@@ -54,6 +59,7 @@ NAN_METHOD(ObjectCoding::new_instance)
         << DVAL(c._digest_type)
         << DVAL(c._compress_type)
         << DVAL(c._cipher_type)
+        << DVAL(c._cipher_key_b64)
         << DVAL(c._frag_digest_type)
         << DVAL(c._data_frags)
         << DVAL(c._parity_frags)
@@ -135,10 +141,17 @@ public:
         // COMPUTE ENCRYPTED BUFFER
         Buf encrypted;
         if (!_coding._cipher_type.empty()) {
-            // convergent encryption - use _digest as secret key
-            // _secret = _digest;
-            _secret = Buf(32);
-            RAND_bytes(_secret.data(), _secret.length());
+            // we no longer use convergent encryption because the digest size
+            // does not strickly match the key size and simple truncating might not be secure.
+            // we just randomize a cipher key, or use the provided key if requested
+            // which is needed when re-coding data on dedup with a chunk
+            // that was encrypted using another key
+            if (_coding._cipher_key_b64.empty()) {
+                _secret = Buf(32);
+                RAND_bytes(_secret.data(), _secret.length());
+            } else {
+                _secret = Buf(_coding._cipher_key_b64, Buf::BASE64);
+            }
             // IV is just zeros since the key is unique then IV is not needed
             static Buf iv(64, 0);
             // RAND_bytes(iv.data(), iv.length());
@@ -435,14 +448,14 @@ public:
 
 NAN_METHOD(ObjectCoding::encode)
 {
-    if (!node::Buffer::HasInstance(info[0]) || !info[1]->IsFunction()) {
-        return Nan::ThrowError("ObjectCoding::encode expected arguments function(buffer,callback)");
+    if (!info[0]->IsObject() || !node::Buffer::HasInstance(info[1]) || !info[2]->IsFunction()) {
+        return Nan::ThrowError("ObjectCoding::encode expected arguments function(tpool,buffer,callback)");
     }
     v8::Local<v8::Object> self = info.This();
     ObjectCoding& coding = *NAN_UNWRAP_THIS(ObjectCoding);
-    ThreadPool& tpool = *NAN_GET_UNWRAP(ThreadPool, self, "tpool");
-    v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[0]).ToLocalChecked();
-    NanCallbackSharedPtr callback(new Nan::Callback(info[1].As<v8::Function>()));
+    ThreadPool& tpool = *NAN_UNWRAP_OBJ(ThreadPool, info[0]);
+    v8::Local<v8::Object> buffer = Nan::To<v8::Object>(info[1]).ToLocalChecked();
+    NanCallbackSharedPtr callback(new Nan::Callback(info[2].As<v8::Function>()));
     EncodeWorker* worker = new EncodeWorker(coding, self, buffer, callback);
     tpool.submit(worker);
     NAN_RETURN(Nan::Undefined());
@@ -450,14 +463,14 @@ NAN_METHOD(ObjectCoding::encode)
 
 NAN_METHOD(ObjectCoding::decode)
 {
-    if (!info[0]->IsObject() || !info[1]->IsFunction()) {
-        return Nan::ThrowError("ObjectCoding::decode expected arguments function(chunk,callback)");
+    if (!info[0]->IsObject() || !info[1]->IsObject() || !info[2]->IsFunction()) {
+        return Nan::ThrowError("ObjectCoding::decode expected arguments function(tpool,chunk,callback)");
     }
     v8::Local<v8::Object> self = info.This();
     ObjectCoding& coding = *NAN_UNWRAP_THIS(ObjectCoding);
-    ThreadPool& tpool = *NAN_GET_UNWRAP(ThreadPool, self, "tpool");
-    v8::Local<v8::Object> chunk = Nan::To<v8::Object>(info[0]).ToLocalChecked();
-    NanCallbackSharedPtr callback(new Nan::Callback(info[1].As<v8::Function>()));
+    ThreadPool& tpool = *NAN_UNWRAP_OBJ(ThreadPool, info[0]);
+    v8::Local<v8::Object> chunk = Nan::To<v8::Object>(info[1]).ToLocalChecked();
+    NanCallbackSharedPtr callback(new Nan::Callback(info[2].As<v8::Function>()));
     DecodeWorker* worker = new DecodeWorker(coding, self, chunk, callback);
     tpool.submit(worker);
     NAN_RETURN(Nan::Undefined());

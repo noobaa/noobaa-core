@@ -163,10 +163,18 @@ module.exports = function(params) {
         var req_access_key;
         if (req.headers.authorization) {
             var end_of_aws_key = req.headers.authorization.indexOf(':');
-            req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+            if (req.headers.authorization.substring(0, 4) === 'AWS4') {
+                //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
+                var credentials_location = req.headers.authorization.indexOf('Credential') + 11;
+                req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));
+            } else {
+                req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+            }
         } else {
             if (req.query.AWSAccessKeyId) {
                 req_access_key = req.query.AWSAccessKeyId;
+            } else if (req.query['X-Amz-Credential']) {
+                req_access_key = req.query['X-Amz-Credential'].substring(0, req.query['X-Amz-Credential'].indexOf('/'));
             }
         }
         return req_access_key;
@@ -183,11 +191,12 @@ module.exports = function(params) {
         if (_.isUndefined(clients[req.access_key].client.options)) {
             dbg.error('extract_s3_info problem');
         }
-        if (clients[req.access_key].client.options.auth_token.indexOf('auth_token') > 0) {
+        var auth_token = clients[req.access_key].client.options.auth_token;
+        if (auth_token && auth_token.indexOf('auth_token') > 0) {
             //update signature and string_to_sign
             //TODO: optimize this part. two converstions per request is a bit too much.
 
-            var auth_token_obj = JSON.parse(clients[req.access_key].client.options.auth_token);
+            var auth_token_obj = JSON.parse(auth_token);
             auth_token_obj.signature = req.signature;
             auth_token_obj.string_to_sign = req.string_to_sign;
             auth_token_obj.access_key = req.access_key;
@@ -198,7 +207,7 @@ module.exports = function(params) {
             //Quick patch.
             //Need to find a better way to use client objects in parallel and pass the request information
             var new_params = {
-                'auth_token': clients[req.access_key].client.options.auth_token,
+                'auth_token': auth_token,
                 'signature': req.signature,
                 'string_to_sign': req.string_to_sign,
                 'access_key': req.access_key
@@ -207,6 +216,21 @@ module.exports = function(params) {
             return new_params;
         }
     };
+
+    function set_xattr(req, params) {
+        params.xattr = params.xattr || {};
+        _.each(req.headers, function(val, hdr) {
+            // if (!_.isString(hdr) || !_.isString(val)) return;
+            if (hdr.slice(0, 'x-amz-meta-'.length) !== 'x-amz-meta-') return;
+            var key = hdr.slice('x-amz-meta-'.length);
+            if (!key) return;
+            params.xattr[key] = val;
+            dbg.log0('SET XATTR', key, val);
+        });
+        if (!_.isEmpty(params.xattr)) {
+            delete params.xattr;
+        }
+    }
 
 
     var uploadPart = function(req, res) {
@@ -271,8 +295,8 @@ module.exports = function(params) {
                 try {
 
                     dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber, 'md5:', part_md5);
+                    res.header('ETag', part_md5);
 
-                    res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
                     dbg.log0('FAILED', err, res);
 
@@ -340,7 +364,7 @@ module.exports = function(params) {
 
     };
 
-    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key) {
+    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key, req) {
         dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, access_key);
 
         from_object = decodeURIComponent(from_object);
@@ -383,6 +407,11 @@ module.exports = function(params) {
                         }
                         create_params.content_type = md.content_type;
                         create_params.size = md.size;
+                        if (req && req.headers['x-amz-metadata-directive'] === 'REPLACE') {
+                            set_xattr(req, create_params);
+                        } else {
+                            create_params.xattr = _.clone(md.xattr);
+                        }
                         var new_obj_parts;
                         return clients[access_key].client.object.read_object_mappings({
                                 bucket: src_bucket,
@@ -536,6 +565,7 @@ module.exports = function(params) {
 
                     var create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
                     var bucket_key_params = _.pick(upload_params, 'bucket', 'key');
+                    set_xattr(req, create_params);
 
                     dbg.log0('upload_stream: start upload', upload_params.key, upload_params.size);
                     if (_.isUndefined(clients[access_key].buckets[req.bucket])) {
@@ -881,8 +911,31 @@ module.exports = function(params) {
             });
         },
         deleteBucket: function(req, res) {
-            var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
-            return buildXmlResponse(res, 409, template);
+            var bucketName = req.params.bucket;
+            var s3_info = extract_s3_info(req);
+
+            P.fcall(function() {
+                dbg.log0('check if bucket exists');
+                return isBucketExists(bucketName, s3_info)
+                    .then(function(exists) {
+                        if (exists) {
+                            clients[s3_info.access_key].client.bucket.delete_bucket({
+                                    name: bucketName
+                                })
+                                .then(function() {
+                                    dbg.log0('Deleted new bucket "%s" successfully', bucketName);
+                                    res.header('Location', '/' + bucketName);
+                                    return res.status(200).send();
+                                }).then(null, function(err) {
+                                    var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
+                                    return buildXmlResponse(res, 409, template);
+                                });
+                        } else {
+                            dbg.log0('no such bucket', bucketName);
+                        }
+                    });
+            });
+
         },
 
 
@@ -936,6 +989,10 @@ module.exports = function(params) {
                             res.header('ETag', object_md.etag);
                             res.header('x-amz-id-2', 'FSVaTMjrmBp3Izs1NnwBZeu7M19iI8UbxMbi0A8AirHANJBo+hEftBuiESACOMJp');
                             res.header('x-amz-request-id', 'E5CEFCB143EB505A');
+                            _.each(object_md.xattr, function(val, key) {
+                                res.header('x-amz-meta-' + key, val);
+                                dbg.log0('RETURN XATTR', key, val);
+                            });
 
                             if (req.method === 'HEAD') {
                                 dbg.log0('Head ', res._headers);
@@ -1034,11 +1091,12 @@ module.exports = function(params) {
                             return buildXmlResponse(res, 404, template);
                         }
                         if (decodeURIComponent(srcObject) === req.params.key && srcBucket === req.bucket) {
+                            // TODO GUY - this "if" returns without doing the copy... why?
                             template = templateBuilder.buildCopyObject(req.params.key);
                             return buildXmlResponse(res, 200, template);
                         } else {
                             return copy_object(srcObject, req.params.key, srcBucket,
-                                    req.bucket, access_key)
+                                    req.bucket, access_key, req)
                                 .then(function(is_copied) {
                                     if (is_copied) {
                                         template = templateBuilder.buildCopyObject(req.params.key);
@@ -1130,6 +1188,7 @@ module.exports = function(params) {
                             size: 0,
                             content_type: req.headers['content-type']
                         };
+                        set_xattr(req, create_params);
 
                         dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', _.where(clients[access_key].buckets, {
                             bucket: req.bucket

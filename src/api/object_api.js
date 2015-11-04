@@ -17,7 +17,7 @@ module.exports = {
             method: 'POST',
             params: {
                 type: 'object',
-                required: ['bucket', 'key', 'size', 'content_type'],
+                required: ['bucket', 'key', 'size'],
                 properties: {
                     bucket: {
                         type: 'string',
@@ -30,6 +30,9 @@ module.exports = {
                     },
                     content_type: {
                         type: 'string',
+                    },
+                    xattr: {
+                        $ref: '/object_api/definitions/xattr',
                     },
                 }
             },
@@ -519,6 +522,12 @@ module.exports = {
             }
         },
 
+        // free form object
+        xattr: {
+            type: 'object',
+            additionalProperties: true
+        },
+
         object_info: {
             type: 'object',
             required: ['size', 'content_type', 'create_time'],
@@ -538,6 +547,9 @@ module.exports = {
                 },
                 etag: {
                     type: 'string',
+                },
+                xattr: {
+                    $ref: '/object_api/definitions/xattr',
                 }
             }
         },

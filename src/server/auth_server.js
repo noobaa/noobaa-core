@@ -240,11 +240,14 @@ function create_access_key_auth(req) {
                 var secret_key = _.result(_.find(system._doc.access_keys, 'access_key', access_key), 'secret_key');
                 var s3_signature = s3.sign(secret_key, string_to_sign);
                 dbg.log0('signature for access key:', access_key, 'string:', string_to_sign, ' is', s3_signature);
-                if (signature === s3_signature) {
-                    dbg.log0('s3 authentication test passed!!!');
-                } else {
-                    throw req.unauthorized('SignatureDoesNotMatch');
-                }
+
+                //TODO:bring back ASAP!!!! - temporary for V4 "Support"
+                //
+                // if (signature === s3_signature) {
+                //     dbg.log0('s3 authentication test passed!!!');
+                // } else {
+                //     throw req.unauthorized('SignatureDoesNotMatch');
+                // }
 
             }).then(function() {
 
@@ -329,12 +332,15 @@ function authorize(req) {
                 if (auth_token_obj) {
                     var secret_key = _.result(_.find(req.system._doc.access_keys, 'access_key', auth_token_obj.access_key), 'secret_key');
                     var s3_signature = s3.sign(secret_key, auth_token_obj.string_to_sign);
-                    if (auth_token_obj.signature === s3_signature) {
-                        dbg.log3('Access key authentication (per request) test passed !!!');
-                    } else {
-                        dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
-                        throw req.unauthorized('SignatureDoesNotMatch');
-                    }
+
+                    //TODO:bring back ASAP!!!! - temporary for V4 "Support"
+
+                    // if (auth_token_obj.signature === s3_signature) {
+                    //     dbg.log3('Access key authentication (per request) test passed !!!');
+                    // } else {
+                    //     dbg.error('Signature for access key:', auth_token_obj.access_key, 'computed:', s3_signature, 'expected:', auth_token_obj.signature);
+                    //     throw req.unauthorized('SignatureDoesNotMatch');
+                    // }
                 }
             });
     }

@@ -163,10 +163,18 @@ module.exports = function(params) {
         var req_access_key;
         if (req.headers.authorization) {
             var end_of_aws_key = req.headers.authorization.indexOf(':');
-            req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+            if (req.headers.authorization.substring(0, 4) === 'AWS4') {
+                //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
+                var credentials_location = req.headers.authorization.indexOf('Credential') + 11;
+                req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));
+            } else {
+                req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+            }
         } else {
             if (req.query.AWSAccessKeyId) {
                 req_access_key = req.query.AWSAccessKeyId;
+            } else if (req.query['X-Amz-Credential']) {
+                req_access_key = req.query['X-Amz-Credential'].substring(0, req.query['X-Amz-Credential'].indexOf('/'));
             }
         }
         return req_access_key;
@@ -271,8 +279,8 @@ module.exports = function(params) {
                 try {
 
                     dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber, 'md5:', part_md5);
+                    res.header('ETag', part_md5);
 
-                    res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
                     dbg.log0('FAILED', err, res);
 
@@ -881,8 +889,31 @@ module.exports = function(params) {
             });
         },
         deleteBucket: function(req, res) {
-            var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
-            return buildXmlResponse(res, 409, template);
+            var bucketName = req.params.bucket;
+            var s3_info = extract_s3_info(req);
+
+            P.fcall(function() {
+                dbg.log0('check if bucket exists');
+                return isBucketExists(bucketName, s3_info)
+                    .then(function(exists) {
+                        if (exists) {
+                            clients[s3_info.access_key].client.bucket.delete_bucket({
+                                    name: bucketName
+                                })
+                                .then(function() {
+                                    dbg.log0('Deleted new bucket "%s" successfully', bucketName);
+                                    res.header('Location', '/' + bucketName);
+                                    return res.status(200).send();
+                                }).then(null, function(err) {
+                                    var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
+                                    return buildXmlResponse(res, 409, template);
+                                });
+                        } else {
+                            dbg.log0('no such bucket', bucketName);
+                        }
+                    });
+            });
+
         },
 
 

@@ -68,6 +68,16 @@ function ObjectDriver(client) {
     self._init_blocks_cache();
 }
 
+var object_coding_default_options = {
+    digest_type: 'sha384',
+    compress_type: 'snappy',
+    cipher_type: 'aes-256-gcm',
+    frag_digest_type: 'sha1',
+    data_frags: 1,
+    parity_frags: 0,
+    lrc_frags: 0,
+    lrc_parity: 0,
+};
 var PART_ATTRS = [
     'start',
     'end',
@@ -112,17 +122,7 @@ function lazy_init_natives() {
     // encoding/decoding the object chunks in high performance native code.
     dedup_chunker_tpool = new nc.ThreadPool(1);
     object_coding_tpool = new nc.ThreadPool(2);
-    object_coding = new nc.ObjectCoding({
-        tpool: object_coding_tpool,
-        digest_type: 'sha384',
-        compress_type: 'snappy',
-        cipher_type: 'aes-256-gcm',
-        frag_digest_type: 'sha1',
-        data_frags: 1,
-        parity_frags: 0,
-        lrc_frags: 0,
-        lrc_parity: 0,
-    });
+    object_coding = new nc.ObjectCoding(object_coding_default_options);
     natives_inited = true;
 }
 
@@ -224,7 +224,7 @@ ObjectDriver.prototype.upload_stream_parts = function(params) {
                 part_sequence_number += 1;
                 this.offset += data.length;
                 dbg.log0('upload_stream_parts: encode', range_utils.human_range(part));
-                return P.ninvoke(object_coding, 'encode', data)
+                return P.ninvoke(object_coding, 'encode', object_coding_tpool, data)
                     .then(function(chunk) {
                         part.chunk = chunk;
                         dbg.log0('upload_stream_parts: encode', range_utils.human_range(part),
@@ -862,7 +862,7 @@ ObjectDriver.prototype._read_object_part = function(part) {
                 return f;
             });
             dbg.log2('_read_object_part: decode chunk', chunk);
-            return P.ninvoke(object_coding, 'decode', chunk)
+            return P.ninvoke(object_coding, 'decode', object_coding_tpool, chunk)
                 .then(function(decoded_chunk) {
                     part.buffer = decoded_chunk.data;
                     return part;

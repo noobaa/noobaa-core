@@ -50,6 +50,7 @@ module.exports = object_server;
 function create_multipart_upload(req) {
     return load_bucket(req)
         .then(function() {
+            dbg.log0('create_multipart_upload xattr',req.rpc_params);
             var info = {
                 system: req.system.id,
                 bucket: req.bucket.id,
@@ -275,9 +276,10 @@ function read_object_md(req) {
  *
  */
 function update_object_md(req) {
+    dbg.log0('update object md',req.rpc_params);
     return find_object_md(req)
         .then(function(obj) {
-            var updates = _.pick(req.rpc_params, 'content_type');
+            var updates = _.pick(req.rpc_params, 'content_type','xattr');
             return obj.update(updates).exec();
         })
         .then(db.check_not_deleted(req, 'object'))

@@ -421,6 +421,10 @@ module.exports = {
                     content_type: {
                         type: 'string',
                     },
+                    xattr: {
+                        $ref: '/object_api/definitions/xattr',
+                    }
+
                 }
             },
             auth: {

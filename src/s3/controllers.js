@@ -434,8 +434,8 @@ module.exports = function(params) {
                                         return {
                                             start: part.start,
                                             end: part.end,
-                                            crypt: part.crypt,
-                                            chunk_size: part.chunk_size
+                                            chunk: part.chunk,
+                                            frags: part.frags
                                         };
                                     })
                                 };
@@ -975,8 +975,12 @@ module.exports = function(params) {
                         bucket: req.bucket,
                         key: keyName
                     };
+                    //Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
                     dbg.log0('getObject', object_path, req.method);
-                    return clients[access_key].client.object_driver_lazy().get_object_md(object_path)
+                    object_path.key = object_path.key.replace(/_\$folder\$/, '/');
+                    dbg.log0('getObject (after)', object_path, req.method);
+
+                    return clients[access_key].client.object.read_object_md(object_path)
                         .then(function(object_md) {
                             dbg.log0('object_md:', object_md);
                             var create_date = new Date(object_md.create_time);
@@ -1291,6 +1295,9 @@ module.exports = function(params) {
         deleteObject: function(req, res) {
             //this is also valid for the Abort Multipart Upload
             var key = req.params.key;
+            //Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
+            key = key.replace(/_\$folder\$/, '/');
+
             dbg.log0('Attempt to delete object "%s" in bucket "%s"', key, req.bucket);
             var access_key = extract_access_key(req);
             var template;

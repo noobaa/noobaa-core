@@ -6,6 +6,7 @@ var P = require('../util/promise');
 var fs = require('fs');
 var path = require('path');
 var crypto = require('crypto');
+var chance = new(require('chance').Chance)();
 var time_utils = require('../util/time_utils');
 var transformer = require('../util/transformer');
 var Pipeline = require('../util/pipeline');
@@ -106,12 +107,12 @@ function test() {
             })
             .then(function() {
                 return api.client.object_driver_lazy().upload_stream({
-                        bucket: 'files',
-                        key: path.basename(filename),
-                        size: fs.statSync(filename).size,
-                        content_type: require('mime').lookup(filename),
-                        source_stream: input
-                    });
+                    bucket: 'files',
+                    key: path.basename(filename),
+                    size: fs.statSync(filename).size,
+                    content_type: require('mime').lookup(filename),
+                    source_stream: input
+                });
             })
             .done(fin, fin);
     }
@@ -230,8 +231,12 @@ function test() {
                                     'cipher_type': 'aes-256-gcm',
                                     'data_frags': 1,
                                     'lrc_frags': 0,
-                                    'digest_b64': 'asdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasd',
-                                    'cipher_key_b64': 'asdasdasdasdasdasdasdasdasdasdasdasdasdasdasdasd',
+                                    'digest_b64': chance.string({
+                                        length: 48
+                                    }),
+                                    'cipher_key_b64': chance.string({
+                                        length: 32
+                                    }),
                                 };
                                 p.frags = _.times(1, function(j) {
                                     return {
@@ -239,7 +244,9 @@ function test() {
                                         'layer_n': 0,
                                         'frag': j,
                                         'digest_type': 'sha1',
-                                        'digest_b64': 'asdasdasdasdasdasdasdasdasdasdasdasd'
+                                        'digest_b64': chance.string({
+                                            length: 20
+                                        })
                                     };
                                 });
                                 i += 1;

@@ -53,7 +53,6 @@ function allocate_object_parts(bucket, obj, parts) {
     var new_parts = [];
     var existing_chunks;
     var existing_parts;
-    var query_parts_params = _.map(parts, get_part_key);
     dbg.log1('allocate_object_parts: start');
 
     var reply = {
@@ -67,25 +66,21 @@ function allocate_object_parts(bucket, obj, parts) {
             // find the parts already exists from previous attempts
             // that will be removed.
             // their chunks will be used though.
-            P.when(db.ObjectPart.find({
-                    system: obj.system,
-                    obj: obj.id,
-                    $or: query_parts_params,
-                    deleted: null
-                })
-                .populate('chunk')
-                .exec()),
+            find_consecutive_parts(obj, parts)
+            .populate('chunk')
+            .exec(),
 
             // dedup with existing chunks by lookup of the digest of the data
             process.env.DEDUP_DISABLED !== 'true' &&
             P.when(db.DataChunk.find({
                     system: obj.system,
                     digest_b64: {
-                        $in: _.map(parts, function(part) {
+                        $in: _.uniq(_.map(parts, function(part) {
                             return part.chunk.digest_b64;
-                        })
+                        }))
                     },
                     deleted: null,
+                    building: null
                 })
                 .exec())
         )
@@ -121,9 +116,9 @@ function allocate_object_parts(bucket, obj, parts) {
                 chunk.chunk_status = object_utils.analyze_chunk_status(chunk, chunk.all_blocks);
                 var prev = digest_to_chunk[chunk.digest_b64];
                 if (prev) {
-                    dbg.log0('allocate_object_parts: already found chunk for digest', prev, chunk);
+                    dbg.log1('allocate_object_parts: already found chunk for digest', prev, chunk);
                 } else if (chunk.chunk_status.chunk_health === 'unavailable') {
-                    dbg.log0('allocate_object_parts: ignore unavailable chunk', chunk);
+                    dbg.log1('allocate_object_parts: ignore unavailable chunk', chunk);
                 } else {
                     digest_to_chunk[chunk.digest_b64] = chunk;
                 }
@@ -133,7 +128,7 @@ function allocate_object_parts(bucket, obj, parts) {
                 var reply_part = reply.parts[i];
                 var dup_chunk = digest_to_chunk[part.chunk.digest_b64];
 
-                dbg.log0('allocate_object_parts: allocate part',
+                dbg.log1('allocate_object_parts: allocate part',
                     part.start, part.end, part.part_sequence_number,
                     'dup_chunk', dup_chunk);
                 if (dup_chunk) {
@@ -270,16 +265,11 @@ function allocate_object_parts(bucket, obj, parts) {
 function finalize_object_parts(bucket, obj, parts) {
     var chunks;
     var block_ids = _.flatten(_.compact(_.map(parts, 'block_ids')));
-    var query_parts_params = _.map(parts, get_part_key);
 
     return P.join(
 
             // find parts by start offset, deleted parts are handled later
-            db.ObjectPart
-            .find({
-                obj: obj.id,
-                $or: query_parts_params,
-            })
+            find_consecutive_parts(obj, parts)
             .populate('chunk')
             .exec(),
 
@@ -298,10 +288,6 @@ function finalize_object_parts(bucket, obj, parts) {
         .spread(function(parts_res, blocks) {
             var parts_by_start = _.groupBy(parts_res, 'start');
             chunks = _.flatten(_.map(parts, function(part) {
-                if (part.deleted) {
-                    // Part was deleted before we finalized the object, race with delete ?
-                    dbg.warn("BUG? during finalize found part marked as deleted ", part);
-                }
                 var part_res = parts_by_start[part.start];
                 if (!part_res) {
                     throw new Error('part not found for obj ' +
@@ -813,8 +799,7 @@ function delete_object_mappings(obj) {
     // find parts intersecting the [start,end) range
     var deleted_parts;
     var all_chunk_ids;
-    return P.when(db.ObjectPart
-            .find({
+    return P.when(db.ObjectPart.find({
                 obj: obj.id,
                 deleted: null,
             })
@@ -1114,6 +1099,31 @@ function sanitize_object_range(obj, start, end) {
     };
 }
 
-function get_part_key(part) {
-    return _.pick(part, 'start', 'end', 'upload_part_number', 'part_sequence_number');
+function find_consecutive_parts(obj, parts) {
+    var start = parts[0].start;
+    var end = parts[parts.length - 1].end;
+    var upload_part_number = parts[0].upload_part_number;
+    var pos = start;
+    _.each(parts, function(part) {
+        if (pos !== part.start) {
+            throw new Error('expected parts to be consecutive');
+        }
+        if (upload_part_number !== part.upload_part_number) {
+            throw new Error('expected parts to have same upload_part_number');
+        }
+        pos = part.end;
+    });
+    return db.ObjectPart.find({
+            system: obj.system,
+            obj: obj.id,
+            start: {
+                $gte: start
+            },
+            end: {
+                $lte: end
+            },
+            upload_part_number: upload_part_number,
+            deleted: null
+        })
+        .sort('start');
 }

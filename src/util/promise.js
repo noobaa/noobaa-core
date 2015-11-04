@@ -20,11 +20,9 @@ module.exports = P;
 // better stack traces for promises
 // used for testing only to avoid its big mem & cpu overheads
 // using setImmediate to allow modules to change the env on startup
-setImmediate(function() {
-    if (process.env.DEBUG_MODE) {
-        P.longStackTraces();
-    }
-});
+if (process.env.DEBUG_MODE === 'true') {
+    P.longStackTraces();
+}
 
 P.promisifyAll(require('fs'));
 P.promisifyAll(require('child_process'));

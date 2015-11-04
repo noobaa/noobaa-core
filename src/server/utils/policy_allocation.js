@@ -1,0 +1,167 @@
+'use strict';
+
+module.exports = {
+    allocate_by_policy: allocate_by_policy,
+    analyze_chunk_status: analyze_chunk_status,
+};
+
+var _ = require('lodash');
+var P = require('../../util/promise');
+var db = require('../db');
+var block_allocator = require('../block_allocator');
+var server_rpc = require('../server_rpc').server_rpc;
+var js_utils = require('../../util/js_utils');
+var config = require('../../../config.js');
+var Semaphore = require('../../util/semaphore');
+var dbg = require('../../util/debug_module')(__filename);
+
+
+function allocate_by_policy() {
+
+}
+
+
+/**
+ *
+ * analyze_chunk_status
+ *
+ * compute the status in terms of availability
+ * of the chunk blocks per fragment and as a whole.
+ *
+ */
+function analyze_chunk_status(chunk, all_blocks) {
+    var now = Date.now();
+    var blocks_by_frag_key = _.groupBy(all_blocks, get_frag_key);
+    var blocks_info_to_allocate;
+    var blocks_to_remove;
+    var chunk_health = 'available';
+
+    // TODO loop over parity fragments too
+    var frags = _.times(chunk.data_frags, function(frag) {
+
+        var fragment = {
+            layer: 'D',
+            frag: frag,
+        };
+
+        fragment.blocks = blocks_by_frag_key[get_frag_key(fragment)] || [];
+
+        // sorting the blocks by last node heartbeat time and by srvmode and building,
+        // so that reading will be served by most available node.
+        // TODO better randomize order of blocks for some time frame
+        // TODO need stable sorting here for parallel decision making...
+        fragment.blocks.sort(block_access_sort);
+
+        dbg.log1('analyze_chunk_status:', 'chunk', chunk._id,
+            'fragment', frag, 'num blocks', fragment.blocks.length);
+
+        _.each(fragment.blocks, function(block) {
+            var since_hb = now - block.node.heartbeat.getTime();
+            if (since_hb > config.LONG_GONE_THRESHOLD || block.node.srvmode === 'disabled') {
+                return js_utils.named_array_push(fragment, 'long_gone_blocks', block);
+            }
+            if (since_hb > config.SHORT_GONE_THRESHOLD) {
+                return js_utils.named_array_push(fragment, 'short_gone_blocks', block);
+            }
+            if (block.building) {
+                var since_bld = now - block.building.getTime();
+                if (since_bld > config.LONG_BUILD_THRESHOLD) {
+                    return js_utils.named_array_push(fragment, 'long_building_blocks', block);
+                } else {
+                    return js_utils.named_array_push(fragment, 'building_blocks', block);
+                }
+            }
+            if (!block.node.srvmode) {
+                js_utils.named_array_push(fragment, 'good_blocks', block);
+            }
+            // also keep list of blocks that we can use to replicate from
+            if (!block.node.srvmode || block.node.srvmode === 'decommissioning') {
+                js_utils.named_array_push(fragment, 'accessible_blocks', block);
+            }
+        });
+
+        var num_accessible_blocks = fragment.accessible_blocks ?
+            fragment.accessible_blocks.length : 0;
+        var num_good_blocks = fragment.good_blocks ?
+            fragment.good_blocks.length : 0;
+
+        if (!num_accessible_blocks) {
+            fragment.health = 'unavailable';
+            chunk_health = 'unavailable';
+        }
+
+        if (num_good_blocks > config.OPTIMAL_REPLICAS) {
+            blocks_to_remove = blocks_to_remove || [];
+
+            // remove all blocks that were building for too long
+            // as they most likely failed to build.
+            js_utils.array_push_all(blocks_to_remove, fragment.long_building_blocks);
+
+            // remove all long gone blocks
+            // defer the short gone blocks until either back to good or become long.
+            js_utils.array_push_all(blocks_to_remove, fragment.long_gone_blocks);
+
+            // remove extra good blocks when good blocks are above optimal
+            // and not just accesible blocks are above optimal
+            js_utils.array_push_all(blocks_to_remove, fragment.good_blocks.slice(config.OPTIMAL_REPLICAS));
+        }
+
+        if (num_good_blocks < config.OPTIMAL_REPLICAS && num_accessible_blocks) {
+            fragment.health = 'repairing';
+
+            // will allocate blocks for fragment to reach optimal count
+            blocks_info_to_allocate = blocks_info_to_allocate || [];
+            var round_rob = 0;
+            var num_blocks_to_add = Math.max(0, config.OPTIMAL_REPLICAS - num_good_blocks);
+            _.times(num_blocks_to_add, function() {
+                blocks_info_to_allocate.push({
+                    system_id: chunk.system,
+                    tier_id: chunk.tier,
+                    chunk_id: chunk._id,
+                    chunk: chunk,
+                    layer: 'D',
+                    frag: frag,
+                    source: fragment.accessible_blocks[
+                        round_rob % fragment.accessible_blocks.length]
+                });
+                round_rob += 1;
+            });
+        }
+
+        fragment.health = fragment.health || 'healthy';
+
+        return fragment;
+    });
+
+    return {
+        chunk: chunk,
+        all_blocks: all_blocks,
+        frags: frags,
+        blocks_info_to_allocate: blocks_info_to_allocate,
+        blocks_to_remove: blocks_to_remove,
+        chunk_health: chunk_health,
+    };
+}
+
+/**
+ * sorting function for sorting blocks with most recent heartbeat first
+ */
+function block_access_sort(block1, block2) {
+    if (block1.building) {
+        return 1;
+    }
+    if (block2.building) {
+        return -1;
+    }
+    if (block1.node.srvmode) {
+        return 1;
+    }
+    if (block2.node.srvmode) {
+        return -1;
+    }
+    return block2.node.heartbeat.getTime() - block1.node.heartbeat.getTime();
+}
+
+function get_frag_key(f) {
+    return f.layer + '-' + f.frag;
+}

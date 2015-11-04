@@ -34,7 +34,7 @@ var P = require('../util/promise');
 var db = require('./db');
 var server_rpc = require('./server_rpc').server_rpc;
 var object_utils = require('./utils/object_mapper_utils');
-var block_allocator = require('./block_allocator');
+var policy_allocation = require('./utils/policy_allocation');
 var range_utils = require('../util/range_utils');
 var string_utils = require('../util/string_utils');
 var dbg = require('../util/debug_module')(__filename);
@@ -116,7 +116,7 @@ function allocate_object_parts(bucket, obj, parts) {
             var blocks_by_chunk_id = _.groupBy(blocks, 'chunk');
             _.each(digest_to_dup_chunk, function(chunk) {
                 chunk.all_blocks = blocks_by_chunk_id[chunk._id];
-                chunk.chunk_status = object_utils.analyze_chunk_status(chunk, chunk.all_blocks);
+                chunk.chunk_status = policy_allocation.analyze_chunk_status(chunk, chunk.all_blocks);
             });
             remove_parts = _.remove(existing_parts, function(existing_part) {
                 var chunk = existing_part.chunk;
@@ -124,7 +124,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     return true; // remove it
                 }
                 chunk.all_blocks = blocks_by_chunk_id[chunk._id];
-                chunk.chunk_status = object_utils.analyze_chunk_status(chunk, chunk.all_blocks);
+                chunk.chunk_status = policy_allocation.analyze_chunk_status(chunk, chunk.all_blocks);
             });
 
             return P.map(parts, function(part, i) {
@@ -1006,7 +1006,7 @@ function chunks_and_objects_count(systemid) {
 // UTILS //////////////////////////////////////////////////////////
 
 function get_part_info(params) {
-    var chunk_status = object_utils.analyze_chunk_status(params.chunk, params.blocks);
+    var chunk_status = policy_allocation.analyze_chunk_status(params.chunk, params.blocks);
     var p = _.pick(params.part, 'start', 'end');
 
     p.chunk = _.pick(params.chunk,

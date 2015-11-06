@@ -2,12 +2,16 @@
 
 var net = require('net');
 var tls = require('tls');
-var fs = require('fs');
+// var fs = require('fs');
 
 var delay = 1;
-// tcp_simultaneous_open(5555, 5556);
-// tcp_simultaneous_open(5556, 5555);
-tcp_normal_open(5556);
+
+if (process.argv[1]) {
+    tcp_simultaneous_open(5555, 5556);
+    tcp_simultaneous_open(5556, 5555);
+} else {
+    tcp_normal_open(5556);
+}
 
 function tcp_simultaneous_open(local_port, remote_port, attempts) {
     attempts = attempts || 0;

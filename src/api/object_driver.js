@@ -980,6 +980,10 @@ ObjectDriver.prototype.serve_http_stream = function(req, res, params) {
                 read_stream.close();
                 read_stream = null;
             }
+            if (reason ==='request ended'){
+                dbg.log ('res end after req ended');
+                res.status(200).end();
+            }
         };
     }
 
@@ -1007,7 +1011,7 @@ ObjectDriver.prototype.serve_http_stream = function(req, res, params) {
         // return http 400 Bad Request
         if (range === -2) {
             dbg.log0('+++ serve_http_stream: bad range request', req.get('range'));
-            res.status(400);
+            res.status(400).end();
             return;
         }
 
@@ -1017,7 +1021,7 @@ ObjectDriver.prototype.serve_http_stream = function(req, res, params) {
             // let the client know of the relevant range
             res.header('Content-Length', md.size);
             res.header('Content-Range', 'bytes */' + md.size);
-            res.status(416);
+            res.status(416).end();
             return;
         }
 

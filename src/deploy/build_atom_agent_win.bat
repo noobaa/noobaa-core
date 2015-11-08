@@ -32,20 +32,10 @@ xcopy /Y/I/E ..\..\src\util .\src\util
 xcopy /Y/I/E ..\..\src\rpc .\src\rpc
 xcopy /Y/I/E ..\..\src\api .\src\api
 REM remove irrelevant packages
-REM xcopy /Y/I/E ..\..\node_modules .\node_modules
 type package.json  | findstr /v forever-service | findstr /v forever | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v nodetime| findstr /v newrelic > package.json_s
 del /Q package.json
 rename package.json_s package.json
 call npm install -dd
-REM del /f/s/q  .\node_modules\gulp*
-REM del /f/s/q  .\node_modules\browserify*
-REM rd /s/q  .\node_modules\bootstrap
-REM rd /s/q  .\node_modules\nodetime
-REM rd /s/q  .\node_modules\bower
-REM rd /s/q  .\node_modules\newrelic
-REM rd /s/q  .\node_modules\forever
-REM rd /s/q  .\node_modules\forever-service
-REM rd /s/q  .\node_modules\googleapis
 xcopy /Y/I/E ..\..\build\Release .\Release
 del /Q node.exe
 del /Q openssl.exe

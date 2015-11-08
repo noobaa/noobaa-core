@@ -3,23 +3,25 @@
 module.exports = {
     allocate_by_policy: allocate_by_policy,
     analyze_chunk_status: analyze_chunk_status,
+    remove_allocation: remove_allocation,
 };
 
 var _ = require('lodash');
 var P = require('../../util/promise');
 var db = require('../db');
 var block_allocator = require('../block_allocator');
-var server_rpc = require('../server_rpc').server_rpc;
 var js_utils = require('../../util/js_utils');
 var config = require('../../../config.js');
-var Semaphore = require('../../util/semaphore');
 var dbg = require('../../util/debug_module')(__filename);
 
 
-function allocate_by_policy() {
-
+function allocate_by_policy(chunk, avoid_nodes) {
+    return P.when(block_allocator.allocate_block(chunk, avoid_nodes));
 }
 
+function remove_allocation(blocks) {
+    return P.when(block_allocator.remove_blocks(blocks));
+}
 
 /**
  *
@@ -29,7 +31,31 @@ function allocate_by_policy() {
  * of the chunk blocks per fragment and as a whole.
  *
  */
+
 function analyze_chunk_status(chunk, all_blocks) {
+    var status = {};
+    return P.when(read_tiering_info(chunk.bucket))
+        .then(function(tiering_info) {
+            //TODO:: currently only 1 tier, take into account multiuple tiers once implemented
+            if (tiering_info[0].data_placement === 'SPREAD') {
+                console.error('NBNB IN SPREAD!!!!');
+                //status = [analyze_chunk_status_on_pool(chunk, all_blocks, tiering_info[0].pools)];
+            } else { //MIRROR, analyze per each pool
+                console.error('NBNB IN MIRROR!!!!');
+                return P.allSettled(_.map(tiering_info[0].pools, function(p) {
+                        status[p._id] = analyze_chunk_status_on_pool(chunk, all_blocks, p);
+                    }))
+                    .then(function(r) {
+
+                    });
+            }
+            return P.when(analyze_chunk_status_on_pool(chunk, all_blocks));
+            //return status;
+        });
+}
+
+
+function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
     var now = Date.now();
     var blocks_by_frag_key = _.groupBy(all_blocks, get_frag_key);
     var blocks_info_to_allocate;
@@ -141,6 +167,43 @@ function analyze_chunk_status(chunk, all_blocks) {
         blocks_to_remove: blocks_to_remove,
         chunk_health: chunk_health,
     };
+}
+
+/**
+ * Reading tiering info for a bucket
+ */
+function read_tiering_info(bucketid) {
+    var tiering_info = [];
+    return P.when(db.Bucket
+            .findOne({
+                _id: bucketid,
+            })
+            .populate('tiering') //TODO:: check if needed
+            .exec())
+        .then(function(bucket) {
+            return P.when(db.TieringPolicy
+                    .findOne({
+                        _id: bucket.tiering,
+                    })
+                    .exec())
+                .then(function(pol) {
+                    var tier_ids = _.pluck(pol.tiers, 'tier');
+                    return P.when(db.Tier
+                            .find({
+                                _id: {
+                                    $in: tier_ids,
+                                }
+                            })
+                            .exec())
+                        .then(function(tiers) {
+                            _.each(tiers, function(n) {
+                                //TODO take into account multiple tiers
+                                tiering_info.push(n);
+                            });
+                            return tiering_info;
+                        });
+                });
+        });
 }
 
 /**

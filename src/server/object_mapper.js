@@ -53,6 +53,7 @@ function allocate_object_parts(bucket, obj, parts) {
     var new_parts = [];
     var existing_chunks;
     var existing_parts;
+    var digest_to_chunk = {};
     dbg.log1('allocate_object_parts: start');
 
     var reply = {
@@ -62,7 +63,6 @@ function allocate_object_parts(bucket, obj, parts) {
     };
 
     return P.join(
-
             // find the parts already exists from previous attempts
             // that will be removed.
             // their chunks will be used though.
@@ -106,25 +106,29 @@ function allocate_object_parts(bucket, obj, parts) {
                 .exec());
         })
         .then(function(blocks) {
-
             // assign blocks to chunks
             var blocks_by_chunk_id = _.groupBy(blocks, 'chunk');
-            var digest_to_chunk = {};
-
             // filter only the available chunks to be used for dedup
-            _.each(existing_chunks, function(chunk) {
+            if (!existing_chunks) {
+                return;
+            }
+            return P.map(existing_chunks, function(chunk) {
                 chunk.all_blocks = blocks_by_chunk_id[chunk._id];
-                chunk.chunk_status = policy_allocation.analyze_chunk_status(chunk, chunk.all_blocks);
-                var prev = digest_to_chunk[chunk.digest_b64];
-                if (prev) {
-                    dbg.log1('allocate_object_parts: already found chunk for digest', prev, chunk);
-                } else if (chunk.chunk_status.chunk_health === 'unavailable') {
-                    dbg.log1('allocate_object_parts: ignore unavailable chunk', chunk);
-                } else {
-                    digest_to_chunk[chunk.digest_b64] = chunk;
-                }
+                return P.when(policy_allocation.analyze_chunk_status(chunk, chunk.all_blocks))
+                    .then(function(cstatus) {
+                        chunk.chunk_status = cstatus;
+                        var prev = digest_to_chunk[chunk.digest_b64];
+                        if (prev) {
+                            dbg.log1('allocate_object_parts: already found chunk for digest', prev, chunk);
+                        } else if (chunk.chunk_status.chunk_health === 'unavailable') {
+                            dbg.log1('allocate_object_parts: ignore unavailable chunk', chunk);
+                        } else {
+                            digest_to_chunk[chunk.digest_b64] = chunk;
+                        }
+                    });
             });
-
+        })
+        .then(function() {
             return P.map(parts, function(part, i) {
                 var reply_part = reply.parts[i];
                 var dup_chunk = digest_to_chunk[part.chunk.digest_b64];
@@ -139,7 +143,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     part.db_chunk = /*new db.DataChunk*/ (_.extend({
                         _id: db.new_object_id(),
                         system: obj.system,
-                            bucket: bucket._id,
+                        bucket: bucket._id,
                         building: new Date(),
                     }, part.chunk));
                     new_chunks.push(part.db_chunk);
@@ -170,7 +174,7 @@ function allocate_object_parts(bucket, obj, parts) {
                     return block.node._id.toString();
                 });
                 return P.map(part.frags, function(fragment) {
-                        return block_allocator.allocate_block(part.db_chunk, avoid_nodes)
+                        return policy_allocation.allocate_by_policy(part.db_chunk, avoid_nodes)
                             .then(function(block) {
                                 if (!block) {
                                     throw new Error('allocate_object_parts: no nodes for allocation');
@@ -192,12 +196,15 @@ function allocate_object_parts(bucket, obj, parts) {
                         dbg.log2('allocate_object_parts: part info', part,
                             'chunk', part.db_chunk,
                             'blocks', new_blocks_of_chunk);
-                        reply_part.part = get_part_info({
-                            part: part,
-                            chunk: part.db_chunk,
-                            blocks: new_blocks_of_chunk,
-                            building: true
-                        });
+                        return P.when(get_part_info({
+                                part: part,
+                                chunk: part.db_chunk,
+                                blocks: new_blocks_of_chunk,
+                                building: true
+                            }))
+                            .then(function(r) {
+                                reply_part.part = r;
+                            });
                     });
             });
         })
@@ -501,7 +508,7 @@ function read_parts_mappings(params) {
             .exec())
         .then(function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
-            var parts_reply = _.map(params.parts, function(part) {
+            return P.all(_.map(params.parts, function(part) {
                 var chunk = part.chunk;
                 var blocks = blocks_by_chunk[chunk.id];
                 return get_part_info({
@@ -511,8 +518,7 @@ function read_parts_mappings(params) {
                     set_obj: params.set_obj,
                     adminfo: params.adminfo
                 });
-            });
-            return parts_reply;
+            }));
         });
 }
 
@@ -914,7 +920,7 @@ function report_bad_block(params) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();
                         });
-                        return block_allocator.allocate_block(chunk, avoid_nodes);
+                        return policy_allocation.allocate_by_policy(chunk, avoid_nodes);
                     })
                     .then(function(new_block_arg) {
                         new_block = new_block_arg;
@@ -930,7 +936,7 @@ function report_bad_block(params) {
                         return db.DataBlock.create(new_block);
                     })
                     .then(function() {
-                        return block_allocator.remove_blocks([bad_block]);
+                        return policy_allocation.remove_allocation([bad_block]);
                     })
                     .then(function() {
                         dbg.log0('report_bad_block: DONE. create new_block', new_block,
@@ -983,86 +989,88 @@ function chunks_and_objects_count(systemid) {
 // UTILS //////////////////////////////////////////////////////////
 
 function get_part_info(params) {
-    var chunk_status = policy_allocation.analyze_chunk_status(params.chunk, params.blocks);
-    var p = _.pick(params.part, 'start', 'end');
+    return P.when(policy_allocation.analyze_chunk_status(params.chunk, params.blocks))
+        .then(function(chunk_status) {
+            var p = _.pick(params.part, 'start', 'end');
 
-    p.chunk = _.pick(params.chunk,
-        'size',
-        'digest_type',
-        'digest_b64',
-        'compress_type',
-        'compress_size',
-        'cipher_type',
-        'cipher_key_b64',
-        'cipher_iv_b64',
-        'cipher_auth_tag_b64',
-        'data_frags',
-        'lrc_frags');
-    if (params.adminfo) {
-        p.chunk.adminfo = {
-            health: chunk_status.chunk_health
-        };
-    }
-    p.part_sequence_number = params.part.part_sequence_number;
-    if (params.upload_part_number) {
-        p.upload_part_number = params.upload_part_number;
-    }
-    if (params.set_obj) {
-        p.obj = params.part.obj;
-    }
-    if (params.part.chunk_offset) {
-        p.chunk_offset = params.part.chunk_offset;
-    }
-
-    p.frags = _.map(chunk_status.frags, function(fragment) {
-        var blocks = params.building && fragment.building_blocks ||
-            params.adminfo && fragment.blocks ||
-            fragment.accessible_blocks;
-
-        var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
-
-        // take the digest from some block.
-        // TODO better check that the rest of the blocks match...
-        if (fragment.blocks[0]) {
-            part_fragment.digest_type = fragment.blocks[0].digest_type;
-            part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
-        } else {
-            part_fragment.digest_type = '';
-            part_fragment.digest_b64 = '';
-        }
-
-        if (params.adminfo) {
-            part_fragment.adminfo = {
-                health: fragment.health,
-            };
-        }
-
-        part_fragment.blocks = _.map(blocks, function(block) {
-            var ret = {
-                block_md: object_utils.get_block_md(block),
-            };
-            var node = block.node;
+            p.chunk = _.pick(params.chunk,
+                'size',
+                'digest_type',
+                'digest_b64',
+                'compress_type',
+                'compress_size',
+                'cipher_type',
+                'cipher_key_b64',
+                'cipher_iv_b64',
+                'cipher_auth_tag_b64',
+                'data_frags',
+                'lrc_frags');
             if (params.adminfo) {
-                var adminfo = {
-                    tier_name: 'nodes', // TODO get tier name
-                    node_name: node.name,
-                    node_ip: node.ip,
-                    online: node.is_online(),
+                p.chunk.adminfo = {
+                    health: chunk_status.chunk_health
                 };
-                if (node.srvmode) {
-                    adminfo.srvmode = node.srvmode;
-                }
-                if (block.building) {
-                    adminfo.building = true;
-                }
-                ret.adminfo = adminfo;
             }
-            return ret;
-        });
-        return part_fragment;
-    });
+            p.part_sequence_number = params.part.part_sequence_number;
+            if (params.upload_part_number) {
+                p.upload_part_number = params.upload_part_number;
+            }
+            if (params.set_obj) {
+                p.obj = params.part.obj;
+            }
+            if (params.part.chunk_offset) {
+                p.chunk_offset = params.part.chunk_offset;
+            }
 
-    return p;
+            p.frags = _.map(chunk_status.frags, function(fragment) {
+                var blocks = params.building && fragment.building_blocks ||
+                    params.adminfo && fragment.blocks ||
+                    fragment.accessible_blocks;
+
+                var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
+
+                // take the digest from some block.
+                // TODO better check that the rest of the blocks match...
+                if (fragment.blocks[0]) {
+                    part_fragment.digest_type = fragment.blocks[0].digest_type;
+                    part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
+                } else {
+                    part_fragment.digest_type = '';
+                    part_fragment.digest_b64 = '';
+                }
+
+                if (params.adminfo) {
+                    part_fragment.adminfo = {
+                        health: fragment.health,
+                    };
+                }
+
+                part_fragment.blocks = _.map(blocks, function(block) {
+                    var ret = {
+                        block_md: object_utils.get_block_md(block),
+                    };
+                    var node = block.node;
+                    if (params.adminfo) {
+                        var adminfo = {
+                            tier_name: 'nodes', // TODO get tier name
+                            node_name: node.name,
+                            node_ip: node.ip,
+                            online: node.is_online(),
+                        };
+                        if (node.srvmode) {
+                            adminfo.srvmode = node.srvmode;
+                        }
+                        if (block.building) {
+                            adminfo.building = true;
+                        }
+                        ret.adminfo = adminfo;
+                    }
+                    return ret;
+                });
+                return part_fragment;
+            });
+
+            return p;
+        });
 }
 
 // sanitizing start & end: we want them to be integers, positive, up to obj.size.

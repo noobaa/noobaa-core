@@ -78,53 +78,54 @@ function build_chunks(chunks) {
 
             var blocks_by_chunk = _.groupBy(all_blocks, 'chunk');
             var blocks_to_remove = [];
-            chunks_status = _.map(chunks, function(chunk) {
-                var chunk_blocks = blocks_by_chunk[chunk._id];
-                var chunk_status = policy_allocation.analyze_chunk_status(chunk, chunk_blocks);
-                js_utils.array_push_all(blocks_to_remove, chunk_status.blocks_to_remove);
-                return chunk_status;
-            });
+            return P.all(_.map(chunks, function(chunk) {
+                    //chunks_status = _.map(chunks, function(chunk) {
+                    var chunk_blocks = blocks_by_chunk[chunk._id];
+                    var chunk_status = policy_allocation.analyze_chunk_status(chunk, chunk_blocks);
+                    js_utils.array_push_all(blocks_to_remove, chunk_status.blocks_to_remove);
+                    return chunk_status;
+                })
+                .then(function(chunks_status) {
 
-            // remove blocks -
-            // submit this to run in parallel while doing the longer allocate path.
-            // and will wait for it below before returning.
+                    // remove blocks -
+                    // submit this to run in parallel while doing the longer allocate path.
+                    // and will wait for it below before returning.
 
-            if (blocks_to_remove.length) {
-                dbg.log0('build_chunks: removing blocks', blocks_to_remove.length);
-                remove_blocks_promise = block_allocator.remove_blocks(blocks_to_remove);
-            }
+                    if (blocks_to_remove.length) {
+                        dbg.log0('build_chunks: removing blocks', blocks_to_remove.length);
+                        remove_blocks_promise = policy_allocation.remove_allocation(blocks_to_remove);
+                    }
 
-            // allocate blocks
+                    // allocate blocks
 
-            return promise_utils.iterate(chunks_status, function(chunk_status) {
-                var avoid_nodes = _.map(chunk_status.all_blocks, function(block) {
-                    return block.node._id.toString();
-                });
-                dbg.log1('build_chunks: chunk', _.get(chunk_status, 'chunk._id'),
-                    'all_blocks', _.get(chunk_status, 'all_blocks.length'),
-                    'blocks_info_to_allocate', _.get(chunk_status, 'blocks_info_to_allocate.length'));
-                return promise_utils.iterate(chunk_status.blocks_info_to_allocate,
-                    function(block_info_to_allocate) {
-                        return block_allocator.allocate_block(block_info_to_allocate.chunk, avoid_nodes)
-                            .then(function(new_block) {
-                                if (!new_block) {
-                                    had_errors += 1;
-                                    dbg.error('build_chunks: no nodes for allocation.' +
-                                        ' continue to build but will not eventually fail');
-                                    return;
-                                }
-                                block_info_to_allocate.block = new_block;
-                                avoid_nodes.push(new_block.node._id.toString());
-                                new_block.digest_type = block_info_to_allocate.source.digest_type;
-                                new_block.digest_b64 = block_info_to_allocate.source.digest_b64;
-                                return new_block;
+                    return promise_utils.iterate(chunks_status, function(chunk_status) {
+                        var avoid_nodes = _.map(chunk_status.all_blocks, function(block) {
+                            return block.node._id.toString();
+                        });
+                        dbg.log1('build_chunks: chunk', _.get(chunk_status, 'chunk._id'),
+                            'all_blocks', _.get(chunk_status, 'all_blocks.length'),
+                            'blocks_info_to_allocate', _.get(chunk_status, 'blocks_info_to_allocate.length'));
+                        return promise_utils.iterate(chunk_status.blocks_info_to_allocate,
+                            function(block_info_to_allocate) {
+                                return policy_allocation.allocate_by_policy(block_info_to_allocate.chunk, avoid_nodes)
+                                    .then(function(new_block) {
+                                        if (!new_block) {
+                                            had_errors += 1;
+                                            dbg.error('build_chunks: no nodes for allocation.' +
+                                                ' continue to build but will not eventually fail');
+                                            return;
+                                        }
+                                        block_info_to_allocate.block = new_block;
+                                        avoid_nodes.push(new_block.node._id.toString());
+                                        new_block.digest_type = block_info_to_allocate.source.digest_type;
+                                        new_block.digest_b64 = block_info_to_allocate.source.digest_b64;
+                                        return new_block;
+                                    });
                             });
                     });
-            });
-
+                }));
         })
         .then(function(new_blocks) {
-
             // create blocks in db (in building mode)
 
             if (!new_blocks || !new_blocks.length) return;

@@ -46,12 +46,15 @@ if (!process.env.PORT) {
 
 var active_server;
 var bg_workers_server;
-var build_on_premise = false;
+var build_on_premise = true;
 var skip_install = false;
 var use_local_executable = false;
 for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--on_premise') {
         build_on_premise = true;
+    }
+    if (process.argv[arg_idx] === '--saas') {
+        build_on_premise = false;
     }
     if (process.argv[arg_idx] === '--skip_install') {
         skip_install = true;

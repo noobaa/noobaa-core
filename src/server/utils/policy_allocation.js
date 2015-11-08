@@ -38,8 +38,7 @@ function analyze_chunk_status(chunk, all_blocks) {
         .then(function(tiering_info) {
             //TODO:: currently only 1 tier, take into account multiuple tiers once implemented
             if (tiering_info[0].data_placement === 'SPREAD') {
-                console.error('NBNB IN SPREAD!!!!');
-                //status = [analyze_chunk_status_on_pool(chunk, all_blocks, tiering_info[0].pools)];
+                return P.when(analyze_chunk_status_on_pool(chunk, all_blocks, tiering_info[0].pools));
             } else { //MIRROR, analyze per each pool
                 console.error('NBNB IN MIRROR!!!!');
                 return P.allSettled(_.map(tiering_info[0].pools, function(p) {
@@ -49,8 +48,6 @@ function analyze_chunk_status(chunk, all_blocks) {
 
                     });
             }
-            return P.when(analyze_chunk_status_on_pool(chunk, all_blocks));
-            //return status;
         });
 }
 

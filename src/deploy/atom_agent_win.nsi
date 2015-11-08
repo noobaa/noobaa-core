@@ -1,3 +1,4 @@
+Unicode true
 !include "MUI2.nsh"
 !define NB "NooBaa"
 !define Version "0.1.0.0"
@@ -7,9 +8,11 @@
 !include "FileFunc.nsh"
 !include "StrFunc.nsh"
 ${StrRep}
+!include "CharToASCII.nsh"
 !include "LogicLib.nsh"
 !include "Base64.nsh"
-
+!define MAX_PATH 2600
+!define NSIS_MAX_STRLEN=8192
 
 ; Usage example:
 ; noobaa-setup.exe /address "wss://noobaa-alpha.herokuapp.com" /S /system_name demo /access_key 123 /secret_key abc
@@ -18,7 +21,6 @@ ${StrRep}
 ;
 ; noobaa-setup.exe /S /config <agent_conf.json with base 64 encoding>
 ;
-
 BrandingText "${NB}"
 OutFile "noobaa-setup.exe"
 
@@ -204,6 +206,9 @@ Section "Noobaa Local Service"
 	File "NooBaa_Agent_wd.exe"
 	File "7za.exe"
 	File "openssl.exe"
+	File "openssl.exe"
+	File "libeay32.dll"
+	File "ssleay32.dll"
 	File "package.json"
 	File "wget.exe"
 	file "config.js"
@@ -211,7 +216,7 @@ Section "Noobaa Local Service"
 	File /r "ssl"
 	File /r "src"
 	File /r "node_modules"
-
+	File /r "Release"
 
 	Delete "$INSTDIR\ver.txt"
 	${WriteFile} "$INSTDIR\ver.txt" "Version 0.2"

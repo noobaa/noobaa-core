@@ -1,6 +1,6 @@
 {
   "name": "noobaa-core",
-  "version": "0.0.0",
+  "version": "0.3.7",
   "private": true,
   "description": "noobaa-core ===========",
   "engines": {

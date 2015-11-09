@@ -84,7 +84,7 @@ function build_chunks(chunks) {
                     var chunk_status = policy_allocation.analyze_chunk_status(chunk, chunk_blocks);
                     js_utils.array_push_all(blocks_to_remove, chunk_status.blocks_to_remove);
                     return chunk_status;
-                })
+                }))
                 .then(function(chunks_status) {
 
                     // remove blocks -
@@ -123,7 +123,7 @@ function build_chunks(chunks) {
                                     });
                             });
                     });
-                }));
+                });
         })
         .then(function(new_blocks) {
             // create blocks in db (in building mode)

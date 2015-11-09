@@ -8,7 +8,7 @@ REM Read input parameters in the form of "CLEAN:false"
 FOR %%A IN (%*) DO (
    FOR /f "tokens=1,2 delims=:" %%G IN ("%%A") DO set %%G=%%H
 )
-    
+
 
 echo "CLEAN BUILD ==>"%CLEAN%
 IF %CLEAN%==false GOTO SKIP_BUILD
@@ -17,7 +17,7 @@ echo "delete old files"
 rd /s/q build\windows
 mkdir build\windows
 cd build\windows
-mkdir .\ssl\	
+mkdir .\ssl\
 echo "copy files"
 copy ..\..\images\noobaa_icon24.ico .
 copy ..\..\src\deploy\7za.exe .
@@ -32,7 +32,7 @@ xcopy /Y/I/E ..\..\src\util .\src\util
 xcopy /Y/I/E ..\..\src\rpc .\src\rpc
 xcopy /Y/I/E ..\..\src\api .\src\api
 REM remove irrelevant packages
-type package.json  | findstr /v forever-service | findstr /v forever | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v nodetime| findstr /v newrelic > package.json_s
+type package.json  | findstr /v forever-service | findstr /v jsonwebtoken | findstr /v forever | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v nodetime| findstr /v newrelic > package.json_s
 del /Q package.json
 rename package.json_s package.json
 call npm install -dd
@@ -45,7 +45,7 @@ del /Q ..\public\node.exe
 del /Q ..\public\openssl.exe
 call curl -L https://nodejs.org/dist/v4.2.1/win-x86/node.exe > node.exe
 call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2d-i386-win32.zip > openssl.zip
-call unzip openssl.zip -x *.txt
+call 7za.exe e openssl.zip -y -x!*.txt
 del /Q openssl.zip
 copy /y *.dll ..\public\
 copy /y node.exe ..\public\node.exe

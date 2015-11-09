@@ -31,10 +31,13 @@ xcopy /Y/I/E ..\..\src\agent .\src\agent
 xcopy /Y/I/E ..\..\src\util .\src\util
 xcopy /Y/I/E ..\..\src\rpc .\src\rpc
 xcopy /Y/I/E ..\..\src\api .\src\api
+xcopy /Y/I/E ..\..\src\native .\src\native
+
 REM remove irrelevant packages
 type package.json  | findstr /v forever-service | findstr /v jsonwebtoken | findstr /v forever | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v nodetime| findstr /v newrelic > package.json_s
 del /Q package.json
 rename package.json_s package.json
+copy ../../binding.gyp .
 call npm install -dd
 xcopy /Y/I/E ..\..\build\Release .\Release
 del /Q node.exe

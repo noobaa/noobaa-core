@@ -1265,7 +1265,7 @@ module.exports = function(params) {
                         }
                         return clients[access_key].client.object.create_multipart_upload(create_params)
                             .then(function(info) {
-                                template = templateBuilder.buildInitiateMultipartUploadResult(encodeURIComponent(string_utils.encodeXML(req.params.key)), req.bucket);
+                                template = templateBuilder.buildInitiateMultipartUploadResult(string_utils.encodeXML(req.params.key), req.bucket);
                                 dbg.log0('upload fine', template);
                                 return buildXmlResponse(res, 200, template);
                             }).then(null, function(err) {

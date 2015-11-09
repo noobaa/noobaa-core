@@ -52,9 +52,21 @@ function analyze_chunk_status(chunk, all_blocks) {
 }
 
 
-function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
+function analyze_chunk_status_on_pool(chunk, allocated_blocks, orig_pools) {
+    //convert pools to strings for comparison
+    var pools = _.map(orig_pools, function(p) {
+        return p.toString();
+    });
+
+    //Remove blocks which are allocated on non-associated (to pools) nodes
+    var policy_blocks = _.filter(allocated_blocks, function(b) {
+        return _.findIndex(pools, function(p) {
+            return p === b.node.pool.toString();
+        }) !== -1;
+    });
+
     var now = Date.now();
-    var blocks_by_frag_key = _.groupBy(all_blocks, get_frag_key);
+    var blocks_by_frag_key = _.groupBy(policy_blocks, get_frag_key);
     var blocks_info_to_allocate;
     var blocks_to_remove;
     var chunk_health = 'available';
@@ -158,7 +170,7 @@ function analyze_chunk_status_on_pool(chunk, all_blocks, pools) {
 
     return {
         chunk: chunk,
-        all_blocks: all_blocks,
+        all_blocks: policy_blocks,
         frags: frags,
         blocks_info_to_allocate: blocks_info_to_allocate,
         blocks_to_remove: blocks_to_remove,

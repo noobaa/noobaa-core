@@ -90,23 +90,39 @@ function add_nodes_to_pool(req) {
             current_nodes = pool.nodes;
             current_nodes = current_nodes.concat(req.rpc_params.nodes);
             current_nodes = _.uniq(current_nodes);
-            var updates = {
+            var updates_pool = {
                 nodes: current_nodes
             };
-            return P.when(db.Pool
-                .findOneAndUpdate(get_pool_query(req), updates)
-                .exec());
+            return P.all([
+                //Update Poll with nodes association
+                db.Pool.findOneAndUpdate(get_pool_query(req), updates_pool).exec(),
+
+                //Update node's reference to pool
+                db.Node.update({
+                    name: {
+                        $in: req.rpc_params.nodes
+                    }
+                }, {
+                    pool: pool
+                }, {
+                    multi: true
+                })
+                .exec()
+            ]);
         });
 }
 
 function remove_nodes_from_pool(req) {
     dbg.log0('Removing ', req.rpc_params.nodes, 'from pool', req.rpc_params.name);
     var new_nodes;
-    return P.when(db.Pool
-            .findOne(get_pool_query(req))
-            .exec())
-        .then(db.check_not_deleted(req, 'pool'))
-        .then(function(pool) {
+    return P.all([db.Pool.findOne(get_pool_query(req)).exec(),
+            db.Pool.findOne({
+                system: req.system.id,
+                name: 'default_pool',
+                deleted: null,
+            }).exec()
+        ])
+        .spread(function(pool, default_pool) {
             _.each(pool.nodes, function(n) {
                 new_nodes[n] = true;
             });
@@ -117,12 +133,25 @@ function remove_nodes_from_pool(req) {
                 }
             });
 
-            var updates = {
+            var updates_pool = {
                 nodes: _.keys(new_nodes)
             };
-            return P.when(db.Pool
-                .findOneAndUpdate(get_pool_query(req), updates)
-                .exec());
+            return P.all([
+                //Update Poll with nodes de-association
+                db.Pool.findOneAndUpdate(get_pool_query(req), updates_pool).exec(),
+
+                //Update node's reference to default pool
+                db.Node.update({
+                    name: {
+                        $in: req.rpc_params.nodes
+                    }
+                }, {
+                    pool: default_pool
+                }, {
+                    multi: true
+                })
+                .exec()
+            ]);
         });
 }
 

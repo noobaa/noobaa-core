@@ -68,6 +68,7 @@ function create_node(req) {
         if (req.auth.extra.tier !== tier_name) throw req.forbidden();
     }
 
+
     return db.TierCache.get({
             system: req.system.id,
             name: tier_name,
@@ -81,7 +82,15 @@ function create_node(req) {
                     'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
             }
 
-            return db.Node.create(info);
+            return db.PoolCache.get({
+                    system: req.system.id,
+                    name: 'default_pool',
+                })
+                .then(null, db.check_already_exists(req, 'pool'))
+                .then(function(pool) {
+                    info.pool = pool;
+                    return db.Node.create(info);
+                });
         })
         .then(null, db.check_already_exists(req, 'node'))
         .then(function(node) {

@@ -84,8 +84,8 @@ function build_chunks(chunks) {
                     js_utils.array_push_all(blocks_to_remove, chunk_status.blocks_to_remove);
                     return chunk_status;
                 }))
-                .then(function(chunks_status) {
-
+                .then(function(cs) {
+                    chunks_status = cs;
                     // remove blocks -
                     // submit this to run in parallel while doing the longer allocate path.
                     // and will wait for it below before returning.

@@ -64,12 +64,13 @@ echo "building installer"
 
 makensis -NOCD ..\..\src\deploy\atom_agent_win.nsi
 
+IF EXIST "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool" (
 "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool"  sign /t http://timestamp.digicert.com /a noobaa-setup.exe
+)
+
 
 echo "noobaa-setup.exe installer available under build\windows"
 
 cd ..\..
-
-pause
 
 exit 0

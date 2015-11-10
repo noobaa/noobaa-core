@@ -1,0 +1,15 @@
+<nav>
+	<ul class="clear">
+		<li class="pull-left root">
+			<a href="/">
+				<svg-icon params="uri: '/assets/icons.svg#logo'"></svg-icon>
+			</a>
+		</li>
+
+		<!-- ko foreach: parts -->
+		<li class="pull-left" data-bind="css: 'level' + $index()">
+			<a data-bind="attr: { href: href }, text: label"></a>
+		</li>
+		<!-- /ko -->
+	</ul>	
+<nav>

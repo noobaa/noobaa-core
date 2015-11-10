@@ -1,0 +1,37 @@
+<h2 class="remark text-center node-ip" data-bind="text: ip"></h2>
+
+<section class="center clear">
+	<capacity-gauge params="legend: gaugeLagend(), values: gaugeValues()"></capacity-gauge>	
+
+	<div class="extras">
+		<ul class="properties" class="pull-left">
+			<li>
+				<svg-icon params="uri: statusIcon()"></svg-icon>
+				<span data-bind="text: statusText()"></span>
+			</li>
+
+			<li>
+				<svg-icon params="uri: trustIcon()"></svg-icon>
+				<span data-bind="text: trustText()"></span>
+			</li>
+		</ul>
+
+		<action-list data-bind="label: 'actions'">
+			<action data-bind="click: $parent.decommission">
+				Decommission Node
+			</action>
+
+			<action data-bind="click: $parent.disonnect">
+				Disconnect Node
+			</action>
+
+			<action data-bind="click: $parent.test">
+				Self Test
+			</action>
+
+			<action data-bind="click: $parent.diagnose">
+				Diagnose Node
+			</action>
+		</action-list>
+	</div>
+</section>

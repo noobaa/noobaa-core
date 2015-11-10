@@ -1,0 +1,75 @@
+breadcrumbs {
+	display: block;
+	@height: 50px;
+	color: @text-color3;
+	font-size: @font-size-large;
+
+	.level(@num, @color) {
+		li.level@{num} {
+			a {
+				background-color: @color;
+			}
+
+			&::before {
+				border-color: @color @color @color transparent;
+			}
+
+			&::after {
+				border-left-color: @color;
+			}
+		}
+	}
+
+	ul {
+		list-style-type: none;
+		padding: 0;
+		margin: 0;
+		line-height: @height;
+	}
+
+	li {
+		.text(
+			@font-type2,
+			@font-weight-light,
+			@font-size-normal,
+			@text-color3,
+			@text-color9,
+			text-color1
+		);
+
+		margin-left: 3/4 * -@height/2;
+
+		a {
+			float: left;
+			display: inline-block;
+			padding: 0 .5em;
+		}
+
+		&::before, &::after {
+			content: '';
+			float: left;
+			display: inline-block;
+			border-style: solid;
+			border-color: transparent;
+			border-width: @height/2 0 @height/2 3/8 *@height;
+			vertical-align: middle;
+		}
+
+	}
+
+	.root > a {
+		padding-top: 0;
+		padding-bottom: 0;
+		
+		svg-icon {
+			width: 35px;
+			height: 35px;
+			vertical-align: middle;
+		}
+	}
+
+	/* Define the colors of the different levels */
+	.level(0, @bg-color1);
+	.level(1, @bg-color2);
+	.level(2, @bg-color4);
+}

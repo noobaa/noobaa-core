@@ -1,0 +1,25 @@
+
+<node-summary></node-summary>
+
+<ul class="tabs details">
+	<li data-bind="css: { selected: selectedTab() == 'file-parts' }">
+		<a href="file-parts" class="tab-header">
+			<svg-icon params="uri: '/assets/icons.svg#part'"></svg-icon>
+			Stored File Parts
+		</a>
+
+		<node-parts-table class="tab-content"></node-parts-table>
+	</li>
+
+	<li data-bind="css: { selected: selectedTab() === 'info' }">
+		<a href="./info" class="tab-header">
+			<svg-icon params="uri: '/assets/icons.svg#info-dark'"></svg-icon>
+			Info
+		</a>
+
+		<node-info class="tab-content"></node-info>
+	</li>
+</ul>	
+
+
+ 

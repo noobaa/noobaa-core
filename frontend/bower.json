@@ -1,0 +1,24 @@
+{
+  "name": "NooBaa Management Console",
+  "version": "0.0.0",
+  "description": "",
+  "main": "",
+  "moduleType": [],
+  "authors": [
+    "Ohad Mitrani"
+  ],
+  "license": "MIT",
+  "homepage": "index.html",
+  "private": true,
+  "dependencies": {
+    "knockout": "knockoutjs#~3.3.0",
+    "knockout-mapping": "~2.4.1",
+    "knockout-projections": "~1.1.0",
+    "numeral": "~1.5.3",
+    "page": "~1.6.4",
+    "pubsub": "pubsub-js#~1.5.3",
+    "rxjs": "~4.0.6",
+    "knockout-validation": "~2.0.3",
+    "moment": "~2.10.6"
+  }
+}

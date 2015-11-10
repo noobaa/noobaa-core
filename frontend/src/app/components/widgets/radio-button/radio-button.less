@@ -1,0 +1,45 @@
+radio-button {
+	display: inline-block;
+	margin-right: 1em;
+	line-height: 1.5;
+
+	.text(
+		@font-type2,
+		@font-weight-light,
+		@font-size-normal,
+		@text-color2
+	);
+
+	label {
+		cursor: @cursor-pointer;
+		vertical-align: middle;
+	}
+
+	.indicator {
+		display: inline-block;
+		border: 2px solid @text-color4;
+		width: 16px;
+		height: 16px;
+		border-radius: 20px;
+		position: relative;
+		vertical-align: middle;
+
+		&::before {
+			content: '';
+			display: none;
+			position: absolute;
+			left: 2px;
+			top: 2px;
+			border: 4px solid @text-color2;
+			border-radius: 10px;
+		}
+	}
+
+	input {
+		display: none;
+
+		&:checked + .indicator::before {
+			display: block;
+		}
+	}	
+}

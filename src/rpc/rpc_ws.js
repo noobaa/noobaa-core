@@ -14,6 +14,11 @@ var WS = require('ws');
 
 util.inherits(RpcWsConnection, RpcBaseConnection);
 
+var WS_CONNECT_OPTIONS = {
+    // accept self signed ssl certificates
+    rejectUnauthorized: false
+};
+
 var WS_SEND_OPTIONS = {
     // rpc throughput with these options is ~200 MB/s (no ssl)
     binary: true,
@@ -44,7 +49,7 @@ function RpcWsConnection(addr_url) {
  */
 RpcWsConnection.prototype._connect = function() {
     var self = this;
-    var ws = new WS(self.url.href);
+    var ws = new WS(self.url.href, null, WS_CONNECT_OPTIONS);
     self._init_ws(ws);
     ws.onopen = function() {
         self.emit('connect');

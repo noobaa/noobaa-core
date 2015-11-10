@@ -41,7 +41,9 @@ function RpcBaseConnection(addr_url) {
     // and is expected after calling _connect() or when a connection is accepted
     // and already considered connected.
     self.once('connect', function on_connect() {
-        dbg.log0('RPC CONN CONNECTED state', self._state, self.connid);
+        if (!self.transient) {
+            dbg.log0('RPC CONN CONNECTED state', self._state, self.connid);
+        }
         if (self._state === STATE_CONNECTING || self._state === STATE_INIT) {
             self._state = STATE_CONNECTED;
             clearTimeout(self._connect_timeout);

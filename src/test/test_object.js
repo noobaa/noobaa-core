@@ -39,13 +39,12 @@ describe('object', function() {
             });
         }).then(function() {
             return client.tier.create_tier({
-                name: TIER,
-                kind: 'edge',
+                name: TIER,                
             });
         }).then(function() {
             return client.bucket.create_bucket({
                 name: BKT,
-                tiering: [TIER],
+                tiering: 'default_tiering',
             });
         }).then(function() {
             return coretest.init_test_nodes(10, SYS, TIER);

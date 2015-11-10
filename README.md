@@ -14,3 +14,4 @@ noobaa-core
 
 [5. BG Workers](https://github.com/noobaa/noobaa-core/blob/master/src/bg_workers/README.md)
 
+[6. Build Machines](https://github.com/noobaa/noobaa-core/wiki/Windows-Build-Machine-Cook-Book)

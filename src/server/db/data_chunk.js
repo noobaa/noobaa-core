@@ -29,7 +29,7 @@ var data_chunk_schema = new Schema({
         type: types.ObjectId,
     },
 
-    // optional - a bucket of this chunk
+    //the bucket of this chunk
     bucket: {
         ref: 'Bucket',
         type: types.ObjectId,

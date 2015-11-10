@@ -123,6 +123,10 @@ module.exports = function(params) {
             });
         }
         res.status(status);
+        _.each(object.xattr, function(val, key) {
+            res.header('x-amz-meta-' + key, val);
+            dbg.log0('RETURN XATTR (2)', key, val);
+        });
         if (req.method === 'HEAD') {
             return res.end();
         }
@@ -163,10 +167,18 @@ module.exports = function(params) {
         var req_access_key;
         if (req.headers.authorization) {
             var end_of_aws_key = req.headers.authorization.indexOf(':');
-            req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+            if (req.headers.authorization.substring(0, 4) === 'AWS4') {
+                //authorization: 'AWS4-HMAC-SHA256 Credential=wwwwwwwwwwwww123aaaa/20151023/us-east-1/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=0b04a57def200559b3353551f95bce0712e378c703a97d58e13a6eef41a20877',
+                var credentials_location = req.headers.authorization.indexOf('Credential') + 11;
+                req_access_key = req.headers.authorization.substring(credentials_location, req.headers.authorization.indexOf('/'));
+            } else {
+                req_access_key = req.headers.authorization.substring(4, end_of_aws_key);
+            }
         } else {
             if (req.query.AWSAccessKeyId) {
                 req_access_key = req.query.AWSAccessKeyId;
+            } else if (req.query['X-Amz-Credential']) {
+                req_access_key = req.query['X-Amz-Credential'].substring(0, req.query['X-Amz-Credential'].indexOf('/'));
             }
         }
         return req_access_key;
@@ -183,11 +195,12 @@ module.exports = function(params) {
         if (_.isUndefined(clients[req.access_key].client.options)) {
             dbg.error('extract_s3_info problem');
         }
-        if (clients[req.access_key].client.options.auth_token.indexOf('auth_token') > 0) {
+        var auth_token = clients[req.access_key].client.options.auth_token;
+        if (auth_token && auth_token.indexOf('auth_token') > 0) {
             //update signature and string_to_sign
             //TODO: optimize this part. two converstions per request is a bit too much.
 
-            var auth_token_obj = JSON.parse(clients[req.access_key].client.options.auth_token);
+            var auth_token_obj = JSON.parse(auth_token);
             auth_token_obj.signature = req.signature;
             auth_token_obj.string_to_sign = req.string_to_sign;
             auth_token_obj.access_key = req.access_key;
@@ -198,7 +211,7 @@ module.exports = function(params) {
             //Quick patch.
             //Need to find a better way to use client objects in parallel and pass the request information
             var new_params = {
-                'auth_token': clients[req.access_key].client.options.auth_token,
+                'auth_token': auth_token,
                 'signature': req.signature,
                 'string_to_sign': req.string_to_sign,
                 'access_key': req.access_key
@@ -207,6 +220,21 @@ module.exports = function(params) {
             return new_params;
         }
     };
+
+    function set_xattr(req, params) {
+        params.xattr = params.xattr || {};
+        _.each(req.headers, function(val, hdr) {
+            // if (!_.isString(hdr) || !_.isString(val)) return;
+            if (hdr.slice(0, 'x-amz-meta-'.length) !== 'x-amz-meta-') return;
+            var key = hdr.slice('x-amz-meta-'.length);
+            if (!key) return;
+            params.xattr[key] = val;
+            dbg.log0('SET XATTR', key, val);
+        });
+        // if (!_.isEmpty(params.xattr)) {
+        //     delete params.xattr;
+        // }
+    }
 
 
     var uploadPart = function(req, res) {
@@ -271,8 +299,8 @@ module.exports = function(params) {
                 try {
 
                     dbg.log0('COMPLETED: upload', req.query.uploadId, ' part:', req.query.partNumber, 'md5:', part_md5);
+                    res.header('ETag', part_md5);
 
-                    res.header('ETag', req.query.uploadId + req.query.partNumber);
                 } catch (err) {
                     dbg.log0('FAILED', err, res);
 
@@ -340,7 +368,7 @@ module.exports = function(params) {
 
     };
 
-    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key) {
+    var copy_object = function(from_object, to_object, src_bucket, target_bucket, access_key, req) {
         dbg.log0('copy:', from_object, to_object, src_bucket, target_bucket, access_key);
 
         from_object = decodeURIComponent(from_object);
@@ -362,7 +390,8 @@ module.exports = function(params) {
                 return delete_if_exists(target_object_path, access_key)
                     .then(function() {
                         //check if folder
-                        if (source_object_md.size === 0) {
+                        var last_char = from_object[from_object.length - 1];
+                        if (source_object_md.size === 0 && last_char === '/') {
                             dbg.log0('Folder copy:', from_object, ' to ', to_object);
                             return list_objects_with_prefix(from_object, '/', src_bucket, access_key)
                                 .then(function(objects_and_folders) {
@@ -383,6 +412,13 @@ module.exports = function(params) {
                         }
                         create_params.content_type = md.content_type;
                         create_params.size = md.size;
+                        dbg.log0('DIRECTIVE FOR METADATA:', req.headers['x-amz-metadata-directive']);
+                        if (req && req.headers['x-amz-metadata-directive'] === 'REPLACE') {
+                            set_xattr(req, create_params);
+                        } else {
+                            create_params.xattr = _.clone(md.xattr);
+                        }
+                        dbg.log0('XATTR PARAMS:', create_params);
                         var new_obj_parts;
                         return clients[access_key].client.object.read_object_mappings({
                                 bucket: src_bucket,
@@ -403,8 +439,8 @@ module.exports = function(params) {
                                         return {
                                             start: part.start,
                                             end: part.end,
-                                            crypt: part.crypt,
-                                            chunk_size: part.chunk_size
+                                            chunk: part.chunk,
+                                            frags: part.frags
                                         };
                                     })
                                 };
@@ -506,7 +542,7 @@ module.exports = function(params) {
     };
 
     var uploadObject = function(req, res, file_key_name) {
-
+        var create_params = {};
         var md5 = '0';
         P.fcall(function() {
                 if (store_locally) {
@@ -534,10 +570,12 @@ module.exports = function(params) {
                         source_stream: calculate_md5 ? md5_calc : req
                     };
 
-                    var create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
+                    create_params = _.pick(upload_params, 'bucket', 'key', 'size', 'content_type');
                     var bucket_key_params = _.pick(upload_params, 'bucket', 'key');
 
-                    dbg.log0('upload_stream: start upload', upload_params.key, upload_params.size);
+                    set_xattr(req, create_params);
+
+                    dbg.log0('upload_stream: start upload', upload_params.key, upload_params.size, 'create params', create_params);
                     if (_.isUndefined(clients[access_key].buckets[req.bucket])) {
                         clients[access_key].buckets = [req.bucket];
                         clients[access_key].buckets[req.bucket] = {
@@ -568,6 +606,11 @@ module.exports = function(params) {
             .then(function() {
                 dbg.log0('COMPLETED: uploadObject', file_key_name, md5);
                 res.header('ETag', md5);
+                _.each(create_params.xattr, function(val, key) {
+                    res.header('x-amz-meta-' + key, val);
+                    dbg.log0('RETURN XATTR (2)', key, val);
+                });
+
                 return res.status(200).end();
             })
             .then(null, function(err) {
@@ -860,7 +903,9 @@ module.exports = function(params) {
                             dbg.log0('Creating new bucket', bucketName);
                             clients[access_key].client.bucket.create_bucket({
                                     name: bucketName,
-                                    tiering: ['nodes']
+                                    tiering: {
+                                        tiering: 'default_tiering'
+                                    }
                                 })
                                 .then(function() {
                                     dbg.log0('Created new bucket "%s" successfully', bucketName);
@@ -879,8 +924,31 @@ module.exports = function(params) {
             });
         },
         deleteBucket: function(req, res) {
-            var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
-            return buildXmlResponse(res, 409, template);
+            var bucketName = req.params.bucket;
+            var s3_info = extract_s3_info(req);
+
+            P.fcall(function() {
+                dbg.log0('check if bucket exists');
+                return isBucketExists(bucketName, s3_info)
+                    .then(function(exists) {
+                        if (exists) {
+                            clients[s3_info.access_key].client.bucket.delete_bucket({
+                                    name: bucketName
+                                })
+                                .then(function() {
+                                    dbg.log0('Deleted new bucket "%s" successfully', bucketName);
+                                    res.header('Location', '/' + bucketName);
+                                    return res.status(200).send();
+                                }).then(null, function(err) {
+                                    var template = templateBuilder.buildBucketNotEmpty(req.bucket.name);
+                                    return buildXmlResponse(res, 409, template);
+                                });
+                        } else {
+                            dbg.log0('no such bucket', bucketName);
+                        }
+                    });
+            });
+
         },
 
 
@@ -919,8 +987,12 @@ module.exports = function(params) {
                         bucket: req.bucket,
                         key: keyName
                     };
+                    //Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
                     dbg.log0('getObject', object_path, req.method);
-                    return clients[access_key].client.object_driver_lazy().get_object_md(object_path)
+                    object_path.key = object_path.key.replace(/_\$folder\$/, '/');
+                    dbg.log0('getObject (after)', object_path, req.method);
+
+                    return clients[access_key].client.object.read_object_md(object_path)
                         .then(function(object_md) {
                             dbg.log0('object_md:', object_md);
                             var create_date = new Date(object_md.create_time);
@@ -934,6 +1006,10 @@ module.exports = function(params) {
                             res.header('ETag', object_md.etag);
                             res.header('x-amz-id-2', 'FSVaTMjrmBp3Izs1NnwBZeu7M19iI8UbxMbi0A8AirHANJBo+hEftBuiESACOMJp');
                             res.header('x-amz-request-id', 'E5CEFCB143EB505A');
+                            _.each(object_md.xattr, function(val, key) {
+                                res.header('x-amz-meta-' + key, val);
+                                dbg.log0('RETURN XATTR(3)', key, val);
+                            });
 
                             if (req.method === 'HEAD') {
                                 dbg.log0('Head ', res._headers);
@@ -947,7 +1023,6 @@ module.exports = function(params) {
                                     clients[access_key].client.object_driver_lazy().open_read_stream(object_path).pipe(res);
                                 }
                             }
-
                         }).then(null, function(err) {
                             //if cloudberry tool is looking for its own format for large files and can find it,
                             //we will try with standard format
@@ -958,12 +1033,12 @@ module.exports = function(params) {
                                 var template = templateBuilder.buildKeyNotFound(keyName);
                                 return buildXmlResponse(res, 404, template);
                             } else {
-                                dbg.error('Cannot find file. will retry as folder', err);
+                                dbg.error('Cannot find file. will retry as folder (', object_path.key + '/', ')', err);
                                 //retry as folder name
                                 object_path.key = object_path.key + '/';
                             }
 
-                            return clients[access_key].client.object_driver_lazy().get_object_md(object_path)
+                            return clients[access_key].client.object.read_object_md(object_path)
                                 .then(function(object_md) {
                                     dbg.log3('obj_md2', object_md);
                                     var create_date = new Date(object_md.create_time);
@@ -973,6 +1048,10 @@ module.exports = function(params) {
                                     res.header('Content-Type', object_md.content_type);
                                     res.header('Content-Length', object_md.size);
                                     res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
+                                    _.each(object_md.xattr, function(val, key) {
+                                        res.header('x-amz-meta-' + key, val);
+                                        dbg.log0('RETURN XATTR', key, val);
+                                    });
                                     if (req.method === 'HEAD') {
                                         return res.end();
                                     } else {
@@ -1032,11 +1111,38 @@ module.exports = function(params) {
                             return buildXmlResponse(res, 404, template);
                         }
                         if (decodeURIComponent(srcObject) === req.params.key && srcBucket === req.bucket) {
-                            template = templateBuilder.buildCopyObject(req.params.key);
-                            return buildXmlResponse(res, 200, template);
+                            // TODO GUY - this "if" returns without doing the copy... why?
+                            dbg.log0('DIRECTIVE FOR METADATA:', req.headers['x-amz-metadata-directive']);
+                            var create_params = {};
+                            if (req && req.headers['x-amz-metadata-directive'] === 'REPLACE') {
+                                set_xattr(req, create_params);
+                            } else {
+                                return clients[access_key].client.object.read_object_md({
+                                    bucket: srcBucket,
+                                    key: srcObject,
+                                }).then(function(md) {
+                                    create_params.xattr = _.clone(md.xattr);
+                                });
+                            }
+
+                            return clients[access_key].client.object.update_object_md({
+                                bucket: req.bucket,
+                                key: srcObject,
+                                xattr: create_params.xattr
+
+                            }).then(function() {
+                                template = templateBuilder.buildCopyObject(req.params.key);
+                                _.each(create_params.xattr, function(val, key) {
+                                    res.header('x-amz-meta-' + key, val);
+                                    dbg.log0('RETURN XATTR', key, val);
+                                });
+
+                                return buildXmlResponse(res, 200, template);
+                            });
+
                         } else {
                             return copy_object(srcObject, req.params.key, srcBucket,
-                                    req.bucket, access_key)
+                                    req.bucket, access_key, req)
                                 .then(function(is_copied) {
                                     if (is_copied) {
                                         template = templateBuilder.buildCopyObject(req.params.key);
@@ -1128,6 +1234,7 @@ module.exports = function(params) {
                             size: 0,
                             content_type: req.headers['content-type']
                         };
+                        set_xattr(req, create_params);
 
                         dbg.log0('Init Multipart, buckets', clients[access_key].buckets, '::::', _.where(clients[access_key].buckets, {
                             bucket: req.bucket
@@ -1159,6 +1266,7 @@ module.exports = function(params) {
                         return clients[access_key].client.object.create_multipart_upload(create_params)
                             .then(function(info) {
                                 template = templateBuilder.buildInitiateMultipartUploadResult(string_utils.encodeXML(req.params.key), req.bucket);
+                                dbg.log0('upload fine', template);
                                 return buildXmlResponse(res, 200, template);
                             }).then(null, function(err) {
                                 template = templateBuilder.buildKeyNotFound(req.query.uploadId);
@@ -1208,6 +1316,9 @@ module.exports = function(params) {
         deleteObject: function(req, res) {
             //this is also valid for the Abort Multipart Upload
             var key = req.params.key;
+            //Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
+            key = key.replace(/_\$folder\$/, '/');
+
             dbg.log0('Attempt to delete object "%s" in bucket "%s"', key, req.bucket);
             var access_key = extract_access_key(req);
             var template;

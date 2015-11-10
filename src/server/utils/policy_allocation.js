@@ -16,7 +16,15 @@ var dbg = require('../../util/debug_module')(__filename);
 
 
 function allocate_by_policy(chunk, avoid_nodes) {
-    return P.when(block_allocator.allocate_block(chunk, avoid_nodes));
+    return P.when(read_tiering_info(chunk.bucket))
+        .then(function(tiering_info) {
+            //TODO:: currently only 1 tier, take into account multiuple tiers once implemented
+            if (tiering_info[0].data_placement === 'SPREAD') {
+                return P.when(block_allocator.allocate_block(chunk, avoid_nodes, tiering_info[0].pools));
+            } else { //Mirror
+                console.error('NBNB IN MIRROR!!!!');
+            }
+        });
 }
 
 function remove_allocation(blocks) {
@@ -39,7 +47,7 @@ function analyze_chunk_status(chunk, all_blocks) {
             //TODO:: currently only 1 tier, take into account multiuple tiers once implemented
             if (tiering_info[0].data_placement === 'SPREAD') {
                 return P.when(analyze_chunk_status_on_pool(chunk, all_blocks, tiering_info[0].pools));
-            } else { //MIRROR, analyze per each pool
+            } else { //Mirror, analyze per each mirrored pool
                 console.error('NBNB IN MIRROR!!!!');
                 return P.allSettled(_.map(tiering_info[0].pools, function(p) {
                         status[p._id] = analyze_chunk_status_on_pool(chunk, all_blocks, p);

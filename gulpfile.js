@@ -553,23 +553,34 @@ function package_build_task() {
             if (!use_local_executable) {
                 return build_agent_distro();
             } else {
-                return;
+                gutil.log('before downloading linux setup');
+                return Q.fcall(function() {
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup', [], process.cwd());
+                }).then(function() {
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup.exe >build/public/noobaa-setup.exe', [], process.cwd());
+                }).then(function() {
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest.exe >build/public/noobaa-s3rest.exe', [], process.cwd());
+                }).then(function() {
+                    return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
+                });
             }
-        })
-        .then(function() { //build rest distribution setup
-            if (!use_local_executable) {
-                return build_rest_distro();
-            } else {
-                return;
-            }
-        })
-        .then(function() {
-            //call for packing
-            return pack(DEST, NAME);
-        })
-        .then(null, function(error) {
-            gutil.log("error ", error, error.stack);
         });
+}
+})
+.then(function() { //build rest distribution setup
+        if (!use_local_executable) {
+            return build_rest_distro();
+        } else {
+            return;
+        }
+    })
+    .then(function() {
+        //call for packing
+        return pack(DEST, NAME);
+    })
+    .then(null, function(error) {
+        gutil.log("error ", error, error.stack);
+    });
 }
 
 if (skip_install === true) {

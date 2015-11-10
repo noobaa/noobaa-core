@@ -7,6 +7,7 @@
 !include "FileFunc.nsh"
 !include "StrFunc.nsh"
 ${StrRep}
+!include "CharToASCII.nsh"
 !include "Base64.nsh"
 
 

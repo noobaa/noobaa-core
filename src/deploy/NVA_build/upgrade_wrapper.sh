@@ -106,11 +106,18 @@ function pre_upgrade {
 	#install nvm
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
-	cp ${CORE_DIR}/build/public/nvm.sh ~/.nvm/
+	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
+	chmod 777 ~/.nvm/nvm.sh
 	mkdir /tmp/nvm422
 	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/nvm422 --strip-components 1
 	mkdir -p ~/.nvm/versions/node/v4.2.2/
 	mv /tmp/nvm422/* ~/.nvm/versions/node/v4.2.2/
+	export NVM_DIR="$HOME/.nvm"
+	. "$NVM_DIR/nvm.sh"
+
+	export PATH=~/.nvm/versions/node/v4.2.2/bin;$PATH
+	nvm alias default 4.2.2
+
 	nvm use 4.2.2
 
 }

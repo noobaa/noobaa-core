@@ -103,22 +103,24 @@ function pre_upgrade {
     else
         deploy_log "$agent_conf not found."
     fi
-	#install nvm
+
+	#install nvm use v4.2.2
+
 	rm -rf ~/.nvm
 	mkdir ~/.nvm
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
 	chmod 777 ~/.nvm/nvm.sh
-	mkdir /tmp/nvm422
+	mkdir /tmp/v4.2.2
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.2.2-linux-x64.tar.xz /tmp/
 	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/nvm422 --strip-components 1
 	mkdir -p ~/.nvm/versions/node/v4.2.2/
 	mv /tmp/nvm422/* ~/.nvm/versions/node/v4.2.2/
 	export NVM_DIR="$HOME/.nvm"
 	. "$NVM_DIR/nvm.sh"
-
-	export PATH=~/.nvm/versions/node/v4.2.2/bin;$PATH
+	export PATH=~/.nvm/versions/node/v4.2.2/bin:$PATH
+	ln -s  ~/.nvm/versions/node/v4.2.2/bin/node /usr/local/bin/node
+	rm -f /usr/local/bin/node
 	nvm alias default 4.2.2
-
 	nvm use 4.2.2
 
 }

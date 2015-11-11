@@ -112,7 +112,7 @@ function pre_upgrade {
 	chmod 777 ~/.nvm/nvm.sh
 	mkdir /tmp/v4.2.2
 	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.2.2-linux-x64.tar.xz /tmp/
-	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/nvm422 --strip-components 1
+	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/v4.2.2 --strip-components 1
 	mkdir -p ~/.nvm/versions/node/v4.2.2/
 	mv /tmp/v4.2.2/* ~/.nvm/versions/node/v4.2.2/
 	export NVM_DIR="$HOME/.nvm"

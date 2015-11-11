@@ -118,8 +118,8 @@ function pre_upgrade {
 	export NVM_DIR="$HOME/.nvm"
 	. "$NVM_DIR/nvm.sh"
 	export PATH=~/.nvm/versions/node/v4.2.2/bin:$PATH
-	ln -s  ~/.nvm/versions/node/v4.2.2/bin/node /usr/local/bin/node
 	rm -f /usr/local/bin/node
+	ln -s  ~/.nvm/versions/node/v4.2.2/bin/node /usr/local/bin/node
 	nvm alias default 4.2.2
 	nvm use 4.2.2
 
@@ -238,6 +238,7 @@ function post_upgrade {
 
 
 	rm -f /tmp/*.tar.gz
+	rm -f /tmp/v4.2.2
 
 	/etc/rc.d/init.d/supervisord stop
 	/etc/rc.d/init.d/supervisord start

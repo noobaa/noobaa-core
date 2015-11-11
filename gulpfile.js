@@ -553,7 +553,7 @@ function package_build_task() {
             if (!use_local_executable) {
                 return build_agent_distro();
             } else {
-                gutil.log('before downloading linux setup');
+                gutil.log('before downloading setup');
                 return Q.fcall(function() {
                     return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup', [], process.cwd());
                 })
@@ -567,6 +567,13 @@ function package_build_task() {
                     return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
                 });
             }
+        })
+        .then(function() {
+            gutil.log('before downloading nvm and node package');
+            return promise_utils.promised_exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
+        })
+        .then(function() {
+            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.2.2/node-v4.2.2-linux-x64.tar.xz >/tmp/node-v4.2.2-linux-x64.tar.xz', [], process.cwd());
         })
         .then(function() { //build rest distribution setup
             if (!use_local_executable) {

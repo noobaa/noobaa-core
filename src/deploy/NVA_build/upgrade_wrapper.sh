@@ -56,6 +56,13 @@ function fix_bashrc {
     echo "alias zless='zless -R'" >> ~/.bashrc
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
   fi
+
+  fixfornvm=$(grep NVM_DIR ~/.bashrc | wc -l)
+  if [ ${fixfornvm} -eq 0 ]; then
+    deploy_log "Adding NVM to .bashrc"
+	echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
+	echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
+  fi
 }
 
 function pre_upgrade {
@@ -96,6 +103,16 @@ function pre_upgrade {
     else
         deploy_log "$agent_conf not found."
     fi
+	#install nvm
+	rm -rf ~/.nvm
+	mkdir ~/.nvm
+	cp ${CORE_DIR}/build/public/nvm.sh ~/.nvm/
+	mkdir /tmp/nvm422
+	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/nvm422 --strip-components 1
+	mkdir -p ~/.nvm/versions/node/v4.2.2/
+	mv /tmp/nvm422/* ~/.nvm/versions/node/v4.2.2/
+	nvm use 4.2.2
+
 }
 
 function post_upgrade {
@@ -168,25 +185,28 @@ function post_upgrade {
 
   #node-gyp install & building
   export PATH=$PATH:/usr/local/bin
-  deploy_log "before node-gyp build"
-  cd ${CORE_DIR}
-  which node-gyp
-  if [ $? -ne 0 ]; then
-      deploy_log "installing node-gyp"
-      npm install -g node-gyp
-  fi
   export HOME=/root
-  deploy_log "node-gyp rebuild from $(pwd)"
-  node-gyp configure
-  if [ $? -ne 0 ]; then
-      deploy_log "node-gyp configure failed with $?"
-  fi
-  node-gyp build
-  if [ $? -ne 0 ]; then
-      deploy_log "node-gyp build failed with $?"
-  fi
-  deploy_log "$(find . -name *.node)"
-  deploy_log "node-gyp rebuild done ${CORE_DIR}"
+
+  # Removed  - we build binaries on centos machine now
+  # TODO:CLEANUP this section once we are stable
+  # deploy_log "before node-gyp build"
+  # cd ${CORE_DIR}
+  # which node-gyp
+  # if [ $? -ne 0 ]; then
+  #     deploy_log "installing node-gyp"
+  #     npm install -g node-gyp
+  # fi
+  # deploy_log "node-gyp rebuild from $(pwd)"
+  # node-gyp configure
+  # if [ $? -ne 0 ]; then
+  #     deploy_log "node-gyp configure failed with $?"
+  # fi
+  # node-gyp build
+  # if [ $? -ne 0 ]; then
+  #     deploy_log "node-gyp build failed with $?"
+  # fi
+  # deploy_log "$(find . -name *.node)"
+  # deploy_log "node-gyp rebuild done ${CORE_DIR}"
 
   deploy_log "list core dir"
   deploy_log "$(ls -R ${CORE_DIR}/build/)"

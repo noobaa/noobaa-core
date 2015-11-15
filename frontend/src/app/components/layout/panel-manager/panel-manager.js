@@ -1,13 +1,12 @@
 import template from './panel-manager.html';
 import ko from 'knockout';
-import { appState } from 'shared-streams';
+import { appState } from 'stores';
 
 class PanelManagerViewModel {
 	constructor() {
-		this.panelName = appState
-			.pluck('params', 'panel')
-			.map(panel => panel ? `${panel}-panel` : '')
-			.toKO();
+		this.panelName = ko.pureComputed(
+			() => `${appState().panel}-panel`
+		);
 	}
 }
 

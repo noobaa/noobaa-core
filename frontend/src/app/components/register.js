@@ -1,65 +1,56 @@
-// -------------------------------
-// Widgets
-// -------------------------------
-import svgIcon from './widgets/svg-icon/svg-icon'
-import dropdown from './widgets/dropdown/dropdown';
-import actionList from './widgets/action-list/action-list';
-import radioButton from './widgets/radio-button/radio-button';
-import capacityGauge from './widgets/capacity-gauge/capacity-gauge';
-import rangeIndicator from './widgets/range-indicator/range-indicator';
-import poolsOverview from './widgets/pools-overview/pools-overview';
-import bucketsOverview from './widgets/buckets-overview/buckets-overview';
-import nodeSummary from './widgets/node-summary/node-summary';
-import nodePartsTable from './widgets/node-parts-table/node-parts-table';
-import nodeInfo from './widgets/node-info/node-info';
-
-// -------------------------------
-// Layout
-// -------------------------------
-import header from './layout/header/header';
-import commandBar from './layout/commands-bar/commands-bar';
-import breadcrumbs from './layout/breadcrumbs/breadcrumbs';
-import panelManager from './layout/panel-manager/panel-manager';
-import modal from './layout/modal/modal';
-
-// -------------------------------
-// Panels
-// -------------------------------
-import overviewPanel from './panels/overview-panel/overview-panel';
-import aboutPanel from './panels/about-panel/about-panel';
-import bucketsPanel from './panels/buckets-panel/buckets-panel';
-import nodePanel from './panels/node-panel/node-panel';
-
-// -------------------------------
-// Forms
-// -------------------------------
-import addNodeForm from './forms/add-node-form/add-node-form';
-import createBucketForm from './forms/create-bucket-form/create-bucket-form';
-
 // Register the components with knockout component container.
 export default function register(ko) {
-	ko.components.register('svg-icon', svgIcon);
-	ko.components.register('dropdown', dropdown);
-	ko.components.register('radio-button', radioButton);
-	ko.components.register('pools-overview', poolsOverview);
-	ko.components.register('capacity-gauge', capacityGauge);	
-	ko.components.register('range-indicator', rangeIndicator);	
-	ko.components.register('action-list', actionList);
-	ko.components.register('buckets-overview', bucketsOverview);
-	ko.components.register('node-summary', nodeSummary);
-	ko.components.register('node-parts-table', nodePartsTable);
-	ko.components.register('node-info', nodeInfo);
-		ko.components.register('header', header);
-	ko.components.register('breadcrumbs', breadcrumbs);
-	ko.components.register('commands-bar', commandBar);
-	ko.components.register('panel-manager', panelManager);
-	ko.components.register('modal', modal);
-	
-	ko.components.register('overview-panel', overviewPanel);
-	ko.components.register('about-panel', aboutPanel);
-	ko.components.register('buckets-panel', bucketsPanel);
-	ko.components.register('node-panel', nodePanel);
 
-	ko.components.register('add-node-form', addNodeForm);
-	ko.components.register('create-bucket-form', createBucketForm);	
+	// -------------------------------
+	// Layout
+	// -------------------------------
+	ko.components.register('header', 		require('./layout/header/header'));
+	ko.components.register('commands-bar', 	require('./layout/commands-bar/commands-bar'));
+	ko.components.register('breadcrumbs', 	require('./layout/breadcrumbs/breadcrumbs'));
+	ko.components.register('panel-manager', require('./layout/panel-manager/panel-manager'));	
+
+	// -------------------------------
+	// Overview
+	// -------------------------------
+	ko.components.register('overview-panel', 	require('./overview/overview-panel/overview-panel'));
+	ko.components.register('pools-overview', 	require('./overview/pools-overview/pools-overview'));
+	ko.components.register('buckets-overview',	require('./overview/buckets-overview/buckets-overview'));	
+
+	// -------------------------------
+	// Buckets
+	// -------------------------------
+	ko.components.register('buckets-panel', 	require('./buckets/buckets-panel/buckets-panel'));
+	ko.components.register('buckets-table', 	require('./buckets/buckets-table/buckets-table'));
+	ko.components.register('create-bucket-form',require('./buckets/create-bucket-form/create-bucket-form'));		
+
+	// -------------------------------
+	// Bucket
+	// -------------------------------
+	ko.components.register('bucket-panel', 			require('./bucket/bucket-panel/bucket-panel'));
+	ko.components.register('bucket-summary', 		require('./bucket/bucket-summary/bucket-summary'));
+	ko.components.register('bucket-objects-table',	require('./bucket/bucket-objects-table/bucket-objects-table'));
+
+	// -------------------------------
+	// Pools
+	// -------------------------------
+	ko.components.register('add-node-form', require('./pools/add-node-form/add-node-form'));
+
+	// -------------------------------
+	// Node
+	// -------------------------------
+	ko.components.register('node-panel', 		require('./node/node-panel/node-panel'));
+	ko.components.register('node-summary', 		require('./node/node-summary/node-summary'));
+	ko.components.register('node-parts-table', 	require('./node/node-parts-table/node-parts-table'));
+	ko.components.register('node-info', 		require('./node/node-info/node-info'));
+
+	// -------------------------------
+	// shared
+	// -------------------------------
+	ko.components.register('svg-icon', 			require('./shared/svg-icon/svg-icon'));
+	ko.components.register('modal', 			require('./shared/modal/modal'));
+	ko.components.register('dropdown', 			require('./shared/dropdown/dropdown'));
+	ko.components.register('radio-button', 		require('./shared/radio-button/radio-button'));
+	ko.components.register('capacity-gauge',	require('./shared/capacity-gauge/capacity-gauge'));	
+	ko.components.register('range-indicator', 	require('./shared/range-indicator/range-indicator'));	
+	ko.components.register('action-list', 		require('./shared/action-list/action-list'));
 }

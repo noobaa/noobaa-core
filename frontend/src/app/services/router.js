@@ -1,28 +1,24 @@
 import page from 'page';
 import { parseQueryString } from 'utils';
-import { appState } from 'shared-streams';
 
 class Router {
 	constructor() {
 		Object.freeze(this);
 	}
 
-	add(route, overrides) {
+	add(route, handler) {
 		page(route, ctx => {
-			let state = Object.freeze({
+			handler({
+				pattern: route,
 				path: ctx.pathname.split('#')[0],
-				route: route,
 				hash: parseQueryString(ctx.hash),
 				params: Object.freeze(
 					Object.assign(
 						ctx.params, 
-						parseQueryString(ctx.querystring),
-						overrides
+						parseQueryString(ctx.querystring)
 					)
 				)
 			});
-
-			appState.onNext(state);
 		});
 
 		return this;

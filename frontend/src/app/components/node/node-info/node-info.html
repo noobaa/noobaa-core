@@ -1,0 +1,76 @@
+<ul class="prop-sheet">
+	<li class="prop">
+		<span class="prop-name">Version:</span>
+		<span class="prop-value" data-bind="text: version"></span>	
+	</li>
+</ul>
+
+<hr>
+
+<section class="system">
+	<h3 class="heading3">System</h3>
+	<ul class="prop-sheet">
+		<li class="prop">
+			<span class="prop-name">Host Name:</span>
+			<span class="prop-value" data-bind="text: hostname"></span>
+		</li>
+
+		<li class="prop">
+			<span class="prop-name">CPUs:</span>
+			<span class="prop-value" data-bind="text: cpus"></span>
+		</li>
+
+		<li class="prop">
+			<span class="prop-name">Up Time:</span>
+			<span class="prop-value" data-bind="text: upTime"></span>
+		</li>
+
+		<li class="prop">
+			<span class="prop-name">Memory:</span>
+			<span class="prop-value" data-bind="text: memory"></span>
+		</li>
+
+		<li class="prop">
+			<span class="prop-name">OS Type:</span>
+			<span class="prop-value" data-bind="text: osType"></span>
+		</li>
+	</ul>
+</section>
+
+<hr>
+
+<section class="drives">
+	<ul class="list-no-style legned">
+		<li class="bullet noobaa">NooBaa</li>
+		<li class="bullet os">OS</li>
+		<li class="bullet unused">Unused</li>
+	</ul>
+
+	<h3 class="heading3">Drives (Total <span data-bind="text: totalSize"></span>)</h3>
+
+	<ul class="prop-sheet drives text-left" data-bind="foreach: drives">
+		<li class="prop">
+			<div class="prop-name">
+				<svg-icon params="uri: '/assets/icons.svg#drive'"></svg-icon>
+				<span class="drive-name" data-bind="text: name, attr: { title: name }">/</span>
+			</div>
+
+			<range-indicator class="prop-value" params="values: values"></range-indicator>	
+		</li>
+	</ul>
+</section>
+
+<hr>
+
+<section class="networks">
+	<h3 class="heading3">Network Adapters</h3>
+
+	<ul class="prop-sheet" data-bind="foreach: networks">
+		<li class="prop clear">
+			<span class="controller-name prop-name" data-bind="text: controller"></span>
+			<ul class="prop-value list-no-style address-list clear" data-bind="foreach: interfaces">
+				<li data-bind="text: $data"></li>
+			</ul>
+		</li>
+	</ul>
+</section>

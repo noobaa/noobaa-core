@@ -46,7 +46,7 @@ if (typeof process !== 'undefined' &&
 
 var int_dbg = new InternalDebugLogger();
 
-var con = require('./console_wrapper');
+//var con = require('./console_wrapper');
 
 var MONTHS = {
     "1": "Jan",
@@ -261,9 +261,9 @@ InternalDebugLogger.prototype.set_level = function(mod, level) {
     //find the desired node to set level for
     for (var ind = 0; ind < parts.length; ++ind) {
         if (!tmp_mod[parts[ind]]) {
-            con.original_console();
+            //con.original_console();
             console.log("No such module " + mod + " registered");
-            con.wrapper_console();
+            //con.wrapper_console();
             return;
         }
         tmp_mod = tmp_mod[parts[ind]];
@@ -277,7 +277,7 @@ InternalDebugLogger.prototype.set_level = function(mod, level) {
 
 InternalDebugLogger.prototype.log_internal = function(level) {
     var args;
-    con.original_console();
+    //con.original_console();
     if (this._log) { //browser workaround
         args = Array.prototype.slice.call(arguments, 0);
         args.push("");
@@ -295,7 +295,7 @@ InternalDebugLogger.prototype.log_internal = function(level) {
         }
         console[logfunc].apply(console, args);
     }
-    con.wrapper_console();
+    //con.wrapper_console();
 };
 
 /*
@@ -315,6 +315,7 @@ function DebugLogger(mod) {
 
     var name = extract_module(mod);
     this._name = name;
+
     this._cur_level = int_dbg.build_module_context(this._name, int_dbg._modules);
 
     //set debug level for all modules, if defined
@@ -384,6 +385,8 @@ function log_syslog_builder(syslevel) {
         int_dbg.log_internal.apply(int_dbg, args);
     };
 }
+
+var con = { syslog_levels: ["trace", "log", "info", "error", "warn"]}
 for (i = 0; i < con.syslog_levels.length; ++i) {
     DebugLogger.prototype[con.syslog_levels[i]] = log_syslog_builder(con.syslog_levels[i]);
 }
@@ -423,5 +426,5 @@ DebugLogger.prototype.log_progress = function(fraction) {
 };
 
 //Register a "console" module DebugLogger for the console wrapper
-var conlogger = new DebugLogger("CONSOLE.js");
-con.register_logger(conlogger);
+//var conlogger = new DebugLogger("CONSOLE.js");
+//con.register_logger(conlogger);

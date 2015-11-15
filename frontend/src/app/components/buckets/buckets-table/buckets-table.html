@@ -1,0 +1,67 @@
+<table class="data-table">
+	<thead>
+		<tr>
+			<th>
+				<a href="?orderby=state">state</a>
+			</th>
+
+			<th class="greedy text-left">
+				<a href="?orderby=name">bucket name</a>
+			</th>
+
+			<th>
+				<a href="?orderby=filecount">files</a>
+			</th>
+
+			<th>
+				<a href="?orderby=totalsize">total</a>
+			</th>
+
+			<th>
+				<a href="?orderby=freesize">free</a>
+			</th>
+
+			<th>
+				<a href="?orderby=cloudsyncstatus">Cloud Sync</a>
+			</th>
+
+			<th>
+				Actions
+			</th>
+		</tr>
+	</thead>
+
+	<tbody data-bind="foreach: rows">
+		<tr>
+			<td>
+				<svg-icon params="uri: stateIcon"></svg-icon>
+			</td>
+
+			<td class="text-left">
+				<a class="link" data-bind="text: name, href: href"></a>
+			</td>
+			
+			<td data-bind="text: fileCount"></td>
+			
+			<td data-bind="text: totalSize"></td>
+			
+			<td data-bind="text: freeSize"></td>
+			
+			<td data-bind="text: cloudSyncStatus.label, css: cloudSyncStatus.css"></td>
+			
+			<td class="text-center btn-flat">
+				<svg-icon params="uri: '/assets/icons.svg#trash'" 
+					data-bind="
+						visible: !$component.isDeleteCandidate(name),
+						click: () => $component.deleteCandidate(name)
+				"></svg-icon>
+				
+				<span data-bind="visible: $component.isDeleteCandidate(name)">
+					<a class="link" data-bind="click: () => $component.confirmDelete()">yes</a> 
+					/ 
+					<a class="link" data-bind="click: () => $component.cancelDelete()">no</a>
+				</span>
+			</td> 			
+		</tr>
+	</tbody>
+</table>

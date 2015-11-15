@@ -35,6 +35,18 @@ hr {
 	margin: 1em 0;
 }
 
+::-webkit-scrollbar  {
+	width: 10px;
+}
+
+::-webkit-scrollbar-track  {
+	background-color: @bg-color3;
+}
+
+::-webkit-scrollbar-thumb  {
+	background-color: @bg-color6;
+}
+
 .textfield(@width: 350px) {
 	width: @width;
 	display: inline-block;
@@ -43,6 +55,7 @@ hr {
 	border: none;
 	border-bottom: 1px solid @bg-color7;
 	margin-right: 1em;	
+	line-height: 2;
 
 	.text(
 		@font-type2,
@@ -71,6 +84,10 @@ input[type="text"] {
 input[type="number"] {
 	.textfield(4em);
 	text-align: center;
+}
+
+input[type="search"] {
+	.textfield();
 }
 
 .pull-right {
@@ -127,7 +144,7 @@ input[type="number"] {
 .cut-text {
 	white-space: nowrap;
 	text-overflow: ellipsis;
-	overflow-x: hidden;
+	overflow: hidden;
 }
 
 .heading1 {
@@ -405,6 +422,8 @@ input[type="number"] {
 	}
 
 	.prop-name {
+		.cut-text();
+
 		display: inline-block;
 		width: 7em;
 		vertical-align: top;
@@ -416,4 +435,16 @@ input[type="number"] {
 		color: @text-color2;
 		vertical-align: top;
 	}
+}
+
+.details-pane  {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	top: 260px;
+
+	tabs {
+		height: 100%;
+	}	
 }

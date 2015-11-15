@@ -1,15 +1,16 @@
 import template from './header.html';
-import { appState } from 'shared-streams';
+import ko from 'knockout';
+import { appState } from 'stores';
 
 class HeaderViewModel {
 	constructor() {
+		this.heading = ko.pureComputed(
+			() => appState().heading 
+		);
 
-		this.text = appState
-			.pluck('path')
-			.map( path => decodeURIComponent(
-				path.split('/').slice(-1)[0]
-			) )
-			.toKO();
+		this.breadcrumbs = ko.pureComputed(
+			() => appState().breadcrumbs
+		);
 	}
 }
 

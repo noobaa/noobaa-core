@@ -1,31 +1,14 @@
 import ko from 'knockout';
-import rx from 'rxjs';
 
-function rxToKo(defaultValue) {
-	let value = ko.observable(defaultValue);
-	let computed = ko.pureComputed(value)
-	let sub = null;
+ko.computedArray = function computedArray(valueAccessor) {
+	if (typeof valueAccessor !== 'function') {
+		throw new TypeError('Invalid valueAccessor, not invokable');
+	}
 
-	// Manage rx subscription lifetime;
-	computed.subscribe(() => sub = this.subscribe(value), null, 'awake');
-	computed.subscribe(() => sub.dispose(), null, 'asleep');
+	let arr = ko.observableArray();
+	let computed = ko.pureComputed(valueAccessor);
+	let subscription = computed.subscribe(items => arr(items))
 
-	return computed;	
-}
-
-function rxlog(prefix) {
-	return this.tap(value => {
-		if (prefix) {
-			console.log(prefix, value)
-		} else {
-			console.log(value);
-		}
-	});
-}
-
-export default function register() {
-	Object.assign(rx.Observable.prototype, {
-		toKO: rxToKo,
-		log: rxlog,
-	});
+	arr.dispose = function() { subscription.dispose(); }
+	return arr;
 }

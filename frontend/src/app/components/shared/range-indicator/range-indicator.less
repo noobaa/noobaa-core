@@ -1,0 +1,22 @@
+range-indicator {
+	display: block;
+
+	.bar {
+		margin-top: 1em;
+		height: .3em;
+	}
+
+	.value {
+		height: 100%;
+		float: left;
+		text-align: center;
+
+		&::before {
+			content: attr(data-value);
+			position: relative;
+			top: -1.5em;
+			font-size: @font-size-small;
+			font-weight: @font-weight-medium;
+		}
+	}
+}

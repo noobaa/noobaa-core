@@ -1,20 +1,25 @@
 import template from './breadcrumbs.html';
-import rx from 'rxjs';
-import { appState } from 'shared-streams';
+import ko from 'knockout';
 
 class BreadcrumbsViewModel {
-	constructor(parmas) {
+	constructor(params) {
+		this.crumbs = params.crumbs;
+		
+		this.textCrumbs = ko.pureComputed(
+			() => this.crumbs()
+				.filter((_, i) => i >= 1)
+				.reduce(this._reduceCrumb, [])
+		);
 
-		this.parts = appState
-			.pluck('path')
-			.map(path => path.split('/')
-				.filter( (_, i, arr) =>  1 < i && i < arr.length - 1 )
-				.map( (name, i, arr) => ({ 
-					label: decodeURIComponent(name), 
-					href: '/' + arr.slice(0, i + 1).join('/') 
-				}) )
-			)
-			.toKO();
+		this.showBackground = ko.pureComputed( 
+			() => this.crumbs().length > 0
+		);
+	}
+
+	_reduceCrumb(list, crumb) {
+		let last = list[list.length - 1] || { href: '/demo' };
+		list.push({ label: crumb, href: `${last.href}/${crumb}` });
+		return list 
 	}
 }
 

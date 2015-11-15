@@ -1,18 +1,49 @@
-import rx from 'rxjs';
+import * as stores from 'stores';
 import api from 'services/api';
-import { systemInfo } from 'shared-streams';
 
-export function readSystemInfo() {
-	rx.Observable.fromPromise(api.read_system())
-		.subscribe(si => systemInfo.onNext(si));
-} 
-
-export function createBucket(bucketInfo) {
-	rx.Observable.fromPromise(api.create_bucket(bucketInfo))
-		.subscribe(readSystemInfo);
+function logAction(action, payload) {
+	if (typeof payload !== 'undefined') {
+		console.info(`action dispatched: ${action} with`, payload);
+	} else {
+		console.info(`action dispatched: ${action}`);
+	}
 }
 
-export function deleteBucket(bucketName) {
-	rx.Observable.fromPromise(api.delete_bucket({ name: bucketName }))
-		.subscribe(readSystemInfo);
+export function updateAppState(state) {
+	logAction('updateAppState', { state });
+
+	stores.appState(state);
+}
+
+export function readSystemInfo() {
+	logAction('readSystemInfo');
+
+	api.system.read_system()
+		.then(stores.systemInfo)
+		.done();
+}
+
+export function deleteBucket(name) {
+	logAction('deleteBucket', { name });
+
+	api.bucket.delete_bucket({ name })
+		.then(readSystemInfo)
+		.done();
+}
+
+export function readBucket(name) {
+	logAction('readBucket', { name });
+
+	api.bucket.read_bucket({ name })
+		.then(stores.bucketInfo)
+		.done();
+}
+
+export function listObjects(bucketName) {
+	logAction('listObjects', { bucketName });
+
+	stores.objectList([]);
+	api.object.list_objects({ bucket: bucketName })
+		.then(reply => stores.objectList(reply.objects))
+		.done();
 }

@@ -1,14 +1,14 @@
 <nav>
 	<ul class="clear">
-		<li class="pull-left root">
+		<li class="pull-left root link" data-bind="css: { 'no-bg': !showBackground() }">
 			<a href="/">
 				<svg-icon params="uri: '/assets/icons.svg#logo'"></svg-icon>
 			</a>
 		</li>
 
-		<!-- ko foreach: parts -->
-		<li class="pull-left" data-bind="css: 'level' + $index()">
-			<a data-bind="attr: { href: href }, text: label"></a>
+		<!-- ko foreach: textCrumbs -->
+		<li class="pull-left link" >
+			<a class="cut-text" data-bind="href: href, text: label"></a>
 		</li>
 		<!-- /ko -->
 	</ul>	

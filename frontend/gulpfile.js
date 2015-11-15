@@ -2,6 +2,7 @@
 var argv = require('yargs').argv;
 var gulp = require('gulp');
 var del = require('del');
+var VFile = require('vinyl');
 var sourceStream = require('vinyl-source-stream');
 var buffer = require('vinyl-buffer');
 var browserify = require('browserify');
@@ -9,11 +10,11 @@ var stringify = require('stringify');
 var babelify = require('babelify');
 var bowerResolve = require('bower-resolve');
 var runSequence = require('run-sequence');
+var through = require('through2'); 
 var $ = require('gulp-load-plugins')();
 
 var buildPath = './dist';
 var uglify = !!argv.uglify;
-var webServerStream = null;
 
 // ----------------------------------
 // Default Task
@@ -81,14 +82,15 @@ gulp.task('build-api', function() {
 		.pipe(gulp.dest(buildPath));
 });
 
-gulp.task('build-app', function() {
+gulp.task('build-app', ['build-js-style'], function() {
 	var b = browserify({ debug: true, paths: ['./src/app'] })
+		.require(buildPath + '/style.json', { expose: 'style' })
 		.transform(babelify, { optional: ['runtime', 'es7.decorators'] })
 		.transform(stringify({ minify: uglify }))
 		.add('src/app/main');
 
 	getBowerDependencies().forEach(function(lib) {
-		b.external(lib);
+		b.external(lib);	
 	});
 	b.external('nb-api');
 
@@ -118,6 +120,14 @@ gulp.task('copy', function() {
 		.pipe(gulp.dest(buildPath));
 });
 
+gulp.task('build-js-style', function() {
+	return gulp.src('src/app/styles/variables.less', { base: 'src/app/styles' })
+ 		.pipe(varsToLessClass())
+ 		.pipe($.less())
+ 		.pipe(cssClassToJson())
+ 		.pipe(gulp.dest(buildPath));
+})
+
 // ----------------------------------
 // Watch Tasks
 // ---------------------------------- 
@@ -140,6 +150,10 @@ gulp.task('watch-app', function() {
 	});	
 
 	$.watch('src/app/**/*.html', function() {
+		runSequence('build-app');
+	});		
+
+	$.watch('src/styles/variables.less', function() {
 		runSequence('build-app');
 	});		
 });
@@ -186,6 +200,49 @@ function getBowerDependencies() {
 	}
 
 	return Object.keys(dependencies);
+}
+
+function varsToLessClass() {
+	return through.obj(function(file, encoding, callback) {
+		var contents = file.contents.toString('utf-8');
+		var regExp = /@([A-Za-z0-9\-]+)\s*\:\s*(.+?)\s*;/g;
+		var output =  [];
+
+		var matches = regExp.exec(contents);
+		while (matches) {
+			output.push(matches[1] + ': @' + matches[1] + ';')
+			matches = regExp.exec(contents);
+		}
+
+		let str = [].concat(contents, 'json {', output, '}').join('\n');
+		this.push(new VFile({
+			contents: new Buffer(str, 'utf-8'),
+			path: "temp.less"
+		}));
+			
+		callback();
+ 	});
+}
+
+function cssClassToJson() {
+	return through.obj(function(file, encoding, callback) {
+		var contents = file.contents.toString('utf-8');
+		var regExp = /([A-Za-z0-9\-]+)\s*:\s*(.+?)\s*;/g;
+		var output = {};
+
+		var matches = regExp.exec(contents);		
+		while (matches) { 			
+			output[matches[1]] = matches[2];
+			matches = regExp.exec(contents);
+		}
+
+	 	this.push(new VFile({
+	 		contents: new Buffer(JSON.stringify(output), 'utf-8'),
+	 		path: "style.json"
+	 	}));
+
+	 	callback();
+	});
 }
 
 function errorHandler(err) {

@@ -1,0 +1,24 @@
+<div class="info clear overview-panel">
+	<section class="pull-left">
+		<!-- ko if: ready -->
+		<pools-overview params="poolCount: poolCount, nodeCount: nodeCount"></pools-overview>
+		<!-- /ko -->
+		
+		<a class="btn">add node</a>
+
+		<modal params="visible: showAddNodeModal">
+			<add-node-form></add-node-form>
+		</modal>
+	</section>
+
+	<section class="pull-right">
+
+		<!-- ko if: ready -->
+		<buckets-overview params="bucketCount: bucketCount, objectCount: objectCount"></buckets-overview>
+		<!-- /ko -->
+		
+		<a class="btn">s3 rest details</a	>
+
+		<modal params="visible: showRestDetailsModal"></modal>	
+	</section>
+</div>

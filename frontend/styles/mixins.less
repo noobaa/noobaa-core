@@ -1,0 +1,56 @@
+.text(@type, @weight, @size, @color) {
+	font-family: @type;
+	font-size: @size;
+	font-weight: @weight;
+	color: @color;	
+}
+
+.text(@type, @weight, @size, @color, @hover-color) {
+	.text(@type, @weight, @size, @color);
+
+	&:hover {
+		color: @hover-color;
+	}
+}
+
+.text(@type, @weight, @size, @color, @hover-color, @active-color) {
+	.text(@type, @weight, @size, @color, @hover-color);
+
+	&:active {
+		color: @active-color;
+	}
+}
+
+.bg-color(@normal, @hover, @active) {
+	background-color: @normal;
+
+	&:hover {
+		background-color:@hover;
+	}
+
+	&:active {
+		background-color:@active;
+	}	
+}
+
+.placeholder(@color) {
+	&::-webkit-input-placeholder {
+	   color: @color;
+	}
+
+	&:-moz-placeholder { /* Firefox 18- */
+	   color: @color;  
+	}
+
+	::-moz-placeholder {  /* Firefox 19+ */
+	   color: @color;  
+	}
+
+	:-ms-input-placeholder {  
+	   color: @color;  
+	}
+
+	&::placholder {
+		color: @bg-color7;
+	}
+}

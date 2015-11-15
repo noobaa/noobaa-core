@@ -1,0 +1,18 @@
+<div class="bucket-panel">
+	<bucket-summary params="bucket: bucket" class="center clear"></bucket-summary>
+
+	<ul class="tabs details-pane">
+		<li data-bind="css: { selected: selectedTab() == 'files' }">
+			<a href="file" class="tab-header">
+				<svg-icon params="uri: '/assets/icons.svg#bucket'"></svg-icon>
+				Files
+			</a>
+
+			<section class="tab-content">
+				<input type="search" class="search-file" placeholder="Search File" />
+
+				<bucket-objects-table params="objects: objects"></bucket-objects-table>
+			</section>
+		</li>
+	</ul>
+</div>	

@@ -109,7 +109,7 @@ function upload_and_upgrade(ip, upgrade_pack, instance_id, target_region) {
 
         })
         .then(null, function(err) {
-            console.error('Upload package failed', err, err.stack());
+            console.error('Upload package failed', err, err.stack);
             throw new Error('Upload package failed ' + err);
         });
 }

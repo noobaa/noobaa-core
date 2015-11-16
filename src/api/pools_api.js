@@ -149,6 +149,23 @@ module.exports = {
                     }]
                 }
             }
-        }
+        },
+
+        pools_info: {
+            type: 'object',
+            required: ['pools'],
+            properties: {
+                properties: [{
+                    name: {
+                        type: 'string',
+                        required: true,
+                    },
+                    nodes_count: {
+                        type: 'integer',
+                        required: true,
+                    },
+                }]
+            }
+        },
     }
 };

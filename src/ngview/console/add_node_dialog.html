@@ -85,61 +85,17 @@
                         <pre id="copy-area" style="font-size: 11px; color: hsl(0,0%,50%)" class="block" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
 
                         <input id="copy-text-area" type="hidden" style="visibility: hidden" value='/S /config {{ encoding.type }}' />
-                        <button onclick="copytext(document.getElementById('copy-text-area').value)" id="copy-button" class="btn btn-default" style="width: 35%;padding: 10px">
+                        <button onclick="document.execCommand('copy');" id="copy-button" class="btn btn-default" style="width: 35%;padding: 10px">
                             Copy To Clipboard
                         </button>
                         <script>
-                            
-                            if(navigator.userAgent.indexOf("Firefox") != -1 ){
-                                document.getElementById('copy-button').style.visibility = 'hidden';
-                            }
-                            function detectIE() {
-                                var ua = window.navigator.userAgent;
+                            document.addEventListener('copy', function(e){
 
-                                var msie = ua.indexOf('MSIE ');
-                                if (msie > 0) {
-                                    // IE 10 or older => return version number
-                                    return parseInt(ua.substring(msie + 5, ua.indexOf('.', msie)), 10);
-                                }
-
-                                var trident = ua.indexOf('Trident/');
-                                if (trident > 0) {
-                                    // IE 11 => return version number
-                                    var rv = ua.indexOf('rv:');
-                                    return parseInt(ua.substring(rv + 3, ua.indexOf('.', rv)), 10);
-                                }
-
-                                var edge = ua.indexOf('Edge/');
-                                if (edge > 0) {
-                                    // IE 12 => return version number
-                                    return parseInt(ua.substring(edge + 5, ua.indexOf('.', edge)), 10);
-                                }
-
-                                // other browser
-                                return false;
-                            }
-
-                            function copytext(text) {
-                                if (detectIE()) {
-                                    window.clipboardData.setData('Text', text);
-                                }
-                                var textField = document.createElement('textarea');
-                                textField.innerText = text;
-                                document.body.appendChild(textField);
-                                textField.select();
-                                document.execCommand('copy');
-                                window.clipboardData.setData('Text', copytext);
-                                textField.remove();
-                            }
-
-                            function copytext(text) {
-                                var textField = document.createElement('textarea');
-                                textField.innerText = text;
-                                document.body.appendChild(textField);
-                                textField.select();
-                                document.execCommand('copy');
-                                $(textField).remove();
-                            }
+                                var copied_text = document.getElementById('copy-text-area').value;
+                                e.clipboardData.setData('text/plain', copied_text);
+                                e.preventDefault(); // We want our data, not data from any selection, to be written to the clipboard
+                                alertify.success('Configuration copied to clipboard');
+                            });
                         </script>
 
                     </div>

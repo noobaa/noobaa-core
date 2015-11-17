@@ -87,8 +87,15 @@ var object_part_schema = new Schema({
 object_part_schema.index({
     system: 1,
     obj: 1,
-    start: 1,
+    // the part number is indexed before the start offset since
+    // queries that have it would be faster to filter first by part number
+    // since it chops the range drastically for large files
     upload_part_number: 1,
+    // we index only the start offset and not the end to save a bit
+    // and use the start with both $lt and $gt when searching for ranges
+    // in order to use the index efficiently and only scan the docs
+    // that are indeed in the range.
+    start: 1,
     deleted: 1, // allow to filter deleted
 }, {
     unique: false

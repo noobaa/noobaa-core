@@ -19,6 +19,7 @@ var DataBlock = require('./data_block');
 var ActivityLog = require('./activity_log');
 var Pool = require('./pool');
 var TieringPolicy = require('./tiering_policy');
+var dbutils = require('./dbutils');
 // var dbg = require('../util/debug_module')(__filename);
 
 /**
@@ -56,6 +57,8 @@ module.exports = {
     check_already_exists: check_already_exists,
     is_err_exists: is_err_exists,
     obj_ids_difference: obj_ids_difference,
+    populate: dbutils.populate,
+    uniq_ids: dbutils.uniq_ids,
 
     AccountCache: new LRUCache({
         name: 'AccountCache',

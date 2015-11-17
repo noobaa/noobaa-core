@@ -18,12 +18,18 @@ function disable_supervisord {
   ${SUPERCTL} shutdown
   #kill services
   for s in ${services}; do
+    echo "Kill ${s}"
     kill -9 ${s}
   done
+  local mongostatus=$(ps -ef|grep mongod)
+  echo "Mongo status after disabling supervisord $mongostatus"
+
 }
 
 function enable_supervisord {
   deploy_log "enable_supervisord"
+  local mongostatus_bef=$(ps -ef|grep mongod)
+  echo "Mongo status before starting supervisord $mongostatus_bef"
   ${SUPERD}
 }
 
@@ -32,7 +38,7 @@ function restart_webserver {
     mongodown=true
     while ${mongodown}; do
     if netstat -na|grep LISTEN|grep :27017; then
-            echo here${mongodown}
+            echo mongo_${mongodown}
             mongodown=false
             echo ${mongodown}
     else
@@ -123,7 +129,7 @@ function do_upgrade {
   sleep 5;
   restart_s3rver
   deploy_log "Restarted s3rver"
-  restart_webserver
+      restart_webserver
   deploy_log "Upgrade finished successfully!"
 }
 
@@ -133,8 +139,10 @@ deploy_log "upgrade.sh called with $@"
 #on a node cluster they are, which meand the listening ports of the webserver are inherited by this create_multipart_upload.
 #murder them
 fds=`lsof -p $$ | grep LISTEN | awk '{print $4}' | sed 's:\(.*\)u:\1:'`
+deploy_log "aaa $fds"
+echo "File desscriptors $fds"
 for f in ${fds}; do
-  exec ${f}<&-
+    eval "exec ${f}<&-"
 done
 
 if [ "$1" == "from_file" ]; then

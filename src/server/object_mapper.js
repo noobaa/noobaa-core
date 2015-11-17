@@ -40,6 +40,7 @@ var string_utils = require('../util/string_utils');
 var dbg = require('../util/debug_module')(__filename);
 var config = require('../../config.js');
 var crypto = require('crypto');
+var time_utils = require('../util/time_utils');
 
 
 /**
@@ -55,6 +56,7 @@ function allocate_object_parts(bucket, obj, parts) {
     var existing_parts;
     dbg.log1('allocate_object_parts: start');
 
+    var entire_allocate_millistamp = time_utils.millistamp();
     var reply = {
         parts: _.map(parts, function(part) {
             // checking that parts size does not exceed the max
@@ -100,6 +102,8 @@ function allocate_object_parts(bucket, obj, parts) {
                 }
             });
             // find blocks of the dup chunks and existing parts chunks
+            dbg.log0('allocate_object_parts (1) took',
+                time_utils.millitook(entire_allocate_millistamp));
             var chunks_ids = db.uniq_ids(_.map(existing_chunks, '_id'));
             return chunks_ids.length && P.when(
                     db.DataBlock.find({
@@ -108,10 +112,13 @@ function allocate_object_parts(bucket, obj, parts) {
                         },
                         deleted: null,
                     })
+                    .lean() // for faster performance. returns object without mongoose overhead, which is not needed here.
                     .exec())
                 .then(db.populate('node', db.Node));
         })
         .then(function(blocks) {
+            dbg.log0('allocate_object_parts (2.5)  ', blocks.length, 'took',
+                time_utils.millitook(entire_allocate_millistamp));
 
             // assign blocks to chunks
             var blocks_by_chunk_id = _.groupBy(blocks, 'chunk');
@@ -253,7 +260,8 @@ function allocate_object_parts(bucket, obj, parts) {
             return new_parts.length && P.when(db.ObjectPart.collection.insertMany(new_parts));
         })
         .then(function() {
-            dbg.log2('allocate_object_parts: DONE. parts', parts.length);
+            dbg.log2('allocate_object_parts: DONE. parts', parts.length, 'took',
+                time_utils.millitook(entire_allocate_millistamp));
             return reply;
         }, function(err) {
             dbg.error('allocate_object_parts: ERROR', err.stack || err);
@@ -1121,8 +1129,8 @@ function find_consecutive_parts(obj, parts) {
             start: {
                 // since end is not indexed we query start with both
                 // low and high constraint, which allows the index to reduce scan
-                $lte: end,
-                $gte: start
+                $gte: start,
+                $lte: end
             },
             end: {
                 $lte: end

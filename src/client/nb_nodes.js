@@ -4,7 +4,7 @@
 var _ = require('lodash');
 var P = require('../util/promise');
 var moment = require('moment');
-var chance = new (require('chance').Chance)();
+var chance = new(require('chance').Chance)();
 var promise_utils = require('../util/promise_utils');
 var config = require('../../config');
 var dbg = require('../util/debug_module')(__filename);
@@ -207,27 +207,23 @@ nb_api.factory('nbNodes', [
             scope.encodedDataIP = encodedData;
             scope.current_host = $window.location.host;
             scope.typeOptions = [{
-                name: 'Use noobaa.local',
-                value: scope.encodedData
+                name: 'Use custom DNS',
+                value: ''
             }, {
                 name: 'Use ' + secured_host,
                 value: scope.encodedDataIP
-            }, {
-                name: 'Use custom DNS',
-                value: ''
             }, ];
             console.log('type options', scope.typeOptions);
             scope.encoding = {
                 type: scope.typeOptions[0].value,
                 new_dns: '',
-                show_other_dns: false
+                show_other_dns: true
             };
 
             console.log(JSON.stringify(config_json), String.toString(config_json), 'encoded', encodedData);
 
             scope.dns_select = function(selected_value) {
-                if (scope.typeOptions[0].value !== selected_value &&
-                    scope.typeOptions[1].value !== selected_value) {
+                if (scope.typeOptions[1].value !== selected_value) {
                     scope.encoding.show_other_dns = true;
                 } else {
                     scope.encoding.show_other_dns = false;
@@ -236,8 +232,8 @@ nb_api.factory('nbNodes', [
             scope.new_dns = function() {
                 config_json.address = 'wss://' + scope.encoding.new_dns + ':' + nbSystem.system.ssl_port;
                 encodedData = $window.btoa(JSON.stringify(config_json));
-                scope.typeOptions[2].value = encodedData;
-                scope.encoding.type = scope.typeOptions[2].value;
+                scope.typeOptions[0].value = encodedData;
+                scope.encoding.type = scope.typeOptions[0].value;
             };
             scope.next_stage = function() {
                 scope.stage += 1;

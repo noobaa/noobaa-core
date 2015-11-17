@@ -209,8 +209,8 @@ function post_upgrade {
 
 	rm -f /tmp/*.tar.gz
 
-	/etc/rc.d/init.d/supervisord stop
-	/etc/rc.d/init.d/supervisord start
+	#/etc/rc.d/init.d/supervisord stop
+	#/etc/rc.d/init.d/supervisord start
 }
 
 

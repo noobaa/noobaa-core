@@ -56,7 +56,14 @@ function allocate_object_parts(bucket, obj, parts) {
     dbg.log1('allocate_object_parts: start');
 
     var reply = {
-        parts: _.times(parts.length, function() {
+        parts: _.map(parts, function(part) {
+            // checking that parts size does not exceed the max
+            // which allows the read path to limit range scanning
+            if (part.end - part.start > config.MAX_OBJECT_PART_SIZE) {
+                throw new Error('allocate_object_parts: PART TOO BIG ' +
+                    range_utils.human_range(part));
+            }
+            // create empty object for each part for the reply
             return {};
         })
     };
@@ -67,8 +74,8 @@ function allocate_object_parts(bucket, obj, parts) {
             // that will be removed.
             // their chunks will be used though.
             find_consecutive_parts(obj, parts)
-            .populate('chunk')
-            .exec(),
+            .exec()
+            .then(db.populate('chunk', db.DataChunk)),
 
             // dedup with existing chunks by lookup of the digest of the data
             process.env.DEDUP_DISABLED !== 'true' &&
@@ -93,16 +100,16 @@ function allocate_object_parts(bucket, obj, parts) {
                 }
             });
             // find blocks of the dup chunks and existing parts chunks
-            var chunks_ids = _.uniq(_.map(existing_chunks, '_id'));
+            var chunks_ids = db.uniq_ids(_.map(existing_chunks, '_id'));
             return chunks_ids.length && P.when(
-                db.DataBlock.find({
-                    chunk: {
-                        $in: chunks_ids
-                    },
-                    deleted: null,
-                })
-                .populate('node')
-                .exec());
+                    db.DataBlock.find({
+                        chunk: {
+                            $in: chunks_ids
+                        },
+                        deleted: null,
+                    })
+                    .exec())
+                .then(db.populate('node', db.Node));
         })
         .then(function(blocks) {
 
@@ -270,8 +277,8 @@ function finalize_object_parts(bucket, obj, parts) {
 
             // find parts by start offset, deleted parts are handled later
             find_consecutive_parts(obj, parts)
-            .populate('chunk')
-            .exec(),
+            .exec()
+            .then(db.populate('chunk', db.DataChunk)),
 
             // find blocks by list of ids, deleted blocks are handled later
             block_ids.length &&
@@ -385,23 +392,27 @@ function read_object_mappings(params) {
     return P.fcall(function() {
 
             // find parts intersecting the [start,end) range
-            var find = db.ObjectPart
-                .find({
+            var find = db.ObjectPart.find({
                     obj: params.obj.id,
                     start: {
-                        $lt: end
+                        // since end is not indexed we query start with both
+                        // low and high constraint, which allows the index to reduce scan
+                        // we use a constant that limits the max part size because
+                        // this is the only way to limit the minimal start value
+                        $gte: start - config.MAX_OBJECT_PART_SIZE,
+                        $lt: end,
                     },
                     end: {
                         $gt: start
                     },
                     deleted: null,
                 })
-                .sort('start')
-                .populate('chunk');
+                .sort('start');
             if (params.skip) find.skip(params.skip);
             if (params.limit) find.limit(params.limit);
             return find.exec();
         })
+        .then(db.populate('chunk', db.DataChunk))
         .then(function(parts) {
             return read_parts_mappings({
                 parts: parts,
@@ -433,17 +444,19 @@ function read_node_mappings(params) {
             return find.exec();
         })
         .then(function(blocks) {
-            return db.ObjectPart
-                .find({
+            dbg.warn('read_node_mappings: SLOW QUERY',
+                'ObjectPart.find(chunk $in array).',
+                'adding chunk index?');
+            return db.ObjectPart.find({
                     chunk: {
                         $in: _.map(blocks, 'chunk')
                     },
                     deleted: null,
                 })
-                .populate('chunk')
-                .populate('obj')
                 .exec();
         })
+        .then(db.populate('chunk', db.DataChunk))
+        .then(db.populate('obj', db.ObjectMD))
         .then(function(parts) {
             return read_parts_mappings({
                 parts: parts,
@@ -460,19 +473,16 @@ function read_node_mappings(params) {
                 return obj.id;
             });
 
-            return db.Bucket
-                .find({
-                    '_id': {
-                        $in: _.uniq(_.map(objects, 'bucket'))
+            return db.Bucket.find({
+                    _id: {
+                        $in: db.uniq_ids(_.map(objects, 'bucket'))
                     },
                     deleted: null,
                 })
                 .exec();
         }).then(function(buckets) {
             var buckets_by_id = _.indexBy(buckets, '_id');
-
             return _.map(objects, function(obj, obj_id) {
-
                 return {
                     key: obj.key,
                     bucket: buckets_by_id[obj.bucket].name,
@@ -497,16 +507,15 @@ function read_parts_mappings(params) {
     var chunk_ids = _.pluck(chunks, 'id');
 
     // find all blocks of the resulting parts
-    return P.when(db.DataBlock
-            .find({
+    return P.when(db.DataBlock.find({
                 chunk: {
                     $in: chunk_ids
                 },
                 deleted: null,
             })
             .sort('frag')
-            .populate('node')
             .exec())
+        .then(db.populate('node', db.Node))
         .then(function(blocks) {
             var blocks_by_chunk = _.groupBy(blocks, 'chunk');
             var parts_reply = _.map(params.parts, function(part) {
@@ -544,8 +553,8 @@ function list_multipart_parts(params) {
             })
             .sort('upload_part_number')
             // TODO set .limit(max_parts?)
-            .populate('chunk')
             .exec())
+        .then(db.populate('chunk', db.DataChunk))
         .then(function(parts) {
             var upload_parts = _.groupBy(parts, 'upload_part_number');
             dbg.log0('list_multipart_parts: upload_parts', upload_parts);
@@ -582,9 +591,9 @@ function list_multipart_parts(params) {
 function set_multipart_part_md5(obj) {
     return P.when(db.ObjectPart.find({
             obj: obj.obj._id,
+            upload_part_number: obj.upload_part_number,
             part_sequence_number: 0,
             deleted: null,
-            upload_part_number: obj.upload_part_number
         })
         .sort({
             _id: -1 // when same, get newest first
@@ -611,6 +620,9 @@ function calc_multipart_md5(obj) {
     var aggregated_bin_md5 = '';
     return P.fcall(function() {
         // find part that need update of start and end offsets
+        dbg.warn('calc_multipart_md5: SLOW QUERY',
+            'ObjectPart.find(part_sequence_number:0).',
+            'add part_sequence_number to index?');
         return db.ObjectPart.find({
                 obj: obj,
                 part_sequence_number: 0,
@@ -766,8 +778,7 @@ function agent_delete_call(node, del_blocks) {
  */
 function delete_objects_from_agents(deleted_chunk_ids) {
     //Find the deleted data blocks and their nodes
-    P.when(db.DataBlock
-            .find({
+    P.when(db.DataBlock.find({
                 chunk: {
                     $in: deleted_chunk_ids
                 },
@@ -775,8 +786,8 @@ function delete_objects_from_agents(deleted_chunk_ids) {
                 //delete_object_mappings with P.all along with the DataBlocks
                 //deletion update
             })
-            .populate('node')
             .exec())
+        .then(db.populate('node', db.Node))
         .then(function(deleted_blocks) {
             //TODO: If the overload of these calls is too big, we should protect
             //ourselves in a similar manner to the replication
@@ -803,8 +814,8 @@ function delete_object_mappings(obj) {
                 obj: obj.id,
                 deleted: null,
             })
-            .populate('chunk')
             .exec())
+        .then(db.populate('chunk', db.DataChunk))
         .then(function(parts) {
             deleted_parts = parts;
             //Mark parts as deleted
@@ -822,27 +833,24 @@ function delete_object_mappings(obj) {
             return db.ObjectPart.update(in_object_parts, deleted_update, multi_opt).exec();
         })
         .then(function() {
-            var chunks = _.pluck(_.flatten(
-                    _.map(deleted_parts, 'chunks')),
-                'chunk');
+            var chunks = _.map(deleted_parts, 'chunk');
             all_chunk_ids = _.pluck(chunks, '_id');
             //For every chunk, verify if its no longer referenced
-            return db.ObjectPart
-                .find({
+            return db.ObjectPart.find({
                     chunk: {
                         $in: all_chunk_ids
                     },
                     deleted: null,
+                }, {
+                    chunk: 1
                 })
                 .exec();
         })
         .then(function(referring_parts) {
             //Seperate non referred chunks
-            var referred_chunks_ids = _.pluck(_.flatten(
-                    _.map(referring_parts, 'chunks')),
-                'chunk');
-            var non_referred_chunks_ids = db.obj_ids_difference(
-                all_chunk_ids, referred_chunks_ids);
+            var referred_chunks_ids = db.uniq_ids(_.map(referring_parts, 'chunk'));
+            var non_referred_chunks_ids =
+                db.obj_ids_difference(all_chunk_ids, referred_chunks_ids);
             dbg.log4("all object's chunk ids are", all_chunk_ids,
                 "non referenced chunk ids are", non_referred_chunks_ids);
             //Update non reffered chunks and their blocks as deleted
@@ -889,8 +897,8 @@ function report_bad_block(params) {
                 'end',
                 'upload_part_number',
                 'part_sequence_number')))
-            .populate('chunk')
             .exec()
+            .then(db.populate('chunk', db.DataChunk))
         )
         .spread(function(bad_block, part) {
             if (!bad_block) {
@@ -916,8 +924,8 @@ function report_bad_block(params) {
                             chunk: chunk,
                             deleted: null,
                         })
-                        .populate('node')
                         .exec())
+                    .then(db.populate('node', db.Node))
                     .then(function(all_blocks) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();
@@ -963,28 +971,21 @@ function report_bad_block(params) {
  *
  */
 function chunks_and_objects_count(systemid) {
-    var res = {
-        chunks_num: 0,
-        objects_num: 0,
-    };
-
-    return P.when(
+    return P.join(
             db.DataChunk.count({
                 system: systemid,
                 deleted: null,
-            })
-            .exec())
-        .then(function(chunks) {
-            res.chunks_num = chunks;
-            return P.when(
-                    db.ObjectPart.count({
-
-                    })
-                    .exec())
-                .then(function(objects) {
-                    res.objects_num = objects;
-                    return res;
-                });
+            }).exec(),
+            db.ObjectMD.count({
+                system: systemid,
+                deleted: null,
+            }).exec()
+        )
+        .spread(function(chunks_num, objects_num) {
+            return {
+                chunks_num: chunks_num,
+                objects_num: objects_num,
+            };
         });
 }
 
@@ -1116,13 +1117,16 @@ function find_consecutive_parts(obj, parts) {
     return db.ObjectPart.find({
             system: obj.system,
             obj: obj.id,
+            upload_part_number: upload_part_number,
             start: {
+                // since end is not indexed we query start with both
+                // low and high constraint, which allows the index to reduce scan
+                $lte: end,
                 $gte: start
             },
             end: {
                 $lte: end
             },
-            upload_part_number: upload_part_number,
             deleted: null
         })
         .sort('start');

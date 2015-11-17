@@ -76,16 +76,28 @@
                         </select>
                         <br>
                         <br>
-                        <span ng-show="encoding.show_other_dns" >
+                        <span ng-show="encoding.show_other_dns">
                             <div class="form-group">
                                 <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="enter other DNS name" ng-model="encoding.new_dns" ng-change="new_dns()" ng-model-options="{debounce: 700}" />
                             </div>
                         </span>
 
-                        <pre style="font-size: 11px; color: hsl(0,0%,50%)" class="block" nb-clipboard="'/S /config ' + encoding.type" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
-                        <button class="btn btn-default" style="width: 30%;padding: 10px" nb-clipboard="'/S /config ' + encoding.type">
+                        <pre id="copy-area" style="font-size: 11px; color: hsl(0,0%,50%)" class="block" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
+
+                        <input id="copy-text-area" type="hidden" style="visibility: hidden" value='/S /config {{ encoding.type }}' />
+                        <button onclick="document.execCommand('copy');" id="copy-button" class="btn btn-default" style="width: 35%;padding: 10px">
                             Copy To Clipboard
                         </button>
+                        <script>
+                            document.addEventListener('copy', function(e){
+
+                                var copied_text = document.getElementById('copy-text-area').value;
+                                e.clipboardData.setData('text/plain', copied_text);
+                                e.preventDefault(); // We want our data, not data from any selection, to be written to the clipboard
+                                alertify.success('Configuration copied to clipboard');
+                            });
+                        </script>
+
                     </div>
 
                     <div ng-if="stage==4">

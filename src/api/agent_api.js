@@ -81,13 +81,7 @@ module.exports = {
                     blocks: {
                         type: 'array',
                         items: {
-                            type: 'object',
-                            required: ['id'],
-                            properties: {
-                                id: {
-                                    type: 'string'
-                                }
-                            }
+                            type: 'string'
                         }
                     }
                 },

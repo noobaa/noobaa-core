@@ -40,14 +40,14 @@ module.exports = function(params) {
                 if (err) {
                     return errorResponse(req, res, indexDocument);
                 } else {
-                    dbg.log0('Serving Page: %s', object.key);
+                    dbg.log3('Serving Page: %s', object.key);
                     return buildResponse(req, res, 200, object, data);
                 }
             });
         } else {
-            dbg.log0('Fetched bucket "%s" with options %s', req.bucket, options);
+            dbg.log3('Fetched bucket "%s" with options %s', req.bucket, options);
             fileStore.getObjects(req.bucket, options, function(err, results) {
-                dbg.log0('Found %d objects for bucket "%s"', results.length, req.bucket);
+                dbg.log3('Found %d objects for bucket "%s"', results.length, req.bucket);
 
                 var template = templateBuilder.buildBucketQuery(options, results);
                 return buildXmlResponse(res, 200, template);
@@ -58,7 +58,7 @@ module.exports = function(params) {
         req.params.key = file_key_name;
         P.ninvoke(fileStore, "putObject", req.params.bucket, req)
             .then(function(key) {
-                dbg.log0('Stored object "%s" in bucket "%s" successfully', req.params.key, req.params.bucket);
+                dbg.log3('Stored object "%s" in bucket "%s" successfully', req.params.key, req.params.bucket);
                 res.header('ETag', key.md5);
                 return res.status(200).end();
             }).then(null, function(err) {
@@ -125,7 +125,7 @@ module.exports = function(params) {
         res.status(status);
         _.each(object.xattr, function(val, key) {
             res.header('x-amz-meta-' + key, val);
-            dbg.log0('RETURN XATTR (2)', key, val);
+            dbg.log3('RETURN XATTR (2)', key, val);
         });
         if (req.method === 'HEAD') {
             return res.end();
@@ -229,7 +229,7 @@ module.exports = function(params) {
             var key = hdr.slice('x-amz-meta-'.length);
             if (!key) return;
             params.xattr[key] = val;
-            dbg.log0('SET XATTR', key, val);
+            dbg.log3('SET XATTR', key, val);
         });
         // if (!_.isEmpty(params.xattr)) {
         //     delete params.xattr;
@@ -256,7 +256,7 @@ module.exports = function(params) {
                 }
                 md5_calc.on('finish', function() {
                     part_md5 = md5_calc.toString();
-                    dbg.log0('uploadObject: MD5 data (end)', part_md5, 'part:', upload_part_number);
+                    dbg.log3('uploadObject: MD5 data (end)', part_md5, 'part:', upload_part_number);
                     return part_md5;
                 });
 
@@ -264,16 +264,16 @@ module.exports = function(params) {
                 // tranform stream that calculates md5 on-the-fly
                 var upload_part_info = {
                     bucket: bucket_name,
-                    key: (req.query.uploadId),
+                    key: decodeURIComponent(req.query.uploadId),
                     size: content_length,
                     content_type: req.headers['content-type'] || mime.lookup(req.query.uploadId),
                     source_stream: calculate_md5 ? md5_calc : req,
                     upload_part_number: upload_part_number
 
                 };
-                dbg.log0('Uploading part number', req.query.partNumber, ' of uploadID ',
+                dbg.log3('Uploading part number', req.query, req.query.partNumber, ' of uploadID ',
                     req.query.uploadId, ' VS ', req.query.uploadId, 'content length:', req.headers['content-length']);
-                dbg.log0('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
+                dbg.log3('upload info', _.pick(upload_part_info, 'bucket', 'key', 'size',
                     'content_type', 'upload_part_number', 'md5'));
 
                 return clients[access_key].client.object_driver_lazy().upload_stream_parts(upload_part_info);
@@ -290,7 +290,7 @@ module.exports = function(params) {
             }).then(function() {
                 return clients[access_key].client.object.complete_part_upload({
                     bucket: req.bucket,
-                    key: req.query.uploadId,
+                    key: decodeURIComponent(req.query.uploadId),
                     upload_part_number: upload_part_number,
                     etag: part_md5
                 });
@@ -302,7 +302,7 @@ module.exports = function(params) {
                     res.header('ETag', part_md5);
 
                 } catch (err) {
-                    dbg.log0('FAILED', err, res);
+                    dbg.error('FAILED', err, res);
 
                 }
                 return res.status(200).end();
@@ -320,7 +320,7 @@ module.exports = function(params) {
             var max_parts = req.query['max-parts'] || 1000;
             var access_key = extract_access_key(req);
             var part_number_marker = req.query['part-number​-marker'] || '';
-            dbg.log0('List part results for upload id:', upload_id, 'max parts', max_parts, 'part marker', part_number_marker);
+            dbg.log3('List part results for upload id:', upload_id, 'max parts', max_parts, 'part marker', part_number_marker);
             var list_options = {
                 bucket: req.bucket,
                 key: req.query.uploadId,
@@ -351,7 +351,7 @@ module.exports = function(params) {
     };
 
     var delete_if_exists = function(target_object, access_key) {
-        dbg.log0('listing ', target_object.key, ' in bucket:', target_object.bucket);
+        dbg.log3('listing ', target_object.key, ' in bucket:', target_object.bucket);
         return clients[access_key].client.object.delete_object({
             bucket: target_object.bucket,
             key: target_object.key
@@ -418,14 +418,14 @@ module.exports = function(params) {
                         } else {
                             create_params.xattr = _.clone(md.xattr);
                         }
-                        dbg.log0('XATTR PARAMS:', create_params);
+                        dbg.log3('XATTR PARAMS:', create_params);
                         var new_obj_parts;
                         return clients[access_key].client.object.read_object_mappings({
                                 bucket: src_bucket,
                                 key: from_object,
                             })
                             .then(function(mappings) {
-                                dbg.log0('\n\nListing object maps:', from_object);
+                                dbg.log3('\n\nListing object maps:', from_object);
                                 var i = 1;
                                 _.each(mappings.parts, function(part) {
                                     dbg.log3('#' + i, '[' + part.start + '..' + part.end + ']:\t', part);
@@ -460,7 +460,7 @@ module.exports = function(params) {
                                 return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
                             })
                             .then(function(res) {
-                                dbg.log0('COMPLETED: copy');
+                                dbg.log3('COMPLETED: copy');
 
                                 return true;
                             });
@@ -485,7 +485,7 @@ module.exports = function(params) {
         if (delimiter) {
             delimiter = decodeURI(delimiter);
         }
-        dbg.log0('Listing objects with', list_params, delimiter, 'key:', access_key);
+        dbg.log3('Listing objects with', list_params, delimiter, 'key:', access_key);
         return clients[access_key].client.object.list_objects(list_params)
             .then(function(results) {
                 var folders = {};
@@ -500,7 +500,7 @@ module.exports = function(params) {
 
                         //we will keep the full path for CloudBerry online cloud backup tool
                         var obj_sliced_key = obj.key.slice(prefix.length);
-                        dbg.log0('obj.key:', obj.key, ' prefix ', prefix, ' sliced', obj_sliced_key);
+                        dbg.log3('obj.key:', obj.key, ' prefix ', prefix, ' sliced', obj_sliced_key);
                         if (obj_sliced_key.indexOf(delimiter) >= 0) {
                             var folder = obj_sliced_key.split(delimiter, 1)[0];
                             folders[prefix + folder + "/"] = true;
@@ -508,7 +508,7 @@ module.exports = function(params) {
                         }
 
                         if (list_params.key === obj.key) {
-                            dbg.log0('LISTED KEY same as REQUIRED', obj.key);
+                            dbg.log3('LISTED KEY same as REQUIRED', obj.key);
                             if (prefix === obj.key && prefix.substring(prefix.length - 1) !== delimiter) {
 
                                 return true;
@@ -549,7 +549,7 @@ module.exports = function(params) {
                     putObjectLocally(req, res, file_key_name);
                 } else {
                     var access_key = extract_access_key(req);
-                    dbg.log0('uploadObject: upload', file_key_name);
+                    dbg.log3('uploadObject: upload', file_key_name);
 
                     // tranform stream that calculates md5 on-the-fly
                     var md5_calc = new md5_stream();
@@ -575,7 +575,7 @@ module.exports = function(params) {
 
                     set_xattr(req, create_params);
 
-                    dbg.log0('upload_stream: start upload', upload_params.key, upload_params.size, 'create params', create_params);
+                    dbg.log3('upload_stream: start upload', upload_params.key, upload_params.size, 'create params', create_params);
                     if (_.isUndefined(clients[access_key].buckets[req.bucket])) {
                         clients[access_key].buckets = [req.bucket];
                         clients[access_key].buckets[req.bucket] = {
@@ -596,7 +596,7 @@ module.exports = function(params) {
                             dbg.log0('upload_stream: complete upload', upload_params.key, 'with md5', bucket_key_params, ' took', time_utils.millitook(clients[access_key].buckets[req.bucket].upload_ids[file_key_name].start));
                             return clients[access_key].client.object.complete_multipart_upload(bucket_key_params);
                         }, function(err) {
-                            dbg.log0('upload_stream: error write stream', upload_params.key, err);
+                            dbg.error('upload_stream: error write stream', upload_params.key, err);
                             throw err;
                         });
 
@@ -604,11 +604,11 @@ module.exports = function(params) {
 
             })
             .then(function() {
-                dbg.log0('COMPLETED: uploadObject', file_key_name, md5);
+                dbg.log3('COMPLETED: uploadObject', file_key_name, md5);
                 res.header('ETag', md5);
                 _.each(create_params.xattr, function(val, key) {
                     res.header('x-amz-meta-' + key, val);
-                    dbg.log0('RETURN XATTR (2)', key, val);
+                    dbg.log3('RETURN XATTR (2)', key, val);
                 });
 
                 return res.status(200).end();
@@ -621,7 +621,7 @@ module.exports = function(params) {
 
 
     var isBucketExists = function(bucketName, s3_info) {
-        dbg.log0('isBucketExists', bucketName, ' info:', s3_info, 'key:', s3_info.access_key, 'auth', clients[s3_info.access_key].client.options.auth_token);
+        dbg.log3('isBucketExists', bucketName, ' info:', s3_info, 'key:', s3_info.access_key, 'auth', clients[s3_info.access_key].client.options.auth_token);
 
         var options = {
             auth_token: JSON.stringify(s3_info)
@@ -629,7 +629,7 @@ module.exports = function(params) {
 
         return clients[s3_info.access_key].client.bucket.list_buckets({}, options)
             .then(function(reply) {
-                dbg.log0('trying to find', bucketName, 'in', reply.buckets);
+                dbg.log3('trying to find', bucketName, 'in', reply.buckets);
                 buckets_cache = reply.buckets;
                 if (_.findIndex(reply.buckets, {
                         'name': bucketName
@@ -653,19 +653,19 @@ module.exports = function(params) {
         update_system_auth: function(req) {},
         is_system_client_exists: function(access_key) {
             return P.fcall(function() {
-                dbg.log0('check if system exists for key:', access_key, _.has(clients, access_key));
+                dbg.log3('check if system exists for key:', access_key, _.has(clients, access_key));
                 return _.has(clients, access_key);
             });
         },
         add_new_system_client: function(req) {
-            dbg.log0('add_new_system_client', req.access_key);
+            dbg.log3('add_new_system_client', req.access_key);
             return P.fcall(function() {
                 if (_.isEmpty(req.access_key)) {
-                    dbg.log0('Exiting as there is no credential information.');
+                    dbg.log3('Exiting as there is no credential information.');
                     throw new Error("No credentials");
 
                 } else {
-                    dbg.log0('Adding new system client.', req.access_key);
+                    dbg.log3('Adding new system client.', req.access_key);
                     clients[req.access_key] = {
                         client: new api.Client(),
                         buckets: []
@@ -743,13 +743,13 @@ module.exports = function(params) {
                                 var template = templateBuilder.buildBucketNotFound(bucketName);
                                 return buildXmlResponse(res, 404, template);
                             } else {
-                                dbg.log0('Found bucket name in server ' + bucketName);
+                                dbg.log3('Found bucket name in server ' + bucketName);
                                 req.bucket = bucketName;
                                 return next();
                             }
                         });
                 } else {
-                    dbg.log0('got bucket name ' + bucketName);
+                    dbg.log3('got bucket name ' + bucketName);
                     req.bucket = bucketName;
                     return next();
                 }
@@ -757,7 +757,7 @@ module.exports = function(params) {
         },
 
         getBuckets: function(req, res) {
-            dbg.log0('getBuckets', req.params.bucket);
+            dbg.log3('getBuckets', req.params.bucket);
             var date = new Date();
             date.setMilliseconds(0);
             date = date.toISOString();
@@ -811,7 +811,7 @@ module.exports = function(params) {
                 maxKeys: parseInt(req.query['max-keys']) || 1000,
                 delimiter: req.query.delimiter // removed default value - shouldn't be such || '/'
             };
-            dbg.log0('get bucket (list objects) with options:', options, req.bucket, req.params);
+            dbg.log3('get bucket (list objects) with options:', options, req.bucket, req.params);
             var template;
 
             if (req.query.location !== undefined) {
@@ -824,7 +824,7 @@ module.exports = function(params) {
                     .then(function(objects_and_folders) {
                         options.bucketName = req.bucket || params.bucket;
                         options.common_prefixes = _.isEmpty(objects_and_folders.folders) ? '' : _.keys(objects_and_folders.folders);
-                        dbg.log0('total of objects:', objects_and_folders.objects.length, ' folders:', options.common_prefixes, 'bucket:', options.bucketName);
+                        dbg.log3('total of objects:', objects_and_folders.objects.length, ' folders:', options.common_prefixes, 'bucket:', options.bucketName);
 
                         if (req.query.versioning !== undefined) {
                             if (!_.isEmpty(options.common_prefixes)) {
@@ -832,7 +832,7 @@ module.exports = function(params) {
                                 date.setMilliseconds(0);
                                 date = date.toISOString();
                                 _.each(options.common_prefixes, function(folder) {
-                                    dbg.log0('adding common_prefixe (folder):', folder);
+                                    dbg.log3('adding common_prefixe (folder):', folder);
                                     objects_and_folders.objects.unshift({
                                         key: folder,
                                         modifiedDate: date,
@@ -848,7 +848,7 @@ module.exports = function(params) {
                         return buildXmlResponse(res, 200, template);
                     })
                     .then(function() {
-                        dbg.log0('COMPLETED: list');
+                        dbg.log3('COMPLETED: list');
                     }).then(null, function(err) {
                         dbg.error('ERROR: list', err, err.stack, options);
                         if (err.status) {
@@ -873,7 +873,7 @@ module.exports = function(params) {
             var template;
             var s3_info = extract_s3_info(req);
             var access_key = s3_info.access_key;
-            dbg.log0('put bucket');
+            dbg.log3('put bucket');
             /**
              * Derived from http://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html
              */
@@ -891,7 +891,7 @@ module.exports = function(params) {
                 return buildXmlResponse(res, 400, template);
             }
             P.fcall(function() {
-                dbg.log0('check if bucket exists');
+                dbg.log3('check if bucket exists');
                 return isBucketExists(bucketName, s3_info)
                     .then(function(exists) {
                         if (exists) {
@@ -900,7 +900,7 @@ module.exports = function(params) {
                                 'The requested bucket already exists');
                             return buildXmlResponse(res, 409, template);
                         } else {
-                            dbg.log0('Creating new bucket', bucketName);
+                            dbg.log3('Creating new bucket', bucketName);
                             clients[access_key].client.bucket.create_bucket({
                                     name: bucketName,
                                     tiering: {
@@ -908,7 +908,7 @@ module.exports = function(params) {
                                     }
                                 })
                                 .then(function() {
-                                    dbg.log0('Created new bucket "%s" successfully', bucketName);
+                                    dbg.log3('Created new bucket "%s" successfully', bucketName);
                                     res.header('Location', '/' + bucketName);
                                     return res.status(200).send();
                                 });
@@ -928,7 +928,7 @@ module.exports = function(params) {
             var s3_info = extract_s3_info(req);
 
             P.fcall(function() {
-                dbg.log0('check if bucket exists');
+                dbg.log3('check if bucket exists');
                 return isBucketExists(bucketName, s3_info)
                     .then(function(exists) {
                         if (exists) {
@@ -944,7 +944,7 @@ module.exports = function(params) {
                                     return buildXmlResponse(res, 409, template);
                                 });
                         } else {
-                            dbg.log0('no such bucket', bucketName);
+                            dbg.error('no such bucket', bucketName);
                         }
                     });
             });
@@ -988,13 +988,13 @@ module.exports = function(params) {
                         key: keyName
                     };
                     //Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
-                    dbg.log0('getObject', object_path, req.method);
+                    dbg.log3('getObject', object_path, req.method);
                     object_path.key = object_path.key.replace(/_\$folder\$/, '/');
-                    dbg.log0('getObject (after)', object_path, req.method);
+                    dbg.log3('getObject (after)', object_path, req.method);
 
                     return clients[access_key].client.object.read_object_md(object_path)
                         .then(function(object_md) {
-                            dbg.log0('object_md:', object_md);
+                            dbg.log3('object_md:', object_md);
                             var create_date = new Date(object_md.create_time);
                             create_date.setMilliseconds(0);
 
@@ -1008,11 +1008,11 @@ module.exports = function(params) {
                             res.header('x-amz-request-id', 'E5CEFCB143EB505A');
                             _.each(object_md.xattr, function(val, key) {
                                 res.header('x-amz-meta-' + key, val);
-                                dbg.log0('RETURN XATTR(3)', key, val);
+                                dbg.log3('RETURN XATTR(3)', key, val);
                             });
 
                             if (req.method === 'HEAD') {
-                                dbg.log0('Head ', res._headers);
+                                dbg.log3('Head ', res._headers);
 
                                 return res.status(200).end();
                             } else {
@@ -1026,7 +1026,6 @@ module.exports = function(params) {
                         }).then(null, function(err) {
                             //if cloudberry tool is looking for its own format for large files and can find it,
                             //we will try with standard format
-                            dbg.log0('ERROR:', err);
                             if (object_path.key.indexOf('..chunk..map') > 0) {
                                 dbg.log0('Identified cloudberry format, return error 404');
                                 object_path.key = object_path.key.replace('..chunk..map', '');
@@ -1050,7 +1049,7 @@ module.exports = function(params) {
                                     res.header('x-amz-meta-cb-modifiedtime', req.headers['x-amz-date']);
                                     _.each(object_md.xattr, function(val, key) {
                                         res.header('x-amz-meta-' + key, val);
-                                        dbg.log0('RETURN XATTR', key, val);
+                                        dbg.log3('RETURN XATTR', key, val);
                                     });
                                     if (req.method === 'HEAD') {
                                         return res.end();
@@ -1076,7 +1075,7 @@ module.exports = function(params) {
             var delimiter = req.query.delimiter;
             if (acl !== undefined) {
                 template = templateBuilder.buildAcl();
-                dbg.log0('Fake ACL (200)');
+                dbg.log3('Fake ACL (200)');
                 return buildXmlResponse(res, 200, template);
             }
             var copy = req.headers['x-amz-copy-source'];
@@ -1085,7 +1084,7 @@ module.exports = function(params) {
                 if (copy) {
                     template = templateBuilder.buildError('Upload Part - Copy',
                         'Copy of part is not supported');
-                    dbg.log0('Copy of part is not supported');
+                    dbg.log3('Copy of part is not supported');
                     return buildXmlResponse(res, 400, template);
                 } else {
                     return uploadPart(req, res);
@@ -1111,8 +1110,8 @@ module.exports = function(params) {
                             return buildXmlResponse(res, 404, template);
                         }
                         if (decodeURIComponent(srcObject) === req.params.key && srcBucket === req.bucket) {
-                            // TODO GUY - this "if" returns without doing the copy... why?
                             dbg.log0('DIRECTIVE FOR METADATA:', req.headers['x-amz-metadata-directive']);
+                            srcObject = decodeURIComponent(srcObject);
                             var create_params = {};
                             if (req && req.headers['x-amz-metadata-directive'] === 'REPLACE') {
                                 set_xattr(req, create_params);
@@ -1252,12 +1251,12 @@ module.exports = function(params) {
                                 start: time_utils.millistamp()
                             };
 
-                            dbg.log0('Init Multipart 2', clients[access_key].buckets[req.bucket]);
+                            dbg.log3('Init Multipart 2', clients[access_key].buckets[req.bucket]);
 
                         } catch (err) {
                             dbg.error('init error:', err);
                         }
-                        dbg.log0('Init Multipart - create_multipart_upload ', create_params);
+                        dbg.log3('Init Multipart - create_multipart_upload ', create_params, 'key:', req.params.key, ' encoded:', encodeURIComponent(string_utils.encodeXML(req.params.key)), 'prev', string_utils.encodeXML(req.params.key));
                         //TODO: better override. from some reason, sometimes movies are octet.
                         if (create_params.content_type === 'application/octet-stream') {
                             create_params.content_type = mime.lookup(key) || create_params.content_type;
@@ -1278,20 +1277,20 @@ module.exports = function(params) {
                 }
                 //CompleteMultipartUpload
                 else if (!_.isUndefined(req.query.uploadId)) {
-                    dbg.log0('request to complete ', req.query.uploadId);
+                    dbg.log3('request to complete ', req.query.uploadId);
 
                     if (store_locally) {
-                        dbg.log0('Complete multipart', template);
+                        dbg.log3('Complete multipart', template);
                         return buildXmlResponse(res, 200, template);
                     }
 
                     return clients[access_key].client.object.complete_multipart_upload({
                         bucket: req.bucket,
-                        key: (req.query.uploadId),
+                        key: decodeURIComponent(req.query.uploadId),
                         fix_parts_size: true,
                         etag: aggregated_md5
                     }).then(function(calculated_etag) {
-                        dbg.log0('done complete', calculated_etag, 'https://' + req.hostname + '/' + req.bucket + '/' + req.query.uploadId);
+                        dbg.log3('done complete', calculated_etag, 'https://' + req.hostname + '/' + req.bucket + '/' + req.query.uploadId);
                         delete objects_avarage_part_size[req.query.uploadId];
                         var completeMultipartInformation = {
                             Bucket: req.bucket,
@@ -1319,7 +1318,7 @@ module.exports = function(params) {
             //Support _$folder$ used by s3 clients (supported by AWS). Replace with current prefix /
             key = key.replace(/_\$folder\$/, '/');
 
-            dbg.log0('Attempt to delete object "%s" in bucket "%s"', key, req.bucket);
+            dbg.log3('Attempt to delete object "%s" in bucket "%s"', key, req.bucket);
             var access_key = extract_access_key(req);
             var template;
             P.fcall(function() {
@@ -1353,7 +1352,7 @@ module.exports = function(params) {
             return P.ninvoke(xml2js, 'parseString', req.body)
                 .then(function(data) {
                     var objects_to_delete = data.Delete.Object;
-                    dbg.log0('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.bucket);
+                    dbg.log3('Delete objects "%s" in bucket "%s"', JSON.stringify(objects_to_delete), req.bucket);
                     return P.all(_.map(objects_to_delete, function(object_to_delete) {
                         dbg.log2('About to delete ', object_to_delete.Key[0]);
                         return clients[access_key].client.object.delete_object({

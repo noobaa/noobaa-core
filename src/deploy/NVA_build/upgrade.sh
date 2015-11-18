@@ -129,7 +129,7 @@ function do_upgrade {
   sleep 5;
   restart_s3rver
   deploy_log "Restarted s3rver"
-  restart_webserver
+      restart_webserver
   deploy_log "Upgrade finished successfully!"
 }
 

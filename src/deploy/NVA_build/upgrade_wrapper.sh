@@ -205,14 +205,15 @@ function post_upgrade {
 	# temporary - adding NTP package
 
 	yum install -y ntp
-
+	sudo /sbin/chkconfig ntpd on 2345
 
 	rm -f /tmp/*.tar.gz
-
-	#/etc/rc.d/init.d/supervisord stop
-	#/etc/rc.d/init.d/supervisord start
 }
 
+#Log file name supplied
+if [ "$2" != "" ]; then
+	LOG_FILE="/var/log/noobaa_deploy_wrapper_${2}.log"
+fi
 
 case $1 in
   pre)

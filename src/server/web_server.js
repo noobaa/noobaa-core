@@ -30,7 +30,7 @@ var util = require('util');
 var config = require('../../config.js');
 var dbg = require('../util/debug_module')(__filename);
 var mongoose_logger = require('../util/mongoose_logger');
-//var s3app = require('../s3/app');
+var time_utils = require('../util/time_utils');
 var pem = require('../util/pem');
 var multer = require('multer');
 var fs = require('fs');
@@ -266,11 +266,16 @@ app.post('/upgrade',
     function(req, res) {
         var upgrade_file = req.file;
         dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
-        var stdout = fs.openSync('/var/log/noobaa_deploy_out.log', 'a');
-        var stderr = fs.openSync('/var/log/noobaa_deploy_out.log', 'a');
+        var fsuffix = time_utils.time_suffix();
+        var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
+        var stdout = fs.openSync(fname, 'a');
+        var stderr = fs.openSync(fname, 'a');
         var spawn = require('child_process').spawn;
-        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path + ' &');
-        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh', 'from_file', upgrade_file.path], {
+        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path);
+        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh',
+            'from_file', upgrade_file.path,
+            'fsuffix', fsuffix
+        ], {
             detached: true,
             stdio: ['ignore', stdout, stderr],
             cwd: '/tmp'

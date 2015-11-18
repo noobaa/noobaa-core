@@ -236,7 +236,6 @@ if [ "$1" == "runinstall" ]; then
 	install_aux
 	install_repos
 	setup_repos runnpm
-#	setup_makensis
 	install_mongo
 	setup_mongo
 	general_settings

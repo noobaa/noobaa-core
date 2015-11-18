@@ -18,12 +18,18 @@ function disable_supervisord {
   ${SUPERCTL} shutdown
   #kill services
   for s in ${services}; do
+    deploy_log "Killing ${s}"
     kill -9 ${s}
   done
+
+  local mongostatus=$(ps -ef|grep mongod)
+  deploy_log "Mongo status after disabling supervisord $mongostatus"
 }
 
 function enable_supervisord {
   deploy_log "enable_supervisord"
+  local mongostatus_bef=$(ps -ef|grep mongod)
+  deploy_log "Mongo status before starting supervisord $mongostatus_bef"
   ${SUPERD}
 }
 
@@ -32,9 +38,9 @@ function restart_webserver {
     mongodown=true
     while ${mongodown}; do
     if netstat -na|grep LISTEN|grep :27017; then
-            echo here${mongodown}
+            deploy_log mongo_${mongodown}
             mongodown=false
-            echo ${mongodown}
+            deploy_log ${mongodown}
     else
             echo sleep
             sleep 1
@@ -90,7 +96,7 @@ function do_upgrade {
 
   unalias cp
   deploy_log "Tar extracted successfully, Running pre upgrade"
-  ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} pre
+  ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} pre ${FSUFFIX}
 
   deploy_log "Backup of current version and extract of new"
   #Delete old backup
@@ -113,7 +119,7 @@ function do_upgrade {
   setup_repos
 
   deploy_log "Running post upgrade"
-  ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post
+  ${WRAPPER_FILE_PATH}${WRAPPER_FILE_NAME} post ${FSUFFIX}
   deploy_log "Finished post upgrade"
 
   enable_supervisord
@@ -127,30 +133,44 @@ function do_upgrade {
   deploy_log "Upgrade finished successfully!"
 }
 
-deploy_log "upgrade.sh called with $@"
-
 #Node.js Cluster chnages the .spawn behavour. On a normal spawn FDs are not inherited,
-#on a node cluster they are, which meand the listening ports of the webserver are inherited by this create_multipart_upload.
+#on a node cluster they are, which meand the listening ports of the webserver are inherited by this upgrade.
 #murder them
 fds=`lsof -p $$ | grep LISTEN | awk '{print $4}' | sed 's:\(.*\)u:\1:'`
+deploy_log "Detected File Descriptors $fds"
 for f in ${fds}; do
-  exec ${f}<&-
+  eval "exec ${f}<&-"
 done
 
 if [ "$1" == "from_file" ]; then
-  if [ "$2" != "" ]; then
-    cp -f $2 ${TMP_PATH}${PACKAGE_FILE_NAME}
-    extract_package
-    ${NEW_UPGRADE_SCRIPT} do_upgrade
+  allargs="$@"
+  shift
+  if [ "$1" != "" ]; then
+      deploy_log "upgrade.sh called with ${allargs}"
+      cp -f $1 ${TMP_PATH}${PACKAGE_FILE_NAME}
+      extract_package
+      shift
+      ${NEW_UPGRADE_SCRIPT} do_upgrade $@
   else
+    deploy_log "upgrade.sh called with ${allargs}"
     echo "Must supply path to upgrade package"
     exit 1
   fi
 else
   if [ "$1" == "do_upgrade" ]; then
+    shift
+
+    if [ "$1" == "fsuffix" ]; then
+      shift
+      LOG_FILE="/var/log/noobaa_deploy_${1}.log"
+      FSUFFIX="$1"
+    fi
+
+    deploy_log "upgrade.sh called with ${allargs}"
     do_upgrade
     exit 0
   else
+    deploy_log "upgrade.sh called with $@"
     check_latest_version
     should_upgrade=$?
     echo "should upgrade $should_upgrade"

@@ -160,7 +160,7 @@ function list_buckets(req) {
                 system: req.system.id,
                 deleted: null,
             })
-            .populate('tiering.tiers')
+            .populate('tiering')
             .exec())
         .then(function(buckets) {
             return {
@@ -409,11 +409,18 @@ function get_bucket_query(req) {
 }
 
 function get_bucket_info(bucket) {
+
     var reply = _.pick(bucket, 'name');
     if (bucket.tiering) {
-        reply.tiering = _.map(bucket.tiering, function(t) {
-            return t.tier.name;
-        });
+        return P.when(db.TieringPolicy
+                .find({
+                    system: bucket.system,
+                    _id: bucket.tiering,
+                    deleted: null,
+                }))
+            .then(function(tiering) {
+                reply.tiering = tiering;
+            });
     }
     return reply;
 }

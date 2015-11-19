@@ -81,7 +81,7 @@ else
         sed -i '/newrelic/d' package.json
         echo "npm install node-gyp"
         npm install -g node-gyp
-        npm install -g nan
+        npm install nan
         echo "rebuild"
         node-gyp rebuild
         echo "npm install"

@@ -264,9 +264,7 @@ function pack(dest, name) {
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
             '!node_modules/gulp*/**/*',
-            '!node_modules/heapdump/**/*',
             '!node_modules/bower/**/*',
-            '!node_modules/bcrypt/**/*',
             '!node_modules/node-inspector/**/*'
         ], {
             base: 'node_modules'
@@ -303,10 +301,15 @@ function pack(dest, name) {
             p.dirname = path.join('build/public', p.dirname);
         }));
 
+    var build_native_stream = gulp
+        .src(['build/Release/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('build/Release', p.dirname);
+        }));
 
     return event_stream
         .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream, node_modules_stream)
+            vendor_stream, agent_distro, build_stream,build_native_stream, node_modules_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))

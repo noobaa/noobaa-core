@@ -102,12 +102,6 @@ function do_upgrade {
   cd /root/node_modules
   deploy_log "Extracting new version"
   tar -xzvf ./${PACKAGE_FILE_NAME} >& /dev/null
-  #replace with locally built packages
-  cp -rf /backup/node_modules/heapdump  /root/node_modules/noobaa-core/node_modules/
-  cp -rf /backup/node_modules/bcrypt  /root/node_modules/noobaa-core/node_modules/
-
-  #temp! build native on target machine
-  #TODO: build on centos and use prebuild
 
   # Re-setup Repos
   setup_repos

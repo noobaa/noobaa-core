@@ -238,7 +238,7 @@ function post_upgrade {
 
 
 	rm -f /tmp/*.tar.gz
-	rm -f /tmp/v4.2.2
+	rm -rf /tmp/v4.2.2
 
 	/etc/rc.d/init.d/supervisord stop
 	/etc/rc.d/init.d/supervisord start

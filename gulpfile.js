@@ -554,9 +554,7 @@ function package_build_task() {
     return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
         .then(function(res) { //build agent distribution setup
             if (!use_local_executable) {
-                return build_agent_distro();
-            } else {
-                gutil.log('before downloading setup');
+                gutil.log('before downloading setup and rest');
                 return Q.fcall(function() {
                     return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup', [], process.cwd());
                 })
@@ -569,6 +567,8 @@ function package_build_task() {
                 .then(function() {
                     return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
                 });
+            } else {
+                return;
             }
         })
         .then(function() {
@@ -577,13 +577,6 @@ function package_build_task() {
         })
         .then(function() {
             return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.2.2/node-v4.2.2-linux-x64.tar.xz >build/public/node-v4.2.2-linux-x64.tar.xz', [], process.cwd());
-        })
-        .then(function() { //build rest distribution setup
-            if (!use_local_executable) {
-                return build_rest_distro();
-            } else {
-                return;
-            }
         })
         .then(function() {
             //call for packing

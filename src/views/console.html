@@ -21,11 +21,15 @@
                         <small>{{nbClient.account.email}}</small>
                     </a>
                     <ul class="dropdown-menu text-left" role="menu" style="left: 100%; bottom:0">
+                        <li>
+                            <p class="text-center">
+                                Version {{version}}</p>
+                        </li>
                         <li ng-if="nbClient.account.is_support">
                             <a href="/console/support">Support page</a>
                         </li>
                         <li class="divider" ng-if="nbClient.account.is_support"></li>
-                        <li style="padding: 0 10px">
+                        <li style="padding: 0 10px" ng-if="nbClient.account.is_support">
                             <span class="label label-default">Systems</span>
                         </li>
                         <li  ng-if="nbClient.account.is_support" ng-repeat="sys in nbSystem.systems">

@@ -200,11 +200,18 @@ function update_heartbeat(params, conn, reply_token) {
         params.rpc_address = rpc_address;
     }
 
+
     var reply = {
-        rpc_address: rpc_address,
         version: process.env.AGENT_VERSION || '0',
         delay_ms: hb_delay_ms,
     };
+    
+    //0.4 backward compatible - reply with version and without rpc address.
+    if (!params.id)
+    {
+        reply.rpc_address =rpc_address;
+
+    }
     if (reply_token) {
         reply.auth_token = reply_token;
     }

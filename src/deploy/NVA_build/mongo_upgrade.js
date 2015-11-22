@@ -77,6 +77,26 @@ if (mypool) {
             }
         });
     });
+    
+    db.datachunks.find().forEach(function(chunk) {
+        db.objectparts.find({
+            "chunk": chunk._id
+        }).forEach(function(part) {
 
+            db.objectmds.find({
+                "_id": part.obj
+            }).forEach(function(obj) {
+
+                print ('setting chunk with id:'+chunk._id +' with bucket '+obj.bucket +' part:'+part.obj+' obj:'+ obj._id);
+                db.datachunks.update({
+                    _id: chunk._id
+                }, {
+                    $set: {
+                        bucket: obj.bucket
+                    }
+                });
+            });
+        });
+    });
 
 }

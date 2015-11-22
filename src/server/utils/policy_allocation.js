@@ -1,9 +1,10 @@
 'use strict';
 
 module.exports = {
-    allocate_by_policy: allocate_by_policy,
-    analyze_chunk_status: analyze_chunk_status,
+    allocate_on_pools: allocate_on_pools,
+    analyze_chunk_status_on_pools: analyze_chunk_status_on_pools,
     remove_allocation: remove_allocation,
+    get_pools_groups: get_pools_groups,
 };
 
 var _ = require('lodash');
@@ -15,52 +16,43 @@ var config = require('../../../config.js');
 var dbg = require('../../util/debug_module')(__filename);
 
 
-function allocate_by_policy(chunk, avoid_nodes) {
-    return P.when(read_tiering_info(chunk.bucket))
-        .then(function(tiering_info) {
-            //TODO:: currently only 1 tier, take into account multiuple tiers once implemented
-            if (tiering_info[0].data_placement === 'SPREAD') {
-                return P.when(block_allocator.allocate_block(chunk, avoid_nodes, tiering_info[0].pools));
-            } else { //Mirror
-                console.error('NBNB IN MIRROR!!!!');
-            }
-        });
+function allocate_on_pools(chunk, avoid_nodes, pools) {
+    return P.when(block_allocator.allocate_block(chunk, avoid_nodes, pools));
 }
 
 function remove_allocation(blocks) {
     return P.when(block_allocator.remove_blocks(blocks));
 }
 
-/**
- *
- * analyze_chunk_status
- *
- * compute the status in terms of availability
- * of the chunk blocks per fragment and as a whole.
- *
- */
-
-function analyze_chunk_status(chunk, all_blocks) {
-    var status = {};
-    return P.when(read_tiering_info(chunk.bucket))
-        .then(function(tiering_info) {
-            //TODO:: currently only 1 tier, take into account multiuple tiers once implemented
-            if (tiering_info[0].data_placement === 'SPREAD') {
-                return P.when(analyze_chunk_status_on_pool(chunk, all_blocks, tiering_info[0].pools));
-            } else { //Mirror, analyze per each mirrored pool
-                console.error('NBNB IN MIRROR!!!!');
-                return P.allSettled(_.map(tiering_info[0].pools, function(p) {
-                        status[p._id] = analyze_chunk_status_on_pool(chunk, all_blocks, p);
-                    }))
-                    .then(function(r) {
-
-                    });
+function get_pools_groups(bucket) {
+    //TODO take into account multi-tiering
+    var reply = [];
+    return P.when(read_tiering_info(bucket))
+        .then(function(tiering) {
+            if (tiering[0].data_placement === 'MIRROR') {
+                _.each(tiering[0].pools, function(p) {
+                    reply.push([p]);
+                });
+            } else if (tiering[0].data_plaement === 'SPREAD') {
+                reply.push([]);
+                _.each(tiering[0].pools, function(p) {
+                    reply[0].push(p);
+                });
             }
         });
 }
 
+/**
+ *
+ * analyze_chunk_status_on_pools
+ *
+ * compute the status in terms of availability
+ * of the chunk blocks per fragment and as a whole.
+ * takes into account state on specific given pools only.
+ *
+ */
 
-function analyze_chunk_status_on_pool(chunk, allocated_blocks, orig_pools) {
+function analyze_chunk_status_on_pools(chunk, allocated_blocks, orig_pools) {
     //convert pools to strings for comparison
     var pools = _.map(orig_pools, function(p) {
         return p.toString();

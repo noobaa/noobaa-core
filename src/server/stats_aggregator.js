@@ -311,7 +311,7 @@ function send_stats_payload(payload) {
             return;
         })
         .then(null, function(err) {
-            dbg.log0('Phone Home data send failed', err, err.stack());
+            dbg.log0('Phone Home data send failed', err, err.stack);
         });
 }
 

@@ -266,11 +266,20 @@ function read_system(req) {
 
             // buckets
             db.Bucket.find(by_system_id_undeleted).exec(),
+
+            // pools
+            db.Pool.find(by_system_id_undeleted).exec(),
         ]);
 
-    }).spread(function(roles, tiers, nodes_aggregate, objects_aggregate, blocks, buckets) {
+    }).spread(function(roles, tiers, nodes_aggregate, objects_aggregate, blocks, buckets, pools) {
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
         var tiers_by_id = _.indexBy(tiers, '_id');
+        var pools_by_name = _.map(pools, function(p) {
+            return {
+                name: p.name,
+                nodes_count: p.nodes.length,
+            };
+        });
         var nodes_sys = nodes_aggregate[''] || {};
         var objects_sys = objects_aggregate[''] || {};
         return P.all(_.map(buckets, function(bucket) {
@@ -304,7 +313,7 @@ function read_system(req) {
                     }
                 });
             }).then(function(sync_policy) {
-                dbg.log2('bucket sync_policy is:', sync_policy);                
+                dbg.log2('bucket sync_policy is:', sync_policy);
                 if (!_.isEmpty(sync_policy)) {
                     var interval_text = 0;
                     if (sync_policy.policy.schedule < 60) {
@@ -377,6 +386,7 @@ function read_system(req) {
                     count: nodes_sys.count || 0,
                     online: nodes_sys.online || 0,
                 },
+                pools: pools_by_name,
                 buckets: updated_buckets,
                 objects: objects_sys.count || 0,
                 access_keys: req.system.access_keys,
@@ -640,7 +650,7 @@ function diagnose(req) {
             return out_path;
         })
         .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics', err, err.stack());
+            dbg.log0('Error while collecting diagnostics', err, err.stack);
             return;
         });
 }
@@ -662,7 +672,7 @@ function diagnose_with_agent(data) {
             return out_path;
         })
         .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics with agent', err, err.stack());
+            dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
             return;
         });
 }

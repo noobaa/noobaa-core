@@ -80,37 +80,39 @@ if (mypool) {
 
     var parts = [];
     db.objectmds.find({
-        deleted:null
+        deleted: null
     }).forEach(function(obj) {
         db.objectparts.find({
             obj: obj._id,
-            deleted:null
-        }).forEach(function(part){
+            deleted: null
+        }).forEach(function(part) {
             parts.push(part._id);
         });
     });
 
     var buckets = [];
 
-    db.datachunks.find({deleted:null}).forEach(function(chunk) {
+    db.datachunks.find({
+        deleted: null
+    }).forEach(function(chunk) {
         db.objectparts.find({
             "chunk": chunk._id,
             _id: {
                 $in: parts
             },
-            deleted:null
+            deleted: null
         }).forEach(function(part) {
 
             db.objectmds.find({
                 "_id": part.obj,
-                deleted:null
+                deleted: null
             }).forEach(function(obj) {
                 var bucket_id = obj.bucket;
 
-                if (!buckets[bucket_id]){
+                if (!buckets[bucket_id]) {
                     buckets.push(bucket_id);
-                    buckets[bucket_id] ={
-                        chunks : []
+                    buckets[bucket_id] = {
+                        chunks: []
                     };
                 }
                 buckets[bucket_id].chunks.push(chunk._id);
@@ -122,7 +124,7 @@ if (mypool) {
         });
     });
 
-    print('buckets',buckets.length);
+    print('buckets', buckets.length);
 
     for (var i = 0; i < buckets.length; i++) {
 
@@ -134,6 +136,8 @@ if (mypool) {
             $set: {
                 bucket: buckets[i]
             }
+        }, {
+            multi: true
         });
 
     }

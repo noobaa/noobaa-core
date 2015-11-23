@@ -40,6 +40,10 @@ function restart_webserver {
             sleep 1
     fi
     done
+
+    #MongoDB nbcore upgrade
+    /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
+    
     ${SUPERCTL} start webserver
 
 }

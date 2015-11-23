@@ -189,8 +189,6 @@ function post_upgrade {
       /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
 
-  #MongoDB nbcore upgrade
-  /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   unset AGENT_VERSION
 
   #node-gyp install & building

@@ -77,26 +77,64 @@ if (mypool) {
             }
         });
     });
-    
-    db.datachunks.find().forEach(function(chunk) {
+
+    var parts = [];
+    db.objectmds.find({
+        deleted:null
+    }).forEach(function(obj) {
         db.objectparts.find({
-            "chunk": chunk._id
+            obj: obj._id,
+            deleted:null
+        }).forEach(function(part){
+            parts.push(part._id);
+        });
+    });
+
+    var buckets = [];
+
+    db.datachunks.find({deleted:null}).forEach(function(chunk) {
+        db.objectparts.find({
+            "chunk": chunk._id,
+            _id: {
+                $in: parts
+            },
+            deleted:null
         }).forEach(function(part) {
 
             db.objectmds.find({
-                "_id": part.obj
+                "_id": part.obj,
+                deleted:null
             }).forEach(function(obj) {
+                var bucket_id = obj.bucket;
 
-                print ('setting chunk with id:'+chunk._id +' with bucket '+obj.bucket +' part:'+part.obj+' obj:'+ obj._id);
-                db.datachunks.update({
-                    _id: chunk._id
-                }, {
-                    $set: {
-                        bucket: obj.bucket
-                    }
-                });
+                if (!buckets[bucket_id]){
+                    buckets.push(bucket_id);
+                    buckets[bucket_id] ={
+                        chunks : []
+                    };
+                }
+                buckets[bucket_id].chunks.push(chunk._id);
+                //print('bububu',buckets[bucket_id].chunks);
+
+                //print ('chunks in bucket '+bucket_id+' : '+JSON.stringify(buckets[bucket_id].chunks));
+                //              print ('setting chunk with id:'+chunk._id +' with bucket '+obj.bucket +' part:'+part.obj+' obj:'+ obj._id);
             });
         });
     });
 
+    print('buckets',buckets.length);
+
+    for (var i = 0; i < buckets.length; i++) {
+
+        db.datachunks.update({
+            _id: {
+                $in: buckets[buckets[i]].chunks
+            }
+        }, {
+            $set: {
+                bucket: buckets[i]
+            }
+        });
+
+    }
 }

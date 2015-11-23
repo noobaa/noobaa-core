@@ -11,8 +11,8 @@ DBG_INIT(0);
 Nan::Persistent<v8::Function> Nudp::_ctor;
 
 static const int UTP_TARGET_DELAY_MICROS = 10000;
-static const int UTP_SNDBUF_SIZE = 1 * 1024 * 1024;
-static const int UTP_RCVBUF_SIZE = 1 * 1024 * 1024;
+static const int UTP_SNDBUF_SIZE = 128 * 1024;
+static const int UTP_RCVBUF_SIZE = 128 * 1024;
 
 static std::string addrinfo2str(const struct addrinfo* ai);
 static std::string sockaddr2str(const struct sockaddr* sa);

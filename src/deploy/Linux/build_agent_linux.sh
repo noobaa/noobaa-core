@@ -3,10 +3,13 @@
 
 source ~/.bashrc
 source "$NVM_DIR/nvm.sh"
-nvm install 0.10.33
-nvm alias default 0.10.33
-nvm use 0.10.33
 
+echo "WARNING: devtoolset-2 is enabled!"
+. /opt/rh/devtoolset-2/enable
+
+nvm install 4.2.2
+nvm alias default 4.2.2
+nvm use 4.2.2
 
 CLEAN=true;
 #ON_PREMISE means that we are currently building the ON_PREMISE package
@@ -57,16 +60,18 @@ else
         echo "copy files"
         cp ../../package.json ./package/
         cp ../../config.js ./package/
-        cp ~/.nvm/v0.10.33/bin/node ./package/
+        cp ~/.nvm/versions/node/v4.2.2/bin/node ./package/
         mkdir ./package/src/
         cp -R ../../src/agent ./package/src/
         cp -R ../../src/util ./package/src/
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
+        cp -R ../../src/native ./package/src/
+        cp -R ../../binding.gyp ./package/
+
         #remove irrelevant packages
         #TODO: create new package for that matter
         cd package
-        echo "npm install"
         sed -i '/gulp/d' package.json
         sed -i '/bower/d' package.json
         sed -i '/bootstrap/d' package.json
@@ -74,7 +79,14 @@ else
         sed -i '/rebuild/d' package.json
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
+        echo "npm install node-gyp"
+        npm install -g node-gyp
+        npm install nan
+        echo "rebuild"
+        node-gyp rebuild
+        echo "npm install"
         npm install -dd
+        #node-gyp rebuild
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself.sh

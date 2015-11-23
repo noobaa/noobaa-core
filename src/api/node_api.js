@@ -262,6 +262,14 @@ module.exports = {
                     'storage',
                 ],
                 properties: {
+                    //0.4 backward compatibility. allows id and port for old agents
+                    //will return simple reply that will result with agent upgrade
+                    id: {
+                        type: 'string'
+                    },
+                    port: {
+                        type: 'integer'
+                    },
                     name: {
                         type: 'string'
                     },
@@ -296,7 +304,7 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: ['rpc_address', 'version', 'delay_ms'],
+                required: [ 'version', 'delay_ms'],
                 properties: {
                     auth_token: {
                         // auth token will only be sent back if new node was created

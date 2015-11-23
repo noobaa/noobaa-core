@@ -3,11 +3,13 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var pkg = require('../../package.json');
 
 require('./nb_util');
 require('./nb_api');
 require('./nb_nodes');
 require('./nb_files');
+
 
 var nb_console = angular.module('nb_console', [
     'nb_util',
@@ -85,7 +87,7 @@ nb_console.controller('ConsoleCtrl', [
         $scope.nbNodes = nbNodes;
         $scope.nbFiles = nbFiles;
         $scope.nbAlertify = nbAlertify;
-
+        $scope.version = pkg.version;
         $scope.nav = {
             active: 'overview',
         };

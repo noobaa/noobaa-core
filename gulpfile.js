@@ -263,9 +263,7 @@ function pack(dest, name) {
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
             '!node_modules/gulp*/**/*',
-            '!node_modules/heapdump/**/*',
             '!node_modules/bower/**/*',
-            '!node_modules/bcrypt/**/*',
             '!node_modules/node-inspector/**/*'
         ], {
             base: 'node_modules'
@@ -302,10 +300,15 @@ function pack(dest, name) {
             p.dirname = path.join('build/public', p.dirname);
         }));
 
+    var build_native_stream = gulp
+        .src(['build/Release/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('build/Release', p.dirname);
+        }));
 
     return event_stream
         .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream, node_modules_stream)
+            vendor_stream, agent_distro, build_stream,build_native_stream, node_modules_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
@@ -550,17 +553,29 @@ function package_build_task() {
     return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
         .then(function(res) { //build agent distribution setup
             if (!use_local_executable) {
-                return build_agent_distro();
+                gutil.log('before downloading setup and rest');
+                return Q.fcall(function() {
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup', [], process.cwd());
+                })
+                .then(function() {
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup.exe >build/public/noobaa-setup.exe', [], process.cwd());
+                })
+                .then(function() {
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest.exe >build/public/noobaa-s3rest.exe', [], process.cwd());
+                })
+                .then(function() {
+                    return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
+                });
             } else {
                 return;
             }
         })
-        .then(function() { //build rest distribution setup
-            if (!use_local_executable) {
-                return build_rest_distro();
-            } else {
-                return;
-            }
+        .then(function() {
+            gutil.log('before downloading nvm and node package');
+            return promise_utils.promised_exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
+        })
+        .then(function() {
+            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.2.2/node-v4.2.2-linux-x64.tar.xz >build/public/node-v4.2.2-linux-x64.tar.xz', [], process.cwd());
         })
         .then(function() {
             //call for packing

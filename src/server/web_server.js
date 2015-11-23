@@ -224,11 +224,10 @@ P.fcall(function() {
 
 // agent package json
 app.get('/agent/package.json', function(req, res) {
-    dbg.log0('reqqqqqq:', req);
     res.status(200).send({
         name: 'agent',
         engines: {
-            node: '0.10.33'
+            node: '4.2.2'
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +

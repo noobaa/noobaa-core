@@ -227,7 +227,7 @@ app.get('/agent/package.json', function(req, res) {
     res.status(200).send({
         name: 'agent',
         engines: {
-            node: '4.2.1'
+            node: '4.2.2'
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +

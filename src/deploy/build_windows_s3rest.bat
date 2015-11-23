@@ -46,7 +46,7 @@ del /Q *.dll
 del /Q ..\public\*.dll
 del /Q ..\public\node.exe
 del /Q ..\public\openssl.exe
-call curl -L https://nodejs.org/dist/v4.2.1/win-x86/node.exe > node.exe
+call curl -L https://nodejs.org/dist/v4.2.2/win-x86/node.exe > node.exe
 call curl -L https://indy.fulgan.com/SSL/openssl-1.0.2d-i386-win32.zip > openssl.zip
 call 7za.exe e openssl.zip -y -x!*.txt
 del /Q openssl.zip

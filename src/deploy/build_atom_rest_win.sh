@@ -73,7 +73,7 @@ else
         sed -i '' '/browserify"/d' package.json
         pwd
         npm install -dd
-        curl -Lk https://nodejs.org/dist/v4.2.1/win-x86/node.exe > node.exe
+        curl -Lk https://nodejs.org/dist/v4.2.2/win-x86/node.exe > node.exe
         #echo "Downloading atom-shell for windows"
         #curl -L https://github.com/atom/atom-shell/releases/download/v0.17.1/atom-shell-v0.17.1-win32-ia32.zip > atom-shell.zip
         #unzip atom-shell.zip -d atom-shell

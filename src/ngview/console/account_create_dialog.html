@@ -26,21 +26,12 @@
                     </div>
                     <div ng-if="!nbClient.account.is_support && !register">
                         Copy the following text and send it to the user
-                        <pre style="font-size: 11px; color: hsl(0,0%,50%)"  class="block"  data-placement="bottom">{{$parent.email_message}}</pre>
-                        <input id="copy-text-area" type="hidden" style="visibility: hidden" value='{{$parent.email_message}}' />
+                        <pre id="copy-text-area" style="font-size: 11px; color: hsl(0,0%,50%)"  class="block"  data-placement="bottom">{{$parent.email_message}}</pre>
                     </div>
-                    <button id="copy-button"  ng-if="!nbClient.account.is_support && !register" class="btn btn-default" style="width: 35%;padding: 10px" onclick="document.execCommand('copy')">
+                    <button id="copy-button"  ng-if="!nbClient.account.is_support && !register" class="btn btn-default" style="width: 35%;padding: 10px" ng-click="copy_to_clipboard()">
                         Copy To Clipboard
                     </button>
-                    
-                    <script>
-                        document.addEventListener('copy', function(e){
-                            var copied_text = document.getElementById('copy-text-area').value;
-                            e.clipboardData.setData('text/plain', copied_text);
-                            e.preventDefault(); // We want our data, not data from any selection, to be written to the clipboard
-                            alertify.success('Account details copied to clipboard');
-                        });
-                    </script>
+
                     <div class="form-control-wrapper text-center">
                         <button type="submit" class="btn btn-primary" ng-disabled="form_disabled" nb-click-ladda="create()">
                             Done

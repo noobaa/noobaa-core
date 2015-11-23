@@ -287,6 +287,27 @@ nb_api.factory('nbNodes', [
                         scope.next_stage();
                     });
             };
+
+            scope.copy_to_clipboard = function() {
+                var copyFrom = $window.document.getElementById('copy-text-area');
+                var selection = $window.getSelection();
+                selection.removeAllRanges();
+                var range = $window.document.createRange();
+                range.selectNodeContents(copyFrom);
+                selection.addRange(range);
+                try {
+                    var success = $window.document.execCommand('copy', false, null);
+                    if (success) {
+                        nbAlertify.success('Agent configuration copied to clipboard');
+                    } else {
+                        nbAlertify.error('Cannot copy agent configuration to clipboard, please copy manually');
+                    }
+                    selection.removeAllRanges();
+                } catch (err) {
+                    console.error('err while copy', err);
+                    nbAlertify.error('Cannot copy agent configuration to clipboard, please copy manually');
+                }
+            };
             scope.modal = nbModal({
                 template: 'console/add_node_dialog.html',
                 scope: scope,

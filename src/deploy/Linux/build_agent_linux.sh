@@ -45,7 +45,7 @@ if [ "$GIT_COMMIT"!=0 ] ; then
     current_package_version=$(grep version package.json|awk '{print $2}'|awk -F'"' '{print $2}')
 fi
 
-exit
+
 #TODO: automate - build and sign executable as well.
 
 if [ "$CLEAN" = true ] ; then

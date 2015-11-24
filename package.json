@@ -38,6 +38,8 @@
     "animate.css": "~3.2.5",
     "async": "~0.9.0",
     "aws-sdk": "~2.2.0",
+    "babel-preset-es2015": "^6.1.18",
+    "babelify": "^7.2.0",
     "bcrypt": "^0.8.5",
     "bindings": "^1.2.1",
     "bluebird": "^2.10.0",

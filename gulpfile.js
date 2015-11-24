@@ -598,7 +598,10 @@ gulp.task('client', ['bower', 'ng'], function() {
         // bare: true,
         // detectGlobals: false,
         // list: true,
+    }).transform('babelify', {
+        presets: ['es2015']
     });
+
     // using gulp_replace to fix collision of requires
     var client_bundle_stream = bundler.bundle()
         .pipe(vinyl_source_stream(NAME))

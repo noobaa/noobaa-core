@@ -12,9 +12,14 @@ nvm alias default 4.2.2
 nvm use 4.2.2
 
 CLEAN=true;
+GIT_COMMIT=0
 
 #extract version from package.json
-current_package_version=$(cat package.json |grep version |awk '{print $2}'|awk -F'"' '{print $2}')
+current_package_version=$(grep version package.json|awk '{print $2}'|awk -F'"' '{print $2}')
+
+#"version": "0.4.0",
+current_version_line=$(grep version package.json)
+
 
 #extract parms
 while [[ $# > 0 ]]; do
@@ -22,6 +27,9 @@ while [[ $# > 0 ]]; do
   case $key in
       --clean)
       CLEAN=$(echo $1 | sed "s:.*=\(.*\):\1:")
+      ;;
+      --GIT_COMMIT)
+      GIT_COMMIT=$(echo $1 | sed "s:.*=\(.*\):\1:")
       ;;
     *)
       usage
@@ -31,6 +39,13 @@ while [[ $# > 0 ]]; do
   shift
 done
 
+if [ "$GIT_COMMIT"!=0 ] ; then
+    GIT_COMMIT=${GIT_COMMIT:0:7}
+    sed -i "s/$current_version_line/\"version\": \"$current_package_version.$GIT_COMMIT\",/g" package.json
+    current_package_version=$(grep version package.json|awk '{print $2}'|awk -F'"' '{print $2}')
+fi
+
+exit
 #TODO: automate - build and sign executable as well.
 
 if [ "$CLEAN" = true ] ; then

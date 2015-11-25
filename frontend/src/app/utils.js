@@ -1,5 +1,8 @@
 const sizeUnits = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB' ];
 
+export function noop() {
+}
+
 export function invokeAsync(f, ...params) {
 	setTimeout(
 		() => f(...params), 

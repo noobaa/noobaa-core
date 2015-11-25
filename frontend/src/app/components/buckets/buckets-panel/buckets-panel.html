@@ -8,7 +8,8 @@
 	<buckets-table params="buckets: buckets"></buckets-table>
 
 	 <modal params="visible: showCreateBucketModal">
-	 	<create-bucket-form></create-bucket-form>
+	 	<create-bucket-form params="oncreated: closeCreateBucketModal, oncanceled: closeCreateBucketModal">
+	 	</create-bucket-form>
 	 </modal>
 </div>
 	 

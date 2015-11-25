@@ -1,5 +1,6 @@
 import template from './create-bucket-form.html';
 import ko from 'knockout';
+import { isFunction, noop } from 'utils';
 import { createBucket } from 'actions';
 
 const bucketNamePattern = '^[a-z0-9](-|[a-z0-9]){2,62}$';
@@ -10,7 +11,10 @@ const sizeUnits = [
 ];
 
 class CreateBucketFormViewModel {
-	constructor() {
+	constructor({ oncreated, oncanceled }) {
+		this.created = isFunction(oncreated) ? oncreated : noop;
+		this.canceled = isFunction(oncanceled) ? oncanceled : noop;
+
 		this.bucketName = ko.observable().extend({
 			required: true,
 			pattern: bucketNamePattern
@@ -35,12 +39,14 @@ class CreateBucketFormViewModel {
 	create() {
 		if (this.errors().length === 0) {
 			createBucket(this.bucketName());
+			this.created();
 		} else {
 			this.errors.showAllMessages();
 		}
 	}
 
 	cancel() {
+		this.canceled();
 	}
 }
 

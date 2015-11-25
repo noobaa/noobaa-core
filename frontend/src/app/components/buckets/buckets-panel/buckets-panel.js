@@ -6,12 +6,15 @@ class BucketsPanelViewModal {
 	constructor() {	
 		this.buckets = bucketList;
 		this.showCreateBucketModal = ko.observable(false); 	 		
+
+		this.closeCreateBucketModal = () => this.showCreateBucketModal(false);
 	}
 
 	openCreateBucketModal() {
 		this.showCreateBucketModal(true);
 	}
 }
+
 export default {
 	viewModel: BucketsPanelViewModal,
 	template: template

@@ -223,7 +223,7 @@ export function readSystemInfo() {
 			systemOverview({
 				bucketCount: reply.buckets.length,
 				objectCount: reply.objects,
-				poolCount: 1000, // TODO: change to reply.pools.length, when avaliable
+				poolCount: reply.pools.length,
 				nodeCount: reply.nodes.count
 			});
 
@@ -305,6 +305,7 @@ export function createBucket(name) {
 	logAction('createBucket', { name });
 
 	api.bucket.create_bucket({ name, tiering: 'default_tiering' })
+		.then(() => readSystemInfo())
 		.done();
 }
 
@@ -315,10 +316,3 @@ export function deleteBucket(name) {
 		.then(readSystemInfo)
 		.done();
 }
-
-
-
-
-
-
-

@@ -38,6 +38,9 @@ var bower = require('bower');
 var Q = require('q');
 var _ = require('lodash');
 var promise_utils = require('./src/util/promise_utils');
+var pkg = require('./package.json');
+var current_pkg_version;
+
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -49,6 +52,8 @@ var bg_workers_server;
 var build_on_premise = true;
 var skip_install = false;
 var use_local_executable = false;
+var git_commit="DEVONLY";
+
 for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--on_premise') {
         build_on_premise = true;
@@ -62,8 +67,13 @@ for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--local') {
         use_local_executable = true;
     }
-
+    if (process.argv[arg_idx] === '--GIT_COMMIT') {
+        git_commit = process.argv[arg_idx+1].substr(0,6);
+    }
 }
+
+current_pkg_version = pkg.version+'-'+git_commit;
+console.log('current_pkg_version:',current_pkg_version);
 
 function leave_no_wounded(err) {
     if (err) {
@@ -236,7 +246,7 @@ function pack(dest, name) {
             });
             return {
                 name: 'noobaa-NVA',
-                version: '0.0.0',
+                version: current_pkg_version,
                 private: true,
                 main: 'index.js',
                 dependencies: deps,
@@ -455,7 +465,7 @@ gulp.task('agent', ['lint'], function() {
             });
             return {
                 name: 'noobaa-agent',
-                version: '0.0.0',
+                version: current_pkg_version,
                 private: true,
                 bin: 'agent/agent_cli.js',
                 main: 'agent/agent_cli.js',
@@ -510,11 +520,11 @@ function build_agent_distro() {
         })
         .then(function() {
             gutil.log('before downloading linux setup');
-            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup',
+            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup'+current_pkg_version+' >build/public/noobaa-setup',
                 build_params, process.cwd());
         })
         .then(function() {
-            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup',
+            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*',
                 build_params, process.cwd());
         })
         .then(function() {
@@ -547,21 +557,21 @@ function build_rest_distro() {
 
 function package_build_task() {
     var DEST = 'build/public';
-    var NAME = 'noobaa-NVA.tar';
+    var NAME = 'noobaa-NVA-';
 
     //Remove previously build package
-    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
+    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '*.tar.gz')
         .then(function(res) { //build agent distribution setup
             if (!use_local_executable) {
                 gutil.log('before downloading setup and rest');
                 return Q.fcall(function() {
-                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup', [], process.cwd());
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-'+current_pkg_version+' >build/public/noobaa-setup', [], process.cwd());
                 })
                 .then(function() {
-                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup.exe >build/public/noobaa-setup.exe', [], process.cwd());
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-'+current_pkg_version+'.exe >build/public/noobaa-setup.exe', [], process.cwd());
                 })
                 .then(function() {
-                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest.exe >build/public/noobaa-s3rest.exe', [], process.cwd());
+                    return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest.exe >build/public/noobaa-s3rest-'+current_pkg_version+'.exe', [], process.cwd());
                 })
                 .then(function() {
                     return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
@@ -579,7 +589,7 @@ function package_build_task() {
         })
         .then(function() {
             //call for packing
-            return pack(DEST, NAME);
+            return pack(DEST, NAME+current_pkg_version+'.tar');
         })
         .then(null, function(error) {
             gutil.log("error ", error, error.stack);

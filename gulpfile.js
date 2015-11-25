@@ -557,7 +557,7 @@ function build_rest_distro() {
 
 function package_build_task() {
     var DEST = 'build/public';
-    var NAME = 'noobaa-NVA-';
+    var NAME = 'noobaa-NVA';
 
     //Remove previously build package
     return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '*.tar.gz')
@@ -589,7 +589,7 @@ function package_build_task() {
         })
         .then(function() {
             //call for packing
-            return pack(DEST, NAME+current_pkg_version+'.tar');
+            return pack(DEST, NAME+"-"+current_pkg_version+'.tar');
         })
         .then(null, function(error) {
             gutil.log("error ", error, error.stack);

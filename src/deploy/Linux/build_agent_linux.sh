@@ -41,7 +41,7 @@ done
 
 if [ "$GIT_COMMIT"!=0 ] ; then
     GIT_COMMIT=${GIT_COMMIT:0:7}
-    sed -i "s/$current_version_line/\"version\": \"$current_package_version.$GIT_COMMIT\",/g" package.json
+    sed -i "s/$current_version_line/\"version\": \"$current_package_version-$GIT_COMMIT\",/g" package.json
     current_package_version=$(grep version package.json|awk '{print $2}'|awk -F'"' '{print $2}')
 fi
 

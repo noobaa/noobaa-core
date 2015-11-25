@@ -1,6 +1,6 @@
 <section class="legend pull-left">
 	<h3 class="heading3" data-bind="text: legend"></h3>
-	<ul data-bind="foreach: parts" >
+	<ul data-bind="foreach: values" >
 		<li>
 			<span class="bullet" data-bind="style: { background: color }"></span>
 			<span data-bind="text: label"></span>
@@ -8,4 +8,8 @@
 	</ul>		
 </section>
 
-<canvas></canvas>
+<canvas data-bind="canvas: { 
+	width: canvasWidth, 
+	height: canvasHeight, 
+	draw: draw
+}"></canvas>

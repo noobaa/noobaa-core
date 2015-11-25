@@ -1,22 +1,22 @@
-<node-summary class="center clear"></node-summary>
+<node-summary params="node: node" class="center clear"></node-summary>
 
 <ul class="tabs details-pane">
-	<li data-bind="css: { selected: selectedTab() == 'file-parts' }">
-		<a href="file-parts" class="tab-header">
+	<li data-bind="css: { selected: selectedTab() == 'parts' }">
+		<a class="tab-header" data-bind="href: '/systems/:system/pools/:pool/nodes/:node/parts'">
 			<svg-icon params="uri: '/assets/icons.svg#part'"></svg-icon>
 			Stored File Parts
 		</a>
 
-		<node-parts-table class="tab-content"></node-parts-table>
+		<node-parts-table params="objects: objects" class="tab-content"></node-parts-table>
 	</li>
 
 	<li data-bind="css: { selected: selectedTab() === 'info' }">
-		<a href="./info" class="tab-header">
+		<a class="tab-header" data-bind="href: '/systems/:system/pools/:pool/nodes/:node/info'">
 			<svg-icon params="uri: '/assets/icons.svg#info-dark'"></svg-icon>
 			Info
 		</a>
 
-		<node-info class="tab-content"></node-info>
+		<node-info params="node: node" class="tab-content"></node-info>
 	</li>
 </ul>	
 

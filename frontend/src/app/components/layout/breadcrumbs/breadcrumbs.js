@@ -2,24 +2,27 @@ import template from './breadcrumbs.html';
 import ko from 'knockout';
 
 class BreadcrumbsViewModel {
-	constructor(params) {
-		this.crumbs = params.crumbs;
-		
-		this.textCrumbs = ko.pureComputed(
-			() => this.crumbs()
-				.filter((_, i) => i >= 1)
-				.reduce(this._reduceCrumb, [])
+	constructor({ crumbs }) {
+		this.crumbs = ko.pureComputed(
+			() => crumbs()
+				.reduce(this._reduceCrumbs, [])
+				.slice(1)
 		);
 
-		this.showBackground = ko.pureComputed( 
-			() => this.crumbs().length > 0
+
+		this.hasBackground = ko.pureComputed(
+			() => crumbs().length > 0
 		);
 	}
 
-	_reduceCrumb(list, crumb) {
-		let last = list[list.length - 1] || { href: '/demo' };
-		list.push({ label: crumb, href: `${last.href}/${crumb}` });
-		return list 
+	_reduceCrumbs(list, crumb, i) {
+		let base = list[i-1] ? list[i-1].href : '';
+		list.push({
+			label: crumb.label || '',
+			href: `${base}/${crumb.href}`
+		});
+
+		return list;
 	}
 }
 

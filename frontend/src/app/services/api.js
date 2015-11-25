@@ -1,9 +1,5 @@
+import env from 'env';
 import { rpc, Client } from 'nb-api';
 
-const baseAddress = 'ws://192.168.56.102:5001';
-
-rpc.base_address = baseAddress;
-let client = new Client();
-client.rpc = rpc;
-
-export default client;
+rpc.base_address = env.serverAddress;
+export default Object.assign(new Client(), { rpc });

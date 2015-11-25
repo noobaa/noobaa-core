@@ -1,30 +1,29 @@
 import template from './overview-panel.html';
 import ko from 'knockout';
-import { systemInfo } from 'stores';
-
-let undefined;
+import { isDefined } from 'utils';
+import numeral from 'numeral';
+import { systemOverview } from 'model';
 
 class OverviewPanelViewModel {
 	constructor() {
 		this.ready = ko.pureComputed(
-			() => systemInfo() !== undefined
+			() => isDefined(systemOverview())
 		);
 
-		// TODO: Need to change to ko.unwrap(systemInfo).pools.length when avaliable.
 		this.poolCount = ko.pureComputed(
-			() => 1
+			() => numeral(systemOverview().poolCount).format('0,0')
 		);
 
 		this.nodeCount = ko.pureComputed(
-			() => systemInfo().nodes.count
+			() => numeral(systemOverview().nodeCount).format('0,0')
 		);
 
 		this.bucketCount = ko.pureComputed(
-			() => systemInfo().buckets.length
+			() => numeral(systemOverview().bucketCount).format('0,0')
 		);
 
 		this.objectCount = ko.pureComputed(
-			() => systemInfo().objects
+			() => numeral(systemOverview().objectCount).format('0,0')
 		);
 
 		this.showAddNodeModal = false;

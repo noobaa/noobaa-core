@@ -5,6 +5,10 @@ class CommandBarViewModel {
 	constructor() {
 		this.refresh = refresh;
 	}
+
+	refresh() {
+		refresh();
+	}
 }
 
 export default { 

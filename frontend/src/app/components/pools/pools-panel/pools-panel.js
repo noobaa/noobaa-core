@@ -1,8 +1,10 @@
 import template from './pools-panel.html';
-import PoolRowViewModel from './pool-row.js'
+import { poolList } from 'model';
 
 class PoolsPanelViewModel {
-	
+	constructor() {
+		this.pools = poolList;
+	}
 }
 
 export default {

@@ -1,6 +1,5 @@
 import template from './create-bucket-form.html';
 import ko from 'knockout';
-import router from 'services/router';
 import { createBucket } from 'actions';
 
 const bucketNamePattern = '^[a-z0-9](-|[a-z0-9]){2,62}$';
@@ -34,14 +33,14 @@ class CreateBucketFormViewModel {
 	}
 
 	create() {
-		if (this.errors().length == 0) {
+		if (this.errors().length === 0) {
 			// Initiate a create bucket request.
 			createBucket({
 				name: this.bucketName(),
 				quota: this.quota()
 			});
 
-			router.back();			
+			history.back();			
 		} else {
 			this.errors.showAllMessages();
 		}

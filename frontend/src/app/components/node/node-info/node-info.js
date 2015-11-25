@@ -2,40 +2,53 @@ import template from './node-info.html';
 import ko from 'knockout';
 import moment from 'moment';
 import style from 'style';
-import { node } from 'services/api';
 import { formatSize } from 'utils';
 
-const nodeName = 'nb-ohad-server-6e43a1f0-dcb1-4c9e-85d9-db45a151ca11';
-
 class NodeInfoViewModel {
-	constructor(params) {
-		this.version = ko.observable();
-		this.hostname = ko.observable();
-		this.upTime = ko.observable();
-		this.osType = ko.observable();
-		this.cpus = ko.observable();
-		this.memory = ko.observable();
-		this.totalSize = ko.observable();
-		this.drives = ko.observableArray();
-		this.networks = ko.observableArray();		
+	constructor({ node }) {
+		this.dataReady = ko.pureComputed(
+			() => !!node()
+		)
 
-		node.read_node({ name: nodeName })
-			.then(node => this._mapData(node))
-			.done();
+		this.version = ko.pureComputed(
+			() => node().version
+		);
+
+		this.hostname = ko.pureComputed(
+			() => node().os_info.hostname
+		);
+
+		this.upTime = ko.pureComputed(
+			() => moment(node().os_info.uptime).fromNow(true)
+		);
+		
+		this.osType = ko.pureComputed(
+			() => node().os_info.ostype
+		);
+
+		this.cpus = ko.pureComputed(
+			() => this._mapCpus(node())
+		);
+
+		this.memory = ko.pureComputed(
+			() => formatSize(node().os_info.totalmem)
+		);
+
+		this.totalSize = ko.pureComputed(
+			() => formatSize(node().storage.total)
+		);
+
+		this.networks = ko.pureComputed(
+			() => this._mapNetwotkInterfaces(node().os_info.networkInterfaces)
+		);
+
+		this.drives = ko.pureComputed(
+			() => this._mapDrives(node().drives)
+		);
 	}
 
-	_mapData(node) {
-		let { os_info } = node;
-
-		this.version(node.version);
-		this.hostname(os_info.hostname);
-		this.upTime(moment(os_info.uptime).fromNow(true));
-		this.osType(os_info.ostype);
-		this.cpus(`${os_info.cpus.length}x ${os_info.cpus[0].model}`);
-		this.memory(formatSize(os_info.totalmem));
-		this.networks(this._mapNetwotkInterfaces(os_info.networkInterfaces));
-		this.totalSize(formatSize(node.storage.total));
-		this.drives(this._mapDrives(node.drives)) 
+	_mapCpus({ os_info }) {
+		return `${os_info.cpus.length}x ${os_info.cpus[0].model}`;
 	}
 
 	_mapNetwotkInterfaces(networkInterfaces) {

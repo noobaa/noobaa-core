@@ -1,15 +1,15 @@
 import template from './header.html';
 import ko from 'knockout';
-import { appState } from 'stores';
+import { uiState } from 'model';
 
 class HeaderViewModel {
 	constructor() {
 		this.heading = ko.pureComputed(
-			() => appState().heading 
+			() => uiState().title 
 		);
 
-		this.breadcrumbs = ko.pureComputed(
-			() => appState().breadcrumbs
+		this.crumbs = ko.pureComputed(
+			() => uiState().breadcrumbs
 		);
 	}
 }

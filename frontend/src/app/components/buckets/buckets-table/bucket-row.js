@@ -19,7 +19,7 @@ export default class BucketRowViewModel {
 	constructor(bucket) {
 		this.stateIcon = stateIconMapping[bucket.state || true] ;
 		this.name = bucket.name;
-		this.href = `./buckets/${bucket.name}`;
+		this.href = `/systems/:system/buckets/${bucket.name}`;
 		this.fileCount = numeral(bucket.num_objects).format('0,0');
 		this.totalSize = formatSize(bucket.storage.total);
 		this.freeSize = formatSize(bucket.storage.free);

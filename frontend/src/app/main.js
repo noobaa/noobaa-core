@@ -3,15 +3,10 @@ import 'knockout-projections';
 import 'knockout-validation';
 import registerBindings from 'bindings/register';
 import registerComponents from 'components/register';
-import router from 'services/router';
+import page from 'page';
 import routing from 'routing';
-import api from 'services/api'
-
-const credentials = {
-	system: 'demo',
-	email:  'demo@noobaa.com',
-	password: 'DeMo'	
-};
+import { uiState } from 'model';
+import { start } from 'actions';
 
 // Setup validation policy.
 ko.validation.init({
@@ -27,14 +22,12 @@ registerBindings(ko);
 registerComponents(ko);
 
 // Configure the appliction router.
-routing(router);
+routing(page);
 
-// Create a token and start the applicaiton.
-api.create_auth_token(credentials)
-	.then(() => {
-		// Bind the UI with knockout.
-		ko.applyBindings()
+// Bind the ui to the 
+ko.applyBindings({ 
+	layout: ko.pureComputed( () => uiState().layout ) 
+});
 
-		// Start the router.
-		router.start();	
-	});
+// start the application.
+start();

@@ -1,0 +1,30 @@
+<section class="data-table no-head">
+	<table>
+		<tbody data-bind="foreach: rows">
+			<tr>
+				<td>
+					<svg-icon params="uri: '/assets/icons.svg#part'" class="pull-left"></svg-icon>
+				</td>
+
+				<td class="greedy text-left" data-bind="text: partText"></td>
+
+				<td>
+					<button class="btn-flat expand-btn">+</button>
+				</td>
+			</tr>
+
+			<tr>
+				<td colspan="0">
+					<table>
+						<tbody data-bind="foreach: blocks">
+							<tr>
+								<td data-bind="text: nodeName"></td>
+								<td data-bind="text: nodeIp"></td>
+							</tr>
+						</tbody>
+					</table>				
+				</td>
+			</tr>
+		</tbody>
+	</table>
+</section>

@@ -1,5 +1,5 @@
 import template from './buckets-panel.html';
-import { bucketList } from 'stores';
+import { bucketList } from 'model';
 
 class BucketsPanelViewModal {
 	constructor() {	

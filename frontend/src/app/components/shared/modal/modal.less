@@ -1,23 +1,28 @@
 modal {
-	.backdrop {
+	.modal-backdrop {
 		position: fixed;
 		top: 0;
 		left: 0;
 		bottom: 0;
 		right: 0;
 		background-color: @shadow-color;
-		z-index: 1;
-
-		> div {
-			position: absolute;
-			left: 50%;
-			top: 50%;
-			transform: translate(-50%, -50%);
-			background: @bg-color3;
-			box-shadow: 0 0 20px black;
-			min-width: 400px;
-			padding: .5em;
-			z-index: 2;
-		}		
+		z-index: 1;		
 	}
+
+	.modal-content {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		transform: translate(-50%, -50%);
+		background: @bg-color3;
+		box-shadow: 0 0 20px black;
+		min-width: 400px;
+		padding: 2em;
+		z-index: 2;
+
+		.heading2 {
+			text-align: center;
+			margin-bottom: .5em;
+		}
+	}	
 }

@@ -1,21 +1,32 @@
-<table class="data-table">
-	<thead>
-		<th>State</th>	
-		<th class="greedy text-left">File Name</th>
-		<th>File Size</th>
-	</thead>
+<section class="data-table">
+	<table>
+		<thead>
+			<tr>
+				<th>State</th>	
+				<th class="greedy text-left">File Name</th>
+				<th>File Size</th>
+			</tr>
 
-	<tbody data-bind="foreach: rows">
-		<tr>
-			<td>
-				<svg-icon params="uri: stateIcon"></svg-icon>
-			</td>
+			<!-- Used for column layout formatting -->
+			<tr class="collapse-row">
+				<th>State</th>	
+				<th class="greedy text-left">File Name</th>
+				<th>File Size</th>
+			</tr>
+		</thead>
 
-			<td class="text-left">
-				<a class="link" data-bind="text: name, href: href"></a>
-			</td>
+		<tbody data-bind="foreach: rows">
+			<tr>
+				<td>
+					<svg-icon params="uri: stateIcon"></svg-icon>
+				</td>
 
-			<td data-bind="text: size"></td>
-		</tr>
-	</tbody>
-</table>
+				<td class="text-left">
+					<a class="link" data-bind="text: name, href: href"></a>
+				</td>
+
+				<td data-bind="text: size"></td>
+			</tr>
+		</tbody>
+	</table>
+</section>

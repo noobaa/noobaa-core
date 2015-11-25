@@ -1,14 +1,15 @@
 import template from './node-panel.html';
 import ko from 'knockout';
+import { uiState, nodeInfo, nodeObjectList } from 'model';
 
 class NodePanelViewModel {
 	constructor() {
-		this.selectedTab = ko.observable('info');
+		this.node = nodeInfo;
+		this.objects = nodeObjectList;
+		this.selectedTab = ko.pureComputed(
+			() => uiState().tab
+		);
 	}
-
-	isTabsSelected(tabName) {
-		return this.selectedTab() === tabName;
-	}	
 }
 
 export default {

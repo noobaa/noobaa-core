@@ -2,12 +2,25 @@
 export default function register(ko) {
 
 	// -------------------------------
+	// Empty component
+	// -------------------------------
+	ko.components.register('empty', { template: ' ' });
+
+	// -------------------------------
 	// Layout
 	// -------------------------------
+	ko.components.register('main-layout', 	require('./layout/main-layout/main-layout'));	
 	ko.components.register('header', 		require('./layout/header/header'));
 	ko.components.register('commands-bar', 	require('./layout/commands-bar/commands-bar'));
 	ko.components.register('breadcrumbs', 	require('./layout/breadcrumbs/breadcrumbs'));
-	ko.components.register('panel-manager', require('./layout/panel-manager/panel-manager'));	
+	
+	// -------------------------------
+	// Login
+	// -------------------------------
+	ko.components.register('login-layout', 			require('./login/login-layout/login-layout'));		
+	ko.components.register('signin-form', 			require('./login/signin-form/signin-form'));	
+	ko.components.register('create-system-form', 	require('./login/create-system-form/create-system-form'));	
+
 
 	// -------------------------------
 	// Overview
@@ -31,8 +44,17 @@ export default function register(ko) {
 	ko.components.register('bucket-objects-table',	require('./bucket/bucket-objects-table/bucket-objects-table'));
 
 	// -------------------------------
+	// Object
+	// -------------------------------
+	ko.components.register('object-panel', 		require('./object/object-panel/object-panel'));
+	ko.components.register('object-summary', 	require('./object/object-summary/object-summary'));
+	ko.components.register('object-parts-table',require('./object/object-parts-table/object-parts-table'));	
+
+	// -------------------------------
 	// Pools
 	// -------------------------------
+	ko.components.register('pools-panel', 	require('./pools/pools-panel/pools-panel'));
+	// ko.components.register('pools-table', 	require('./pools/pools-table/pools-table'));
 	ko.components.register('add-node-form', require('./pools/add-node-form/add-node-form'));
 
 	// -------------------------------

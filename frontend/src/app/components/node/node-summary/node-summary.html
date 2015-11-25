@@ -1,17 +1,18 @@
-<h2 class="remark text-center node-ip" data-bind="text: ip"></h2>
+<!-- ko if: dataReady -->
+<h2 class="remark node-ip" data-bind="text: ip"></h2>
 
-<capacity-gauge params="legend: gaugeLagend(), values: gaugeValues()"></capacity-gauge>	
+<capacity-gauge params="legend: gaugeLegend, values: gaugeValues"></capacity-gauge>	
 
 <div class="extras">
 	<ul class="properties" class="pull-left">
 		<li>
-			<svg-icon params="uri: statusIcon()"></svg-icon>
-			<span data-bind="text: statusText()"></span>
+			<svg-icon params="uri: stateIcon"></svg-icon>
+			<span data-bind="text: stateText"></span>
 		</li>
 
 		<li>
-			<svg-icon params="uri: trustIcon()"></svg-icon>
-			<span data-bind="text: trustText()"></span>
+			<svg-icon params="uri: trustIcon"></svg-icon>
+			<span data-bind="text: trustText"></span>
 		</li>
 	</ul>
 
@@ -33,3 +34,4 @@
 		</action>
 	</action-list>
 </div>
+<!-- /ko -->

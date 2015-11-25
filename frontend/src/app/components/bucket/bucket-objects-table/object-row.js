@@ -13,7 +13,7 @@ export default class ObjectRowViewModel {
 	constructor(name, info) {
 		this.stateIcon = statusIconMapping[info.state || 'AVALIABLE'];
 		this.name = name;
-		this.href = `./${name}`;
+		this.href = `/systems/:system/buckets/:bucket/objects/${name}`;
 		this.size = formatSize(info.size);
 	}
 }

@@ -2,7 +2,7 @@ rem @echo off
 cls
 REM  default - clean build
 set CLEAN=true
-set GIT_COMMIT=DEV-ONLY
+set GIT_COMMIT=DEVONLY
 
 REM Read input parameters in the form of "CLEAN:false"
 

@@ -68,7 +68,7 @@ for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
         use_local_executable = true;
     }
     if (process.argv[arg_idx] === '--GIT_COMMIT') {
-        git_commit = process.argv[arg_idx+1].substr(0,6);
+        git_commit = process.argv[arg_idx+1].substr(0,7);
     }
 }
 

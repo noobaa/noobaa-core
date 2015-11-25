@@ -45,6 +45,7 @@ var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 var bucket_server = require('./bucket_server');
 var moment = require('moment');
+var pkg = require('../../package.json');
 
 /**
  *
@@ -538,7 +539,9 @@ function get_system_resource_info(req) {
             return;
         }
         if (process.env.ON_PREMISE) {
-            return '/public/' + val;
+            var versioned_resource = val.replace('noobaa-setup','noobaa-setup-'+pkg.version);
+            dbg.log ('setup resources:',val,versioned_resource);
+            return '/public/' + versioned_resource;
         } else {
             var params = {
                 Bucket: S3_SYSTEM_BUCKET,

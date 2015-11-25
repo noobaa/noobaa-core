@@ -4,39 +4,32 @@
 	<p class="paragraph">Bucket names can contain lowercase letters, numbers, and hyphens.<br />
 	Each label must start and end with a lowercase letter or number.</p>
 
-	<fieldset>
-		<div class="container">
-			<div class="container">
-				<span class="heading3">Bucket Name:</span>
-				<span class="remark">(The name cannot be changed later)</span>
-			</div>
+	<div class="container">
+		<input type="text" placeholder="Bucket Name" data-bind="textInput: bucketName"/>
+		<div class="constraints">(3-63 chars, the name cannot be changed later)</div>
+	</div>
 
-			<input type="text" placeholder="E. G department-files" data-bind="textInput: bucketName"/>
-			<div class="remark">(3-63 chars)</div>
-		</div>
+	<!-- <div class="container">
+		<radio-button params="name: 'qouta', checked: limitQuota, value: false">
+			Unlimited Quota
+		</radio-button>
 
-		<div class="container">
-			<radio-button params="name: 'qouta', checked: limitQuota, value: false">
-				Unlimited Quota
-			</radio-button>
+		<radio-button params="name: 'qouta', checked: limitQuota, value: true">
+			Limit Quota
+		</radio-button>
 
-			<radio-button params="name: 'qouta', checked: limitQuota, value: true">
-				Limit Quota
-			</radio-button>
+		<span data-bind="visibility: limitQuota">
+			<input type="number" data-bind="value: quotaValue" />
 
-			<span data-bind="visibility: limitQuota">
-				<input type="number" data-bind="value: quotaValue" />
-
-				<dropdown class="unit-selector" params="
-					label: quotaUnit().label, 
-					options: sizeUnits,
-					action: quotaUnit
-				"></dropdown>
-			</span>		
-		</div>
-	</fieldset>
-
-	<div class="pull-right">
+			<dropdown class="unit-selector" params="
+				label: quotaUnit().label, 
+				options: sizeUnits,
+				action: quotaUnit
+			"></dropdown>
+		</span>		
+	</div> -->
+	
+	<div class="pull-right actions">
 		<button class="action link" data-bind="click: cancel">Cancel</button>
 		<button class="action btn2">Create</button>
 	</div>

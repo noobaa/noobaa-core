@@ -1,16 +1,19 @@
 create-bucket-form {
 	display: block;
-	width: 600px;
 
-	.action {
-		margin: .75em;
+	.constraints {
+		font-size: @font-size-small;
+	}
+
+	.actions {
+		margin-top: 1.5em;
+	}
+
+	.action + .action {
+		margin-left: .75em;
 	}
 
 	.unit-selector {
 		width: 4.5em;
-
-		.option {
-			//text-align: center;
-		}
 	}
 }

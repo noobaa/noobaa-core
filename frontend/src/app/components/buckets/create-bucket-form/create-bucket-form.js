@@ -17,16 +17,16 @@ class CreateBucketFormViewModel {
 		});
 
 		this.limitQuota = ko.observable(true);
-		this.quotaValue = ko.observable(1);
-		this.quotaUnit = ko.observable(sizeUnits[0]);
-		this.sizeUnits = sizeUnits;
+		// this.quotaValue = ko.observable(1);
+		// this.quotaUnit = ko.observable(sizeUnits[0]);
+		// this.sizeUnits = sizeUnits;
 		
 		// The actual qouta in bytes.
-		this.quota = ko.pureComputed(() => {
-			return this.limitQuota() ? 
-				this.quotaValue() * 1024 ** this.quotaUnit().value :
-				-1;
-		});
+		// this.quota = ko.pureComputed(() => {
+		// 	return this.limitQuota() ? 
+		// 		this.quotaValue() * 1024 ** this.quotaUnit().value :
+		// 		-1;
+		// });
 
 		// Validation error group.
 		this.errors = ko.validation.group(this);
@@ -34,20 +34,13 @@ class CreateBucketFormViewModel {
 
 	create() {
 		if (this.errors().length === 0) {
-			// Initiate a create bucket request.
-			createBucket({
-				name: this.bucketName(),
-				quota: this.quota()
-			});
-
-			history.back();			
+			createBucket(this.bucketName());
 		} else {
 			this.errors.showAllMessages();
 		}
 	}
 
 	cancel() {
-		router.back();
 	}
 }
 

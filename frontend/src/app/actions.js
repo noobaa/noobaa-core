@@ -301,6 +301,13 @@ export function createAccount(system, email, password) {
 		.done();
 }
 
+export function createBucket(name) {
+	logAction('createBucket', { name });
+
+	api.bucket.create_bucket({ name, tiering: 'default_tiering' })
+		.done();
+}
+
 export function deleteBucket(name) {
 	logAction('deleteBucket', { name });
 

@@ -15,7 +15,7 @@ rm -f noobaa-setup
 ./node src/s3/s3rver_starter.js
 if [[ $? -eq 0 ]]; then
    #upgrade
-   wget -t 2 --no-check-certificate $metadata_server_address/public/noobaa-setup
+   wget -t 2 --no-check-certificate $metadata_server_address/public/noobaa-s3rest
    echo "Upgrading ..."
    if [ ! -f ./noobaa-setup ]; then
        echo "Failed to download upgrade package"

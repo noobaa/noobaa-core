@@ -128,9 +128,9 @@ function pre_upgrade {
 function post_upgrade {
   #.env changes
   #Bump agent version.
-  #TODO: do it only if md5 of the executable is different
-  local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup.exe | cut -f 1 -d' ')
-  local prevmd=$(md5sum /backup/build/public/noobaa-setup.exe | cut -f 1 -d' ')
+  #TODO: use package version
+  local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
+  local prevmd=$(md5sum /backup/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
 
   deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"
 

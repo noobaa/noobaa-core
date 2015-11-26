@@ -540,6 +540,7 @@ function get_system_resource_info(req) {
         }
         if (process.env.ON_PREMISE) {
             var versioned_resource = val.replace('noobaa-setup','noobaa-setup-'+pkg.version);
+            versioned_resource = versioned_resource.replace('noobaa-s3rest','noobaa-s3rest-'+pkg.version);
             dbg.log ('setup resources:',val,versioned_resource);
             return '/public/' + versioned_resource;
         } else {

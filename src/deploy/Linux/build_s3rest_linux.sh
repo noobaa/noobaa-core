@@ -57,8 +57,8 @@ else
         echo "copy files"
         cp ../../package.json ./package/
         cp ../../config.js ./package/
-        cp ../../binding.gyp .
-        cp ../../common.gypi .
+        cp ../../binding.gyp ./package/
+        cp ../../common.gypi ./package/
 
         cp ~/.nvm/v0.10.33/bin/node ./package/
         mkdir ./package/src/
@@ -71,7 +71,6 @@ else
         npm install -g node-gyp
         node-gyp configure
         node-gyp build
-        cp -R ../../build ./package/build
         #remove irrelevant packages
         #TODO: create new package for that matter
         cd package

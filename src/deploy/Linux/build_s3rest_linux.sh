@@ -58,6 +58,8 @@ else
         cp ../../package.json ./package/
         cp ../../config.js ./package/
         cp ../../binding.gyp ./package/
+        cp ../../common.gypi ./package/
+
         cp ~/.nvm/v0.10.33/bin/node ./package/
         mkdir ./package/src/
         cp -R ../../src/s3 ./package/src/

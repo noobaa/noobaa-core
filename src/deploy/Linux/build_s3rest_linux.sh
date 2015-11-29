@@ -57,8 +57,8 @@ else
         echo "copy files"
         cp ../../package.json ./package/
         cp ../../config.js ./package/
-        cp ../../binding.gyp ./package/
-        cp ../../common.gypi ./package/
+        cp ../../binding.gyp .
+        cp ../../common.gypi .
 
         cp ~/.nvm/v0.10.33/bin/node ./package/
         mkdir ./package/src/

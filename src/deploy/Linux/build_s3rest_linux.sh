@@ -64,6 +64,7 @@ else
         cp -R ../../src/util ./package/src/
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
+        cp -R ../../src/native ./package/src/
 
         npm install -g node-gyp
         node-gyp configure

@@ -69,11 +69,12 @@ else
         cp -R ../../src/native ./package/src/
 
         npm install -g node-gyp
-        node-gyp configure
-        node-gyp build
         #remove irrelevant packages
         #TODO: create new package for that matter
         cd package
+        node-gyp configure
+        node-gyp build
+
         echo "npm install"
         sed -i '/gulp/d' package.json
         sed -i '/bower/d' package.json

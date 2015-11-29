@@ -10,18 +10,18 @@ metadata_server_address=${metadata_server_address//wss/https}
 
 cd /usr/local/noobaa
 #cleanup of older setup
-rm -f noobaa-setup
+rm -f noobaa-s3-setup
 
 ./node src/s3/s3rver_starter.js
 if [[ $? -eq 0 ]]; then
    #upgrade
-   wget -t 2 --no-check-certificate $metadata_server_address/public/noobaa-setup
+   wget -t 2 --no-check-certificate $metadata_server_address/public/noobaa-s3-setup
    echo "Upgrading ..."
-   if [ ! -f ./noobaa-setup ]; then
+   if [ ! -f ./noobaa-s3-setup ]; then
        echo "Failed to download upgrade package"
    else
-      chmod 777 noobaa-setup
-      ./noobaa-setup &>>/var/log/setup.out
+      chmod 777 noobaa-s3-setup
+      ./noobaa-s3-setup &>>/var/log/s3-setup.out
    fi
 else
    echo "Agent exited with error" $?

@@ -57,12 +57,14 @@ else
         echo "copy files"
         cp ../../package.json ./package/
         cp ../../config.js ./package/
+        cp ../../binding.gyp ./package/
         cp ~/.nvm/v0.10.33/bin/node ./package/
         mkdir ./package/src/
         cp -R ../../src/s3 ./package/src/
         cp -R ../../src/util ./package/src/
         cp -R ../../src/rpc ./package/src/
         cp -R ../../src/api ./package/src/
+
         npm install -g node-gyp
         node-gyp configure
         node-gyp build

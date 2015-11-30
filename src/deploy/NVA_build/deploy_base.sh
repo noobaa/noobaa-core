@@ -48,10 +48,7 @@ function build_node {
 
 function install_aux {
 	deploy_log "install_aux start"
-	# Install Debug packages
-	yum install -y tcpdump
-	yum install -y lsof
-	yum install -y dialog
+	yum install -y lsof dialog tcpdump iperf nc
 
 	# Install Supervisord
 	yum install -y python-setuptools

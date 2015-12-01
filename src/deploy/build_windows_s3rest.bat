@@ -2,6 +2,7 @@ rem @echo off
 cls
 REM  default - clean build
 set CLEAN=true
+set GIT_COMMIT=DEVONLY
 
 REM Read input parameters in the form of "CLEAN:false"
 
@@ -32,6 +33,21 @@ xcopy /Y/I/E ..\..\src\util .\src\util
 xcopy /Y/I/E ..\..\src\rpc .\src\rpc
 xcopy /Y/I/E ..\..\src\api .\src\api
 xcopy /Y/I/E ..\..\src\native .\src\native
+
+
+rem set version with GIT commit information. push it to package.json.
+
+set PATH=%PATH%;"C:\Program Files\Git\usr\bin\"
+
+findstr version package.json>version.txt
+set /P current_version_line=<version.txt
+findstr version package.json|awk '{print $2}'|awk -F'"' '{print $2 >"version.txt"}'
+set /P current_package_version=<version.txt
+set GIT_COMMIT=%GIT_COMMIT:~0,7%
+echo %current_version_line%
+echo %current_package_version%
+del version.txt
+sed -i 's/%current_version_line%/\"version\": \"%current_package_version%-%GIT_COMMIT%\",/' package.json
 
 REM remove irrelevant packages
 type package.json  | findstr /v forever-service | findstr /v eslint| findstr /v mongoose | findstr /v heapdump | findstr /v selectize | findstr /v jsonwebtoken | findstr /v forever | findstr /v googleapis | findstr /v gulp | findstr /v bower | findstr /v bootstrap | findstr /v browserify | findstr /v rebuild | findstr /v nodetime| findstr /v newrelic > package.json_s
@@ -68,6 +84,7 @@ IF EXIST "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool" (
 "c:\Program Files\Microsoft SDKs\Windows\v7.1\Bin\signtool"  sign /t http://timestamp.digicert.com /a noobaa-s3rest.exe
 )
 
+rename noobaa-s3rest.exe noobaa-s3rest-%current_package_version%-%GIT_COMMIT%.exe
 
 echo "noobaa-s3rest.exe installer available under build\windows"
 

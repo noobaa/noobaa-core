@@ -230,16 +230,21 @@ function post_upgrade {
 
   fi
 
-	# temporary - adding NTP package
+  if [ -f "/etc/init.d/mongod" ]
+  then
+  	  deploy_log "removed mongod service (supervised by supervisord)"
+      rm -f /etc/init.d/mongod
+  fi
+  # temporary - adding NTP package
 
-	yum install -y ntp
-	sudo /sbin/chkconfig ntpd on 2345
+  yum install -y ntp
+  sudo /sbin/chkconfig ntpd on 2345
 
-	rm -f /tmp/*.tar.gz
-	rm -rf /tmp/v*
+  rm -f /tmp/*.tar.gz
+  rm -rf /tmp/v*
 
-	/etc/rc.d/init.d/supervisord stop
-	/etc/rc.d/init.d/supervisord start
+  /etc/rc.d/init.d/supervisord stop
+  /etc/rc.d/init.d/supervisord start
 }
 
 #Log file name supplied

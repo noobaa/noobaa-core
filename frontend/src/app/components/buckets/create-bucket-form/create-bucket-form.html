@@ -1,12 +1,27 @@
 <form data-bind="submit: create">
 	<h1 class="heading2">Create New Bucket</h1>
 
-	<p class="paragraph">Bucket names can contain lowercase letters, numbers, and hyphens.<br />
-	Each label must start and end with a lowercase letter or number.</p>
+	<ul class="bullet-list">
+		<li>
+			Bucket names must be between 3-36 chars.
+		</li>
+
+		<li>
+			The name can only contain lowercase letters, numbers, periods and hyphens. <br /> 
+		</li>
+
+		<li>
+			The name must start and end with a lowercase letter or number.
+		</li>
+
+		<li>
+			The name cannot be changed later.
+		</li>
+	</ul>
 
 	<div class="container">
 		<input type="text" placeholder="Bucket Name" data-bind="textInput: bucketName"/>
-		<div class="constraints">(3-63 chars, the name cannot be changed later)</div>
+		<!-- <div class="constraints">(3-63 chars, the name cannot be changed later)</div> -->
 	</div>
 
 	<!-- <div class="container">

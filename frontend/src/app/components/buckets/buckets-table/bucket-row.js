@@ -17,6 +17,7 @@ const cloudSyncStatusMapping = Object.freeze({
 
 export default class BucketRowViewModel {
 	constructor(bucket) {
+		this.disabled = !!Math.round(Math.random());
 		this.stateIcon = stateIconMapping[bucket.state || true] ;
 		this.name = bucket.name;
 		this.href = `/systems/:system/buckets/${bucket.name}`;
@@ -24,5 +25,7 @@ export default class BucketRowViewModel {
 		this.totalSize = formatSize(bucket.storage.total);
 		this.freeSize = formatSize(bucket.storage.free);
 		this.cloudSyncStatus = cloudSyncStatusMapping[bucket.cloud_sync_status];
+		this.allowDelete = bucket.num_objects === 0;
+		this.deleteTooltip = this.allowDelete ? 'delete bucket' : 'bucket is not empty';
 	}
 }

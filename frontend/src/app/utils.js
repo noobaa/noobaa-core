@@ -113,3 +113,15 @@ export function throttle(func, grace, owner) {
 		handle = setTimeout(() => func.apply(owner || this, args), grace);
 	}
 }
+
+export function cmpStrings(a, b) {
+	return a < b ? -1 : ( b < a ? 1 : 0);
+}
+
+export function cmpInts(a, b) {
+	return a - b;
+}
+
+export function cmpBools(a, b) {
+	return b - a;
+}

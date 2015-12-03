@@ -1,0 +1,45 @@
+<section class="data-table">
+	<table>
+		<thead>
+			<tr>
+				<th>state</th>
+				<th class="greedy text-left">
+					<a>pool name</a>
+				</th>
+				<th>nodes</th>
+				<th>online</th>
+				<th>offline</th>
+				<th>usage</th>
+				<th>capacity</th>
+				<th>actions</th>
+			</tr>
+
+			<!-- Used for layout perposes -->
+			<tr class="collapse-row">
+				<th>state</th>
+				<th class="greedy text-left">pool name</th>
+				<th>nodes</th>
+				<th>online</th>
+				<th>offline</th>
+				<th>usage</th>
+				<th>capacity</th>
+				<th>actions</th>
+			</tr>			
+		</thead>
+
+		<tbody data-bind="foreach: rows">
+			<tr>
+				<td class="text-left"></td>
+				<td class="text-left">
+					<a class="link" data-bind="text: name, href: href"></a>
+				</td>
+				<td></td>
+				<td></td>
+				<td></td>
+				<td></td>
+				<td></td>
+				<td></td>
+			</tr>
+		</tbody>
+	</table>
+</section>

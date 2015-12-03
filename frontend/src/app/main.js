@@ -10,11 +10,12 @@ import { start } from 'actions';
 
 // Setup validation policy.
 ko.validation.init({
-	insertMessages: false,
+	//insertMessages: false,
+	errorMessageClass: 'val-msg',
 	decorateInputElement: true,
 	errorElementClass: 'invalid',
 	errorsAsTitle: false,
-	messagesOnModified: false
+	messagesOnModified: true
 });
 
 // Register custom bindings and components.

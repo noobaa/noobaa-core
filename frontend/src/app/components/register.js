@@ -54,7 +54,7 @@ export default function register(ko) {
 	// Pools
 	// -------------------------------
 	ko.components.register('pools-panel', 	require('./pools/pools-panel/pools-panel'));
-	// ko.components.register('pools-table', 	require('./pools/pools-table/pools-table'));
+	ko.components.register('pools-table', 	require('./pools/pools-table/pools-table'));
 	ko.components.register('add-node-form', require('./pools/add-node-form/add-node-form'));
 
 	// -------------------------------

@@ -229,8 +229,6 @@ export function readSystemInfo() {
 
 			bucketList(reply.buckets);
 			poolList(reply.pools);
-
-			console.log(reply)
 		})
 		.done();
 }
@@ -312,7 +310,14 @@ export function createBucket(name) {
 export function deleteBucket(name) {
 	logAction('deleteBucket', { name });
 
-	api.bucket.delete_bucket({ name })
-		.then(readSystemInfo)
-		.done();
+	
+	let bucket = model.bucketList().find(bucket => bucket.name === name)
+	bucket.name += ' ( deleting... )';
+
+	model.bucketList.valueHasMutated();
+		
+
+	// api.bucket.delete_bucket({ name })
+	// 	.then(readSystemInfo)
+	// 	.done();
 }

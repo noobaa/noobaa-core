@@ -114,17 +114,21 @@ function allocate_object_parts(bucket, obj, parts) {
             }
             return P.map(existing_chunks, function(chunk) {
                 chunk.all_blocks = blocks_by_chunk_id[chunk._id];
-                return P.when(policy_allocation.analyze_chunk_status(chunk, chunk.all_blocks))
-                    .then(function(cstatus) {
-                        chunk.chunk_status = cstatus;
-                        var prev = digest_to_chunk[chunk.digest_b64];
-                        if (prev) {
-                            dbg.log1('allocate_object_parts: already found chunk for digest', prev, chunk);
-                        } else if (chunk.chunk_status.chunk_health === 'unavailable') {
-                            dbg.log1('allocate_object_parts: ignore unavailable chunk', chunk);
-                        } else {
-                            digest_to_chunk[chunk.digest_b64] = chunk;
-                        }
+                //TODO:: NBNB change
+                return P.when(policy_allocation.get_pools_groups(chunk.bucket))
+                    .then(function() {
+                        return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk.all_blocks))
+                            .then(function(cstatus) {
+                                chunk.chunk_status = cstatus;
+                                var prev = digest_to_chunk[chunk.digest_b64];
+                                if (prev) {
+                                    dbg.log1('allocate_object_parts: already found chunk for digest', prev, chunk);
+                                } else if (chunk.chunk_status.chunk_health === 'unavailable') {
+                                    dbg.log1('allocate_object_parts: ignore unavailable chunk', chunk);
+                                } else {
+                                    digest_to_chunk[chunk.digest_b64] = chunk;
+                                }
+                            });
                     });
             });
         })
@@ -174,22 +178,27 @@ function allocate_object_parts(bucket, obj, parts) {
                     return block.node._id.toString();
                 });
                 return P.map(part.frags, function(fragment) {
-                        return policy_allocation.allocate_by_policy(part.db_chunk, avoid_nodes)
-                            .then(function(block) {
-                                if (!block) {
-                                    throw new Error('allocate_object_parts: no nodes for allocation');
-                                }
-                                block.size = fragment.size;
-                                block.layer = fragment.layer;
-                                block.frag = fragment.frag;
-                                if (fragment.layer_n) {
-                                    block.layer_n = fragment.layer_n;
-                                }
-                                block.digest_type = fragment.digest_type;
-                                block.digest_b64 = fragment.digest_b64;
-                                avoid_nodes.push(block.node._id.toString());
-                                new_blocks.push(block);
-                                return block;
+                        //TODO:: NBNB change
+                        return P.when(policy_allocation.get_pools_groups(part.db_chunk.bucket))
+                            .then(function(pools) {
+                                console.warn('NBNB:: got back pools from get_pools', pools);
+                                return policy_allocation.allocate_on_pools(part.db_chunk, avoid_nodes, pools)
+                                    .then(function(block) {
+                                        if (!block) {
+                                            throw new Error('allocate_object_parts: no nodes for allocation');
+                                        }
+                                        block.size = fragment.size;
+                                        block.layer = fragment.layer;
+                                        block.frag = fragment.frag;
+                                        if (fragment.layer_n) {
+                                            block.layer_n = fragment.layer_n;
+                                        }
+                                        block.digest_type = fragment.digest_type;
+                                        block.digest_b64 = fragment.digest_b64;
+                                        avoid_nodes.push(block.node._id.toString());
+                                        new_blocks.push(block);
+                                        return block;
+                                    });
                             });
                     })
                     .then(function(new_blocks_of_chunk) {
@@ -920,7 +929,8 @@ function report_bad_block(params) {
                         var avoid_nodes = _.map(all_blocks, function(block) {
                             return block.node._id.toString();
                         });
-                        return policy_allocation.allocate_by_policy(chunk, avoid_nodes);
+                        //TODO:: NBNB change
+                        return policy_allocation.allocate_on_pools(chunk, avoid_nodes);
                     })
                     .then(function(new_block_arg) {
                         new_block = new_block_arg;
@@ -989,7 +999,8 @@ function chunks_and_objects_count(systemid) {
 // UTILS //////////////////////////////////////////////////////////
 
 function get_part_info(params) {
-    return P.when(policy_allocation.analyze_chunk_status(params.chunk, params.blocks))
+    //TODO:: NBNB change
+    return P.when(policy_allocation.analyze_chunk_status_on_pools(params.chunk, params.blocks))
         .then(function(chunk_status) {
             var p = _.pick(params.part, 'start', 'end');
 

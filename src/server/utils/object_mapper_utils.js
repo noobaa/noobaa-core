@@ -80,9 +80,12 @@ function build_chunks(chunks) {
             var blocks_to_remove = [];
             return P.all(_.map(chunks, function(chunk) {
                     var chunk_blocks = blocks_by_chunk[chunk._id];
-                    var chunk_status = policy_allocation.analyze_chunk_status(chunk, chunk_blocks);
-                    js_utils.array_push_all(blocks_to_remove, chunk_status.blocks_to_remove);
-                    return chunk_status;
+                    //TODO:: NBNB change
+                    return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk_blocks))
+                        .then(function(stat) {
+                            js_utils.array_push_all(blocks_to_remove, stat.blocks_to_remove);
+                            return stat;
+                        });
                 }))
                 .then(function(cs) {
                     chunks_status = cs;
@@ -106,7 +109,8 @@ function build_chunks(chunks) {
                             'blocks_info_to_allocate', _.get(chunk_status, 'blocks_info_to_allocate.length'));
                         return promise_utils.iterate(chunk_status.blocks_info_to_allocate,
                             function(block_info_to_allocate) {
-                                return policy_allocation.allocate_by_policy(block_info_to_allocate.chunk, avoid_nodes)
+                                //TODO:: NBNB change
+                                return policy_allocation.allocate_on_pools(block_info_to_allocate.chunk, avoid_nodes)
                                     .then(function(new_block) {
                                         if (!new_block) {
                                             had_errors += 1;

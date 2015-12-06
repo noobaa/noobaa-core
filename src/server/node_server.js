@@ -124,7 +124,7 @@ function create_node(req) {
 
             //TODO:: once we manage pools, remove this. Nodes will be associated propery
             return server_rpc.client.pools.add_nodes_to_pool({
-                    name: 'default_pool',
+                    name: 'default_mirror', //NBNB:: TODO:: back to default_pool
                     nodes: [info.name.toString()]
                 }, {
                     auth_token: system_token

@@ -39,6 +39,7 @@ function get_pools_groups(bucket) {
                     reply[0].push(p);
                 });
             }
+            return reply;
         });
 }
 

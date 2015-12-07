@@ -60,7 +60,9 @@ function create_bucket(req) {
             });
         })
         .then(null, db.check_already_exists(req, 'bucket'))
-        .thenResolve();
+        .then(function() {
+          return P.when(read_bucket(req));
+        });
 }
 
 /**

@@ -65,7 +65,9 @@ function create_tier(req) {
             dbg.log0('Creating new tier', info);
             return P.when(db.Tier.create(info))
                 .then(null, db.check_already_exists(req, 'tier'))
-                .thenResolve();
+                .then(function() {
+                    return P.when(read_tier(req));
+                });
         });
 }
 
@@ -190,7 +192,9 @@ function create_policy(req) {
             });
             return P.when(db.TieringPolicy.create(info))
                 .then(null, db.check_already_exists(req, 'tiering_policy'))
-                .thenResolve();
+                .then(function() {
+                  return P.when(get_policy(req));
+                });
         });
 }
 

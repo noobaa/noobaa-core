@@ -39,6 +39,9 @@ module.exports = {
                     }
                 }
             },
+            reply: {
+                $ref: '/tiering_policy_api/definitions/tiering_policy'
+            },
             auth: {
                 system: 'admin'
             }

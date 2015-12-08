@@ -476,6 +476,13 @@ module.exports = {
                     pagination: {
                         type: 'boolean'
                     },
+                    sort: {
+                        type: 'string',
+                        enum: ['state', 'name', 'size']
+                    },
+                    order: {
+                        type: 'integer',
+                    },
                 }
             },
             reply: {

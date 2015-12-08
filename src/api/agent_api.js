@@ -187,6 +187,12 @@ module.exports = {
                 digest_b64: {
                     type: 'string'
                 },
+                node_name: {
+                    type: 'string'
+                },
+                node_peer_id: {
+                    type: 'string'
+                }
             }
         },
 

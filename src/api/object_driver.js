@@ -396,7 +396,7 @@ ObjectDriver.prototype._write_fragments = function(part) {
     }
 
     var frags_map = _.indexBy(part.chunk.frags, get_frag_key);
-    dbg.log2('_write_fragments: part', part);
+    dbg.log0('_write_fragments: part', part,part.alloc_part.frags[0].blocks);
 
     return P.map(part.alloc_part.frags, function(fragment) {
         var frag_key = get_frag_key(fragment);
@@ -426,7 +426,7 @@ ObjectDriver.prototype._attempt_write_block = function(params) {
     var part = params.part;
     var block = params.block;
     var frag_desc = params.frag_desc;
-    dbg.log3('_attempt_write_block:', params);
+    dbg.log0('_attempt_write_block:', params.block);
     return self._write_block(block.block_md, params.buffer, frag_desc)
         .then(null, function( /*err*/ ) {
             if (params.remaining_attempts <= 0) {
@@ -464,9 +464,9 @@ ObjectDriver.prototype._write_block = function(block_md, buffer, desc) {
     // use semaphore to surround the IO
     return self._block_write_sem.surround(function() {
 
-        dbg.log1('write_block', desc,
+        dbg.log0('write_block', desc,
             size_utils.human_size(buffer.length), block_md.id,
-            'to', block_md.address);
+            'to', block_md.address,'block:',block_md);
 
         if (process.env.WRITE_BLOCK_ERROR_INJECTON &&
             process.env.WRITE_BLOCK_ERROR_INJECTON > Math.random()) {

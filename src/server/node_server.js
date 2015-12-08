@@ -80,7 +80,13 @@ function create_node(req) {
                 throw req.rpc_error('NOT_FOUND', null,
                     'TIER SYSTEM MISMATCH ' + info.name + ' ' + info.system);
             }
-
+            return db.PoolCache.get({
+                system: req.system.id,
+                name: 'default_pool',
+            });
+        })
+        .then(function(pool) {
+            info.pool = pool.id;
             return db.Node.create(info);
         })
         .then(null, db.check_already_exists(req, 'node'))

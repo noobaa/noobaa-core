@@ -81,10 +81,13 @@ function build_chunks(chunks) {
             return P.all(_.map(chunks, function(chunk) {
                     var chunk_blocks = blocks_by_chunk[chunk._id];
                     //TODO:: NBNB change
-                    return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk_blocks))
-                        .then(function(stat) {
-                            js_utils.array_push_all(blocks_to_remove, stat.blocks_to_remove);
-                            return stat;
+                    return P.when(policy_allocation.get_pools_groups(chunk.bucket))
+                        .then(function(pools) {
+                            return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk_blocks, pools))
+                                .then(function(stat) {
+                                    js_utils.array_push_all(blocks_to_remove, stat.blocks_to_remove);
+                                    return stat;
+                                });
                         });
                 }))
                 .then(function(cs) {

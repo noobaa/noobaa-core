@@ -815,87 +815,90 @@ function chunks_and_objects_count(systemid) {
 
 function get_part_info(params) {
     //TODO:: NBNB change
-    return P.when(policy_allocation.analyze_chunk_status_on_pools(params.chunk, params.blocks))
-        .then(function(chunk_status) {
-            var p = _.pick(params.part, 'start', 'end');
+    return P.when(policy_allocation.get_pools_groups(params.chunk.bucket))
+        .then(function(pools) {
+            return P.when(policy_allocation.analyze_chunk_status_on_pools(params.chunk, params.blocks, pools))
+                .then(function(chunk_status) {
+                    var p = _.pick(params.part, 'start', 'end');
 
-            p.chunk = _.pick(params.chunk,
-                'size',
-                'digest_type',
-                'digest_b64',
-                'compress_type',
-                'compress_size',
-                'cipher_type',
-                'cipher_key_b64',
-                'cipher_iv_b64',
-                'cipher_auth_tag_b64',
-                'data_frags',
-                'lrc_frags');
-            if (params.adminfo) {
-                p.chunk.adminfo = {
-                    health: chunk_status.chunk_health
-                };
-            }
-            p.part_sequence_number = params.part.part_sequence_number;
-            if (params.upload_part_number) {
-                p.upload_part_number = params.upload_part_number;
-            }
-            if (params.set_obj) {
-                p.obj = params.part.obj;
-            }
-            if (params.part.chunk_offset) {
-                p.chunk_offset = params.part.chunk_offset;
-            }
-
-            p.frags = _.map(chunk_status.frags, function(fragment) {
-                var blocks = params.building && fragment.building_blocks ||
-                    params.adminfo && fragment.blocks ||
-                    fragment.accessible_blocks;
-
-                var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
-
-                // take the digest from some block.
-                // TODO better check that the rest of the blocks match...
-                if (fragment.blocks[0]) {
-                    part_fragment.digest_type = fragment.blocks[0].digest_type;
-                    part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
-                } else {
-                    part_fragment.digest_type = '';
-                    part_fragment.digest_b64 = '';
-                }
-
-                if (params.adminfo) {
-                    part_fragment.adminfo = {
-                        health: fragment.health,
-                    };
-                }
-
-                part_fragment.blocks = _.map(blocks, function(block) {
-                    var ret = {
-                        block_md: object_utils.get_block_md(block),
-                    };
-                    var node = block.node;
+                    p.chunk = _.pick(params.chunk,
+                        'size',
+                        'digest_type',
+                        'digest_b64',
+                        'compress_type',
+                        'compress_size',
+                        'cipher_type',
+                        'cipher_key_b64',
+                        'cipher_iv_b64',
+                        'cipher_auth_tag_b64',
+                        'data_frags',
+                        'lrc_frags');
                     if (params.adminfo) {
-                        var adminfo = {
-                            tier_name: 'nodes', // TODO get tier name
-                            node_name: node.name,
-                            node_ip: node.ip,
-                            online: node.is_online(),
+                        p.chunk.adminfo = {
+                            health: chunk_status.chunk_health
                         };
-                        if (node.srvmode) {
-                            adminfo.srvmode = node.srvmode;
-                        }
-                        if (block.building) {
-                            adminfo.building = true;
-                        }
-                        ret.adminfo = adminfo;
                     }
-                    return ret;
-                });
-                return part_fragment;
-            });
+                    p.part_sequence_number = params.part.part_sequence_number;
+                    if (params.upload_part_number) {
+                        p.upload_part_number = params.upload_part_number;
+                    }
+                    if (params.set_obj) {
+                        p.obj = params.part.obj;
+                    }
+                    if (params.part.chunk_offset) {
+                        p.chunk_offset = params.part.chunk_offset;
+                    }
 
-            return p;
+                    p.frags = _.map(chunk_status.frags, function(fragment) {
+                        var blocks = params.building && fragment.building_blocks ||
+                            params.adminfo && fragment.blocks ||
+                            fragment.accessible_blocks;
+
+                        var part_fragment = _.pick(fragment, 'layer', 'layer_n', 'frag', 'size');
+
+                        // take the digest from some block.
+                        // TODO better check that the rest of the blocks match...
+                        if (fragment.blocks[0]) {
+                            part_fragment.digest_type = fragment.blocks[0].digest_type;
+                            part_fragment.digest_b64 = fragment.blocks[0].digest_b64;
+                        } else {
+                            part_fragment.digest_type = '';
+                            part_fragment.digest_b64 = '';
+                        }
+
+                        if (params.adminfo) {
+                            part_fragment.adminfo = {
+                                health: fragment.health,
+                            };
+                        }
+
+                        part_fragment.blocks = _.map(blocks, function(block) {
+                            var ret = {
+                                block_md: object_utils.get_block_md(block),
+                            };
+                            var node = block.node;
+                            if (params.adminfo) {
+                                var adminfo = {
+                                    tier_name: 'nodes', // TODO get tier name
+                                    node_name: node.name,
+                                    node_ip: node.ip,
+                                    online: node.is_online(),
+                                };
+                                if (node.srvmode) {
+                                    adminfo.srvmode = node.srvmode;
+                                }
+                                if (block.building) {
+                                    adminfo.building = true;
+                                }
+                                ret.adminfo = adminfo;
+                            }
+                            return ret;
+                        });
+                        return part_fragment;
+                    });
+
+                    return p;
+                });
         });
 }
 
@@ -1014,8 +1017,8 @@ function find_dups_and_existing_parts(bucket, obj, parts) {
                 chunk.all_blocks = blocks_by_chunk_id[chunk._id];
                 //TODO:: NBNB change
                 return P.when(policy_allocation.get_pools_groups(chunk.bucket))
-                    .then(function() {
-                        return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk.all_blocks))
+                    .then(function(pools) {
+                        return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk.all_blocks, pools))
                             .then(function(cstatus) {
                                 chunk.chunk_status = cstatus;
                                 var prev = digest_to_chunk[chunk.digest_b64];
@@ -1091,7 +1094,8 @@ function call_allocation(bucket, obj, parts, reply, digest_to_chunk) {
                 return block.node._id.toString();
             });
             return P.map(part.frags, function(fragment) {
-                    //TODO:: NBNB change
+                    //TODO:: NBNB change, if mirror, take only the first items
+                    //later on on the finalyze we will replicate
                     return P.when(policy_allocation.get_pools_groups(part.db_chunk.bucket))
                         .then(function(pools) {
                             return policy_allocation.allocate_on_pools(part.db_chunk, avoid_nodes, pools)

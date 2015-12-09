@@ -210,13 +210,15 @@ Agent.prototype._init_node = function() {
     var self = this;
     self.node_storage_mapping = [];
 
-    var root_path = self.all_storage_paths[0].replace('./', '');
-    dbg.log0('starting agent. root_path:', root_path, '=?=', self.storage_path.substr(0, root_path.length));
+    var root_path = self.all_storage_paths[0].mount.replace('./', '');
+    dbg.log0('starting agent. root_path:'+Object.prototype.toString.call(root_path.substr(0,root_path.length-1))+'=?='+Object.prototype.toString.call(self.storage_path.substr(0, root_path.length-1)));
     var waitFor;
-    if (self.storage_path.substr(0, root_path.length) === root_path) {
-        dbg.log2('main agent!!!', root_path, ' all paths:', self.all_storage_paths);
+    //substr is required in order to ignore win/linux conventions
+    if (self.storage_path.substr(0, root_path.length-1) === root_path.substr(0,root_path.length-1)) {
+        dbg.log0('main agent!!!', root_path, ' all paths:', self.all_storage_paths);
 
-        waitFor = P.all(_.map(self.all_storage_paths, function(storage_path) {
+        waitFor = P.all(_.map(self.all_storage_paths, function(storage_path_info) {
+            var storage_path = storage_path_info.mount;
             dbg.log0('current path is:', storage_path);
             return P.fcall(function() {
                     return P.nfcall(fs.readdir, storage_path);

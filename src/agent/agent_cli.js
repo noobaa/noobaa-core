@@ -99,9 +99,11 @@ AgentCLI.prototype.init = function() {
             return os_util.read_drives();
         })
         .then(function(drives) {
-            dbg.log0('drives:', drives);
+            dbg.log0('drives:', drives, ' current location ', process.cwd());
             var hds = _.filter(drives, function(hd_info) {
-                if (hd_info.drive_id.indexOf('/dev/') >= 0 && hd_info.mount.indexOf('/boot') < 0) {
+                if ((hd_info.drive_id.indexOf('/dev/') >= 0 && hd_info.mount.indexOf('/boot') < 0 && hd_info.mount.indexOf('/Volumes/') < 0) ||
+                    (hd_info.drive_id.length === 2 && hd_info.drive_id.indexOf(':') === 1)) {
+                    dbg.log0('Found relevant volume', hd_info.drive_id);
                     return true;
                 }
             });
@@ -110,15 +112,30 @@ AgentCLI.prototype.init = function() {
 
             var mount_points = [];
 
-            _.each(hds, function(hd_info) {
-                if (hd_info.mount === "/") {
-                    mount_points.push('./agent_storage/');
-                } else {
-                    mount_points.push('/' + hd_info.mount + '/agent_storage/');
-                }
-            });
+            if (os.type() === 'Windows_NT') {
+                _.each(hds, function(hd_info) {
+                    if (process.cwd().toLowerCase().indexOf(hd_info.drive_id.toLowerCase()) === 0) {
+                        hd_info.mount = './agent_storage/';
+                        mount_points.push(hd_info);
+                    } else {
+                        hd_info.mount = hd_info.mount + '\\agent_storage\\';
+                        mount_points.push(hd_info);
+                    }
+                });
+            } else {
+                _.each(hds, function(hd_info) {
+                    if (hd_info.mount === "/") {
+                        hd_info.mount = './agent_storage/';
+                        mount_points.push(hd_info);
+                    } else {
+                        hd_info.mount = '/' + hd_info.mount + '/agent_storage/';
+                        mount_points.push(hd_info);
+                    }
+                });
+            }
+
             dbg.log0('mount_points:', mount_points);
-            self.params.root_path = mount_points[0];
+            self.params.root_path = mount_points[0].mount;
 
             dbg.log0('root path:', self.params.root_path);
             self.params.all_storage_paths = mount_points;
@@ -149,7 +166,8 @@ AgentCLI.prototype.init.helper = function() {
 AgentCLI.prototype.load = function() {
     var self = this;
     dbg.log0('Loading agents', self.params.all_storage_paths);
-    return P.all(_.map(self.params.all_storage_paths, function(storage_path) {
+    return P.all(_.map(self.params.all_storage_paths, function(storage_path_info) {
+            var storage_path = storage_path_info.mount;
             dbg.log0('current path is:', storage_path);
             return P.fcall(function() {
                     return P.nfcall(mkdirp, storage_path);
@@ -186,6 +204,7 @@ AgentCLI.prototype.load = function() {
             throw err;
         });
 
+
 };
 
 AgentCLI.prototype.hide_storage_folder = function(current_storage_path) {
@@ -215,14 +234,22 @@ AgentCLI.prototype.load.helper = function() {
     dbg.log0("create token, start nodes ");
 };
 
-AgentCLI.prototype.create_node_helper = function(current_node_path) {
+AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
     var self = this;
     return P.fcall(function() {
+        var current_node_path = current_node_path_info.mount;
         var node_name = os.hostname() + '-' + uuid();
         var path_modification = current_node_path.replace('/agent_storage/', '').replace('/', '').replace('.', '');
+        //windows
+        path_modification = path_modification.replace('\\agent_storage\\', '');
+
         var node_path = path.join(current_node_path, node_name);
         var token_path = path.join(node_path, 'token');
-        node_name = node_name + path_modification.replace('/', '-');
+        if (os.type().indexOf('Windows') >= 0) {
+            node_name =node_name + '-' + current_node_path_info.drive_id.replace(':', '');
+        }else{
+            node_name = node_name + '-' + path_modification.replace('/', '-');
+        }
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
         return fs_utils.file_must_not_exist(token_path)
             .then(function() {
@@ -254,21 +281,23 @@ AgentCLI.prototype.create_node_helper = function(current_node_path) {
             })
             .then(function(res) {
                 if (res) {
-                    dbg.log0('result create:', res);
+                    dbg.log0('result create:', res, 'node path:', node_path);
                     self.create_node_token = res.token;
                 } else {
                     dbg.log0('has token', self.create_node_token);
                 }
                 return P.nfcall(mkdirp, node_path);
             }).then(function() {
+                dbg.log0('writing token', token_path);
                 return P.nfcall(fs.writeFile, token_path, self.create_node_token);
             })
             .then(function() {
+                dbg.log0('about to start node', node_path, 'with node name:', node_name);
                 return self.start(node_name, node_path);
             }).then(function(res) {
                 dbg.log0('created', node_name);
                 return res;
-            }, function(err) {
+            }).then(null, function(err) {
                 dbg.log0('create failed', node_name, err, err.stack);
                 throw err;
             });
@@ -284,6 +313,7 @@ AgentCLI.prototype.create_node_helper = function(current_node_path) {
 AgentCLI.prototype.create = function() {
     var self = this;
     //create root path last
+    dbg.log0('in create', self.params.all_storage_paths);
     return P.all(_.map(_.drop(self.params.all_storage_paths, 1), function(current_storage_path) {
             return self.create_node_helper(current_storage_path);
         }))

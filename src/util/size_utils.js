@@ -133,29 +133,29 @@ function human_offset(offset) {
     } else {
         peta = 0;
         if (offset < 0) {
-            n = (-offset) | 0;
+            n = -offset;
             sign = '-';
         } else {
-            n = offset | 0;
+            n = offset;
             sign = '';
         }
     }
 
     // always include the lowest offset unit
-    res = (n & 0x3FF) + '';
-    n >>>= 10;
+    res = (n % 1024) + '';
+    n = Math.floor(n / 1024);
 
     i = 1;
     while (n) {
-        res = (n & 0x3FF) + SIZE_UNITS[i] + '_' + res;
-        n >>>= 10;
+        res = (n % 1024) + SIZE_UNITS[i] + '_' + res;
+        n = Math.floor(n / 1024);
         i++;
     }
 
     i = 5;
     while (peta) {
-        res = (peta & 0x3FF) + SIZE_UNITS[i] + '_' + res;
-        peta >>>= 10;
+        res = (peta % 1024) + SIZE_UNITS[i] + '_' + res;
+        peta = Math.floor(peta / 1024);
         i++;
     }
 

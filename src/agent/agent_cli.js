@@ -248,7 +248,9 @@ AgentCLI.prototype.create_node_helper = function(current_node_path_info) {
         if (os.type().indexOf('Windows') >= 0) {
             node_name =node_name + '-' + current_node_path_info.drive_id.replace(':', '');
         }else{
-            node_name = node_name + '-' + path_modification.replace('/', '-');
+            if (!_.isEmpty(path_modification)){
+                node_name = node_name + '-' + path_modification.replace('/', '');
+            }
         }
         dbg.log0('create new node for node name', node_name, ' path:', node_path, ' token path:', token_path);
         return fs_utils.file_must_not_exist(token_path)

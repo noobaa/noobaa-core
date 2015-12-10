@@ -217,6 +217,8 @@ RpcN2NAgent.prototype.set_ssl_context = function(secure_context_params) {
         tls.createSecureContext(secure_context_params);
 };
 
+var global_tcp_permanent_passive;
+
 RpcN2NAgent.prototype.update_ice_config = function(config) {
     var self = this;
     _.each(config, function(val, key) {
@@ -229,7 +231,10 @@ RpcN2NAgent.prototype.update_ice_config = function(config) {
                 if (conf.server) {
                     conf.server.close();
                 }
-                self.ice_config.tcp_permanent_passive = _.clone(val);
+                if (!global_tcp_permanent_passive) {
+                    global_tcp_permanent_passive = _.clone(val);
+                }
+                self.ice_config.tcp_permanent_passive = global_tcp_permanent_passive;
             }
         } else {
             self.ice_config[key] = val;

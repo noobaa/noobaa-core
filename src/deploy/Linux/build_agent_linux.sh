@@ -74,6 +74,7 @@ else
         sed -i '/rebuild/d' package.json
         sed -i '/nodetime/d' package.json
         sed -i '/newrelic/d' package.json
+        npm install nan
         npm install -dd
         cd ..
         wget https://raw.githubusercontent.com/megastep/makeself/master/makeself-header.sh

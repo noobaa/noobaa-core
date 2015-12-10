@@ -40,6 +40,9 @@ module.exports = {
                     },
                 }
             },
+            reply: {
+                $ref: '/tier_api/definitions/tier_info'
+            },
             auth: {
                 system: 'admin'
             }

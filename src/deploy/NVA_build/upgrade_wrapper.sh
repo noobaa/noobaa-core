@@ -56,6 +56,13 @@ function fix_bashrc {
     echo "alias zless='zless -R'" >> ~/.bashrc
     echo "export GREP_OPTIONS='--color=auto'" >> ~/.bashrc
   fi
+
+  fixfornvm=$(grep NVM_DIR ~/.bashrc | wc -l)
+  if [ ${fixfornvm} -eq 0 ]; then
+    deploy_log "Adding NVM to .bashrc"
+	echo 'export NVM_DIR="$HOME/.nvm"' >> ~/.bashrc
+	echo '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" # This loads nvm' >> ~/.bashrc
+  fi
 }
 
 function pre_upgrade {
@@ -96,14 +103,34 @@ function pre_upgrade {
     else
         deploy_log "$agent_conf not found."
     fi
+
+	#install nvm use v4.2.2
+
+	rm -rf ~/.nvm
+	mkdir ~/.nvm
+	cp ${EXTRACTION_PATH}/noobaa-core/build/public/nvm.sh ~/.nvm/
+	chmod 777 ~/.nvm/nvm.sh
+	mkdir /tmp/v4.2.2
+	cp ${EXTRACTION_PATH}/noobaa-core/build/public/node-v4.2.2-linux-x64.tar.xz /tmp/
+	tar -xJf /tmp/node-v4.2.2-linux-x64.tar.xz -C /tmp/v4.2.2 --strip-components 1
+	mkdir -p ~/.nvm/versions/node/v4.2.2/
+	mv /tmp/v4.2.2/* ~/.nvm/versions/node/v4.2.2/
+	export NVM_DIR="$HOME/.nvm"
+	. "$NVM_DIR/nvm.sh"
+	export PATH=~/.nvm/versions/node/v4.2.2/bin:$PATH
+	rm -f /usr/local/bin/node
+	ln -s  ~/.nvm/versions/node/v4.2.2/bin/node /usr/local/bin/node
+	nvm alias default 4.2.2
+	nvm use 4.2.2
+
 }
 
 function post_upgrade {
   #.env changes
   #Bump agent version.
-  #TODO: do it only if md5 of the executable is different
-  local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup.exe | cut -f 1 -d' ')
-  local prevmd=$(md5sum /backup/build/public/noobaa-setup.exe | cut -f 1 -d' ')
+  #TODO: use package version
+  local curmd=$(md5sum /root/node_modules/noobaa-core/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
+  local prevmd=$(md5sum /backup/build/public/noobaa-setup*.exe | cut -f 1 -d' ')
 
   deploy_log "Note: installed MD5 was ${prevmd}, new is ${curmd}"
 
@@ -162,31 +189,32 @@ function post_upgrade {
       /usr/bin/mongo nbcore --eval "db.clusters.insert({cluster_id: '${id}'})"
   fi
 
-  #MongoDB nbcore upgrade
-  /usr/bin/mongo nbcore ${CORE_DIR}/src/deploy/NVA_build/mongo_upgrade.js
   unset AGENT_VERSION
 
   #node-gyp install & building
   export PATH=$PATH:/usr/local/bin
-  deploy_log "before node-gyp build"
-  cd ${CORE_DIR}
-  which node-gyp
-  if [ $? -ne 0 ]; then
-      deploy_log "installing node-gyp"
-      npm install -g node-gyp
-  fi
   export HOME=/root
-  deploy_log "node-gyp rebuild from $(pwd)"
-  node-gyp configure
-  if [ $? -ne 0 ]; then
-      deploy_log "node-gyp configure failed with $?"
-  fi
-  node-gyp build
-  if [ $? -ne 0 ]; then
-      deploy_log "node-gyp build failed with $?"
-  fi
-  deploy_log "$(find . -name *.node)"
-  deploy_log "node-gyp rebuild done ${CORE_DIR}"
+
+  # Removed  - we build binaries on centos machine now
+  # TODO:CLEANUP this section once we are stable
+  # deploy_log "before node-gyp build"
+  # cd ${CORE_DIR}
+  # which node-gyp
+  # if [ $? -ne 0 ]; then
+  #     deploy_log "installing node-gyp"
+  #     npm install -g node-gyp
+  # fi
+  # deploy_log "node-gyp rebuild from $(pwd)"
+  # node-gyp configure
+  # if [ $? -ne 0 ]; then
+  #     deploy_log "node-gyp configure failed with $?"
+  # fi
+  # node-gyp build
+  # if [ $? -ne 0 ]; then
+  #     deploy_log "node-gyp build failed with $?"
+  # fi
+  # deploy_log "$(find . -name *.node)"
+  # deploy_log "node-gyp rebuild done ${CORE_DIR}"
 
   deploy_log "list core dir"
   deploy_log "$(ls -R ${CORE_DIR}/build/)"
@@ -202,17 +230,27 @@ function post_upgrade {
 
   fi
 
-	# temporary - adding NTP package
+  if [ -f "/etc/init.d/mongod" ]
+  then
+  	  deploy_log "removed mongod service (supervised by supervisord)"
+      rm -f /etc/init.d/mongod
+  fi
+  # temporary - adding NTP package
 
-	yum install -y ntp
+  yum install -y ntp
+  sudo /sbin/chkconfig ntpd on 2345
 
+  rm -f /tmp/*.tar.gz
+  rm -rf /tmp/v*
 
-	rm -f /tmp/*.tar.gz
-
-	#/etc/rc.d/init.d/supervisord stop
-	#/etc/rc.d/init.d/supervisord start
+  /etc/rc.d/init.d/supervisord stop
+  /etc/rc.d/init.d/supervisord start
 }
 
+#Log file name supplied
+if [ "$2" != "" ]; then
+	LOG_FILE="/var/log/noobaa_deploy_wrapper_${2}.log"
+fi
 
 case $1 in
   pre)

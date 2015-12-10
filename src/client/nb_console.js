@@ -3,11 +3,13 @@
 
 var _ = require('lodash');
 var P = require('../util/promise');
+var pkg = require('../../package.json');
 
 require('./nb_util');
 require('./nb_api');
 require('./nb_nodes');
 require('./nb_files');
+
 
 var nb_console = angular.module('nb_console', [
     'nb_util',
@@ -85,7 +87,7 @@ nb_console.controller('ConsoleCtrl', [
         $scope.nbNodes = nbNodes;
         $scope.nbFiles = nbFiles;
         $scope.nbAlertify = nbAlertify;
-
+        $scope.version = pkg.version;
         $scope.nav = {
             active: 'overview',
         };
@@ -315,6 +317,28 @@ nb_console.controller('UserManagementViewCtrl', [
             scope.password = '';
             scope.email = '';
             console.log('system:', JSON.stringify(nbSystem.system));
+
+            scope.copy_to_clipboard = function() {
+                var copyFrom = $window.document.getElementById('copy-text-area');
+                var selection = $window.getSelection();
+                selection.removeAllRanges();
+                var range = $window.document.createRange();
+                range.selectNodeContents(copyFrom);
+                selection.addRange(range);
+                try {
+                    var success = $window.document.execCommand('copy', false, null);
+                    if (success) {
+                        nbAlertify.success('Email details copied to clipboard');
+                    } else {
+                        nbAlertify.error('Cannot copy email details to clipboard, please copy manually');
+                    }
+                    selection.removeAllRanges();
+                } catch (err) {
+                    console.error('err while copy', err);
+                    nbAlertify.error('Cannot copy email details to clipboard, please copy manually');
+                }
+            };
+
             scope.update_email_message = function() {
                 scope.email_message = 'Hi,\r\n' +
                     'I created a noobaa user for you\r\n' +

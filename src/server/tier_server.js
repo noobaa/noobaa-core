@@ -65,7 +65,9 @@ function create_tier(req) {
             dbg.log0('Creating new tier', info);
             return P.when(db.Tier.create(info))
                 .then(null, db.check_already_exists(req, 'tier'))
-                .thenResolve();
+                .then(function() {
+                    return P.when(read_tier(req));
+                });
         });
 }
 
@@ -83,7 +85,11 @@ function read_tier(req) {
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(tier) {
             var reply = _.pick(tier, 'name');
-            reply.edge_details = _.pick(tier, 'replicas', 'data_fragments', 'parity_fragments').toObject();
+            reply.edge_details = {
+                replicas: tier.replicas,
+                data_fragments: tier.data_fragments,
+                parity_fragments: tier.parity_fragments,
+            };
             // TODO read tier's storage and nodes
             reply.storage = {
                 alloc: 0,
@@ -190,7 +196,10 @@ function create_policy(req) {
             });
             return P.when(db.TieringPolicy.create(info))
                 .then(null, db.check_already_exists(req, 'tiering_policy'))
-                .thenResolve();
+                .then(function() {
+                    req.rpc_params.name = req.rpc_params.policy.name;
+                    return P.when(get_policy(req));
+                });
         });
 }
 
@@ -204,7 +213,7 @@ function get_policy(req) {
             .exec())
         .then(db.check_not_deleted(req, 'tier'))
         .then(function(policy) {
-            var reply;
+            var reply = {};
             reply.name = policy.name;
             reply.tiers = policy.tiers;
             return reply;

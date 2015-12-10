@@ -82,11 +82,13 @@ function delete_pool(req) {
 function add_nodes_to_pool(req) {
     dbg.log0('Adding', req.rpc_params.nodes, 'to pool', req.rpc_params.name);
     var current_nodes;
+    var pool;
     return P.when(db.Pool
             .findOne(get_pool_query(req))
             .exec())
         .then(db.check_not_deleted(req, 'pool'))
-        .then(function(pool) {
+        .then(function(p) {
+            pool = p;
             current_nodes = pool.nodes;
             current_nodes = current_nodes.concat(req.rpc_params.nodes);
             current_nodes = _.uniq(current_nodes);
@@ -95,6 +97,21 @@ function add_nodes_to_pool(req) {
             };
             return P.when(db.Pool
                 .findOneAndUpdate(get_pool_query(req), updates)
+                .exec());
+        })
+        .then(function() {
+            return P.when(db.Node
+                .update({
+                    name: {
+                        $in: current_nodes
+                    }
+                }, {
+                    $set: {
+                        pool: pool.id,
+                    }
+                }, {
+                    multi: true
+                })
                 .exec());
         });
 }
@@ -122,6 +139,30 @@ function remove_nodes_from_pool(req) {
             };
             return P.when(db.Pool
                 .findOneAndUpdate(get_pool_query(req), updates)
+                .exec());
+        })
+        .then(function() {
+            return P.when(db.pool
+                .findOne({
+                    system: req.system.id,
+                    name: 'defaut_pool',
+                    deleted: null,
+                })
+                .exec());
+        })
+        .then(function(p) {
+            return P.when(db.Node
+                .update({
+                    name: {
+                        $in: _.keys(new_nodes)
+                    }
+                }, {
+                    $set: {
+                        pool: p.id,
+                    }
+                }, {
+                    multi: true
+                })
                 .exec());
         });
 }

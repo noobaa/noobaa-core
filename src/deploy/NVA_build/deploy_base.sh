@@ -147,6 +147,7 @@ function install_mongo {
 
 	# pin mongo version in yum, so it won't auto update
 	echo "exclude=mongodb-org,mongodb-org-server,mongodb-org-shell,mongodb-org-mongos,mongodb-org-tools" >> /etc/yum.conf
+	rm -f /etc/init.d/mongod
 	deploy_log "install_mongo done"
 }
 
@@ -236,7 +237,6 @@ if [ "$1" == "runinstall" ]; then
 	install_aux
 	install_repos
 	setup_repos runnpm
-#	setup_makensis
 	install_mongo
 	setup_mongo
 	general_settings

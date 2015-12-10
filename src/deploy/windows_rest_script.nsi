@@ -7,6 +7,7 @@
 !include "FileFunc.nsh"
 !include "StrFunc.nsh"
 ${StrRep}
+!include "CharToASCII.nsh"
 !include "Base64.nsh"
 
 
@@ -174,6 +175,8 @@ Section "NooBaa S3 REST Service"
 	File "NooBaa_Agent_wd.exe"
 	File "7za.exe"
 	File "openssl.exe"
+	File "libeay32.dll"
+	File "ssleay32.dll"
 	File "package.json"
 	File "wget.exe"
 	file "config.js"
@@ -181,6 +184,8 @@ Section "NooBaa S3 REST Service"
 	File /r "ssl"
 	File /r "src"
 	File /r "node_modules"
+	File /r "Release"
+
 	${WriteFile} "$INSTDIR\service.bat" "@echo off"
 	${WriteFile} "$INSTDIR\service.bat" "rem Version 0.1"
 	${WriteFile} "$INSTDIR\service.bat" ">service.log ("

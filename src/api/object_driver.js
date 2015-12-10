@@ -42,19 +42,15 @@ function ObjectDriver(client) {
 
     // some constants that might be provided as options to the client one day
 
-    self.OBJECT_RANGE_ALIGN_NBITS = 19; // log2( 512 KB )
-    self.OBJECT_RANGE_ALIGN = 1 << self.OBJECT_RANGE_ALIGN_NBITS; // 512 KB
-
-    self.MAP_RANGE_ALIGN_NBITS = 24; // log2( 16 MB )
-    self.MAP_RANGE_ALIGN = 1 << self.MAP_RANGE_ALIGN_NBITS; // 16 MB
+    self.OBJECT_RANGE_ALIGN = 512 * 1024;
+    self.MAP_RANGE_ALIGN = 16 * 1024 * 1024;
 
     self.READ_CONCURRENCY = config.READ_CONCURRENCY;
     self.WRITE_CONCURRENCY = config.WRITE_CONCURRENCY;
 
     self.READ_RANGE_CONCURRENCY = config.READ_RANGE_CONCURRENCY;
 
-    self.HTTP_PART_ALIGN_NBITS = self.OBJECT_RANGE_ALIGN_NBITS + 6; // log2( 32 MB )
-    self.HTTP_PART_ALIGN = 1 << self.HTTP_PART_ALIGN_NBITS; // 32 MB
+    self.HTTP_PART_ALIGN = 32 * 1024 * 1024;
     self.HTTP_TRUNCATE_PART_SIZE = false;
 
     self._block_write_sem = new Semaphore(self.WRITE_CONCURRENCY);
@@ -696,7 +692,7 @@ ObjectDriver.prototype.read_object = function(params) {
         range.start = pos;
         range.end = Math.min(
             params.end,
-            range_utils.align_up_bitwise(pos + 1, self.OBJECT_RANGE_ALIGN_NBITS)
+            range_utils.align_up(pos + 1, self.OBJECT_RANGE_ALIGN)
         );
         dbg.log2('read_object: submit concurrent range', range_utils.human_range(range));
         promises.push(self._object_range_cache.get(range));
@@ -721,15 +717,15 @@ ObjectDriver.prototype._init_object_range_cache = function() {
         max_length: 128, // total 128 MB
         expiry_ms: 600000, // 10 minutes
         make_key: function(params) {
-            var start = range_utils.align_down_bitwise(
-                params.start, self.OBJECT_RANGE_ALIGN_NBITS);
+            var start = range_utils.align_down(
+                params.start, self.OBJECT_RANGE_ALIGN);
             var end = start + self.OBJECT_RANGE_ALIGN;
             return params.bucket + ':' + params.key + ':' + start + ':' + end;
         },
         load: function(params) {
             var range_params = _.clone(params);
-            range_params.start = range_utils.align_down_bitwise(
-                params.start, self.OBJECT_RANGE_ALIGN_NBITS);
+            range_params.start = range_utils.align_down(
+                params.start, self.OBJECT_RANGE_ALIGN);
             range_params.end = range_params.start + self.OBJECT_RANGE_ALIGN;
             dbg.log0('RangesCache: load', range_utils.human_range(range_params), params.key);
             return self._read_object_range(range_params);
@@ -739,8 +735,8 @@ ObjectDriver.prototype._init_object_range_cache = function() {
                 dbg.log3('RangesCache: null', range_utils.human_range(params));
                 return val;
             }
-            var start = range_utils.align_down_bitwise(
-                params.start, self.OBJECT_RANGE_ALIGN_NBITS);
+            var start = range_utils.align_down(
+                params.start, self.OBJECT_RANGE_ALIGN);
             var end = start + self.OBJECT_RANGE_ALIGN;
             var inter = range_utils.intersection(
                 start, end, params.start, params.end);
@@ -753,7 +749,7 @@ ObjectDriver.prototype._init_object_range_cache = function() {
                 return null;
             }
             dbg.log3('RangesCache: slice', range_utils.human_range(params),
-                'inter', range_utils.human_range(inter));
+                'inter', range_utils.human_range(inter), 'buffer', val.length);
             return val.slice(inter.start - start, inter.end - start);
         },
     });
@@ -807,14 +803,14 @@ ObjectDriver.prototype._init_object_map_cache = function() {
         max_length: 1000,
         expiry_ms: 600000, // 10 minutes
         make_key: function(params) {
-            var start = range_utils.align_down_bitwise(
-                params.start, self.MAP_RANGE_ALIGN_NBITS);
+            var start = range_utils.align_down(
+                params.start, self.MAP_RANGE_ALIGN);
             return params.bucket + ':' + params.key + ':' + start;
         },
         load: function(params) {
             var map_params = _.clone(params);
-            map_params.start = range_utils.align_down_bitwise(
-                params.start, self.MAP_RANGE_ALIGN_NBITS);
+            map_params.start = range_utils.align_down(
+                params.start, self.MAP_RANGE_ALIGN);
             map_params.end = map_params.start + self.MAP_RANGE_ALIGN;
             dbg.log1('MappingsCache: load', range_utils.human_range(params),
                 'aligned', range_utils.human_range(map_params));
@@ -980,8 +976,8 @@ ObjectDriver.prototype.serve_http_stream = function(req, res, params) {
                 read_stream.close();
                 read_stream = null;
             }
-            if (reason ==='request ended'){
-                dbg.log ('res end after req ended');
+            if (reason === 'request ended') {
+                dbg.log('res end after req ended');
                 res.status(200).end();
             }
         };
@@ -1038,8 +1034,8 @@ ObjectDriver.prototype.serve_http_stream = function(req, res, params) {
                 end = start + self.HTTP_PART_ALIGN;
             }
             // snap end to the alignment boundary, to make next requests aligned
-            end = range_utils.truncate_range_end_to_boundary_bitwise(
-                start, end, self.HTTP_PART_ALIGN_NBITS);
+            end = range_utils.truncate_range_end_to_boundary(
+                start, end, self.HTTP_PART_ALIGN);
         }
 
         dbg.log0('+++ serve_http_stream: send range',
@@ -1102,12 +1098,14 @@ function combine_parts_buffers_in_range(parts, start, end) {
         if (!part_range) {
             return;
         }
-        var offset = part_range.start - part.start;
+        var buffer_start = part_range.start - part.start;
+        var buffer_end = part_range.end - part.start;
         if (part.chunk_offset) {
-            offset += part.chunk_offset;
+            buffer_start += part.chunk_offset;
+            buffer_end += part.chunk_offset;
         }
         pos = part_range.end;
-        return part.buffer.slice(offset, pos);
+        return part.buffer.slice(buffer_start, buffer_end);
     }));
     if (pos !== end) {
         console.error('missing parts for data',
@@ -1117,7 +1115,17 @@ function combine_parts_buffers_in_range(parts, start, end) {
             }), 'pos', size_utils.human_offset(pos), parts);
         throw new Error('missing parts for data');
     }
-    return Buffer.concat(buffers, end - start);
+    var len = end - start;
+    var buffer = Buffer.concat(buffers, len);
+    if (buffer.length !== len) {
+        console.error('short buffer from parts',
+            range_utils.human_range({
+                start: start,
+                end: end
+            }), 'pos', size_utils.human_offset(pos), parts);
+        throw new Error('short buffer from parts');
+    }
+    return buffer;
 }
 
 function get_frag_key(f) {

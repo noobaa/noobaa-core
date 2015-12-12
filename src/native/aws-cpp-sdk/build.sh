@@ -24,25 +24,27 @@ function sdk_get_sources() {
 
 function sdk_cmake() {
     log "SDK: CMAKE"
-    export CMAKE_CXX_FLAGS="-I/usr/local/opt/openssl/include/"
+    export CXXFLAGS=-I/usr/local/opt/openssl/include/
     export CMAKE_ARGS="-DCUSTOM_MEMORY_MANAGEMENT=0 -Wno-dev"
     if [ -f CMakeCache.txt ]
     then
         cmake . $CMAKE_ARGS
     else
-        cmake ./src $CMAKE_ARGS
+        cmake ../src $CMAKE_ARGS
     fi
 }
 
-function sdk_make_s3() {
-    log "SDK: MAKE S3"
-    make aws-cpp-sdk-s3
+function sdk_make() {
+    log "SDK: MAKE"
+    make aws-cpp-sdk-core aws-cpp-sdk-s3 aws-cpp-sdk-transfer
 }
 
 function sdk_build() {
     sdk_get_sources
+    pushd bld
     sdk_cmake
-    sdk_make_s3
+    sdk_make
+    popd
 }
 
 function demo_compile() {
@@ -50,10 +52,10 @@ function demo_compile() {
     source="../../`dirname $0`/s3-demo.cpp"
     g++ \
         -Isrc/aws-cpp-sdk-core/include \
-        -Laws-cpp-sdk-core/ \
+        -Lbld/aws-cpp-sdk-core/ \
         -laws-cpp-sdk-core \
         -Isrc/aws-cpp-sdk-s3/include \
-        -Laws-cpp-sdk-s3/ \
+        -Lbld/aws-cpp-sdk-s3/ \
         -laws-cpp-sdk-s3 \
         -std=c++11 \
         -lstdc++ \
@@ -64,13 +66,13 @@ function demo_compile() {
 }
 
 function build() {
-    mkdir -p $BUILD_DIR
+    mkdir -p $BUILD_DIR/bld
     pushd $BUILD_DIR
     if [ ! -z "$1" ]
     then
         log "FORCE BUILD SDK"
         sdk_build
-    elif [ ! -f aws-cpp-sdk-s3/libaws-cpp-sdk-s3.* ]
+    elif [ ! -f bld/aws-cpp-sdk-s3/libaws-cpp-sdk-s3.* ]
     then
         log "BUILD SDK"
         sdk_build
@@ -80,4 +82,3 @@ function build() {
 }
 
 build $1
-

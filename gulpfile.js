@@ -150,7 +150,6 @@ var PATHS = {
         'performance-now',
         'is-my-json-valid',
         'concat-stream',
-        'zeroclipboard',
         'dev-null',
         'chance',
         'winston',
@@ -687,11 +686,10 @@ gulp.task('client', function() {
     gutil.log('setting upgrade', pkg.version, current_pkg_version);
 
     return bundler.bundle()
-        .pipe(gulp_replace('"version": "' + pkg.version + '"', '"version": "' + current_pkg_version + '"'))
         .pipe(vinyl_source_stream(NAME))
         .pipe(vinyl_buffer())
+        .pipe(gulp_replace('"version": "' + pkg.version + '"', '"version": "' + current_pkg_version + '"'))
         .pipe(gulp_plumber(PLUMB_CONF))
-        .pipe(gulp_concat(NAME))
         .pipe(gulp_size_log(NAME))
         .pipe(gulp.dest(DEST))
         .pipe(gulp_cached(NAME))

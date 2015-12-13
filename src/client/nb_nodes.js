@@ -338,7 +338,9 @@ nb_api.factory('nbNodes', [
             return $q.when()
                 .then(function() {
                     dbg.log0('SELF TEST listing nodes');
-                    return list_nodes({})
+                    return list_nodes({
+                            limit: 20
+                        })
                         .then(function(res) {
                             var nodes = res.nodes;
                             online_nodes = _.filter(nodes, function(target_node) {

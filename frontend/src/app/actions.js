@@ -2,6 +2,30 @@ import * as model from 'model';
 import { isDefined, isUndefined } from 'utils';
 import page from 'page';
 import api from 'services/api';
+import { cmpStrings, cmpInts, cmpBools } from 'utils';
+
+// Compare functions for entities.
+const bucketCmpFuncs = Object.freeze({
+	state: (b1, b2) => cmpBools(b1.state, b2.state),
+	name: (b1, b2) => cmpStrings(b1.name, b2.name),
+	filecount: (b1, b2) => cmpInts(b1.num_objects, b2.num_objects),
+	totalsize: (b1, b2) => cmpInts(b1.storage.total, b2.storage.total),
+	freesize: (b1, b2) => cmpInts(b1.storage.free, b2.storage.free),
+	cloudsync: (b1, b2) => cmpStrings(b1.cloud_sync_status, b2.cloud_sync_status)
+});
+
+const poolCmpFuncs = Object.freeze({
+	state: (p1, p2) => cmpBools(true, true),
+	name: (p1, p2) => cmpStrings(p1.name, p2.name),
+	nodecount: (p1, p2) => cmpInts(p1.total_nodes, p2.total_nodes),
+	onlinecount: (p1, p2) => cmpInts(p1.online_nodes, p2.online_nodes),
+	offlinecount: (p1, p2) => cmpInts(
+		p1.total_nodes - p1.online_nodes, 
+		p2.total_nodes - p2.online_nodes, 
+	),
+	usage: (p1, p2) => cmpInts(p1.storage.used, p2.storage.used),
+	capacity: (p1, p2) => cmpInts(p1.storage.total, p2.storage.total),
+});
 
 // Utility function to log actions.
 function logAction(action, payload) {
@@ -71,9 +95,13 @@ export function showBuckets() {
 		layout: 'main-layout',
 		title: 'BUCKETS',
 		breadcrumbs: [ { href: "systems/:system" } ],
-		panel: 'buckets'	
+		panel: 'buckets',
 	});
 
+	let query = model.routeContext().query;
+	model.bucketList.sortedBy(query.sortBy || 'name');
+	model.bucketList.order(query.order < 0 ? -1 : 1);
+	
 	readSystemInfo();
 }
 
@@ -127,8 +155,12 @@ export function showPools() {
 		layout: 'main-layout',
 		title: 'POOLS',
 		breadcrumbs: [ { href: "systems/:system" } ],
-		panel: 'pools'		
+		panel: 'pools'
 	});
+
+	let query = model.routeContext().query;
+	model.poolList.sortedBy(query.sortBy || 'name');
+	model.poolList.order(query.order < 0 ? -1 : 1);
 
 	readSystemInfo();
 }
@@ -140,10 +172,15 @@ export function showPool() {
 	model.uiState({
 		layout: 'main-layout',
 		title: pool,
-		breadcrumbs: [ { href: "systems/:system" } ],
-		panel: 'pools',
+		breadcrumbs: [ 
+			{ href: "systems/:system" },
+			{ href: "pools", label: "POOLS"}
+		],
+		panel: 'pool',
 		tab: tab || 'nodes'	
 	});
+
+	readPool(pool);
 }
 
 export function showNode() {
@@ -220,15 +257,30 @@ export function readSystemInfo() {
 	let { systemOverview, bucketList, poolList } = model;
 	api.system.read_system()
 		.then(reply => {
+			let keys = reply.access_keys[0];
+
 			systemOverview({
+				endpoint: '192.168.0.1',
+				keys: {
+					access: keys.access_key,
+					secret: keys.secret_key,
+				},
 				bucketCount: reply.buckets.length,
 				objectCount: reply.objects,
 				poolCount: reply.pools.length,
-				nodeCount: reply.nodes.count
+				nodeCount: reply.nodes.count,
 			});
 
 			bucketList(reply.buckets);
+			bucketList.sort(
+				(b1, b2) => bucketList.order() * bucketCmpFuncs[bucketList.sortedBy()](b1, b2)
+			);
+
+
 			poolList(reply.pools);
+			poolList().sort(
+				(p1, p2) => poolList.order() * poolCmpFuncs[poolList.sortedBy()](b1, b2)
+			);
 		})
 		.done();
 }
@@ -245,10 +297,7 @@ export function listBucketObjects(bucketName, filter) {
 	logAction('listBucketObjects', { bucketName, filter });
 
 	api.object.list_objects({ bucket: bucketName, key_query: filter })
-		.then(reply => {
-			model.bucketObjectList.filter(filter);
-			model.bucketObjectList(reply.objects);
-		})
+		.then(reply => model.bucketObjectList(reply.objects))
 		.done();
 }
 
@@ -263,6 +312,14 @@ export function listObjectParts(bucketName, objectName) {
 
 	api.object.read_object_mappings({ bucket: bucketName, key: objectName, adminfo: true })
 		.then(reply => model.objectPartList(reply.parts))
+		.done();
+}
+
+export function readPool(name) {
+	logAction('readPool', { name });
+	
+	api.pools.get_pool({ name })
+		.then(model.poolInfo)
 		.done();
 }
 
@@ -302,22 +359,23 @@ export function createAccount(system, email, password) {
 export function createBucket(name) {
 	logAction('createBucket', { name });
 
+	let placeholder = { name: name, placeholder: true };
+	model.bucketList.unshift(placeholder);
+
 	api.bucket.create_bucket({ name, tiering: 'default_tiering' })
-		.then(() => readSystemInfo())
+		.tap(x => console.log(x))
+		// .delay(3000)
+		// .then(bucket => {
+		// 	console.log(placeholder, bucket);
+		// 	//model.bucketList.replace(placeholder, bucket)
+		// })
 		.done();
 }
 
 export function deleteBucket(name) {
 	logAction('deleteBucket', { name });
 
-	
-	let bucket = model.bucketList().find(bucket => bucket.name === name)
-	bucket.name += ' ( deleting... )';
-
-	model.bucketList.valueHasMutated();
-		
-
-	// api.bucket.delete_bucket({ name })
-	// 	.then(readSystemInfo)
-	// 	.done();
+	api.bucket.delete_bucket({ name })
+		.then(readSystemInfo)
+		.done();
 }

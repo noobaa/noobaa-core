@@ -19,16 +19,22 @@ export let systemOverview = ko.observable();
 
 // Hold the current bucket list. derived from system info.
 export let bucketList = ko.observableArray(); 
+bucketList.sortedBy = ko.observable('name')
+bucketList.order = ko.observable(1);
 
 // Hold the current bucket info.
 export let bucketInfo = ko.observable();
 
 // Hold the current bucket object list.
 export let bucketObjectList = ko.observableArray();
-bucketObjectList.filter = ko.observable();
 
 // Hold the current pool list. derived from system info.
 export let poolList = ko.observableArray();
+poolList.sortedBy = ko.observable('name');
+poolList.order = ko.observable(1);
+
+// Hold the current pool info.
+export let poolInfo = ko.observable();
 
 // Hold the current node list.
 export let poolNodeList = ko.observableArray();

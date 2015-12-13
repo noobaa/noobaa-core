@@ -21,13 +21,14 @@ export default function register(ko) {
 	ko.components.register('signin-form', 			require('./login/signin-form/signin-form'));	
 	ko.components.register('create-system-form', 	require('./login/create-system-form/create-system-form'));	
 
-
 	// -------------------------------
 	// Overview
 	// -------------------------------
 	ko.components.register('overview-panel', 	require('./overview/overview-panel/overview-panel'));
 	ko.components.register('pools-overview', 	require('./overview/pools-overview/pools-overview'));
 	ko.components.register('buckets-overview',	require('./overview/buckets-overview/buckets-overview'));	
+	ko.components.register('add-node-form',		require('./overview/add-node-form/add-node-form'));
+	ko.components.register('details-keys-form',	require('./overview/details-keys-form/details-keys-form'));
 
 	// -------------------------------
 	// Buckets
@@ -41,6 +42,7 @@ export default function register(ko) {
 	// -------------------------------
 	ko.components.register('bucket-panel', 			require('./bucket/bucket-panel/bucket-panel'));
 	ko.components.register('bucket-summary', 		require('./bucket/bucket-summary/bucket-summary'));
+	ko.components.register('bucket-objects-tab',	require('./bucket/bucket-objects-tab/bucket-objects-tab'));
 	ko.components.register('bucket-objects-table',	require('./bucket/bucket-objects-table/bucket-objects-table'));
 
 	// -------------------------------
@@ -55,7 +57,12 @@ export default function register(ko) {
 	// -------------------------------
 	ko.components.register('pools-panel', 	require('./pools/pools-panel/pools-panel'));
 	ko.components.register('pools-table', 	require('./pools/pools-table/pools-table'));
-	ko.components.register('add-node-form', require('./pools/add-node-form/add-node-form'));
+
+	// -------------------------------
+	// Pool
+	// -------------------------------
+	ko.components.register('pool-panel', 	require('./pool/pool-panel/pool-panel'));
+	ko.components.register('pool-summary', 	require('./pool/pool-summary/pool-summary'));
 
 	// -------------------------------
 	// Node

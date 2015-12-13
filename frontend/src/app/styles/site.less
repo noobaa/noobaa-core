@@ -194,10 +194,17 @@ input[type="search"] {
 	background: none;
 	outline: none;
 	text-decoration: none;
-	cursor: @cursor-pointer;	
 
-	&:hover {
-		text-decoration: underline;	
+	&:focus {
+		outline: 1px solid @blue-mid;
+	}	
+
+	a&[href], button& {
+		cursor: @cursor-pointer;	
+		
+		&:hover {
+			text-decoration: underline;	
+		}		
 	}
 }
 
@@ -231,6 +238,10 @@ input[type="search"] {
 	cursor: @cursor-pointer;
 	outline: none;	
 	padding: .75em 1em;
+
+	&:focus {
+		outline: 1px solid @blue-mid;
+	}		
 }
 
 .btn-flat {
@@ -369,11 +380,33 @@ input[type="search"] {
 		}
 
 		th {
-			text-transform: uppercase;		
+			text-transform: uppercase;
+
+			&.asc, &.des {
+				> a::after {
+					content: '';
+					position: absolute;
+					vertical-align: middle;
+					margin-left: .5em;
+					margin-top: .5em;
+					display: inline-block;
+					border: 5px solid transparent;
+				}
+			}
+
+			&.asc > a::after {
+				border-bottom: none;
+				border-top-color: @text-color4;
+			}
+
+			&.des > a::after {
+				border-top: none;
+				border-bottom-color: @text-color4;
+			}
 		}
 
 		th, td {
-			white-space: nowrap;
+			word-break: break-all;
 			padding: 1em 2em;		
 
 			&.greedy {
@@ -385,7 +418,7 @@ input[type="search"] {
 			border-bottom: 1px solid @bg-color3;
 
 			&.disabled {
-				opacity: 0.2;
+				opacity: 0.5;
 			}
 		}
 
@@ -490,7 +523,8 @@ input[type="search"] {
 }
 
 .val-msg {
-	display: block;
+	display: block !important;
+	height: 1em;
 	
 	.text(
 		@font-type2, 
@@ -503,4 +537,19 @@ input[type="search"] {
 .bullet-list {
 	padding: 0 1em;	
 	line-height: 1.8;
+}
+
+.form-actions {
+	margin-top: 1.5em;
+
+	.link {
+		line-height: 2.6em;
+		margin-right: .75em;
+	}
+}
+
+.text-tech {
+	line-height: 1.5;
+	font-family: @font-type3;
+	font-size: @font-size-small;
 }

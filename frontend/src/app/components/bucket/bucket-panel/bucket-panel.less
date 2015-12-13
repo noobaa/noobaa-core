@@ -1,5 +1,4 @@
 .bucket-panel {
-	text-align: center;
 
 	.obj-filter {
 		margin-bottom: 2em;
@@ -11,5 +10,30 @@
 		top: 5em;
 		left: 2em;
 		right: 2em;
+	}
+
+	.pagination {
+		height: 30px;
+
+		.page-indicator {
+			margin-right: 1em;
+
+			.highlight {
+				font-weight: @font-weight-medium;
+			}
+		}
+
+		button {
+			vertical-align: middle;
+			font-size: @font-size-medium;
+			font-family: @font-type3;
+			padding: .2em .5em;
+			color: @text-color1;
+			background-color: @bg-color3;
+
+			&:hover {
+				background-color: @bg-color4;
+			}
+		}
 	}
 }	

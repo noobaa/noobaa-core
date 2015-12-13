@@ -1,24 +1,28 @@
 <div class="info clear overview-panel">
 	<section class="pull-left">
 		<!-- ko if: ready -->
-		<pools-overview params="poolCount: poolCount, nodeCount: nodeCount"></pools-overview>
+		<pools-overview params="poolCount: poolCount, nodeCount: nodeCount">
+		</pools-overview>
 		<!-- /ko -->
 		
-		<a class="btn">add node</a>
+		<a class="btn" data-bind="click: showAddNodeModal">add node</a>
 
-		<modal params="visible: showAddNodeModal">
-			<add-node-form></add-node-form>
-		</modal>
+		<modal params="visible: isAddNodeModalVisible">
+			<add-node-form params="oncomplete: () => hideAddNodeModal()"></add-node-form>
+		</modal>					
 	</section>
 
 	<section class="pull-right">
 
 		<!-- ko if: ready -->
-		<buckets-overview params="bucketCount: bucketCount, objectCount: objectCount"></buckets-overview>
+		<buckets-overview params="bucketCount: bucketCount, objectCount: objectCount">
+		</buckets-overview>
 		<!-- /ko -->
 		
-		<a class="btn">s3 rest details</a	>
+		<a class="btn" data-bind="click: showKeysModal">details &amp; keys</a>
 
-		<modal params="visible: showRestDetailsModal"></modal>	
+		<modal params="visible: isKeysModalVisible">
+			<details-keys-form params="oncomplete: () => hideKeysModal()"></details-keys-form>
+		</modal>			
 	</section>
 </div>

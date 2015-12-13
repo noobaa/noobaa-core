@@ -182,7 +182,8 @@ gulp.task('serve', function() {
 	wsStream = gulp.src(buildPath)
 		.pipe($.webserver({
 			fallback: '/index.html',
-			open: true
+			open: true,
+			middleware: cacheControl(60)
 		}));
 
 	return wsStream;
@@ -248,4 +249,13 @@ function cssClassToJson() {
 function errorHandler(err) {
 	console.log(err.toString(), '\u0007');
 	this.emit('end');	
+}
+
+function cacheControl(seconds) {
+    var millis = 1000 * seconds;
+    return function(req, res, next) {
+        res.setHeader("Cache-Control", "public, max-age=" + seconds);
+        res.setHeader("Expires", new Date(Date.now() + millis).toUTCString());
+        return next();
+    };
 }

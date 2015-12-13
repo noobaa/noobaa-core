@@ -4,13 +4,6 @@ import { bucketList } from 'model';
 import { isFunction, noop } from 'utils';
 import { createBucket } from 'actions';
 
-// const bucketNamePattern = '^[a-z0-9](-|[a-z0-9]){2,62}$';
-// const sizeUnits = [ 
-// 	{ label: 'GB', value: 3 },
-// 	{ label: 'TB', value: 4 },
-// 	{ label: 'PB', value: 5 },
-// ];
-
 const bucketNameValidationRules = [
 	{
 		validator: ko.validation.rules.required.validator,
@@ -63,18 +56,6 @@ class CreateBucketFormViewModel {
 		this.bucketName = ko.observable().extend({
 			validation: bucketNameValidationRules
 		});
-
-		this.limitQuota = ko.observable(true);
-		// this.quotaValue = ko.observable(1);
-		// this.quotaUnit = ko.observable(sizeUnits[0]);
-		// this.sizeUnits = sizeUnits;
-		
-		// The actual qouta in bytes.
-		// this.quota = ko.pureComputed(() => {
-		// 	return this.limitQuota() ? 
-		// 		this.quotaValue() * 1024 ** this.quotaUnit().value :
-		// 		-1;
-		// });
 
 		// Validation error group.
 		this.errors = ko.validation.group(this);

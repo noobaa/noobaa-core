@@ -1,0 +1,46 @@
+<h1 class="heading2">S3 Details and Access Keys</h1>
+<p class ="paragraph">
+	The following are defaults for all buckets
+</p>
+
+<section class="box clear">
+	<div>
+		<h2 class="heading3">Endpoint</h2>
+		<button class="btn-flat pull-right" data-bind="click: () => copyToClipboard(endpoint)"
+			title="copy to clipboard">
+			<svg-icon params="uri: '/assets/icons.svg#copy'" class=""></svg-icon>		
+		</button>
+		<div class="text-tech" data-bind="text: endpoint"></div>
+	</div>
+</section>
+<div class="clear">
+	<a href class="link pull-right" style="padding: .5em">
+		Download Rest Package
+	</a>
+</div>
+
+<section class="box">
+	<div>
+		<h2 class="heading3">Access Key</h2>
+		<button class="btn-flat pull-right" data-bind="click: () => copyToClipboard(accessKey)"
+			title="copy to clipboard">
+			<svg-icon params="uri: '/assets/icons.svg#copy'"></svg-icon>
+		</button>
+		<div class="text-tech" data-bind="text: accessKey"></div>
+	</div>
+
+	<div>
+		<h2 class="heading3">Secret Key</h2>
+		<button class="btn-flat pull-right" data-bind="click: () => copyToClipboard(secretKey)"
+			title="copy to clipboard">
+			<svg-icon params="uri: '/assets/icons.svg#copy'"></svg-icon>
+		</button>
+		<div class="text-tech" data-bind="text: secretKey"></div>
+	</div>
+</section>
+
+<div class="remark">* Use the bucket page to customize the access keys per bucket</div>
+
+<div class="form-actions clear">
+	<button class="action btn2 pull-right" data-bind="click: close">Close</button>
+</div>

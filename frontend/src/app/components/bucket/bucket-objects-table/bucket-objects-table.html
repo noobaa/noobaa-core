@@ -1,31 +1,33 @@
+<!-- 				<input type="search" class="obj-filter" placeholder="Filter Files" 
+					data-bind="textInput: objectFilter" /> -->
+
 <section class="data-table">
 	<table>
 		<thead>
 			<tr>
-				<th>State</th>	
-				<th class="greedy text-left">File Name</th>
-				<th>File Size</th>
-			</tr>
-
-			<!-- Used for column layout formatting -->
-			<tr class="collapse-row">
-				<th>State</th>	
-				<th class="greedy text-left">File Name</th>
-				<th>File Size</th>
+				<th class="state-col" data-bind="css: cssFor('state')">
+					<a data-bind="href: hrefFor('state')">State</a>
+				</th>	
+				<th class="name-col text-left" data-bind="css: cssFor('name')">
+					<a data-bind="href: hrefFor('name')">File Name</a>
+				</th>
+				<th class="size-col" data-bind="css: cssFor('size')">
+					<a data-bind="href: hrefFor('size')">File Size</a>
+				</th>
 			</tr>
 		</thead>
 
 		<tbody data-bind="foreach: rows">
 			<tr>
-				<td>
+				<td class="state-col">
 					<svg-icon params="uri: stateIcon"></svg-icon>
 				</td>
 
-				<td class="text-left">
+				<td class="name-col text-left">
 					<a class="link" data-bind="text: name, href: href"></a>
 				</td>
 
-				<td data-bind="text: size"></td>
+				<td class="size-col" data-bind="text: size"></td>
 			</tr>
 		</tbody>
 	</table>

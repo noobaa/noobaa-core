@@ -15,8 +15,10 @@ class BucketSummrayViewModel {
 		);
 		
 		this.qoutaLimit = ko.pureComputed(
-			() => 0 // TODO: Get relevant info when avaliable
+			() => 100 // TODO: Get relevant info when avaliable
 		);
+
+		this.actionsVisible = ko.observable(false);
 	}
 
 	gagueLegend() {
@@ -37,6 +39,10 @@ class BucketSummrayViewModel {
 				color: style['text-color5']
 			}		
 		];
+	}
+
+	toggleActions() {
+		this.actionsVisible(!this.actionsVisible());
 	}
 }
 

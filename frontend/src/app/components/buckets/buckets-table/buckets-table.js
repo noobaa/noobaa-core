@@ -1,49 +1,40 @@
 import template from './buckets-table.html'
 import BucketRowViewModel from './bucket-row';
 import ko from 'knockout';
-import { deleteBucket } from 'actions';
+import { stringifyQueryString, makeArray } from 'utils';
+import page from 'page';
 
-		
+const maxRows = 100;
 
 class BucketsTableViewModel {
 	constructor({ buckets }) {
-		this.orderedBy = buckets.orderedBy;
-		this.reversed = buckets.reversed;
-
-		this.rows = ko.pureComputed(() => 
-			buckets().map(bucket => new BucketRowViewModel(bucket))
+		let deleteCandidate = ko.observable();			
+		let rows = makeArray(
+			maxRows, 
+			i => new BucketRowViewModel(() => buckets()[i], deleteCandidate)
 		);
-		
-		this.deleteCandidate = ko.observable();			
+
+		this.sortedBy = buckets.sortedBy;
+		this.order = buckets.order;
+		this.visibleRows = ko.pureComputed(
+			() => rows.filter(row => row.isVisible())
+		);
 	}
 
-	hrefFor(colName) {
-		let reverse = this.orderedBy() === colName && !this.reversed();
-		return `?order-by=${colName}${reverse ? '&reverse' : ''}`;
+	orderBy(colName) {
+		let query = stringifyQueryString({
+			sortBy: colName,
+			order: this.sortedBy() === colName ? 0 - this.order() : 1
+		});
+
+		page.show(`${window.location.pathname}?${query}`);
 	}
 
-	cssFor(colName) {
-		return this.orderedBy() === colName ?
-			(this.reversed() ? 'asc' : 'des') :
-			'';
+	orderClassFor(colName) {
+		if (this.sortedBy() === colName) {
+			return this.order() === 1 ? 'des' : 'asc' ;
+		} 
 	}
-
-	deleteIconUri(bucketName) {
-		let isOpened = bucketName === this.deleteCandidate();
-		return `/assets/icons.svg#trash-${isOpened ? 'opened' : 'closed'}`;
-	}
-
-	isDeleteCandidate(bucketName) {
-		return bucketName === this.deleteCandidate();
-	}
-
-	confirmDelete() {
-		deleteBucket(this.deleteCandidate());
-	}
-
-	cancelDelete() {
-		this.deleteCandidate(null);
-	}	
 }
 
 export default {

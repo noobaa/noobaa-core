@@ -89,7 +89,7 @@ export function stringifyQueryString(query) {
 		.join('&');
 }
 
-export function realizeUri(uri, params) {
+export function realizeUri(uri, params = {}) {
 	return uri
 		.split('/')
 		.map(part => part[0] === ':' ? params[part.substr(1)] : part)
@@ -124,4 +124,30 @@ export function cmpInts(a, b) {
 
 export function cmpBools(a, b) {
 	return b - a;
+}
+
+export function equalNoCase(str1, str2) {
+	return str1.toLowerCase() === str2.toLowerCase();
+}
+
+export function copyTextToClipboard(text) {
+	// Prevent XSS attacks.
+	let doc = new DOMParser().parseFromString(text, 'text/html');
+    text = doc.body.textContent;
+
+    let input = document.createElement('textarea');
+    document.body.appendChild(input);
+    input.value = text;
+    input.focus();
+    input.select();
+    document.execCommand('Copy');
+    input.remove();
+}
+
+export function makeArray(size, initializer) {
+	let array = [];
+	for (let i = 0; i < size; ++i) {
+		array.push(initializer(i));
+	}
+	return array;
 }

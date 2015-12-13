@@ -1,31 +1,43 @@
 <section class="data-table">
 	<table>
 		<thead>
-			<tr>
-				<th class="state-col" data-bind="css: cssFor('state')">
-					<a data-bind="href: hrefFor('state')">state</a>
+ 			<tr>
+				<th class="state-col" data-bind="css: orderClassFor('state')">
+					<a href ata-bind="click: () => orderBy('state')">
+						state
+					</a>
 				</th>
-				<th class="name-col text-left" data-bind="css: cssFor('name')">
-					<a data-bind="href: hrefFor('name')">bucket name</a>
+				<th class="name-col text-left" data-bind="css: orderClassFor('name')">
+					<a href data-bind="click: () => orderBy('name')">
+						bucket name
+					</a>
 				</th>
-				<th class="filecount-col" data-bind="css: cssFor('filecount')">
-					<a data-bind="href: hrefFor('filecount')">files</a>
+				<th class="filecount-col" data-bind="css: orderClassFor('filecount')">
+					<a href data-bind="click: () => orderBy('filecount')">
+						files
+					</a>
 				</th>
-				<th class="totalsize-col" data-bind="css: cssFor('totalsize')">
-					<a data-bind="href: hrefFor('totalsize')">total</a>
+				<th class="totalsize-col" data-bind="css: orderClassFor('totalsize')">
+					<a href data-bind="click: () => orderBy('totalsize')">
+						total
+					</a>
 				</th>
-				<th class="freesize-col" data-bind="css: cssFor('freesize')">
-					<a data-bind="href: hrefFor('freesize')">free</a>
+				<th class="freesize-col" data-bind="css: orderClassFor('freesize')">
+					<a href data-bind="click: () => orderBy('freesize')">
+						free
+					</a>
 				</th>
-				<th class="cloudsync-col" data-bind="css: cssFor('cloudsync')">
-					<a data-bind="href: hrefFor('cloudsync')">Cloud Sync</a>
+				<th class="cloudsync-col" data-bind="css: orderClassFor('cloudsync')">
+					<a href data-bind="click: () => orderBy('cloudsync')">
+						Cloud Sync
+					</a>
 				</th>
 				<th class="delete-col"></th>
 			</tr>
 		</thead>
 
-		<tbody data-bind="foreach: rows">
-			<tr data-bind="css: { disabled: disabled }">
+		<tbody data-bind="foreach: visibleRows">
+			<tr data-bind1="css: { disabled: isDisalbed }">
 				<td class="state-col">
 					<svg-icon params="uri: stateIcon"></svg-icon>
 				</td>
@@ -33,35 +45,34 @@
 				<td class="name-col text-left">
 					<a class="link" data-bind="text: name, href: href"></a>
 				</td>
-				
+
 				<td class="filecount-col" data-bind="text: fileCount"></td>
-				
+
 				<td class="totalsize-col" data-bind="text: totalSize"></td>
-				
+
 				<td class="freesize-col" data-bind="text: freeSize"></td>
 				
 				<td class="cloudsync-col" data-bind="
 					text: cloudSyncStatus.label, 
 					css: cloudSyncStatus.css"
-				></td>
-				
+				></td>				
+
 				<td class="delete-col">
 					<button class="delete-btn btn-flat" data-bind="
 						enable: allowDelete,
 						attr: { title: deleteTooltip },
-						click: () => $component.deleteCandidate(name)
+						click: () => isDeleteCandidate(true)
 					">
-						<svg-icon params="uri: $component.deleteIconUri(name)"></svg-icon>
+						<svg-icon params="uri: deleteIcon"></svg-icon>
 					</button>
-					
-					<span data-bind="visible: $component.isDeleteCandidate(name)">
-						<a class="link" data-bind="click: () => $component.confirmDelete()">
-							yes
-						</a>/<a class="link" data-bind="click: () => $component.cancelDelete()">
-							no
-						</a>
-					</span>
-				</td> 			
+
+					<span data-bind="visible: isDeleteCandidate">
+						<a class="link" href data-bind="click: $data.delete">yes</a>
+						/
+						<a class="link" href 
+							data-bind="click: () => isDeleteCandidate(false)">no</a>
+					</span> 
+				</td>
 			</tr>
 		</tbody>
 	</table>

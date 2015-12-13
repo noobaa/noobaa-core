@@ -2,34 +2,10 @@ buckets-table {
 	display: block;
 	padding: 2em 3.5em;
 
-	th.asc, th.des {
-
-		> a::after {
-			content: '';
-			position: absolute;
-			vertical-align: middle;
-			margin-left: .5em;
-			margin-top: .5em;
-			display: inline-block;
-			border: 5px solid transparent;
-		}
-
-		&.asc > a::after {
-			border-bottom: none;
-			border-top-color: @text-color4;
-		}
-
-		&.des > a::after {
-			border-top: none;
-			border-bottom-color: @text-color4;
-		}
-	}
-
 	.delete-btn {
 		padding: 0;
 
 		&[disabled] {
-			opacity: 0.15;
 			cursor: default;
 		}
 	}
@@ -38,7 +14,7 @@ buckets-table {
 	.filecount-col,
 	.totalsize-col,
 	.freesize-col {
-		min-width: 100px;
+		min-width: 120px;
 	}
 
 	.name-col{
@@ -46,7 +22,7 @@ buckets-table {
 	}
 
 	.cloudsync-col {
-		min-width: 140px;
+		min-width: 150px;
 	}
 
 	.delete-col {

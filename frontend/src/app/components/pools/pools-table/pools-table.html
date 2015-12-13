@@ -2,42 +2,44 @@
 	<table>
 		<thead>
 			<tr>
-				<th>state</th>
-				<th class="greedy text-left">
-					<a>pool name</a>
+				<th class="state-col" data-bind="css: orderCssFor('state')">
+					<a data-bind="href: orderHrefFor('state')">state</a>
 				</th>
-				<th>nodes</th>
-				<th>online</th>
-				<th>offline</th>
-				<th>usage</th>
-				<th>capacity</th>
-				<th>actions</th>
-			</tr>
-
-			<!-- Used for layout perposes -->
-			<tr class="collapse-row">
-				<th>state</th>
-				<th class="greedy text-left">pool name</th>
-				<th>nodes</th>
-				<th>online</th>
-				<th>offline</th>
-				<th>usage</th>
-				<th>capacity</th>
-				<th>actions</th>
-			</tr>			
+				<th class="name-col text-left" data-bind="css: orderCssFor('name')">
+					<a data-bind="href: orderHrefFor('name')">pool name</a>
+				</th>
+				<th class="nodes-col" data-bind="css: orderCssFor('nodecount')">
+					<a data-bind="href: orderHrefFor('nodecount')">nodes</a>
+				</th>
+				<th class="online-nodes-col" data-bind="css: orderCssFor('onlinecount')">
+					<a data-bind="href: orderHrefFor('onlinecount')">online</a>
+				</th>
+				<th class="offline-nodes-col" data-bind="css: orderCssFor('offlinecount')">
+					<a data-bind="href: orderHrefFor('offlinecount')">offline</a>
+				</th>
+				<th class="usage-col" data-bind="css: orderCssFor('usage')">
+					<a data-bind="href: orderHrefFor('usage')">usage</a>
+				</th>
+				<th class="capacity-col" data-bind="css: orderCssFor('capacity')">
+					<a data-bind="href: orderHrefFor('capacity')">capacity</a>
+				</th>
+				<th></th>
+			</tr>		
 		</thead>
 
 		<tbody data-bind="foreach: rows">
 			<tr>
-				<td class="text-left"></td>
-				<td class="text-left">
-					<a class="link" data-bind="text: name, href: href"></a>
+				<td class="state-col">
+					<svg-icon params="uri: stateIcon"></svg-icon>
 				</td>
-				<td></td>
-				<td></td>
-				<td></td>
-				<td></td>
-				<td></td>
+				<td class="name-col text-left">
+					<a href class="link" data-bind="text: name, href: href"></a>
+				</td>
+				<td class="nodes-col" data-bind="text: nodeCount"></td>
+				<td class="online-nodes-col" data-bind="text: onlineCount"></td>
+				<td class="offline-nodes-col" data-bind="text: offlineCount"></td>
+				<td class="usage-col" data-bind="text: usage"></td>
+				<td class="capacity-col" data-bind="text: capacity"></td>
 				<td></td>
 			</tr>
 		</tbody>

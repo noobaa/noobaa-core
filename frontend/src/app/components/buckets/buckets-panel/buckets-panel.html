@@ -1,14 +1,15 @@
 <div class="buckets-panel">
 	<div class="clear">
-		<a class="pull-right btn add-bucket-btn" data-bind="click: openCreateBucketModal">
+		<button class="pull-right btn add-bucket-btn" data-bind="click: showCreateBucketModal">
 			create bucket
-		</a>
+		</button>
 	</div>
 
-	<buckets-table params="buckets: buckets"></buckets-table>
+	<buckets-table params="buckets: buckets">
+	</buckets-table>
 
 	 <modal params="visible: isCreateBucketModalVisible">
-	 	<create-bucket-form params="oncomplete: () => closeCreateBucketModal()">
+	 	<create-bucket-form params="oncomplete: () => hideCreateBucketModal()">
 	 	</create-bucket-form>
 	 </modal>
 </div>

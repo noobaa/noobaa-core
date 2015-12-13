@@ -1,18 +1,34 @@
-<div class="bucket-panel">
-	<bucket-summary params="bucket: bucket" class="center clear"></bucket-summary>
+<div class="bucket-panel text-center">
+	<bucket-summary params="bucket: bucket" class="center"></bucket-summary>
 
 	<ul class="tabs details-pane">
-		<li data-bind="css: { selected: selectedTab() == 'objects' }">
-			<a class="tab-header" data-bind="href: '/:system/buckets/:bucket/objects'">
+		<li data-bind="css: { selected: isTabSelected('objects') }">
+			<a class="tab-header" data-bind="href: '/systems/:system/buckets/:bucket/objects'">
 				<svg-icon params="uri: '/assets/icons.svg#bucket'"></svg-icon>
 				Files
 			</a>
 
 			<section class="tab-content">
-				<input type="search" class="obj-filter" placeholder="Search File" 
+<!-- 				<input type="search" class="obj-filter" placeholder="Filter Files" 
 					data-bind="textInput: objectFilter" />
 
-				<bucket-objects-table params="objects: objects"></bucket-objects-table>
+				<div class="pagination pull-right">
+					<span class="page-indicator">
+						<span class="highlight">1 - 5</span>
+						of
+						<span class="highlight">13</span>
+					</span>
+					
+					<button class="btn-flat" data-bind="pageBack">
+						&lt;
+					</button>
+					
+					<button class="btn-flat" data-bind="pageForward">
+						&gt;
+					</button>
+				</div> -->
+
+ 				<bucket-objects-table params="objects: objects"></bucket-objects-table>
 			</section>
 		</li>
 	</ul>

@@ -207,27 +207,23 @@ nb_api.factory('nbNodes', [
             scope.encodedDataIP = encodedData;
             scope.current_host = $window.location.host;
             scope.typeOptions = [{
-                name: 'Use noobaa.local',
-                value: scope.encodedData
+                name: 'Use custom DNS',
+                value: ''
             }, {
                 name: 'Use ' + secured_host,
                 value: scope.encodedDataIP
-            }, {
-                name: 'Use custom DNS',
-                value: ''
             }, ];
             console.log('type options', scope.typeOptions);
             scope.encoding = {
                 type: scope.typeOptions[0].value,
                 new_dns: '',
-                show_other_dns: false
+                show_other_dns: true
             };
 
             console.log(JSON.stringify(config_json), String.toString(config_json), 'encoded', encodedData);
 
             scope.dns_select = function(selected_value) {
-                if (scope.typeOptions[0].value !== selected_value &&
-                    scope.typeOptions[1].value !== selected_value) {
+                if (scope.typeOptions[1].value !== selected_value) {
                     scope.encoding.show_other_dns = true;
                 } else {
                     scope.encoding.show_other_dns = false;
@@ -236,8 +232,8 @@ nb_api.factory('nbNodes', [
             scope.new_dns = function() {
                 config_json.address = 'wss://' + scope.encoding.new_dns + ':' + nbSystem.system.ssl_port;
                 encodedData = $window.btoa(JSON.stringify(config_json));
-                scope.typeOptions[2].value = encodedData;
-                scope.encoding.type = scope.typeOptions[2].value;
+                scope.typeOptions[0].value = encodedData;
+                scope.encoding.type = scope.typeOptions[0].value;
             };
             scope.next_stage = function() {
                 scope.stage += 1;
@@ -291,6 +287,27 @@ nb_api.factory('nbNodes', [
                         scope.next_stage();
                     });
             };
+
+            scope.copy_to_clipboard = function() {
+                var copyFrom = $window.document.getElementById('copy-text-area');
+                var selection = $window.getSelection();
+                selection.removeAllRanges();
+                var range = $window.document.createRange();
+                range.selectNodeContents(copyFrom);
+                selection.addRange(range);
+                try {
+                    var success = $window.document.execCommand('copy', false, null);
+                    if (success) {
+                        nbAlertify.success('Agent configuration copied to clipboard');
+                    } else {
+                        nbAlertify.error('Cannot copy agent configuration to clipboard, please copy manually');
+                    }
+                    selection.removeAllRanges();
+                } catch (err) {
+                    console.error('err while copy', err);
+                    nbAlertify.error('Cannot copy agent configuration to clipboard, please copy manually');
+                }
+            };
             scope.modal = nbModal({
                 template: 'console/add_node_dialog.html',
                 scope: scope,
@@ -338,7 +355,9 @@ nb_api.factory('nbNodes', [
             return $q.when()
                 .then(function() {
                     dbg.log0('SELF TEST listing nodes');
-                    return list_nodes({})
+                    return list_nodes({
+                            limit: 20
+                        })
                         .then(function(res) {
                             var nodes = res.nodes;
                             online_nodes = _.filter(nodes, function(target_node) {

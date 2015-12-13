@@ -316,6 +316,7 @@ module.exports = {
                 'name',
                 'roles',
                 'tiers',
+                'pools',
                 'storage',
                 'nodes',
                 'buckets',
@@ -349,6 +350,27 @@ module.exports = {
                     items: {
                         $ref: '/bucket_api/definitions/bucket_info'
                     }
+                },
+                pools: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name', 'total_nodes', 'online_nodes', 'storage'],
+                        properties: {
+                            name: {
+                                type: 'string'
+                            },
+                            total_nodes: {
+                                type: 'integer',
+                            },
+                            online_nodes: {
+                                type: 'integer',
+                            },
+                            storage: {
+                                $ref: '/common_api/definitions/storage_info'
+                            },
+                        },
+                    },
                 },
                 objects: {
                     type: 'integer'

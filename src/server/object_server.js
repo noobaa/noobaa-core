@@ -50,7 +50,7 @@ module.exports = object_server;
 function create_multipart_upload(req) {
     return load_bucket(req)
         .then(function() {
-            dbg.log0('create_multipart_upload xattr',req.rpc_params);
+            dbg.log0('create_multipart_upload xattr', req.rpc_params);
             var info = {
                 system: req.system.id,
                 bucket: req.bucket.id,
@@ -175,7 +175,7 @@ function abort_multipart_upload(req) {
  *
  */
 function allocate_object_parts(req) {
-    return find_object_md(req)
+    return find_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.allocate_object_parts(
@@ -192,7 +192,7 @@ function allocate_object_parts(req) {
  *
  */
 function finalize_object_parts(req) {
-    return find_object_md(req)
+    return find_cached_object_md(req)
         .then(function(obj) {
             fail_obj_not_in_upload_mode(req, obj);
             return object_mapper.finalize_object_parts(
@@ -276,10 +276,10 @@ function read_object_md(req) {
  *
  */
 function update_object_md(req) {
-    dbg.log0('update object md',req.rpc_params);
+    dbg.log0('update object md', req.rpc_params);
     return find_object_md(req)
         .then(function(obj) {
-            var updates = _.pick(req.rpc_params, 'content_type','xattr');
+            var updates = _.pick(req.rpc_params, 'content_type', 'xattr');
             return obj.update(updates).exec();
         })
         .then(db.check_not_deleted(req, 'object'))
@@ -370,6 +370,14 @@ function list_objects(req) {
             if (limit) {
                 find.limit(limit);
             }
+            var sort = req.rpc_params.sort;
+            if (sort) {
+                var order = (req.rpc_params.order === -1) ? -1 : 1;
+                var sort_opt = {};
+                sort_opt[sort] = order;
+                find.sort(sort_opt);
+            }
+
             return P.all([
                 find.exec(),
                 req.rpc_params.pagination && db.ObjectMD.count(info)
@@ -462,16 +470,21 @@ function object_md_query(req) {
 function find_object_md(req) {
     return load_bucket(req)
         .then(function() {
-            var query = _.omit(object_md_query(req), 'deleted');
-            query.deleted = null;
-            dbg.log0('find object:', query);
-            return db.ObjectMD.findOne(query).exec();
+            return db.ObjectMD.findOne(object_md_query(req)).exec();
         })
-        .then(db.check_not_found(req, 'object'))
-        .then(function(obj) {
-            dbg.log0('find object(2):', obj);
-            return obj;
-        });
+        .then(db.check_not_deleted(req, 'object'));
+}
+
+function find_cached_object_md(req) {
+    return load_bucket(req)
+        .then(function() {
+            return db.ObjectMDCache.get({
+                system: req.system.id,
+                bucket: req.bucket.id,
+                key: req.rpc_params.key
+            });
+        })
+        .then(db.check_not_deleted(req, 'object'));
 }
 
 function fail_obj_not_in_upload_mode(req, obj) {

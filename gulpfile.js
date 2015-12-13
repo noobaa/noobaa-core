@@ -3,7 +3,7 @@
 var gulp = require('gulp');
 var gutil = require('gulp-util');
 // var gulp_debug = require('gulp-debug');
-// var gulp_replace = require('gulp-replace');
+var gulp_replace = require('gulp-replace');
 // var gulp_filter = require('gulp-filter');
 var gulp_size = require('gulp-size');
 var gulp_concat = require('gulp-concat');
@@ -38,6 +38,9 @@ var bower = require('bower');
 var Q = require('q');
 var _ = require('lodash');
 var promise_utils = require('./src/util/promise_utils');
+var pkg = require('./package.json');
+var current_pkg_version;
+
 
 if (!process.env.PORT) {
     console.log('loading .env file ( no foreman ;)');
@@ -49,6 +52,8 @@ var bg_workers_server;
 var build_on_premise = true;
 var skip_install = false;
 var use_local_executable = false;
+var git_commit = "DEVONLY";
+
 for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--on_premise') {
         build_on_premise = true;
@@ -62,8 +67,13 @@ for (var arg_idx = 0; arg_idx < process.argv.length; arg_idx++) {
     if (process.argv[arg_idx] === '--local') {
         use_local_executable = true;
     }
-
+    if (process.argv[arg_idx] === '--GIT_COMMIT') {
+        git_commit = process.argv[arg_idx + 1].substr(0, 7);
+    }
 }
+
+current_pkg_version = pkg.version + '-' + git_commit;
+console.log('current_pkg_version:', current_pkg_version);
 
 function leave_no_wounded(err) {
     if (err) {
@@ -90,8 +100,7 @@ var PATHS = {
 
     assets: {
         'build/public': [
-            'node_modules/video.js/dist/video-js/video-js.swf',
-            'node_modules/zeroclipboard/dist/ZeroClipboard.swf',
+            'node_modules/video.js/dist/video-js/video-js.swf'
         ],
         'build/public/css': [],
         'build/public/fonts': [
@@ -114,7 +123,37 @@ var PATHS = {
     server_main: 'src/server/web_server.js',
     bg_workers_main: 'src/bg_workers/bg_workers_starter.js',
     client_bundle: 'src/client/index.js',
-    // agent_bundle: 'src/agent/index.js',
+    client_libs: [
+        // browserify nodejs wrappers
+        'fs',
+        'os',
+        'url',
+        'util',
+        'path',
+        'http',
+        'https',
+        'buffer',
+        'crypto',
+        'stream',
+        'assert',
+        'events',
+        'querystring',
+        // other libs
+        'lodash',
+        'moment',
+        'ws',
+        'ip',
+        'q',
+        'aws-sdk',
+        'bluebird',
+        'generate-function',
+        'performance-now',
+        'is-my-json-valid',
+        'concat-stream',
+        'dev-null',
+        'chance',
+        'winston',
+    ],
     client_externals: [
         'node_modules/bootstrap/dist/js/bootstrap.js',
         'vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
@@ -237,7 +276,7 @@ function pack(dest, name) {
             });
             return {
                 name: 'noobaa-NVA',
-                version: '0.0.0',
+                version: current_pkg_version,
                 private: true,
                 main: 'index.js',
                 dependencies: deps,
@@ -264,9 +303,7 @@ function pack(dest, name) {
     var node_modules_stream = gulp
         .src(['node_modules/**/*',
             '!node_modules/gulp*/**/*',
-            '!node_modules/heapdump/**/*',
             '!node_modules/bower/**/*',
-            '!node_modules/bcrypt/**/*',
             '!node_modules/node-inspector/**/*'
         ], {
             base: 'node_modules'
@@ -303,10 +340,15 @@ function pack(dest, name) {
             p.dirname = path.join('build/public', p.dirname);
         }));
 
+    var build_native_stream = gulp
+        .src(['build/Release/**/*', ], {})
+        .pipe(gulp_rename(function(p) {
+            p.dirname = path.join('build/Release', p.dirname);
+        }));
 
     return event_stream
         .merge(pkg_stream, src_stream, images_stream, basejs_stream,
-            vendor_stream, agent_distro, build_stream, node_modules_stream)
+            vendor_stream, agent_distro, build_stream, build_native_stream, node_modules_stream)
         .pipe(gulp_rename(function(p) {
             p.dirname = path.join('noobaa-core', p.dirname);
         }))
@@ -453,7 +495,7 @@ gulp.task('agent', ['lint'], function() {
             });
             return {
                 name: 'noobaa-agent',
-                version: '0.0.0',
+                version: current_pkg_version,
                 private: true,
                 bin: 'agent/agent_cli.js',
                 main: 'agent/agent_cli.js',
@@ -508,11 +550,11 @@ function build_agent_distro() {
         })
         .then(function() {
             gutil.log('before downloading linux setup');
-            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup >build/public/noobaa-setup',
+            return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://146.148.16.59:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup' + current_pkg_version + ' >build/public/noobaa-setup',
                 build_params, process.cwd());
         })
         .then(function() {
-            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup',
+            return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup*',
                 build_params, process.cwd());
         })
         .then(function() {
@@ -545,27 +587,39 @@ function build_rest_distro() {
 
 function package_build_task() {
     var DEST = 'build/public';
-    var NAME = 'noobaa-NVA.tar';
+    var NAME = 'noobaa-NVA';
 
     //Remove previously build package
-    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '.gz')
+    return Q.nfcall(child_process.exec, 'rm -f ' + DEST + '/' + NAME + '*.tar.gz')
         .then(function(res) { //build agent distribution setup
             if (!use_local_executable) {
-                return build_agent_distro();
-            } else {
-                return;
-            }
-        })
-        .then(function() { //build rest distribution setup
-            if (!use_local_executable) {
-                return build_rest_distro();
+                gutil.log('before downloading setup and rest');
+                return Q.fcall(function() {
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/LinuxBuild/lastBuild/artifact/build/linux/noobaa-setup-' + current_pkg_version + ' >build/public/noobaa-setup-' + current_pkg_version, [], process.cwd());
+                    })
+                    .then(function() {
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_agent_remote/lastBuild/artifact/build/windows/noobaa-setup-' + current_pkg_version + '.exe >build/public/noobaa-setup-' + current_pkg_version + '.exe', [], process.cwd());
+                    })
+                    .then(function() {
+                        return promise_utils.promised_exec('curl -u tamireran:0436dd1acfaf9cd247b3dd22a37f561f -L http://127.0.0.1:8080/job/win_s3_remote/lastBuild/artifact/build/windows/noobaa-s3rest.exe-' + current_pkg_version + ' >build/public/noobaa-s3rest-' + current_pkg_version + '.exe', [], process.cwd());
+                    })
+                    .then(function() {
+                        return promise_utils.promised_exec('chmod 777 build/public/noobaa-setup', [], process.cwd());
+                    });
             } else {
                 return;
             }
         })
         .then(function() {
+            gutil.log('before downloading nvm and node package');
+            return promise_utils.promised_exec('curl -o- https://raw.githubusercontent.com/creationix/nvm/master/nvm.sh >build/public/nvm.sh', [], process.cwd());
+        })
+        .then(function() {
+            return promise_utils.promised_exec('curl -o- https://nodejs.org/dist/v4.2.2/node-v4.2.2-linux-x64.tar.xz >build/public/node-v4.2.2-linux-x64.tar.xz', [], process.cwd());
+        })
+        .then(function() {
             //call for packing
-            return pack(DEST, NAME);
+            return pack(DEST, NAME + "-" + current_pkg_version + '.tar');
         })
         .then(null, function(error) {
             gutil.log("error ", error, error.stack);
@@ -582,34 +636,26 @@ if (skip_install === true) {
     });
 }
 
-gulp.task('client', ['bower', 'ng'], function() {
+
+gulp.task('client_libs', ['bower'], function() {
     var DEST = 'build/public/js';
-    var NAME = 'index.js';
-    var NAME_MIN = 'index.min.js';
+    var NAME = 'libs.js';
+    var NAME_MIN = 'libs.min.js';
     var bundler = browserify({
-        entries: [
-            './' + PATHS.client_bundle,
-            // './' + PATHS.agent_bundle
-        ],
         debug: true,
-
-        // TODO this browserify config will not work in node-webkit....
-
-        // bare is alias for both --no-builtins, --no-commondir,
-        // and sets --insert-global-vars to just "__filename,__dirname".
-        // This is handy if you want to run bundles in node.
-        // bare: true,
-        // detectGlobals: false,
-        // list: true,
     });
+    _.each(PATHS.client_libs, function(lib) {
+        bundler.require(lib, {
+            expose: lib
+        });
+    });
+
     // using gulp_replace to fix collision of requires
-    var client_bundle_stream = bundler.bundle()
+    var client_libs_bundle_stream = bundler.bundle()
         .pipe(vinyl_source_stream(NAME))
         .pipe(vinyl_buffer());
-    // .pipe(gulp_replace(/\brequire\b/g, 'require_browserify'))
-    // .pipe(gulp_replace(/\brequire_node\b/g, 'require'));
     var client_merged_stream = event_stream.merge(
-        client_bundle_stream,
+        client_libs_bundle_stream,
         gulp.src(PATHS.client_externals)
     );
     return client_merged_stream
@@ -619,6 +665,36 @@ gulp.task('client', ['bower', 'ng'], function() {
         .pipe(gulp.dest(DEST))
         .pipe(gulp_cached(NAME))
         .pipe(gulp_uglify())
+        .pipe(gulp_rename(NAME_MIN))
+        .pipe(gulp_size_log(NAME_MIN))
+        .pipe(gulp.dest(DEST));
+});
+
+gulp.task('client', function() {
+    var DEST = 'build/public/js';
+    var NAME = 'app.js';
+    var NAME_MIN = 'app.min.js';
+    var bundler = browserify('./' + PATHS.client_bundle, {
+            debug: true,
+        })
+        .transform('babelify', {
+            presets: ['es2015']
+        });
+    _.each(PATHS.client_libs, function(lib) {
+        bundler.external(lib);
+    });
+    gutil.log('setting upgrade', pkg.version, current_pkg_version);
+
+    return bundler.bundle()
+        .pipe(vinyl_source_stream(NAME))
+        .pipe(vinyl_buffer())
+        .pipe(gulp_replace('"version": "' + pkg.version + '"', '"version": "' + current_pkg_version + '"'))
+        .pipe(gulp_plumber(PLUMB_CONF))
+        .pipe(gulp_size_log(NAME))
+        .pipe(gulp.dest(DEST))
+        .pipe(gulp_cached(NAME))
+        .pipe(gulp_uglify())
+        .pipe(gulp_replace('noobaa-core",version:"' + pkg.version + '"', 'noobaa-core",version:"' + current_pkg_version + '"'))
         .pipe(gulp_rename(NAME_MIN))
         .pipe(gulp_size_log(NAME_MIN))
         .pipe(gulp.dest(DEST));
@@ -723,14 +799,23 @@ function serve_bg() {
     gulp_notify('noobaa bg serving...').end('stam');
 }
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'lint', 'client', 'agent']);
+gulp.task('install', [
+    'bower',
+    'assets',
+    'ng',
+    'css',
+    'lint',
+    'client_libs',
+    'client',
+    'agent'
+]);
 gulp.task('serve', [], serve);
 gulp.task('serve_bg', [], serve_bg);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_client_and_serve', ['client'], serve);
+gulp.task('install_client_and_serve', ['client', 'ng'], serve);
 
-gulp.task('start_dev', ['install_and_serve'], function() {
+gulp.task('watch', ['serve'], function() {
     gulp.watch([
         'src/css/**/*'
     ], ['install_css_and_serve']);
@@ -749,7 +834,7 @@ gulp.task('start_dev', ['install_and_serve'], function() {
     ], ['serve']);
 });
 
-gulp.task('start_bg', ['lint'], function() {
+gulp.task('watch_bg', ['lint'], function() {
     gulp.watch([
         'src/server/**/*',
         'src/api/**/*',
@@ -760,16 +845,16 @@ gulp.task('start_bg', ['lint'], function() {
     serve_bg();
 });
 
-gulp.task('start_prod', function() {
+gulp.task('start', function() {
     var server_module = '.' + path.sep + PATHS.server_main;
-    console.log('~~~ START PROD ~~~', server_module);
+    console.log('~~~ START ~~~', server_module);
     require(server_module);
 });
 
-if (process.env.DEV_MODE === 'true') {
-    gulp.task('start', ['start_dev']);
-} else {
-    gulp.task('start', ['start_prod']);
-}
+gulp.task('start_bg', function() {
+    var server_module = '.' + path.sep + PATHS.bg_workers_main;
+    console.log('~~~ START BG ~~~', server_module);
+    require(server_module);
+});
 
 gulp.task('default', ['start']);

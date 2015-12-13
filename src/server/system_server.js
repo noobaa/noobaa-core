@@ -45,6 +45,7 @@ var dbg = require('../util/debug_module')(__filename);
 var promise_utils = require('../util/promise_utils');
 var bucket_server = require('./bucket_server');
 var moment = require('moment');
+var pkg = require('../../package.json');
 
 /**
  *
@@ -248,8 +249,12 @@ function read_system(req) {
             // tiers
             db.Tier.find(by_system_id_undeleted).exec(),
 
-            // nodes - count, online count, allocated/used storage
-            db.Node.aggregate_nodes(by_system_id_undeleted),
+            // nodes - count, online count, allocated/used storage aggregate by tier
+            db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'),
+
+            //TODO:: merge this and the previous call into one query, two memory ops
+            // nodes - count, online count, allocated/used storage aggregate by pool
+            db.Node.aggregate_nodes(by_system_id_undeleted, 'pool'),
 
             // objects - size, count
             db.ObjectMD.aggregate_objects(by_system_id_undeleted),
@@ -266,13 +271,33 @@ function read_system(req) {
 
             // buckets
             db.Bucket.find(by_system_id_undeleted).exec(),
+
+            // pools
+            db.Pool.find(by_system_id_undeleted).exec(),
         ]);
 
-    }).spread(function(roles, tiers, nodes_aggregate, objects_aggregate, blocks, buckets) {
+    }).spread(function(roles, tiers, nodes_aggregate_tier, nodes_aggregate_pool,
+        objects_aggregate, blocks, buckets, pools) {
         blocks = _.mapValues(_.indexBy(blocks, '_id'), 'value');
         var tiers_by_id = _.indexBy(tiers, '_id');
-        var nodes_sys = nodes_aggregate[''] || {};
+        var nodes_sys = nodes_aggregate_tier[''] || {};
         var objects_sys = objects_aggregate[''] || {};
+        var ret_pools = [];
+        _.each(pools, function(p) {
+            var aggregate_p = nodes_aggregate_pool[p.id] || {};
+            ret_pools.push({
+                name: p.name,
+                total_nodes: p.nodes.length,
+                online_nodes: aggregate_p.online || 0,
+                //TODO:: in tier we divide by number of replicas, in pool we have no such concept
+                storage: {
+                    total: (p.total || 0),
+                    free: (p.free || 0),
+                    used: (p.used || 0),
+                    alloc: (p.alloc || 0)
+                }
+            });
+        });
         return P.all(_.map(buckets, function(bucket) {
             var b = _.pick(bucket, 'name');
             var a = objects_aggregate[bucket.id] || {};
@@ -284,7 +309,7 @@ function read_system(req) {
                 var tier = tiers_by_id[tier_id];
                 if (!tier) return '';
                 var replicas = tier.replicas || 3;
-                var t = nodes_aggregate[tier.id];
+                var t = nodes_aggregate_tier[tier.id];
                 // TODO how to account bucket total storage with multiple tiers?
                 b.storage.total = (t.total || 0) / replicas;
                 b.storage.free = (t.free || 0) / replicas;
@@ -304,7 +329,7 @@ function read_system(req) {
                     }
                 });
             }).then(function(sync_policy) {
-                dbg.log2('bucket sync_policy is:', sync_policy);                
+                dbg.log2('bucket sync_policy is:', sync_policy);
                 if (!_.isEmpty(sync_policy)) {
                     var interval_text = 0;
                     if (sync_policy.policy.schedule < 60) {
@@ -355,7 +380,7 @@ function read_system(req) {
                 }),
                 tiers: _.map(tiers, function(tier) {
                     var t = _.pick(tier, 'name');
-                    var a = nodes_aggregate[tier.id];
+                    var a = nodes_aggregate_tier[tier.id];
                     t.storage = _.defaults(_.pick(a, 'total', 'free', 'used', 'alloc'), {
                         alloc: 0,
                         used: 0
@@ -377,6 +402,7 @@ function read_system(req) {
                     count: nodes_sys.count || 0,
                     online: nodes_sys.online || 0,
                 },
+                pools: ret_pools,
                 buckets: updated_buckets,
                 objects: objects_sys.count || 0,
                 access_keys: req.system.access_keys,
@@ -528,7 +554,10 @@ function get_system_resource_info(req) {
             return;
         }
         if (process.env.ON_PREMISE) {
-            return '/public/' + val;
+            var versioned_resource = val.replace('noobaa-setup', 'noobaa-setup-' + pkg.version);
+            versioned_resource = versioned_resource.replace('noobaa-s3rest', 'noobaa-s3rest-' + pkg.version);
+            dbg.log('setup resources:', val, versioned_resource);
+            return '/public/' + versioned_resource;
         } else {
             var params = {
                 Bucket: S3_SYSTEM_BUCKET,
@@ -640,7 +669,7 @@ function diagnose(req) {
             return out_path;
         })
         .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics', err, err.stack());
+            dbg.log0('Error while collecting diagnostics', err, err.stack);
             return;
         });
 }
@@ -662,7 +691,7 @@ function diagnose_with_agent(data) {
             return out_path;
         })
         .then(null, function(err) {
-            dbg.log0('Error while collecting diagnostics with agent', err, err.stack());
+            dbg.log0('Error while collecting diagnostics with agent', err, err.stack);
             return;
         });
 }

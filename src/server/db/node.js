@@ -63,6 +63,12 @@ var node_schema = new Schema({
         required: true,
     },
 
+    pool: {
+        ref: 'Pool',
+        type: types.ObjectId,
+        required: true,
+    },
+
     // system - pulled from the tier
     system: {
         ref: 'System',
@@ -195,6 +201,8 @@ node_schema.statics.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
 /**
  *
  * aggregate_nodes
+ * _by_tier - aggregatre by ttir
+ * _by_pool - aggregate by pool
  *
  * counts the number of nodes and online nodes
  * and sum of storage (allocated, used) for the entire query, and per tier.
@@ -203,13 +211,14 @@ node_schema.statics.get_minimum_alloc_heartbeat = get_minimum_alloc_heartbeat;
  *      each tier value is an object with properties: alloc, used, count, online.
  *
  */
-node_schema.statics.aggregate_nodes = function(query) {
+node_schema.statics.aggregate_nodes = function(query, type) {
     var minimum_online_heartbeat = get_minimum_online_heartbeat();
     return this.mapReduce({
         query: query,
         scope: {
             // have to pass variables to map/reduce with a scope
             minimum_online_heartbeat: minimum_online_heartbeat,
+            type: type,
         },
         map: function() {
             /* global emit */
@@ -222,23 +231,23 @@ node_schema.statics.aggregate_nodes = function(query) {
             if (online) {
                 emit(['', 'online'], 1);
             }
-            emit([this.tier, 'total'], this.storage.total);
-            emit([this.tier, 'free'], this.storage.free);
-            emit([this.tier, 'used'], this.storage.used);
-            emit([this.tier, 'alloc'], this.storage.alloc);
-            emit([this.tier, 'count'], 1);
+            emit([this[type], 'total'], this.storage.total);
+            emit([this[type], 'free'], this.storage.free);
+            emit([this[type], 'used'], this.storage.used);
+            emit([this[type], 'alloc'], this.storage.alloc);
+            emit([this[type], 'count'], 1);
             if (online) {
-                emit([this.tier, 'online'], 1);
+                emit([this[type], 'online'], 1);
             }
         },
         reduce: size_utils.reduce_sum
     }).then(function(res) {
-        var tiers = {};
+        var bins = {};
         _.each(res, function(r) {
-            var t = tiers[r._id[0]] = tiers[r._id[0]] || {};
+            var t = bins[r._id[0]] = bins[r._id[0]] || {};
             t[r._id[1]] = r.value;
         });
-        return tiers;
+        return bins;
     });
 };
 

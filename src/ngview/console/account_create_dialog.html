@@ -26,11 +26,12 @@
                     </div>
                     <div ng-if="!nbClient.account.is_support && !register">
                         Copy the following text and send it to the user
-                        <pre style="font-size: 11px; color: hsl(0,0%,50%)"  class="block" nb-clipboard="$parent.email_message" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom">{{$parent.email_message}}</pre>
+                        <pre id="copy-text-area" style="font-size: 11px; color: hsl(0,0%,50%)"  class="block"  data-placement="bottom">{{$parent.email_message}}</pre>
                     </div>
-                    <button  ng-if="!nbClient.account.is_support && !register" class="btn btn-default" style="width: 30%;padding: 10px" nb-clipboard="$parent.email_message">
+                    <button id="copy-button"  ng-if="!nbClient.account.is_support && !register" class="btn btn-default" style="width: 35%;padding: 10px" ng-click="copy_to_clipboard()">
                         Copy To Clipboard
                     </button>
+
                     <div class="form-control-wrapper text-center">
                         <button type="submit" class="btn btn-primary" ng-disabled="form_disabled" nb-click-ladda="create()">
                             Done

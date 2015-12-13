@@ -97,7 +97,7 @@ function upload_test() {
     });
 
     var upload_semaphore = new Semaphore(UL_TEST.num_threads);
-    return P.allSettled(_.map(UL_TEST.files, function(f) {
+    return P.all(_.map(UL_TEST.files, function(f) {
         return upload_semaphore.surround(function() {
             return upload_file(f);
         });

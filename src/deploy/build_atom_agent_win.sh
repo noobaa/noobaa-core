@@ -103,7 +103,7 @@ else
                 sed -i '' '/nodetime/d' package.json
                 sed -i '' '/newrelic/d' package.json
                 npm install -dd
-                curl -L http://nodejs.org/dist/v0.10.32/node.exe > node.exe
+                curl -Lk https://nodejs.org/dist/v4.2.1/win-x86/node.exe > node.exe
                 curl -L http://nodejs.org/dist/v0.10.33/openssl-cli.exe > openssl.exe
                 cp node.exe ../public/node.exe
                 cp openssl.exe ../public/openssl.exe

@@ -17,7 +17,6 @@ var P = require('../util/promise');
 var path = require('path');
 var http = require('http');
 var https = require('https');
-var mongoose = require('mongoose');
 var express = require('express');
 var express_favicon = require('serve-favicon');
 var express_morgan_logger = require('morgan');
@@ -29,13 +28,13 @@ var express_compress = require('compression');
 var util = require('util');
 var config = require('../../config.js');
 var dbg = require('../util/debug_module')(__filename);
-var mongoose_logger = require('../util/mongoose_logger');
-//var s3app = require('../s3/app');
+var time_utils = require('../util/time_utils');
 var pem = require('../util/pem');
 var multer = require('multer');
 var fs = require('fs');
 var cluster = require('cluster');
-
+var pkg = require('../../package.json');
+var db = require('../server/db');
 
 
 
@@ -61,44 +60,9 @@ process.env.ADDRESS = process.env.ADDRESS || 'http://localhost:5001';
 
 var rootdir = path.join(__dirname, '..', '..');
 var dev_mode = (process.env.DEV_MODE === 'true');
-var debug_mode = (process.env.DEBUG_MODE === 'true');
-var mongoose_connected = false;
-var mongoose_timeout = null;
 
-// connect to the database
-if (debug_mode) {
-    mongoose.set('debug', mongoose_logger(dbg.log0.bind(dbg)));
-}
 
-mongoose.connection.once('open', function() {
-    // call ensureIndexes explicitly for each model
-    mongoose_connected = true;
-    return P.all(_.map(mongoose.modelNames(), function(model_name) {
-        return P.npost(mongoose.model(model_name), 'ensureIndexes');
-    }));
-});
-
-mongoose.connection.on('error', function(err) {
-    mongoose_connected = false;
-    console.error('mongoose connection error:', err);
-    if (!mongoose_timeout) {
-        mongoose_timeout = setTimeout(mongoose_conenct, 5000);
-    }
-
-});
-
-function mongoose_conenct() {
-    clearTimeout(mongoose_timeout);
-    mongoose_timeout = null;
-    if (!mongoose_connected) {
-        mongoose.connect(
-            process.env.MONGOHQ_URL ||
-            process.env.MONGOLAB_URI ||
-            'mongodb://localhost/nbcore');
-    }
-}
-
-mongoose_conenct();
+db.mongoose_conenct();
 
 // create express app
 var app = express();
@@ -224,11 +188,10 @@ P.fcall(function() {
 
 // agent package json
 app.get('/agent/package.json', function(req, res) {
-    dbg.log0('reqqqqqq:', req);
     res.status(200).send({
         name: 'agent',
         engines: {
-            node: '0.10.33'
+            node: '4.2.2'
         },
         scripts: {
             start: 'node node_modules/noobaa-agent/agent/agent_cli.js ' +
@@ -266,11 +229,16 @@ app.post('/upgrade',
     function(req, res) {
         var upgrade_file = req.file;
         dbg.log0('UPGRADE file', upgrade_file, 'upgrade.sh path:', process.cwd() + '/src/deploy/NVA_build');
-        var stdout = fs.openSync('/var/log/noobaa_deploy_out.log', 'a');
-        var stderr = fs.openSync('/var/log/noobaa_deploy_out.log', 'a');
+        var fsuffix = time_utils.time_suffix();
+        var fname = '/var/log/noobaa_deploy_out_' + fsuffix + '.log';
+        var stdout = fs.openSync(fname, 'a');
+        var stderr = fs.openSync(fname, 'a');
         var spawn = require('child_process').spawn;
-        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path + ' &');
-        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh', 'from_file', upgrade_file.path], {
+        dbg.log0('command:', process.cwd() + '/src/deploy/NVA_build/upgrade.sh from_file ' + upgrade_file.path);
+        spawn('nohup', [process.cwd() + '/src/deploy/NVA_build/upgrade.sh',
+            'from_file', upgrade_file.path,
+            'fsuffix', fsuffix
+        ], {
             detached: true,
             stdio: ['ignore', stdout, stderr],
             cwd: '/tmp'
@@ -356,6 +324,14 @@ function cache_control(seconds) {
 }
 
 // setup static files
+
+//use versioned executables
+var setup_filename = 'noobaa-setup-'+pkg.version;
+var s3_rest_setup_filename = 'noobaa-s3rest-'+pkg.version;
+app.use('/public/noobaa-setup.exe', express.static(path.join(rootdir, 'build', 'public',setup_filename+'.exe')));
+app.use('/public/noobaa-setup', express.static(path.join(rootdir, 'build', 'public',setup_filename)));
+app.use('/public/noobaa-s3rest.exe', express.static(path.join(rootdir, 'build', 'public',s3_rest_setup_filename+'exe')));
+
 app.use('/public/', cache_control(dev_mode ? 0 : 10 * 60)); // 10 minutes
 app.use('/public/', express.static(path.join(rootdir, 'build', 'public')));
 app.use('/public/images/', cache_control(dev_mode ? 3600 : 24 * 3600)); // 24 hours

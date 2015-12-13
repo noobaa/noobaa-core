@@ -76,18 +76,16 @@
                         </select>
                         <br>
                         <br>
-                        <span ng-show="encoding.show_other_dns" >
+                        <span ng-show="encoding.show_other_dns">
                             <div class="form-group">
                                 <input type="text" class="form-control floating-label" style="margin-top: -2px; border-bottom: none" placeholder="enter other DNS name" ng-model="encoding.new_dns" ng-change="new_dns()" ng-model-options="{debounce: 700}" />
                             </div>
                         </span>
-
-                        <pre style="font-size: 11px; color: hsl(0,0%,50%)" class="block" nb-clipboard="'/S /config ' + encoding.type" rel="tooltip" title="Click to copy to clipboard" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
-                        <button class="btn btn-default" style="width: 30%;padding: 10px" nb-clipboard="'/S /config ' + encoding.type">
+                        <pre id="copy-text-area" style="font-size: 11px; color: hsl(0,0%,50%)" class="block" data-placement="bottom"><b>/S /config</b> {{ encoding.type }}</pre>
+                        <button ng-click="copy_to_clipboard()" id="copy-button" class="btn btn-default" style="width: 35%;padding: 10px">
                             Copy To Clipboard
                         </button>
                     </div>
-
                     <div ng-if="stage==4">
                         <p class="text-center">
                             <b>Review the new nodes</b>

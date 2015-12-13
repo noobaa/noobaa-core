@@ -60,7 +60,9 @@ function create_bucket(req) {
             });
         })
         .then(null, db.check_already_exists(req, 'bucket'))
-        .thenResolve();
+        .then(function() {
+            return P.when(read_bucket(req));
+        });
 }
 
 /**
@@ -69,6 +71,11 @@ function create_bucket(req) {
  *
  */
 function read_bucket(req) {
+    var by_system_id_undeleted = {
+        system: req.system.id,
+        deleted: null,
+    };
+
     return P.when(db.Bucket
             .findOne(get_bucket_query(req))
             .populate('tiering.tiers')
@@ -77,12 +84,36 @@ function read_bucket(req) {
         .then(function(bucket) {
             var reply = get_bucket_info(bucket);
             // TODO read bucket's storage and objects info
-            reply.storage = {
-                alloc: 0,
-                used: 0,
-            };
-            reply.num_objects = 0;
-            return reply;
+            return P.when(db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'))
+                .then(function(nodes_aggregated) {
+                    var alloc = 0;
+                    var used = 0;
+                    var free = 0;
+                    var total = 0;
+                    _.each(bucket.tiering.tiers, function(t) {
+                        var aggr = nodes_aggregated[t.id];
+                        var replicas = t.replicas || 3;
+                        alloc += aggr.alloc || 0;
+                        used += aggr.used || 0;
+                        total += (aggr.total || 0) / replicas;
+                        free += (aggr.free || 0) / replicas;
+                        reply.storage = {
+                            alloc: alloc,
+                            used: used,
+                            total: total,
+                            free: free,
+                        };
+                    });
+                    return P.when(db.ObjectMD
+                        .count({
+                            system: req.system.id,
+                            bucket: bucket.id,
+                        }));
+                })
+                .then(function(obj_count) {
+                    reply.num_objects = obj_count;
+                    return reply;
+                });
         });
 }
 
@@ -160,7 +191,7 @@ function list_buckets(req) {
                 system: req.system.id,
                 deleted: null,
             })
-            .populate('tiering.tiers')
+            .populate('tiering')
             .exec())
         .then(function(buckets) {
             return {
@@ -409,11 +440,18 @@ function get_bucket_query(req) {
 }
 
 function get_bucket_info(bucket) {
+
     var reply = _.pick(bucket, 'name');
     if (bucket.tiering) {
-        reply.tiering = _.map(bucket.tiering, function(t) {
-            return t.tier.name;
-        });
+        return P.when(db.TieringPolicy
+                .find({
+                    system: bucket.system,
+                    _id: bucket.tiering,
+                    deleted: null,
+                }))
+            .then(function(tiering) {
+                reply.tiering = tiering;
+            });
     }
     return reply;
 }

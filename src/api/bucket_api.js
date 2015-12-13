@@ -27,6 +27,9 @@ module.exports = {
                     }
                 }
             },
+            reply: {
+                $ref: '/bucket_api/definitions/bucket_info'
+            },
             auth: {
                 system: 'admin'
             }

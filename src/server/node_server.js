@@ -9,7 +9,7 @@ var object_mapper = require('./object_mapper');
 var node_monitor = require('./node_monitor');
 var server_rpc = require('./server_rpc').server_rpc;
 var db = require('./db');
-// var dbg = require('../util/debug_module')(__filename);
+var dbg = require('../util/debug_module')(__filename);
 
 /**
  *
@@ -87,6 +87,7 @@ function create_node(req) {
         })
         .then(function(pool) {
             info.pool = pool.id;
+            dbg.log0('CREATE NODE', info);
             return db.Node.create(info);
         })
         .then(null, db.check_already_exists(req, 'node'))

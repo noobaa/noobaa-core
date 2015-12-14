@@ -2,32 +2,46 @@
 	<table>
 		<thead>
 			<tr>
-				<th class="state-col" data-bind="css: orderCssFor('state')">
-					<a data-bind="href: orderHrefFor('state')">state</a>
+				<th class="state-col" data-bind="css: orderClassFor('state')">
+					<a href data-bind="click: () => orderBy('state')">
+						state
+					</a>
 				</th>
-				<th class="name-col text-left" data-bind="css: orderCssFor('name')">
-					<a data-bind="href: orderHrefFor('name')">pool name</a>
+				<th class="name-col text-left" data-bind="css: orderClassFor('name')">
+					<a href data-bind="click: () => orderBy('name')">
+						pool name
+					</a>
 				</th>
-				<th class="nodes-col" data-bind="css: orderCssFor('nodecount')">
-					<a data-bind="href: orderHrefFor('nodecount')">nodes</a>
+				<th class="nodes-col" data-bind="css: orderClassFor('nodecount')">
+					<a href data-bind="click: () => orderBy('nodecount')">
+						nodes
+					</a>
 				</th>
-				<th class="online-nodes-col" data-bind="css: orderCssFor('onlinecount')">
-					<a data-bind="href: orderHrefFor('onlinecount')">online</a>
+				<th class="online-nodes-col" data-bind="css: orderClassFor('onlinecount')">
+					<a href data-bind="click: () => orderBy('onlinecount')">
+						online
+					</a>
 				</th>
-				<th class="offline-nodes-col" data-bind="css: orderCssFor('offlinecount')">
-					<a data-bind="href: orderHrefFor('offlinecount')">offline</a>
+				<th class="offline-nodes-col" data-bind="css: orderClassFor('offlinecount')">
+					<a href data-bind="click: () => orderBy('offlinecount')">
+						offline
+					</a>
 				</th>
-				<th class="usage-col" data-bind="css: orderCssFor('usage')">
-					<a data-bind="href: orderHrefFor('usage')">usage</a>
+				<th class="usage-col" data-bind="css: orderClassFor('usage')">
+					<a href data-bind="click: () => orderBy('usage')">
+						usage
+					</a>
 				</th>
-				<th class="capacity-col" data-bind="css: orderCssFor('capacity')">
-					<a data-bind="href: orderHrefFor('capacity')">capacity</a>
+				<th class="capacity-col" data-bind="css: orderClassFor('capacity')">
+					<a href data-bind="click: () => orderBy('capacity')">
+						capacity
+					</a>
 				</th>
-				<th></th>
+				<th class="delete-col"></th>
 			</tr>		
 		</thead>
 
-		<tbody data-bind="foreach: rows">
+		<tbody data-bind="foreach: visibleRows">
 			<tr>
 				<td class="state-col">
 					<svg-icon params="uri: stateIcon"></svg-icon>

@@ -1,15 +1,65 @@
+import ko from 'knockout';
 import numeral from 'numeral';
+import page from 'page';
 
 export default class PoolRowViewModel {
-	constructor(pool) {
+	constructor(pool, deleteCandidate) {
+		this.isVisible = ko.pureComputed(
+			() => !!pool()
+		);
 
 		this.stateIcon = '/assets/icons.svg#pool';
-		this.name = pool.name;
-		this.href = `/systems/:system/pools/${pool.name}`;
-		this.nodeCount = numeral(pool.total_nodes).format('0,0');
-		this.onlineCount = numeral(pool.online_nodes).format('0,0');
-		this.offlineCount = numeral(pool.total_nodes - pool.online_nodes).format('0,0');
-		this.usage = numeral(pool.storage.used).format('0,0');
-		this.capacity = numeral(pool.storage.total).format('0,0');
+
+		this.name = ko.pureComputed(
+			() => pool().name
+		);
+
+		this.href = ko.pureComputed(
+			() => `/systems/:system/pools/${pool().name}`
+		);
+
+		this.nodeCount = ko.pureComputed(
+			() => numeral(pool().total_nodes).format('0,0')
+		);
+
+		this.onlineCount = ko.pureComputed(
+			() => numeral(pool().online_nodes).format('0,0')
+		);
+
+		this.offlineCount = ko.pureComputed(
+			() => numeral(pool().total_nodes - pool().online_nodes).format('0,0')
+		);
+
+		this.usage = ko.pureComputed(
+			() => numeral(pool().storage.used).format('0,0')
+		);
+
+		this.capacity = ko.pureComputed(
+			() => numeral(pool().storage.total).format('0,0')
+		);
+
+		this.allowDelete = ko.pureComputed(
+			() => pool().total_nodes === 0
+		);
+
+		this.isDeleteCandidate = ko.pureComputed({
+			read: () => deleteCandidate() === this,
+			write: value => value ? deleteCandidate(this) : deleteCandidate(null)
+		});
+
+		this.deleteIcon = ko.pureComputed(
+			() => `/assets/icons.svg#${
+				this.isDeleteCandidate() ? 'trash-opened' : 'trash-closed'
+			}`
+		);
+
+		this.deleteTooltip = ko.pureComputed( 
+			() => this.allowDelete() ? 'delete pool' : 'pool is not empty'
+		);
 	}
+
+	delete() {
+		//deletePool(this.name());
+		this.isDeleteCandidate(false);
+	}	
 }

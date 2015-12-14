@@ -37,7 +37,7 @@
 		</thead>
 
 		<tbody data-bind="foreach: visibleRows">
-			<tr data-bind1="css: { disabled: isDisalbed }">
+			<tr data-bind="css: { disabled: isDisabled }">
 				<td class="state-col">
 					<svg-icon params="uri: stateIcon"></svg-icon>
 				</td>
@@ -53,8 +53,8 @@
 				<td class="freesize-col" data-bind="text: freeSize"></td>
 				
 				<td class="cloudsync-col" data-bind="
-					text: cloudSyncStatus.label, 
-					css: cloudSyncStatus.css"
+					text: cloudSyncStatus().label, 
+					css: cloudSyncStatus().css"
 				></td>				
 
 				<td class="delete-col">

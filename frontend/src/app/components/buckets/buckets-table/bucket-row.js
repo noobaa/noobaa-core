@@ -9,13 +9,13 @@ const stateIconMapping = Object.freeze({
 });
 
 const cloudSyncStatusMapping = Object.freeze({
-	[null]: 	{ label: 'N/A' },
-	NOTSET: 	{ label: 'not set',  		css: 'no-set',			icon: '/assets/icons.svg#cloud-not-set' 	},
-	UNSYNCED: 	{ label: 'unsynced', 		css: 'unsynced', 		icon: '/assets/icons.svg#cloud-unsynced'	},
-	SYNCING: 	{ label: 'syncing',  		css: 'syncing', 		icon: '/assets/icons.svg#cloud-syncing'		},
-	PASUED: 	{ label: 'paused',			css: 'paused', 			icon: '/assets/icons.svg#cloud-paused'		},
-	SYNCED: 	{ label: 'synced', 			css: 'synced', 			icon: '/assets/icons.svg#cloud-synced' 		},
-	UNABLE: 	{ label: 'unable to sync', 	css: 'unable-to-sync',	icon: '/assets/icons.svg#cloud-unable'		}
+	[undefined]:	{ label: 'N/A', 			css: '' 				},
+	NOTSET: 		{ label: 'not set',  		css: 'no-set'			},
+	UNSYNCED: 		{ label: 'unsynced', 		css: 'unsynced'			},
+	SYNCING: 		{ label: 'syncing',  		css: 'syncing'			},
+	PASUED: 		{ label: 'paused',			css: 'paused'			},
+	SYNCED: 		{ label: 'synced', 			css: 'synced'			},
+	UNABLE: 		{ label: 'unable to sync', 	css: 'unable-to-sync'	}
 });
 
 export default class BucketRowViewModel {
@@ -25,7 +25,7 @@ export default class BucketRowViewModel {
 		);
 
 		this.isDisabled = ko.pureComputed(
-			() => !!bucket().placeholder
+			() => isDefined(bucket().placeholder)
 		);
 
 		this.stateIcon = ko.pureComputed(

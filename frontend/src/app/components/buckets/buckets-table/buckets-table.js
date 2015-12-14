@@ -18,7 +18,7 @@ class BucketsTableViewModel {
 		this.order = buckets.order;
 		this.visibleRows = ko.pureComputed(
 			() => rows.filter(row => row.isVisible())
-		);
+		)
 	}
 
 	orderBy(colName) {

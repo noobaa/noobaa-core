@@ -363,12 +363,8 @@ export function createBucket(name) {
 	model.bucketList.unshift(placeholder);
 
 	api.bucket.create_bucket({ name, tiering: 'default_tiering' })
-		.tap(x => console.log(x))
-		// .delay(3000)
-		// .then(bucket => {
-		// 	console.log(placeholder, bucket);
-		// 	//model.bucketList.replace(placeholder, bucket)
-		// })
+		//.delay(3000)
+		.then(bucket => model.bucketList.replace(placeholder, bucket))
 		.done();
 }
 

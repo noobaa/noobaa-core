@@ -44,6 +44,7 @@ export default function register(ko) {
 	ko.components.register('bucket-summary', 		require('./bucket/bucket-summary/bucket-summary'));
 	ko.components.register('bucket-objects-tab',	require('./bucket/bucket-objects-tab/bucket-objects-tab'));
 	ko.components.register('bucket-objects-table',	require('./bucket/bucket-objects-table/bucket-objects-table'));
+	ko.components.register('bucket-policy-form',	require('./bucket/bucket-policy-form/bucket-policy-form'));
 
 	// -------------------------------
 	// Object

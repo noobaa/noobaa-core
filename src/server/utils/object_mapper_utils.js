@@ -49,18 +49,19 @@ function build_chunks(chunks) {
             }
 
             // allocate blocks
-
             return promise_utils.iterate(analysis_res.chunks_status, function(chunk_status) {
-                var avoid_nodes = _.map(chunk_status.all_blocks, function(block) {
+                var avoid_nodes = _.map(chunk_status.stat.all_blocks, function(block) {
                     return block.node._id.toString();
                 });
-                dbg.log1('build_chunks: chunk', _.get(chunk_status, 'chunk._id'),
-                    'all_blocks', _.get(chunk_status, 'all_blocks.length'),
-                    'blocks_info_to_allocate', _.get(chunk_status, 'blocks_info_to_allocate.length'));
-                return promise_utils.iterate(chunk_status.blocks_info_to_allocate,
+                dbg.log1('build_chunks: chunk', _.get(chunk_status.stat, 'chunk._id'),
+                    'all_blocks', _.get(chunk_status.stat, 'all_blocks.length'),
+                    'blocks_info_to_allocate', _.get(chunk_status.stat, 'blocks_info_to_allocate.length'));
+                return promise_utils.iterate(chunk_status.stat.blocks_info_to_allocate,
                     function(block_info_to_allocate) {
                         //TODO:: NBNB change
-                        return policy_allocation.allocate_on_pools(block_info_to_allocate.chunk, avoid_nodes)
+                        return policy_allocation.allocate_on_pools(block_info_to_allocate.chunk,
+                                avoid_nodes,
+                                chunk_status.pools)
                             .then(function(new_block) {
                                 if (!new_block) {
                                     had_errors += 1;
@@ -108,7 +109,7 @@ function build_chunks(chunks) {
             // success chunks - remove the building time and set last_build time
             var success_chunks_status = _.reject(analysis_res.chunks_status, 'replicate_error');
             var success_chunk_ids = _.map(success_chunks_status, function(chunk_status) {
-                return chunk_status.chunk._id;
+                return chunk_status.stat.chunk._id;
             });
             dbg.log2('build_chunks: success chunks', success_chunk_ids.length);
 
@@ -116,7 +117,7 @@ function build_chunks(chunks) {
             // but leave last_build so that worker will retry
             var failed_chunks_status = _.filter(analysis_res.chunks_status, 'replicate_error');
             var failed_chunk_ids = _.map(failed_chunks_status, function(chunk_status) {
-                return chunk_status.chunk._id;
+                return chunk_status.stat.chunk._id;
             });
             dbg.log2('build_chunks: failed chunks', failed_chunk_ids.length);
 
@@ -125,7 +126,6 @@ function build_chunks(chunks) {
                 remove_blocks_promise));
         })
         .then(function() {
-
             // return error from the promise if any replication failed,
             // so that caller will know the build isn't really complete
             if (had_errors) {
@@ -183,14 +183,20 @@ function build_chunks_analysis(chunks) {
                     //TODO:: NBNB change
                     return P.when(policy_allocation.get_pools_groups(chunk.bucket))
                         .then(function(pools) {
-                            return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk_blocks, pools))
-                                .then(function(stat) {
-                                    js_utils.array_push_all(blocks_to_remove, stat.blocks_to_remove);
-                                    return stat;
-                                });
+                            return P.all(_.map(pools, function(p) {
+                                return P.when(policy_allocation.analyze_chunk_status_on_pools(chunk, chunk_blocks, p))
+                                    .then(function(stat) {
+                                        js_utils.array_push_all(blocks_to_remove, stat.blocks_to_remove);
+                                        return {
+                                            stat: stat,
+                                            pools: p
+                                        };
+                                    });
+                            }));
                         });
                 }))
                 .then(function(stats) {
+                    stats = _.flatten(stats);
                     return {
                         blocks_to_remove: blocks_to_remove,
                         chunks_status: stats,
@@ -203,9 +209,8 @@ function build_chunks_replicate_blocks(analysis_info) {
     var replicated_block_ids = [];
     var replicated_failed_ids = [];
     var had_errors = 0;
-
     return P.all(_.map(analysis_info.chunks_status, function(chunk_status) {
-        return P.all(_.map(chunk_status.blocks_info_to_allocate,
+            return P.all(_.map(chunk_status.stat.blocks_info_to_allocate,
                 function(block_info_to_allocate) {
                     var block = block_info_to_allocate.block;
                     if (!block) {
@@ -216,7 +221,7 @@ function build_chunks_replicate_blocks(analysis_info) {
                     var source = get_block_md(block_info_to_allocate.source);
 
                     dbg.log1('build_chunks_replicate_blocks: replicating to', target, 'from', source, 'chunk',
-                        chunk_status.chunk);
+                        chunk_status.stat.chunk);
                     return replicate_block_sem.surround(function() {
                         return server_rpc.client.agent.replicate_block({
                             target: target,
@@ -234,20 +239,20 @@ function build_chunks_replicate_blocks(analysis_info) {
                             err.stack || err);
                         replicated_failed_ids.push(block._id);
                         block_info_to_allocate.replicate_error = err;
-                        chunk_status.replicate_error = err;
+                        chunk_status.stat.replicate_error = err;
                         had_errors += 1;
                         // don't fail here yet to allow handling the successful blocks
                         // so just keep the error, and we will fail at the end of build_chunks
                     });
-                }))
-            .then(function() {
-                return {
-                    replicated_block_ids: replicated_block_ids,
-                    replicated_failed_ids: replicated_failed_ids,
-                    had_errors: had_errors,
-                };
-            });
-    }));
+                }));
+        }))
+        .then(function() {
+            return {
+                replicated_block_ids: replicated_block_ids,
+                replicated_failed_ids: replicated_failed_ids,
+                had_errors: had_errors,
+            };
+        });
 }
 
 function build_chunks_update_db(replicate_res, success_chunk_ids, failed_chunk_ids, remove_blocks_promise) {

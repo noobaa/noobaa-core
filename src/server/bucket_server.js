@@ -75,6 +75,7 @@ function read_bucket(req) {
         system: req.system.id,
         deleted: null,
     };
+    var reply = {};
 
     return P.when(db.Bucket
             .findOne(get_bucket_query(req))
@@ -82,21 +83,24 @@ function read_bucket(req) {
             .exec())
         .then(db.check_not_deleted(req, 'bucket'))
         .then(function(bucket) {
-            var reply = get_bucket_info(bucket);
-            // TODO read bucket's storage and objects info
-            return P.when(db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'))
+            return P.when(get_bucket_info(bucket))
+                .then(function(info) {
+                    reply = info;
+                    // TODO read bucket's storage and objects info
+                    return P.when(db.Node.aggregate_nodes(by_system_id_undeleted, 'tier'));
+                })
                 .then(function(nodes_aggregated) {
                     var alloc = 0;
                     var used = 0;
                     var free = 0;
                     var total = 0;
-                    _.each(bucket.tiering.tiers, function(t) {
+                    _.each(reply.tiering[0].tiers, function(t) {
                         var aggr = nodes_aggregated[t.id];
                         var replicas = t.replicas || 3;
-                        alloc += aggr.alloc || 0;
-                        used += aggr.used || 0;
-                        total += (aggr.total || 0) / replicas;
-                        free += (aggr.free || 0) / replicas;
+                        alloc += (aggr && aggr.alloc) || 0;
+                        used += (aggr && aggr.used) || 0;
+                        total += ((aggr && aggr.total) || 0) / replicas;
+                        free += ((aggr && aggr.free) || 0) / replicas;
                         reply.storage = {
                             alloc: alloc,
                             used: used,
@@ -440,8 +444,8 @@ function get_bucket_query(req) {
 }
 
 function get_bucket_info(bucket) {
-
     var reply = _.pick(bucket, 'name');
+
     if (bucket.tiering) {
         return P.when(db.TieringPolicy
                 .find({
@@ -451,9 +455,11 @@ function get_bucket_info(bucket) {
                 }))
             .then(function(tiering) {
                 reply.tiering = tiering;
+                return reply;
             });
+    } else {
+      return reply;
     }
-    return reply;
 }
 
 function resolve_tiering_policy(system_id, tiering) {

@@ -211,10 +211,10 @@ Agent.prototype._init_node = function() {
     self.node_storage_mapping = [];
 
     var root_path = self.all_storage_paths[0].mount.replace('./', '');
-    dbg.log0('starting agent. root_path:'+Object.prototype.toString.call(root_path.substr(0,root_path.length-1))+'=?='+Object.prototype.toString.call(self.storage_path.substr(0, root_path.length-1)));
+    dbg.log0('starting agent. root_path:' + Object.prototype.toString.call(root_path.substr(0, root_path.length - 1)) + '=?=' + Object.prototype.toString.call(self.storage_path.substr(0, root_path.length - 1)));
     var waitFor;
     //substr is required in order to ignore win/linux conventions
-    if (self.storage_path.substr(0, root_path.length-1) === root_path.substr(0,root_path.length-1)) {
+    if (self.storage_path.substr(0, root_path.length - 1) === root_path.substr(0, root_path.length - 1)) {
         dbg.log0('main agent!!!', root_path, ' all paths:', self.all_storage_paths);
 
         waitFor = P.all(_.map(self.all_storage_paths, function(storage_path_info) {
@@ -298,7 +298,7 @@ Agent.prototype._start_stop_server = function() {
     var addr_url = url_utils.quick_parse(self.rpc_address);
     switch (addr_url.protocol) {
         case 'n2n:':
-            dbg.log('agent n2n peer id:',addr_url.hostname);
+            dbg.log('agent n2n peer id:', addr_url.hostname);
             self.n2n_agent.set_peer_id(addr_url.hostname);
             break;
         case 'http:':

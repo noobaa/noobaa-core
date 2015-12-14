@@ -341,7 +341,7 @@ AgentCLI.prototype.list = function() {
     var i = 1;
     _.each(self.agents, function(agent, node_name) {
         dbg.log0('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
-            'node', node_name, 'port', agent.http_port);
+            'node', node_name, 'address', agent.rpc_address);
         i++;
     });
 };

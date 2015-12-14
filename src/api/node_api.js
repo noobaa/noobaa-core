@@ -304,7 +304,7 @@ module.exports = {
             },
             reply: {
                 type: 'object',
-                required: [ 'version', 'delay_ms'],
+                required: ['version', 'delay_ms'],
                 properties: {
                     auth_token: {
                         // auth token will only be sent back if new node was created
@@ -520,6 +520,9 @@ module.exports = {
             type: 'object',
             required: ['target', 'method_api', 'method_name'],
             properties: {
+                source: {
+                    type: 'string'
+                },
                 target: {
                     type: 'string'
                 },

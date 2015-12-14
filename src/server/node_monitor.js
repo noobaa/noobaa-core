@@ -205,12 +205,10 @@ function update_heartbeat(params, conn, reply_token) {
         version: process.env.AGENT_VERSION || '0',
         delay_ms: hb_delay_ms,
     };
-    
-    //0.4 backward compatible - reply with version and without rpc address.
-    if (!params.id)
-    {
-        reply.rpc_address =rpc_address;
 
+    //0.4 backward compatible - reply with version and without rpc address.
+    if (!params.id) {
+        reply.rpc_address = rpc_address;
     }
     if (reply_token) {
         reply.auth_token = reply_token;
@@ -383,6 +381,7 @@ function self_test_to_node_via_web(req) {
     console.log('SELF TEST', target, 'from', source);
 
     return server_rpc.client.agent.self_test_peer({
+        source: source,
         target: target,
         request_length: req.rpc_params.request_length || 1024,
         response_length: req.rpc_params.response_length || 1024,

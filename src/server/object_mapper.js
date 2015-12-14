@@ -1093,8 +1093,8 @@ function sanitize_object_range(obj, start, end) {
         end = obj.size;
     }
     // force integers
-    start = start | 0;
-    end = end | 0;
+    start = Math.floor(start);
+    end = Math.floor(end);
     // force positive
     if (start < 0) {
         start = 0;

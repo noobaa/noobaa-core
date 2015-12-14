@@ -352,10 +352,25 @@ module.exports = {
                     }
                 },
                 pools: {
-                  type: 'array',
-                  items: {
-                      $ref: '/pools_api/definitions/pools_info'
-                  }
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        required: ['name', 'total_nodes', 'online_nodes', 'storage'],
+                        properties: {
+                            name: {
+                                type: 'string'
+                            },
+                            total_nodes: {
+                                type: 'integer',
+                            },
+                            online_nodes: {
+                                type: 'integer',
+                            },
+                            storage: {
+                                $ref: '/common_api/definitions/storage_info'
+                            },
+                        },
+                    },
                 },
                 objects: {
                     type: 'integer'

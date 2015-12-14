@@ -43,7 +43,7 @@
 
         &.btn-info {
             color: #03a9f4;
-        
+
             &:hover {
                 background-color: rgba(3,169,244,.2);
             }
@@ -58,7 +58,7 @@
         padding: 15px;
         font-size: 26px;
         width: 56px;
-        height: 56px;  
+        height: 56px;
         vertical-align: middle;
 
         >  i, span {
@@ -74,7 +74,7 @@
             background-color: black;
             vertical-align: middle;
         }*/
-    } 
+    }
 }
 
 .btn.btn-fab-upload {
@@ -100,7 +100,7 @@
 
 .well {
     margin-bottom: 10px;
-    box-shadow: 
+    box-shadow:
         0 8px 17px 0 rgba(0,0,0,.2),
         0 6px 20px 0 rgba(0,0,0,.19);
 
@@ -132,7 +132,7 @@
     ~ .floating-label {
         position: absolute;
         pointer-events: none;
-        transition: .2s ease all;            
+        transition: .2s ease all;
         font-size: 11px;
         top: -10px;
     }
@@ -141,7 +141,7 @@
         top: 5px;
         left: 0;
         font-size: 14px;
-        color: #7e7e7e;      
+        color: #7e7e7e;
     }
 
     &:focus {
@@ -150,10 +150,15 @@
         border-color: inherit;
 
         ~ .floating-label {
-            color: @primary;                        
+            color: @primary;
             font-size: 11px;
-            top: -10px;                 
+            top: -10px;
         }
+    }
+
+    &[disabled] {
+        .text-muted;
+        background-color: initial;
     }
 }
 
@@ -597,9 +602,9 @@ table th {
     /* background-color: darken(@gray-lighter, 3%); */
 }
 
-*:focus {
-    color: initial;
-}
+// *:focus {
+    // color: initial;
+// }
 
 .noselect {
     -webkit-touch-callout: none;

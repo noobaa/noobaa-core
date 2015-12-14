@@ -188,7 +188,7 @@ module.exports = {
     ObjectMDCache: new LRUCache({
         name: 'ObjectMDCache',
         max_length: 1000,
-        expiry_ms: 10000, // 10 seconds of blissfull ignorance
+        expiry_ms: 1000, // 1 second of blissfull ignorance
         make_key: function(params) {
             return params.system + ':' + params.bucket + ':' + params.key;
         },

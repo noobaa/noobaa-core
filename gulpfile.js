@@ -123,7 +123,37 @@ var PATHS = {
     server_main: 'src/server/web_server.js',
     bg_workers_main: 'src/bg_workers/bg_workers_starter.js',
     client_bundle: 'src/client/index.js',
-    // agent_bundle: 'src/agent/index.js',
+    client_libs: [
+        // browserify nodejs wrappers
+        'fs',
+        'os',
+        'url',
+        'util',
+        'path',
+        'http',
+        'https',
+        'buffer',
+        'crypto',
+        'stream',
+        'assert',
+        'events',
+        'querystring',
+        // other libs
+        'lodash',
+        'moment',
+        'ws',
+        'ip',
+        'q',
+        'aws-sdk',
+        'bluebird',
+        'generate-function',
+        'performance-now',
+        'is-my-json-valid',
+        'concat-stream',
+        'dev-null',
+        'chance',
+        'winston',
+    ],
     client_externals: [
         'node_modules/bootstrap/dist/js/bootstrap.js',
         'vendor/arrive-2.0.0.min.js', // needed by material for dynamic content
@@ -606,41 +636,60 @@ if (skip_install === true) {
     });
 }
 
-gulp.task('client', ['bower', 'ng'], function() {
+
+gulp.task('client_libs', ['bower'], function() {
     var DEST = 'build/public/js';
-    var NAME = 'index.js';
-    var NAME_MIN = 'index.min.js';
+    var NAME = 'libs.js';
+    var NAME_MIN = 'libs.min.js';
     var bundler = browserify({
-        entries: [
-            './' + PATHS.client_bundle,
-            // './' + PATHS.agent_bundle
-        ],
         debug: true,
-
-        // TODO this browserify config will not work in node-webkit....
-
-        // bare is alias for both --no-builtins, --no-commondir,
-        // and sets --insert-global-vars to just "__filename,__dirname".
-        // This is handy if you want to run bundles in node.
-        // bare: true,
-        // detectGlobals: false,
-        // list: true,
     });
-    gutil.log('setting upgrade', pkg.version, current_pkg_version);
+    _.each(PATHS.client_libs, function(lib) {
+        bundler.require(lib, {
+            expose: lib
+        });
+    });
+
     // using gulp_replace to fix collision of requires
-    var client_bundle_stream = bundler.bundle()
+    var client_libs_bundle_stream = bundler.bundle()
         .pipe(vinyl_source_stream(NAME))
-        .pipe(vinyl_buffer())
-        .pipe(gulp_replace('"version": "' + pkg.version + '"', '"version": "' + current_pkg_version + '"'));
-    // .pipe(gulp_replace(/\brequire\b/g, 'require_browserify'))
-    // .pipe(gulp_replace(/\brequire_node\b/g, 'require'));
+        .pipe(vinyl_buffer());
     var client_merged_stream = event_stream.merge(
-        client_bundle_stream,
+        client_libs_bundle_stream,
         gulp.src(PATHS.client_externals)
     );
     return client_merged_stream
         .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_concat(NAME))
+        .pipe(gulp_size_log(NAME))
+        .pipe(gulp.dest(DEST))
+        .pipe(gulp_cached(NAME))
+        .pipe(gulp_uglify())
+        .pipe(gulp_rename(NAME_MIN))
+        .pipe(gulp_size_log(NAME_MIN))
+        .pipe(gulp.dest(DEST));
+});
+
+gulp.task('client', function() {
+    var DEST = 'build/public/js';
+    var NAME = 'app.js';
+    var NAME_MIN = 'app.min.js';
+    var bundler = browserify('./' + PATHS.client_bundle, {
+            debug: true,
+        })
+        .transform('babelify', {
+            presets: ['es2015']
+        });
+    _.each(PATHS.client_libs, function(lib) {
+        bundler.external(lib);
+    });
+    gutil.log('setting upgrade', pkg.version, current_pkg_version);
+
+    return bundler.bundle()
+        .pipe(vinyl_source_stream(NAME))
+        .pipe(vinyl_buffer())
+        .pipe(gulp_replace('"version": "' + pkg.version + '"', '"version": "' + current_pkg_version + '"'))
+        .pipe(gulp_plumber(PLUMB_CONF))
         .pipe(gulp_size_log(NAME))
         .pipe(gulp.dest(DEST))
         .pipe(gulp_cached(NAME))
@@ -750,14 +799,23 @@ function serve_bg() {
     gulp_notify('noobaa bg serving...').end('stam');
 }
 
-gulp.task('install', ['bower', 'assets', 'css', 'ng', 'lint', 'client', 'agent']);
+gulp.task('install', [
+    'bower',
+    'assets',
+    'ng',
+    'css',
+    'lint',
+    'client_libs',
+    'client',
+    'agent'
+]);
 gulp.task('serve', [], serve);
 gulp.task('serve_bg', [], serve_bg);
 gulp.task('install_and_serve', ['install'], serve);
 gulp.task('install_css_and_serve', ['css'], serve);
-gulp.task('install_client_and_serve', ['client'], serve);
+gulp.task('install_client_and_serve', ['client', 'ng'], serve);
 
-gulp.task('start_dev', ['install_and_serve'], function() {
+gulp.task('watch', ['serve'], function() {
     gulp.watch([
         'src/css/**/*'
     ], ['install_css_and_serve']);
@@ -776,7 +834,7 @@ gulp.task('start_dev', ['install_and_serve'], function() {
     ], ['serve']);
 });
 
-gulp.task('start_bg', ['lint'], function() {
+gulp.task('watch_bg', ['lint'], function() {
     gulp.watch([
         'src/server/**/*',
         'src/api/**/*',
@@ -787,16 +845,16 @@ gulp.task('start_bg', ['lint'], function() {
     serve_bg();
 });
 
-gulp.task('start_prod', function() {
+gulp.task('start', function() {
     var server_module = '.' + path.sep + PATHS.server_main;
-    console.log('~~~ START PROD ~~~', server_module);
+    console.log('~~~ START ~~~', server_module);
     require(server_module);
 });
 
-if (process.env.DEV_MODE === 'true') {
-    gulp.task('start', ['start_dev']);
-} else {
-    gulp.task('start', ['start_prod']);
-}
+gulp.task('start_bg', function() {
+    var server_module = '.' + path.sep + PATHS.bg_workers_main;
+    console.log('~~~ START BG ~~~', server_module);
+    require(server_module);
+});
 
 gulp.task('default', ['start']);

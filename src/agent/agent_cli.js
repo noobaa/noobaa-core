@@ -193,10 +193,15 @@ AgentCLI.prototype.load = function() {
                 });
         }))
         .then(function(res) {
-            dbg.log0('loaded ', res, 'agents. show details with: list(). Is prod?', self.params.prod);
-            if (self.params.prod && res && _.isEmpty(res[0])) {
-                dbg.log0('will create');
-                return self.create();
+            var nodes_count = parseInt(self.params.scale, 10) || (self.params.prod && 1) || 0;
+            dbg.log0('AGENTS STARTED', res.length);
+            dbg.log0('AGENTS SCALE TO', nodes_count);
+            var nodes_to_add = nodes_count - res.length;
+            if (nodes_to_add < 0) {
+                dbg.warn('NODES SCALE DOWN IS NOT YET SUPPORTED ...');
+            }
+            if (nodes_to_add > 0) {
+                return self.create_some(nodes_to_add);
             }
         })
         .then(null, function(err) {
@@ -428,7 +433,7 @@ AgentCLI.prototype.list = function() {
     var i = 1;
     _.each(self.agents, function(agent, node_name) {
         dbg.log0('#' + i, agent.is_started ? '<ok>' : '<STOPPED>',
-            'node', node_name, 'port', agent.http_port);
+            'node', node_name, 'address', agent.rpc_address);
         i++;
     });
 };

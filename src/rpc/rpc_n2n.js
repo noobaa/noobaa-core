@@ -193,6 +193,7 @@ function RpcN2NAgent(options) {
             // send ice info to the peer over a relayed signal channel
             // in order to coordinate NAT traversal.
             return self.signaller({
+                source: self.rpc_address,
                 target: target,
                 info: info
             });
@@ -202,14 +203,14 @@ function RpcN2NAgent(options) {
 
 util.inherits(RpcN2NAgent, EventEmitter);
 
-RpcN2NAgent.prototype.reset_peer_id = function() {
-    this.peer_id = undefined;
+RpcN2NAgent.prototype.reset_rpc_address = function() {
+    this.rpc_address = undefined;
 };
-RpcN2NAgent.prototype.set_peer_id = function(peer_id) {
-    this.peer_id = peer_id;
+RpcN2NAgent.prototype.set_rpc_address = function(rpc_address) {
+    this.rpc_address = rpc_address;
 };
-RpcN2NAgent.prototype.set_any_peer_id = function() {
-    this.peer_id = '*';
+RpcN2NAgent.prototype.set_any_rpc_address = function() {
+    this.rpc_address = '*';
 };
 
 RpcN2NAgent.prototype.set_ssl_context = function(secure_context_params) {
@@ -220,6 +221,7 @@ RpcN2NAgent.prototype.set_ssl_context = function(secure_context_params) {
 var global_tcp_permanent_passive;
 
 RpcN2NAgent.prototype.update_ice_config = function(config) {
+    dbg.log0('UPDATE ICE CONFIG', config);
     var self = this;
     _.each(config, function(val, key) {
         if (key === 'tcp_permanent_passive') {
@@ -244,17 +246,18 @@ RpcN2NAgent.prototype.update_ice_config = function(config) {
 
 RpcN2NAgent.prototype.signal = function(params) {
     var self = this;
-    dbg.log0('N2N AGENT signal:', params);
+    dbg.log0('N2N AGENT signal:', params, 'my rpc_address', self.rpc_address);
 
-    // TODO target address is me, should use the source address but we don't send it ...
-    var target_url = url_utils.quick_parse(params.target);
-    // the special case if peer_id='*' allows testing code to accept for any peer_id
-    if (!self.peer_id || !target_url.hostname ||
-        (self.peer_id !== '*' && self.peer_id !== target_url.hostname)) {
+    // target address is me, source is you.
+    // the special case if rpc_address='*' allows testing code to accept for any target
+    var source = url_utils.quick_parse(params.source);
+    var target = url_utils.quick_parse(params.target);
+    if (!self.rpc_address || !target ||
+        (self.rpc_address !== '*' && self.rpc_address !== target.href)) {
         throw new Error('N2N MISMATCHING PEER ID ' + params.target +
-            ' my peer id ' + self.peer_id);
+            ' my rpc_address ' + self.rpc_address);
     }
-    var conn = new RpcN2NConnection(target_url, self);
+    var conn = new RpcN2NConnection(source, self);
     conn.once('connect', function() {
         self.emit('connection', conn);
     });

@@ -1452,7 +1452,7 @@ function listen_on_port_range(port_range) {
         if (typeof(port_range) === 'object') {
             if (typeof(port_range.min) === 'number' &&
                 typeof(port_range.max) === 'number') {
-                if (attempts > port_range.max - port_range.min) {
+                if (attempts > Math.min(10, 10 * (port_range.max - port_range.min))) {
                     throw new Error('ICE PORT ALLOCATION EXHAUSTED');
                 }
                 port = chance.integer(port_range);
@@ -1464,7 +1464,7 @@ function listen_on_port_range(port_range) {
         } else {
             port = 0;
         }
-        dbg.log1('ICE listen_on_port_range', port, 'attempts', attempts);
+        dbg.log0('ICE listen_on_port_range', port, 'attempts', attempts, port_range);
         attempts += 1;
         server.listen(port);
         // wait for listen even, while also watching for error/close.

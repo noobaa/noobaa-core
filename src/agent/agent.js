@@ -43,6 +43,8 @@ module.exports = Agent;
 function Agent(params) {
     var self = this;
 
+    dbg.log0('process.env.DEBUG_MODE=' + process.env.DEBUG_MODE);
+
     self.rpc = api.new_rpc();
     if (params.address) {
         self.rpc.base_address = params.address;
@@ -286,7 +288,7 @@ Agent.prototype._start_stop_server = function() {
     var self = this;
 
     // in any case we stop
-    self.n2n_agent.reset_peer_id();
+    self.n2n_agent.reset_rpc_address();
     if (self.server) {
         self.server.close();
         self.server = null;
@@ -298,8 +300,7 @@ Agent.prototype._start_stop_server = function() {
     var addr_url = url_utils.quick_parse(self.rpc_address);
     switch (addr_url.protocol) {
         case 'n2n:':
-            dbg.log('agent n2n peer id:', addr_url.hostname);
-            self.n2n_agent.set_peer_id(addr_url.hostname);
+            self.n2n_agent.set_rpc_address(addr_url.href);
             break;
         case 'http:':
         case 'ws:':
@@ -641,13 +642,21 @@ Agent.prototype.n2n_signal = function(req) {
 };
 
 Agent.prototype.self_test_io = function(req) {
+    var self = this;
     var data = req.rpc_params.data;
     var req_len = data ? data.length : 0;
     var res_len = req.rpc_params.response_length;
 
     dbg.log0('SELF_TEST_IO',
         'req_len', req_len,
-        'res_len', res_len);
+        'res_len', res_len,
+        'source', req.rpc_params.source,
+        'target', req.rpc_params.target);
+
+    if (req.rpc_params.target !== self.rpc_address) {
+        throw new Error('SELF_TEST_IO wrong address ' +
+            req.rpc_params.target + ' mine is ' + self.rpc_address);
+    }
 
     return {
         data: new Buffer(res_len)
@@ -657,16 +666,25 @@ Agent.prototype.self_test_io = function(req) {
 Agent.prototype.self_test_peer = function(req) {
     var self = this;
     var target = req.rpc_params.target;
+    var source = req.rpc_params.source;
     var req_len = req.rpc_params.request_length;
     var res_len = req.rpc_params.response_length;
 
     dbg.log0('SELF_TEST_PEER',
         'req_len', req_len,
         'res_len', res_len,
+        'source', source,
         'target', target);
+
+    if (source !== self.rpc_address) {
+        throw new Error('SELF_TEST_PEER wrong address ' +
+            source + ' mine is ' + self.rpc_address);
+    }
 
     // read/write from target agent
     return self.client.agent.self_test_io({
+            source: source,
+            target: target,
             data: new Buffer(req_len),
             response_length: res_len,
         }, {

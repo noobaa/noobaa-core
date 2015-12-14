@@ -355,7 +355,9 @@ nb_api.factory('nbNodes', [
             return $q.when()
                 .then(function() {
                     dbg.log0('SELF TEST listing nodes');
-                    return list_nodes({})
+                    return list_nodes({
+                            limit: 20
+                        })
                         .then(function(res) {
                             var nodes = res.nodes;
                             online_nodes = _.filter(nodes, function(target_node) {
@@ -371,55 +373,9 @@ nb_api.factory('nbNodes', [
                         });
                 })
                 .then(function() {
-                    /*
-                    define_phase({
-                        name: 'write 0.5 MB from browser to ' + node.name,
-                        kind: ['full', 'rw'],
-                        func: function() {
-                            return self_test_io(node, 0.5 * 1024 * 1024, 0);
-                        }
-                    });
-                    define_phase({
-                        name: 'read 0.5 MB from ' + node.name + ' to browser',
-                        kind: ['full', 'rw'],
-                        func: function() {
-                            return self_test_io(node, 0, 0.5 * 1024 * 1024);
-                        }
-                    });
-                    define_phase({
-                        name: 'write 3 MB from browser to ' + node.name,
-                        kind: ['full', 'rw'],
-                        func: function() {
-                            return self_test_io(node, 3 * 1024 * 1024, 0);
-                        }
-                    });
-                    define_phase({
-                        name: 'read 3 MB from ' + node.name + ' to browser',
-                        kind: ['full', 'rw'],
-                        func: function() {
-                            return self_test_io(node, 0, 3 * 1024 * 1024);
-                        }
-                    });
-                    define_phase({
-                        name: 'connect from browser to test agent',
-                        kind: ['full', 'conn'],
-                        func: function() {
-                            return self_test_io(node);
-                        }
-                    });
                     _.each(online_nodes, function(target_node) {
                         define_phase({
-                            name: 'connect from browser to ' + target_node.name,
-                            kind: ['full', 'conn'],
-                            func: function() {
-                                return self_test_io(target_node);
-                            }
-                        });
-                    });
-                    */
-                    _.each(online_nodes, function(target_node) {
-                        define_phase({
-                            name: 'connect from ' + node.name + ' to ' + target_node.name,
+                            name: 'connect to ' + target_node.name,
                             kind: ['full', 'conn'],
                             func: function() {
                                 return self_test_to_node_via_web(node, target_node);
@@ -474,7 +430,7 @@ nb_api.factory('nbNodes', [
                     });
 
                     define_phase({
-                        name: 'transfer 100 MB between ' + node.name + ' and the other nodes',
+                        name: 'transfer 100 MB from this node to the other nodes',
                         kind: ['full', 'tx'],
                         total: 100 * 1024 * 1024,
                         position: 0,
@@ -492,26 +448,6 @@ nb_api.factory('nbNodes', [
                                 });
                         }
                     });
-
-                    /*
-                    define_phase({
-                        name: 'transfer 100 MB between browser and ' + node.name,
-                        kind: ['full', 'tx'],
-                        total: 100 * 1024 * 1024,
-                        position: 0,
-                        func: function() {
-                            var self = this;
-                            if (self.position >= self.total) return;
-                            return self_test_io(node, 512 * 1024, 512 * 1024)
-                                .then(function() {
-                                    self.position += 1024 * 1024;
-                                    self.progress = (100 * (self.position / self.total)).toFixed(0) + '%';
-                                    $rootScope.safe_apply();
-                                    return self.func();
-                                });
-                        }
-                    });
-                    */
 
                     return run_phases();
                 })

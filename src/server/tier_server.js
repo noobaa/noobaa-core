@@ -22,7 +22,8 @@ var tier_server = {
     //Tiering Policy
     create_policy: create_policy,
     update_policy: update_policy,
-    get_policy: get_policy,
+    get_policy_pools: get_policy_pools,
+    read_policy: read_policy,
     delete_policy: delete_policy
 };
 
@@ -198,7 +199,7 @@ function create_policy(req) {
                 .then(null, db.check_already_exists(req, 'tiering_policy'))
                 .then(function() {
                     req.rpc_params.name = req.rpc_params.policy.name;
-                    return P.when(get_policy(req));
+                    return P.when(get_policy_pools(req));
                 });
         });
 }
@@ -207,16 +208,60 @@ function update_policy(req) {
     dbg.log0('Updating tiering policy');
 }
 
-function get_policy(req) {
+function get_policy_pools(req) {
     return P.when(db.TieringPolicy
             .findOne(get_policy_query(req))
             .exec())
-        .then(db.check_not_deleted(req, 'tier'))
+        .then(db.check_not_deleted(req, 'tiering_policy'))
         .then(function(policy) {
             var reply = {};
             reply.name = policy.name;
             reply.tiers = policy.tiers;
             return reply;
+        });
+}
+
+function read_policy(req) {
+    var reply = {};
+    return P.when(db.TieringPolicy
+            .findOne(get_policy_query(req))
+            .populate('tiers')
+            .exec())
+        .then(db.check_not_deleted(req, 'tiering_policy'))
+        .then(function(policy) {
+            reply.name = policy.name;
+            return P.all(_.map(policy.tiers, function(t) {
+                    return P.when(db.Tier
+                            .findOne({
+                                _id: t.tier,
+                                deleted: null,
+                            })
+                            .exec())
+                        .then(function(tier) {
+                            return P.when(db.Pool
+                                    .find({
+                                        _id: {
+                                            $in: tier.pools
+                                        }
+                                    }))
+                                .then(function(pools) {
+                                    return {
+                                        order: t.order,
+                                        tier: {
+                                            name: tier.name,
+                                            data_placement: tier.data_placement,
+                                            pools: _.map(pools, function(p) {
+                                                return p.name;
+                                            })
+                                        },
+                                    };
+                                });
+                        });
+                }))
+                .then(function(tiers) {
+                    reply.tiers = tiers;
+                    return reply;
+                });
         });
 }
 
